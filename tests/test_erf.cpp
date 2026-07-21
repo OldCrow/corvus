@@ -21,8 +21,9 @@ void Check(bool ok, const char* what) {
 int main() {
   std::printf("corvus active SIMD target: %s\n", corvus::ActiveTarget());
 
-  // Provisional A&S 7.1.26 bound is ~1.5e-7 absolute.
-  constexpr double kTol = 3e-7;
+  // Table kernel is 1-ULP class; std::erf itself may be ~1 ULP off, so allow
+  // a few ULP at |erf| <= 1. The strict gate is test_erf_ulp vs mpmath.
+  constexpr double kTol = 5e-16;
 
   // Dense sweep across the interesting range, deliberately not a multiple of
   // any lane count so the masked tail path is exercised.

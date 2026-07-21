@@ -19,6 +19,7 @@ namespace ops {
 namespace hn = hwy::HWY_NAMESPACE;
 
 template <typename T> using ScalableTag = hn::ScalableTag<T>;
+template <class D> using SignedTag = hn::RebindToSigned<D>;
 template <class D> using V = hn::Vec<D>;
 template <class D> using M = hn::Mask<D>;
 
@@ -46,7 +47,23 @@ template <class V> HWY_INLINE V Max(V a, V b) { return hn::Max(a, b); }
 template <class V> HWY_INLINE V CopySign(V magn, V sign) { return hn::CopySign(magn, sign); }
 
 template <class V> HWY_INLINE auto Lt(V a, V b) { return hn::Lt(a, b); }
+template <class V> HWY_INLINE auto Ge(V a, V b) { return hn::Ge(a, b); }
 template <class V> HWY_INLINE auto Eq(V a, V b) { return hn::Eq(a, b); }
+template <class V> HWY_INLINE auto IsNaN(V a) { return hn::IsNaN(a); }
+
+// Round to nearest integral value, ties to even (matches FRINTN/VROUNDPD).
+template <class V> HWY_INLINE V Round(V a) { return hn::Round(a); }
+// Truncating float->int conversion (exact when the input is integral).
+template <class DI, class V> HWY_INLINE hn::Vec<DI> ConvertToInt(DI di, V a) {
+  return hn::ConvertTo(di, a);
+}
+template <int kBits, class V> HWY_INLINE V ShiftLeft(V a) {
+  return hn::ShiftLeft<kBits>(a);
+}
+// out[i] = base[index[i]]; index in units of lanes, not bytes.
+template <class D, class VI> HWY_INLINE V<D> GatherIndex(D d, const double* base, VI index) {
+  return hn::GatherIndex(d, base, index);
+}
 template <class M, class V> HWY_INLINE V IfThenElse(M m, V yes, V no) { return hn::IfThenElse(m, yes, no); }
 
 template <class D> HWY_INLINE V<D> Exp(D d, V<D> x) { return hn::Exp(d, x); }

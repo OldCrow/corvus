@@ -1,10 +1,16 @@
 # corvus — Plan / Session State
 
 ## Status [DERIVED]
-Scaffolded 2026-07-20 on the Kaby Lake Mac (AVX2). Repo proves the full
-pipeline: op facade -> foreach_target kernel -> runtime dispatch -> masked
-tail -> ctest. One function (Erf) implemented with a PROVISIONAL
-approximation (A&S 7.1.26, ~1.5e-7 abs error) purely to validate plumbing.
+Scaffolded 2026-07-20 on the Kaby Lake Mac (AVX2); pushed to
+github.com/OldCrow/corvus (public) the same day. Erf is production-quality:
+clean-room table + local-Taylor kernel ported from libstats
+vector_erf_neon through the ops facade (gather-based, portable NaN
+handling), **max 1 ULP validated vs mpmath oracle on AVX2 and tier-capped
+SSE4** (14,594-point reference incl. grid-residual and saturation-boundary
+clusters; ~98.5% correctly rounded). NEON (M1) and AVX-512 (Ryzen)
+validation pending — accuracy is claimed only for AVX2/SSE4 until then.
+Facade gained table-kernel ops: SignedTag, Round, ConvertToInt, ShiftLeft,
+GatherIndex, Ge, IsNaN.
 
 ## Decisions
 - Name: corvus (OldCrow tie-in). Namespace `corvus::`.
@@ -27,16 +33,20 @@ approximation (A&S 7.1.26, ~1.5e-7 abs error) purely to validate plumbing.
   Highway emits.
 
 ## Open Items
-- [OPEN] Erf is PROVISIONAL: replace A&S 7.1.26 with a clean-room max-ULP
-  implementation (libstats' NEON clean-room erf is prior art — port the
-  algorithm through the ops facade, verify provenance notes carry over).
+- [OPEN] Validate erf on NEON (M1) and native AVX-512 (Ryzen 7445) before
+  claiming those tiers; also run the SSE2-only cap (current lowest tested
+  cap dispatches SSE4).
+- [OPEN] Gather performance on x86 is unprofiled — libstats issue #33 found
+  gather-based transcendentals a null win on AVX2/AVX-512 for exp/log.
+  Correctness is validated; benchmark erf vs scalar before performance
+  claims (may want a non-gather x86 variant if it disappoints).
 - [OPEN] Install/export when Highway is FetchContent-built: currently
   disabled (exported target would dangle). Options: require system hwy for
   install (status quo), bundle hwy objects into libcorvus.a, or install a
   nested hwy. Decide before first tagged release.
-- [OPEN] Accuracy harness: per-kernel, per-tier ULP measurement (mpmath
-  reference like libstats' table generators) rather than ad-hoc abs-error
-  checks in tests.
+- [OPEN] Generalize the ULP harness (gen_erf_reference.py + test_erf_ulp)
+  into a per-kernel pattern as new functions land; reference files are
+  checked in, generators need mpmath in a throwaway venv.
 - [OPEN] CI: GitHub Actions matrix (macOS arm64/x86_64, Linux x86_64) with
   CORVUS_DISABLED_TARGETS jobs to natively exercise SSE2..AVX-512 tiers on
   the AVX-512 runner-or-self-hosted question TBD.
@@ -46,10 +56,8 @@ approximation (A&S 7.1.26, ~1.5e-7 abs error) purely to validate plumbing.
   (batch distance/trig), zeekhmm training pipelines.
 
 ## Next Steps
-1. Verify first build + ctest pass on this machine (AVX2) — in progress at
-   scaffold time.
-2. git init, initial commit, create OldCrow/corvus GitHub repo (user
-   approval before push, SSH remote per global rules).
-3. Replace provisional erf; add erfc alongside (shared kernel structure).
-4. Build the accuracy harness before adding more functions — it gates all
-   accuracy claims.
+1. Add erfc (shares the table infrastructure; needs its own compensated
+   tail handling — erfc(x) for large x underflows differently).
+2. Validate on M1 (NEON) and Ryzen (native AVX-512 + SSE2 cap).
+3. Benchmark erf vs scalar std::erf per tier (see gather open item).
+4. Then lgamma — first P0 function without libstats prior art to port.
