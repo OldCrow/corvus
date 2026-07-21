@@ -44,6 +44,14 @@ CI run 2026-07-21 — all ULP gates passed; per-run measured values appear
 in the CI "ULP report" step from that date forward. AVX-512 requires the
 Ryzen 7445 (hosted runners don't provide it).
 
+**Cross-architecture reproducibility (observed 2026-07-21):** NEON
+(Apple Silicon, AppleClang) and AVX2 (Linux, GCC) produce bit-identical
+results on every point of both reference sets — identical
+not-correctly-rounded counts (erf: 217; erfc: 46/4917/12 per region) and
+identical worst-case inputs. On FMA-capable targets the kernels are, on
+this evidence, deterministic across ISA, compiler, and OS. (Not yet
+verified for the no-FMA SSE tiers' Dekker path or for AVX-512.)
+
 ## erf
 
 **Bound: max 1 ULP over the full domain** (~98.5% correctly rounded on the
