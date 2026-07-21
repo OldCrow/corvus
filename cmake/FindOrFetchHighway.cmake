@@ -15,13 +15,15 @@ else()
   set(HWY_FORCE_STATIC_LIBS ON CACHE BOOL "" FORCE)
   set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 
+  # Pin matches the version the accuracy audit was validated against
+  # (docs/ACCURACY.md); bump only together with a revalidation pass.
   FetchContent_Declare(highway
     GIT_REPOSITORY https://github.com/google/highway.git
-    GIT_TAG        1.2.0
+    GIT_TAG        1.4.0
     GIT_SHALLOW    TRUE)
   FetchContent_MakeAvailable(highway)
   set(CORVUS_HWY_PROVIDER "fetched")
-  message(STATUS "corvus: fetched Highway 1.2.0 via FetchContent")
+  message(STATUS "corvus: fetched Highway 1.4.0 via FetchContent")
 endif()
 
 if(TARGET hwy AND NOT TARGET hwy::hwy)

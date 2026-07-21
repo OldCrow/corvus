@@ -41,6 +41,16 @@ GatherIndex, Ge, IsNaN.
 - Documentation set fixed at four files (README, docs/ACCURACY.md, PLAN.md,
   AGENTS.md) — resist growth. ACCURACY.md is the public audit record and
   must move with kernel/gate changes.
+- Build-system audit (2026-07-21, user-driven): C++20 now propagates to
+  consumers via target_compile_features PUBLIC (was a directory variable —
+  invisible to the export, a real bug); dev warnings -Wall -Wextra
+  -Wpedantic private + top-level-gated, CORVUS_WERROR for CI (build is
+  warning-clean); PIC on for future pybind11 bindings; Highway FetchContent
+  pin bumped 1.2.0 -> 1.4.0 to match the audited version; Ninja preferred
+  generator; CORVUS_SANITIZE option added; build-type roles documented.
+  CMake standard recorded in AGENTS.md. Deferred deliberately: LTO/IPO
+  (profile first), shared-lib + symbol visibility (no demand yet),
+  install-when-fetched (existing open item).
 - Platform tiers: Tier 1 (accuracy-audited on real silicon) = NEON (M1),
   AVX-512/AVX2/SSE2 (Ryzen 7445 native + CORVUS_DISABLED_TARGETS capping),
   AVX2 (Kaby Lake). Tier 2 (compiles, unaudited) = SVE and anything else

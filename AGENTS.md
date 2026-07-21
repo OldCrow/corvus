@@ -31,12 +31,41 @@ change per machine.
 
 ## Build/Test/Run Commands
 ```sh
-cmake -B build                       # Release by default
+cmake -B build -G Ninja              # Release by default; Ninja preferred
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
+- Generator: Ninja preferred (faster, identical behavior across macOS/
+  Linux/Windows-with-vcvars); Unix Makefiles works, nothing depends on it.
+- Build types (single-config default Release — house rule: perf and
+  accuracy numbers from optimized builds only):
+  - `Release` — benchmarks, accuracy validation, distribution
+  - `RelWithDebInfo` — profiling (symbols for Instruments/perf)
+  - `Debug` — debugger sessions; pair with `-DCORVUS_SANITIZE=address;undefined`
+- Options (all `CORVUS_`-prefixed): `CORVUS_BUILD_TESTS` (top-level only
+  by default), `CORVUS_DEV_WARNINGS` (-Wall -Wextra -Wpedantic; top-level
+  only, never exported), `CORVUS_WERROR` (CI), `CORVUS_DISABLED_TARGETS`
+  (tier capping), `CORVUS_SANITIZE`.
 - Highway: uses system install if `find_package(hwy)` succeeds, else
-  FetchContent of pinned 1.2.0 (network needed on first configure).
+  FetchContent of a pinned version (network on first configure). The pin
+  tracks the version the accuracy audit ran against — bump only with a
+  revalidation pass.
+
+### CMake standard
+- Target-first: no directory-scope `include_directories`/`link_libraries`/
+  global flags; interface vs build separation via generator expressions
+  (`$<BUILD_INTERFACE:>`/`$<INSTALL_INTERFACE:>`).
+- Requirements that consumers inherit are PUBLIC on the target and must
+  survive export: C++20 travels as `target_compile_features(corvus PUBLIC
+  cxx_std_20)` (the header uses std::span), never as directory variables.
+- Warnings are PRIVATE and top-level-gated — a consumer building corvus
+  via FetchContent must never inherit our -Werror.
+- The static lib builds with POSITION_INDEPENDENT_CODE for future pybind11
+  bindings (pycorvus, per the pylibhmm/pylibstats pattern).
+- `compile_commands.json` exported when top-level (clangd; note clangd
+  still can't model foreach_target self-inclusion — spurious N_SSE4/N_AVX3
+  diagnostics in kernel TUs are expected and harmless).
+- Minimum CMake 3.24 (PROJECT_IS_TOP_LEVEL, modern FetchContent).
 - Tier capping for native per-tier validation:
   `cmake -B build-avx2 -DCORVUS_DISABLED_TARGETS="HWY_AVX3|HWY_AVX3_DL|HWY_AVX3_ZEN4|HWY_AVX3_SPR"`
   (pipe-separated HWY_* macros; same idea as libstats' LIBSTATS_MAX_SIMD_TIER).
