@@ -19,7 +19,7 @@ void Check(bool ok, const char* what) {
 }  // namespace
 
 int main() {
-  std::printf("corvus active SIMD target: %s\n", corvus::ActiveTarget());
+  std::printf("corvus active SIMD target: %s\n", corvus::active_target());
 
   // Smoke tolerance vs std::erfc (itself only ~1-2 ULP): relative, loose.
   // The strict gate is test_erfc_ulp vs mpmath.
@@ -32,7 +32,7 @@ int main() {
   for (size_t i = 0; i < kN; ++i) {
     in[i] = -6.5 + 33.0 * static_cast<double>(i) / (kN - 1);  // [-6.5, 26.5]
   }
-  corvus::Erfc(in, out);
+  corvus::erfc(in, out);
 
   double max_rel = 0.0;
   for (size_t i = 0; i < kN; ++i) {
@@ -49,7 +49,7 @@ int main() {
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::vector<double> sp_in = {0.0, -0.0, inf, -inf, nan, 30.0, -30.0};
   std::vector<double> sp_out(sp_in.size());
-  corvus::Erfc(sp_in, sp_out);
+  corvus::erfc(sp_in, sp_out);
   Check(sp_out[0] == 1.0, "erfc(0) == 1");
   Check(sp_out[1] == 1.0, "erfc(-0) == 1");
   Check(sp_out[2] == 0.0, "erfc(inf) == 0");
@@ -65,7 +65,7 @@ int main() {
   for (double b : {6.0, 10.0, 17.0}) {
     std::vector<double> bx = {std::nextafter(b, 0.0), b, std::nextafter(b, 99.0)};
     std::vector<double> by(bx.size());
-    corvus::Erfc(bx, by);
+    corvus::erfc(bx, by);
     for (size_t k = 0; k < bx.size(); ++k) {
       const double want = std::erfc(bx[k]);
       Check(std::abs(by[k] - want) / want < 2e-15, "boundary point near libm");
@@ -74,7 +74,7 @@ int main() {
 
   // Exact aliasing (in-place).
   std::vector<double> buf(in);
-  corvus::Erfc(buf, buf);
+  corvus::erfc(buf, buf);
   for (size_t i = 0; i < kN; i += 1000) {
     Check(buf[i] == out[i], "in-place matches out-of-place");
   }

@@ -1,4 +1,4 @@
-// Measures max ULP deviation of corvus::Erf against the mpmath-generated
+// Measures max ULP deviation of corvus::erf against the mpmath-generated
 // correctly-rounded reference (tests/data/erf_reference.txt). Gate: <= 1 ULP.
 #include <cstdint>
 #include <cstdio>
@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
   }
 
   std::vector<double> got(in.size());
-  corvus::Erf(in, got);
+  corvus::erf(in, got);
 
   uint64_t max_ulp = 0;
   size_t worst = 0;
@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
     }
   }
 
-  std::printf("corvus active SIMD target: %s\n", corvus::ActiveTarget());
+  std::printf("corvus active SIMD target: %s\n", corvus::active_target());
   std::printf("points: %zu   max ULP: %llu   not-correctly-rounded: %zu (%.3f%%)\n",
               in.size(), static_cast<unsigned long long>(max_ulp), over_half,
               100.0 * static_cast<double>(over_half) / static_cast<double>(in.size()));

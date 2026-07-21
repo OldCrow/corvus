@@ -1,4 +1,4 @@
-// Benchmark: corvus::Erf (SIMD batch) vs scalar std::erf, ns per element.
+// Benchmark: corvus::erf (SIMD batch) vs scalar std::erf, ns per element.
 // Not a correctness test; run manually on a quiet machine, Release build only.
 //
 //   ./build/tests/bench_erf
@@ -38,7 +38,7 @@ double NsPerElement(F&& fn, size_t n, int reps) {
 }  // namespace
 
 int main() {
-  std::printf("corvus active SIMD target: %s\n", corvus::ActiveTarget());
+  std::printf("corvus active SIMD target: %s\n", corvus::active_target());
   std::printf("%10s %14s %14s %10s\n", "n", "corvus ns/el", "libm ns/el", "speedup");
 
   std::mt19937_64 rng(20260720);
@@ -53,7 +53,7 @@ int main() {
 
     const double simd = NsPerElement(
         [&] {
-          corvus::Erf(in, out);
+          corvus::erf(in, out);
           g_sink = out[n / 2];
         },
         n, reps);

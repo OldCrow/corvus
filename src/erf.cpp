@@ -60,11 +60,11 @@ namespace corvus {
 HWY_EXPORT(ErfImpl);
 HWY_EXPORT(TargetNameImpl);
 
-void Erf(std::span<const double> in, std::span<double> out) {
+void erf(std::span<const double> in, std::span<double> out) {
   HWY_DYNAMIC_DISPATCH(ErfImpl)(in.data(), out.data(), in.size());
 }
 
-const char* ActiveTarget() {
+const char* active_target() {
   return HWY_DYNAMIC_DISPATCH(TargetNameImpl)();
 }
 

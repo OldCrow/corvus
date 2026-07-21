@@ -1,4 +1,4 @@
-// Benchmark: corvus::Erfc vs scalar std::erfc, ns per element. Same rules
+// Benchmark: corvus::erfc vs scalar std::erfc, ns per element. Same rules
 // as bench_erf: manual, quiet machine, Release build only.
 #include <algorithm>
 #include <chrono>
@@ -43,7 +43,7 @@ void Run(const char* label, double lo, double hi) {
     const int reps = n >= 1000000 ? 11 : 51;
     const double simd = NsPerElement(
         [&] {
-          corvus::Erfc(in, out);
+          corvus::erfc(in, out);
           g_sink = out[n / 2];
         },
         n, reps);
@@ -62,7 +62,7 @@ void Run(const char* label, double lo, double hi) {
 }  // namespace
 
 int main() {
-  std::printf("corvus active SIMD target: %s\n", corvus::ActiveTarget());
+  std::printf("corvus active SIMD target: %s\n", corvus::active_target());
   Run("core-dominated", -6.0, 6.0);
   Run("mixed", -6.5, 28.0);
   Run("tail-only", 6.0, 28.0);

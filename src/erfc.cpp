@@ -132,7 +132,7 @@ namespace corvus {
 
 HWY_EXPORT(ErfcImpl);
 
-void Erfc(std::span<const double> in, std::span<double> out) {
+void erfc(std::span<const double> in, std::span<double> out) {
   HWY_DYNAMIC_DISPATCH(ErfcImpl)(in.data(), out.data(), in.size());
 }
 

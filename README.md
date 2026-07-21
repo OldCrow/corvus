@@ -48,5 +48,9 @@ configure time.
 #include <corvus/corvus.h>
 
 std::vector<double> x = ..., y(x.size());
-corvus::Erf(x, y);
+corvus::erf(x, y);
+corvus::erfc(x, y);
 ```
+
+Per-function methods, measured ULP bounds, and the validation matrix live
+in [docs/ACCURACY.md](docs/ACCURACY.md).

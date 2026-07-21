@@ -1,4 +1,4 @@
-// Measures max ULP deviation of corvus::Erfc against the mpmath-generated
+// Measures max ULP deviation of corvus::erfc against the mpmath-generated
 // correctly-rounded reference, with a per-region breakdown (the tail is
 // gated by the backend Exp accuracy, the core by the table method).
 #include <cmath>
@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
   }
 
   std::vector<double> got(in.size());
-  corvus::Erfc(in, got);
+  corvus::erfc(in, got);
 
   Region regions[] = {
       {"core |x|<=6", kMaxUlpCore},
@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
     }
   }
 
-  std::printf("corvus active SIMD target: %s\n", corvus::ActiveTarget());
+  std::printf("corvus active SIMD target: %s\n", corvus::active_target());
   int rc = 0;
   for (const Region& r : regions) {
     std::printf("%-15s n=%6zu  max ULP=%3llu (gate %llu)  not-CR: %zu (%.2f%%)  worst x=%.17g\n",

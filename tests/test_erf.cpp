@@ -19,7 +19,7 @@ void Check(bool ok, const char* what) {
 }  // namespace
 
 int main() {
-  std::printf("corvus active SIMD target: %s\n", corvus::ActiveTarget());
+  std::printf("corvus active SIMD target: %s\n", corvus::active_target());
 
   // Table kernel is 1-ULP class; std::erf itself may be ~1 ULP off, so allow
   // a few ULP at |erf| <= 1. The strict gate is test_erf_ulp vs mpmath.
@@ -32,7 +32,7 @@ int main() {
   for (size_t i = 0; i < kN; ++i) {
     in[i] = -6.0 + 12.0 * static_cast<double>(i) / (kN - 1);
   }
-  corvus::Erf(in, out);
+  corvus::erf(in, out);
 
   double max_err = 0.0;
   for (size_t i = 0; i < kN; ++i) {
@@ -46,7 +46,7 @@ int main() {
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::vector<double> sp_in = {0.0, -0.0, inf, -inf, nan};
   std::vector<double> sp_out(sp_in.size());
-  corvus::Erf(sp_in, sp_out);
+  corvus::erf(sp_in, sp_out);
   Check(sp_out[0] == 0.0, "erf(0) == 0");
   Check(sp_out[1] == 0.0 && std::signbit(sp_out[1]), "erf(-0) == -0");
   Check(sp_out[2] == 1.0, "erf(inf) == 1");
@@ -55,7 +55,7 @@ int main() {
 
   // Exact aliasing (in-place).
   std::vector<double> buf(in);
-  corvus::Erf(buf, buf);
+  corvus::erf(buf, buf);
   for (size_t i = 0; i < kN; i += 1000) {
     Check(buf[i] == out[i], "in-place matches out-of-place");
   }

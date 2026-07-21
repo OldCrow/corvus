@@ -30,6 +30,17 @@ GatherIndex, Ge, IsNaN.
   fallback.
 - Ship model: static lib, Highway not exposed to consumers.
 - License: MIT. Clean-room implementations only.
+- Conventions audit (2026-07-21, user-driven): public API renamed to
+  snake_case (corvus::erf/erfc/active_target — house style; the earlier
+  CamelCase was accidentally inherited from Highway). Kernel/facade code
+  stays Highway-idiom CamelCase, facade names deliberately mirror hn:: 1:1.
+  .h/.cpp extensions confirmed. Single-public-header policy confirmed and
+  documented (per-family split later). Doxygen on public header only;
+  prose derivation blocks are the internal documentation. All recorded in
+  AGENTS.md Conventions.
+- Documentation set fixed at four files (README, docs/ACCURACY.md, PLAN.md,
+  AGENTS.md) — resist growth. ACCURACY.md is the public audit record and
+  must move with kernel/gate changes.
 - Platform tiers: Tier 1 (accuracy-audited on real silicon) = NEON (M1),
   AVX-512/AVX2/SSE2 (Ryzen 7445 native + CORVUS_DISABLED_TARGETS capping),
   AVX2 (Kaby Lake). Tier 2 (compiles, unaudited) = SVE and anything else
@@ -92,6 +103,9 @@ Two design findings worth remembering:
 - [OPEN] Generalize the ULP harness (gen_erf_reference.py + test_erf_ulp)
   into a per-kernel pattern as new functions land; reference files are
   checked in, generators need mpmath in a throwaway venv.
+- [OPEN] Pre-release legal: binary artifacts that link Highway must carry
+  its Apache-2.0 NOTICE; source-only distribution needs nothing. Handle
+  when packaging/releases start.
 - [OPEN] CI: GitHub Actions matrix (macOS arm64/x86_64, Linux x86_64) with
   CORVUS_DISABLED_TARGETS jobs to natively exercise SSE2..AVX-512 tiers on
   the AVX-512 runner-or-self-hosted question TBD.
