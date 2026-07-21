@@ -78,6 +78,21 @@ AllFalse/AllTrue.
   AVX-512/AVX2/SSE2 (Ryzen 7445 native + CORVUS_DISABLED_TARGETS capping),
   AVX2 (Kaby Lake). Tier 2 (compiles, unaudited) = SVE and anything else
   Highway emits.
+- dd transcendental core (2026-07-21, resolved with user): build a
+  corvus-owned double-double exp_dd + log_dd as its own phase BEFORE
+  lgamma, with the erfc tail rewire as the acceptance test (existing
+  reference sets and ULP gates; expected tail bound 5 -> ~1-2 ULP).
+  Rationale: lgamma needs a compensated LOG, not exp (the earlier open
+  item conflated these); the incomplete gamma/beta prefactor
+  exp(a·log x − x − lgamma(a)) needs both; core-first avoids shipping
+  lgamma bounded by hn::Log and revalidating later, and shrinks the
+  audit's coupling to the Highway pin (contrib Exp/Log drop out of the
+  accuracy-critical path). Placement: shared kernel headers
+  (src/exp_dd-inl.h, src/log_dd-inl.h) against ops:: — NOT facade ops
+  (facade stays a 1:1 hn:: mirror); one facade addition: ops::BitCast.
+- lgamma v1 scope (2026-07-21, resolved with user): full real axis —
+  negative x via reflection + sinpi, poles return +inf. Sign output
+  (C's signgam) deferred; SciPy's gammaln offers none either.
 
 ## Erfc [DERIVED, 2026-07-21]
 Two-region kernel: core |x| <= 6 reuses the erf table via compensated
@@ -108,6 +123,49 @@ Two design findings worth remembering:
    HWY_NATIVE_FMA ? MulSub : Dekker split. Rule: any op whose CORRECTNESS
    (not just accuracy) depends on fusion must be guarded in the facade.
 
+## dd transcendental core + lgamma [design resolved 2026-07-21]
+Phase A — exp_dd / log_dd (internal only, dd in / dd out):
+- exp_dd: Cody-Waite reduction k = round(x·N/ln2) with split constant
+  L1+L2 so k·L1 is exact (|k| headroom far beyond erfc's a² <= ~750);
+  N = 64 or 128 dd table of 2^(j/N) (two GatherIndex from separate
+  hi[]/lo[] arrays — same pattern as the erf table); degree 5-6 poly for
+  e^r − 1 on |r| <= ln2/2N; assemble T·(1+p) with one Fast2Sum;
+  two-stage 2^k scaling through gradual underflow (the existing erfc
+  subnormal reference band tests this for free). Budget ~2^-60 relative
+  before final rounding — faithfully rounded.
+- log_dd: exponent extraction (needs ops::BitCast) + table
+  {R_j, L_hi, L_lo}; r = fma(R_j, m, −1); log x = k·ln2_dd + L_j_dd +
+  log1p-poly(r), accumulated in dd.
+- Generators tools/gen_exp_table.py / gen_log_table.py with mpmath
+  self-check each run (house pipeline).
+- Acceptance: erfc tail on exp_dd, retighten test_erfc_ulp tail gate to
+  measured (expect <= 2 ULP); ACCURACY.md moves in the same change set.
+  Bench may give back some of the 1.55-1.6x tail speedup (two gathers +
+  dd math vs contrib poly) — measure and label.
+
+Phase B — lgamma (public corvus::lgamma, span API):
+- Regions: zeros zone [~0.75, ~2.5] — polys centered exactly at x = 1
+  and x = 2 in exact t (Sterbenz), form t·(−γ + t·q(t)) with dd leading
+  term, for RELATIVE accuracy at the zeros; middle (zone end, X0) —
+  masked fixed-step product recurrence (<= 6 Select-multiply steps,
+  P <= ~Γ(X0), then one log_dd(P)); Stirling x >= X0 —
+  (x−½)·log_dd(x) − x + ½log(2π)_dd + φ, φ a Chebyshev fit in 1/x²
+  (generator sweeps X0 in {8, 10, 13} × degree for 2^-60); (0,1) — one
+  shift lgamma(x+1) − log_dd(x); negative axis — reflection
+  log(π/|sin πx|) − lgamma(1−x), sinpi via exact u = x − round(x) plus
+  poly, u == 0 mask -> +inf at poles.
+- Specials: lgamma(1) = lgamma(2) = +0 exactly (falls out of exact-t
+  form); +inf at poles, x = +inf, and overflow (x >~ 2.55e305); NaN
+  propagates.
+- Targets: <= 2 ULP relative on the positive axis including the zeros;
+  negative axis measured per region, documented degradation near the
+  |Γ| = 1 crossings (SciPy-level behavior, but documented).
+- Considered and rejected (record in derivation blocks): Lanczos
+  (plateaus ~1e-16 relative, can't reach the ULP target); per-lane
+  iterated recurrence (lane divergence + per-step rounding).
+- Left to generator/bench experiments: table sizes N, X0 and degrees,
+  exact zone boundaries.
+
 ## GitHub Repo Settings [DERIVED, applied 2026-07-21 via gh api]
 - Merge: all three styles allowed (matches libstats); auto-delete head
   branches on merge (matches libstats).
@@ -128,10 +186,12 @@ Two design findings worth remembering:
   first release.
 
 ## Open Items
-- [OPEN] erfc tail 5-ULP bound is entirely hn::Exp's contribution. A
-  corvus-owned compensated exp (double-double reduction) would tighten the
-  tail toward 1-2 ULP and also serves future kernels (lgamma, incomplete
-  gamma). Consider before or alongside lgamma.
+- [OPEN, design resolved 2026-07-21] erfc tail 5-ULP bound is entirely
+  hn::Exp's contribution. Resolution: dd transcendental core (exp_dd +
+  log_dd) as Phase A before lgamma, erfc tail rewire as acceptance test —
+  see the design section above. (Note: lgamma consumes log_dd, not
+  exp_dd; exp_dd's next consumer after erfc is the incomplete gamma/beta
+  prefactor.)
 - [RESOLVED 2026-07-21] NEON validated in CI (Apple Silicon runner) for
   both erf and erfc, bit-identical to AVX2 results. **[OPEN, Ryzen-bound]**
   Native AVX3*/AVX-512 validation is the only remaining tier gap for both
@@ -193,8 +253,12 @@ Two design findings worth remembering:
 2. bench_erf / bench_erfc on the Ryzen (see gather-performance open item
    above) — AVX-512 is the tier most likely to change the "flat regardless
    of width" finding from Kaby Lake.
-3. Decide: corvus-owned compensated Exp before lgamma, or lgamma first
-   (see erfc tail 5-ULP open item) — this is a [[frontload-project-
-   conventions]]-flavored call worth making deliberately rather than by
-   default-to-next-item.
-4. lgamma — first P0 function without libstats prior art to port from.
+3. [RESOLVED 2026-07-21, M1 session] Sequencing decided with the user:
+   dd transcendental core first (Phase A), then lgamma (Phase B), full
+   real axis in v1 — design section above.
+4. Phase A: exp_dd + log_dd + ops::BitCast + generators; erfc tail
+   rewire and gate retightening as acceptance (ACCURACY.md in the same
+   change set). New-kernel AVX-512 validation joins the Ryzen queue.
+5. Phase B: lgamma per the design section (generator experiments pick
+   X0, degrees, zone boundaries; new gen_lgamma_reference.py with
+   zero-neighborhood, pole-neighborhood, and boundary-crossing points).
