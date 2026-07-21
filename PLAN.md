@@ -85,6 +85,25 @@ Two design findings worth remembering:
    HWY_NATIVE_FMA ? MulSub : Dekker split. Rule: any op whose CORRECTNESS
    (not just accuracy) depends on fusion must be guarded in the facade.
 
+## GitHub Repo Settings [DERIVED, applied 2026-07-21 via gh api]
+- Merge: all three styles allowed (matches libstats); auto-delete head
+  branches on merge (matches libstats).
+- Features: wiki and projects DISABLED (docs policy caps documentation at
+  four files; a wiki would route around that). Issues on, discussions off.
+- Topics: cpp, cpp20, simd, math, special-functions, avx2, avx512, neon,
+  vectorization.
+- Security: Dependabot alerts + automated security fixes, secret scanning
+  + push protection, private vulnerability reporting — all enabled.
+- Ruleset "protect-main": blocks force-push and deletion of the default
+  branch; direct pushes remain allowed (solo workflow).
+- Actions: default GITHUB_TOKEN read-only, cannot approve PRs (hardened
+  before any CI exists).
+- Deferred/manual: (a) add required-status-checks to the ruleset when CI
+  lands; (b) signed-commits rule — all corvus commits so far verify (G),
+  but confirm the M1 and the Ryzen/Windows box sign before enabling or
+  their pushes will be rejected; (c) tag-protection ruleset for v* at
+  first release.
+
 ## Open Items
 - [OPEN] erfc tail 5-ULP bound is entirely hn::Exp's contribution. A
   corvus-owned compensated exp (double-double reduction) would tighten the
