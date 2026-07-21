@@ -17,6 +17,9 @@ const char* ActiveTarget();
 // (in.data() == out.data()) but must not partially overlap.
 void Erf(std::span<const double> in, std::span<double> out);
 
+// out[i] = erfc(in[i]). Same aliasing rules as Erf.
+void Erfc(std::span<const double> in, std::span<double> out);
+
 }  // namespace corvus
 
 #endif  // CORVUS_CORVUS_H_

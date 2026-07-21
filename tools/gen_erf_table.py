@@ -30,7 +30,7 @@ mp.mp.dps = 50
 
 LOG2_INV_H = 8           # grid spacing h = 2^-8 = 1/256
 GRID_MAX = 6.0           # table covers [0, 6]
-N_TERMS = 5              # series length used by the kernel
+N_TERMS = 8              # series length used by the kernel (c6-c8 for erfc relative accuracy)
 
 
 def as_hex(x: float) -> str:

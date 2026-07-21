@@ -35,7 +35,40 @@ GatherIndex, Ge, IsNaN.
   AVX2 (Kaby Lake). Tier 2 (compiles, unaudited) = SVE and anything else
   Highway emits.
 
+## Erfc [DERIVED, 2026-07-21]
+Two-region kernel: core |x| <= 6 reuses the erf table via compensated
+1 -/+ erf assembly; tail 6 < a <= 28 is e^{-a^2}*G(1/a)/a with per-interval
+polynomial fits of G (tools/gen_erfc_tail_poly.py; intervals [6,10],[10,17],
+[17,28], degrees 11/10/8, coefficient-select + single Horner). Exact a^2
+split via ops::SquareLow. Per-vector AllFalse/AllTrue branch skips the
+unused region path.
+
+Accuracy (Kaby Lake, all four tiers AVX2/SSE4/SSSE3/SSE2 identical):
+core max 1 ULP; tail normal-result max 5 ULP (~59% not correctly rounded --
+entirely the backend hn::Exp contribution); tail subnormal-result max 1 ULP.
+Gates in test_erfc_ulp set to measured values, no margin.
+
+Bench (Kaby Lake, session-loaded, indicative): core-dominated 3.5-3.8x vs
+libm erfc; tail-only 2.0-2.4x (AVX2), 1.2-1.9x (SSE2); mixed 1.2-2.1x.
+
+Two design findings worth remembering:
+1. The 5-term erf series was tuned for erf's ABSOLUTE error (vs ulp(1));
+   erfc needs the same series to RELATIVE erfc precision near a = 6, where
+   the c6 truncation term is ~2e-13 relative. Fix: extended the shared
+   series to d^8 (c6-c8 Hermite closed forms verified against the
+   generator's recurrence; erf results unchanged, still max 1 ULP).
+2. ops::MulSub is NOT an exact-residual primitive on non-FMA targets
+   (SSE2/SSSE3/SSE4): Highway emulates it as mul-then-sub, which silently
+   returns 0 for fma(a,a,-fl(a*a)) and reintroduced the amplified-argument
+   error (501 ULP at a~25). Fix: ops::SquareLow is capability-guarded --
+   HWY_NATIVE_FMA ? MulSub : Dekker split. Rule: any op whose CORRECTNESS
+   (not just accuracy) depends on fusion must be guarded in the facade.
+
 ## Open Items
+- [OPEN] erfc tail 5-ULP bound is entirely hn::Exp's contribution. A
+  corvus-owned compensated exp (double-double reduction) would tighten the
+  tail toward 1-2 ULP and also serves future kernels (lgamma, incomplete
+  gamma). Consider before or alongside lgamma.
 - [OPEN] Validate erf on NEON (M1) and native AVX3* (Ryzen 7445) before
   claiming those tiers — the only remaining gaps; all four x86 tiers
   expressible on Kaby Lake (AVX2/SSE4/SSSE3/SSE2) passed max 1 ULP
@@ -68,8 +101,8 @@ GatherIndex, Ge, IsNaN.
   (batch distance/trig), zeekhmm training pipelines.
 
 ## Next Steps
-1. Add erfc (shares the table infrastructure; needs its own compensated
-   tail handling — erfc(x) for large x underflows differently).
-2. Validate on M1 (NEON) and Ryzen (native AVX-512 + SSE2 cap).
-3. Benchmark erf vs scalar std::erf per tier (see gather open item).
-4. Then lgamma — first P0 function without libstats prior art to port.
+1. Validate erf AND erfc on M1 (NEON) and Ryzen (native AVX3* tiers) —
+   note NEON has native FMA so SquareLow takes the MulSub path there.
+2. Decide: corvus-owned compensated Exp before lgamma, or lgamma first
+   (see erfc tail open item).
+3. lgamma — first P0 function without libstats prior art.

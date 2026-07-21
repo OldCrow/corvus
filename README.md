@@ -7,10 +7,12 @@ coverage: erf/erfc, lgamma, regularized incomplete gamma and beta, and their
 inverses — the functions that gate vectorized statistical CDFs, quantiles,
 and maximum-likelihood fitting.
 
-**Status: early development.** `Erf` is production-quality: clean-room
-table-based kernel, max 1 ULP against an mpmath oracle (validated on AVX2,
-SSE4, SSSE3, and SSE2; NEON and AVX-512 validation pending). API not yet
-stable.
+**Status: early development.** `Erf` and `Erfc` are production-quality
+clean-room kernels validated against an mpmath oracle on AVX2, SSE4, SSSE3,
+and SSE2 (NEON and AVX-512 validation pending). `Erf`: max 1 ULP over the
+full domain. `Erfc`: max 1 ULP for |x| <= 6 and for subnormal results;
+max 5 ULP in the exp-bound tail (the backend `Exp`'s contribution). API not
+yet stable.
 
 ## Design
 

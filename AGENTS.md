@@ -60,6 +60,10 @@ ctest --test-dir build --output-on-failure
   tier capping), i7-7820HQ Kaby Lake (AVX2).
 - Vector and tail paths must be the same code path (masked LoadN/StoreN),
   never a scalar libm fallback for the tail.
+- Any op whose CORRECTNESS depends on FMA fusion (exact residuals like
+  fma(a,b,-fl(a*b))) must be capability-guarded in the facade -- Highway
+  emulates MulAdd/MulSub as mul-then-add on non-FMA targets (SSE2/SSSE3/
+  SSE4), which silently zeroes exact residuals. See ops::SquareLow.
 
 ## Open Items
 See PLAN.md.

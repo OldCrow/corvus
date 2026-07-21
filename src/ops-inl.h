@@ -38,6 +38,7 @@ template <class V> HWY_INLINE V Sub(V a, V b) { return hn::Sub(a, b); }
 template <class V> HWY_INLINE V Mul(V a, V b) { return hn::Mul(a, b); }
 template <class V> HWY_INLINE V Div(V a, V b) { return hn::Div(a, b); }
 template <class V> HWY_INLINE V MulAdd(V a, V b, V c) { return hn::MulAdd(a, b, c); }
+template <class V> HWY_INLINE V MulSub(V a, V b, V c) { return hn::MulSub(a, b, c); }
 template <class V> HWY_INLINE V Neg(V a) { return hn::Neg(a); }
 
 template <class V> HWY_INLINE V Sqrt(V a) { return hn::Sqrt(a); }
@@ -48,6 +49,7 @@ template <class V> HWY_INLINE V CopySign(V magn, V sign) { return hn::CopySign(m
 
 template <class V> HWY_INLINE auto Lt(V a, V b) { return hn::Lt(a, b); }
 template <class V> HWY_INLINE auto Ge(V a, V b) { return hn::Ge(a, b); }
+template <class V> HWY_INLINE auto Gt(V a, V b) { return hn::Gt(a, b); }
 template <class V> HWY_INLINE auto Eq(V a, V b) { return hn::Eq(a, b); }
 template <class V> HWY_INLINE auto IsNaN(V a) { return hn::IsNaN(a); }
 
@@ -65,8 +67,30 @@ template <class D, class VI> HWY_INLINE V<D> GatherIndex(D d, const double* base
   return hn::GatherIndex(d, base, index);
 }
 template <class M, class V> HWY_INLINE V IfThenElse(M m, V yes, V no) { return hn::IfThenElse(m, yes, no); }
+template <class D, class M> HWY_INLINE bool AllFalse(D d, M m) { return hn::AllFalse(d, m); }
+template <class D, class M> HWY_INLINE bool AllTrue(D d, M m) { return hn::AllTrue(d, m); }
 
 template <class D> HWY_INLINE V<D> Exp(D d, V<D> x) { return hn::Exp(d, x); }
+
+// Low part of a*a given p = fl(a*a), i.e. the exact residual a^2 - p.
+// With native FMA this is one MulSub; without it (SSE2/SSSE3/SSE4), the
+// emulated mul-then-sub rounds a*a to exactly p and silently returns 0,
+// so use Dekker's split (exact: a_hi has <= 26 significant bits, all
+// partial products fit in a double).
+template <class D> HWY_INLINE V<D> SquareLow(D d, V<D> a, V<D> p) {
+#if HWY_NATIVE_FMA
+  (void)d;
+  return hn::MulSub(a, a, p);
+#else
+  const auto split = hn::Set(d, 134217729.0);  // 2^27 + 1
+  const auto t = hn::Mul(a, split);
+  const auto a_hi = hn::Sub(t, hn::Sub(t, a));
+  const auto a_lo = hn::Sub(a, a_hi);
+  const auto e = hn::Sub(hn::Mul(a_hi, a_hi), p);
+  const auto cross = hn::Mul(hn::Set(d, 2.0), hn::Mul(a_hi, a_lo));
+  return hn::Add(hn::Add(e, cross), hn::Mul(a_lo, a_lo));
+#endif
+}
 
 template <class D> HWY_INLINE double ReduceSum(D d, V<D> v) { return hn::ReduceSum(d, v); }
 template <class D> HWY_INLINE double ReduceMax(D d, V<D> v) { return hn::ReduceMax(d, v); }

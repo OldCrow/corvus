@@ -22,6 +22,7 @@ include(cmake/FindOrFetchHighway.cmake)
 add_library(corvus STATIC
   src/erf.cpp
   src/erf_data.cpp
+  src/erfc.cpp
 )
 add_library(corvus::corvus ALIAS corvus)
 
