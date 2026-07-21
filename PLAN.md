@@ -40,10 +40,18 @@ GatherIndex, Ge, IsNaN.
   claiming those tiers — the only remaining gaps; all four x86 tiers
   expressible on Kaby Lake (AVX2/SSE4/SSSE3/SSE2) passed max 1 ULP
   2026-07-20.
-- [OPEN] Gather performance on x86 is unprofiled — libstats issue #33 found
-  gather-based transcendentals a null win on AVX2/AVX-512 for exp/log.
-  Correctness is validated; benchmark erf vs scalar before performance
-  claims (may want a non-gather x86 variant if it disappoints).
+- [RESOLVED 2026-07-20] Gather performance on x86 (Kaby Lake, Release,
+  session-loaded machine — treat as indicative) [DERIVED]: erf table-gather
+  kernel beats scalar libm 3.5-4.8x on ALL tiers (AVX2/SSE4/SSSE3/SSE2,
+  ~6-8.5 ns/el vs ~26-30), so NOT a repeat of libstats #33's null — scalar
+  erf is expensive enough that SIMD wins regardless. BUT zero width
+  scaling: AVX2 4-lane == SSE2 2-lane ns/el. Suspects: native AVX2 gather
+  throughput (emulated SSE gathers are cheap scalar loads) and emulated
+  f64->i64 ConvertTo below AVX-512DQ. Ship as-is; a non-gather x86 variant
+  is a known ~2x AVX2 upside if ever needed. Re-benchmark on Ryzen
+  (AVX-512 has native f64->i64 and different gather hardware) and M1.
+- [OPEN] bench_erf harness (tests/bench_erf.cpp, not ctest-registered) is
+  the per-kernel benchmark pattern — reuse for erfc/lgamma.
 - [OPEN] Install/export when Highway is FetchContent-built: currently
   disabled (exported target would dangle). Options: require system hwy for
   install (status quo), bundle hwy objects into libcorvus.a, or install a
