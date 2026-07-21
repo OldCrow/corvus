@@ -1,19 +1,42 @@
 # corvus — Plan / Session State
 
-## Status [DERIVED]
-Scaffolded 2026-07-20 on the Kaby Lake Mac (AVX2); pushed to
-github.com/OldCrow/corvus (public) the same day. Erf is production-quality:
-clean-room table + local-Taylor kernel ported from libstats
-vector_erf_neon through the ops facade (gather-based, portable NaN
-handling), **max 1 ULP validated vs mpmath oracle on AVX2 and tier-capped
-SSE4/SSSE3/SSE2** (14,594-point reference incl. grid-residual and
-saturation-boundary clusters; ~98.5% correctly rounded) — every x86 tier
-Kaby Lake can express natively, via CORVUS_DISABLED_TARGETS capping.
-Note Highway has no AVX1 target (AVX1-class hardware dispatches SSE4).
-NEON (M1) and the AVX3* variants (Ryzen 7445) remain hardware-bound
-pending — accuracy is claimed only for the four validated tiers until then.
-Facade gained table-kernel ops: SignedTag, Round, ConvertToInt, ShiftLeft,
-GatherIndex, Ge, IsNaN.
+## Status [DERIVED] — end of session 2026-07-21
+Scaffolded 2026-07-20 on the Kaby Lake Mac (AVX2); public at
+github.com/OldCrow/corvus. Two functions shipped, both production-quality:
+
+- **erf**: clean-room table + local-Taylor kernel (ported from libstats
+  vector_erf_neon through the ops facade). Max 1 ULP over the full domain.
+- **erfc**: two-region kernel (core reuses the erf table via compensated
+  assembly; tail is a fitted e^{-a^2}*G(1/a)/a). Max 1 ULP for |x| <= 6
+  and subnormal results; max 5 ULP normal-tail (bounded by backend Exp).
+
+**Validated tiers, both functions, all identical**: AVX2, SSE4, SSSE3,
+SSE2 (Kaby Lake native + CORVUS_DISABLED_TARGETS capping) and **NEON**
+(Apple Silicon GitHub Actions runner, native FMA — validated in CI
+2026-07-21). NEON and AVX2 produce bit-identical ULP results point-for-
+point on both reference sets (see docs/ACCURACY.md) — first evidence the
+kernels are deterministic across ISA/compiler/OS on FMA-capable targets.
+
+**Only remaining accuracy gap: AVX-512 (the four AVX3* variants) on the
+Ryzen 7445** — structurally impossible to close via hosted CI runners;
+this is the one gap that needs the physical machine. Tomorrow's
+Ryzen session is expected to close it via the standard tier-sweep recipe
+(AGENTS.md Workflows) run natively rather than capped, plus a
+CORVUS_DISABLED_TARGETS sweep down through AVX2/SSE tiers on that box too
+(second independent-hardware data point for those, on top of Kaby Lake +
+Linux CI).
+
+**Repo infrastructure is fully stood up**: CI (Linux tier-sweep+sanitizers,
+macOS arm64/NEON), branch protection, security scanning, topics, CMake
+standard (exported C++20, private warnings, PIC), naming/docs conventions,
+and model/effort routing hints (AGENTS.md) — all decided this session per
+the explicit front-load-don't-evolve approach (see
+[[frontload-project-conventions]] in the user's memory). Dependabot's
+first PR (#1, actions/checkout v4->v7) merged clean after one rebase.
+
+Facade ops added this session: SignedTag, Round, ConvertToInt, ShiftLeft,
+GatherIndex, Ge, Gt, Eq, IsNaN, MulSub, SquareLow (FMA-capability-guarded),
+AllFalse/AllTrue.
 
 ## Decisions
 - Name: corvus (OldCrow tie-in). Namespace `corvus::`.
@@ -109,10 +132,15 @@ Two design findings worth remembering:
   corvus-owned compensated exp (double-double reduction) would tighten the
   tail toward 1-2 ULP and also serves future kernels (lgamma, incomplete
   gamma). Consider before or alongside lgamma.
-- [OPEN] Validate erf on NEON (M1) and native AVX3* (Ryzen 7445) before
-  claiming those tiers — the only remaining gaps; all four x86 tiers
-  expressible on Kaby Lake (AVX2/SSE4/SSSE3/SSE2) passed max 1 ULP
-  2026-07-20.
+- [RESOLVED 2026-07-21] NEON validated in CI (Apple Silicon runner) for
+  both erf and erfc, bit-identical to AVX2 results. **[OPEN, Ryzen-bound]**
+  Native AVX3*/AVX-512 validation is the only remaining tier gap for both
+  functions — do this first on the Ryzen tomorrow (AGENTS.md per-tier
+  recipe, run un-capped for AVX-512 itself, then capped down through
+  AVX2/SSE tiers as a second hardware data point). Update docs/ACCURACY.md
+  validation matrix and the cross-arch-reproducibility note with the
+  result either way (a divergence from the NEON/AVX2 match would itself
+  be a finding, not just a checkbox).
 - [RESOLVED 2026-07-20] Gather performance on x86 (Kaby Lake, Release,
   session-loaded machine — treat as indicative) [DERIVED]: erf table-gather
   kernel beats scalar libm 3.5-4.8x on ALL tiers (AVX2/SSE4/SSSE3/SSE2,
@@ -121,8 +149,12 @@ Two design findings worth remembering:
   scaling: AVX2 4-lane == SSE2 2-lane ns/el. Suspects: native AVX2 gather
   throughput (emulated SSE gathers are cheap scalar loads) and emulated
   f64->i64 ConvertTo below AVX-512DQ. Ship as-is; a non-gather x86 variant
-  is a known ~2x AVX2 upside if ever needed. Re-benchmark on Ryzen
-  (AVX-512 has native f64->i64 and different gather hardware) and M1.
+  is a known ~2x AVX2 upside if ever needed. [OPEN, Ryzen-bound]
+  Re-benchmark bench_erf/bench_erfc on the Ryzen: AVX-512 has native
+  f64->i64 (AVX-512DQ) and different gather hardware, so this is the tier
+  most likely to break the "flat regardless of width" pattern — worth
+  running even though correctness validation is the primary reason to be
+  on that machine.
 - [OPEN] bench_erf harness (tests/bench_erf.cpp, not ctest-registered) is
   the per-kernel benchmark pattern — reuse for erfc/lgamma.
 - [OPEN] Install/export when Highway is FetchContent-built: currently
@@ -149,9 +181,20 @@ Two design findings worth remembering:
 - [ILLUSTRATIVE] Possible future consumer: C++ port of multi-agent_sim
   (batch distance/trig), zeekhmm training pipelines.
 
-## Next Steps
-1. Validate erf AND erfc on M1 (NEON) and Ryzen (native AVX3* tiers) —
-   note NEON has native FMA so SquareLow takes the MulSub path there.
-2. Decide: corvus-owned compensated Exp before lgamma, or lgamma first
-   (see erfc tail open item).
-3. lgamma — first P0 function without libstats prior art.
+## Next Steps (tomorrow, expected on the Ryzen)
+1. **Start here**: native AVX-512 validation via the AGENTS.md per-tier
+   recipe, un-capped first (native AVX3* dispatch), then capped down
+   through AVX2/SSE4/SSSE3/SSE2 for a second independent-hardware
+   confirmation of the NEON/Kaby-Lake match. Update docs/ACCURACY.md
+   matrix and the reproducibility note. (Reminder: HWY_NATIVE_FMA follows
+   the compiled HWY_TARGET, not the physical CPU — Ryzen's capped SSE runs
+   exercise ops::SquareLow's Dekker fallback exactly like Kaby Lake's do,
+   not a new code path; the new information from Ryzen is AVX3* itself.)
+2. bench_erf / bench_erfc on the Ryzen (see gather-performance open item
+   above) — AVX-512 is the tier most likely to change the "flat regardless
+   of width" finding from Kaby Lake.
+3. Decide: corvus-owned compensated Exp before lgamma, or lgamma first
+   (see erfc tail 5-ULP open item) — this is a [[frontload-project-
+   conventions]]-flavored call worth making deliberately rather than by
+   default-to-next-item.
+4. lgamma — first P0 function without libstats prior art to port from.
