@@ -33,11 +33,16 @@ machine.
 
 | Function | AVX2 | SSE4 | SSSE3 | SSE2 | NEON | AVX-512 |
 |---|---|---|---|---|---|---|
-| erf | ✅ 2026-07-20 | ✅ | ✅ | ✅ | pending | pending |
-| erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | pending | pending |
+| erf | ✅ 2026-07-20 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | pending |
+| erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | pending |
 
-All x86 validation to date: Kaby Lake i7-7820HQ (AVX2+FMA native; SSE tiers
-via capping, which on this CPU also exercises the no-FMA code paths).
+x86 validation: Kaby Lake i7-7820HQ, AppleClang (AVX2+FMA native; SSE
+tiers via capping, which on this CPU also exercises the no-FMA code
+paths); the same tier sweep also runs in CI on Linux/GCC. NEON validation:
+Apple Silicon GitHub runner (native silicon, native FMA), Highway 1.4.0,
+CI run 2026-07-21 — all ULP gates passed; per-run measured values appear
+in the CI "ULP report" step from that date forward. AVX-512 requires the
+Ryzen 7445 (hosted runners don't provide it).
 
 ## erf
 

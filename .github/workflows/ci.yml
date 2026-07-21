@@ -43,6 +43,15 @@ jobs:
             echo "::endgroup::"
           done
 
+      # ctest hides output on success; log the measured numbers (AVX2 —
+      # the last sweep iteration left SSE-capped binaries, so rebuild base).
+      - name: ULP report
+        run: |
+          cmake -B build -G Ninja -DCORVUS_WERROR=ON -DCORVUS_DISABLED_TARGETS=""
+          cmake --build build
+          ./build/tests/test_erf_ulp tests/data/erf_reference.txt
+          ./build/tests/test_erfc_ulp tests/data/erfc_reference.txt
+
       - name: Sanitizers (ASan+UBSan, Debug)
         run: |
           cmake -B build-san -G Ninja -DCMAKE_BUILD_TYPE=Debug \
@@ -67,3 +76,10 @@ jobs:
             -DCMAKE_PREFIX_PATH="$(brew --prefix)"
           cmake --build build
           ctest --test-dir build --output-on-failure
+
+      # ctest hides output on success; run the ULP gates directly so the
+      # measured per-tier numbers land in the log for the audit record.
+      - name: ULP report
+        run: |
+          ./build/tests/test_erf_ulp tests/data/erf_reference.txt
+          ./build/tests/test_erfc_ulp tests/data/erfc_reference.txt
