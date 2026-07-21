@@ -1,0 +1,69 @@
+# CI design is minute-budget-conscious (see AGENTS.md "CI" section):
+# - One Linux job sweeps all x86 tiers sequentially: Highway builds once,
+#   only corvus rebuilds per cap. A matrix would multiply job setup and
+#   Highway builds for the same information.
+# - Sanitizers run inside the same Linux job (one extra Debug build).
+# - One macOS arm64 job: the expensive runner class, but the only one
+#   producing new data (native NEON silicon).
+# - Docs-only changes skip CI entirely.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE']
+  pull_request:
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE']
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  linux-x86:
+    name: Linux x86-64 (tier sweep + sanitizers)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tier sweep (AVX2, SSE4, SSSE3, SSE2)
+        run: |
+          BASE="HWY_AVX3_SPR|HWY_AVX3_ZEN4|HWY_AVX3_DL|HWY_AVX3"
+          for CAP in "" "$BASE|HWY_AVX2" "$BASE|HWY_AVX2|HWY_SSE4" \
+                     "$BASE|HWY_AVX2|HWY_SSE4|HWY_SSSE3"; do
+            echo "::group::CORVUS_DISABLED_TARGETS=$CAP"
+            cmake -B build -G Ninja -DCORVUS_WERROR=ON \
+              -DCORVUS_DISABLED_TARGETS="$CAP"
+            cmake --build build
+            ctest --test-dir build --output-on-failure
+            echo "::endgroup::"
+          done
+
+      - name: Sanitizers (ASan+UBSan, Debug)
+        run: |
+          cmake -B build-san -G Ninja -DCMAKE_BUILD_TYPE=Debug \
+            -DCORVUS_SANITIZE="address;undefined"
+          cmake --build build-san
+          UBSAN_OPTIONS=halt_on_error=1 \
+            ctest --test-dir build-san --output-on-failure
+
+  macos-arm64:
+    name: macOS arm64 (NEON)
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Highway
+        run: brew install highway
+
+      - name: Build and test
+        run: |
+          cmake -B build -G Ninja -DCORVUS_WERROR=ON \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix)"
+          cmake --build build
+          ctest --test-dir build --output-on-failure

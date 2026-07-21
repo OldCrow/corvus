@@ -135,9 +135,15 @@ Two design findings worth remembering:
 - [OPEN] Pre-release legal: binary artifacts that link Highway must carry
   its Apache-2.0 NOTICE; source-only distribution needs nothing. Handle
   when packaging/releases start.
-- [OPEN] CI: GitHub Actions matrix (macOS arm64/x86_64, Linux x86_64) with
-  CORVUS_DISABLED_TARGETS jobs to natively exercise SSE2..AVX-512 tiers on
-  the AVX-512 runner-or-self-hosted question TBD.
+- [RESOLVED 2026-07-21] CI: .github/workflows/ci.yml, designed around
+  runner-minute economy (user lesson from libstats' private phase): one
+  Linux job sweeps AVX2..SSE2 sequentially + ASan/UBSan in-job; one macOS
+  arm64 job for native NEON. Windows/MSVC deferred until MSVC support
+  exists; AVX-512 impossible on hosted runners (Ryzen stays manual);
+  required status checks dropped (blocks direct-push workflow); no caching
+  until minutes justify it. First green NEON run should update
+  docs/ACCURACY.md's NEON column (gates may trip if hn::Exp accuracy
+  differs on NEON — that would be a finding, not a nuisance).
 - [OPEN] Decide whether libstats/libhmm adopt corvus as a dependency or
   keep their internal SIMD (migration is a separate project-level decision).
 - [ILLUSTRATIVE] Possible future consumer: C++ port of multi-agent_sim

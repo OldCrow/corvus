@@ -51,6 +51,25 @@ ctest --test-dir build --output-on-failure
   tracks the version the accuracy audit ran against — bump only with a
   revalidation pass.
 
+### CI
+`.github/workflows/ci.yml`. Runner minutes are a budgeted resource even on
+a public repo (lesson from libstats' temporary private phase) — keep the
+surface lean and justify every runner:
+- Linux x86-64 (cheap): sequential tier sweep AVX2->SSE2 in ONE job
+  (Highway builds once; a matrix would multiply setup and Highway builds),
+  plus ASan+UBSan Debug build in the same job.
+- macOS arm64 (expensive class): single config — the only runner producing
+  new information (native NEON silicon; counts as real-silicon validation).
+- Docs-only changes skip CI; concurrency cancellation; per-job timeouts.
+- Deliberately absent: Windows/MSVC (never built there yet — add when MSVC
+  support lands via the Ryzen box); required status checks (incompatible
+  with direct-push-to-main workflow); caching (build is ~minutes; add only
+  if minutes grow). AVX-512 cannot run on hosted runners — Ryzen stays a
+  manual validation stop.
+- Workflow security: GITHUB_TOKEN read-only (repo setting + workflow
+  `permissions:`), no event-payload interpolation in `run:` blocks,
+  Dependabot keeps action versions fresh.
+
 ### CMake standard
 - Target-first: no directory-scope `include_directories`/`link_libraries`/
   global flags; interface vs build separation via generator expressions

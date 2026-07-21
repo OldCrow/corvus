@@ -1,5 +1,8 @@
 # corvus
 
+[![CI](https://github.com/OldCrow/corvus/actions/workflows/ci.yml/badge.svg)](https://github.com/OldCrow/corvus/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 SIMD-vectorized statistical special functions for C++20, with runtime
 multi-target dispatch. Fills the gap between basic-transcendental SIMD
 libraries (SLEEF, Highway's contrib math) and SciPy-level special-function
