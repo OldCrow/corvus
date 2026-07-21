@@ -135,6 +135,44 @@ Benchmarks (`bench_*`, not ctest-registered): Release build, quiet machine
 only; numbers taken on a loaded machine are indicative and must be labeled
 as such in PLAN.md / docs.
 
+## Model & Effort Routing
+
+Hints for agent harnesses (sub-agent partitioning) and for flagging when
+to switch model/effort — derived from how this project was actually built
+(scaffold, facade, erf/erfc kernels, and governance were Fable 5 at high
+effort; much of the surrounding work did not need that).
+
+**High effort, frontier model** — wrong judgment is expensive to discover:
+- New function/kernel design: approximation method choice (table vs
+  polynomial vs rational), region splits, interval and degree selection,
+  series length — and the error-budget analysis justifying them
+  (cancellation, relative-vs-absolute error metrics, exactness arguments:
+  Sterbenz, Fast2Sum, Dekker, FMA dependence).
+- Diagnosing accuracy regressions from symptom to root cause (precedents:
+  the erfc series-truncation metric mismatch; the non-FMA MulSub
+  zero-residual hazard — both multi-step numerical reasoning).
+- Public API changes, facade/seam design, governance and policy decisions.
+
+**Default effort, mid-tier model** — pattern-following with judgment:
+- Implementing a function whose design is settled, through the
+  established pipeline (generator → kernel via ops:: → smoke test →
+  reference set → ULP gate → bench).
+- New tests/generators/benches copying existing patterns; CMake/CI
+  adjustments within documented policy.
+
+**Low effort / small model** — documented recipes and mechanical edits:
+- Running the per-tier validation recipe on another machine and recording
+  results in ACCURACY.md/PLAN.md.
+- Regenerating tables/references unchanged; renames; badge/link fixes;
+  PLAN.md bookkeeping after decisions are made.
+
+**Escalate** (or flag a model/effort switch to the user) the moment a
+recipe task surfaces a decision: a ULP gate trips, measured values differ
+across tiers, a fit misses its target, or Highway behaves contrary to
+assumptions. **De-escalate** (flag it) when a high-effort session reaches
+pure execution of a settled plan — don't spend frontier effort on rote
+work.
+
 ## Conventions
 - C++20, zero public dependencies beyond std.
 - Naming (decided 2026-07-21): public API and non-SIMD code use snake_case
