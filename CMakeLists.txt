@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.25)  # 3.25: FetchContent SYSTEM keyword
 project(corvus VERSION 0.1.0 LANGUAGES CXX
   DESCRIPTION "SIMD-vectorized statistical special functions"
   HOMEPAGE_URL "https://github.com/OldCrow/corvus")

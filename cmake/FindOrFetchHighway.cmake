@@ -17,10 +17,13 @@ else()
 
   # Pin matches the version the accuracy audit was validated against
   # (docs/ACCURACY.md); bump only together with a revalidation pass.
+  # SYSTEM: fetched Highway headers must not trip our -Wpedantic -Werror
+  # (installed Highway is an imported target and gets this implicitly).
   FetchContent_Declare(highway
     GIT_REPOSITORY https://github.com/google/highway.git
     GIT_TAG        1.4.0
-    GIT_SHALLOW    TRUE)
+    GIT_SHALLOW    TRUE
+    SYSTEM)
   FetchContent_MakeAvailable(highway)
   set(CORVUS_HWY_PROVIDER "fetched")
   message(STATUS "corvus: fetched Highway 1.4.0 via FetchContent")

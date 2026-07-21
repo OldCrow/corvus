@@ -84,7 +84,7 @@ surface lean and justify every runner:
 - `compile_commands.json` exported when top-level (clangd; note clangd
   still can't model foreach_target self-inclusion — spurious N_SSE4/N_AVX3
   diagnostics in kernel TUs are expected and harmless).
-- Minimum CMake 3.24 (PROJECT_IS_TOP_LEVEL, modern FetchContent).
+- Minimum CMake 3.25 (PROJECT_IS_TOP_LEVEL, FetchContent SYSTEM keyword).
 - Tier capping for native per-tier validation:
   `cmake -B build-avx2 -DCORVUS_DISABLED_TARGETS="HWY_AVX3|HWY_AVX3_DL|HWY_AVX3_ZEN4|HWY_AVX3_SPR"`
   (pipe-separated HWY_* macros; same idea as libstats' LIBSTATS_MAX_SIMD_TIER).
