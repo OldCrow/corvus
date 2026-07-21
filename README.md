@@ -8,8 +8,9 @@ inverses — the functions that gate vectorized statistical CDFs, quantiles,
 and maximum-likelihood fitting.
 
 **Status: early development.** `Erf` is production-quality: clean-room
-table-based kernel, max 1 ULP against an mpmath oracle (validated on AVX2
-and SSE4 so far; NEON and AVX-512 validation pending). API not yet stable.
+table-based kernel, max 1 ULP against an mpmath oracle (validated on AVX2,
+SSE4, SSSE3, and SSE2; NEON and AVX-512 validation pending). API not yet
+stable.
 
 ## Design
 

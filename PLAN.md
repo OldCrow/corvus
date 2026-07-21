@@ -6,9 +6,12 @@ github.com/OldCrow/corvus (public) the same day. Erf is production-quality:
 clean-room table + local-Taylor kernel ported from libstats
 vector_erf_neon through the ops facade (gather-based, portable NaN
 handling), **max 1 ULP validated vs mpmath oracle on AVX2 and tier-capped
-SSE4** (14,594-point reference incl. grid-residual and saturation-boundary
-clusters; ~98.5% correctly rounded). NEON (M1) and AVX-512 (Ryzen)
-validation pending — accuracy is claimed only for AVX2/SSE4 until then.
+SSE4/SSSE3/SSE2** (14,594-point reference incl. grid-residual and
+saturation-boundary clusters; ~98.5% correctly rounded) — every x86 tier
+Kaby Lake can express natively, via CORVUS_DISABLED_TARGETS capping.
+Note Highway has no AVX1 target (AVX1-class hardware dispatches SSE4).
+NEON (M1) and the AVX3* variants (Ryzen 7445) remain hardware-bound
+pending — accuracy is claimed only for the four validated tiers until then.
 Facade gained table-kernel ops: SignedTag, Round, ConvertToInt, ShiftLeft,
 GatherIndex, Ge, IsNaN.
 
@@ -33,9 +36,10 @@ GatherIndex, Ge, IsNaN.
   Highway emits.
 
 ## Open Items
-- [OPEN] Validate erf on NEON (M1) and native AVX-512 (Ryzen 7445) before
-  claiming those tiers; also run the SSE2-only cap (current lowest tested
-  cap dispatches SSE4).
+- [OPEN] Validate erf on NEON (M1) and native AVX3* (Ryzen 7445) before
+  claiming those tiers — the only remaining gaps; all four x86 tiers
+  expressible on Kaby Lake (AVX2/SSE4/SSSE3/SSE2) passed max 1 ULP
+  2026-07-20.
 - [OPEN] Gather performance on x86 is unprofiled — libstats issue #33 found
   gather-based transcendentals a null win on AVX2/AVX-512 for exp/log.
   Correctness is validated; benchmark erf vs scalar before performance
