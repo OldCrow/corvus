@@ -62,25 +62,38 @@ jobs:
 
       # -----------------------------------------------------------------
       # Install-contract smoke test — installed-path build, separate from
-      # the tier-sweep dirs above. Uses distro Highway so find_package(hwy)
-      # resolves system Highway (CORVUS_HWY_PROVIDER=system), which gates
-      # the install rules. System Ubuntu Highway version differs from the
-      # 1.4.0 accuracy-audit pin — acceptable here since this only
-      # exercises install/link, not accuracy.
+      # the tier-sweep dirs above. Builds the PINNED Highway (1.4.0, the
+      # accuracy-audit version) into a prefix so find_package(hwy 1.4)
+      # resolves it as a system install (CORVUS_HWY_PROVIDER=system),
+      # which gates the install rules. Distro libhwy-dev is deliberately
+      # NOT used: Ubuntu ships Highway 1.0.x, which predates ops the
+      # facade requires (hn::ReduceMax) and fails to compile — the same
+      # reason FindOrFetchHighway.cmake carries a version floor.
       # -----------------------------------------------------------------
-      - name: Install system Highway (apt)
-        run: sudo apt-get update && sudo apt-get install -y libhwy-dev
+      - name: Build pinned Highway into prefix
+        run: |
+          git clone --depth 1 --branch 1.4.0 https://github.com/google/highway.git _hwy-src
+          cmake -S _hwy-src -B _hwy-src/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DHWY_ENABLE_TESTS=OFF -DHWY_ENABLE_EXAMPLES=OFF \
+            -DHWY_ENABLE_CONTRIB=ON -DBUILD_TESTING=OFF \
+            -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/_hwy"
+          cmake --build _hwy-src/build
+          cmake --install _hwy-src/build
 
       - name: Configure, build, install corvus (system Highway)
         run: |
-          cmake -B build-install -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake -B build-install -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/_hwy" \
+            | tee configure.log
+          grep -q "using system Highway" configure.log
           cmake --build build-install
           cmake --install build-install --prefix "$GITHUB_WORKSPACE/_install"
 
       - name: Configure and build consumer_example against installed prefix
         run: |
           cmake -S consumer_example -B consumer_example/build -G Ninja \
-            -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/_install"
+            -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/_install;$GITHUB_WORKSPACE/_hwy"
           cmake --build consumer_example/build
 
       - name: Run consumer_example
@@ -88,7 +101,7 @@ jobs:
 
       - name: pkg-config smoke test
         run: |
-          export PKG_CONFIG_PATH="$GITHUB_WORKSPACE/_install/lib/pkgconfig"
+          export PKG_CONFIG_PATH="$GITHUB_WORKSPACE/_install/lib/pkgconfig:$GITHUB_WORKSPACE/_hwy/lib/pkgconfig"
           pkg-config --exists --print-errors corvus
           pkg-config --cflags --libs corvus
 
