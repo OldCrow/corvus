@@ -60,6 +60,38 @@ jobs:
           UBSAN_OPTIONS=halt_on_error=1 \
             ctest --test-dir build-san --output-on-failure
 
+      # -----------------------------------------------------------------
+      # Install-contract smoke test — installed-path build, separate from
+      # the tier-sweep dirs above. Uses distro Highway so find_package(hwy)
+      # resolves system Highway (CORVUS_HWY_PROVIDER=system), which gates
+      # the install rules. System Ubuntu Highway version differs from the
+      # 1.4.0 accuracy-audit pin — acceptable here since this only
+      # exercises install/link, not accuracy.
+      # -----------------------------------------------------------------
+      - name: Install system Highway (apt)
+        run: sudo apt-get update && sudo apt-get install -y libhwy-dev
+
+      - name: Configure, build, install corvus (system Highway)
+        run: |
+          cmake -B build-install -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-install
+          cmake --install build-install --prefix "$GITHUB_WORKSPACE/_install"
+
+      - name: Configure and build consumer_example against installed prefix
+        run: |
+          cmake -S consumer_example -B consumer_example/build -G Ninja \
+            -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/_install"
+          cmake --build consumer_example/build
+
+      - name: Run consumer_example
+        run: ./consumer_example/build/consumer_demo
+
+      - name: pkg-config smoke test
+        run: |
+          export PKG_CONFIG_PATH="$GITHUB_WORKSPACE/_install/lib/pkgconfig"
+          pkg-config --exists --print-errors corvus
+          pkg-config --cflags --libs corvus
+
   macos-arm64:
     name: macOS arm64 (NEON)
     runs-on: macos-latest

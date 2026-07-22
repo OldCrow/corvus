@@ -1,0 +1,13 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+
+Name: corvus
+Description: SIMD-vectorized statistical special functions
+Version: @PROJECT_VERSION@
+URL: https://github.com/OldCrow/corvus
+
+Requires.private: libhwy
+Libs: -L${libdir} -lcorvus
+Cflags: -I${includedir} -std=c++20

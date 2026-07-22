@@ -124,6 +124,16 @@ if(CORVUS_HWY_PROVIDER STREQUAL "system")
     ${CMAKE_CURRENT_BINARY_DIR}/corvus-config.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/corvus-config-version.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/corvus)
+
+  # pkg-config file. Requires.private: libhwy matches the module name
+  # Highway's own install() emits (lib/pkgconfig/libhwy.pc) — verified by
+  # building Highway 1.4.0 locally and inspecting its installed .pc file.
+  configure_file(
+    cmake/corvus.pc.in
+    ${CMAKE_CURRENT_BINARY_DIR}/corvus.pc
+    @ONLY)
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/corvus.pc
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 else()
   message(STATUS "corvus: Highway was fetched, not found — 'install' target disabled")
 endif()
