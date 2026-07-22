@@ -31,12 +31,15 @@ change per machine.
 
 ## Build/Test/Run Commands
 ```sh
-cmake -B build -G Ninja              # Release by default; Ninja preferred
+cmake --preset release -G Ninja      # Ninja preferred; presets set no generator
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
+Manual alternative (no preset): `cmake -B build -DCMAKE_BUILD_TYPE=Release -G Ninja`.
 - Generator: Ninja preferred (faster, identical behavior across macOS/
   Linux/Windows-with-vcvars); Unix Makefiles works, nothing depends on it.
+  Presets never pin a generator — pass `-G Ninja` alongside `--preset` (CI
+  does the same).
 - Build types (single-config default Release — house rule: perf and
   accuracy numbers from optimized builds only):
   - `Release` — benchmarks, accuracy validation, distribution
@@ -93,6 +96,12 @@ surface lean and justify every runner:
   in build output, ActiveTarget() strings, and CORVUS_DISABLED_TARGETS.
 - `install` target only exists when Highway came from find_package (see
   CMakeLists comment and PLAN.md).
+- Presets (`CMakePresets.json`, schema 6, min CMake 3.25 — matches this
+  repo's existing minimum): `release` → `build/`, `debug` → `build-debug/`,
+  `rel-with-debug` → `build-relwithdebinfo/`, plus the `sanitize` extra →
+  `build-san/` (Debug + `CORVUS_SANITIZE=address;undefined`, own binaryDir
+  so it never leaves a sticky cache variable in `build/`). No `generator`
+  field in any preset; pass `-G Ninja` alongside `--preset`.
 
 ## Architecture
 - `include/corvus/corvus.h` — public API. Plain spans, no Highway types.
