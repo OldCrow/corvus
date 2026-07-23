@@ -220,6 +220,36 @@ Phase B — lgamma (public corvus::lgamma, span API):
     shell segfaults in `libstdc++-6.dll` — Git for Windows' own mingw64
     runtime shadows the WinLibs one on PATH. Not a corvus bug; put the
     WinLibs `mingw64/bin` first, or run from PowerShell.
+- [RESOLVED 2026-07-24] Highway's MSVC AVX-512 blocklist — investigated,
+  and `CORVUS_MSVC_UNBLOCK_AVX512` added (default OFF) [DERIVED].
+  - Mechanism: `HWY_BROKEN_MSVC` in `hwy/detect_targets.h` expands to
+    `(HWY_AVX3 | (HWY_AVX3 - 1))`. Highway's target bits run *descending*
+    in capability, so that mask removes AVX3 **and everything above it**
+    (`AVX3_DL`, `AVX3_ZEN4`, `AVX3_SPR`, `AVX10_2`), leaving AVX2 as the
+    ceiling. It is the only entry in that file with no compiler-version
+    floor, and it cites a 2016-era bug report.
+  - Measured with the block lifted, MSVC 19.51: builds clean (0 warnings),
+    dispatches `AVX3_ZEN4`, and reproduces every documented ULP value
+    exactly — so no correctness problem in *these* kernels. Throughput
+    erf n=1e6: MSVC AVX2 9.02 → MSVC AVX3_ZEN4 5.49 ns/el (1.64x), erfc
+    core 3.13 → 2.41. Separately note MSVC trails GCC ~2.8x at equal tier
+    (GCC AVX3_ZEN4 1.95 ns/el), which is a codegen-quality gap, not an
+    AVX-512 one.
+  - Decision: keep Highway's default. Upstream declares the path untested,
+    so numbers from it would be ours to defend; `clang-cl` gets AVX-512 on
+    Windows with MSVC ABI and no override. The option exists so the
+    override is a recorded, warned, reviewable switch rather than an
+    ad-hoc `CMAKE_CXX_FLAGS` hack — the earlier form of this experiment
+    clobbered CMake's MSVC defaults and lost `/EHsc`, which is exactly the
+    failure mode a named option prevents.
+  - Scoping detail: the define is `PRIVATE` to `corvus` and needs no
+    Highway rebuild. `ChosenTarget::GetIndex` masks with the calling TU's
+    `HWY_CHOSEN_TARGET_MASK_TARGETS` by design, so per-module target sets
+    may differ — confirmed empirically against an unmodified `libhwy`.
+  - [OPEN] Upstream path if ever worth it: add a version floor to
+    `HWY_BROKEN_MSVC` like its siblings have. Needs Highway's *own* test
+    suite passing under MSVC with AVX-512; two error-function kernels are
+    not sufficient evidence for a PR.
 - [RESOLVED 2026-07-24] `CMakeLists.txt` hard-errored under every
   multi-config generator: `set_property(CACHE CMAKE_BUILD_TYPE ...)` ran
   unconditionally, but the guard above it correctly skips creating that

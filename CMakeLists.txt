@@ -39,6 +39,22 @@ option(CORVUS_WERROR "Treat warnings as errors (CI)" OFF)
 set(CORVUS_DISABLED_TARGETS "" CACHE STRING
     "Pipe-separated HWY_* target macros to exclude from compilation/dispatch")
 
+# Highway blocklists every AVX-512 target (HWY_AVX3 and the more advanced
+# variants below its bit) under real MSVC: one unconditional entry in
+# hwy/detect_targets.h citing a 2016 codegen bug, with no compiler-version
+# floor — unlike every sibling entry in that file. The effect is silent, an
+# MSVC build simply tops out at AVX2 with no diagnostic.
+#
+# Measured 2026-07-24 (Ryzen 7 7445HS, MSVC 19.51): unblocking dispatches to
+# AVX3_ZEN4, passes every ULP gate with values bit-identical to GCC and
+# clang-cl, and runs ~1.6x faster than the AVX2 ceiling. Default is still OFF
+# because upstream declares the path broken and does not test it, and corvus
+# does not claim what upstream will not stand behind. For AVX-512 coverage on
+# Windows prefer clang-cl, which Highway does not blocklist.
+option(CORVUS_MSVC_UNBLOCK_AVX512
+       "MSVC only: override Highway's AVX-512 blocklist (unsupported upstream)"
+       OFF)
+
 # Sanitizers for Debug-type dev builds, e.g. -DCORVUS_SANITIZE=address;undefined
 # (UBSan is cheap insurance for numerical kernel code; not for benchmarks).
 set(CORVUS_SANITIZE "" CACHE STRING
@@ -98,6 +114,27 @@ endif()
 if(CORVUS_DISABLED_TARGETS)
   target_compile_definitions(corvus PRIVATE
     "HWY_DISABLED_TARGETS=(${CORVUS_DISABLED_TARGETS})")
+endif()
+
+if(CORVUS_MSVC_UNBLOCK_AVX512)
+  # CMake's MSVC is true for any cl-compatible driver, clang-cl included; only
+  # real cl.exe is blocklisted, matching Highway's HWY_COMPILER_MSVC
+  # (_MSC_VER && !__clang__).
+  if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # PRIVATE is sufficient: Highway derives the dispatch index from
+    # HWY_CHOSEN_TARGET_MASK_TARGETS in the *calling* TU by design (see the
+    # comment on ChosenTarget::GetIndex), so corvus's compiled target set may
+    # legitimately be wider than that of a prebuilt libhwy. No hwy rebuild.
+    target_compile_definitions(corvus PRIVATE HWY_BROKEN_MSVC=0)
+    message(WARNING
+      "corvus: AVX-512 unblocked under MSVC (HWY_BROKEN_MSVC=0). Upstream "
+      "Highway declares this path broken and does not test it — re-run the ULP "
+      "gates before trusting numbers from this build.")
+  else()
+    message(WARNING
+      "corvus: CORVUS_MSVC_UNBLOCK_AVX512 ignored — Highway's blocklist applies "
+      "only to real MSVC (cl.exe); this compiler is ${CMAKE_CXX_COMPILER_ID}.")
+  endif()
 endif()
 
 if(CORVUS_BUILD_TESTS)

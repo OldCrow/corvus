@@ -39,6 +39,21 @@ Confirm the active set before trusting any tier result:
 (Intel Sapphire Rapids) and `AVX10_2` are not available on Zen 4, so
 "AVX3\* native" means `AVX3`, `AVX3_DL`, and `AVX3_ZEN4` only.
 
+The MSVC blocklist is one unconditional entry in `hwy/detect_targets.h`
+(`HWY_BROKEN_MSVC`), citing a 2016 codegen bug with no compiler-version
+floor — unlike every sibling entry in that file, which all gate on a
+version. `-DCORVUS_MSVC_UNBLOCK_AVX512=ON` overrides it via Highway's own
+sanctioned `#ifndef` escape hatch. It is OFF by default and should stay
+that way for anything whose numbers get published: upstream declares the
+path untested, so results from it are ours to defend, not Highway's. The
+override is scoped `PRIVATE` to the `corvus` target and needs no Highway
+rebuild — `ChosenTarget::GetIndex` masks with the *calling* TU's
+`HWY_CHOSEN_TARGET_MASK_TARGETS` by design, so corvus may legitimately
+compile a wider target set than the linked `libhwy`. Note that CMake's
+`MSVC` variable is also true for clang-cl, which Highway does *not*
+blocklist (`HWY_COMPILER_CLANGCL` is a separate macro); the option
+therefore checks `CMAKE_CXX_COMPILER_ID` and warns if it is a no-op.
+
 When running mingw-built test binaries, invoke them from PowerShell or put
 the WinLibs `mingw64/bin` first on `PATH` — a Git Bash shell puts Git for
 Windows' own `libstdc++-6.dll` ahead of it, and the ABI mismatch segfaults
@@ -63,7 +78,9 @@ Manual alternative (no preset): `cmake -B build -DCMAKE_BUILD_TYPE=Release -G Ni
 - Options (all `CORVUS_`-prefixed): `CORVUS_BUILD_TESTS` (top-level only
   by default), `CORVUS_DEV_WARNINGS` (-Wall -Wextra -Wpedantic; top-level
   only, never exported), `CORVUS_WERROR` (CI), `CORVUS_DISABLED_TARGETS`
-  (tier capping), `CORVUS_SANITIZE`.
+  (tier capping), `CORVUS_SANITIZE`, `CORVUS_MSVC_UNBLOCK_AVX512` (OFF;
+  see the MSVC/AVX-512 caveat above — configuring with it ON emits a
+  deliberate `message(WARNING)`).
 - Highway: uses system install if `find_package(hwy)` succeeds, else
   FetchContent of a pinned version (network on first configure). The pin
   tracks the version the accuracy audit ran against — bump only with a

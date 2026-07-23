@@ -51,10 +51,21 @@ gate with values identical to AVX2. `AVX3_SPR` compiles but is Intel
 Sapphire Rapids only and remains unvalidated; `AVX10_2` is unavailable on
 this CPU. Reproduced independently under two compilers — GCC 16.1
 (mingw-w64/UCRT) and Clang 22.1.8 (clang-cl, MSVC ABI) — which agree
-point-for-point. **MSVC cannot be used for this validation**: Highway
-marks every AVX3\* target broken under MSVC (`HWY_BROKEN_TARGETS`), so an
-MSVC build silently tops out at AVX2. Hosted CI runners don't provide
-AVX-512, so this tier stays a manual stop on the Ryzen box.
+point-for-point. Hosted CI runners don't provide AVX-512, so this tier
+stays a manual stop on the Ryzen box.
+
+**A default MSVC build does not exercise AVX-512 at all**: Highway marks
+every AVX3\* target broken under MSVC (`HWY_BROKEN_MSVC`), so such a build
+silently tops out at AVX2 — no AVX-512 claim may be made from one. The
+supported bounds above are *not* measured through MSVC. For the record,
+overriding that blocklist (`CORVUS_MSVC_UNBLOCK_AVX512=ON`, OFF by
+default) was tried on 2026-07-24 with MSVC 19.51: it dispatched
+`AVX3_ZEN4` and reproduced every value in this document exactly, at ~1.6x
+the AVX2 throughput. That is evidence the blocklist is stale for these
+kernels, not a validated configuration — upstream does not test the path,
+so it is deliberately excluded from the matrix above. Substantiating it
+properly means running Highway's own test suite under MSVC, which is the
+prerequisite for asking upstream to add a version floor.
 
 **Cross-architecture reproducibility (observed 2026-07-21, extended
 2026-07-24):** every FMA-capable target validated so far produces
