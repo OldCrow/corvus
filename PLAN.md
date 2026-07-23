@@ -241,6 +241,18 @@ Phase B — lgamma (public corvus::lgamma, span API):
 - [ILLUSTRATIVE] Possible future consumer: C++ port of multi-agent_sim
   (batch distance/trig), zeekhmm training pipelines.
 
+## Build-Stack Standardization (2026-07-23) [DERIVED]
+Cross-repo effort tracked in `~/Development/BUILD-STANDARDIZATION-PLAN.md`.
+Commits: `3bbecf1` (pkg-config file, consumer example, installed-path CI
+check), `c158765` (`find_package(hwy 1.4)` version floor + CI builds pinned
+Highway 1.4.0 from source instead of apt, fixing a distro-libhwy-dev/
+hn::ReduceMax mismatch found by the first Phase-1 CI run), `1c220b3`
+(CMakePresets.json: release/debug/rel-with-debug/sanitize). AGENTS.md's
+CMake-standard section checked post-Phase-3 and is still accurate (already
+documents presets, the Highway find_package/FetchContent split, and the
+install-when-system-Highway gate). The fetched-Highway install gate itself
+stays tracked under "Open Items" above, not duplicated here.
+
 ## Next Steps (tomorrow, expected on the Ryzen)
 1. **Start here**: native AVX-512 validation via the AGENTS.md per-tier
    recipe, un-capped first (native AVX3* dispatch), then capped down
