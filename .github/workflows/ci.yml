@@ -70,7 +70,20 @@ jobs:
       # facade requires (hn::ReduceMax) and fails to compile — the same
       # reason FindOrFetchHighway.cmake carries a version floor.
       # -----------------------------------------------------------------
+      # Cache the installed Highway prefix: building 1.4.0 from source costs
+      # ~2-4 min per run. Key = pin + runner OS/arch; exact-match only (no
+      # restore-keys) so a pin bump always rebuilds. This is the "add caching
+      # only if minutes grow" trigger from the CI policy — the source build
+      # of Highway is what grew the minutes.
+      - name: Cache pinned Highway prefix
+        id: cache-hwy
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: _hwy
+          key: hwy-1.4.0-${{ runner.os }}-${{ runner.arch }}
+
       - name: Build pinned Highway into prefix
+        if: steps.cache-hwy.outputs.cache-hit != 'true'
         run: |
           git clone --depth 1 --branch 1.4.0 https://github.com/google/highway.git _hwy-src
           cmake -S _hwy-src -B _hwy-src/build -G Ninja \
