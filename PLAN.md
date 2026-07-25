@@ -1,24 +1,37 @@
 # corvus — Plan / Session State
 
-## Status [DERIVED] — end of session 2026-07-24 (Ryzen)
-Scaffolded 2026-07-20 on the Kaby Lake Mac (AVX2); public at
-github.com/OldCrow/corvus. Two functions shipped, both production-quality:
+## Status [DERIVED] — end of session 2026-07-25 (Ryzen)
+**Phase A is complete.** Scaffolded 2026-07-20 on the Kaby Lake Mac (AVX2);
+public at github.com/OldCrow/corvus. Two public functions plus both
+internal transcendental cores, all production-quality:
 
 - **erf**: clean-room table + local-Taylor kernel (ported from libstats
   vector_erf_neon through the ops facade). Max 1 ULP over the full domain.
 - **erfc**: two-region kernel (core reuses the erf table via compensated
-  assembly; tail is a fitted e^{-a^2}*G(1/a)/a). Max 1 ULP for |x| <= 6
-  and subnormal results; max 5 ULP normal-tail (bounded by backend Exp).
+  assembly; tail is a fitted e^{-a^2}*G(1/a)/a on exp_dd). Max 1 ULP for
+  |x| <= 6 and subnormal results; max 2 ULP normal-tail (was 5 before the
+  dd rewire; the residual is the G fit, decomposed in the open items).
+- **exp_dd** (internal): 2^-68.45 relative. **log_dd** (internal):
+  2^-67.88, correctly rounded on every reference point. No corvus kernel
+  depends on Highway contrib math any more.
 
-**Validated tiers, both functions, all within the same ULP bounds**: AVX2,
-SSE4, SSSE3, SSE2 (Kaby Lake native + CORVUS_DISABLED_TARGETS capping) and
-**NEON** (Apple Silicon GitHub Actions runner, native FMA — validated in CI
-2026-07-21). NEON and AVX2 produce bit-identical ULP results point-for-
-point on both reference sets (see docs/ACCURACY.md) — first evidence the
-kernels are deterministic across ISA/compiler/OS on FMA-capable targets.
-Bit-exactness holds among the FMA tiers specifically; the no-FMA SSE tiers
-meet the same bounds but differ marginally in not-correctly-rounded counts
-(quantified on the Ryzen 2026-07-24 — see the open item below).
+FP contraction is disabled project-wide (`CORVUS_FP_FLAGS`) — the dd layer's
+exactness identities assume IEEE ops as written, and GCC's default was
+silently shifting log_dd by 0.6 bits relative to MSVC. See the decision
+section below.
+
+**Next session starts at Phase B (lgamma)** — see Next Steps. Both cores it
+needs exist and are validated; the design is already resolved in the
+"dd transcendental core + lgamma" section.
+
+**Validated tiers, all four kernels**: AVX3_ZEN4/AVX3_DL/AVX3, AVX2, SSE4,
+SSSE3, SSE2 (Ryzen native + CORVUS_DISABLED_TARGETS capping, GCC 16.1;
+erf/erfc also on Kaby Lake and Linux CI) and **NEON** (Apple Silicon CI
+runner). erf/erfc are bit-identical across the FMA-capable targets and
+differ marginally on the no-FMA SSE tiers in not-CR counts only; **exp_dd
+and log_dd are identical on every tier and under all three compilers**
+(GCC, MSVC, AppleClang) — same bound, same worst-case input. Counts per
+tier are in docs/ACCURACY.md.
 
 **AVX-512 closed 2026-07-24 on the Ryzen 7445** — see the resolved open
 item below and docs/ACCURACY.md. `AVX3_ZEN4` (native), `AVX3_DL`, and
