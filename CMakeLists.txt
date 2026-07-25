@@ -10,11 +10,17 @@ project(corvus VERSION 0.1.0 LANGUAGES CXX
 #   Release        -O3, no debug info: benchmarks, accuracy validation, dist
 #   RelWithDebInfo -O2 -g: profiling (Instruments/perf need symbols)
 #   Debug          -O0 -g: debugger sessions; pair with CORVUS_SANITIZE
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+# Multi-config generators (Visual Studio, Xcode, Ninja Multi-Config) pick the
+# config at build time and never create the CMAKE_BUILD_TYPE cache entry, so
+# both the default and the STRINGS property are meaningless there — and
+# set_property(CACHE) on a nonexistent entry is a hard configure error.
+if(NOT CMAKE_CONFIGURATION_TYPES)
+  if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+  endif()
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY
+    STRINGS Release RelWithDebInfo Debug)
 endif()
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY
-  STRINGS Release RelWithDebInfo Debug)
 
 # compile_commands.json for clangd/IDEs; harmless for consumers.
 if(PROJECT_IS_TOP_LEVEL)

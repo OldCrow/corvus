@@ -201,6 +201,15 @@ Phase B — lgamma (public corvus::lgamma, span API):
   validation matrix and the cross-arch-reproducibility note with the
   result either way (a divergence from the NEON/AVX2 match would itself
   be a finding, not just a checkbox).
+- [RESOLVED 2026-07-24] `CMakeLists.txt` hard-errored under every
+  multi-config generator: `set_property(CACHE CMAKE_BUILD_TYPE ...)` ran
+  unconditionally, but the guard above it correctly skips creating that
+  cache entry when `CMAKE_CONFIGURATION_TYPES` is set, so the property
+  call referenced a nonexistent variable. `-G "Visual Studio 18 2026"`
+  failed at configure; Ninja and the presets were unaffected, which is why
+  it went unnoticed. Both statements now sit inside one
+  `if(NOT CMAKE_CONFIGURATION_TYPES)`. Verified: VS generator configures
+  clean, Ninja unchanged.
 - [RESOLVED 2026-07-20] Gather performance on x86 (Kaby Lake, Release,
   session-loaded machine — treat as indicative) [DERIVED]: erf table-gather
   kernel beats scalar libm 3.5-4.8x on ALL tiers (AVX2/SSE4/SSSE3/SSE2,
