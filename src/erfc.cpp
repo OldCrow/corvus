@@ -6,7 +6,9 @@
 #define HWY_TARGET_INCLUDE "src/erfc.cpp"
 #include "hwy/foreach_target.h"
 
+#include "src/dd-inl.h"
 #include "src/erf_core-inl.h"
+#include "src/exp_dd-inl.h"
 #include "src/ops-inl.h"
 
 HWY_BEFORE_NAMESPACE();
@@ -31,10 +33,23 @@ HWY_INLINE op::V<D> Sel3(D d, M m1, M m2, double v0, double v1, double v2) {
 //
 // Tail, |x| > 6: erfc(a) = e^{-a^2} * G(1/a) * (1/a) with G fitted per
 // interval (see tools/gen_erfc_tail_poly.py). The squared argument is split
-// exactly (ssq + sl = a*a via FMA) because a 1/2-ULP error in a^2 alone
-// would be amplified to ~a^2 * 2^-53 relative error by the exponential --
-// ~360 ULP at a = 27. e^{-ssq-sl} = Exp(-ssq)*(1 - sl) to O(sl^2).
-// Accuracy here is gated by the backend Exp; measured by test_erfc_ulp.
+// exactly (ssq + sl = a*a via ops::SquareLow) because a 1/2-ULP error in a^2
+// alone would be amplified to ~a^2 * 2^-53 relative error by the exponential
+// -- ~360 ULP at a = 27. The split pair is fed to corvus's own exp_dd, which
+// consumes both halves inside its argument reduction; the earlier
+// Exp(-ssq)*(1 - sl) first-order correction is gone with it, as is the
+// backend Exp that used to set this region's error bound (5 ULP, ~59% not
+// correctly rounded).
+//
+// Everything after the exponential is assembled in double-double and rounded
+// exactly once, at the end:
+//   1/a as a dd (DdRecip) -- a rounded 1/a would put its own 1/2 ULP straight
+//     into the result, since erfc is proportional to it. Its high word alone
+//     is still fine as the POLYNOMIAL's argument: G is nearly flat there
+//     (u*G'/G = O(u^2) <= 0.03), so u's rounding is attenuated ~30x.
+//   exp_dd in mantissa/exponent form, so the power-of-two scaling happens
+//     after the multiplications -- that is what keeps the subnormal band
+//     (a > ~26.6) to a single rounding rather than one per factor.
 // Clamping a to 28 (past the erfc underflow point ~27.3) keeps inf lanes
 // out of the inf*0 = NaN trap in the exact split.
 //
@@ -57,12 +72,11 @@ HWY_INLINE op::V<D> ErfcCoreVec(D d, op::V<D> x, op::V<D> ax, M nan) {
 
 template <class D>
 HWY_INLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
-  const auto one = op::Set(d, 1.0);
-
   const auto at = op::Min(ax, op::Set(d, 28.0));
   const auto ssq = op::Mul(at, at);
   const auto sl = op::SquareLow(d, at, ssq);  // exact: at^2 = ssq + sl
-  const auto u = op::Div(one, at);
+  const auto ur = DdRecip(d, at);             // 1/at to ~2^-105
+  const auto u = ur.hi;
 
   const auto m1 = op::Lt(at, op::Set(d, detail::kErfcTailBound1));
   const auto m2 = op::Lt(at, op::Set(d, detail::kErfcTailBound2));
@@ -80,9 +94,9 @@ HWY_INLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
     poly = op::MulAdd(poly, s, Sel3(d, m1, m2, c[0][k], c[1][k], c[2][k]));
   }
 
-  auto ex = op::Exp(d, op::Neg(ssq));
-  ex = op::Mul(ex, op::Sub(one, sl));
-  const auto tail_pos = op::Mul(op::Mul(ex, poly), u);
+  const auto ex = ExpDdFrac(d, op::Neg(ssq), op::Neg(sl));
+  const auto m = DdMul(d, ex.m, DdMulD(d, ur, poly));  // e^{-a^2} mantissa * G/a
+  const auto tail_pos = ScaleTwo(d, DdToDouble(m), ex.e);
   return op::IfThenElse(op::Lt(x, op::Zero(d)),
                         op::Sub(op::Set(d, 2.0), tail_pos), tail_pos);
 }

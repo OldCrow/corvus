@@ -180,10 +180,32 @@ surface lean and justify every runner:
 - `src/<fn>.cpp` — one translation unit per function family. Pattern:
   `HWY_TARGET_INCLUDE` + `foreach_target.h`, kernel in
   `corvus::HWY_NAMESPACE` written against `ops::`, then `HWY_ONCE` section
-  with `HWY_EXPORT` + public dispatch wrapper.
+  with `HWY_EXPORT` + public dispatch wrapper. Call `HWY_DYNAMIC_DISPATCH`
+  from *inside* `namespace corvus` — with a single compiled target (the
+  SSE2 cap) Highway collapses it to `N_SSE2::FUNC`, and a globally
+  qualified call then names a namespace that does not exist. It compiles
+  at every other tier, so the cap sweep is what catches it.
+- `src/dd-inl.h` — double-double primitives (Fast2Sum, TwoSum, TwoProd,
+  DdAdd/DdMul/DdRecip) shared by the compensated kernels. Written against
+  `ops::` like everything else. Exact residuals go through `ops::ProdLow`,
+  never a bare `MulSub` — same FMA-capability hazard as `ops::SquareLow`.
+- `src/<fn>_dd-inl.h` — corvus-owned transcendental cores (exp_dd, later
+  log_dd), internal only, no public API. They return
+  mantissa + exponent so a consumer folds its own factors in before the
+  power-of-two scaling rounds anything; that is what keeps a subnormal
+  result at one rounding.
 - `tests/` — ctest executables comparing against libm/reference values;
   test lengths deliberately non-multiples of lane counts to exercise the
-  masked-tail path.
+  masked-tail path. A test for an *internal* kernel compiles the kernel
+  header itself through foreach_target and so uses
+  `corvus_kernel_test_target()`, which links `hwy::hwy`, adds the source
+  root, and — the part that matters — applies `CORVUS_HWY_TARGET_DEFS` so
+  the test sees the same target set as the library. Such a test also
+  asserts its own dispatched target equals `corvus::active_target()`.
+  Where the kernel carries more than working precision, the reference file
+  carries a double-double pair and the test measures relative error below
+  the last bit of a double; rounding first would hide what is being
+  tested.
 
 ## Workflows
 
@@ -194,11 +216,21 @@ python3 -m venv /tmp/mpv && /tmp/mpv/bin/pip install mpmath
 /tmp/mpv/bin/python tools/gen_erfc_tail_poly.py   > src/erfc_tail_data.h
 /tmp/mpv/bin/python tools/gen_erf_reference.py    > tests/data/erf_reference.txt
 /tmp/mpv/bin/python tools/gen_erfc_reference.py   > tests/data/erfc_reference.txt
+/tmp/mpv/bin/python tools/gen_exp_table.py        > src/exp_dd_data.inc
+/tmp/mpv/bin/python tools/gen_exp_dd_reference.py > tests/data/exp_dd_reference.txt
 ```
 Reference files and generated tables are checked in; regenerate only when
 the method or point selection changes, and re-run the ULP tests after.
+Table generators self-check on every run and exit non-zero rather than emit
+a table that misses its error budget — `gen_exp_table.py` re-derives the
+whole budget (reduction exactness, polynomial truncation, table dd error)
+onto stderr. Trust that line over any claim in a comment.
 
-Per-tier validation recipe (run on each machine; caps only remove tiers):
+Per-tier validation recipe (run on each machine; caps only remove tiers).
+On Windows use `tools/sweep_tiers.ps1`, which does the same thing, runs the
+gates individually, and aborts on the first configure/build/gate failure —
+a build failure otherwise leaves the *previous* tier's binaries in place
+and the next iteration re-measures them under the new tier's name:
 ```sh
 BASE="HWY_AVX10_2|HWY_AVX3_SPR|HWY_AVX3_ZEN4|HWY_AVX3_DL|HWY_AVX3"
 for TIER in AVX2 SSE4 SSSE3 SSE2; do

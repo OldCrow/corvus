@@ -30,8 +30,18 @@ template <class D> HWY_INLINE V<D> LoadN(D d, const double* p, size_t n) { retur
 template <class D> HWY_INLINE void Store(V<D> v, D d, double* p) { hn::StoreU(v, d, p); }
 template <class D> HWY_INLINE void StoreN(V<D> v, D d, double* p, size_t n) { hn::StoreN(v, d, p, n); }
 
-template <class D> HWY_INLINE V<D> Set(D d, double x) { return hn::Set(d, x); }
+// Lane type of a tag: Set/BitCast are used with both the double tag and the
+// SignedTag (exponent assembly in exp_dd), so they are not double-only.
+template <class D> using T = hn::TFromD<D>;
+
+template <class D> HWY_INLINE V<D> Set(D d, T<D> x) { return hn::Set(d, x); }
 template <class D> HWY_INLINE V<D> Zero(D d) { return hn::Zero(d); }
+
+// Reinterpret lanes without converting: used to build 2^e from an integer
+// exponent field. No-op at runtime.
+template <class D, class VFrom> HWY_INLINE V<D> BitCast(D d, VFrom v) {
+  return hn::BitCast(d, v);
+}
 
 template <class V> HWY_INLINE V Add(V a, V b) { return hn::Add(a, b); }
 template <class V> HWY_INLINE V Sub(V a, V b) { return hn::Sub(a, b); }
@@ -62,6 +72,12 @@ template <class DI, class V> HWY_INLINE hn::Vec<DI> ConvertToInt(DI di, V a) {
 template <int kBits, class V> HWY_INLINE V ShiftLeft(V a) {
   return hn::ShiftLeft<kBits>(a);
 }
+// Arithmetic shift on signed lanes: floor division by 2^kBits, negatives
+// included (relied on to split an exponent into table index and power of 2).
+template <int kBits, class V> HWY_INLINE V ShiftRight(V a) {
+  return hn::ShiftRight<kBits>(a);
+}
+template <class V> HWY_INLINE V And(V a, V b) { return hn::And(a, b); }
 // out[i] = base[index[i]]; index in units of lanes, not bytes.
 template <class D, class VI> HWY_INLINE V<D> GatherIndex(D d, const double* base, VI index) {
   return hn::GatherIndex(d, base, index);
@@ -89,6 +105,30 @@ template <class D> HWY_INLINE V<D> SquareLow(D d, V<D> a, V<D> p) {
   const auto e = hn::Sub(hn::Mul(a_hi, a_hi), p);
   const auto cross = hn::Mul(hn::Set(d, 2.0), hn::Mul(a_hi, a_lo));
   return hn::Add(hn::Add(e, cross), hn::Mul(a_lo, a_lo));
+#endif
+}
+
+// Low part of a*b given p = fl(a*b), i.e. the exact residual a*b - p; the
+// two-operand form of SquareLow, and subject to the same FMA hazard, so it
+// carries the same capability guard. Dekker's product needs both operands
+// split. Exact for |a*b| within the normal range with room for the splits
+// (|a|, |b| < 2^996); corvus's dd kernels stay far inside that.
+template <class D> HWY_INLINE V<D> ProdLow(D d, V<D> a, V<D> b, V<D> p) {
+#if HWY_NATIVE_FMA
+  (void)d;
+  return hn::MulSub(a, b, p);
+#else
+  const auto split = hn::Set(d, 134217729.0);  // 2^27 + 1
+  const auto ta = hn::Mul(a, split);
+  const auto a_hi = hn::Sub(ta, hn::Sub(ta, a));
+  const auto a_lo = hn::Sub(a, a_hi);
+  const auto tb = hn::Mul(b, split);
+  const auto b_hi = hn::Sub(tb, hn::Sub(tb, b));
+  const auto b_lo = hn::Sub(b, b_hi);
+  auto e = hn::Sub(hn::Mul(a_hi, b_hi), p);
+  e = hn::Add(e, hn::Mul(a_hi, b_lo));
+  e = hn::Add(e, hn::Mul(a_lo, b_hi));
+  return hn::Add(e, hn::Mul(a_lo, b_lo));
 #endif
 }
 

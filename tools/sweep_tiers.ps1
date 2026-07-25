@@ -1,0 +1,93 @@
+<#
+.SYNOPSIS
+    Per-tier native validation sweep (Windows), the PowerShell counterpart of
+    the shell recipe in AGENTS.md.
+
+.DESCRIPTION
+    Caps compilation to one SIMD tier at a time with CORVUS_DISABLED_TARGETS,
+    rebuilds, and runs every ULP gate with CORVUS_EXPECT_TARGET set, so a cap
+    that fails to bite is a hard failure instead of a green suite measuring
+    the wrong tier.
+
+    Caps only ever REMOVE targets, so the sweep starts below the machine's
+    native ceiling. On the Ryzen box, run the uncapped build separately for
+    the AVX3* tiers -- and with GCC or clang-cl, never MSVC, whose Highway
+    blocklist silently removes every AVX-512 target (see AGENTS.md).
+
+    Aborts on the first configure, build, or gate failure. That matters: a
+    build failure leaves the PREVIOUS tier's binaries in place, so continuing
+    would re-measure the last tier under the new tier's name.
+
+.PARAMETER Tier
+    Restrict the sweep to one tier (AVX2, SSE4, SSSE3, SSE2). Default: all.
+
+.PARAMETER BuildDir
+    Build directory, reused across iterations so Highway is built once.
+
+.EXAMPLE
+    tools\sweep_tiers.ps1
+    tools\sweep_tiers.ps1 -Tier SSE2
+#>
+[CmdletBinding()]
+param(
+  [ValidateSet("AVX2", "SSE4", "SSSE3", "SSE2")]
+  [string[]] $Tier,
+  [string] $BuildDir = "build-cap",
+  [string] $CxxCompiler = "g++",
+  [string] $CCompiler = "cc"
+)
+
+$ErrorActionPreference = "Stop"
+$repo = Resolve-Path (Join-Path $PSScriptRoot "..")
+$bd = if ([System.IO.Path]::IsPathRooted($BuildDir)) { $BuildDir }
+      else { Join-Path $repo $BuildDir }
+
+# Cap the WHOLE AVX-512 family including AVX10_2: leaving it out works only
+# while HWY_BROKEN_AVX10_2's compiler-version gate holds, and that one expires.
+$base = "HWY_AVX10_2|HWY_AVX3_SPR|HWY_AVX3_ZEN4|HWY_AVX3_DL|HWY_AVX3"
+$caps = [ordered]@{
+  "AVX2"  = $base
+  "SSE4"  = "$base|HWY_AVX2"
+  "SSSE3" = "$base|HWY_AVX2|HWY_SSE4"
+  "SSE2"  = "$base|HWY_AVX2|HWY_SSE4|HWY_SSSE3"
+}
+
+$gates = @(
+  @{ exe = "test_erf_ulp";  data = "erf_reference.txt" },
+  @{ exe = "test_erfc_ulp"; data = "erfc_reference.txt" },
+  @{ exe = "test_exp_dd";   data = "exp_dd_reference.txt" }
+)
+
+$selected = if ($Tier) { $Tier } else { $caps.Keys }
+
+foreach ($t in $selected) {
+  Write-Host "`n===== tier $t =====" -ForegroundColor Cyan
+
+  # Built as an array, not a backtick-continued command line: PowerShell does
+  # NOT expand $variables on a continuation line in native-argument mode, so
+  # the compiler would silently be configured as the literal "$CxxCompiler".
+  $cfg = @(
+    "-S", $repo, "-B", $bd, "-G", "Ninja",
+    "-DCMAKE_BUILD_TYPE=Release",
+    "-DCMAKE_C_COMPILER=$CCompiler",
+    "-DCMAKE_CXX_COMPILER=$CxxCompiler",
+    "-DCORVUS_DISABLED_TARGETS=$($caps[$t])"
+  )
+  cmake @cfg | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw "configure failed for tier $t" }
+
+  cmake --build $bd
+  if ($LASTEXITCODE -ne 0) { throw "build failed for tier $t" }
+
+  $env:CORVUS_EXPECT_TARGET = $t
+  try {
+    foreach ($g in $gates) {
+      & (Join-Path $bd "tests\$($g.exe).exe") (Join-Path $repo "tests\data\$($g.data)")
+      if ($LASTEXITCODE -ne 0) { throw "$($g.exe) failed at tier $t (exit $LASTEXITCODE)" }
+    }
+  } finally {
+    Remove-Item Env:\CORVUS_EXPECT_TARGET -ErrorAction SilentlyContinue
+  }
+}
+
+Write-Host "`nall tiers passed" -ForegroundColor Green

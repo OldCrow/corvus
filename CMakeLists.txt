@@ -66,6 +66,7 @@ add_library(corvus STATIC
   src/erf.cpp
   src/erf_data.cpp
   src/erfc.cpp
+  src/exp_dd_data.cpp
 )
 add_library(corvus::corvus ALIAS corvus)
 
@@ -111,8 +112,14 @@ if(CORVUS_SANITIZE)
   target_link_options(corvus PUBLIC -fsanitize=${_corvus_san})
 endif()
 
+# Defines that decide which Highway targets a TU compiles. Collected in a
+# variable because tests/ has a target that runs foreach_target over an
+# internal kernel header (test_exp_dd) and must see the SAME target set — a
+# capped library measured by an uncapped test is the failure mode
+# CORVUS_EXPECT_TARGET exists to catch.
+set(CORVUS_HWY_TARGET_DEFS "")
 if(CORVUS_DISABLED_TARGETS)
-  target_compile_definitions(corvus PRIVATE
+  list(APPEND CORVUS_HWY_TARGET_DEFS
     "HWY_DISABLED_TARGETS=(${CORVUS_DISABLED_TARGETS})")
 endif()
 
@@ -125,7 +132,7 @@ if(CORVUS_MSVC_UNBLOCK_AVX512)
     # HWY_CHOSEN_TARGET_MASK_TARGETS in the *calling* TU by design (see the
     # comment on ChosenTarget::GetIndex), so corvus's compiled target set may
     # legitimately be wider than that of a prebuilt libhwy. No hwy rebuild.
-    target_compile_definitions(corvus PRIVATE HWY_BROKEN_MSVC=0)
+    list(APPEND CORVUS_HWY_TARGET_DEFS HWY_BROKEN_MSVC=0)
     message(WARNING
       "corvus: AVX-512 unblocked under MSVC (HWY_BROKEN_MSVC=0). Upstream "
       "Highway declares this path broken and does not test it — re-run the ULP "
@@ -136,6 +143,8 @@ if(CORVUS_MSVC_UNBLOCK_AVX512)
       "only to real MSVC (cl.exe); this compiler is ${CMAKE_CXX_COMPILER_ID}.")
   endif()
 endif()
+
+target_compile_definitions(corvus PRIVATE ${CORVUS_HWY_TARGET_DEFS})
 
 if(CORVUS_BUILD_TESTS)
   enable_testing()

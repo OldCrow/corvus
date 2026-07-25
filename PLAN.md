@@ -113,6 +113,43 @@ AllFalse/AllTrue.
   negative x via reflection + sinpi, poles return +inf. Sign output
   (C's signgam) deferred; SciPy's gammaln offers none either.
 
+## Phase A part 1 — exp_dd shipped [DERIVED, 2026-07-25 Ryzen]
+`src/dd-inl.h` (dd primitives), `src/exp_dd-inl.h` + generated tables, and
+the erfc tail rewired onto them. Acceptance met: **erfc tail-normal 5 -> 2
+ULP**, gate retightened, same reference set, no other bound moved.
+
+- exp_dd measures **2^-68.45 relative** (~2^-15 ULP) — 8 bits better than
+  the 2^-60 design target — and is **bit-identical on all five validated
+  tiers including the no-FMA ones**, which erf/erfc are not. The Dekker
+  fallback in the new `ops::ProdLow` reproduces the fused path exactly
+  here; same worst-case input (x = -696.994) everywhere.
+- Facade grew `BitCast`, `And`, `ShiftRight`, `ProdLow` (the two-operand
+  `SquareLow`, same FMA guard), and `Set` generalized to the tag's lane
+  type so it works on the signed tag. `ops::Exp` is now unused by any
+  shipped kernel — the contrib exp is out of the accuracy-critical path,
+  as intended.
+- Design point worth keeping: exp_dd returns **mantissa + exponent, not a
+  scaled value** (`ExpDdFrac` + `ScaleTwo`). The consumer folds its own
+  factors in first and the power-of-two scaling lands last, which is what
+  keeps erfc's subnormal band at one rounding. `ExpDd` (fully scaled) is
+  the convenience form; its dd invariant necessarily degrades once the
+  result is subnormal.
+- Cost, Ryzen/GCC/AVX3_ZEN4, n=1e6, session-loaded so indicative: tail-only
+  8.38x -> **4.83x** vs libm (~1.7x slower tail path), mixed 5.12x ->
+  3.60x. Core untouched (9.05x -> 9.80x, noise). This is the trade the
+  design section predicted: two gathers plus dd math against one contrib
+  Exp call. Re-measure on a quiet machine before publishing.
+- Testing pattern established for internal kernels: `tests/test_exp_dd.cpp`
+  compiles the kernel header itself through foreach_target instead of
+  linking the public API, so it needs `hwy::hwy`, the source root, and
+  **the same target defines as the library** — hoisted into
+  `CORVUS_HWY_TARGET_DEFS` for exactly that reason. It also asserts its own
+  dispatched target equals `corvus::active_target()`, so the two dispatch
+  tables cannot silently disagree.
+- Oracle pattern for dd kernels: the reference file carries the value as a
+  **dd pair**, and the test measures relative error below the last bit of a
+  double. Rounding first would hide what the kernel is for.
+
 ## Erfc [DERIVED, 2026-07-21]
 Two-region kernel: core |x| <= 6 reuses the erf table via compensated
 1 -/+ erf assembly; tail 6 < a <= 28 is e^{-a^2}*G(1/a)/a with per-interval
@@ -205,12 +242,32 @@ Phase B — lgamma (public corvus::lgamma, span API):
   first release.
 
 ## Open Items
-- [OPEN, design resolved 2026-07-21] erfc tail 5-ULP bound is entirely
-  hn::Exp's contribution. Resolution: dd transcendental core (exp_dd +
-  log_dd) as Phase A before lgamma, erfc tail rewire as acceptance test —
-  see the design section above. (Note: lgamma consumes log_dd, not
-  exp_dd; exp_dd's next consumer after erfc is the incomplete gamma/beta
-  prefactor.)
+- [RESOLVED 2026-07-25] erfc tail 5-ULP bound was entirely hn::Exp's
+  contribution. exp_dd shipped and the tail rewired onto it: 5 -> 2 ULP.
+  See the Phase A part 1 section above. log_dd (lgamma's dependency) is
+  still outstanding; exp_dd's next consumer after erfc is the incomplete
+  gamma/beta prefactor.
+- [OPEN] **The erfc tail's remaining 2 ULP is the G polynomial, not the
+  exponential.** exp_dd contributes <= 2^-68.4 relative and the dd
+  assembly around it ~2^-104, so the 2 ULP (and the 48% not-correctly-
+  rounded rate, which is high for a 2-ULP max) is the 11/10/8-degree
+  Horner pass in plain double: roughly its own step count in half-ULPs.
+  Options, in rising cost: re-fit for better conditioning, shorten the
+  polynomials by adding a fourth interval, or a compensated Horner (dd
+  accumulate — correct but the tail path is already 1.7x slower than it
+  was). Not attempted; needs a measurement of which term actually
+  dominates before choosing.
+- [OPEN] `HWY_DYNAMIC_DISPATCH` must be invoked from **inside** the
+  namespace holding the per-target functions. With a single compiled
+  target (the SSE2 cap) Highway collapses it to `N_SSE2::FUNC`, so a
+  call written `HWY_DYNAMIC_DISPATCH(corvus::Foo)` from global scope
+  becomes `N_SSE2::corvus::Foo` and fails to compile — at that tier only.
+  Found in test_exp_dd during the 2026-07-25 sweep and fixed there; the
+  shipped kernels already do it correctly. Worth a look if a future
+  test/bench is written from global scope. Related: the SSE2 build failure
+  left the SSSE3 binaries in place and the sweep script happily re-ran
+  them — `CORVUS_EXPECT_TARGET` caught it, and `tools/sweep_tiers.ps1` now
+  aborts on the first build failure rather than relying on that.
 - [RESOLVED 2026-07-21] NEON validated in CI (Apple Silicon runner) for
   both erf and erfc, bit-identical to AVX2 results.
 - [RESOLVED 2026-07-24] Native AVX-512 validation on the Ryzen 7445HS
@@ -398,10 +455,21 @@ stays tracked under "Open Items" above, not duplicated here.
 3. [RESOLVED 2026-07-21, M1 session] Sequencing decided with the user:
    dd transcendental core first (Phase A), then lgamma (Phase B), full
    real axis in v1 — design section above.
-4. **Start here**: Phase A — exp_dd + log_dd + ops::BitCast + generators;
-   erfc tail rewire and gate retightening as acceptance (ACCURACY.md in
-   the same change set). New-kernel AVX-512 validation joins the Ryzen
-   queue. No accuracy or tier work is outstanding for erf/erfc.
-5. Phase B: lgamma per the design section (generator experiments pick
+4. [RESOLVED 2026-07-25] Phase A part 1 — exp_dd, the dd primitive layer,
+   the facade additions, and the erfc tail rewire; validated on all five
+   x86 tiers on the Ryzen and documented. See the Phase A section above.
+5. **Start here**: Phase A part 2 — log_dd per the design section
+   (exponent extraction via ops::BitCast, which now exists;
+   {R_j, L_hi, L_lo} table; k·ln2_dd + L_j_dd + log1p-poly accumulated in
+   dd). Reuse the exp_dd pattern wholesale: tools/gen_log_table.py with
+   the same self-check-or-refuse discipline,
+   tools/gen_log_dd_reference.py emitting a dd oracle, and
+   tests/test_log_dd.cpp built with corvus_kernel_test_target. Unlike
+   exp_dd it has no in-tree consumer until lgamma, so its own dd gate is
+   the whole acceptance test.
+6. Phase B: lgamma per the design section (generator experiments pick
    X0, degrees, zone boundaries; new gen_lgamma_reference.py with
    zero-neighborhood, pole-neighborhood, and boundary-crossing points).
+7. NEON: the next CI run on the Apple Silicon runner fills exp_dd's NEON
+   column and re-confirms erfc's tail at the new 2-ULP gate. If NEON's
+   numbers differ from the x86 tiers that is a finding, not a nuisance.
