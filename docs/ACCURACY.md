@@ -174,13 +174,25 @@ erfc(±0) = 1, erfc(−inf) = 2, erfc(+inf) = 0, NaN propagates with payload.
 
 **Where the residual 2 ULP now lives.** `exp_dd` contributes at most
 2^−68.4 relative (≈ 2^−15 ULP) and the dd assembly around it is exact to
-~2^−104, so essentially none of the 2 ULP is the exponential any more. It
-is the G polynomial: an 11/10/8-degree Horner pass in plain double
-accumulates roughly its own step count in half-ULPs, which also explains
-why 48% of tail points are not correctly rounded despite a max of 2.
-Tightening further means a compensated Horner or a better-conditioned fit,
-both of which cost throughput on the tail path — tracked in PLAN.md, not
-attempted here.
+~2^−104, so none of the 2 ULP is the exponential any more — it is the G
+polynomial. Replaying the tail formula in mpmath with one error source
+added at a time (3875 points in [6, 27.2]) separates two effects that the
+single "2 ULP / 48% not-CR" figure hides:
+
+* the **not-correctly-rounded rate is the fit and its double
+  coefficients**. With the stored coefficients but exact evaluation, exact
+  arguments and an exact exponential, the rate is already 52.9%. No
+  compensated evaluation can improve that; it would take a re-fit carrying
+  double-double coefficients, with the whole path kept in dd.
+* the **max ULP is the evaluation**. That same exact-evaluation model
+  reaches 1 ULP, so a compensated Horner would take the shipped kernel
+  from 2 to 1 while leaving the not-CR rate near 53%.
+
+Neither is attempted: the first is a different project, and the second
+spends throughput on a tail path already 1.7× slower to move a bound that
+is already documented, without moving the quality signal underneath it.
+Tracked in PLAN.md, with erfcinv as the trigger to revisit — that is the
+first function whose own accuracy would be bounded by this one.
 
 ## exp_dd (internal)
 

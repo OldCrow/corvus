@@ -305,16 +305,37 @@ Phase B — lgamma (public corvus::lgamma, span API):
   See the Phase A part 1 section above. log_dd (lgamma's dependency) is
   still outstanding; exp_dd's next consumer after erfc is the incomplete
   gamma/beta prefactor.
-- [OPEN] **The erfc tail's remaining 2 ULP is the G polynomial, not the
-  exponential.** exp_dd contributes <= 2^-68.4 relative and the dd
-  assembly around it ~2^-104, so the 2 ULP (and the 48% not-correctly-
-  rounded rate, which is high for a 2-ULP max) is the 11/10/8-degree
-  Horner pass in plain double: roughly its own step count in half-ULPs.
-  Options, in rising cost: re-fit for better conditioning, shorten the
-  polynomials by adding a fourth interval, or a compensated Horner (dd
-  accumulate — correct but the tail path is already 1.7x slower than it
-  was). Not attempted; needs a measurement of which term actually
-  dominates before choosing.
+- [OPEN, decomposed 2026-07-25] **The erfc tail's 2 ULP and 48% not-CR are
+  two different problems, and only one of them is cheap.** Measured by
+  replaying the tail formula in mpmath against 3875 points in [6, 27.2],
+  adding one error source at a time (exp exact throughout, since exp_dd
+  contributes 2^-68):
+
+  | model | max ULP | not-CR |
+  |---|---|---|
+  | A: stored coefficients, exact evaluation, exact args | 1 | 52.9% |
+  | B: A + Horner in double | 2 | 51.8% |
+  | C: B + u and s rounded | 3 | 54.6% |
+  | shipped kernel | 2 | 48.5% |
+
+  Readings:
+  - **The not-CR rate is set by the fit and its double coefficients, and
+    nothing else.** Model A is already 52.9% with everything downstream
+    exact. No amount of compensated evaluation touches it; only a re-fit
+    with dd coefficients would, and then the whole path has to stay dd.
+  - **The max ULP is set by the evaluation.** Model A reaches 1 ULP, so a
+    dd Horner would take the shipped kernel 2 -> 1 while leaving not-CR at
+    ~53%. Cost: ~11 dd steps on a tail path already 1.7x slower than the
+    hn::Exp version. Poor trade — it moves a bound that is already
+    documented and does not move the quality signal that matters.
+  - The kernel sitting at 48.5% (below model C's 54.6%, above B) confirms
+    its dd argument and assembly work is buying something real.
+
+  Decision: leave it. 2 ULP documented is honest and is better than most
+  production libms in this region. **Revisit when erfcinv is scheduled** —
+  Newton refinement there would be bounded by exactly this, which is the
+  first time the tail's accuracy compounds into another function rather
+  than sitting at a leaf.
 - [OPEN] `HWY_DYNAMIC_DISPATCH` must be invoked from **inside** the
   namespace holding the per-target functions. With a single compiled
   target (the SSE2 cap) Highway collapses it to `N_SSE2::FUNC`, so a
