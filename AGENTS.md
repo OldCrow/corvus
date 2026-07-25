@@ -18,11 +18,26 @@ std::simd equivalent and will outlive the op-layer migration.
 
 ## Development Fleet
 
-| Machine | OS | CPU | SIMD | Validation role |
-|---|---|---|---|---|
-| MacBook Pro 2017 (Kaby Lake) | macOS Ventura | i7-7820HQ | AVX2+FMA | AVX2 native; SSE4/SSSE3/SSE2 via tier capping (no FMA on those) |
-| Mac Mini M1 | macOS Tahoe | Apple M1 | NEON (native FMA) | NEON validation |
-| Asus TUF A16 | Windows 11 | Ryzen 7 7445 (Zen 4) | AVX-512 | AVX3* native; every lower x86 tier via capping |
+| Machine | OS | CPU | SIMD | Compiler | Validation role |
+|---|---|---|---|---|---|
+| MacBook Pro 2017 (Kaby Lake) | macOS Ventura | i7-7820HQ | AVX2+FMA | Apple Clang | AVX2 native; SSE4/SSSE3/SSE2 via tier capping (no FMA on those) |
+| Mac Mini M1 | macOS Tahoe | Apple M1 | NEON (native FMA) | Apple Clang | NEON validation |
+| Asus TUF A16 | Windows 11 | Ryzen 7 7445 (Zen 4) | AVX-512 | **clang-cl or mingw GCC, not MSVC** | AVX3* native; every lower x86 tier via capping |
+
+**corvus deviates from the house Windows default, and this is deliberate.**
+The other projects in this fleet (libhmm, libstats, ewcalc and the Python
+bindings) use MSVC on Windows, matching Apple Clang on macOS and Clang on
+Linux. corvus does not, for accuracy work: MSVC cannot dispatch AVX-512 at
+all (see below), so an MSVC build cannot validate or benchmark this
+project's widest tier — the one the Ryzen box exists to cover. Use
+`clang-cl` by preference, since it keeps the MSVC ABI and so stays
+link-compatible with the MSVC-built rest of the fleet (relevant if
+libstats/libhmm ever adopt corvus); mingw-w64 GCC is the second option and
+is not ABI-compatible with MSVC. MSVC remains fully supported *as a
+consumer toolchain* — it compiles clean, passes every gate, and is what the
+CI Windows job uses precisely because it is the strictest diagnostic gate
+and the likeliest consumer default. The exception is about which compiler
+produces *validation numbers*, not about which compilers must work.
 
 At session start, verify which machine you are on (`uname -m`,
 `sysctl -n machdep.cpu.brand_string`) before interpreting SIMD dispatch,

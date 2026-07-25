@@ -76,6 +76,23 @@ AllFalse/AllTrue.
   CMake standard recorded in AGENTS.md. Deferred deliberately: LTO/IPO
   (profile first), shared-lib + symbol visibility (no demand yet),
   install-when-fetched (existing open item).
+- Windows compiler (2026-07-25, resolved with user): **corvus takes a
+  documented exception to the fleet standard.** The other projects default
+  to MSVC on Windows (paired with Apple Clang on macOS, Clang on Linux);
+  corvus prefers `clang-cl` there. Reason: Highway's `HWY_BROKEN_MSVC`
+  removes every AVX-512 target, so MSVC cannot validate or benchmark the
+  widest tier — which is the entire reason the Ryzen box is in the fleet.
+  `clang-cl` is the preferred alternative rather than mingw GCC because it
+  keeps the MSVC ABI and therefore stays link-compatible with the rest of
+  the fleet, which matters for the open question of libstats/libhmm adopting
+  corvus. Scope of the exception is narrow: it governs which compiler
+  produces validation and benchmark numbers, not which compilers must work.
+  MSVC stays a fully supported consumer toolchain and remains the CI
+  Windows job's compiler, because it is both the strictest diagnostic gate
+  and the likeliest consumer default. [OPEN] If a sibling project does adopt
+  corvus, verify clang-cl-built corvus links cleanly into an MSVC-built
+  consumer before relying on it — same-ABI is the design intent but has not
+  been tested here.
 - Platform tiers: Tier 1 (accuracy-audited on real silicon) = NEON (M1),
   AVX-512/AVX2/SSE2 (Ryzen 7445 native + CORVUS_DISABLED_TARGETS capping),
   AVX2 (Kaby Lake). Tier 2 (compiles, unaudited) = SVE and anything else
