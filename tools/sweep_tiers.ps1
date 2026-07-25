@@ -34,7 +34,9 @@ param(
   [string[]] $Tier,
   [string] $BuildDir = "build-cap",
   [string] $CxxCompiler = "g++",
-  [string] $CCompiler = "cc"
+  # "cc" is a Unix convention that mingw-w64 does not ship; Highway's own
+  # CMakeLists enables C, so an unresolvable name fails at configure.
+  [string] $CCompiler = "gcc"
 )
 
 $ErrorActionPreference = "Stop"
@@ -55,6 +57,7 @@ $caps = [ordered]@{
 $gates = @(
   @{ exe = "test_erf_ulp";  data = "erf_reference.txt" },
   @{ exe = "test_erfc_ulp"; data = "erfc_reference.txt" },
+  @{ exe = "test_lgamma_ulp"; data = "lgamma_reference.txt" },
   @{ exe = "test_exp_dd";   data = "exp_dd_reference.txt" },
   @{ exe = "test_log_dd";   data = "log_dd_reference.txt" }
 )

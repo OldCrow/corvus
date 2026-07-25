@@ -41,11 +41,29 @@ void erf(std::span<const double> in, std::span<double> out);
 /// \brief out[i] = erfc(in[i]).
 ///
 /// Accuracy on validated tiers: max 1 ULP for |x| <= 6 and for subnormal
-/// results; max 5 ULP for normal-result x > 6 (bounded by the backend
-/// vector exp; see docs/ACCURACY.md). Specials: erfc(-inf) = 2,
+/// results; max 2 ULP for normal-result x > 6 (bounded by the tail
+/// polynomial fit; see docs/ACCURACY.md). Specials: erfc(-inf) = 2,
 /// erfc(+inf) = 0, results underflow gradually past x ~ 26.5, NaN
 /// propagates (payload preserved).
 void erfc(std::span<const double> in, std::span<double> out);
+
+/// \brief out[i] = log |Gamma(in[i])| (C's lgamma, SciPy's gammaln).
+///
+/// Defined on the whole real axis. No sign output: like SciPy's gammaln,
+/// and unlike C's signgam, the sign of Gamma is not reported.
+///
+/// Accuracy on validated tiers: see docs/ACCURACY.md for the per-region
+/// table. Relative accuracy holds on the positive axis, including
+/// arbitrarily close to the zeros at x = 1 and x = 2, which are exact. On
+/// the negative axis lgamma also passes through zero wherever
+/// |Gamma(x)| = 1 -- infinitely many points with no closed form -- and
+/// near those the bound is absolute rather than relative; the measured
+/// split is documented.
+///
+/// Specials: lgamma(1) = lgamma(2) = +0; +inf at every pole (x = 0 and the
+/// negative integers), on overflow (x above ~2.556e305), and at both
+/// infinities; NaN propagates (payload preserved).
+void lgamma(std::span<const double> in, std::span<double> out);
 
 }  // namespace corvus
 

@@ -37,10 +37,10 @@
 // Total ~2^-70 relative, matching exp_dd's ~2^-68.
 //
 // DOMAIN
-//   x must be a POSITIVE NORMAL double. Zero, negatives, subnormals, Inf and
-//   NaN are the caller's responsibility -- the slot index is masked into range
-//   so nothing reads out of bounds, but the value in such a lane is
-//   unspecified. lgamma's regions all satisfy this by construction.
+//   x must be a POSITIVE NORMAL double. Zero, negatives, Inf and NaN are the
+//   caller's responsibility -- the slot index is masked into range so nothing
+//   reads out of bounds, but the value in such a lane is unspecified. For
+//   subnormal arguments use LogDdAny, which prescales.
 #if defined(CORVUS_LOG_DD_INL_H_) == defined(HWY_TARGET_TOGGLE)
 #ifdef CORVUS_LOG_DD_INL_H_
 #undef CORVUS_LOG_DD_INL_H_
@@ -145,6 +145,31 @@ HWY_INLINE Dd<D> LogDd(D d, Dd<D> x) {
   const auto t = op::Div(x.lo, x.hi);
   const auto c = op::Mul(t, op::MulAdd(t, op::Set(d, -0.5), op::Set(d, 1.0)));
   return DdAddD(d, LogDd(d, x.hi), c);
+}
+
+// log(x) for any positive finite dd, SUBNORMALS INCLUDED. LogDd above reads
+// the exponent straight out of the bit pattern, which a subnormal does not
+// carry, so tiny arguments are first scaled into the normal range by an exact
+// power of two and the scaling is taken back out in dd afterwards.
+//
+// 2^600 lifts the smallest subnormal (2^-1074) to 2^-474, and the threshold is
+// low enough that the scaled value cannot overflow. lgamma reaches this
+// through two doors: x -> 0+ on the positive axis, and |x - round(x)| for a
+// negative subnormal argument.
+template <class D>
+HWY_INLINE Dd<D> LogDdAny(D d, Dd<D> x) {
+  const auto tiny = op::Lt(x.hi, op::Set(d, 0x1p-500));
+  const auto s = op::IfThenElse(tiny, op::Set(d, 0x1p600), op::Set(d, 1.0));
+  const auto e = op::IfThenElse(tiny, op::Set(d, -600.0), op::Zero(d));
+  const Dd<D> xs{op::Mul(x.hi, s), op::Mul(x.lo, s)};  // exact: power of two
+  const Dd<D> ln2{op::Set(d, detail::kLogLn2Hi), op::Set(d, detail::kLogLn2Lo)};
+  // e is exactly zero on the common path, so this add is a no-op there.
+  return DdAdd(d, LogDd(d, xs), DdMulD(d, ln2, e));
+}
+
+template <class D>
+HWY_INLINE Dd<D> LogDdAny(D d, op::V<D> x) {
+  return LogDdAny(d, Dd<D>{x, op::Zero(d)});
 }
 
 }  // namespace HWY_NAMESPACE

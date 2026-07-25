@@ -48,6 +48,19 @@ add_executable(bench_erfc bench_erfc.cpp)
 corvus_test_target(bench_erfc)
 # Deliberately not registered with ctest: run manually on a quiet machine.
 
+add_executable(test_lgamma test_lgamma.cpp)
+corvus_test_target(test_lgamma)
+add_test(NAME lgamma COMMAND test_lgamma)
+
+add_executable(test_lgamma_ulp test_lgamma_ulp.cpp)
+corvus_test_target(test_lgamma_ulp)
+add_test(NAME lgamma_ulp
+  COMMAND test_lgamma_ulp ${CMAKE_CURRENT_SOURCE_DIR}/data/lgamma_reference.txt)
+
+add_executable(bench_lgamma bench_lgamma.cpp)
+corvus_test_target(bench_lgamma)
+# Deliberately not registered with ctest: run manually on a quiet machine.
+
 add_executable(test_exp_dd test_exp_dd.cpp)
 corvus_kernel_test_target(test_exp_dd)
 add_test(NAME exp_dd

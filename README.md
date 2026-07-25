@@ -10,13 +10,25 @@ coverage: erf/erfc, lgamma, regularized incomplete gamma and beta, and their
 inverses — the functions that gate vectorized statistical CDFs, quantiles,
 and maximum-likelihood fitting.
 
-**Status: early development.** `erf` and `erfc` are production-quality
-clean-room kernels validated against an mpmath oracle on every SIMD tier
-available across the development fleet — AVX-512 (`AVX3`, `AVX3_DL`,
-`AVX3_ZEN4`), AVX2, SSE4, SSSE3, SSE2 and NEON, each on native silicon.
-`erf`: max 1 ULP over the full domain. `erfc`: max 1 ULP for |x| <= 6 and
-for subnormal results; max 5 ULP in the exp-bound tail (the backend `Exp`'s
-contribution). API not yet stable.
+**Status: early development.** `erf`, `erfc` and `lgamma` are
+production-quality clean-room kernels validated against an mpmath oracle on
+every SIMD tier available across the development fleet — AVX-512 (`AVX3`,
+`AVX3_DL`, `AVX3_ZEN4`), AVX2, SSE4, SSSE3, SSE2 and NEON, each on native
+silicon. API not yet stable.
+
+- `erf`: max 1 ULP over the full domain.
+- `erfc`: max 1 ULP for |x| <= 6 and for subnormal results; max 2 ULP in
+  the tail, where what remains is the tail polynomial's fit, not the
+  exponential.
+- `lgamma`: max 1 ULP across the positive axis — including arbitrarily
+  close to the zeros at x = 1 and x = 2, which are exact — and correctly
+  rounded throughout the Stirling region. On the negative axis the bound is
+  1 ULP where |lgamma| >= 1 and 2^-53 absolute below that, because lgamma
+  has infinitely many zeros there with no closed form.
+
+Both transcendental cores the kernels need (`exp_dd`, `log_dd`) are
+corvus's own, so no accuracy-critical path depends on the backend's math
+library.
 
 ## Design
 
@@ -79,6 +91,7 @@ bit-identical results.
 std::vector<double> x = ..., y(x.size());
 corvus::erf(x, y);
 corvus::erfc(x, y);
+corvus::lgamma(x, y);
 ```
 
 Per-function methods, measured ULP bounds, and the validation matrix live

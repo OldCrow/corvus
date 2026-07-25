@@ -67,6 +67,7 @@ add_library(corvus STATIC
   src/erf_data.cpp
   src/erfc.cpp
   src/exp_dd_data.cpp
+  src/lgamma.cpp
   src/log_dd_data.cpp
 )
 add_library(corvus::corvus ALIAS corvus)

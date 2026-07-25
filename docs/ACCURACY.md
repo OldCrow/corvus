@@ -47,11 +47,12 @@ machine.
 |---|---|---|---|---|---|---|
 | erf | ✅ 2026-07-20 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-24 |
 | erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-25 |
+| lgamma | ✅ 2026-07-25 | ✅ | ✅ | ✅ | — | ✅ 2026-07-25 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
 `exp_dd` and `log_dd` are not public API; they are audited here because the
-erfc tail's bound now rests on `exp_dd`, and lgamma's will rest on `log_dd`.
+erfc tail's bound rests on `exp_dd` and lgamma's rests on `log_dd`.
 Their NEON row comes from CI run 30163646136 (Apple Silicon runner,
 AppleClang, brew Highway 1.4.0), which reproduced the x86 numbers
 point-for-point — including `exp_dd`'s worst-case input. Note AppleClang's
@@ -115,13 +116,20 @@ expected signature of the Dekker path running without FMA fusion (see
 route, shifting a handful of borderline points by one ULP without
 breaching any gate. Notably `exp_dd` shows *no* such divergence.
 
-Not-correctly-rounded counts, Ryzen/GCC 2026-07-25 (erfc regions are
-core / tail-normal / tail-subnormal; exp_dd is normal results):
+`lgamma` behaves like the dd kernels rather than like erf/erfc: **max ULP
+is identical on every validated tier, FMA and no-FMA alike**, with only two
+borderline points shifting in the not-CR counts. That is expected — every
+region accumulates in double-double and rounds once, so the no-FMA Dekker
+path has almost nothing left to perturb.
 
-| Tier | erf | erfc | exp_dd | log_dd |
-|---|---|---|---|---|
-| AVX3_ZEN4, AVX3_DL, AVX3, AVX2 | 217 | 46 / 4059 / 7 | 10 | 0 |
-| SSE4, SSSE3, SSE2 | 218 | 50 / 4060 / 7 | 10 | 0 |
+Not-correctly-rounded counts, Ryzen/GCC 2026-07-25 (erfc regions are
+core / tail-normal / tail-subnormal; lgamma regions are
+small / zone / mid / big / negative; exp_dd is normal results):
+
+| Tier | erf | erfc | lgamma | exp_dd | log_dd |
+|---|---|---|---|---|---|
+| AVX3_ZEN4, AVX3_DL, AVX3, AVX2 | 217 | 46 / 4059 / 7 | 1 / 30 / 3 / 0 / 7 | 10 | 0 |
+| SSE4, SSSE3, SSE2 | 218 | 50 / 4060 / 7 | 1 / 29 / 3 / 0 / 5 | 10 | 0 |
 
 ## erf
 
@@ -194,6 +202,88 @@ is already documented, without moving the quality signal underneath it.
 Tracked in PLAN.md, with erfcinv as the trigger to revisit — that is the
 first function whose own accuracy would be bounded by this one.
 
+Negative x mirrors through the compensated core (not 2 − erfc(|x|), which
+would reround) up to |x| = 6; beyond, 2 − tail rounds to exactly 2, which
+is the correctly rounded result everywhere it applies.
+
+## lgamma
+
+**Bounds, measured on the 19,255-point reference set and identical on every
+validated tier:**
+
+| Region | Bound | not-CR |
+|---|---|---|
+| 0 < x < ½ (one log shift) | 1 ULP | 0.04% |
+| ½ ≤ x ≤ 5/2 (the zeros) | 1 ULP | 0.78% |
+| 5/2 < x < 8 (recurrence) | 1 ULP | 0.11% |
+| x ≥ 8 (Stirling) | **0 ULP — correctly rounded** | 0.00% |
+| x < 0, \|lgamma\| ≥ 1 | 1 ULP | 0.03% |
+| x < 0, \|lgamma\| < 1 | 2^−53 **absolute** | 1.25% |
+
+The last row is the only one not stated in ULP, and the reason is
+structural rather than a shortfall. On the positive axis lgamma has exactly
+two zeros, x = 1 and x = 2, and both are integers: the kernel forms
+t·B(t) with t = x − 1 or x − 2 exact by Sterbenz, so the zero is reproduced
+by construction and relative accuracy holds arbitrarily close to it. On the
+negative axis lgamma also vanishes wherever |Γ(x)| = 1 — twice in every
+interval (−n−1, −n) for n ≥ 2, infinitely many, none at a representable
+point and none with a closed form. No exact-argument form can reproduce
+those, so near them a fixed absolute error is an unbounded relative one.
+This matches what SciPy and the system libms do; what differs is that the
+reference set contains those crossings deliberately (bisected to the bit)
+and the two bands are gated separately, so the number is measured rather
+than averaged away.
+
+Method, by region:
+
+* **½ ≤ x ≤ 5/2**, both zeros: two polynomials fitted to lgamma(c + t)/t
+  for c = 1, 2 over t ∈ [−½, ½], split at x = 3/2 so that t is exact by
+  Sterbenz on both sides. Three leading coefficients are stored as
+  double-doubles and only the degree-31 (resp. 18) tail runs in plain
+  double, where the t³ it multiplies attenuates its rounding ~8×.
+  Coefficients are selected per lane into a single Horner pass.
+* **0 < x < ½**: lgamma(1 + x) − log x, evaluated as the centre-1
+  polynomial at t = x. The shift is never formed: writing y = x + 1 and
+  then t = y − 1 rounds y and injects ~1 ULP of ψ(y) near x = ½.
+* **5/2 < x < 8**: walk down by Γ(z) = (z−1)Γ(z−1) into (3/2, 5/2], six
+  masked steps, then the centre-2 polynomial plus log of the accumulated
+  product. The recurrence goes **down**, not up, because x − k is exactly
+  representable for every integer k < x < 2^52 while x + k is not — walking
+  up would need every shifted argument carried as a dd pair.
+* **x ≥ 8**: Stirling with the remainder φ ≈ 1/(12x) as a degree-8 fit in
+  1/x². φ is the only part in plain double; a full ULP of it is ~2^−60 of
+  lgamma(8), and 8 is the tightest point in the region.
+* **x < 0**: reflection via Γ(1−x) = −x·Γ(−x) rather than the textbook
+  Γ(x)Γ(1−x) form, so the argument handed to the positive pipeline is −x,
+  which is **exact**, instead of 1 − x, which is not. The pipeline then runs
+  once, on |x|, for lanes of either sign. The sine factor is written
+  −log|u| − log(sin(πu)/(πu)) with u = x − round(x) exact; that cancels π
+  analytically and keeps the u → 0 limit finite, where forming π/|sin πx|
+  first would overflow at every pole.
+
+Everything is accumulated in double-double and rounded exactly once. That
+is what holds the recurrence region to 1 ULP despite ~6 bits of
+cancellation, and what keeps the negative axis — a sum of four
+same-magnitude terms — at 2^−53 absolute.
+
+Special values: lgamma(1) = lgamma(2) = +0 (the `+0.0` at the end of the
+kernel is load-bearing: t·B(t) at t = 0 carries the sign of B, which is
+negative at x = 1); +inf at every pole, on overflow above
+0x1.754d9278b51a7p+1014 ≈ 2.556e305, and at both infinities; NaN
+propagates with payload.
+
+**One tier-specific defect, found by the sweep and worth recording**:
+`ops::ProdLow`'s non-FMA path is Dekker's split, whose intermediate
+a·(2^27+1) overflows once |a| exceeds 2^996 ≈ 6.7e299 — a documented
+precondition that no earlier kernel came close to violating. lgamma's
+Stirling product does, so SSE2 through SSE4 returned an infinite residual
+for x above that while every FMA target was correct. The product is now
+formed on x scaled down by 2^200 and scaled back after; scaling by a power
+of two is exact and every step is linear in x, so this is one code path for
+all targets and the results stay identical across tiers. Nothing but a
+per-tier sweep would have surfaced it: the native AVX-512 build, the AVX2
+build, and both compilers were all green.
+
 ## exp_dd (internal)
 
 **Bound: max 2^−68.4 relative** on the 7651-point dd reference set —
@@ -252,10 +342,10 @@ Fast2Sum: r passes through zero inside every slot) before the series uses
 r.hi. Without that, the r³ term silently drops r²·r_lo ≈ 2^−69 and the
 kernel measures 2^−63.3 instead of 2^−68.5.
 
-Domain: positive normal doubles. Zero, negatives, subnormals, Inf and NaN
-are the caller's responsibility; the slot index is masked so nothing reads
-out of bounds, but the value in such a lane is unspecified.
-
-Negative x mirrors through the compensated core (not 2 − erfc(|x|), which
-would reround) up to |x| = 6; beyond, 2 − tail rounds to exactly 2, which
-is the correctly rounded result everywhere it applies.
+Domain: positive normal doubles. Zero, negatives, Inf and NaN are the
+caller's responsibility; the slot index is masked so nothing reads out of
+bounds, but the value in such a lane is unspecified. Subnormal arguments go
+through `LogDdAny`, which lifts them into the normal range by an exact
+power of two and removes the scaling again in dd — lgamma reaches that path
+from both directions, x → 0⁺ on the positive axis and |x − round(x)| for a
+negative subnormal argument.
