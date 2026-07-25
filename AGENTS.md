@@ -220,6 +220,8 @@ python3 -m venv /tmp/mpv && /tmp/mpv/bin/pip install mpmath
 /tmp/mpv/bin/python tools/gen_exp_dd_reference.py > tests/data/exp_dd_reference.txt
 /tmp/mpv/bin/python tools/gen_log_table.py        > src/log_dd_data.inc
 /tmp/mpv/bin/python tools/gen_log_dd_reference.py > tests/data/log_dd_reference.txt
+/tmp/mpv/bin/python tools/gen_lgamma_data.py      > src/lgamma_data.h
+/tmp/mpv/bin/python tools/gen_lgamma_reference.py > tests/data/lgamma_reference.txt
 ```
 Reference files and generated tables are checked in; regenerate only when
 the method or point selection changes, and re-run the ULP tests after.
@@ -324,6 +326,13 @@ work.
   fma(a,b,-fl(a*b))) must be capability-guarded in the facade -- Highway
   emulates MulAdd/MulSub as mul-then-add on non-FMA targets (SSE2/SSSE3/
   SSE4), which silently zeroes exact residuals. See ops::SquareLow.
+- The non-FMA fallback in ops::SquareLow/ProdLow is Dekker's split, and its
+  intermediate a*(2^27+1) OVERFLOWS for |a| > 2^996 (~6.7e299). A kernel
+  whose operands can reach that range must scale by a power of two first
+  and scale back after -- exact, and linear in the operand, so it stays one
+  code path for every target rather than a non-FMA special case. lgamma's
+  Stirling product is the first kernel to need it; it read as correct on
+  every FMA target and only the capped SSE sweep exposed it.
 
 ## Documentation Map
 - `README.md` — user-facing overview, build, design bullets.

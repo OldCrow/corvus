@@ -1,9 +1,15 @@
 # corvus — Plan / Session State
 
 ## Status [DERIVED] — end of session 2026-07-25 (Ryzen)
-**Phase A is complete.** Scaffolded 2026-07-20 on the Kaby Lake Mac (AVX2);
-public at github.com/OldCrow/corvus. Two public functions plus both
-internal transcendental cores, all production-quality:
+**Phases A and B are complete.** Scaffolded 2026-07-20 on the Kaby Lake Mac
+(AVX2); public at github.com/OldCrow/corvus. Three public functions plus
+both internal transcendental cores, all production-quality:
+
+- **lgamma**: full real axis, five regions, everything in dd with a single
+  final rounding. Max 1 ULP across the positive axis including the exact
+  zeros, correctly rounded throughout Stirling, 1 ULP / 2^-53 absolute on
+  the negative axis. Identical on all five x86 tiers and under GCC and
+  MSVC. See the Phase B section.
 
 - **erf**: clean-room table + local-Taylor kernel (ported from libstats
   vector_erf_neon through the ops facade). Max 1 ULP over the full domain.
@@ -20,9 +26,9 @@ exactness identities assume IEEE ops as written, and GCC's default was
 silently shifting log_dd by 0.6 bits relative to MSVC. See the decision
 section below.
 
-**Next session starts at Phase B (lgamma)** — see Next Steps. Both cores it
-needs exist and are validated; the design is already resolved in the
-"dd transcendental core + lgamma" section.
+**Next session starts at Phase C** — see Next Steps. The candidates are
+erfinv/erfcinv and the regularized incomplete gamma/beta pair; no design
+work has been done on either, so that is the first task.
 
 **Validated tiers, all four kernels**: AVX3_ZEN4/AVX3_DL/AVX3, AVX2, SSE4,
 SSSE3, SSE2 (Ryzen native + CORVUS_DISABLED_TARGETS capping, GCC 16.1;
@@ -293,6 +299,79 @@ Phase B — lgamma (public corvus::lgamma, span API):
 - Left to generator/bench experiments: table sizes N, X0 and degrees,
   exact zone boundaries.
 
+## Phase B — lgamma shipped [DERIVED, 2026-07-25 Ryzen]
+`src/lgamma-inl.h` + `src/lgamma.cpp` + generated `src/lgamma_data.h`,
+`tools/gen_lgamma_data.py`, `tools/gen_lgamma_reference.py`,
+`tests/test_lgamma{,_ulp}.cpp`, `tests/bench_lgamma.cpp`. Bounds and method
+are in docs/ACCURACY.md; what follows is only what would be expensive to
+re-derive.
+
+**The design section below was architecturally complete and was followed.**
+Regions, the exact-t form at the zeros, the fixed-step masked recurrence,
+Stirling with a swept X0, and the sinpi reflection all landed as written.
+Four things it did not settle, resolved here:
+
+1. **The recurrence direction is forced, and it is DOWN.** x − k is exactly
+   representable for every integer k < x < 2^52 (x is a multiple of
+   ulp(x) ≤ 1, and |x − k| < |x| needs no finer grid); x + k is a multiple
+   of the same grid but larger, so it can need a bit the format does not
+   have — x + 8 for x ∈ (2.5, 8) loses up to two. Walking up would put
+   ~77 ULP into lgamma(2.5) unless every shifted argument were carried as a
+   dd pair. Walking down also lands every lane in (1.5, 2.5], so one
+   polynomial serves the whole region. This is why the design's
+   "P ≤ ~Γ(X0)" bound is exactly right: 7·6·5·4·3·2 = Γ(8).
+2. **The reflection uses Γ(1−x) = −x·Γ(−x), not Γ(x)Γ(1−x) directly.**
+   1 − x is inexact and would have forced a dd argument through every
+   region; −x is exact. Cost is one extra log. The payoff beyond exactness
+   is structural: the positive pipeline then runs ONCE, on |x|, for lanes
+   of either sign, and the reflection is a post-correction — no second
+   evaluation, no lane divergence.
+3. **π/|sin πx| is never formed.** It overflows at every pole. Writing
+   sin(πu) = πu·(sin(πu)/(πu)) cancels π analytically and leaves
+   −log|u| — the term that *should* diverge — plus a bounded correction
+   fitted in u².
+4. **lgamma(1) needs an explicit +0.0.** t·B(t) at t = 0 carries the sign
+   of B, which is −γ at x = 1, so the natural result is −0 where C99 wants
+   +0. Adding +0.0 is the identity on every finite nonzero value and costs
+   one op; doing it that way rather than a select also removes any
+   dependence on how a given target's Fast2Sum signs a zero.
+
+**The bug worth remembering: `ops::ProdLow`'s non-FMA Dekker split
+overflows for |a| > 2^996.** Its intermediate is a·(2^27+1). lgamma's
+Stirling product x·(log x − 1) is the first corvus operand ever to reach
+that range, so for x > ~6.7e299 the residual came back infinite on SSE2
+through SSE4 while every FMA target was correct — 500 of 4242 points wrong,
+max ULP ~8.6e16. Fixed by scaling x down 2^200 for the product and back up
+after: exact, linear, one code path for all targets. **Only the capped
+sweep could find this** — native AVX-512, AVX2, GCC and MSVC were all
+green. Same family as the MulSub zero-residual hazard: a primitive that is
+correct, used outside its stated precondition. The precondition is now in
+AGENTS.md Conventions rather than only in the facade comment.
+
+Two smaller notes:
+- The Stirling assembly is grouped x·(log x − 1) − log(x)/2 + …, not the
+  textbook (x − ½)·log x − x. Algebraically identical, but the textbook
+  product exceeds the result by x, which overflows to inf — and its dd
+  residual to NaN — over a ~0.1%-wide band of x below the true overflow
+  threshold. Grouped this way the excess is ~log(x)/2 ≈ 351 against an ulp
+  of 2e292, so product and result overflow at the same double.
+- `mpmath` mis-sums a generator passed to `fsum`, and an ODD Chebyshev node
+  count puts a node at t = 0 where `1 + t` rounds to 1 and B(t) collapses to
+  0/0. Either one alone makes the coefficients plateau at ~0.007 instead of
+  decaying, which reads as "this function is not smooth" rather than as a
+  tooling bug. Both are commented in the generator.
+
+Parameters chosen by the generator sweep, as the design intended: X0 = 8
+(ψ degree 8; X0 = 13 would cut it to 6 but adds five recurrence steps),
+zone split at 3/2, outer boundary at 1/2, degrees 34 and 21 with three dd
+leading coefficients each.
+
+Cost, Ryzen/GCC/AVX3_ZEN4, n=1e6, session-loaded so indicative: zone 2.60x,
+recurrence 3.23x, Stirling 2.97x, mixed positive 1.89x, reflection 3.02x vs
+libm. The zone is the slowest region — a degree-34 Horner with a per-lane
+coefficient select is most of it. Re-measure on a quiet machine before
+publishing.
+
 ## GitHub Repo Settings [DERIVED, applied 2026-07-21 via gh api]
 - Merge: all three styles allowed (matches libstats); auto-delete head
   branches on merge (matches libstats).
@@ -557,9 +636,23 @@ stays tracked under "Open Items" above, not duplicated here.
    x86 tiers and documented. **Phase A is complete**: corvus owns both
    transcendental cores it needs, and no accuracy-critical kernel depends
    on Highway contrib any more.
-6. **Start here**: Phase B — lgamma per the design section (generator
-   X0, degrees, zone boundaries; new gen_lgamma_reference.py with
-   zero-neighborhood, pole-neighborhood, and boundary-crossing points).
+6. [RESOLVED 2026-07-25] Phase B — lgamma, full real axis, validated on all
+   five x86 tiers under GCC and MSVC. See the Phase B section.
+7. **Start here**: Phase C. No design work exists for it yet, so that is
+   the first task, and it is a frontier-model job per the routing hints.
+   Two candidates, and the choice is not obvious:
+   - **erfinv/erfcinv.** Smaller, and it closes a loop: the erfc tail's
+     residual 2 ULP is currently a documented leaf, and Newton refinement
+     in erfcinv is the first thing that would compound it (see the open
+     item). Picking this makes the tail re-fit a real question rather than
+     a deferred one.
+   - **Regularized incomplete gamma/beta.** Larger, needs both dd cores for
+     the prefactor exp(a·log x − x − lgamma(a)) — which is the reason
+     Phase A came first — and is the higher-value target for the
+     statistical CDFs this library exists to serve. Also the first function
+     family with a genuine two-argument domain, so the reference-set and
+     region-mask patterns established so far will need extending rather
+     than copying.
 7. [RESOLVED 2026-07-25] NEON — CI run 30163646136 (all three jobs green)
    reproduced every number point-for-point: exp_dd 2^-68.45 at the same
    worst-case input, log_dd 2^-67.88, erfc tail at the new 2-ULP gate,
