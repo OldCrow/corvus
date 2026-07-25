@@ -27,6 +27,16 @@ hardware (lesson: an SSE2 subnormal bug in a prior project was invisible
 under Rosetta emulation). Tier capping (`CORVUS_DISABLED_TARGETS`) counts
 as native for any tier at or below the host CPU's best.
 
+**Floating-point contraction is disabled** (`-ffp-contract=off`; MSVC's
+default already does not contract). The double-double layer's exactness
+identities assume each IEEE operation is rounded as written, and every
+fusion the kernels actually want is an explicit `ops::MulAdd`. This is a
+reproducibility requirement, not a tuning choice: GCC's default was
+measured on 2026-07-25 to shift `log_dd` by 0.6 bits relative to MSVC on
+identical source at the same tier. erf and erfc are bit-for-bit unaffected
+by the setting. Consumers do not inherit the flag — it is PRIVATE to
+corvus's own translation units.
+
 **Benchmarks** are not accuracy claims and live outside this document;
 per-tier numbers in PLAN.md are labeled indicative unless taken on a quiet
 machine.
@@ -191,17 +201,11 @@ double would hide most of what the kernel exists to provide.
 
 ## log_dd (internal)
 
-**Bound: max 2^−67.8 relative** on the 7273-point dd reference set —
-2^−68.48 on the FMA tiers, 2^−67.88 on SSE4/SSSE3/SSE2, the gate being the
-worse of the two. **Correctly rounded at every point of the reference set**
-on every tier (0 not-CR), including the 652 points with 0.5 < x < 2 where
-log is small and relative accuracy is hardest.
-
-Unlike `exp_dd`, this kernel is *not* bit-identical across the FMA
-boundary: the log1p series is a 9-step Horner, and an emulated MulAdd
-rounds twice where a fused one rounds once, which costs ~0.6 bits. That is
-an accuracy difference, not a correctness one — no exact residual depends
-on fusion here (those all go through `ops::ProdLow`).
+**Bound: max 2^−67.88 relative** on the 7273-point dd reference set,
+identical on every validated tier and under both compilers. **Correctly
+rounded at every point of the reference set** (0 not-CR), including the
+652 points with 0.5 < x < 2 where log is small and relative accuracy is
+hardest.
 
 Method: x = 2^k·m with the mantissa **centred on 1**, j from its top 7
 bits, r = R_j·m − 1, log(x) = k·ln2 + L_j + log1p(r) with ln2 and

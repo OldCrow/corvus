@@ -107,6 +107,32 @@ if(CORVUS_DEV_WARNINGS)
 endif()
 target_compile_options(corvus PRIVATE ${CORVUS_WARN_FLAGS})
 
+# --- Floating-point contraction --------------------------------------------
+# OFF, deliberately. The double-double layer (src/dd-inl.h) is a set of exact
+# identities — TwoSum, Fast2Sum, Dekker — whose proofs assume each IEEE
+# operation is performed and rounded AS WRITTEN. GCC defaults to
+# -ffp-contract=fast, which fuses a Mul into an adjacent Add across statement
+# boundaries; where that lands inside a TwoSum, s is no longer fl(a+b) and the
+# "exact" residual is the error of an operation that never happened.
+#
+# Measured 2026-07-25 (Ryzen, log_dd reference set): GCC's default gave
+# 2^-68.48 while MSVC and clang-cl gave 2^-67.88 for the same source at the
+# same tier — contraction was making the result 0.6 bits BETTER by luck, and
+# compiler-dependent either way. corvus documents cross-compiler
+# reproducibility (docs/ACCURACY.md); leaving this to the optimizer's
+# discretion contradicts it. erf and erfc are bit-for-bit unaffected because
+# every fusion they want is already an explicit ops::MulAdd — which is the
+# point: fusion should be requested in the source, not inferred.
+#
+# MSVC's default (/fp:precise) already does not contract, so it needs nothing.
+set(CORVUS_FP_FLAGS "")
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND MSVC)
+  list(APPEND CORVUS_FP_FLAGS /clang:-ffp-contract=off)  # clang-cl driver
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU|IntelLLVM")
+  list(APPEND CORVUS_FP_FLAGS -ffp-contract=off)
+endif()
+target_compile_options(corvus PRIVATE ${CORVUS_FP_FLAGS})
+
 if(CORVUS_SANITIZE)
   list(JOIN CORVUS_SANITIZE "," _corvus_san)
   target_compile_options(corvus PRIVATE -fsanitize=${_corvus_san})

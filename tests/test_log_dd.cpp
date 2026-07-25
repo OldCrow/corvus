@@ -78,12 +78,15 @@ namespace {
 
 // Gates set from measured values, no margin (see docs/ACCURACY.md and the
 // note in test_exp_dd.cpp on why the dd gate is a floor, floored to 0.1 bits).
-// The gate is the NO-FMA measurement (2^-67.88), which is ~0.6 bits worse
-// than the FMA tiers' 2^-68.48: the log1p series is a 9-step Horner, and
-// every emulated MulAdd on SSE4/SSSE3/SSE2 rounds twice where a fused one
-// rounds once. Unlike exp_dd, this kernel is therefore NOT bit-identical
-// across the FMA boundary; it is correctly rounded on every point of the
-// reference set on both sides of it.
+// 2^-67.88, identical on every tier and every compiler.
+//
+// It briefly read 2^-68.48 under GCC only: GCC's default -ffp-contract=fast
+// was fusing a Mul into an adjacent Add inside the log1p path, which happened
+// to be more accurate and was invisible to MSVC and to the no-FMA tiers. The
+// build now sets -ffp-contract=off (see CORVUS_FP_FLAGS in the top-level
+// CMakeLists and the rationale there); this gate is the honest, portable
+// figure. If it ever passes by more than a rounding again, suspect the flag
+// stopped being applied before believing the kernel improved.
 constexpr double kMinRelExp = 67.8;
 constexpr uint64_t kMaxUlp = 1;
 

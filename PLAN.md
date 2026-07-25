@@ -174,10 +174,39 @@ correctly rounded on every one of the 7273 reference points, every tier.**
   TwoSum (not Fast2Sum: r passes through zero inside every slot). The gate
   caught it; reading the code did not. Same shape as the MulSub/no-FMA
   hazard: a primitive that is *correct* used in a way that is *unsound*.
-- Unlike exp_dd, log_dd is **not bit-identical across the FMA boundary** —
-  the 9-step log1p Horner rounds twice per emulated MulAdd, ~0.6 bits. That
-  is accuracy, not correctness; no exact residual here depends on fusion.
 - Facade grew `Or` and `ConvertToDouble` (int->double). ops:: is now ~30 ops.
+
+### FP contraction turned off project-wide [DECISION, 2026-07-25]
+Found while cross-checking log_dd under MSVC: **GCC 2^-68.48 vs MSVC
+2^-67.88 on identical source at the same tier.** Cause is GCC's default
+`-ffp-contract=fast` fusing a Mul into an adjacent Add in the log1p path.
+Confirmed by rebuilding GCC with `-ffp-contract=off` and landing exactly on
+MSVC's number. Contraction was making the result *better* — which is why
+nothing failed and why it would never have been noticed from one compiler.
+
+Now `CORVUS_FP_FLAGS` sets `-ffp-contract=off` (clang-cl:
+`/clang:-ffp-contract=off`; MSVC needs nothing, `/fp:precise` already
+doesn't contract), PRIVATE to corvus and to the kernel test targets — a
+test that compiles kernel code must measure the program that ships.
+
+Rationale, and why this is not merely tuning: the dd layer is a set of
+*exact* identities whose proofs assume each IEEE op is rounded as written.
+A contraction landing inside a TwoSum makes `s` something other than
+`fl(a+b)`, so the "exact" residual is the error of an operation that never
+happened. corvus already claims cross-compiler reproducibility in
+ACCURACY.md; leaving this to the optimizer contradicts that claim.
+**erf and erfc are bit-for-bit unaffected** — every fusion they want is
+already an explicit `ops::MulAdd`, which is the principle: fusion is
+requested in the source, never inferred.
+
+Throughput cost, same loaded machine, so indicative: erfc core 2.01 ->
+2.11 ns/el, tail 4.50 -> 4.86, erf 1.95 -> 2.16. Up to ~8%, which is at
+the edge of this machine's run-to-run spread — treat as "no larger than
+8%" and re-measure on a quiet machine before publishing either number.
+
+[OPEN] Worth a look at whether the sibling projects (libstats/libhmm) have
+the same latent exposure in their compensated-summation paths — same
+compilers, same class of algorithm, and the symptom is silence.
 
 ## Erfc [DERIVED, 2026-07-21]
 Two-region kernel: core |x| <= 6 reuses the erf table via compensated

@@ -16,7 +16,10 @@ function(corvus_kernel_test_target name)
     ${PROJECT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
   target_compile_definitions(${name} PRIVATE ${CORVUS_HWY_TARGET_DEFS})
   target_compile_features(${name} PRIVATE cxx_std_20)
-  target_compile_options(${name} PRIVATE ${CORVUS_WARN_FLAGS})
+  # CORVUS_FP_FLAGS matters here specifically: this target compiles kernel
+  # code, so it must get the same no-contraction guarantee as the library or
+  # it measures a different program than the one that ships.
+  target_compile_options(${name} PRIVATE ${CORVUS_WARN_FLAGS} ${CORVUS_FP_FLAGS})
 endfunction()
 
 add_executable(test_erf test_erf.cpp)
