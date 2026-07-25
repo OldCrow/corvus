@@ -218,6 +218,8 @@ python3 -m venv /tmp/mpv && /tmp/mpv/bin/pip install mpmath
 /tmp/mpv/bin/python tools/gen_erfc_reference.py   > tests/data/erfc_reference.txt
 /tmp/mpv/bin/python tools/gen_exp_table.py        > src/exp_dd_data.inc
 /tmp/mpv/bin/python tools/gen_exp_dd_reference.py > tests/data/exp_dd_reference.txt
+/tmp/mpv/bin/python tools/gen_log_table.py        > src/log_dd_data.inc
+/tmp/mpv/bin/python tools/gen_log_dd_reference.py > tests/data/log_dd_reference.txt
 ```
 Reference files and generated tables are checked in; regenerate only when
 the method or point selection changes, and re-run the ULP tests after.

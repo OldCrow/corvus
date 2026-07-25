@@ -78,6 +78,12 @@ template <int kBits, class V> HWY_INLINE V ShiftRight(V a) {
   return hn::ShiftRight<kBits>(a);
 }
 template <class V> HWY_INLINE V And(V a, V b) { return hn::And(a, b); }
+template <class V> HWY_INLINE V Or(V a, V b) { return hn::Or(a, b); }
+// Integer->double conversion (exact for the exponent-sized values corvus
+// converts). The float->int direction is ConvertToInt above.
+template <class D, class VI> HWY_INLINE V<D> ConvertToDouble(D d, VI a) {
+  return hn::ConvertTo(d, a);
+}
 // out[i] = base[index[i]]; index in units of lanes, not bytes.
 template <class D, class VI> HWY_INLINE V<D> GatherIndex(D d, const double* base, VI index) {
   return hn::GatherIndex(d, base, index);

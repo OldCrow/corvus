@@ -38,10 +38,12 @@ machine.
 | erf | ✅ 2026-07-20 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-24 |
 | erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-25 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | — | ✅ 2026-07-25 |
+| log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | — | ✅ 2026-07-25 |
 
-`exp_dd` is not public API; it is audited here because the erfc tail's bound
-now rests on it, and the incomplete gamma/beta prefactor will too. Its NEON
-column is open until the next CI run on the Apple Silicon runner.
+`exp_dd` and `log_dd` are not public API; they are audited here because the
+erfc tail's bound now rests on `exp_dd`, and lgamma's will rest on `log_dd`.
+Their NEON columns are open until the next CI run on the Apple Silicon
+runner.
 
 x86 validation: Kaby Lake i7-7820HQ, AppleClang (AVX2+FMA native; SSE
 tiers via capping, which on this CPU also exercises the no-FMA code
@@ -96,10 +98,10 @@ breaching any gate. Notably `exp_dd` shows *no* such divergence.
 Not-correctly-rounded counts, Ryzen/GCC 2026-07-25 (erfc regions are
 core / tail-normal / tail-subnormal; exp_dd is normal results):
 
-| Tier | erf | erfc | exp_dd |
-|---|---|---|---|
-| AVX3_ZEN4, AVX3_DL, AVX3, AVX2 | 217 | 46 / 4059 / 7 | 10 |
-| SSE4, SSSE3, SSE2 | 218 | 50 / 4060 / 7 | 10 |
+| Tier | erf | erfc | exp_dd | log_dd |
+|---|---|---|---|---|
+| AVX3_ZEN4, AVX3_DL, AVX3, AVX2 | 217 | 46 / 4059 / 7 | 10 | 0 |
+| SSE4, SSSE3, SSE2 | 218 | 50 / 4060 / 7 | 10 | 0 |
 
 ## erf
 
@@ -186,6 +188,47 @@ validated tiers report 2^−68.45 at x = −696.994.
 Accuracy is measured directly in double-double (the oracle carries the
 value as a dd pair) rather than after rounding, because rounding to a
 double would hide most of what the kernel exists to provide.
+
+## log_dd (internal)
+
+**Bound: max 2^−67.8 relative** on the 7273-point dd reference set —
+2^−68.48 on the FMA tiers, 2^−67.88 on SSE4/SSSE3/SSE2, the gate being the
+worse of the two. **Correctly rounded at every point of the reference set**
+on every tier (0 not-CR), including the 652 points with 0.5 < x < 2 where
+log is small and relative accuracy is hardest.
+
+Unlike `exp_dd`, this kernel is *not* bit-identical across the FMA
+boundary: the log1p series is a 9-step Horner, and an emulated MulAdd
+rounds twice where a fused one rounds once, which costs ~0.6 bits. That is
+an accuracy difference, not a correctness one — no exact residual depends
+on fusion here (those all go through `ops::ProdLow`).
+
+Method: x = 2^k·m with the mantissa **centred on 1**, j from its top 7
+bits, r = R_j·m − 1, log(x) = k·ln2 + L_j + log1p(r) with ln2 and
+L_j = −log(R_j) tabulated as double-doubles. Two properties carry the
+result:
+
+* **r is exact.** p = fl(R_j·m) lies in [1−2^−7, 1+2^−7], so p − 1 is exact
+  by Sterbenz and `ops::ProdLow` supplies the product residual. A plain
+  `fma(R_j, m, -1)` would carry ~2^−62 instead — above budget — and on a
+  non-FMA target 2^−53.
+* **No special case is needed near x = 1.** Centring the mantissa keeps
+  k = 0 there; without it, x just below 1 would be ln2 + log(m), two terms
+  near 0.693 cancelling to ~1e−16 and burning ~45 of the representation's
+  ~106 bits. The two slots adjacent to m = 1 further carry R_j = 1 and
+  L_j = 0 *exactly*, so on both sides of 1 the answer is log1p(m−1) alone
+  with m−1 exact and nothing to cancel against.
+
+One correctness note worth keeping, found by the gate rather than by
+reading: the exact pair (p−1, p_lo) is **not normalized** — p_lo reaches
+2^−53 while p−1 is ~2^−8 — so it must be renormalized (TwoSum, not
+Fast2Sum: r passes through zero inside every slot) before the series uses
+r.hi. Without that, the r³ term silently drops r²·r_lo ≈ 2^−69 and the
+kernel measures 2^−63.3 instead of 2^−68.5.
+
+Domain: positive normal doubles. Zero, negatives, subnormals, Inf and NaN
+are the caller's responsibility; the slot index is masked so nothing reads
+out of bounds, but the value in such a lane is unspecified.
 
 Negative x mirrors through the compensated core (not 2 − erfc(|x|), which
 would reround) up to |x| = 6; beyond, 2 − tail rounds to exactly 2, which

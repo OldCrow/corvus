@@ -49,3 +49,8 @@ add_executable(test_exp_dd test_exp_dd.cpp)
 corvus_kernel_test_target(test_exp_dd)
 add_test(NAME exp_dd
   COMMAND test_exp_dd ${CMAKE_CURRENT_SOURCE_DIR}/data/exp_dd_reference.txt)
+
+add_executable(test_log_dd test_log_dd.cpp)
+corvus_kernel_test_target(test_log_dd)
+add_test(NAME log_dd
+  COMMAND test_log_dd ${CMAKE_CURRENT_SOURCE_DIR}/data/log_dd_reference.txt)

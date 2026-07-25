@@ -150,6 +150,35 @@ ULP**, gate retightened, same reference set, no other bound moved.
   **dd pair**, and the test measures relative error below the last bit of a
   double. Rounding first would hide what the kernel is for.
 
+## Phase A part 2 — log_dd shipped [DERIVED, 2026-07-25 Ryzen]
+`src/log_dd-inl.h` + generated tables + `tests/test_log_dd.cpp`, same
+pipeline as exp_dd. No in-tree consumer until lgamma, so its own gate is the
+acceptance test. **2^-68.48 relative on FMA tiers, 2^-67.88 on no-FMA;
+correctly rounded on every one of the 7273 reference points, every tier.**
+
+- Two design choices carry it, both worth not re-deriving: the mantissa is
+  **centred on 1** (halving at the slot boundary 1+53/128, so the condition
+  is exactly `j >= 53` and no slot straddles it), and the **two slots
+  adjacent to m = 1 carry R_j = 1, L_j = 0 exactly**. Together they mean
+  there is no special case for x near 1 and no cancellation on either side
+  of it. Uncentred, x just below 1 would be ln2 + log(m) — ~45 bits of a
+  dd's 106 burned exactly where relative accuracy matters most.
+- `r = R_j*m - 1` is **exact**: p = fl(R_j*m) is in [1-2^-7, 1+2^-7] so
+  p - 1 is exact by Sterbenz, and ops::ProdLow gives the product residual.
+  A plain fma(R_j, m, -1) would carry 2^-62 (2^-53 without FMA).
+- **The bug this cost, worth remembering: an exact dd pair is not
+  necessarily a NORMALIZED one.** (p-1, p_lo) has |p_lo| up to 2^-53 against
+  a hi of ~2^-8. Every term computed from `r.hi` alone then drops its share
+  of `r.lo`; the r^3 term's share is r^2*r_lo ~ 2^-69, which showed up as
+  2^-63.3 relative — 5 bits below target, and only near x = 1. Fix is one
+  TwoSum (not Fast2Sum: r passes through zero inside every slot). The gate
+  caught it; reading the code did not. Same shape as the MulSub/no-FMA
+  hazard: a primitive that is *correct* used in a way that is *unsound*.
+- Unlike exp_dd, log_dd is **not bit-identical across the FMA boundary** —
+  the 9-step log1p Horner rounds twice per emulated MulAdd, ~0.6 bits. That
+  is accuracy, not correctness; no exact residual here depends on fusion.
+- Facade grew `Or` and `ConvertToDouble` (int->double). ops:: is now ~30 ops.
+
 ## Erfc [DERIVED, 2026-07-21]
 Two-region kernel: core |x| <= 6 reuses the erf table via compensated
 1 -/+ erf assembly; tail 6 < a <= 28 is e^{-a^2}*G(1/a)/a with per-interval
@@ -421,8 +450,11 @@ Phase B — lgamma (public corvus::lgamma, span API):
   impossible on hosted runners (Ryzen stays manual);
   required status checks dropped (blocks direct-push workflow); no caching
   until minutes justify it. First green NEON run should update
-  docs/ACCURACY.md's NEON column (gates may trip if hn::Exp accuracy
-  differs on NEON — that would be a finding, not a nuisance).
+  docs/ACCURACY.md's NEON column. (That column's original caveat — "gates
+  may trip if hn::Exp accuracy differs on NEON" — expired on 2026-07-25:
+  no corvus kernel calls hn::Exp any more. The live NEON question is now
+  exp_dd/log_dd, which CI picks up automatically since both are
+  ctest-registered.)
 - [OPEN] Decide whether libstats/libhmm adopt corvus as a dependency or
   keep their internal SIMD (migration is a separate project-level decision).
 - [ILLUSTRATIVE] Possible future consumer: C++ port of multi-agent_sim
@@ -458,16 +490,11 @@ stays tracked under "Open Items" above, not duplicated here.
 4. [RESOLVED 2026-07-25] Phase A part 1 — exp_dd, the dd primitive layer,
    the facade additions, and the erfc tail rewire; validated on all five
    x86 tiers on the Ryzen and documented. See the Phase A section above.
-5. **Start here**: Phase A part 2 — log_dd per the design section
-   (exponent extraction via ops::BitCast, which now exists;
-   {R_j, L_hi, L_lo} table; k·ln2_dd + L_j_dd + log1p-poly accumulated in
-   dd). Reuse the exp_dd pattern wholesale: tools/gen_log_table.py with
-   the same self-check-or-refuse discipline,
-   tools/gen_log_dd_reference.py emitting a dd oracle, and
-   tests/test_log_dd.cpp built with corvus_kernel_test_target. Unlike
-   exp_dd it has no in-tree consumer until lgamma, so its own dd gate is
-   the whole acceptance test.
-6. Phase B: lgamma per the design section (generator experiments pick
+5. [RESOLVED 2026-07-25] Phase A part 2 — log_dd, validated on all five
+   x86 tiers and documented. **Phase A is complete**: corvus owns both
+   transcendental cores it needs, and no accuracy-critical kernel depends
+   on Highway contrib any more.
+6. **Start here**: Phase B — lgamma per the design section (generator
    X0, degrees, zone boundaries; new gen_lgamma_reference.py with
    zero-neighborhood, pole-neighborhood, and boundary-crossing points).
 7. NEON: the next CI run on the Apple Silicon runner fills exp_dd's NEON

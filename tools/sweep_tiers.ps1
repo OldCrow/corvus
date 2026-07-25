@@ -55,7 +55,8 @@ $caps = [ordered]@{
 $gates = @(
   @{ exe = "test_erf_ulp";  data = "erf_reference.txt" },
   @{ exe = "test_erfc_ulp"; data = "erfc_reference.txt" },
-  @{ exe = "test_exp_dd";   data = "exp_dd_reference.txt" }
+  @{ exe = "test_exp_dd";   data = "exp_dd_reference.txt" },
+  @{ exe = "test_log_dd";   data = "log_dd_reference.txt" }
 )
 
 $selected = if ($Tier) { $Tier } else { $caps.Keys }
