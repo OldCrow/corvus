@@ -425,6 +425,69 @@ routed argument exact by Sterbenz:
   erfcinv(2) = −inf, z outside [0, 2] → NaN; NaN propagates.
 - Target: ≤ 2 ULP everywhere, 1 ULP goal in C and the far tail.
 
+### Phase C part 1 — erfinv/erfcinv design [resolved 2026-07-25]
+Probes (mpmath, scratchpad `probe_erfinv.py`): central needs degree
+~13–14 in y² for 2^-55; 2^-19 seeds need degree 6/8/4; direct
+full-accuracy tail fits would need degree 41+ single-interval (20–29
+split) AND are floored near 1 ULP anyway because t = √(−log s) arrives
+rounded — unlike lgamma's exact t. That kills direct fits for the tail:
+**seed + one dd Halley step everywhere in T.**
+
+- **C** (|x| ≤ 0.4769): x = y·Pc(y²), degree ~14, dd leading
+  coefficient(s) (count by generator replay). No log_dd on this path.
+  erfinv(±0) = ±0 free; subnormal y fine (y² underflows, Pc → c0).
+  erfcinv(1) = +0 falls out via C(1 − 1).
+- **T** (s ∈ (0, ½)): w = −log s via LogDdAny (subnormal s reachable
+  from erfcinv only), t = √(w.hi); seed x0 from three interval polys
+  (t on [t_lo, ~2] and [~2, 6.195]; far in u = 1/t — the erfc-tail
+  coefficient-select pattern), then one Halley step:
+  - **far** (routed by t ≥ kTfar ⇔ x ≥ ~6): log space.
+    F = (w ⊖ x0²)_dd − log(x0/G(1/x0)); x0² exact via ProdLow (x ≤ 28,
+    no 2^996 hazard); G from erfc_tail_data; the log term needs only
+    double-accuracy ABSOLUTE (2^-51 vs budget 2^-47.8 worst) — LogDd hi
+    suffices. F′ = −2x0/(√π·G) — the e^{−x²} cancels in erfc′/erfc, no
+    exp at all. F″ = −2x0·F′ − F′². After the dd residual, Halley runs
+    in plain double: δ ~ 2^-19·x needs only 2^-40 relative.
+    Residual space is IMPOSSIBLE here: for subnormal s the residual
+    erfc(x0) − s sits below the 2^-1074 absolute floor; log space is
+    immune and w is already paid for.
+  - **mid** (x < ~6): residual space. F = ErfcDd(x0) ⊖ s (s exact; dd
+    subtraction absorbs the ~2^-13-relative cancellation with ~2^-77 to
+    spare). Needs ErfcDd: expose the erfc kernel's compensated
+    1 − (e_hi + small) assembly pre-rounding — mechanical, erf_core
+    already returns the pair; erfc public results must stay
+    bit-identical (existing erfc gates are the regression guard).
+    F′ = −2e^{−x0²}/√π with ops::Exp — backend exp is NOT
+    accuracy-critical: its few-ULP error is attenuated by the 2^-19
+    step to ~2^-69. Same Halley factor via erfc″ = −2x·erfc′.
+  - x1 = fl(x0 + δ): one rounding; pre-rounding budget ≤ 2^-56,
+    verified empirically by the generator self-check (house rule:
+    trust the replay, not the derivation).
+- Mid/far routing by t against a constant cut (deterministic in s);
+  G extrapolated < 1e-5 interval-widths below x = 6 — generator
+  confirms it stays inside slack.
+- **erfinv never reaches the far tail**: max |erfinv| =
+  erfcinv(2^-53) ≈ 5.86 < 6. Only erfcinv exercises x ∈ [6, 27.214];
+  reference sets must cover the far tail through erfcinv.
+- Specials: erfinv(±1) = ±inf, |y| > 1 → NaN; erfcinv(0) = +inf,
+  erfcinv(2) = −inf, z ∉ [0, 2] → NaN; NaN propagates. Zero crossing
+  at z = 1 gets bit-neighbourhood ULP testing like lgamma's zeros —
+  the exact 1 − z argument is what makes relative accuracy hold there.
+- Targets: C ≤ 1 ULP; T ≤ 1 ULP with low not-CR (near-CR expected from
+  the 2^-56 budget). Gates set to measured values, no margin.
+- Bench baseline: libm HAS no erfinv/erfcinv — pick and label a scalar
+  baseline in implementation (scalar walk of our own kernel is
+  acceptable; say so in the bench header).
+- Left to the generator sweep: seed split points and degrees; Newton
+  (deg ~10 seed) vs Halley (deg ~5 seed) — whichever meets the 2^-56
+  replay check, cheaper per bench wins; Pc dd-lead count; kTfar.
+- Rejected: direct dd tail fits (degree cost + rounded-argument
+  floor); residual-space Newton in the far tail (underflow); any step
+  against the public double-rounded erf/erfc (central κ ≈ 1 passes
+  their error straight through, and double rounding floors the step).
+- Oracle: mpmath erfinv for C; root-find on log erfc (probe pattern)
+  for T — document in ACCURACY.md.
+
 ### Regularized incomplete gamma P/Q — broad parameters
 Elementwise span API gamma_p(a, x, out) / gamma_q(a, x, out) in v1
 (scalar-a broadcast overload later if profiling justifies). Always
