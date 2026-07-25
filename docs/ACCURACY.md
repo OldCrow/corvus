@@ -47,7 +47,7 @@ machine.
 |---|---|---|---|---|---|---|
 | erf | ✅ 2026-07-20 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-24 |
 | erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-25 |
-| lgamma | ✅ 2026-07-25 | ✅ | ✅ | ✅ | — | ✅ 2026-07-25 |
+| lgamma | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
@@ -120,7 +120,9 @@ breaching any gate. Notably `exp_dd` shows *no* such divergence.
 is identical on every validated tier, FMA and no-FMA alike**, with only two
 borderline points shifting in the not-CR counts. That is expected — every
 region accumulates in double-double and rounds once, so the no-FMA Dekker
-path has almost nothing left to perturb.
+path has almost nothing left to perturb. NEON (CI run 30170907111, Apple
+Silicon, AppleClang) reproduces the x86 FMA numbers exactly: same counts,
+same worst-case input in every region.
 
 Not-correctly-rounded counts, Ryzen/GCC 2026-07-25 (erfc regions are
 core / tail-normal / tail-subnormal; lgamma regions are
