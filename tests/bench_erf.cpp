@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "corvus/corvus.h"
+#include "expect_target.h"
 
 namespace {
 
@@ -38,7 +39,8 @@ double NsPerElement(F&& fn, size_t n, int reps) {
 }  // namespace
 
 int main() {
-  std::printf("corvus active SIMD target: %s\n", corvus::active_target());
+  // Numbers attributed to the wrong tier are worse than no numbers.
+  if (!corvus_test::ReportAndCheckTarget()) return 2;
   std::printf("%10s %14s %14s %10s\n", "n", "corvus ns/el", "libm ns/el", "speedup");
 
   std::mt19937_64 rng(20260720);

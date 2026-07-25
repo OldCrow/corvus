@@ -220,6 +220,26 @@ Phase B — lgamma (public corvus::lgamma, span API):
     shell segfaults in `libstdc++-6.dll` — Git for Windows' own mingw64
     runtime shadows the WinLibs one on PATH. Not a corvus bug; put the
     WinLibs `mingw64/bin` first, or run from PowerShell.
+- [RESOLVED 2026-07-24] CI asserted its own tiers. Three linked defects, all
+  the same shape as the MSVC blocklist — a cap that doesn't bite leaves a
+  green suite measuring the wrong thing:
+  - The sweep's first iteration used `CAP=""` (uncapped), so AVX2 coverage
+    depended on the runner's CPU. On an AVX-512-capable hosted runner that
+    iteration would have dispatched AVX3\* and **AVX2 would never have been
+    exercised at all** — the next cap jumps to SSE4. Latent, not yet hit:
+    logs from run 30052628221 show `AVX2`, so the draws so far have been
+    AVX2-class. Now every tier is capped explicitly by name.
+  - `BASE` omitted `HWY_AVX10_2`, so every capped iteration could be topped
+    by AVX10.2. Harmless only while `HWY_BROKEN_AVX10_2`'s compiler-version
+    gate holds — and unlike `HWY_BROKEN_MSVC`, that gate expires. Added.
+  - Nothing verified the reached tier. New `CORVUS_EXPECT_TARGET` env var
+    (`tests/expect_target.h`, used by all four tests and both benches) fails
+    with exit 2 *before* doing any work if dispatch missed the expectation;
+    unset = report-only, so local runs need no setup. Wired into both CI
+    jobs, including macOS/NEON — that job is the sole source of the NEON row
+    in ACCURACY.md, so a runner-image change moving dispatch to NEON_BF16
+    must fail loudly rather than silently relabel the audit record.
+    Verified: match passes, mismatch fails 4/4, unset reports only.
 - [RESOLVED 2026-07-24] Highway's MSVC AVX-512 blocklist — investigated,
   and `CORVUS_MSVC_UNBLOCK_AVX512` added (default OFF) [DERIVED].
   - Mechanism: `HWY_BROKEN_MSVC` in `hwy/detect_targets.h` expands to

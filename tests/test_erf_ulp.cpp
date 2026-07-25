@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "corvus/corvus.h"
+#include "expect_target.h"
 
 namespace {
 
@@ -27,6 +28,9 @@ uint64_t UlpDiff(double a, double b) {
 }  // namespace
 
 int main(int argc, char** argv) {
+  // Before doing any work: a wrong tier makes every number below meaningless.
+  if (!corvus_test::ReportAndCheckTarget()) return 2;
+
   const char* path = argc > 1 ? argv[1] : "tests/data/erf_reference.txt";
   std::ifstream f(path);
   if (!f) {
@@ -62,7 +66,6 @@ int main(int argc, char** argv) {
     }
   }
 
-  std::printf("corvus active SIMD target: %s\n", corvus::active_target());
   std::printf("points: %zu   max ULP: %llu   not-correctly-rounded: %zu (%.3f%%)\n",
               in.size(), static_cast<unsigned long long>(max_ulp), over_half,
               100.0 * static_cast<double>(over_half) / static_cast<double>(in.size()));

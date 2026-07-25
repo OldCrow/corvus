@@ -30,25 +30,43 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Every tier is capped explicitly and the reached target is ASSERTED via
+      # CORVUS_EXPECT_TARGET — hosted runner ISA is not guaranteed (some are
+      # AVX-512-capable), so an uncapped run would silently test whatever
+      # silicon it drew and skip the tier it claims. AVX10_2 belongs in BASE
+      # even though HWY_BROKEN_AVX10_2 currently blocks it: that block is
+      # version-gated on the toolchain and will expire, unlike this cap.
       - name: Tier sweep (AVX2, SSE4, SSSE3, SSE2)
         run: |
-          BASE="HWY_AVX3_SPR|HWY_AVX3_ZEN4|HWY_AVX3_DL|HWY_AVX3"
-          for CAP in "" "$BASE|HWY_AVX2" "$BASE|HWY_AVX2|HWY_SSE4" \
-                     "$BASE|HWY_AVX2|HWY_SSE4|HWY_SSSE3"; do
-            echo "::group::CORVUS_DISABLED_TARGETS=$CAP"
+          BASE="HWY_AVX10_2|HWY_AVX3_SPR|HWY_AVX3_ZEN4|HWY_AVX3_DL|HWY_AVX3"
+          for TIER in AVX2 SSE4 SSSE3 SSE2; do
+            case $TIER in
+              AVX2)  CAP="$BASE" ;;
+              SSE4)  CAP="$BASE|HWY_AVX2" ;;
+              SSSE3) CAP="$BASE|HWY_AVX2|HWY_SSE4" ;;
+              SSE2)  CAP="$BASE|HWY_AVX2|HWY_SSE4|HWY_SSSE3" ;;
+            esac
+            echo "::group::$TIER (CORVUS_DISABLED_TARGETS=$CAP)"
             cmake -B build -G Ninja -DCORVUS_WERROR=ON \
               -DCORVUS_DISABLED_TARGETS="$CAP"
             cmake --build build
-            ctest --test-dir build --output-on-failure
+            CORVUS_EXPECT_TARGET="$TIER" \
+              ctest --test-dir build --output-on-failure
             echo "::endgroup::"
           done
 
-      # ctest hides output on success; log the measured numbers (AVX2 —
-      # the last sweep iteration left SSE-capped binaries, so rebuild base).
+      # ctest hides output on success; log the measured numbers. Capped to AVX2
+      # rather than left uncapped (the last sweep iteration leaves SSE-capped
+      # binaries, so this must reconfigure anyway) — the report has to name the
+      # tier it measured, which means pinning it rather than inheriting the
+      # runner's.
       - name: ULP report
         run: |
-          cmake -B build -G Ninja -DCORVUS_WERROR=ON -DCORVUS_DISABLED_TARGETS=""
+          BASE="HWY_AVX10_2|HWY_AVX3_SPR|HWY_AVX3_ZEN4|HWY_AVX3_DL|HWY_AVX3"
+          cmake -B build -G Ninja -DCORVUS_WERROR=ON \
+            -DCORVUS_DISABLED_TARGETS="$BASE"
           cmake --build build
+          export CORVUS_EXPECT_TARGET=AVX2
           ./build/tests/test_erf_ulp tests/data/erf_reference.txt
           ./build/tests/test_erfc_ulp tests/data/erfc_reference.txt
 
@@ -128,16 +146,22 @@ jobs:
       - name: Install Highway
         run: brew install highway
 
+      # Native dispatch, but the tier is still asserted: this job is the sole
+      # source of the NEON row in docs/ACCURACY.md, so if a runner-image change
+      # ever moves dispatch (e.g. to NEON_BF16 on newer cores) that must fail
+      # loudly and be revalidated, not silently relabel the audit record.
       - name: Build and test
         run: |
           cmake -B build -G Ninja -DCORVUS_WERROR=ON \
             -DCMAKE_PREFIX_PATH="$(brew --prefix)"
           cmake --build build
-          ctest --test-dir build --output-on-failure
+          CORVUS_EXPECT_TARGET=NEON \
+            ctest --test-dir build --output-on-failure
 
       # ctest hides output on success; run the ULP gates directly so the
       # measured per-tier numbers land in the log for the audit record.
       - name: ULP report
         run: |
+          export CORVUS_EXPECT_TARGET=NEON
           ./build/tests/test_erf_ulp tests/data/erf_reference.txt
           ./build/tests/test_erfc_ulp tests/data/erfc_reference.txt

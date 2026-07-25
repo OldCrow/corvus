@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "corvus/corvus.h"
+#include "expect_target.h"
 
 namespace {
 
@@ -62,7 +63,8 @@ void Run(const char* label, double lo, double hi) {
 }  // namespace
 
 int main() {
-  std::printf("corvus active SIMD target: %s\n", corvus::active_target());
+  // Numbers attributed to the wrong tier are worse than no numbers.
+  if (!corvus_test::ReportAndCheckTarget()) return 2;
   Run("core-dominated", -6.0, 6.0);
   Run("mixed", -6.5, 28.0);
   Run("tail-only", 6.0, 28.0);

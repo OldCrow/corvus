@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "corvus/corvus.h"
+#include "expect_target.h"
 
 namespace {
 
@@ -19,7 +20,7 @@ void Check(bool ok, const char* what) {
 }  // namespace
 
 int main() {
-  std::printf("corvus active SIMD target: %s\n", corvus::active_target());
+  if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   // Table kernel is 1-ULP class; std::erf itself may be ~1 ULP off, so allow
   // a few ULP at |erf| <= 1. The strict gate is test_erf_ulp vs mpmath.

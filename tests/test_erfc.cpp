@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "corvus/corvus.h"
+#include "expect_target.h"
 
 namespace {
 
@@ -19,7 +20,7 @@ void Check(bool ok, const char* what) {
 }  // namespace
 
 int main() {
-  std::printf("corvus active SIMD target: %s\n", corvus::active_target());
+  if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   // Smoke tolerance vs std::erfc (itself only ~1-2 ULP): relative, loose.
   // The strict gate is test_erfc_ulp vs mpmath.

@@ -121,8 +121,17 @@ surface lean and justify every runner:
   diagnostics in kernel TUs are expected and harmless).
 - Minimum CMake 3.25 (PROJECT_IS_TOP_LEVEL, FetchContent SYSTEM keyword).
 - Tier capping for native per-tier validation:
-  `cmake -B build-avx2 -DCORVUS_DISABLED_TARGETS="HWY_AVX3|HWY_AVX3_DL|HWY_AVX3_ZEN4|HWY_AVX3_SPR"`
+  `cmake -B build-avx2 -DCORVUS_DISABLED_TARGETS="HWY_AVX10_2|HWY_AVX3_SPR|HWY_AVX3_ZEN4|HWY_AVX3_DL|HWY_AVX3"`
   (pipe-separated HWY_* macros; same idea as libstats' LIBSTATS_MAX_SIMD_TIER).
+  Cap the *whole* AVX-512 family including `HWY_AVX10_2` — leaving it out
+  works only for as long as `HWY_BROKEN_AVX10_2`'s compiler-version gate
+  holds, and that one expires.
+- **Assert the tier, never assume it.** `CORVUS_EXPECT_TARGET=<name>` in the
+  environment makes every test and bench fail (exit 2, before doing any work)
+  if runtime dispatch did not land on that target; unset means report-only.
+  Use it with every cap — a cap that fails to bite otherwise leaves a green
+  suite measuring a tier nobody asked for, which is exactly what
+  `HWY_BROKEN_MSVC` does silently. CI sets it on every sweep iteration.
 - Naming: Highway's "AVX3" (HWY_AVX3 and its _DL/_ZEN4/_SPR variants) means
   AVX-512 — Highway-internal terminology, not an Intel ISA name. Expect it
   in build output, ActiveTarget() strings, and CORVUS_DISABLED_TARGETS.
@@ -164,11 +173,17 @@ the method or point selection changes, and re-run the ULP tests after.
 
 Per-tier validation recipe (run on each machine; caps only remove tiers):
 ```sh
-BASE="HWY_AVX3_SPR|HWY_AVX3_ZEN4|HWY_AVX3_DL|HWY_AVX3"
-for CAP in "$BASE" "$BASE|HWY_AVX2" "$BASE|HWY_AVX2|HWY_SSE4" \
-           "$BASE|HWY_AVX2|HWY_SSE4|HWY_SSSE3"; do
+BASE="HWY_AVX10_2|HWY_AVX3_SPR|HWY_AVX3_ZEN4|HWY_AVX3_DL|HWY_AVX3"
+for TIER in AVX2 SSE4 SSSE3 SSE2; do
+  case $TIER in
+    AVX2)  CAP="$BASE" ;;
+    SSE4)  CAP="$BASE|HWY_AVX2" ;;
+    SSSE3) CAP="$BASE|HWY_AVX2|HWY_SSE4" ;;
+    SSE2)  CAP="$BASE|HWY_AVX2|HWY_SSE4|HWY_SSSE3" ;;
+  esac
   cmake -B build-cap -DCORVUS_DISABLED_TARGETS="$CAP" && \
-  cmake --build build-cap && ctest --test-dir build-cap --output-on-failure
+  cmake --build build-cap && \
+  CORVUS_EXPECT_TARGET="$TIER" ctest --test-dir build-cap --output-on-failure
 done
 ```
 

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "corvus/corvus.h"
+#include "expect_target.h"
 
 namespace {
 
@@ -43,6 +44,9 @@ struct Region {
 }  // namespace
 
 int main(int argc, char** argv) {
+  // Before doing any work: a wrong tier makes every number below meaningless.
+  if (!corvus_test::ReportAndCheckTarget()) return 2;
+
   const char* path = argc > 1 ? argv[1] : "tests/data/erfc_reference.txt";
   std::ifstream f(path);
   if (!f) {
@@ -85,7 +89,6 @@ int main(int argc, char** argv) {
     }
   }
 
-  std::printf("corvus active SIMD target: %s\n", corvus::active_target());
   int rc = 0;
   for (const Region& r : regions) {
     std::printf("%-15s n=%6zu  max ULP=%3llu (gate %llu)  not-CR: %zu (%.2f%%)  worst x=%.17g\n",
