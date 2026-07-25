@@ -372,6 +372,105 @@ libm. The zone is the slowest region — a degree-34 Horner with a per-lane
 coefficient select is most of it. Re-measure on a quiet machine before
 publishing.
 
+## Phase C — broad design and build order [DECISION, 2026-07-25]
+Order: **erfinv/erfcinv → regularized incomplete gamma P/Q → regularized
+incomplete beta.** Why:
+1. The inverse pair is the smallest candidate and unlocks the single
+   most-demanded statistical inverse — the normal quantile
+   (probit(p) = −√2·erfcinv(2p)) — immediately usable by libstats.
+2. It settles the erfc-tail open item with numbers instead of a fear.
+   The relative condition of x = erfcinv(s) in s is
+   κ = s/(x·|erfc′(x)|) ≈ 1/(2x²) — the inverse of erfc's tail
+   ill-conditioning — so a Newton step against erfc ATTENUATES the
+   tail's 2-ULP error by ≥ 72× (x ≥ 6). The compounding the open item
+   anticipated does not occur; expect the re-fit question to close as
+   "not needed" once measured. The central region is the opposite:
+   κ ≈ 1.0–1.2, a Newton against 1-ULP erf passes the error straight
+   through, so the centre goes direct-polynomial. Same analysis, both
+   directions, and it dictates the region structure below.
+3. It establishes the seed + dd-Newton inverse pattern that the P1
+   inverse incomplete gamma/beta will reuse, on its cheapest instance.
+4. Gamma before beta: beta's hardest machinery (uniform asymptotics,
+   Stirling-difference prefactor) is a superset of gamma's; build it
+   once with two arguments before three.
+
+### erfinv/erfcinv — broad parameters
+Both public functions are thin routers over two shared cores, every
+routed argument exact by Sterbenz:
+- erfinv: |y| ≤ 1/2 → C(y); 1/2 < |y| < 1 → sign(y)·T(1 − |y|)
+  (1 − |y| exact for |y| ∈ [1/2, 1]).
+- erfcinv: z ∈ [1/2, 3/2] → C(1 − z) (1 − z exact on [1/2, 3/2]);
+  z < 1/2 → T(z); z > 3/2 → −T(2 − z) (2 − z exact on [1, 2]).
+  The zero at z = 1 gets relative accuracy for free, by the same
+  mechanism as lgamma's zeros: an exact argument through an odd form.
+- Core C (central, |x| ≤ 0.4769): x = y·Pc(y²), dd leading
+  coefficient(s), relative target ~2^-55 — the lgamma-zone pattern.
+  Direct fit, no Newton (κ note above). Modest degree expected (~16 by
+  Bernstein estimate: nearest singularity y² = 1 vs interval [0, 1/4]).
+  erfinv(±0) = ±0 falls out of the odd form.
+- Core T (tail, s ∈ (0, 1/2) → x ∈ (0.4769, 27.217)): primary variable
+  w = −log s via log_dd (LogDdAny covers subnormal s), t = √w.
+  Far tail x ≥ ~6: seed fit in 1/t + one dd Newton/Halley step in log
+  space — F(x) = log erfc(x) + w with
+  log erfc(x) = −x² − log x + log G(1/x), reusing the erfc tail
+  structure; x² exact via ProdLow (x ≤ 28, no 2^996 hazard). Halley is
+  nearly free here (F″ = −2x·F′ − F′², no new transcendentals), which
+  relaxes the seed to ~2^-19 for one cubic step.
+  Mid region (0.4769, 6): either direct per-interval dd fits in t, or
+  the same step against an internal dd erfc (the erfc core's
+  compensated 1 ∓ erf assembly already carries dd internally — needs
+  an ErfcDd exposure, no public change). Decide by generator
+  experiment + bench; this is the main open design choice.
+- Specials: erfinv(±1) = ±inf, |y| > 1 → NaN; erfcinv(0) = +inf,
+  erfcinv(2) = −inf, z outside [0, 2] → NaN; NaN propagates.
+- Target: ≤ 2 ULP everywhere, 1 ULP goal in C and the far tail.
+
+### Regularized incomplete gamma P/Q — broad parameters
+Elementwise span API gamma_p(a, x, out) / gamma_q(a, x, out) in v1
+(scalar-a broadcast overload later if profiling justifies). Always
+compute the smaller of P/Q directly, complement the other.
+- Region map: power series for P (x ≲ a+1, a below a_T) at FIXED
+  length; continued fraction for Q (x above, a below a_T) at FIXED
+  depth — both lengths proven at the region boundaries by the
+  generator, not sampled; Temme uniform asymptotic for a ≥ a_T (~30):
+  P/Q = ½erfc(∓η√(a/2)) + e^{−aη²/2}·S(η, 1/a)/√(2πa), fixed-length —
+  the SIMD-friendly branch, and the payoff of Phases A/B: it consumes
+  corvus erfc, exp_dd, log_dd, and lgamma's Stirling pieces.
+- The ridge x ≈ a: η²/2 = φ(λ) = λ − 1 − log λ, λ = x/a, from
+  u = (x − a)/a — x − a is exact by Sterbenz exactly where it matters
+  (a/2 ≤ x ≤ 2a) — with a dd log1p. No naive a·log x − x cancellation
+  anywhere.
+- Prefactor x^a e^{−x}/Γ(a): for a ≥ 8,
+  a·log x − x − lgamma(a) = −a·φ(λ) + ½log(a/(2π)) − φst(a), reusing
+  kLgammaStirCoef verbatim; for a < 8 use lgamma's internal
+  pre-rounding dd (LgammaPosDd — needs internal exposure, no public
+  change). exp via ExpDdFrac with late scaling so subnormal tails stay
+  one rounding.
+- Oracle: mpmath regularized gammainc. The 2D reference strategy is
+  genuinely new: per-region grids, ridge stress lines, boundary
+  brackets, corners.
+- Target: set from a ridge survey during detail design; expectation
+  ≤ 4 ULP on the directly computed side, documented per region. Domain
+  caps (huge/tiny a) decided and documented in detail design.
+
+### Regularized incomplete beta — broad parameters (thin by intent)
+I_x(a,b): symmetry I_x(a,b) = 1 − I_{1−x}(b,a) with "compute the side
+≤ ½" routing (1 − x exact for x ∈ [1/2, 1]); CF at fixed depth as the
+core; power series for small b·x; Temme uniform regimes for large a,b;
+prefactor via Stirling-difference — the lgamma(a) + lgamma(b) −
+lgamma(a+b) cancellation removed analytically with the same φ/φst
+machinery, never by subtracting three rounded lgammas. Detail design
+deferred until gamma ships and its η/φ dd utilities exist to reuse.
+
+### Routing for Phase C [per AGENTS.md]
+- Detail design + error budgets per family: frontier model, high
+  effort.
+- Implementation of a settled design (generator → kernel → tests →
+  sweep): mid-tier model, default effort, with the AGENTS.md
+  escalation triggers restated in the brief.
+- Tier-sweep bookkeeping folds into the implementation run rather than
+  a separate low-effort spawn.
+
 ## GitHub Repo Settings [DERIVED, applied 2026-07-21 via gh api]
 - Merge: all three styles allowed (matches libstats); auto-delete head
   branches on merge (matches libstats).
@@ -427,7 +526,10 @@ publishing.
   production libms in this region. **Revisit when erfcinv is scheduled** —
   Newton refinement there would be bounded by exactly this, which is the
   first time the tail's accuracy compounds into another function rather
-  than sitting at a leaf.
+  than sitting at a leaf. (2026-07-25: now scheduled, and the Phase C
+  condition analysis says the bound goes the other way — erfcinv
+  attenuates the tail error by 1/(2x²), so no compounding. Measure during
+  the erfinv/erfcinv work, then close this as "no re-fit needed.")
 - [OPEN] `HWY_DYNAMIC_DISPATCH` must be invoked from **inside** the
   namespace holding the per-target functions. With a single compiled
   target (the SSE2 cap) Highway collapses it to `N_SSE2::FUNC`, so a
@@ -638,22 +740,14 @@ stays tracked under "Open Items" above, not duplicated here.
    on Highway contrib any more.
 6. [RESOLVED 2026-07-25] Phase B — lgamma, full real axis, validated on all
    five x86 tiers under GCC and MSVC. See the Phase B section.
-7. **Start here**: Phase C. No design work exists for it yet, so that is
-   the first task, and it is a frontier-model job per the routing hints.
-   Two candidates, and the choice is not obvious:
-   - **erfinv/erfcinv.** Smaller, and it closes a loop: the erfc tail's
-     residual 2 ULP is currently a documented leaf, and Newton refinement
-     in erfcinv is the first thing that would compound it (see the open
-     item). Picking this makes the tail re-fit a real question rather than
-     a deferred one.
-   - **Regularized incomplete gamma/beta.** Larger, needs both dd cores for
-     the prefactor exp(a·log x − x − lgamma(a)) — which is the reason
-     Phase A came first — and is the higher-value target for the
-     statistical CDFs this library exists to serve. Also the first function
-     family with a genuine two-argument domain, so the reference-set and
-     region-mask patterns established so far will need extending rather
-     than copying.
-7. [RESOLVED 2026-07-25] NEON — CI run 30163646136 (all three jobs green)
+7. **Start here**: Phase C detail design, erfinv/erfcinv first. Broad
+   design and build order are resolved and recorded in the Phase C
+   section above (2026-07-25): erfinv/erfcinv → incomplete gamma P/Q →
+   incomplete beta. Detail design is frontier-model work; the main open
+   choice is direct dd fits vs seed + dd-Newton for the tail core's mid
+   region. Implementation after that is mid-tier per the routing
+   section.
+8. [RESOLVED 2026-07-25] NEON — CI run 30163646136 (all three jobs green)
    reproduced every number point-for-point: exp_dd 2^-68.45 at the same
    worst-case input, log_dd 2^-67.88, erfc tail at the new 2-ULP gate,
    erf/erfc not-CR counts unchanged. ACCURACY.md's NEON row is filled.
