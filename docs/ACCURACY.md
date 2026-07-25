@@ -47,13 +47,17 @@ machine.
 |---|---|---|---|---|---|---|
 | erf | ✅ 2026-07-20 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-24 |
 | erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-25 |
-| exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | — | ✅ 2026-07-25 |
-| log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | — | ✅ 2026-07-25 |
+| exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
+| log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
 `exp_dd` and `log_dd` are not public API; they are audited here because the
 erfc tail's bound now rests on `exp_dd`, and lgamma's will rest on `log_dd`.
-Their NEON columns are open until the next CI run on the Apple Silicon
-runner.
+Their NEON row comes from CI run 30163646136 (Apple Silicon runner,
+AppleClang, brew Highway 1.4.0), which reproduced the x86 numbers
+point-for-point — including `exp_dd`'s worst-case input. Note AppleClang's
+default contraction setting (`on`) differs from both GCC's (`fast`) and
+MSVC's (none), so that agreement is also a check that `-ffp-contract=off`
+is reaching every compiler.
 
 x86 validation: Kaby Lake i7-7820HQ, AppleClang (AVX2+FMA native; SSE
 tiers via capping, which on this CPU also exercises the no-FMA code
@@ -96,6 +100,12 @@ covers NEON (Apple Silicon, AppleClang), AVX2 (Linux/GCC and Kaby
 Lake/AppleClang), and AVX3, AVX3_DL, AVX3_ZEN4 (Ryzen Zen 4, both GCC and
 clang-cl). On FMA-capable targets the kernels are, on this evidence,
 deterministic across ISA, compiler, and OS.
+
+`exp_dd` and `log_dd` go further: they are identical on **every** validated
+tier, FMA and no-FMA alike, and under GCC, MSVC and AppleClang — same
+bound, same worst-case input. That property is what
+`-ffp-contract=off` buys; before it, GCC alone reported `log_dd` 0.6 bits
+better than the other two.
 
 **The no-FMA SSE tiers diverge slightly, within gates:** SSE4, SSSE3, and
 SSE2 agree with each other but not with the FMA tiers. Max ULP is

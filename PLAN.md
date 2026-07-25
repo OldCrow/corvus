@@ -526,6 +526,10 @@ stays tracked under "Open Items" above, not duplicated here.
 6. **Start here**: Phase B — lgamma per the design section (generator
    X0, degrees, zone boundaries; new gen_lgamma_reference.py with
    zero-neighborhood, pole-neighborhood, and boundary-crossing points).
-7. NEON: the next CI run on the Apple Silicon runner fills exp_dd's NEON
-   column and re-confirms erfc's tail at the new 2-ULP gate. If NEON's
-   numbers differ from the x86 tiers that is a finding, not a nuisance.
+7. [RESOLVED 2026-07-25] NEON — CI run 30163646136 (all three jobs green)
+   reproduced every number point-for-point: exp_dd 2^-68.45 at the same
+   worst-case input, log_dd 2^-67.88, erfc tail at the new 2-ULP gate,
+   erf/erfc not-CR counts unchanged. ACCURACY.md's NEON row is filled.
+   Worth noting AppleClang's default contraction (`on`) differs from GCC's
+   (`fast`) and MSVC's (none), so this agreement doubles as a check that
+   CORVUS_FP_FLAGS reaches every compiler.
