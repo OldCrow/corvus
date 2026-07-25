@@ -215,11 +215,30 @@ Phase B — lgamma (public corvus::lgamma, span API):
     `HWY_BROKEN_TARGETS` under MSVC, so an MSVC build silently caps at
     AVX2 and looks like a pass. Use GCC or Clang on this box for any
     AVX-512 claim. (Verify with
-    `build/_deps/highway-build/hwy_list_targets`.)
+    `build/_deps/highway-build/hwy_list_targets`.) See the blocklist item
+    below for why that cap is overridable but stays on by default.
   - Gotcha that cost time: running mingw-built test exes from a Git Bash
     shell segfaults in `libstdc++-6.dll` — Git for Windows' own mingw64
     runtime shadows the WinLibs one on PATH. Not a corvus bug; put the
     WinLibs `mingw64/bin` first, or run from PowerShell.
+- [RESOLVED 2026-07-24] Windows/MSVC CI job added (`windows-msvc` in
+  ci.yml) — scoped as toolchain coverage, not tier coverage, since
+  `HWY_BROKEN_MSVC` pins MSVC dispatch to AVX2 regardless of runner silicon
+  (which is what makes its `CORVUS_EXPECT_TARGET=AVX2` assertion stable
+  without capping). Uses CMake's default Windows generator rather than a
+  pinned `-G`: that yields the VS multi-config generator, tracks runner
+  images without a version pin, and needs neither a vcvars shell nor a
+  third-party setup action. Rationale for the job at all: this session
+  produced three Windows-only defects nothing else could catch — the two
+  C4566 Unicode-docstring warnings in the sibling Python bindings, and the
+  multi-config configure error that Ninja-only CI was blind to.
+  - **It justified itself on the first local replay**: `/WX` promoted MSVC's
+    C4996 `std::getenv` deprecation in the then-new `tests/expect_target.h`
+    into a hard error, breaking all six test/bench targets. Fixed with a
+    locally scoped `#pragma warning(disable : 4996)` rather than
+    `_CRT_SECURE_NO_WARNINGS`, so the deprecation stays live elsewhere. A
+    GCC/Ninja `-Werror` build and the full VS-generator build+ctest+ULP
+    sequence were both re-run green afterwards.
 - [RESOLVED 2026-07-24] CI asserted its own tiers. Three linked defects, all
   the same shape as the MSVC blocklist — a cap that doesn't bite leaves a
   green suite measuring the wrong thing:
@@ -301,6 +320,12 @@ Phase B — lgamma (public corvus::lgamma, span API):
   kernel limit. The non-gather x86 variant therefore remains a real but
   lower-priority upside, and mainly for pre-AVX-512 hardware. Worth
   re-running on a genuinely quiet machine before any published number.
+- [OPEN] `CORVUS_SANITIZE` is not MSVC-aware: it emits `-fsanitize=<list>`
+  unconditionally, which cl.exe does not accept (MSVC wants
+  `/fsanitize=address`, and has no UBSan). Harmless today because sanitizer
+  builds only run on Linux, but the option silently produces a broken
+  command line if anyone tries it on Windows. Either branch on MSVC or
+  reject the combination with a clear `message(FATAL_ERROR)`.
 - [OPEN] bench_erf harness (tests/bench_erf.cpp, not ctest-registered) is
   the per-kernel benchmark pattern — reuse for erfc/lgamma.
 - [OPEN] Install/export when Highway is FetchContent-built: currently
@@ -316,8 +341,10 @@ Phase B — lgamma (public corvus::lgamma, span API):
 - [RESOLVED 2026-07-21] CI: .github/workflows/ci.yml, designed around
   runner-minute economy (user lesson from libstats' private phase): one
   Linux job sweeps AVX2..SSE2 sequentially + ASan/UBSan in-job; one macOS
-  arm64 job for native NEON. Windows/MSVC deferred until MSVC support
-  exists; AVX-512 impossible on hosted runners (Ryzen stays manual);
+  arm64 job for native NEON. Windows/MSVC was absent only because the
+  project had never run on Windows — a `windows-msvc` toolchain job was
+  added 2026-07-24 (see the resolved item above); AVX-512 remains
+  impossible on hosted runners (Ryzen stays manual);
   required status checks dropped (blocks direct-push workflow); no caching
   until minutes justify it. First green NEON run should update
   docs/ACCURACY.md's NEON column (gates may trip if hn::Exp accuracy

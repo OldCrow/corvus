@@ -95,10 +95,22 @@ surface lean and justify every runner:
   plus ASan+UBSan Debug build in the same job.
 - macOS arm64 (expensive class): single config — the only runner producing
   new information (native NEON silicon; counts as real-silicon validation).
+- Windows x86-64 / MSVC (added 2026-07-24, when the project first ran on
+  Windows at all): **toolchain coverage, explicitly not tier coverage.** It
+  is the only job that sees MSVC-only diagnostics (`/W4 /WX`) and the only
+  one using a multi-config generator — a `set_property(CACHE
+  CMAKE_BUILD_TYPE)` bug broke the VS generator while Ninja stayed green,
+  invisible to both other jobs. No `-G` is passed on purpose: CMake's
+  Windows default is the newest installed Visual Studio, so the job follows
+  runner images without pinning a version, needs no vcvars shell, and needs
+  no third-party setup action. `CORVUS_EXPECT_TARGET=AVX2` is stable there
+  without capping because `HWY_BROKEN_MSVC` pins the ceiling. Never add
+  `CORVUS_MSVC_UNBLOCK_AVX512=ON` to it — that manufactures a green
+  "Windows passing" that reads as AVX-512 validation on an untested code
+  path and unguaranteed runner silicon.
 - Docs-only changes skip CI; concurrency cancellation; per-job timeouts.
-- Deliberately absent: Windows/MSVC (never built there yet — add when MSVC
-  support lands via the Ryzen box); required status checks (incompatible
-  with direct-push-to-main workflow); caching (build is ~minutes; add only
+- Deliberately absent: required status checks (incompatible with
+  direct-push-to-main workflow); caching (build is ~minutes; add only
   if minutes grow). AVX-512 cannot run on hosted runners — Ryzen stays a
   manual validation stop.
 - Workflow security: GITHUB_TOKEN read-only (repo setting + workflow

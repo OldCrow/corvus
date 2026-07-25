@@ -5,6 +5,9 @@
 # - Sanitizers run inside the same Linux job (one extra Debug build).
 # - One macOS arm64 job: the expensive runner class, but the only one
 #   producing new data (native NEON silicon).
+# - One Windows job for TOOLCHAIN coverage, not tier coverage: MSVC is the
+#   only compiler in the fleet that can produce Windows-specific diagnostics,
+#   and the VS generator is the only multi-config generator we build under.
 # - Docs-only changes skip CI entirely.
 name: CI
 
@@ -135,6 +138,61 @@ jobs:
           export PKG_CONFIG_PATH="$GITHUB_WORKSPACE/_install/lib/pkgconfig:$GITHUB_WORKSPACE/_hwy/lib/pkgconfig"
           pkg-config --exists --print-errors corvus
           pkg-config --cflags --libs corvus
+
+  # -------------------------------------------------------------------------
+  # Windows / MSVC — toolchain coverage. This job deliberately produces NO new
+  # tier information: Highway blocklists every AVX3* target under real MSVC
+  # (HWY_BROKEN_MSVC), so dispatch tops out at AVX2 no matter how capable the
+  # runner's silicon is. That is what makes CORVUS_EXPECT_TARGET=AVX2 stable
+  # here without any capping — the blocklist pins the ceiling for us.
+  #
+  # What it *does* catch, and nothing else in this workflow can:
+  #   - MSVC-only diagnostics (/W4 /WX via CORVUS_WERROR). Real precedent: the
+  #     C4566 Unicode-docstring warnings found in the sibling Python bindings,
+  #     and the C4996 getenv deprecation this job caught on its first run.
+  #   - The multi-config generator path. A set_property(CACHE CMAKE_BUILD_TYPE)
+  #     bug made the VS generator fail at configure while Ninja was fine, so
+  #     both other jobs were blind to it. No -G is passed on purpose: CMake's
+  #     default on Windows is the newest installed Visual Studio, which is both
+  #     multi-config and version-agnostic as runner images move. It also needs
+  #     no vcvars shell and no third-party setup action.
+  #
+  # Do NOT add -DCORVUS_MSVC_UNBLOCK_AVX512=ON here. It would make this job
+  # dispatch AVX-512 and report a green "Windows passing" that reads as
+  # AVX-512 validation, on a code path upstream Highway declares untested and
+  # on runner silicon whose ISA level is not guaranteed. AVX-512 validation is
+  # a manual stop on the Ryzen box; see docs/ACCURACY.md.
+  # -------------------------------------------------------------------------
+  windows-msvc:
+    name: Windows x86-64 (MSVC toolchain)
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      # Multi-config: no CMAKE_BUILD_TYPE, hence --config/-C on build and test.
+      - name: Configure (default VS generator, multi-config)
+        run: cmake -B build -DCORVUS_WERROR=ON
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Test
+        run: |
+          CORVUS_EXPECT_TARGET=AVX2 \
+            ctest --test-dir build -C Release --output-on-failure
+
+      # Not new audit data (AVX2 duplicates the Linux row), but it keeps
+      # ACCURACY.md's "MSVC reproduces these values" claim auditable in the log
+      # rather than resting on one local measurement.
+      - name: ULP report
+        run: |
+          export CORVUS_EXPECT_TARGET=AVX2
+          ./build/tests/Release/test_erf_ulp.exe tests/data/erf_reference.txt
+          ./build/tests/Release/test_erfc_ulp.exe tests/data/erfc_reference.txt
 
   macos-arm64:
     name: macOS arm64 (NEON)
