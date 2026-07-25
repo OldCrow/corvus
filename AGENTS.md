@@ -29,6 +29,21 @@ At session start, verify which machine you are on (`uname -m`,
 accuracy, or benchmark results — the active tier and FMA availability
 change per machine.
 
+**On the Ryzen box, the compiler decides whether AVX-512 exists at all.**
+Highway puts every AVX3\* target in `HWY_BROKEN_TARGETS` under MSVC, so an
+MSVC build silently tops out at AVX2 while still looking like a clean pass
+— never make an AVX-512 claim from one. Use GCC (mingw-w64/UCRT) or Clang
+(clang-cl); both dispatch `AVX3_ZEN4` natively and agree point-for-point.
+Confirm the active set before trusting any tier result:
+`build/_deps/highway-build/hwy_list_targets`. Also note `AVX3_SPR`
+(Intel Sapphire Rapids) and `AVX10_2` are not available on Zen 4, so
+"AVX3\* native" means `AVX3`, `AVX3_DL`, and `AVX3_ZEN4` only.
+
+When running mingw-built test binaries, invoke them from PowerShell or put
+the WinLibs `mingw64/bin` first on `PATH` — a Git Bash shell puts Git for
+Windows' own `libstdc++-6.dll` ahead of it, and the ABI mismatch segfaults
+the test before it prints anything.
+
 ## Build/Test/Run Commands
 ```sh
 cmake --preset release -G Ninja      # Ninja preferred; presets set no generator

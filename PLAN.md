@@ -1,6 +1,6 @@
 # corvus — Plan / Session State
 
-## Status [DERIVED] — end of session 2026-07-21
+## Status [DERIVED] — end of session 2026-07-24 (Ryzen)
 Scaffolded 2026-07-20 on the Kaby Lake Mac (AVX2); public at
 github.com/OldCrow/corvus. Two functions shipped, both production-quality:
 
@@ -10,21 +10,23 @@ github.com/OldCrow/corvus. Two functions shipped, both production-quality:
   assembly; tail is a fitted e^{-a^2}*G(1/a)/a). Max 1 ULP for |x| <= 6
   and subnormal results; max 5 ULP normal-tail (bounded by backend Exp).
 
-**Validated tiers, both functions, all identical**: AVX2, SSE4, SSSE3,
-SSE2 (Kaby Lake native + CORVUS_DISABLED_TARGETS capping) and **NEON**
-(Apple Silicon GitHub Actions runner, native FMA — validated in CI
+**Validated tiers, both functions, all within the same ULP bounds**: AVX2,
+SSE4, SSSE3, SSE2 (Kaby Lake native + CORVUS_DISABLED_TARGETS capping) and
+**NEON** (Apple Silicon GitHub Actions runner, native FMA — validated in CI
 2026-07-21). NEON and AVX2 produce bit-identical ULP results point-for-
 point on both reference sets (see docs/ACCURACY.md) — first evidence the
 kernels are deterministic across ISA/compiler/OS on FMA-capable targets.
+Bit-exactness holds among the FMA tiers specifically; the no-FMA SSE tiers
+meet the same bounds but differ marginally in not-correctly-rounded counts
+(quantified on the Ryzen 2026-07-24 — see the open item below).
 
-**Only remaining accuracy gap: AVX-512 (the four AVX3* variants) on the
-Ryzen 7445** — structurally impossible to close via hosted CI runners;
-this is the one gap that needs the physical machine. Tomorrow's
-Ryzen session is expected to close it via the standard tier-sweep recipe
-(AGENTS.md Workflows) run natively rather than capped, plus a
-CORVUS_DISABLED_TARGETS sweep down through AVX2/SSE tiers on that box too
-(second independent-hardware data point for those, on top of Kaby Lake +
-Linux CI).
+**AVX-512 closed 2026-07-24 on the Ryzen 7445** — see the resolved open
+item below and docs/ACCURACY.md. `AVX3_ZEN4` (native), `AVX3_DL`, and
+`AVX3` all pass every gate with values identical to AVX2/NEON, reproduced
+under both GCC and clang-cl; the capped sweep down through AVX2/SSE4/
+SSSE3/SSE2 ran on that box as well. No accuracy tier gaps remain for erf
+and erfc on available hardware. (`AVX3_SPR` is Intel-only and `AVX10_2`
+absent on Zen 4 — neither is validatable on this fleet.)
 
 **Repo infrastructure is fully stood up**: CI (Linux tier-sweep+sanitizers,
 macOS arm64/NEON), branch protection, security scanning, topics, CMake
@@ -193,14 +195,31 @@ Phase B — lgamma (public corvus::lgamma, span API):
   exp_dd; exp_dd's next consumer after erfc is the incomplete gamma/beta
   prefactor.)
 - [RESOLVED 2026-07-21] NEON validated in CI (Apple Silicon runner) for
-  both erf and erfc, bit-identical to AVX2 results. **[OPEN, Ryzen-bound]**
-  Native AVX3*/AVX-512 validation is the only remaining tier gap for both
-  functions — do this first on the Ryzen tomorrow (AGENTS.md per-tier
-  recipe, run un-capped for AVX-512 itself, then capped down through
-  AVX2/SSE tiers as a second hardware data point). Update docs/ACCURACY.md
-  validation matrix and the cross-arch-reproducibility note with the
-  result either way (a divergence from the NEON/AVX2 match would itself
-  be a finding, not just a checkbox).
+  both erf and erfc, bit-identical to AVX2 results.
+- [RESOLVED 2026-07-24] Native AVX-512 validation on the Ryzen 7445HS
+  (Zen 4), Windows 11, Highway 1.4.0 — the last tier gap for erf/erfc is
+  closed. Full sweep per the AGENTS.md recipe; ACCURACY.md matrix and
+  cross-arch note updated. Results:
+  - FMA tiers `AVX3_ZEN4` (native dispatch), `AVX3_DL`, `AVX3`, `AVX2`:
+    erf max 1 ULP / 217 not-CR; erfc 1/5/1 ULP with 46/4917/12 not-CR.
+    **Bit-identical to the NEON and Kaby-Lake/Linux AVX2 numbers**, so the
+    cross-arch determinism claim now extends to AVX-512.
+  - No-FMA tiers `SSE4`, `SSSE3`, `SSE2`: erf 218 not-CR, erfc 50/4916/12.
+    Max ULP unchanged on every tier, so all gates hold. This is the
+    Dekker/`ops::SquareLow` no-FMA path rounding differently — the
+    previously unverified case, now measured rather than assumed.
+  - Reproduced under two compilers, GCC 16.1 (mingw-w64/UCRT) and Clang
+    22.1.8 (clang-cl, MSVC ABI), agreeing point-for-point.
+  - **Toolchain constraint worth remembering: a default MSVC build cannot
+    perform this validation.** Highway lists every AVX3\* target in
+    `HWY_BROKEN_TARGETS` under MSVC, so an MSVC build silently caps at
+    AVX2 and looks like a pass. Use GCC or Clang on this box for any
+    AVX-512 claim. (Verify with
+    `build/_deps/highway-build/hwy_list_targets`.)
+  - Gotcha that cost time: running mingw-built test exes from a Git Bash
+    shell segfaults in `libstdc++-6.dll` — Git for Windows' own mingw64
+    runtime shadows the WinLibs one on PATH. Not a corvus bug; put the
+    WinLibs `mingw64/bin` first, or run from PowerShell.
 - [RESOLVED 2026-07-24] `CMakeLists.txt` hard-errored under every
   multi-config generator: `set_property(CACHE CMAKE_BUILD_TYPE ...)` ran
   unconditionally, but the guard above it correctly skips creating that
@@ -218,12 +237,20 @@ Phase B — lgamma (public corvus::lgamma, span API):
   scaling: AVX2 4-lane == SSE2 2-lane ns/el. Suspects: native AVX2 gather
   throughput (emulated SSE gathers are cheap scalar loads) and emulated
   f64->i64 ConvertTo below AVX-512DQ. Ship as-is; a non-gather x86 variant
-  is a known ~2x AVX2 upside if ever needed. [OPEN, Ryzen-bound]
-  Re-benchmark bench_erf/bench_erfc on the Ryzen: AVX-512 has native
-  f64->i64 (AVX-512DQ) and different gather hardware, so this is the tier
-  most likely to break the "flat regardless of width" pattern — worth
-  running even though correctness validation is the primary reason to be
-  on that machine.
+  is a known ~2x AVX2 upside if ever needed.
+- [RESOLVED 2026-07-24] Ryzen re-benchmark — **the "flat regardless of
+  width" pattern does not hold on Zen 4; width scaling appears.** Ryzen
+  7445HS, GCC 16.1, Release, machine had been running builds — indicative,
+  not quiet-machine numbers [DERIVED]. erf ns/el at n=1e6: SSE2 (2-lane)
+  5.49 → AVX2 (4-lane) 2.66 → AVX3_ZEN4 (8-lane) 1.95, i.e. ~2.1x then a
+  further ~1.4x, vs libm 1.95–2.80 ns/el for 3.4–6.2x speedup. erfc at
+  n=1e6 on AVX3_ZEN4: 9.05x core-dominated, 5.12x mixed, 8.38x tail-only
+  — well above the Kaby Lake AVX2 figures recorded above. This supports
+  the stated suspects: the Kaby Lake flatness was that CPU's gather
+  throughput plus emulated f64->i64 below AVX-512DQ, not an inherent
+  kernel limit. The non-gather x86 variant therefore remains a real but
+  lower-priority upside, and mainly for pre-AVX-512 hardware. Worth
+  re-running on a genuinely quiet machine before any published number.
 - [OPEN] bench_erf harness (tests/bench_erf.cpp, not ctest-registered) is
   the per-kernel benchmark pattern — reuse for erfc/lgamma.
 - [OPEN] Install/export when Highway is FetchContent-built: currently
@@ -262,24 +289,25 @@ documents presets, the Highway find_package/FetchContent split, and the
 install-when-system-Highway gate). The fetched-Highway install gate itself
 stays tracked under "Open Items" above, not duplicated here.
 
-## Next Steps (tomorrow, expected on the Ryzen)
-1. **Start here**: native AVX-512 validation via the AGENTS.md per-tier
-   recipe, un-capped first (native AVX3* dispatch), then capped down
-   through AVX2/SSE4/SSSE3/SSE2 for a second independent-hardware
-   confirmation of the NEON/Kaby-Lake match. Update docs/ACCURACY.md
-   matrix and the reproducibility note. (Reminder: HWY_NATIVE_FMA follows
-   the compiled HWY_TARGET, not the physical CPU — Ryzen's capped SSE runs
-   exercise ops::SquareLow's Dekker fallback exactly like Kaby Lake's do,
-   not a new code path; the new information from Ryzen is AVX3* itself.)
-2. bench_erf / bench_erfc on the Ryzen (see gather-performance open item
-   above) — AVX-512 is the tier most likely to change the "flat regardless
-   of width" finding from Kaby Lake.
+## Next Steps
+1. [RESOLVED 2026-07-24] Native AVX-512 validation on the Ryzen, per-tier
+   recipe un-capped then capped down through AVX2/SSE4/SSSE3/SSE2; docs
+   updated. See the resolved open item for results. (The reminder that
+   held up: HWY_NATIVE_FMA follows the compiled HWY_TARGET, not the
+   physical CPU, so Ryzen's capped SSE runs exercised ops::SquareLow's
+   Dekker fallback exactly as Kaby Lake's do — the new information from
+   Ryzen was AVX3\* itself, plus the first measurement of how far the
+   no-FMA path diverges.)
+2. [RESOLVED 2026-07-24] bench_erf / bench_erfc on the Ryzen — width
+   scaling does appear on Zen 4; see the resolved re-benchmark item.
+   Still worth one re-run on a genuinely quiet machine before publishing.
 3. [RESOLVED 2026-07-21, M1 session] Sequencing decided with the user:
    dd transcendental core first (Phase A), then lgamma (Phase B), full
    real axis in v1 — design section above.
-4. Phase A: exp_dd + log_dd + ops::BitCast + generators; erfc tail
-   rewire and gate retightening as acceptance (ACCURACY.md in the same
-   change set). New-kernel AVX-512 validation joins the Ryzen queue.
+4. **Start here**: Phase A — exp_dd + log_dd + ops::BitCast + generators;
+   erfc tail rewire and gate retightening as acceptance (ACCURACY.md in
+   the same change set). New-kernel AVX-512 validation joins the Ryzen
+   queue. No accuracy or tier work is outstanding for erf/erfc.
 5. Phase B: lgamma per the design section (generator experiments pick
    X0, degrees, zone boundaries; new gen_lgamma_reference.py with
    zero-neighborhood, pole-neighborhood, and boundary-crossing points).

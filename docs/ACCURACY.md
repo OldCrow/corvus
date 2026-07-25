@@ -33,24 +33,46 @@ machine.
 
 | Function | AVX2 | SSE4 | SSSE3 | SSE2 | NEON | AVX-512 |
 |---|---|---|---|---|---|---|
-| erf | ✅ 2026-07-20 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | pending |
-| erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | pending |
+| erf | ✅ 2026-07-20 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-24 |
+| erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-24 |
 
 x86 validation: Kaby Lake i7-7820HQ, AppleClang (AVX2+FMA native; SSE
 tiers via capping, which on this CPU also exercises the no-FMA code
 paths); the same tier sweep also runs in CI on Linux/GCC. NEON validation:
 Apple Silicon GitHub runner (native silicon, native FMA), Highway 1.4.0,
 CI run 2026-07-21 — all ULP gates passed; per-run measured values appear
-in the CI "ULP report" step from that date forward. AVX-512 requires the
-Ryzen 7445 (hosted runners don't provide it).
+in the CI "ULP report" step from that date forward.
 
-**Cross-architecture reproducibility (observed 2026-07-21):** NEON
-(Apple Silicon, AppleClang) and AVX2 (Linux, GCC) produce bit-identical
-results on every point of both reference sets — identical
+AVX-512 validation (2026-07-24): Ryzen 7 7445HS (Zen 4), Windows 11,
+Highway 1.4.0, full tier sweep per the AGENTS.md recipe. "AVX-512" here
+means the three AVX3\* variants this CPU supports — `AVX3_ZEN4` (native
+dispatch), `AVX3_DL`, and `AVX3` (both via capping); all three pass every
+gate with values identical to AVX2. `AVX3_SPR` compiles but is Intel
+Sapphire Rapids only and remains unvalidated; `AVX10_2` is unavailable on
+this CPU. Reproduced independently under two compilers — GCC 16.1
+(mingw-w64/UCRT) and Clang 22.1.8 (clang-cl, MSVC ABI) — which agree
+point-for-point. **MSVC cannot be used for this validation**: Highway
+marks every AVX3\* target broken under MSVC (`HWY_BROKEN_TARGETS`), so an
+MSVC build silently tops out at AVX2. Hosted CI runners don't provide
+AVX-512, so this tier stays a manual stop on the Ryzen box.
+
+**Cross-architecture reproducibility (observed 2026-07-21, extended
+2026-07-24):** every FMA-capable target validated so far produces
+bit-identical results on every point of both reference sets — identical
 not-correctly-rounded counts (erf: 217; erfc: 46/4917/12 per region) and
-identical worst-case inputs. On FMA-capable targets the kernels are, on
-this evidence, deterministic across ISA, compiler, and OS. (Not yet
-verified for the no-FMA SSE tiers' Dekker path or for AVX-512.)
+identical worst-case inputs. That set now covers NEON (Apple Silicon,
+AppleClang), AVX2 (Linux/GCC and Kaby Lake/AppleClang), and AVX3, AVX3_DL,
+AVX3_ZEN4 (Ryzen Zen 4, both GCC and clang-cl). On FMA-capable targets the
+kernels are, on this evidence, deterministic across ISA, compiler, and OS.
+
+**The no-FMA SSE tiers diverge slightly, within gates (measured
+2026-07-24, Ryzen/GCC):** SSE4, SSSE3, and SSE2 agree with each other but
+not with the FMA tiers — erf 218 not-CR (vs 217), erfc 50/4916/12 (vs
+46/4917/12). Max ULP is unchanged on every tier (erf 1; erfc 1/5/1), so
+all documented bounds hold. This is the expected signature of the Dekker
+path running without FMA fusion (see `ops::SquareLow`): the residual
+arithmetic takes a different rounding route, shifting a handful of
+borderline points by one ULP without breaching any gate.
 
 ## erf
 
