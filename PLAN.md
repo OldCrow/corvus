@@ -89,6 +89,20 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   targets favor scalar libm for lgamma. erf/erfc expected unaffected
   (light kernels vs expensive scalar) — verify with bench_erf/erfc on
   the M1 before concluding anything is wrong there.
+  **M1/NEON cross-check run 2026-07-25 (loaded, indicative): confirms
+  lane economics, no NEON-specific defect.** erf 5.5–6.5x and erfc
+  core 3.6–3.7x vs Apple libm — healthy, and erf's table gathers cost
+  nothing measurable (2.35 ns/el including emulated gathers), ruling
+  out NEON's lack of hardware gather as a suspect. erfc tail-only
+  0.95–0.97x decomposes exactly: corvus per-element NEON/AVX3_ZEN4 =
+  10.96/4.86 = 2.25x, Apple-vs-mingw erfc baseline = 10.6/~23.3 =
+  2.2x, product ≈ the full 4.8x→0.96x ratio gap. Per-VECTOR the dd
+  tail is ~70 cycles on M1 vs ~180 on Zen 4 — NEON does the same dd
+  work in fewer cycles and loses only by doing 4x fewer elements per
+  vector. lgamma NEON 0.22–0.43x vs SSE2's 0.46–0.82x is the same
+  kernel cost divided by Apple's 2–3x faster vendor lgamma
+  (8.5–12 ns/el positive axis, 31–34 negative). No tuning action on
+  NEON; the option list above stands unchanged.
 - [ILLUSTRATIVE] Possible future consumers: C++ port of multi-agent_sim
   (batch distance/trig), zeekhmm training pipelines.
 
