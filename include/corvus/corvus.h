@@ -65,6 +65,21 @@ void erfc(std::span<const double> in, std::span<double> out);
 /// infinities; NaN propagates (payload preserved).
 void lgamma(std::span<const double> in, std::span<double> out);
 
+/// \brief out[i] = erfinv(in[i]), the inverse error function.
+///
+/// Accuracy on validated tiers: see docs/ACCURACY.md. Specials:
+/// erfinv(+/-0) = +/-0, erfinv(+/-1) = +/-inf, |in[i]| > 1 gives NaN, NaN
+/// propagates (payload preserved).
+void erfinv(std::span<const double> in, std::span<double> out);
+
+/// \brief out[i] = erfcinv(in[i]), the inverse complementary error function.
+///
+/// Useful directly as the normal quantile: probit(p) = -sqrt(2)*erfcinv(2p).
+/// Accuracy on validated tiers: see docs/ACCURACY.md. Specials:
+/// erfcinv(0) = +inf, erfcinv(2) = -inf, in[i] outside [0, 2] gives NaN, NaN
+/// propagates (payload preserved).
+void erfcinv(std::span<const double> in, std::span<double> out);
+
 }  // namespace corvus
 
 #endif  // CORVUS_CORVUS_H_

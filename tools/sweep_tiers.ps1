@@ -58,6 +58,7 @@ $gates = @(
   @{ exe = "test_erf_ulp";  data = "erf_reference.txt" },
   @{ exe = "test_erfc_ulp"; data = "erfc_reference.txt" },
   @{ exe = "test_lgamma_ulp"; data = "lgamma_reference.txt" },
+  @{ exe = "test_erfinv_ulp"; data = "erfinv_reference.txt", "erfcinv_reference.txt" },
   @{ exe = "test_exp_dd";   data = "exp_dd_reference.txt" },
   @{ exe = "test_log_dd";   data = "log_dd_reference.txt" }
 )
@@ -86,7 +87,12 @@ foreach ($t in $selected) {
   $env:CORVUS_EXPECT_TARGET = $t
   try {
     foreach ($g in $gates) {
-      & (Join-Path $bd "tests\$($g.exe).exe") (Join-Path $repo "tests\data\$($g.data)")
+      # @(...) around the WHOLE pipeline, not just the input: PowerShell
+      # unwraps a single-item pipeline result to a scalar STRING, and
+      # splatting a string with @ below would then iterate its CHARACTERS
+      # instead of passing it as one argument.
+      $dataArgs = @(@($g.data) | ForEach-Object { Join-Path $repo "tests\data\$_" })
+      & (Join-Path $bd "tests\$($g.exe).exe") @dataArgs
       if ($LASTEXITCODE -ne 0) { throw "$($g.exe) failed at tier $t (exit $LASTEXITCODE)" }
     }
   } finally {

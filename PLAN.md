@@ -18,16 +18,16 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   (Apple Silicon CI), Kaby Lake AVX2. The dd cores are bit-identical on
   every tier and compiler; erf/erfc differ on the no-FMA tiers in
   not-CR counts only.
-- **Phase C underway (2026-07-25)**: build order and designs are
-  recorded below. erfinv/erfcinv implementation is delegated to a
-  mid-tier agent per the AGENTS.md routing and in flight as of this
-  edit; incomplete-gamma detail design is the next frontier task.
+- **Phase C part 1 (erfinv/erfcinv) shipped 2026-07-25.** Max 1 ULP
+  everywhere on all five validated x86 tiers, including erfcinv's far
+  tail down to the smallest subnormal result. Full design, three bugs
+  found by the reference sweep, and measured numbers are in the Phase C
+  part 1 section under Shipped phases below. Incomplete-gamma detail
+  design is the next frontier task.
 
 ## Next Steps
-1. **In flight**: Phase C part 1 implementation (erfinv/erfcinv) — the
-   spec is the design section below. On landing: review the agent's
-   report and sweep, verify CI, fill the NEON row, and close the
-   erfc-tail open item with the measured attenuation.
+1. Push Phase C part 1, watch CI, fill the NEON row in ACCURACY.md from
+   the macOS job's printed numbers once green.
 2. Detail design for regularized incomplete gamma P/Q (frontier
    effort). The broad section below lists what it must settle: a_T and
    the series/CF boundaries with PROVEN fixed lengths, the ridge
@@ -38,10 +38,10 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
    everything so far is session-loaded and labeled indicative.
 
 ## Open Items
-- [OPEN, decomposed 2026-07-25] **The erfc tail's 2 ULP and 48% not-CR
-  are two different problems, and only one is cheap.** mpmath replay of
-  the tail formula over 3875 points in [6, 27.2], adding one error
-  source at a time (exp exact throughout — exp_dd contributes 2^-68):
+- [RESOLVED 2026-07-25] **The erfc tail's 2 ULP and 48% not-CR are two
+  different problems, and only one is cheap.** mpmath replay of the
+  tail formula over 3875 points in [6, 27.2], adding one error source
+  at a time (exp exact throughout — exp_dd contributes 2^-68):
 
   | model | max ULP | not-CR |
   |---|---|---|
@@ -53,10 +53,11 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   The not-CR rate is set by the fit's double coefficients alone (model
   A); the max ULP is set by the evaluation (a dd Horner would buy
   2 -> 1 at ~11 dd steps on an already-1.7x-slower path — poor trade).
-  Decision: leave at 2 ULP, documented. (2026-07-25: erfcinv is now
-  scheduled, and the Phase C condition analysis says erfcinv ATTENUATES
-  this error by 1/(2x²) — no compounding. Measure during Phase C part 1,
-  then close as "no re-fit needed.")
+  Decision: leave at 2 ULP, documented. **Closed by measurement**:
+  erfcinv's far-tail Halley step (Phase C part 1) reuses the same G fit
+  and lands at max 1 ULP end to end, confirming the condition-number
+  analysis — erfcinv attenuates the tail's error rather than compounding
+  it. No re-fit needed.
 - [OPEN] CORVUS_SANITIZE is not MSVC-aware: emits `-fsanitize=<list>`
   unconditionally, which cl.exe rejects. Harmless while sanitizer
   builds are Linux-only; branch on MSVC or reject with FATAL_ERROR.
@@ -69,9 +70,6 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   when packaging starts.
 - [OPEN] Decide whether libstats/libhmm adopt corvus as a dependency or
   keep their internal SIMD (separate project-level decision).
-- [OPEN] Check libstats/libhmm for the same latent FP-contraction
-  exposure in their compensated-summation paths — same compilers, same
-  class of algorithm, and the symptom is silence.
 - [OPEN] If a sibling project adopts corvus, verify clang-cl-built
   corvus links cleanly into an MSVC-built consumer before relying on
   it — same-ABI is the design intent but is untested.
@@ -361,6 +359,76 @@ boundary 1/2, degrees 34/21 with three dd leading coefficients each.
 Cost, indicative (loaded Ryzen): 1.9–3.2x vs libm; the degree-34 zone
 Horner is the slow region.
 
+### Phase C part 1 — erfinv/erfcinv [shipped 2026-07-25]
+Design (this file's git history, "Phase C part 1 — erfinv/erfcinv design")
+was followed as written: C/T routing by Sterbenz-exact arguments, central
+direct-polynomial fit, tail seed + one dd Halley step split at the same
+x = 6 threshold erfc's own core/tail split uses. **Halley over Newton**,
+per the design's own resolution (seed degrees 7/9/5 against a 2^-19 target,
+cheaper than a Newton-sized ~10-degree seed for the same 2^-56 end-to-end
+budget) — confirmed by `gen_erfinv_data.py`'s replay self-check, not
+re-swept independently. Measured: **max 1 ULP on every region, every
+validated x86 tier** (AVX3_ZEN4/AVX3_DL/AVX3, AVX2, SSE4, SSSE3, SSE2);
+not-CR counts and method detail in docs/ACCURACY.md.
+
+Three bugs, all found by the reference set's boundary-neighbourhood points
+rather than by reasoning about the code, and all the same shape as the
+lgamma/log_dd ones: **an identity that is exact in general does the wrong
+thing at one distinguished point, and only testing that exact point catches
+it.**
+1. **ErfcCoreDd's table clamp needed widening.** It clamped its argument to
+   exactly 6.0 -- safe for erfc.cpp (which only ever keeps results for
+   |x| <= 6, discarding anything computed above it), but erfinv's mid-region
+   seed can legitimately land a few 2^-17-ish PAST 6 when the true root sits
+   right at the mid/far seam (seed error ~2^-19 relative; 6*2^-19 is many
+   ulps at that magnitude). Clamping silently evaluated erfc at 6.0 instead
+   of the seed's actual x0, decoupling f from f' and producing a ~1e-6 error
+   (not 1 ULP) exactly at the boundary reference points built to probe it.
+   Fixed by widening to `kErfcCoreSafeMax = 6 + 1/1024` -- still 500x inside
+   the erf table's real safe-extrapolation limit (6 + 1/512, where the grid
+   index would go out of bounds) and providably a no-op for erfc's own
+   public results (every lane the wider clamp changes is one erfc.cpp always
+   discards via its own tail/core select).
+2. **Sign of zero, two places.** `ErfinvCentral`'s dd assembly adds a +0 and
+   a -0 partial sum together internally; IEEE 754 defines (-0)+(+0) as +0 in
+   round-to-nearest, so `erfinv(-0)` silently came back +0 without an
+   explicit trailing `CopySign`. Separately, erfcinv's C-branch argument had
+   been written `Neg(z - 1)` rather than `Sub(1, z)` -- identical for every
+   z except z = 1, where `x - x` is always +0 but negating that +0 gives -0,
+   so `erfcinv(1)` came back -0 instead of the design's stated +0.
+3. **The reference oracle's own initial guess blew up at s = 1.** Root-
+   finding `log(erfc(x)) - log(s)` for `erfcinv`'s reference points used an
+   initial guess built from `log(-log(s))`; at s = 1, `-log(1) = 0` and
+   `log(0) = -inf` fed into a `max(..., inf)`, sending the guess to infinity
+   and making mpmath's solver return near-zero garbage (~1e-227) rather than
+   exactly 0. Fixed by using `mpmath.erfinv(1 - s)` directly whenever
+   s >= 1/2 (safe there: 1 - s is never subnormal-relative to 1 in that
+   branch) and reserving the log-space solve for s < 1/2, where it is
+   needed for precision (forming 1 - s for a subnormal s would need ~1075
+   bits just to distinguish it from 1).
+
+A fourth defect was caught in review, not by any test, because it is
+invisible in results: **HalleyMid passed a possibly-NaN x0 into
+ErfcCoreDd's table gather.** Discarded lanes (erfinv(NaN), erfcinv(z < 0),
+±inf inputs) route s ≤ 0 into ErfcInvCore, where sqrt(−log s) goes NaN —
+and ErfcCoreDd's gather index is round(ac·256), NOT masked. It never
+misbehaved only by unrelated platform accidents (x86 minpd returns the
+non-NaN second operand; ARM fcvtzs(NaN) = 0), neither of which is a
+guarantee, and Highway's debug-mode gather bounds assert could trip.
+Fixed with the same one-op NaN scrub erfc.cpp itself uses; measured
+values unchanged on every tier (the scrub only affects discarded lanes).
+The general rule is now in AGENTS.md Conventions: masked-off lanes still
+EXECUTE gathers, so any value-derived gather index must be scrubbed.
+
+Bench, Ryzen/GCC/AVX3_ZEN4, scalar-walk-of-own-kernel baseline (libm has no
+erfinv/erfcinv), session-loaded so indicative: erfinv central 22x, erfinv
+mixed [-0.999,0.999] 7.3-7.7x, erfcinv central 53-54x, erfcinv T-mid 11-11.5x,
+erfcinv T-far (subnormal z) 12x. The "scalar" baseline calls the public API
+with length-1 spans per element, so it is not a clean scalar-vs-SIMD
+comparison — it includes per-call dispatch/span overhead the real kernel
+loop doesn't pay, which inflates every ratio above; treat these as upper
+bounds, not the kernel's true SIMD speedup.
+
 ### erf + erfc [shipped 2026-07-20/21]
 erf: table + local-Taylor kernel (clean-room port of libstats
 vector_erf_neon through the facade), max 1 ULP. erfc: core reuses the
@@ -394,6 +462,12 @@ verified still accurate afterwards.
 ## Resolved log
 One line per closed item; detail lives in this file's git history,
 AGENTS.md, and docs/ACCURACY.md.
+- 2026-07-25 Phase C part 1 (erfinv/erfcinv) shipped, max 1 ULP on all
+  five validated x86 tiers; erfc-tail open item closed by measurement
+  (attenuated, not compounded, as the condition analysis predicted).
+- 2026-07-25 Sibling FP-contraction audit delegated to its own trackers:
+  OldCrow/libstats#84 and OldCrow/libhmm#70 carry the full context and
+  own the question from here.
 - 2026-07-25 Phase B (lgamma) shipped; NEON row filled from CI run
   30170907111.
 - 2026-07-25 Phase A (exp_dd, log_dd, dd primitives, erfc tail rewire

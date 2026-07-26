@@ -48,6 +48,8 @@ machine.
 | erf | ✅ 2026-07-20 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-24 |
 | erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-25 |
 | lgamma | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
+| erfinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ⬜ | ✅ 2026-07-25 |
+| erfcinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ⬜ | ✅ 2026-07-25 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
@@ -126,12 +128,18 @@ same worst-case input in every region.
 
 Not-correctly-rounded counts, Ryzen/GCC 2026-07-25 (erfc regions are
 core / tail-normal / tail-subnormal; lgamma regions are
-small / zone / mid / big / negative; exp_dd is normal results):
+small / zone / mid / big / negative; erfinv regions are C / T; erfcinv
+regions are C / T-mid / T-far; exp_dd is normal results):
 
-| Tier | erf | erfc | lgamma | exp_dd | log_dd |
-|---|---|---|---|---|---|
-| AVX3_ZEN4, AVX3_DL, AVX3, AVX2 | 217 | 46 / 4059 / 7 | 1 / 30 / 3 / 0 / 7 | 10 | 0 |
-| SSE4, SSSE3, SSE2 | 218 | 50 / 4060 / 7 | 1 / 29 / 3 / 0 / 5 | 10 | 0 |
+| Tier | erf | erfc | lgamma | erfinv | erfcinv | exp_dd | log_dd |
+|---|---|---|---|---|---|---|---|
+| AVX3_ZEN4, AVX3_DL, AVX3, AVX2 | 217 | 46 / 4059 / 7 | 1 / 30 / 3 / 0 / 7 | 54 / 4 | 26 / 2 / 2 | 10 | 0 |
+| SSE4, SSSE3, SSE2 | 218 | 50 / 4060 / 7 | 1 / 29 / 3 / 0 / 5 | 181 / 3 | 26 / 1 / 2 | 10 | 0 |
+
+erfinv's central region shows a larger FMA/no-FMA not-CR spread (54 vs 181
+of 5525) than erf/erfc/lgamma's usual handful of borderline points, but the
+bound itself (max 1 ULP) holds on every tier; not investigated further
+since it is within the documented gate.
 
 ## erf
 
@@ -285,6 +293,114 @@ of two is exact and every step is linear in x, so this is one code path for
 all targets and the results stay identical across tiers. Nothing but a
 per-tier sweep would have surfaced it: the native AVX-512 build, the AVX2
 build, and both compilers were all green.
+
+## erfinv and erfcinv
+
+**Bound: max 1 ULP everywhere on all five validated x86 tiers**, including
+the far tail down to the smallest subnormal `erfcinv` result and the
+bit-neighbourhood of `erfcinv`'s zero crossing at z = 1. Not-CR counts are
+in the table above; see PLAN.md's Phase C section for the full design
+rationale (region structure, condition-number analysis, why the tail step
+is a Halley rather than a Newton step).
+
+Both functions route onto two shared cores, every routed argument exact by
+Sterbenz:
+
+```
+erfinv(y):  |y| <= 1/2       -> C(y)
+            1/2 < |y| < 1    -> sign(y)*T(1 - |y|)
+erfcinv(z): z in [1/2, 3/2]  -> C(1 - z)
+            z < 1/2          -> T(z)
+            z > 3/2          -> -T(2 - z)
+```
+
+`T(s)` solves erfc(x) = s for s in (0, 1/2) and returns the positive root
+(x in (~0.4769, ~27.217)); `erfinv` never reaches past x ≈ 5.86
+(`erfcinv(2^-53)`), so the far tail is exercised only through `erfcinv`.
+
+**Core C** (central, |x| ≤ ~0.4769): a single direct polynomial fit,
+x = y·Pc(y²), Pc a degree-16 Chebyshev fit on v = y² ∈ [0, 1/4] with 3 dd
+leading coefficients and a plain-double tail (same lead+tail split as
+lgamma's zone polynomials, same reason: the tail's rounding is attenuated
+by the v³ it is multiplied by). No Newton/Halley refinement here — the
+central condition number of erfinv in y is ≈1.0–1.2, so stepping against
+corvus's own erf/erfc would pass their ~1-ULP error straight through with
+nothing to gain, and stepping against the *public*, double-rounded
+erf/erfc would floor the correction at ~1 ULP before it even got that far.
+`erfinv(±0) = ±0` and `erfcinv(1) = +0` both fall out of the odd form and
+an exact 1 − z argument, mirroring how lgamma's zeros fall out of its
+exact-t form — with one hazard neither erf/erfc/lgamma hit: IEEE 754
+defines (−0) + (+0) as +0 in round-to-nearest, so the dd assembly's
+internal `Fast2Sum` silently turns `erfinv(-0)` into `+0` unless the sign
+is reasserted explicitly (`ErfinvCentral`'s trailing `CopySign`) — and
+separately, `erfcinv`'s C argument must be computed as the direct
+`Sub(1, z)`, not `Neg(Sub(z, 1))`: at z = 1 those are not bit-identical
+(`x - x` is always `+0`; negating a `+0` residual gives `-0`).
+
+**Core T** (tail, s ∈ (0, ½)): w = −log(s) via `LogDdAny` (s can be
+subnormal, reachable only through `erfcinv`), t = √(w.hi). A cheap seed
+x0 = t·Seed(t) (2^-19 relative; three intervals selected by t — [t_lo, 2],
+[2, t_far], and far in u = 1/t — coefficient-select + one Horner pass,
+exactly erfc tail's 3-interval pattern) is refined by **one dd Halley
+step**, chosen over Newton because it lets the seed be one polynomial
+degree cheaper (degrees 7/9/5 achieved here against a 2^-19 target) for the
+same 2^-56 end-to-end pre-rounding budget — confirmed, not assumed, by
+`gen_erfinv_data.py`'s self-check. The Halley split reuses the exact
+threshold erfc's own core/tail split already uses (t ≥ kErfinvTFar ⇔
+x ≥ 6):
+
+* **mid** (x < 6): residual space, f(x) = erfc(x) − s, using `ErfcCoreDd`
+  (src/erfc_core-inl.h) — the erfc kernel's own pre-rounding compensated dd
+  pair, not the public, already-rounded `erfc` — so the ~2^-13 relative
+  cancellation between erfc(x0) and s near the root is absorbed by a dd
+  subtraction with ~2^-77 to spare instead of being floored by a rounding
+  that already happened. f′ = erfc′(x0) via the backend `Exp`: not
+  accuracy-critical here, since its few-ULP error is attenuated by the
+  small step to a few 2^-69ths.
+* **far** (x ≥ 6): log space, F(x) = log(erfc(x)) − log(s), written through
+  corvus's own tail model erfc(x) = e^(−x²)·G(1/x)/x — **reusing
+  erfc_tail_data.h's fitted G directly**, no new tail fit needed — so it
+  needs no exponential at all (F′ = −2x/(√π·G), the e^(−x²) cancelling
+  exactly) and stays well-scaled for arbitrarily small (subnormal) s, where
+  residual space would underflow to zero long before x reached its root.
+* Both reduce the general Halley formula
+  x1 = x0 − 2ff′/(2f′² − ff″) to a cheaper closed form using
+  f″ = −2x·f′ (mid) or F″ = −2x·F′ − F′² (far):
+  `mid: delta = -f/(f' + x0*f)`,
+  `far: delta = -2F/(2F' + F*(2*x0 + F'))`.
+  x1 = fl(x0 + delta) is the kernel's one unavoidable rounding.
+
+**A shared clamp needed widening, found by the T-far/T-mid boundary
+reference points.** `ErfcCoreDd`'s table lookup used to clamp its argument
+to exactly 6.0 — safe for erfc.cpp, which never evaluates it on a
+kept (non-discarded) lane above 6 — but erfinv's mid-region seed can
+legitimately land a few 2^-17-ish past 6 when the true root sits right at
+the mid/far seam (seed error ~2^-19 relative, and 6·2^-19 is well past a
+double's ulp there). Clamping silently evaluated erfc at 6.0 instead of the
+true x0, decoupling f from f′ and producing a ~1e-6 error instead of 1 ULP
+at exactly the points the reference set's boundary neighbourhoods were
+built to probe. Fixed by widening the clamp to `kErfcCoreSafeMax` (6 +
+1/1024, over 100x erfinv's worst-case overshoot and still ~500x inside the
+erf table's actual safe extrapolation limit of 6 + 1/512, where the grid
+index would first go out of bounds) — erfc's own results are provably
+unaffected since every lane the wider clamp changes is one erfc.cpp always
+discards via its tail/core select.
+
+**Oracle**: mpmath's `erfinv` directly for `erfinv`'s reference (accurate
+across mpmath's whole domain); for `erfcinv`, root-finding on
+log(erfc(x)) − log(s) for s < ½, and mpmath's `erfinv(1 - s)` directly for
+s ≥ ½ — forming `1 - s` loses no precision there (s is never subnormal in
+that branch), and is far more robust than log-space Newton right at s = 1,
+where a naive initial-guess formula's `log(-log(1))` blows up and silently
+returns near-zero garbage instead of raising an error. (Both hazards
+above — the C sign-of-zero forms and the reference oracle's w = 0
+blowup — were the same shape: an identity that is exact in general
+silently doing the wrong thing at one distinguished point, caught only by
+testing that exact point rather than points near it.)
+
+Specials: `erfinv(±1) = ±inf`, `|y| > 1 → NaN`; `erfcinv(0) = +inf`,
+`erfcinv(2) = -inf`, `z` outside `[0, 2] → NaN`; NaN propagates with
+payload in both.
 
 ## exp_dd (internal)
 

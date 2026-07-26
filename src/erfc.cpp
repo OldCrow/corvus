@@ -8,19 +8,13 @@
 
 #include "src/dd-inl.h"
 #include "src/erf_core-inl.h"
+#include "src/erfc_core-inl.h"
 #include "src/exp_dd-inl.h"
 #include "src/ops-inl.h"
 
 HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
-
-// Select one of three per-interval constants by the tail-interval masks.
-template <class D, class M>
-HWY_INLINE op::V<D> Sel3(D d, M m1, M m2, double v0, double v1, double v2) {
-  return op::IfThenElse(m1, op::Set(d, v0),
-                        op::IfThenElse(m2, op::Set(d, v1), op::Set(d, v2)));
-}
 
 // erfc in two regions.
 //
@@ -57,17 +51,10 @@ HWY_INLINE op::V<D> Sel3(D d, M m1, M m2, double v0, double v1, double v2) {
 // so the subtraction rounds to exactly 2, matching erfc's saturation.
 template <class D, class M>
 HWY_INLINE op::V<D> ErfcCoreVec(D d, op::V<D> x, op::V<D> ax, M nan) {
-  const auto one = op::Set(d, 1.0);
-  const auto sgn = op::CopySign(one, x);  // +/-1
-
-  auto ac = op::Min(ax, op::Set(d, 6.0));
-  ac = op::IfThenElse(nan, op::Zero(d), ac);  // safe table index for NaN lanes
-  const auto parts = ErfTableCore(d, ac);
-
-  const auto sE = op::Mul(sgn, parts.e_hi);
-  const auto hi = op::Sub(one, sE);
-  const auto lo = op::Sub(op::Sub(one, hi), sE);  // exact Fast2Sum residual
-  return op::Add(hi, op::Sub(lo, op::Mul(sgn, parts.small)));
+  // Safe table index for NaN lanes; ErfcCoreDd does its own <= 6 clamp.
+  const auto ax_safe = op::IfThenElse(nan, op::Zero(d), ax);
+  const auto pair = ErfcCoreDd(d, x, ax_safe);
+  return op::Add(pair.hi, pair.lo);
 }
 
 template <class D>
@@ -77,22 +64,7 @@ HWY_INLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
   const auto sl = op::SquareLow(d, at, ssq);  // exact: at^2 = ssq + sl
   const auto ur = DdRecip(d, at);             // 1/at to ~2^-105
   const auto u = ur.hi;
-
-  const auto m1 = op::Lt(at, op::Set(d, detail::kErfcTailBound1));
-  const auto m2 = op::Lt(at, op::Set(d, detail::kErfcTailBound2));
-  const auto scale = Sel3(d, m1, m2, detail::kErfcTailScale[0],
-                          detail::kErfcTailScale[1], detail::kErfcTailScale[2]);
-  const auto shift = Sel3(d, m1, m2, detail::kErfcTailShift[0],
-                          detail::kErfcTailShift[1], detail::kErfcTailShift[2]);
-  const auto s = op::MulAdd(u, scale, shift);
-
-  const auto* c = detail::kErfcTailCoef;
-  auto poly = Sel3(d, m1, m2, c[0][detail::kErfcTailNCoef - 1],
-                   c[1][detail::kErfcTailNCoef - 1],
-                   c[2][detail::kErfcTailNCoef - 1]);
-  for (int k = detail::kErfcTailNCoef - 2; k >= 0; --k) {
-    poly = op::MulAdd(poly, s, Sel3(d, m1, m2, c[0][k], c[1][k], c[2][k]));
-  }
+  const auto poly = ErfcTailGFromU(d, at, u);
 
   const auto ex = ExpDdFrac(d, op::Neg(ssq), op::Neg(sl));
   const auto m = DdMul(d, ex.m, DdMulD(d, ur, poly));  // e^{-a^2} mantissa * G/a
