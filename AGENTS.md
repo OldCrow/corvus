@@ -131,9 +131,22 @@ surface lean and justify every runner:
   direct-push-to-main workflow); caching (build is ~minutes; add only
   if minutes grow). AVX-512 cannot run on hosted runners — Ryzen stays a
   manual validation stop.
+- **Deviation from the house style, deferred to the first tagged release
+  (issue #2)**: corvus carries no `lint-workflows.yml`, and `ci.yml` pins
+  `actions/checkout` by moving tag rather than by SHA. §6 asks every repo
+  for the actionlint + zizmor pair, and §5 for a SHA pin on every action.
+  Both wait on the same trigger as the other pre-release items in PLAN.md.
+  Reason is this section's own rule — justify every runner. The workflow
+  surface is one rarely-changing file, so linting it now guards against
+  drift that is not happening, while SHA-pinning turns on a weekly
+  Dependabot stream (~1 PR/repo/week across the five siblings that already
+  carry it). Neither earns its review cost until enough of the P0 function
+  set exists to tag: incomplete gamma P/Q and incomplete beta are still
+  outstanding. Revisit when the tag does, not before.
 - Workflow security: GITHUB_TOKEN read-only (repo setting + workflow
   `permissions:`), no event-payload interpolation in `run:` blocks,
-  Dependabot keeps action versions fresh.
+  Dependabot keeps action versions fresh — within the pinning limit noted
+  above, so it currently bumps only the SHA-pinned `actions/cache`.
 
 ### CMake standard
 
