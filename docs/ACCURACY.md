@@ -48,8 +48,8 @@ machine.
 | erf | ✅ 2026-07-20 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-24 |
 | erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-25 |
 | lgamma | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
-| erfinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ⬜ | ✅ 2026-07-25 |
-| erfcinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ⬜ | ✅ 2026-07-25 |
+| erfinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
+| erfcinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
@@ -296,9 +296,12 @@ build, and both compilers were all green.
 
 ## erfinv and erfcinv
 
-**Bound: max 1 ULP everywhere on all five validated x86 tiers**, including
-the far tail down to the smallest subnormal `erfcinv` result and the
-bit-neighbourhood of `erfcinv`'s zero crossing at z = 1. Not-CR counts are
+**Bound: max 1 ULP everywhere on all five validated x86 tiers and NEON**,
+including the far tail down to the smallest subnormal `erfcinv` result and
+the bit-neighbourhood of `erfcinv`'s zero crossing at z = 1. NEON (Apple
+Silicon CI, run 30180799151) reproduces the x86 FMA-tier numbers
+point-for-point — same not-CR counts, same worst-case inputs — extending
+the cross-architecture determinism claim to both inverses. Not-CR counts are
 in the table above; see PLAN.md's Phase C section for the full design
 rationale (region structure, condition-number analysis, why the tail step
 is a Halley rather than a Newton step).

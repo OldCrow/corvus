@@ -26,15 +26,13 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   design is the next frontier task.
 
 ## Next Steps
-1. Push Phase C part 1, watch CI, fill the NEON row in ACCURACY.md from
-   the macOS job's printed numbers once green.
-2. Detail design for regularized incomplete gamma P/Q (frontier
+1. **Start here**: detail design for regularized incomplete gamma P/Q (frontier
    effort). The broad section below lists what it must settle: a_T and
    the series/CF boundaries with PROVEN fixed lengths, the ridge
    accuracy survey that sets the public target, domain caps.
-3. Regularized incomplete beta after gamma (reuses its η/φ dd
+2. Regularized incomplete beta after gamma (reuses its η/φ dd
    machinery).
-4. Quiet-machine bench pass before publishing any performance number —
+3. Quiet-machine bench pass before publishing any performance number —
    everything so far is session-loaded and labeled indicative.
 
 ## Open Items
@@ -462,9 +460,14 @@ verified still accurate afterwards.
 ## Resolved log
 One line per closed item; detail lives in this file's git history,
 AGENTS.md, and docs/ACCURACY.md.
-- 2026-07-25 Phase C part 1 (erfinv/erfcinv) shipped, max 1 ULP on all
-  five validated x86 tiers; erfc-tail open item closed by measurement
-  (attenuated, not compounded, as the condition analysis predicted).
+- 2026-07-25 Phase C part 1 (erfinv/erfcinv) shipped (0ed13ab), max
+  1 ULP on all five validated x86 tiers AND NEON — CI run 30180799151,
+  all three jobs green, NEON point-identical to the x86 FMA tiers;
+  ACCURACY.md NEON row filled. erfc-tail open item closed by
+  measurement (attenuated, not compounded, as the condition analysis
+  predicted). One watch item: the Windows/MSVC CI job took 16 min vs
+  its usual ~5.5 (the new erfinv TU is the heaviest yet, plus hosted
+  2-core runner variance) — worth a look only if it repeats.
 - 2026-07-25 Sibling FP-contraction audit delegated to its own trackers:
   OldCrow/libstats#84 and OldCrow/libhmm#70 carry the full context and
   own the question from here.

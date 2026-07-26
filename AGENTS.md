@@ -177,7 +177,15 @@ surface lean and justify every runner:
   file allowed to touch `hn::`. ~20 ops: load/store (incl. masked N
   variants), arithmetic, fma, abs/min/max/copysign, compare/select, exp,
   reductions.
-- `src/<fn>.cpp` — one translation unit per function family. Pattern:
+- `src/<fn>.cpp` — one translation unit per function family. The TU
+  boundary is the SHARING/DEPENDENCY boundary, not one-symbol-per-file:
+  functions that consume the same kernel cores stay in one TU with
+  multiple HWY_EXPORTs (erfinv + erfcinv both route onto both shared
+  cores — splitting would instantiate every core twice per target for
+  nothing); split within a family only when dependency sets differ
+  materially (erf.cpp stays free of erfc's dd/exp_dd/tail-data
+  dependencies, and a consumer linking only erf pulls only erf.o).
+  Pattern:
   `HWY_TARGET_INCLUDE` + `foreach_target.h`, kernel in
   `corvus::HWY_NAMESPACE` written against `ops::`, then `HWY_ONCE` section
   with `HWY_EXPORT` + public dispatch wrapper. Call `HWY_DYNAMIC_DISPATCH`
