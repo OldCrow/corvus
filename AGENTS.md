@@ -102,6 +102,9 @@ Manual alternative (no preset): `cmake -B build -DCMAKE_BUILD_TYPE=Release -G Ni
   revalidation pass.
 
 ### CI
+Fleet-wide workflow rules: [CI House Style](https://github.com/OldCrow/standards/blob/main/CI-HOUSE-STYLE.md)
+— several of them were derived from this repo's workflow.
+
 `.github/workflows/ci.yml`. Runner minutes are a budgeted resource even on
 a public repo (lesson from libstats' temporary private phase) — keep the
 surface lean and justify every runner:
@@ -133,6 +136,11 @@ surface lean and justify every runner:
   Dependabot keeps action versions fresh.
 
 ### CMake standard
+
+Full rules: [CMake House Style](https://github.com/OldCrow/standards/blob/main/CMAKE-HOUSE-STYLE.md)
+in the fleet standards repo — corvus is its reference implementation, so this
+section restates rather than deviates. It is self-sufficient for this repo.
+
 - Target-first: no directory-scope `include_directories`/`link_libraries`/
   global flags; interface vs build separation via generator expressions
   (`$<BUILD_INTERFACE:>`/`$<INSTALL_INTERFACE:>`).

@@ -521,7 +521,8 @@ Required status checks deliberately absent (incompatible with
 direct-push workflow).
 
 ## Build-stack standardization (2026-07-23) [DERIVED]
-Cross-repo effort tracked in ~/Development/BUILD-STANDARDIZATION-PLAN.md.
+Cross-repo effort tracked in the fleet standards repo
+([record](https://github.com/OldCrow/standards/blob/main/records/BUILD-STANDARDIZATION-PLAN.md)).
 corvus commits: pkg-config file + consumer example + installed-path CI
 check; find_package(hwy 1.4) version floor with CI building pinned
 Highway 1.4.0 from source; CMakePresets.json. AGENTS.md's CMake section
