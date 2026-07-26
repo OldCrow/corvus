@@ -103,6 +103,26 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   kernel cost divided by Apple's 2–3x faster vendor lgamma
   (8.5–12 ns/el positive axis, 31–34 negative). No tuning action on
   NEON; the option list above stands unchanged.
+  **Options evaluated 2026-07-25 (M1), two bit-identical skip guards
+  shipped in lgamma-inl.h:** an all-zone fast path in LgammaLow (when
+  every lane sits in [1/2, 5/2] the recurrence multiplies P by exact
+  ones and the log runs on P = 1, whose slots carry R = 1, L = 0
+  exactly — both contribute exactly zero) and a monotone early break
+  out of the recurrence walk. ULP printout byte-identical before and
+  after. Zone on NEON: 41.2 → 19.6 ns/el (0.29x → 0.61x); other
+  regions unchanged. Width-independent — expect Ryzen zone to lift
+  too (SSE2 0.46x toward parity, AVX3 2.60x toward ~4x); re-measure
+  next Ryzen session. Remaining zone cost is the degree-34
+  select-Horner chain itself. **Interval splitting (option A) is
+  DEFERRED, trigger recorded:** revisit only if profiling incomplete
+  gamma P/Q end-to-end (its prefactor consumes lgamma) shows the zone
+  Horner as a real bottleneck; it would roughly halve zone again but
+  costs a generator rework, per-coefficient select-vs-gather redesign
+  whose trade flips per tier, and fleet revalidation. Recurrence
+  region (0.22x NEON, worst) has no lever: its cost is genuine work,
+  and X0 = 8 is accuracy-forced. Docs positioning note (2-lane
+  targets favor scalar libm for lgamma; corvus wins from 4 lanes up)
+  rides the next docs pass.
 - [ILLUSTRATIVE] Possible future consumers: C++ port of multi-agent_sim
   (batch distance/trig), zeekhmm training pipelines.
 

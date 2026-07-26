@@ -173,6 +173,22 @@ HWY_INLINE Dd<D> LgammaLow(D d, op::V<D> x) {
   const auto one = op::Set(d, 1.0);
   const auto small = op::Lt(x, op::Set(d, detail::kLgammaZoneLo));
 
+  // All-zone fast path. When every lane sits in [kLgammaZoneLo, kLgammaZoneHi]
+  // the recurrence multiplies P by exact ones and the log runs on P == 1,
+  // whose table slots carry R = 1, L = 0 exactly -- both contribute exactly
+  // zero, and DdAdd with an exact zero is a value-preserving renormalization.
+  // Skipping them returns the identical rounded result while sparing the
+  // vector kLgammaMidSteps dd multiplies and a full LogDdAny. This is the
+  // same AllTrue/AllFalse region split LgammaPosDd already performs, one
+  // level down; mixed vectors fall through to the full path unchanged.
+  if (op::AllFalse(d, small) &&
+      op::AllFalse(d, op::Gt(x, op::Set(d, detail::kLgammaZoneHi)))) {
+    const auto c1 = op::Lt(x, op::Set(d, detail::kLgammaZoneMid));
+    const auto t =
+        op::IfThenElse(c1, op::Sub(x, one), op::Sub(x, op::Set(d, 2.0)));
+    return DdMulD(d, ZoneBracket(d, t, c1), t);
+  }
+
   // Walk down to (3/2, 5/2]. Step k fires when the argument has not yet
   // arrived, i.e. when x still exceeds kLgammaZoneHi + (k-1). Clamping the
   // driver to X0 keeps the loop finite for the Stirling lanes, whose y and P
@@ -184,6 +200,10 @@ HWY_INLINE Dd<D> LgammaLow(D d, op::V<D> x) {
   for (int k = 1; k <= detail::kLgammaMidSteps; ++k) {
     const auto fire =
         op::Gt(xr, op::Set(d, detail::kLgammaZoneHi + (k - 1)));
+    // The fire masks shrink monotonically in k, so once no lane fires every
+    // remaining step multiplies P by an exact one and leaves y unchanged --
+    // breaking out returns the identical result.
+    if (op::AllFalse(d, fire)) break;
     const auto step = op::Sub(xr, op::Set(d, static_cast<double>(k)));  // exact
     prod = DdMulD(d, prod, op::IfThenElse(fire, step, one));
     y = op::IfThenElse(fire, step, y);
