@@ -77,6 +77,18 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
 - [OPEN, low priority] Non-gather x86 kernel variant: ~2x upside on
   gather-weak pre-AVX-512 CPUs (Kaby Lake class); Zen 4 scales fine
   without it (see Resolved log).
+- [OPEN] **lgamma is below scalar-libm parity at 2 lanes — by design
+  economics, not defect.** Measured 2026-07-25 on Ryzen/SSE2 (loaded,
+  indicative): 0.46–0.82x vs mingw libm (zone worst — the degree-34
+  Horner with per-lane selects; reflection best at 0.82x). M1/NEON
+  reported 0.2–0.4x, consistent with the same 2-lane cost divided by
+  Apple's faster vendor lgamma. The dd-heavy 1-ULP design pays in
+  flops and wins by lane count: 8 lanes 1.9–3.2x, 2 lanes < 1x.
+  Options if narrow-width parity ever matters: cheaper zone path
+  (split intervals to cut degree), or simply document that 2-lane
+  targets favor scalar libm for lgamma. erf/erfc expected unaffected
+  (light kernels vs expensive scalar) — verify with bench_erf/erfc on
+  the M1 before concluding anything is wrong there.
 - [ILLUSTRATIVE] Possible future consumers: C++ port of multi-agent_sim
   (batch distance/trig), zeekhmm training pipelines.
 
