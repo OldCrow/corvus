@@ -141,6 +141,18 @@ of 5525) than erf/erfc/lgamma's usual handful of borderline points, but the
 bound itself (max 1 ULP) holds on every tier; not investigated further
 since it is within the documented gate.
 
+Both rows above were reproduced on 2026-07-26 on the Kaby Lake i7-7820HQ
+under AppleClang 15 (macOS 13.7.8, Highway 1.4.0) — native AVX2 for the
+first row, SSE4/SSSE3/SSE2 via capping for the second — matching
+Ryzen/GCC cell for cell, including every worst-case input. This is the
+first native (non-capped) AVX2 measurement of `lgamma`, `erfinv`,
+`erfcinv`, `exp_dd` and `log_dd`: the AVX2 column had until now been
+measured on the Ryzen by capping, so the agreement adds an independent
+CPU, OS and compiler to those five families rather than restating the
+same run. The dd bounds land identically (`exp_dd` 2^-68.45, `log_dd`
+2^-67.88), which is also a third-compiler check that `-ffp-contract=off`
+reaches AppleClang, whose default is `on`.
+
 ## erf
 
 **Bound: max 1 ULP over the full domain** (~98.5% correctly rounded on the

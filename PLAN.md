@@ -133,6 +133,20 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   as predicted. Recurrence/Stirling/mixed/reflection unchanged within
   noise on both. Updated 2-lane picture: zone ~1.0x, recurrence
   ~0.6x, Stirling ~0.7x, reflection ~0.8x vs mingw libm.
+  **Kaby Lake 4-lane measurement 2026-07-26 (loaded, indicative) — the
+  pending docs claim "corvus wins from 4 lanes up" does not survive it.**
+  AVX2 native on the i7-7820HQ vs Apple libm: zone 1.02x, Stirling
+  0.77–0.90x, mixed 0.57x, reflection 0.49–0.51x, recurrence 0.28–0.31x.
+  Only the zone reaches parity at 4 lanes, so the positioning note needs
+  rewording before the docs pass — the honest form is per-region and
+  per-libm, not a lane-count threshold. Not a regression and not a new
+  defect: it is the lane economics already recorded, divided by a fast
+  vendor libm (Apple lgamma 12.9–25.0 ns/el here, the same 2–3x-over-
+  mingw advantage seen on the M1), on 2017 silicon. The zone fast path
+  is confirmed working at a third width (2 lanes 0.61x NEON / ~1.0x
+  SSE2, 4 lanes 1.02x, 8 lanes 5.6–6.5x). [OPEN] Settle the wording
+  against a same-libm comparison before publishing any lgamma
+  positioning claim.
 - [ILLUSTRATIVE] Possible future consumers: C++ port of multi-agent_sim
   (batch distance/trig), zeekhmm training pipelines.
 
