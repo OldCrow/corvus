@@ -123,6 +123,16 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   and X0 = 8 is accuracy-forced. Docs positioning note (2-lane
   targets favor scalar libm for lgamma; corvus wins from 4 lanes up)
   rides the next docs pass.
+  **Ryzen re-measure done 2026-07-25 (loaded, indicative),
+  post-fast-path:** ULP stats byte-identical on AVX3_ZEN4 native AND
+  all four capped tiers (FMA row 30/5 and no-FMA row 29/3 both
+  unchanged), so the bit-identity claim now holds on every validated
+  x86 tier, not just NEON. Zone AVX3_ZEN4: 2.60x -> 5.6–6.5x
+  (5.8 ns/el — every 8-lane vector in the zone range qualifies for
+  the skip). Zone SSE2: 0.46–0.50x -> 0.98–1.07x — parity at 2 lanes,
+  as predicted. Recurrence/Stirling/mixed/reflection unchanged within
+  noise on both. Updated 2-lane picture: zone ~1.0x, recurrence
+  ~0.6x, Stirling ~0.7x, reflection ~0.8x vs mingw libm.
 - [ILLUSTRATIVE] Possible future consumers: C++ port of multi-agent_sim
   (batch distance/trig), zeekhmm training pipelines.
 
