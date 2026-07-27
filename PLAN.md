@@ -1,6 +1,12 @@
 # corvus — Plan / Session State
 
-## Status [DERIVED] — 2026-07-25 (Ryzen)
+## Status [DERIVED] — 2026-07-26 (Kaby Lake)
+**Phase C part 2 (incomplete gamma P/Q) detail design is RESOLVED and
+probe-validated; implementation not yet dispatched.** See "Phase C part 2 —
+detail design" below: region map, all fixed lengths, Temme (a_T=20, K=11),
+and per-region replay-measured error expectations. Next session starts at
+"Next Steps" — dispatch the two implementation agents per that section.
+
 **Phases A and B are complete; Phase C is in progress.** Scaffolded
 2026-07-20; public at github.com/OldCrow/corvus. Shipped and
 production-quality (per-tier audit record: docs/ACCURACY.md):
@@ -26,12 +32,17 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   design is the next frontier task.
 
 ## Next Steps
-1. **Start here**: detail design for regularized incomplete gamma P/Q (frontier
-   effort). The broad section below lists what it must settle: a_T and
-   the series/CF boundaries with PROVEN fixed lengths, the ridge
-   accuracy survey that sets the public target, domain caps.
-2. Regularized incomplete beta after gamma (reuses its η/φ dd
-   machinery).
+1. **Start here — dispatch gamma P/Q implementation** per "Phase C part 2 —
+   detail design" below. Decisions already made with the user (2026-07-26):
+   Sonnet (default effort) for tooling (generators, data header, reference
+   sets), Opus for the kernel TU + API + CMake + tests; measured per-region
+   gate bounds; commit gate = local AVX2 + capped SSE4/SSSE3/SSE2 sweeps
+   green plus CI (NEON + Linux sweep) green — AVX-512 deferred to the next
+   Ryzen session (matrix cell left pending, as erf did 07-20 → 07-24).
+   Sequencing: Sonnet tooling first (kernel consumes its data header),
+   then Opus; orchestrator holds validation, docs, commit/push.
+2. Regularized incomplete beta after gamma (reuses Log1pmxDd/η/φ, DdSqrt,
+   DdRecipDd, Expm1Dd — all specified in the part-2 design).
 3. Quiet-machine bench pass before publishing any performance number —
    everything so far is session-loaded and labeled indicative.
 
@@ -341,6 +352,118 @@ compute the smaller of P/Q directly, complement the other.
 - Target: set from a ridge survey during detail design; expectation
   ≤ 4 ULP on the directly computed side, documented per region. Domain
   caps (huge/tiny a) decided and documented in detail design.
+
+### Phase C part 2 — regularized incomplete gamma P/Q detail design
+### [resolved 2026-07-26, implementation NOT yet dispatched]
+
+Probe-validated on the Kaby Lake box (mpmath oracle + python-float double
+replay, the erfc-tail methodology; scripts were session-scratchpad
+`probe1/3c/4/4c/5*.py` [ILLUSTRATIVE — generators must re-derive and
+self-check every number below anyway]).
+
+**Public API**: `gamma_p(a, x, out)` / `gamma_q(a, x, out)`, elementwise
+spans, same length. Specials (SciPy limits): x<0 or a<0 → NaN; NaN
+propagates; (x=0, a>0) → P=0, Q=1; (a=0, x>0) → P=1, Q=0; (0,0) → NaN;
+x=+inf → P=1 (a finite); a=+inf → Q=1 (x finite); (+inf,+inf) → NaN. No
+domain caps; saturation handled by an E<−800 underflow mask.
+
+**Region map** (λ = x/a, a_T = 20):
+- R1 series-P: {a<20, 0<x≤a+1} ∪ {a≥20, λ≤½}. Fixed cap N=64 (worst need
+  52 at a→20⁻, x=a+1; ≤58 at λ=½ for any a), per-lane freeze mask
+  t < s.hi·2⁻⁶⁰ (monotone), vector break on AllFalse. Terms double, sum dd.
+  Replay: ≤3 ULP direct-P over the whole region incl. a=1e-300.
+- R4 small-a Q-direct: {0<a≤3/2, 0<x≤4}:
+  Γ(a,x) = [(Γ(1+a)−1) − (x^a−1)]/a − x^a·Σ_{n≥1}(−x)ⁿ/(n!(a+n));
+  Q = a·Γ(a,x)/Γ(1+a). Γ(1+a)−1 = Expm1Dd of lgamma's OWN zone poly at
+  EXACT argument (t=a centre-1 for a≤½; t=a−1 centre-2 for a≤3/2 — never
+  form 1+a); x^a−1 = Expm1Dd(a·LogDd x). Σ: dd terms (static dd 1/n table
+  n≤30, weights DdRecipDd(TwoSum(a,n))), alternating, cap 30 + freeze.
+  Replay: correctly rounded on the full probe grid incl. a=1e-300 and the
+  x=e^−γ cancellation line. This region is what closes the small-a
+  complement corner: Q ~ a·E1(x) keeps full relative accuracy.
+- R2 CF-Q: {a<20, x>a+1} ∪ {a≥20, λ≥2}, minus R4. **Backward** fixed-depth
+  N=40, no convergence test: K = x+2N+1−a; for j=N..1:
+  K = (x+2j−1−a) − j(j−a)/K; Q = e^E·recip(K). Backward contracts rounding
+  (replay ≤4 ULP worst vs 24 for forward Lentz; forward also
+  false-converges — (30,133) stopped at N=8 with 70 ULP).
+- R3 Temme: {a≥20, ½<λ<2}, direct side by sign(x−a):
+  smaller = ½erfc(z) ± R, z = √(aφ), R = e^{−aφ}/√(2πa)·S(η,1/a),
+  S = Σ_{k<11} c_k(η)/a^k. c_k: Chebyshev fits over η ∈ [−0.6215, 0.7834],
+  degrees 16–20 (pad to uniform table [11][deg+1]); truncation+fit
+  2^−57.1 exact-arith worst at (a_T=20, K=11). Replay end-to-end (kernel
+  arithmetic, real dd ops): ≤3 ULP direct, ≤1 ULP complement, a up to
+  1e250 incl. λ=1±2⁻⁵⁰ and x==a.
+- Routing differs per function where R1/R4 overlap: gamma_p uses R1 (P-direct)
+  for x≤a+1 — R4's complement would destroy tiny-P relative accuracy;
+  gamma_q uses R4 (Q-direct) for all {a≤3/2, x≤4}. Everything else:
+  complement = 1 ⊖ direct_dd before the single rounding. By construction
+  every complement is ≥ ~0.4, so ALL gates are relative — no lgamma-style
+  absolute band needed.
+
+**Prefactor** E = ln(x^a e^{−x}/Γ(a)): a<8: a·LogDd(x) ⊖ x ⊖ LgammaPosDd(a)
+(argument always exact — LgammaPosDd covers (0,8) incl. its 0<a<½ region);
+a≥8: E = −a·φ(λ) + ½ln(a/2π) − φst(a), φst = plain-double Horner over
+kLgammaStirCoef verbatim, u = TwoSum(x,−a) ⊗ DdRecipDd(a) — the EXACT
+difference makes this valid at every λ, not just the Sterbenz band. e^E via
+ExpDdFrac; every factor folds into mantissa space; power-of-two scale last
+(erfc pattern) so subnormal results take one rounding. P-prefactor folds in
+DdRecip(a).
+
+**New shared primitives** (beta will reuse all four):
+- Log1pmxDd(u_dd): φ(u)=u−log1p(u). |u|≤1/16: φ = u²·T(u), T = dd Horner,
+  18 double coeffs (−1)^k/(k+2) in u.hi, u² = DdMul(u,u). |u|>1/16:
+  u ⊖ LogDdAny(TwoSum(1,u.hi), lo+=u.lo). Amplification 2⁻⁶⁸·2/u ≤ 2⁻⁶⁴ at
+  the cut; err(aφ) ≤ 800·2⁻⁶⁴ in budget. NEVER the naive u ⊖ LogDd(fl(1+u)):
+  small-u cancellation amplifies log_dd's 2⁻⁶⁸ by 2/u — fatal at large a.
+- DdSqrt: s=Sqrt(hi); residual = (s·s−hi Sterbenz) + ops::SquareLow(s,·) —
+  the s² residual MUST be capability-guarded, never bare MulSub (no-FMA
+  hazard, AGENTS.md); lo = (al−e)/(2s).
+- DdRecipDd: Newton from 1/hi, residual through ops::ProdLow (like DdRecip)
+  plus the −r0·b.lo term.
+- Expm1Dd (R4 only): |w|<2⁻¹⁰ dd series to k=6, else ExpDd(w) ⊖ 1.
+
+**Temme kernel details**: η = CopySign(DdSqrt(2φ).hi, x−a); S in plain
+double (11 Clenshaw passes + Horner in r=1/a — replay says that suffices);
+rv = DdRecipDd(DdSqrt(2π_dd·a)); z≤6 (select on aφ vs exact 36.0):
+½ErfcCoreDd(z.hi) ⊕ [sgn·S·rv ⊖ z.lo/√π] ⊗ e^{−aφ} — the z.lo term is the
+first-order erfc correction and e^{−z²} comes from the dd aφ, NEVER by
+re-squaring rounded z (2⁻⁴⁸ error near z=6 otherwise); z>6: reuse
+erfc_tail_data's G: [G(1/z)/(2z) ⊕ sgn·S·rv] ⊗ e^{−aφ}, scale last
+(z ≤ √800 ≈ 28.3 is inside G's fitted range; deep-tail gate inherits G's
+~2 ULP class, same source as erfc's own tail bound).
+
+**Masked-lane hygiene** (AGENTS.md rules apply): specials and E<−800
+saturation lanes are masked AND their (a,x) scrubbed to (1,3) before
+series/CF — j(j−a) overflows at a ≳ 4.5e306 otherwise; R3's z NaN-scrubbed
+before ErfcCoreDd's value-derived gather (erfinv HalleyMid pattern).
+
+**Clean-room Temme coefficients** (generator method, validated): extract
+c_k(η) from the ORACLE by Vandermonde solve in 1/a at fixed η
+(a_j = 512·2^j, j=0..14, dps 100; disjoint sample sets agree to 1e-19
+through c_10). No recursion ported from anything. THE ORACLE TRAP: for
+η<0 extract via the P-side identity R = ½erfc(−η√(a/2)) − P with P =
+regularized LOWER computed directly — the Q-side is a 1-minus-tiny
+cancellation needing ~aφ·log₁₀e digits (first attempt died exactly there).
+Same small-side-direct rule for every reference point. Second trap:
+mpmath's lower-gammainc (hyp1f1) fails to CONVERGE for large a near the
+ridge — use mpmath both sides only for a ≤ 1e4 and exact-arithmetic
+Temme (full-degree fits, mpf) as the oracle above; the fits themselves are
+validated against true gammainc on overlapping range a ≤ ~2e6.
+
+**Expected gates** (replay, ideal dd cores; pin to real measured, no
+margin): R1 ≤3 / R2 ≤4 / R4 ~CR / R3 ≤3 ULP direct; complements ≤~6 ULP
+relative. 2⁻⁶⁸ dd-core injection moved nothing. P+Q=1 within 1 ULP —
+cheap smoke invariant. Data header src/gamma_data.h (Temme cheb table,
+dd 1/n table, φ coeffs, constants incl. kGammaAT=20, N=64/40/30,
+PHI_CUT=1/16, −800). References: gamma_p/q_reference.txt (`a x P Q`,
+~20k pts: per-region grids, ridge lines λ=1±2⁻ᵏ, x==a at several binades,
+boundary bit-brackets x=a+1/λ=½/λ=2/a=20/a=3/2/x=4/aφ=36, subnormal band
+aφ ∈ [700,760], huge a incl. 2⁵³ neighborhood, tiny a, specials) plus
+gamma_util_reference.txt (dd triples for the Log1pmxDd micro-gate,
+corvus_kernel_test_target pattern). Tests: smoke (specials, P+Q=1,
+lane-mix determinism probing the freeze masks) + per-region ULP gates +
+bench with scalar-walk-of-own-kernel baseline (libm has no gammainc;
+label it, erfinv precedent).
 
 ### Regularized incomplete beta — broad parameters (thin by intent)
 I_x(a,b): symmetry I_x(a,b) = 1 − I_{1−x}(b,a) with "compute the side
