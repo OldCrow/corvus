@@ -1,11 +1,13 @@
 # corvus — Plan / Session State
 
-## Status [DERIVED] — 2026-07-28 (Kaby Lake)
+## Status [DERIVED] — 2026-07-29 (M1)
 **Phase C part 2 (incomplete gamma P/Q) SHIPPED and fully validated.**
 gamma_p/gamma_q public; max 2 ULP direct side everywhere (4 ULP on one
 complement corner), gates pinned to measured. Validated identical cell for
 cell on every fleet tier: AVX2/SSE4/SSSE3/SSE2 (Kaby Lake native + capped),
-NEON (CI run 30414669451), and AVX-512 (Ryzen 2026-07-28: AVX3_ZEN4 native
+NEON (CI run 30414669451; reproduced on the fleet M1 Mini 2026-07-29 at
+efa98e1 — clean build, 13/13 gates, measured ULP values identical cell for
+cell), and AVX-512 (Ryzen 2026-07-28: AVX3_ZEN4 native
 + AVX3_DL/AVX3 capped + the four lower tiers re-swept, all under clang-cl —
 mingw GCC 16.1 is disqualified at AVX-512 by a misaligned-zmm-spill codegen
 bug found this session; see ACCURACY.md and AGENTS.md). Built by the
