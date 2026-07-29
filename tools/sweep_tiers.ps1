@@ -54,15 +54,18 @@ $caps = [ordered]@{
   "SSE2"  = "$base|HWY_AVX2|HWY_SSE4|HWY_SSSE3"
 }
 
+# Dependency order, dd cores first: a foundation regression should fail
+# under its own name, not a consumer's (same order as tests/CMakeLists.txt
+# and the CI ULP report steps).
 $gates = @(
+  @{ exe = "test_exp_dd";   data = "exp_dd_reference.txt" },
+  @{ exe = "test_log_dd";   data = "log_dd_reference.txt" },
   @{ exe = "test_erf_ulp";  data = "erf_reference.txt" },
   @{ exe = "test_erfc_ulp"; data = "erfc_reference.txt" },
   @{ exe = "test_lgamma_ulp"; data = "lgamma_reference.txt" },
   @{ exe = "test_erfinv_ulp"; data = "erfinv_reference.txt", "erfcinv_reference.txt" },
-  @{ exe = "test_gamma_ulp"; data = "gamma_p_reference.txt", "gamma_q_reference.txt" },
   @{ exe = "test_gamma_util"; data = "gamma_util_reference.txt" },
-  @{ exe = "test_exp_dd";   data = "exp_dd_reference.txt" },
-  @{ exe = "test_log_dd";   data = "log_dd_reference.txt" }
+  @{ exe = "test_gamma_ulp"; data = "gamma_p_reference.txt", "gamma_q_reference.txt" }
 )
 
 $selected = if ($Tier) { $Tier } else { $caps.Keys }

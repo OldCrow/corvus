@@ -226,7 +226,16 @@ section restates rather than deviates. It is self-sufficient for this repo.
   result at one rounding.
 - `tests/` — ctest executables comparing against libm/reference values;
   test lengths deliberately non-multiples of lane counts to exercise the
-  masked-tail path. A test for an *internal* kernel compiles the kernel
+  masked-tail path. **Tests are registered in DEPENDENCY order, not
+  development order** (dd cores first, then families in the order they
+  consume each other), so a shared-core regression fails under its own
+  name rather than a consumer's. **A new function family must be added in
+  its dependency position to all FOUR explicit lists**: tests/CMakeLists.txt,
+  the three `ULP report` steps in .github/workflows/ci.yml, and the
+  `$gates` array in tools/sweep_tiers.ps1 — ctest picks new tests up
+  automatically, but the report steps and the Ryzen sweep enumerate
+  binaries explicitly and silently omit anything not added (the gamma pair
+  shipped one commit without its CI reports before this rule existed). A test for an *internal* kernel compiles the kernel
   header itself through foreach_target and so uses
   `corvus_kernel_test_target()`, which links `hwy::hwy`, adds the source
   root, and — the part that matters — applies `CORVUS_HWY_TARGET_DEFS` so
