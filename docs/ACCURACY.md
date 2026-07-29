@@ -87,18 +87,22 @@ sweep; `tools/sweep_tiers.ps1` is the Windows form of the recipe.
 The gamma_p/gamma_q AVX-512 row (2026-07-28, same machine) was validated
 under clang-cl **only**, and the sweep of the four lower tiers on this box
 ran under clang-cl as well. The reason is a compiler defect found during
-that session: mingw-w64 GCC 16.1 miscompiles the gamma TU at AVX3\* —
-its register allocator spills zmm registers with the aligned `vmovapd`
-to plain `rsp`-relative slots, but the Windows x64 ABI guarantees only
-16-byte stack alignment and SEH prevents GCC from realigning `rsp`, so
-whether any given binary faults depends on the call-chain's accidental
-`rsp` alignment (`test_gamma_ulp` segfaulted; the smoke test "passed" —
-same kernel, different luck). GCC realigns *named* aligned locals through
-a scratch pointer but not its own spill slots, so this is a GCC bug, not
-a corvus or Highway one, and it is latent in every prior GCC AVX-512
-result on this box. Until GCC fixes spill-slot alignment on SEH targets,
-mingw GCC is **not** a valid AVX-512 validation compiler here; clang-cl
-is the sole source of Windows AVX-512 numbers.
+that session (mechanism pinned down 2026-07-29 by a 60-line freestanding
+repro): mingw-w64 GCC 16.1 accesses the ms_abi invisible-reference
+temporaries for 512-bit by-value arguments and returns with the aligned
+`vmovapd` while allocating them at plain `rsp`-relative offsets with no
+realignment — and the Windows x64 ABI guarantees only 16-byte stack
+alignment, so whether any given binary faults depends on the call
+chain's accidental `rsp` residue mod 64 (one legal residue in four is
+safe; `test_gamma_ulp` segfaulted while the smoke test "passed" — same
+kernel, different luck). The `HWY_NOINLINE` outlining is what introduced
+such by-value vector calls. Genuine register spills are correctly
+unaligned `vmovupd`, and named over-aligned locals get an aligned
+scratch pointer, so this is a GCC bug (argument-temporary path only),
+not a corvus or Highway one; it reproduces at -O0 and no flag avoids it.
+clang-cl and MSVC compile the identical pattern correctly. Until it is
+fixed upstream, mingw GCC is **not** a valid AVX-512 validation compiler
+here; clang-cl is the sole source of Windows AVX-512 numbers.
 
 **A default MSVC build does not exercise AVX-512 at all**: Highway marks
 every AVX3\* target broken under MSVC (`HWY_BROKEN_MSVC`), so such a build

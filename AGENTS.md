@@ -49,18 +49,21 @@ Highway puts every AVX3\* target in `HWY_BROKEN_TARGETS` under MSVC, so an
 MSVC build silently tops out at AVX2 while still looking like a clean pass
 — never make an AVX-512 claim from one. Use Clang (clang-cl), which
 dispatches `AVX3_ZEN4` natively. mingw-w64 GCC also dispatches it but is
-**disqualified for AVX-512 work as of 2026-07-28**: GCC 16.1 spills zmm
-registers with aligned `vmovapd` to plain `rsp`-relative slots, and since
-the Windows ABI guarantees only 16-byte stack alignment (SEH blocks
-`rsp` realignment), whether a binary faults is call-chain luck —
-`test_gamma_ulp` segfaulted while the smoke test on the same kernel ran
-clean. Every earlier GCC AVX-512 pass on this box carried that latent
-risk. clang-cl (and, per its own escape-hatch caveat below, MSVC) is
-unaffected. No flag rescues it (tested 2026-07-29: `-mstackrealign` and
-`-mpreferred-stack-boundary=6` produce the identical spill pattern — 120
-aligned `vmovapd` zmm spills against 620 unaligned `vmovupd` ones, no
-`rsp` realignment — so the inconsistency is GCC's spill policy itself and
-the fix must come upstream). GCC remains fine for capped tiers up to AVX2
+**disqualified for AVX-512 work as of 2026-07-28**: GCC 16.1 accesses the
+ms_abi invisible-reference temporaries for 512-bit BY-VALUE arguments and
+returns (any `__m512d` or wrapper struct passed to a non-inlined function
+— exactly what HWY_NOINLINE outlining creates) with the aligned
+`vmovapd`, while allocating them at plain `rsp`-relative offsets with no
+realignment. The Windows ABI guarantees only 16-byte stack alignment, so
+whether a binary faults is call-chain luck — `test_gamma_ulp` segfaulted
+while the smoke test on the same kernel ran clean. Genuine register
+spills are correctly `vmovupd`, and named over-aligned locals/return
+slots in isolation get an aligned scratch pointer — only the argument
+temporaries are broken. Reproduces at every -O level including -O0; no
+flag rescues it (tested 2026-07-29: `-mstackrealign` and
+`-mpreferred-stack-boundary=6` change nothing). clang-cl (and, per its
+own escape-hatch caveat below, MSVC) is unaffected. Minimal repro + draft
+upstream report: `C:\Users\gdwol\Development\gcc-zmm-mingw-repro\`. GCC remains fine for capped tiers up to AVX2
 (no zmm there),
 which is all `tools/sweep_tiers.ps1` compiles — its `g++` default is safe
 for the sweep itself, but the uncapped native build must be clang-cl

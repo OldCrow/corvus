@@ -53,16 +53,22 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
    HWY_NOINLINE driver costs nothing measurable at 8 lanes.
 
 ## Open Items
-- [OPEN] **File the mingw GCC zmm-spill-alignment bug upstream.** GCC 16.1
-  on x86_64-w64-mingw32 spills 120 of 740 zmm slots in the gamma TU with
-  aligned vmovapd to rsp-relative addresses (the other 620 correctly use
-  vmovupd), with no rsp realignment and only the ABI's 16-byte guarantee —
-  segfault by call-chain luck. Flag rescues tested 2026-07-29 and
-  ineffective: -mstackrealign and -mpreferred-stack-boundary=6 leave the
-  spill pattern identical. Needs a minimal repro extracted from the gamma
-  TU and a GCC bugzilla account — user action to file, agent can prepare
-  the repro. Details: ACCURACY.md (validation-matrix note), AGENTS.md
-  (Ryzen box section).
+- [OPEN — repro ready, user action to file] **File the mingw GCC AVX-512
+  by-value-argument misalignment bug upstream.** Root cause pinned
+  2026-07-29 with a 60-line freestanding repro: GCC 16.1
+  (x86_64-w64-mingw32) stores the ms_abi invisible-reference temporaries
+  for 512-bit by-value arguments/returns with aligned vmovapd but never
+  64-byte-aligns them (prologue is a bare sub; ABI guarantees 16) — one
+  legal rsp residue in four is safe. NOT a regalloc-spill bug: real
+  spills are correctly vmovupd (the gamma TU's 620), the 120 aligned
+  accesses are argument/return temps, and HWY_NOINLINE outlining is what
+  created them. Crashes at every -O level incl. -O0; clang-cl and MSVC
+  handle the identical source; -mstackrealign/-mpreferred-stack-boundary=6
+  change nothing. Deliverables in
+  `C:\Users\gdwol\Development\gcc-zmm-mingw-repro\` (repro.cpp,
+  repro-struct.cpp, report.md — bugzilla-ready draft; reference
+  PR 110273, the i686 sibling, and PR 49001). Needs the user's GCC
+  bugzilla account to file.
 - [RESOLVED 2026-07-29] **Windows CI MSVC-codegen blowup — fixed for
   gamma (7b52ed1) and erfinv (1202273); CI Windows job 22m48s → 6m55s,
   green.** Durable rule now in AGENTS.md (Architecture): outline region
