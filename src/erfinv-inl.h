@@ -120,6 +120,23 @@ HWY_INLINE Dd<D> ErfinvCentralDd(D d, op::V<D> v) {
   return acc;
 }
 
+// ErfcInvCore and the two drivers are HWY_NOINLINE (2026-07-29), the same
+// treatment gamma-inl.h got in 03e80c9/7b52ed1 and for the same reason:
+// fully inlined, each export became one enormous function per target (the
+// drivers are even inlined TWICE per export -- full-vector and masked-tail
+// call sites), and MSVC's optimizer is superlinear in function size --
+// this TU was the long pole that had already pushed the CI Windows job to
+// 16 min before gamma tipped it over its 25-minute timeout. Outlining
+// caps the largest function the optimizer sees and deduplicates
+// ErfcInvCore across the two drivers within each target. Results are
+// bit-identical (contraction is off, so the call boundary cannot change
+// FP semantics). ErfinvCentral deliberately stays HWY_INLINE: it is one
+// Horner pass plus three dd terms -- negligible codegen weight -- and
+// outlining it was measured to cost 0.5-0.7 ns/el on the all-central fast
+// path (3.2 -> 3.9 ns/el at 8 lanes, a second call layer on the cheapest
+// and most-travelled region), where the heavy cores' call cost stays
+// invisible against their hundreds of flops.
+//
 // x = y*Pc(y^2), rounded once. The explicit CopySign is load-bearing, not
 // decorative: erfinv is odd on this whole domain so sign(result) == sign(y)
 // mathematically, but at y = +/-0 the dd assembly's internal Fast2Sum adds
@@ -181,7 +198,7 @@ HWY_INLINE op::V<D> HalleyFar(D d, op::V<D> x0, Dd<D> wneg) {
 // log/sqrt of a non-positive value, it quietly produces NaN, which the
 // caller's select discards.
 template <class D>
-HWY_INLINE op::V<D> ErfcInvCore(D d, op::V<D> s) {
+HWY_NOINLINE op::V<D> ErfcInvCore(D d, op::V<D> s) {
   const auto w = LogDdAny(d, s);
   const Dd<D> wneg{op::Neg(w.hi), op::Neg(w.lo)};  // w = -log(s) > 0
   const auto t = op::Sqrt(wneg.hi);
@@ -214,7 +231,7 @@ HWY_INLINE op::V<D> ErfcInvCore(D d, op::V<D> s) {
 }
 
 template <class D>
-HWY_INLINE op::V<D> ErfinvVec(D d, op::V<D> y) {
+HWY_NOINLINE op::V<D> ErfinvVec(D d, op::V<D> y) {
   const auto ay = op::Abs(y);
   const auto nan = op::IsNaN(y);
   const auto one = op::Set(d, 1.0);
@@ -255,7 +272,7 @@ HWY_INLINE op::V<D> ErfcinvTail(D d, op::V<D> z) {
 }
 
 template <class D>
-HWY_INLINE op::V<D> ErfcinvVec(D d, op::V<D> z) {
+HWY_NOINLINE op::V<D> ErfcinvVec(D d, op::V<D> z) {
   const auto one = op::Set(d, 1.0);
   const auto two = op::Set(d, 2.0);
   const auto half = op::Set(d, 0.5);

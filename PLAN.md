@@ -38,12 +38,11 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   design is the next frontier task.
 
 ## Next Steps
-1. **Outline erfinv-inl.h's driver the way 7b52ed1 outlined gamma's**,
-   before or with the next family. The CI fix is CONFIRMED (7b52ed1 run:
-   all three jobs green, 2026-07-29) but the Windows job took 22m48s of a
-   25-minute ceiling — ~2 min of headroom. Local MSVC timing on the Ryzen
-   box puts erfinv.cpp, not gamma.cpp, as the remaining long pole (open
-   item below). Incomplete beta must outline its driver from day one.
+1. **Confirm the erfinv outlining lands CI back in normal time** (open
+   item below; done on the Ryzen box 2026-07-29, in CI as of this
+   session's end — expect the Windows job near its old ~6 min, and treat
+   anything over ~10 as a new signal). Incomplete beta still outlines its
+   driver from day one.
 2. Regularized incomplete beta — detail design is the next frontier task
    (broad section below). It inherits Log1pmxDd, DdSqrt, DdRecipDd,
    Expm1Dd, and the gamma reference/oracle machinery (small-side rule,
@@ -87,8 +86,18 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   deterministic, and erfinv.cpp is now what keeps the job near 23 min.
   Post-fix re-time on the same box, same recipe: gamma.cpp ~15 min →
   ~2:16 (7×), library total 22:24 → 18:13 with erfinv.cpp the last
-  ~13 min of it. Next lever: outline erfinv-inl.h's driver (Next
-  Steps 1); incomplete beta outlines from day one.
+  ~13 min of it. **erfinv treated the same way on the Ryzen box
+  2026-07-29** (ErfcInvCore + both drivers HWY_NOINLINE; ErfinvCentral
+  deliberately left inline — outlining it cost a measured 0.5–0.7 ns/el
+  on the all-central fast path for negligible codegen weight, and the
+  final config's only cost is ~0.3 ns/el on that path from the driver
+  call, everything else flat): library total 18:13 → **3:59**, erfinv.cpp
+  from ~17 min to under 4 (lgamma.cpp is now the last TU to finish).
+  Validated before push: native AVX3_ZEN4 gates 13/13 with the erfinv
+  ULP table byte-identical, full clang-cl sweep AVX2→SSE2 + AVX3_DL/AVX3
+  green, MSVC-built AVX2 gates green. No /d2 escape hatch needed for
+  erfinv.cpp. Watch one CI run, then this item can close; incomplete
+  beta outlines its driver from day one.
 - [RESOLVED 2026-07-25] **The erfc tail's 2 ULP and 48% not-CR are two
   different problems, and only one is cheap.** mpmath replay of the
   tail formula over 3875 points in [6, 27.2], adding one error source
