@@ -355,6 +355,12 @@ erfcinv(z): z in [1/2, 3/2]  -> C(1 - z)
 (x in (~0.4769, ~27.217)); `erfinv` never reaches past x ≈ 5.86
 (`erfcinv(2^-53)`), so the far tail is exercised only through `erfcinv`.
 
+2026-07-29: `ErfcInvCore` and both drivers were made `HWY_NOINLINE` (MSVC
+build-time relief; see AGENTS.md). No accuracy impact — the ULP table is
+byte-identical before/after on native AVX3_ZEN4, and the full sweep
+(AVX2→SSE2, AVX3_DL, AVX3, plus MSVC-built AVX2) was re-run green on the
+outlined source that day.
+
 **Core C** (central, |x| ≤ ~0.4769): a single direct polynomial fit,
 x = y·Pc(y²), Pc a degree-16 Chebyshev fit on v = y² ∈ [0, 1/4] with 3 dd
 leading coefficients and a plain-double tail (same lead+tail split as

@@ -232,6 +232,22 @@ section restates rather than deviates. It is self-sufficient for this repo.
   SSE2 cap) Highway collapses it to `N_SSE2::FUNC`, and a globally
   qualified call then names a namespace that does not exist. It compiles
   at every other tier, so the cap sweep is what catches it.
+  **Outline heavy kernels from day one**: region cores AND the per-lane
+  driver of any non-trivial family are `HWY_NOINLINE` (gamma and erfinv
+  are the pattern). MSVC's optimizer is superlinear in function size —
+  fully inlined, each export becomes one enormous function per target
+  (the driver inlines TWICE per export: full-vector + masked-tail call
+  sites) and cl.exe codegen for one such TU reached ~15–17 minutes,
+  killing the CI Windows job at its 25-minute timeout twice (2026-07-29)
+  before outlining brought the whole library to ~4 minutes. Bit-identity
+  is guaranteed by contraction-off (verify anyway: ULP tables
+  byte-compare across the boundary change). Keep genuinely small hot
+  helpers inline — outlining erfinv's central polynomial cost a measured
+  0.5–0.7 ns/el on its 3 ns/el fast path for no meaningful codegen
+  relief, and was reverted. MSVC additionally gets
+  `/d2ReducedOptimizeHugeFunctions` on gamma.cpp (CMakeLists; real MSVC
+  only, clang-cl rejects /d2 flags) — erfinv needed no such flag once
+  outlined.
 - `src/dd-inl.h` — double-double primitives (Fast2Sum, TwoSum, TwoProd,
   DdAdd/DdMul/DdRecip, DdSqrt, DdRecipDd) shared by the compensated
   kernels. Written against

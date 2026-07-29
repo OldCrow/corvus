@@ -38,16 +38,11 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   design is the next frontier task.
 
 ## Next Steps
-1. **Confirm the erfinv outlining lands CI back in normal time** (open
-   item below; done on the Ryzen box 2026-07-29, in CI as of this
-   session's end — expect the Windows job near its old ~6 min, and treat
-   anything over ~10 as a new signal). Incomplete beta still outlines its
-   driver from day one.
-2. Regularized incomplete beta — detail design is the next frontier task
+1. **Start here**: regularized incomplete beta — detail design is the next frontier task
    (broad section below). It inherits Log1pmxDd, DdSqrt, DdRecipDd,
    Expm1Dd, and the gamma reference/oracle machinery (small-side rule,
    exact-asymptotic oracle above the mpmath ceiling).
-3. Quiet-machine bench pass on Kaby Lake before publishing its performance
+2. Quiet-machine bench pass on Kaby Lake before publishing its performance
    numbers (its gamma bench was session-loaded, labeled indicative). The
    Ryzen gamma bench IS quiet-machine and at 7b52ed1 (2026-07-29,
    AVX3_ZEN4, clang-cl): simd ns/el R1 64–68, R2 56–58, R3 49–56,
@@ -66,9 +61,11 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   TU and a GCC bugzilla account — user action to file, agent can prepare
   the repro. Details: ACCURACY.md (validation-matrix note), AGENTS.md
   (Ryzen box section).
-- [OPEN — watch; fix confirmed 2026-07-29] **Windows CI MSVC-codegen
-  blowup: fixed for gamma, ~2 min of headroom left, erfinv is the
-  remaining long pole.** History: 5.5 min typical → 16 min with erfinv
+- [RESOLVED 2026-07-29] **Windows CI MSVC-codegen blowup — fixed for
+  gamma (7b52ed1) and erfinv (1202273); CI Windows job 22m48s → 6m55s,
+  green.** Durable rule now in AGENTS.md (Architecture): outline region
+  cores AND the driver of every heavy family TU from day one; keep small
+  hot helpers inline. Full history below. History: 5.5 min typical → 16 min with erfinv
   (watch item) → >25 min (killed) on all four gamma pushes 2026-07-28/29,
   including 03e80c9 which outlined the four region cores but left GammaVec
   inlining LgammaPosDd, Log1pmxDd, ExpDdFrac and the erfc core into both
