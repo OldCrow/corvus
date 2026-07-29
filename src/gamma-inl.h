@@ -332,8 +332,17 @@ HWY_INLINE Dd<D> Expm1Dd(D d, Dd<D> w) {
 // lane, and it keeps the term ratio at or below 1 for the DISCARDED lanes
 // this core is also evaluated on (an x of 1e300 from an R2 lane would
 // otherwise run the terms up to inf and, worse, never freeze).
+//
+// All four region cores are HWY_NOINLINE (2026-07-28): fully inlined, the
+// two exports each became one enormous function per target and MSVC's
+// optimizer is superlinear in function size -- the CI Windows job hit its
+// 25-minute timeout inside code generation (erfinv's TU had already grown
+// it to 16 min; this TU is heavier). Outlining the cores caps the largest
+// function the optimizer sees. Results are bit-identical (contraction is
+// off, so inlining cannot change FP semantics) and the call cost is a few
+// cycles per vector against the cores' hundreds of flops.
 template <class D>
-HWY_INLINE Dd<D> GammaSeriesSum(D d, op::V<D> a, op::V<D> x) {
+HWY_NOINLINE Dd<D> GammaSeriesSum(D d, op::V<D> a, op::V<D> x) {
   const auto one = op::Set(d, 1.0);
   const auto zero = op::Zero(d);
   const auto half = op::Set(d, 0.5);
@@ -364,7 +373,7 @@ HWY_INLINE Dd<D> GammaSeriesSum(D d, op::V<D> a, op::V<D> x) {
 // is directly proportional to it, so a rounded reciprocal would put its own
 // half ulp straight into the answer.
 template <class D>
-HWY_INLINE Dd<D> GammaCfRecip(D d, op::V<D> a, op::V<D> x) {
+HWY_NOINLINE Dd<D> GammaCfRecip(D d, op::V<D> a, op::V<D> x) {
   auto k = op::Sub(
       op::Add(x, op::Set(d, static_cast<double>(2 * detail::kGammaCfN + 1))), a);
   for (int j = detail::kGammaCfN; j >= 1; --j) {
@@ -403,7 +412,7 @@ HWY_INLINE Dd<D> GammaCfRecip(D d, op::V<D> a, op::V<D> x) {
 // for the rest -- which is exactly what lgamma-inl.h does internally for
 // x in (0, 1/2) and [3/2, 5/2].
 template <class D>
-HWY_INLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
+HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   const auto one = op::Set(d, 1.0);
   const auto zero = op::Zero(d);
   const auto half = op::Set(d, 0.5);
@@ -495,7 +504,7 @@ struct GammaTemmeOut {
 };
 
 template <class D>
-HWY_INLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
+HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
   const auto one = op::Set(d, 1.0);
   const auto zero = op::Zero(d);
 
