@@ -56,7 +56,12 @@ the Windows ABI guarantees only 16-byte stack alignment (SEH blocks
 `test_gamma_ulp` segfaulted while the smoke test on the same kernel ran
 clean. Every earlier GCC AVX-512 pass on this box carried that latent
 risk. clang-cl (and, per its own escape-hatch caveat below, MSVC) is
-unaffected; GCC remains fine for capped tiers up to AVX2 (no zmm there),
+unaffected. No flag rescues it (tested 2026-07-29: `-mstackrealign` and
+`-mpreferred-stack-boundary=6` produce the identical spill pattern — 120
+aligned `vmovapd` zmm spills against 620 unaligned `vmovupd` ones, no
+`rsp` realignment — so the inconsistency is GCC's spill policy itself and
+the fix must come upstream). GCC remains fine for capped tiers up to AVX2
+(no zmm there),
 which is all `tools/sweep_tiers.ps1` compiles — its `g++` default is safe
 for the sweep itself, but the uncapped native build must be clang-cl
 (from a VS dev shell so link.exe resolves; the 2026-07-28 session ran the
