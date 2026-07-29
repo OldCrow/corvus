@@ -1,14 +1,17 @@
 # corvus — Plan / Session State
 
 ## Status [DERIVED] — 2026-07-28 (Kaby Lake)
-**Phase C part 2 (incomplete gamma P/Q) SHIPPED.** gamma_p/gamma_q public;
-max 2 ULP direct side everywhere (4 ULP on one complement corner), gates
-pinned to measured, identical max ULP on AVX2/SSE4/SSSE3/SSE2 (native +
-capped). NEON row pending the next CI run; AVX-512 pending the next Ryzen
-session (record both in ACCURACY.md when they land). Built by the two-agent
-split decided 2026-07-26 (Sonnet tooling, Opus kernel) with orchestrator
-review gates between stages — the workflow notes at the end of the Phase C
-part 2 section record what the review gates caught.
+**Phase C part 2 (incomplete gamma P/Q) SHIPPED and fully validated.**
+gamma_p/gamma_q public; max 2 ULP direct side everywhere (4 ULP on one
+complement corner), gates pinned to measured. Validated identical cell for
+cell on every fleet tier: AVX2/SSE4/SSSE3/SSE2 (Kaby Lake native + capped),
+NEON (CI run 30414669451), and AVX-512 (Ryzen 2026-07-28: AVX3_ZEN4 native
++ AVX3_DL/AVX3 capped + the four lower tiers re-swept, all under clang-cl —
+mingw GCC 16.1 is disqualified at AVX-512 by a misaligned-zmm-spill codegen
+bug found this session; see ACCURACY.md and AGENTS.md). Built by the
+two-agent split decided 2026-07-26 (Sonnet tooling, Opus kernel) with
+orchestrator review gates between stages — the workflow notes at the end of
+the Phase C part 2 section record what the review gates caught.
 
 **Phases A and B are complete; Phase C is in progress.** Scaffolded
 2026-07-20; public at github.com/OldCrow/corvus. Shipped and
@@ -35,19 +38,47 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   design is the next frontier task.
 
 ## Next Steps
-1. Fill the gamma NEON row in ACCURACY.md from the CI run that follows the
-   ship commit (Apple-silicon runner; expect the FMA-tier values point for
-   point, as every prior family).
-2. Next Ryzen session: gamma AVX-512 sweep (tools/sweep_tiers.ps1 now
-   includes the gamma tests) → fill the ACCURACY.md cells.
-3. Regularized incomplete beta — detail design is the next frontier task
+1. **Outline erfinv-inl.h's driver the way 7b52ed1 outlined gamma's**,
+   before or with the next family. The CI fix is CONFIRMED (7b52ed1 run:
+   all three jobs green, 2026-07-29) but the Windows job took 22m48s of a
+   25-minute ceiling — ~2 min of headroom. Local MSVC timing on the Ryzen
+   box puts erfinv.cpp, not gamma.cpp, as the remaining long pole (open
+   item below). Incomplete beta must outline its driver from day one.
+2. Regularized incomplete beta — detail design is the next frontier task
    (broad section below). It inherits Log1pmxDd, DdSqrt, DdRecipDd,
    Expm1Dd, and the gamma reference/oracle machinery (small-side rule,
    exact-asymptotic oracle above the mpmath ceiling).
-4. Quiet-machine bench pass before publishing any performance number —
-   everything so far is session-loaded and labeled indicative.
+3. Quiet-machine bench pass on Kaby Lake before publishing its performance
+   numbers (its gamma bench was session-loaded, labeled indicative). The
+   Ryzen gamma bench IS quiet-machine and at 7b52ed1 (2026-07-29,
+   AVX3_ZEN4, clang-cl): simd ns/el R1 64–68, R2 56–58, R3 49–56,
+   R4 67–74 (8.9–21× the scalar-walk baseline, an upper bound per its
+   caveat). Identical within noise to the pre-outlining build — the
+   HWY_NOINLINE driver costs nothing measurable at 8 lanes.
 
 ## Open Items
+- [OPEN — watch; fix confirmed 2026-07-29] **Windows CI MSVC-codegen
+  blowup: fixed for gamma, ~2 min of headroom left, erfinv is the
+  remaining long pole.** History: 5.5 min typical → 16 min with erfinv
+  (watch item) → >25 min (killed) on all four gamma pushes 2026-07-28/29,
+  including 03e80c9 which outlined the four region cores but left GammaVec
+  inlining LgammaPosDd, Log1pmxDd, ExpDdFrac and the erfc core into both
+  export loops (MSVC's optimizer is superlinear in function size; runner
+  image and MSVC version verified unchanged — drift ruled out). Fix
+  7b52ed1 (Kaby Lake): GammaVec HWY_NOINLINE + MSVC-only
+  /d2ReducedOptimizeHugeFunctions on gamma.cpp. Confirmed: its CI run is
+  green on all three jobs, Windows at 22m48s of the 25-min ceiling.
+  Bit-identity verified on AVX2 (Kaby Lake) and on this box's full
+  re-validation at 7b52ed1 (native AVX3_ZEN4 table byte-identical, all
+  six capped tiers green). [DERIVED] Local MSVC timing, Ryzen Ninja+cl
+  19.51, pre-fix source: gamma.cpp ~15 min of codegen, erfinv.cpp the
+  long pole (finished between 15:18 and 22:24 total) — on the 2-core CI
+  runner either TU alone exceeds the budget, so the pre-fix timeouts were
+  deterministic, and erfinv.cpp is now what keeps the job near 23 min.
+  Post-fix re-time on the same box, same recipe: gamma.cpp ~15 min →
+  ~2:16 (7×), library total 22:24 → 18:13 with erfinv.cpp the last
+  ~13 min of it. Next lever: outline erfinv-inl.h's driver (Next
+  Steps 1); incomplete beta outlines from day one.
 - [RESOLVED 2026-07-25] **The erfc tail's 2 ULP and 48% not-CR are two
   different problems, and only one is cheap.** mpmath replay of the
   tail formula over 3875 points in [6, 27.2], adding one error source

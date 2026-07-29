@@ -50,8 +50,8 @@ machine.
 | lgamma | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | erfinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | erfcinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
-| gamma_p | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-07-29 | — |
-| gamma_q | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-07-29 | — |
+| gamma_p | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-07-29 | ✅ 2026-07-28 |
+| gamma_q | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-07-29 | ✅ 2026-07-28 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
@@ -84,6 +84,22 @@ stays a manual stop on the Ryzen box. Re-run in full on 2026-07-25 (GCC
 16.1) after the erfc tail moved onto `exp_dd`, adding `exp_dd` to the
 sweep; `tools/sweep_tiers.ps1` is the Windows form of the recipe.
 
+The gamma_p/gamma_q AVX-512 row (2026-07-28, same machine) was validated
+under clang-cl **only**, and the sweep of the four lower tiers on this box
+ran under clang-cl as well. The reason is a compiler defect found during
+that session: mingw-w64 GCC 16.1 miscompiles the gamma TU at AVX3\* —
+its register allocator spills zmm registers with the aligned `vmovapd`
+to plain `rsp`-relative slots, but the Windows x64 ABI guarantees only
+16-byte stack alignment and SEH prevents GCC from realigning `rsp`, so
+whether any given binary faults depends on the call-chain's accidental
+`rsp` alignment (`test_gamma_ulp` segfaulted; the smoke test "passed" —
+same kernel, different luck). GCC realigns *named* aligned locals through
+a scratch pointer but not its own spill slots, so this is a GCC bug, not
+a corvus or Highway one, and it is latent in every prior GCC AVX-512
+result on this box. Until GCC fixes spill-slot alignment on SEH targets,
+mingw GCC is **not** a valid AVX-512 validation compiler here; clang-cl
+is the sole source of Windows AVX-512 numbers.
+
 **A default MSVC build does not exercise AVX-512 at all**: Highway marks
 every AVX3\* target broken under MSVC (`HWY_BROKEN_MSVC`), so such a build
 silently tops out at AVX2 — no AVX-512 claim may be made from one. The
@@ -98,13 +114,17 @@ properly means running Highway's own test suite under MSVC, which is the
 prerequisite for asking upstream to add a version floor.
 
 **Cross-architecture reproducibility (observed 2026-07-21, extended
-2026-07-24):** every FMA-capable target validated so far produces
-bit-identical results on every point of both reference sets — identical
-not-correctly-rounded counts and identical worst-case inputs. That set now
-covers NEON (Apple Silicon, AppleClang), AVX2 (Linux/GCC and Kaby
-Lake/AppleClang), and AVX3, AVX3_DL, AVX3_ZEN4 (Ryzen Zen 4, both GCC and
-clang-cl). On FMA-capable targets the kernels are, on this evidence,
-deterministic across ISA, compiler, and OS.
+2026-07-24 and 2026-07-28):** every FMA-capable target validated so far
+produces bit-identical results on every point of both reference sets —
+identical not-correctly-rounded counts and identical worst-case inputs.
+That set now covers NEON (Apple Silicon, AppleClang), AVX2 (Linux/GCC and
+Kaby Lake/AppleClang), and AVX3, AVX3_DL, AVX3_ZEN4 (Ryzen Zen 4, GCC and
+clang-cl for the pre-gamma families; clang-cl for gamma_p/gamma_q — see
+the GCC note above). The gamma_p/gamma_q region tables are identical cell
+for cell (max ULP, not-CR counts, and worst-case inputs) on NEON, AVX2
+(Kaby Lake and Linux CI), and all three AVX3\* variants. On FMA-capable
+targets the kernels are, on this evidence, deterministic across ISA,
+compiler, and OS.
 
 `exp_dd` and `log_dd` go further: they are identical on **every** validated
 tier, FMA and no-FMA alike, and under GCC, MSVC and AppleClang — same
@@ -422,13 +442,18 @@ payload in both.
 ## gamma_p and gamma_q
 
 **Bounds, measured on the 16,734-point reference set and identical
-(max ULP cell for cell) on AVX2, SSE4, SSSE3, SSE2 and NEON.** x86: Kaby
-Lake native + capping, AppleClang, 2026-07-28. NEON: Apple-silicon CI
-runner (run 30412061002, 2026-07-29), point-identical to the x86 FMA
-tiers — every count and every worst-case input matches, extending the
-cross-architecture determinism claim to this family. AVX-512 awaits a
-Ryzen session and is not claimed until measured. The gates are pinned to
-these values with no margin.
+(max ULP cell for cell) on AVX2, SSE4, SSSE3, SSE2, NEON and AVX-512.**
+x86: Kaby Lake native + capping, AppleClang, 2026-07-28. NEON:
+Apple-silicon CI runner (run 30412061002, 2026-07-29), point-identical to
+the x86 FMA tiers — every count and every worst-case input matches,
+extending the cross-architecture determinism claim to this family.
+AVX-512: Ryzen, clang-cl, 2026-07-28 — `AVX3_ZEN4` native plus
+`AVX3_DL`/`AVX3` via capping, again cell-for-cell identical (max ULP,
+not-CR counts, worst-case inputs), with the four lower tiers re-swept on
+that box the same day. The gates are pinned to these values with no
+margin. The Ryzen numbers are clang-cl only: mingw GCC 16.1 miscompiles
+this TU at AVX-512 (misaligned zmm spills; see the note under the
+validation matrix).
 
 | Region (direct side) | gamma_p | gamma_q |
 |---|---|---|

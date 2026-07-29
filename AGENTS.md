@@ -22,7 +22,7 @@ std::simd equivalent and will outlive the op-layer migration.
 |---|---|---|---|---|---|
 | MacBook Pro 2017 (Kaby Lake) | macOS Ventura | i7-7820HQ | AVX2+FMA | Apple Clang | AVX2 native; SSE4/SSSE3/SSE2 via tier capping (no FMA on those) |
 | Mac Mini M1 | macOS Tahoe | Apple M1 | NEON (native FMA) | Apple Clang | NEON validation |
-| Asus TUF A16 | Windows 11 | Ryzen 7 7445 (Zen 4) | AVX-512 | **clang-cl or mingw GCC, not MSVC** | AVX3* native; every lower x86 tier via capping |
+| Asus TUF A16 | Windows 11 | Ryzen 7 7445 (Zen 4) | AVX-512 | **clang-cl (GCC unsafe at AVX-512, MSVC can't dispatch it)** | AVX3* native; every lower x86 tier via capping |
 
 **corvus deviates from the house Windows default, and this is deliberate.**
 The other projects in this fleet (libhmm, libstats, ewcalc and the Python
@@ -47,8 +47,21 @@ change per machine.
 **On the Ryzen box, the compiler decides whether AVX-512 exists at all.**
 Highway puts every AVX3\* target in `HWY_BROKEN_TARGETS` under MSVC, so an
 MSVC build silently tops out at AVX2 while still looking like a clean pass
-— never make an AVX-512 claim from one. Use GCC (mingw-w64/UCRT) or Clang
-(clang-cl); both dispatch `AVX3_ZEN4` natively and agree point-for-point.
+— never make an AVX-512 claim from one. Use Clang (clang-cl), which
+dispatches `AVX3_ZEN4` natively. mingw-w64 GCC also dispatches it but is
+**disqualified for AVX-512 work as of 2026-07-28**: GCC 16.1 spills zmm
+registers with aligned `vmovapd` to plain `rsp`-relative slots, and since
+the Windows ABI guarantees only 16-byte stack alignment (SEH blocks
+`rsp` realignment), whether a binary faults is call-chain luck —
+`test_gamma_ulp` segfaulted while the smoke test on the same kernel ran
+clean. Every earlier GCC AVX-512 pass on this box carried that latent
+risk. clang-cl (and, per its own escape-hatch caveat below, MSVC) is
+unaffected; GCC remains fine for capped tiers up to AVX2 (no zmm there),
+which is all `tools/sweep_tiers.ps1` compiles — its `g++` default is safe
+for the sweep itself, but the uncapped native build must be clang-cl
+(from a VS dev shell so link.exe resolves; the 2026-07-28 session ran the
+whole sweep under `-CxxCompiler clang-cl -CCompiler clang-cl` too, and
+either compiler choice is fine there).
 Confirm the active set before trusting any tier result:
 `build/_deps/highway-build/hwy_list_targets`. Also note `AVX3_SPR`
 (Intel Sapphire Rapids) and `AVX10_2` are not available on Zen 4, so
