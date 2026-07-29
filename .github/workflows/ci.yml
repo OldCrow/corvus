@@ -75,6 +75,9 @@ jobs:
           ./build/tests/test_lgamma_ulp tests/data/lgamma_reference.txt
           ./build/tests/test_erfinv_ulp \
             tests/data/erfinv_reference.txt tests/data/erfcinv_reference.txt
+          ./build/tests/test_gamma_ulp \
+            tests/data/gamma_p_reference.txt tests/data/gamma_q_reference.txt
+          ./build/tests/test_gamma_util tests/data/gamma_util_reference.txt
           ./build/tests/test_exp_dd tests/data/exp_dd_reference.txt
           ./build/tests/test_log_dd tests/data/log_dd_reference.txt
 
@@ -201,6 +204,9 @@ jobs:
           ./build/tests/Release/test_lgamma_ulp.exe tests/data/lgamma_reference.txt
           ./build/tests/Release/test_erfinv_ulp.exe \
             tests/data/erfinv_reference.txt tests/data/erfcinv_reference.txt
+          ./build/tests/Release/test_gamma_ulp.exe \
+            tests/data/gamma_p_reference.txt tests/data/gamma_q_reference.txt
+          ./build/tests/Release/test_gamma_util.exe tests/data/gamma_util_reference.txt
           ./build/tests/Release/test_exp_dd.exe tests/data/exp_dd_reference.txt
           ./build/tests/Release/test_log_dd.exe tests/data/log_dd_reference.txt
 
@@ -236,6 +242,9 @@ jobs:
           ./build/tests/test_lgamma_ulp tests/data/lgamma_reference.txt
           ./build/tests/test_erfinv_ulp \
             tests/data/erfinv_reference.txt tests/data/erfcinv_reference.txt
+          ./build/tests/test_gamma_ulp \
+            tests/data/gamma_p_reference.txt tests/data/gamma_q_reference.txt
+          ./build/tests/test_gamma_util tests/data/gamma_util_reference.txt
           # This job is the only source of ACCURACY.md's NEON numbers, so the
           # dd kernels have to report here too, not just gate under ctest.
           ./build/tests/test_exp_dd tests/data/exp_dd_reference.txt
