@@ -215,7 +215,8 @@ section restates rather than deviates. It is self-sufficient for this repo.
   qualified call then names a namespace that does not exist. It compiles
   at every other tier, so the cap sweep is what catches it.
 - `src/dd-inl.h` — double-double primitives (Fast2Sum, TwoSum, TwoProd,
-  DdAdd/DdMul/DdRecip) shared by the compensated kernels. Written against
+  DdAdd/DdMul/DdRecip, DdSqrt, DdRecipDd) shared by the compensated
+  kernels. Written against
   `ops::` like everything else. Exact residuals go through `ops::ProdLow`,
   never a bare `MulSub` — same FMA-capability hazard as `ops::SquareLow`.
 - `src/<fn>_dd-inl.h` — corvus-owned transcendental cores (exp_dd, later
@@ -253,10 +254,18 @@ python3 -m venv /tmp/mpv && /tmp/mpv/bin/pip install mpmath
 /tmp/mpv/bin/python tools/gen_lgamma_reference.py > tests/data/lgamma_reference.txt
 /tmp/mpv/bin/python tools/gen_erfinv_data.py      > src/erfinv_data.h
 /tmp/mpv/bin/python tools/gen_erfinv_reference.py
+/tmp/mpv/bin/python tools/gen_gamma_data.py       > src/gamma_data.h
+/tmp/mpv/bin/python tools/gen_gamma_reference.py
 ```
 `gen_erfinv_reference.py` writes both `tests/data/erfinv_reference.txt` and
 `tests/data/erfcinv_reference.txt` directly (two output files, so no `>`
-redirection) rather than printing one file to stdout.
+redirection) rather than printing one file to stdout; `gen_gamma_reference.py`
+likewise writes its three files directly (`gamma_p`/`gamma_q`/`gamma_util`
+reference). The gamma reference oracle has two non-obvious rules baked in —
+compute the SMALL side of P/Q directly (never 1 − a near-1 value), and use
+the exact-asymptotic oracle rather than mpmath's gammainc for a > 1e4
+(mpmath's regularized lower hangs or fails to converge at large a) — both
+documented at the enforcement sites in the generator.
 Reference files and generated tables are checked in; regenerate only when
 the method or point selection changes, and re-run the ULP tests after.
 Table generators self-check on every run and exit non-zero rather than emit

@@ -10,11 +10,13 @@ coverage: erf/erfc, lgamma, regularized incomplete gamma and beta, and their
 inverses — the functions that gate vectorized statistical CDFs, quantiles,
 and maximum-likelihood fitting.
 
-**Status: early development.** `erf`, `erfc`, `lgamma`, `erfinv` and
-`erfcinv` are production-quality clean-room kernels validated against an
-mpmath oracle on every SIMD tier available across the development fleet —
-AVX-512 (`AVX3`, `AVX3_DL`, `AVX3_ZEN4`), AVX2, SSE4, SSSE3, SSE2 and NEON,
-each on native silicon. API not yet stable.
+**Status: early development.** `erf`, `erfc`, `lgamma`, `erfinv`,
+`erfcinv`, `gamma_p` and `gamma_q` are production-quality clean-room
+kernels validated against an mpmath oracle on every SIMD tier available
+across the development fleet — AVX-512 (`AVX3`, `AVX3_DL`, `AVX3_ZEN4`),
+AVX2, SSE4, SSSE3, SSE2 and NEON, each on native silicon (the gamma pair's
+NEON and AVX-512 validation is pending its first CI run and next Ryzen
+session; see docs/ACCURACY.md). API not yet stable.
 
 - `erf`: max 1 ULP over the full domain.
 - `erfc`: max 1 ULP for |x| <= 6 and for subnormal results; max 2 ULP in
@@ -29,6 +31,11 @@ each on native silicon. API not yet stable.
   down to the far tail (`erfcinv` reaches x up to ~27.2; `erfinv` never
   leaves x < 6). Useful directly as the normal quantile:
   `probit(p) = -sqrt(2)*erfcinv(2p)`.
+- `gamma_p` / `gamma_q` (regularized incomplete gamma): max 2 ULP on the
+  directly computed (smaller) side over the whole (a, x) plane, and every
+  bound is relative — the routing always computes the smaller of P/Q
+  directly, so tiny values keep full relative accuracy down to (and
+  through) the subnormals, including Q for arbitrarily small a.
 
 Both transcendental cores the kernels need (`exp_dd`, `log_dd`) are
 corvus's own, so no accuracy-critical path depends on the backend's math

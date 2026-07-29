@@ -68,6 +68,7 @@ add_library(corvus STATIC
   src/erfc.cpp
   src/erfinv.cpp
   src/exp_dd_data.cpp
+  src/gamma.cpp
   src/lgamma.cpp
   src/log_dd_data.cpp
 )

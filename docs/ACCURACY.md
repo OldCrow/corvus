@@ -50,6 +50,8 @@ machine.
 | lgamma | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | erfinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | erfcinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
+| gamma_p | ✅ 2026-07-28 | ✅ | ✅ | ✅ | — | — |
+| gamma_q | ✅ 2026-07-28 | ✅ | ✅ | ✅ | — | — |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
@@ -416,6 +418,63 @@ testing that exact point rather than points near it.)
 Specials: `erfinv(±1) = ±inf`, `|y| > 1 → NaN`; `erfcinv(0) = +inf`,
 `erfcinv(2) = -inf`, `z` outside `[0, 2] → NaN`; NaN propagates with
 payload in both.
+
+## gamma_p and gamma_q
+
+**Bounds, measured on the 16,734-point reference set and identical
+(max ULP cell for cell) on AVX2, SSE4, SSSE3 and SSE2** (Kaby Lake native +
+capping, AppleClang, 2026-07-28). NEON and AVX-512 are pending: NEON awaits
+the next CI run on Apple-silicon hardware; AVX-512 awaits a Ryzen session —
+neither cell is claimed until then. The gates are pinned to these values
+with no margin.
+
+| Region (direct side) | gamma_p | gamma_q |
+|---|---|---|
+| R1 series (P direct) | **2 ULP** (1.8% not-CR) | complement: 4 ULP |
+| R2 continued fraction (Q direct) | complement: 1 ULP | **2 ULP** (27% not-CR) |
+| R3 Temme ridge (smaller side direct) | **2 ULP** | **2 ULP** |
+| R3 complement | 1 ULP | 1 ULP |
+| R4 small-a (Q direct) | complement: **0 ULP** (CR) | **1 ULP** |
+
+Every complement is ≥ ~0.4 by the routing's construction, so all bounds
+above are relative — there is no absolute-error band anywhere in the
+domain. The no-FMA tiers moved exactly two not-CR counts by one point each
+(R1/P 132→131 of 7366, R3/Q 44→45 of 365) with every max ULP unchanged —
+the lgamma-class signature of a design that accumulates in double-double
+and rounds once.
+
+Method: four regions on λ = x/a with a_T = 20 — a power series for P
+(fixed cap 64, per-lane freeze), a **backward** fixed-depth (44) evaluation
+of Legendre's continued fraction for Q (backward is load-bearing: forward
+Lentz both accumulates ~6× the rounding error and can false-converge), the
+Temme uniform asymptotic on the ridge (K = 11 coefficient functions in η,
+Chebyshev-fitted; the coefficients were extracted clean-room from the
+oracle by solving for the 1/a expansion numerically — no recursion or code
+consulted), and a small-a expansion of Γ(a,x) via [Γ(1+a)−1] − [x^a−1]
+that keeps Q relative-accurate down to a = 1e-300 where Q ~ a·E1(x). The
+prefactor exponent and every assembly are double-double with one rounding;
+the always-compute-the-smaller-side rule plus 1 ⊖ dd complements is what
+makes the relative claim global. Full region map and error budget:
+PLAN.md, "Phase C part 2".
+
+Two hazards worth recording. The φ = u − log1p(u) primitive carries its
+six leading series coefficients as dd pairs because a·φ is an exponential's
+argument: rounding 1/3 to a double alone injects 2^-58.5 relative into φ,
+which is invisible in φ and worth 12 ULP at (a, λ) = (3.8e5, 1.062), where
+a·φ ≈ 740 — found by the kernel review against the exact-arithmetic
+oracle, not by the original reference set, which under-sampled that band
+(it now covers it). And the reference oracle itself: mpmath's regularized
+lower gammainc silently fails (or hangs) for large a near the ridge, so
+references above a = 1e4 come from exact-arithmetic Temme evaluation at
+100+ digits with full-degree fits (truncation there < 1e-40); for η < 0
+the coefficient extraction must run on the P-side identity — the Q-side
+difference is a 1-minus-tiny cancellation that needs thousands of digits.
+
+Specials (SciPy limit conventions, exercised by the smoke test): x<0, a<0,
+(0,0) and (∞,∞) → NaN, payload preserved; (x=0, a>0) → P=+0, Q=1;
+(a=0, x>0) → P=1, Q=+0; x=+∞ → P=1; a=+∞ → Q=1. P+Q = 1 holds within
+1 ULP everywhere. Results underflow gradually; deep-tail lanes saturate to
+the exact 0/1 pair below e^-800.
 
 ## exp_dd (internal)
 

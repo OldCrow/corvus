@@ -80,6 +80,40 @@ void erfinv(std::span<const double> in, std::span<double> out);
 /// propagates (payload preserved).
 void erfcinv(std::span<const double> in, std::span<double> out);
 
+/// \brief out[i] = P(a[i], x[i]), the regularized lower incomplete gamma
+///   function (SciPy's `gammainc`).
+///
+/// P(a, x) = 1/Gamma(a) * integral from 0 to x of t^(a-1) e^-t dt, i.e. the
+/// CDF of a Gamma(a, 1) variate. "Regularized" is the division by Gamma(a):
+/// P is in [0, 1] and P + Q = 1.
+///
+/// Three spans, all the same length: `a`, `x` and `out`. Whichever of the
+/// pair is the smaller at a given (a, x) is the one computed directly, so
+/// the accuracy bound is relative on that side however far it underflows;
+/// the other side is >= ~0.4 by construction. See docs/ACCURACY.md for the
+/// measured per-region table.
+///
+/// Specials: P(a, 0) = +0 and P(+inf, x) = +0 for finite a, x; P(0, x) = 1
+/// and P(a, +inf) = 1 for finite a, x; P(0, 0), P(+inf, +inf) and any
+/// negative a or x give NaN; NaN propagates (payload preserved).
+void gamma_p(std::span<const double> a, std::span<const double> x,
+             std::span<double> out);
+
+/// \brief out[i] = Q(a[i], x[i]) = 1 - P(a[i], x[i]), the regularized upper
+///   incomplete gamma function (SciPy's `gammaincc`).
+///
+/// Q(a, x) = 1/Gamma(a) * integral from x to infinity of t^(a-1) e^-t dt --
+/// the survival function of a Gamma(a, 1) variate. Same span contract and
+/// same compute-the-smaller-side rule as gamma_p; results underflow
+/// gradually and then to zero as x grows, and stay relatively accurate
+/// throughout the representable range.
+///
+/// Specials: Q(a, 0) = 1 and Q(+inf, x) = 1 for finite a, x; Q(0, x) = +0
+/// and Q(a, +inf) = +0 for finite a, x; Q(0, 0), Q(+inf, +inf) and any
+/// negative a or x give NaN; NaN propagates (payload preserved).
+void gamma_q(std::span<const double> a, std::span<const double> x,
+             std::span<double> out);
+
 }  // namespace corvus
 
 #endif  // CORVUS_CORVUS_H_

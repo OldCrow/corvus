@@ -76,6 +76,30 @@ add_executable(bench_erfinv bench_erfinv.cpp)
 corvus_test_target(bench_erfinv)
 # Deliberately not registered with ctest: run manually on a quiet machine.
 
+add_executable(test_gamma test_gamma.cpp)
+corvus_test_target(test_gamma)
+add_test(NAME gamma COMMAND test_gamma)
+
+add_executable(test_gamma_ulp test_gamma_ulp.cpp)
+corvus_test_target(test_gamma_ulp)
+# Links the public API, but re-derives the kernel's region routing from
+# src/gamma_data.h so the two cannot drift apart — hence the source root.
+target_include_directories(test_gamma_ulp PRIVATE ${PROJECT_SOURCE_DIR})
+add_test(NAME gamma_ulp
+  COMMAND test_gamma_ulp
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/gamma_p_reference.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/gamma_q_reference.txt)
+
+add_executable(test_gamma_util test_gamma_util.cpp)
+corvus_kernel_test_target(test_gamma_util)
+add_test(NAME gamma_util
+  COMMAND test_gamma_util
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/gamma_util_reference.txt)
+
+add_executable(bench_gamma bench_gamma.cpp)
+corvus_test_target(bench_gamma)
+# Deliberately not registered with ctest: run manually on a quiet machine.
+
 add_executable(test_exp_dd test_exp_dd.cpp)
 corvus_kernel_test_target(test_exp_dd)
 add_test(NAME exp_dd

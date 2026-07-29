@@ -1,11 +1,14 @@
 # corvus — Plan / Session State
 
-## Status [DERIVED] — 2026-07-26 (Kaby Lake)
-**Phase C part 2 (incomplete gamma P/Q) detail design is RESOLVED and
-probe-validated; implementation not yet dispatched.** See "Phase C part 2 —
-detail design" below: region map, all fixed lengths, Temme (a_T=20, K=11),
-and per-region replay-measured error expectations. Next session starts at
-"Next Steps" — dispatch the two implementation agents per that section.
+## Status [DERIVED] — 2026-07-28 (Kaby Lake)
+**Phase C part 2 (incomplete gamma P/Q) SHIPPED.** gamma_p/gamma_q public;
+max 2 ULP direct side everywhere (4 ULP on one complement corner), gates
+pinned to measured, identical max ULP on AVX2/SSE4/SSSE3/SSE2 (native +
+capped). NEON row pending the next CI run; AVX-512 pending the next Ryzen
+session (record both in ACCURACY.md when they land). Built by the two-agent
+split decided 2026-07-26 (Sonnet tooling, Opus kernel) with orchestrator
+review gates between stages — the workflow notes at the end of the Phase C
+part 2 section record what the review gates caught.
 
 **Phases A and B are complete; Phase C is in progress.** Scaffolded
 2026-07-20; public at github.com/OldCrow/corvus. Shipped and
@@ -32,18 +35,16 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   design is the next frontier task.
 
 ## Next Steps
-1. **Start here — dispatch gamma P/Q implementation** per "Phase C part 2 —
-   detail design" below. Decisions already made with the user (2026-07-26):
-   Sonnet (default effort) for tooling (generators, data header, reference
-   sets), Opus for the kernel TU + API + CMake + tests; measured per-region
-   gate bounds; commit gate = local AVX2 + capped SSE4/SSSE3/SSE2 sweeps
-   green plus CI (NEON + Linux sweep) green — AVX-512 deferred to the next
-   Ryzen session (matrix cell left pending, as erf did 07-20 → 07-24).
-   Sequencing: Sonnet tooling first (kernel consumes its data header),
-   then Opus; orchestrator holds validation, docs, commit/push.
-2. Regularized incomplete beta after gamma (reuses Log1pmxDd/η/φ, DdSqrt,
-   DdRecipDd, Expm1Dd — all specified in the part-2 design).
-3. Quiet-machine bench pass before publishing any performance number —
+1. Fill the gamma NEON row in ACCURACY.md from the CI run that follows the
+   ship commit (Apple-silicon runner; expect the FMA-tier values point for
+   point, as every prior family).
+2. Next Ryzen session: gamma AVX-512 sweep (tools/sweep_tiers.ps1 now
+   includes the gamma tests) → fill the ACCURACY.md cells.
+3. Regularized incomplete beta — detail design is the next frontier task
+   (broad section below). It inherits Log1pmxDd, DdSqrt, DdRecipDd,
+   Expm1Dd, and the gamma reference/oracle machinery (small-side rule,
+   exact-asymptotic oracle above the mpmath ceiling).
+4. Quiet-machine bench pass before publishing any performance number —
    everything so far is session-loaded and labeled indicative.
 
 ## Open Items
@@ -354,7 +355,8 @@ compute the smaller of P/Q directly, complement the other.
   caps (huge/tiny a) decided and documented in detail design.
 
 ### Phase C part 2 — regularized incomplete gamma P/Q detail design
-### [resolved 2026-07-26, implementation NOT yet dispatched]
+### [resolved 2026-07-26; SHIPPED 2026-07-28 — see the shipped-record
+### subsection at the end for deltas and findings]
 
 Probe-validated on the Kaby Lake box (mpmath oracle + python-float double
 replay, the erfc-tail methodology; scripts were session-scratchpad
@@ -377,15 +379,20 @@ domain caps; saturation handled by an E<−800 underflow mask.
   Q = a·Γ(a,x)/Γ(1+a). Γ(1+a)−1 = Expm1Dd of lgamma's OWN zone poly at
   EXACT argument (t=a centre-1 for a≤½; t=a−1 centre-2 for a≤3/2 — never
   form 1+a); x^a−1 = Expm1Dd(a·LogDd x). Σ: dd terms (static dd 1/n table
-  n≤30, weights DdRecipDd(TwoSum(a,n))), alternating, cap 30 + freeze.
+  n≤36, weights DdRecipDd(TwoSum(a,n))), alternating, cap 36 + freeze
+  [cap was 30 until 2026-07-27: the 4^n/n! tail at x=4 needs 34 terms
+  for 2^-58 — generator self-check catch].
   Replay: correctly rounded on the full probe grid incl. a=1e-300 and the
   x=e^−γ cancellation line. This region is what closes the small-a
   complement corner: Q ~ a·E1(x) keeps full relative accuracy.
 - R2 CF-Q: {a<20, x>a+1} ∪ {a≥20, λ≥2}, minus R4. **Backward** fixed-depth
-  N=40, no convergence test: K = x+2N+1−a; for j=N..1:
+  N=44, no convergence test: K = x+2N+1−a; for j=N..1:
   K = (x+2j−1−a) − j(j−a)/K; Q = e^E·recip(K). Backward contracts rounding
   (replay ≤4 ULP worst vs 24 for forward Lentz; forward also
   false-converges — (30,133) stopped at N=8 with 70 ULP).
+  [N was 40 until 2026-07-27: the generator's sup sweep found the true
+  worst point at a→1.5⁺, x=a+1 — a blind spot in probe1's a-grid, which
+  skipped (1,2). N=42 meets 2^-56; 44 carries margin.]
 - R3 Temme: {a≥20, ½<λ<2}, direct side by sign(x−a):
   smaller = ½erfc(z) ± R, z = √(aφ), R = e^{−aφ}/√(2πa)·S(η,1/a),
   S = Σ_{k<11} c_k(η)/a^k. c_k: Chebyshev fits over η ∈ [−0.6215, 0.7834],
@@ -400,14 +407,18 @@ domain caps; saturation handled by an E<−800 underflow mask.
   every complement is ≥ ~0.4, so ALL gates are relative — no lgamma-style
   absolute band needed.
 
-**Prefactor** E = ln(x^a e^{−x}/Γ(a)): a<8: a·LogDd(x) ⊖ x ⊖ LgammaPosDd(a)
-(argument always exact — LgammaPosDd covers (0,8) incl. its 0<a<½ region);
-a≥8: E = −a·φ(λ) + ½ln(a/2π) − φst(a), φst = plain-double Horner over
-kLgammaStirCoef verbatim, u = TwoSum(x,−a) ⊗ DdRecipDd(a) — the EXACT
-difference makes this valid at every λ, not just the Sterbenz band. e^E via
-ExpDdFrac; every factor folds into mantissa space; power-of-two scale last
-(erfc pattern) so subnormal results take one rounding. P-prefactor folds in
-DdRecip(a).
+**Prefactor** E = ln(x^a e^{−x}/Γ(a)) [AS SHIPPED, simplified 2026-07-28]:
+E = a·LogDd(x) ⊖ x ⊖ LgammaPosDd(a) for ALL a in R1/R2 — LgammaPosDd
+covers every positive a internally (its own 0<a<½ log shift, its own
+2^200-scaled Stirling), so no separate large-a φ-form is needed; worst
+extra cost ~1 ULP-class at the extreme non-saturated corner a ≈ 4e3. R3
+needs no lgamma at all: the extracted c_k absorb the Stirling remainder
+and 1/√(2πa) is formed directly (the design's original "a ≥ 8 Stirling
+form" paragraph is superseded). e^E via ExpDdFrac; every factor folds into
+mantissa space; power-of-two scale last (erfc pattern) so subnormal
+results take one rounding. P-prefactor folds ⊖ LogDdAny(a) — Γ(a) →
+Γ(a+1) without forming 1+a and without a 1/a that overflows for
+subnormal a.
 
 **New shared primitives** (beta will reuse all four):
 - Log1pmxDd(u_dd): φ(u)=u−log1p(u). |u|≤1/16: φ = u²·T(u), T = dd Horner,
@@ -454,7 +465,7 @@ validated against true gammainc on overlapping range a ≤ ~2e6.
 margin): R1 ≤3 / R2 ≤4 / R4 ~CR / R3 ≤3 ULP direct; complements ≤~6 ULP
 relative. 2⁻⁶⁸ dd-core injection moved nothing. P+Q=1 within 1 ULP —
 cheap smoke invariant. Data header src/gamma_data.h (Temme cheb table,
-dd 1/n table, φ coeffs, constants incl. kGammaAT=20, N=64/40/30,
+dd 1/n table, φ coeffs, constants incl. kGammaAT=20, N=64/44/36,
 PHI_CUT=1/16, −800). References: gamma_p/q_reference.txt (`a x P Q`,
 ~20k pts: per-region grids, ridge lines λ=1±2⁻ᵏ, x==a at several binades,
 boundary bit-brackets x=a+1/λ=½/λ=2/a=20/a=3/2/x=4/aφ=36, subnormal band
@@ -464,6 +475,44 @@ corvus_kernel_test_target pattern). Tests: smoke (specials, P+Q=1,
 lane-mix determinism probing the freeze masks) + per-region ULP gates +
 bench with scalar-walk-of-own-kernel baseline (libm has no gammainc;
 label it, erfinv precedent).
+
+#### Phase C part 2 shipped record [2026-07-28]
+
+Measured (Kaby Lake AVX2 native + SSE4/SSSE3/SSE2 caps, max ULP identical
+cell for cell on all four; two not-CR counts moved by ±1): direct side
+R1 = 2, R2 = 2, R3 = 2, R4 = 1 ULP; complements ≤ 1 except gamma_q's R1
+complement corner, 4 ULP at a = 1.5+ulp. Gates pinned, no margin.
+ACCURACY.md has the full table; NEON/AVX-512 pending (CI / Ryzen).
+Bench, loaded Kaby Lake, indicative, scalar-walk baseline: R1 213, R2 182,
+R3 152, R4 199 ns/el (8–11× the walk).
+
+What the stage gates caught — kept for the next family's process:
+- Generator self-checks vs the design's own probes: probe1's CF a-grid
+  skipped (1,2), hiding the true worst point (a→1.5⁺, x=a+1): N_cf 40→44.
+  The R4 cap was under-sized from a casual estimate: 30→36. Both caught by
+  the sup-proof self-checks before anything was emitted.
+- Kernel review vs the reference set: the φ-series coefficient rounding
+  (1/3 to double = 2^-55.9 abs) is invisible in φ and worth 12 ULP through
+  e^{−aφ} at a·φ ≈ 740 (a = 3.8e5, λ = 1.062) — a band the reference set
+  under-sampled and now covers; fixed by carrying the six leading φ
+  coefficients as dd (kGammaPhiCoefLo, generator-emitted + self-checked).
+- Kernel-stage deviations, all sound and documented at their sites: R1
+  folds ⊖ LogDdAny(a) instead of ×(1/a) (subnormal-a safe); R4 multiplies
+  through by a (no 1/a at all, two fewer roundings); a·log x → NaN
+  overflow above a ≈ 2.5e305 is caught by the E-floor clamp; 2πa clamped
+  at 2^1000 before DdSqrt (x == a at a ~ 1e308 is a legitimate unsaturated
+  point); freeze masks select the accumulator rather than adding zero
+  (DdAddD(s, 0) renormalizes — lane-mix determinism test is what polices
+  this).
+- Oracle traps now institutional: mpmath's regularized LOWER gammainc
+  hangs at a ~ 1e250 and raises NoConvergence for a ≳ 1e7 near the ridge —
+  reference generation switches to the exact-asymptotic oracle for every
+  a > 1e4 (truncation < 1e-40 there, provable from |c_11|).
+- Sub-agent workflow lesson (harness, not math): a STOPPED sub-agent is
+  not woken by its own background shells or monitors — twice the tooling
+  agent parked itself waiting on a watcher that fired into a stopped
+  transcript. Briefs for long-running sub-agent work must say: wait
+  synchronously or finish-and-report in the same turn.
 
 ### Regularized incomplete beta — broad parameters (thin by intent)
 I_x(a,b): symmetry I_x(a,b) = 1 − I_{1−x}(b,a) with "compute the side
@@ -654,6 +703,10 @@ verified still accurate afterwards.
 ## Resolved log
 One line per closed item; detail lives in this file's git history,
 AGENTS.md, and docs/ACCURACY.md.
+- 2026-07-28 Phase C part 2 (gamma_p/gamma_q) shipped: 2 ULP direct side
+  on every region, all-relative gates, four x86 tiers cell-identical;
+  Sonnet-tooling + Opus-kernel split with orchestrator review gates —
+  what each gate caught is recorded in the Phase C part 2 shipped record.
 - 2026-07-25 Phase C part 1 (erfinv/erfcinv) shipped (0ed13ab), max
   1 ULP on all five validated x86 tiers AND NEON — CI run 30180799151,
   all three jobs green, NEON point-identical to the x86 FMA tiers;

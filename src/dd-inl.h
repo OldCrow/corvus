@@ -124,6 +124,61 @@ HWY_INLINE Dd<D> DdRecip(D d, op::V<D> a) {
   return Fast2Sum(d, q, op::Mul(rem, q));
 }
 
+// 1/b for a dd b, as a dd. The double-argument DdRecip above with the one
+// term it cannot have: q is built from b.hi alone, so the true residual is
+// 1 - b*q = (1 - b.hi*q) - b.lo*q, and only the first bracket is what
+// DdRecip forms. Same exactness argument as DdRecip for that bracket --
+// p = fl(b.hi*q) lies in [1-2^-52, 1+2^-52] so 1 - p is EXACT by Sterbenz,
+// and ops::ProdLow (never a bare MulSub: silently zero on non-FMA targets)
+// supplies the product residual. The second term is already O(2^-53)
+// relative, so its own rounding lands at O(2^-106).
+//
+// One Newton refinement then gives ~2^-105 relative, which is what the
+// incomplete-gamma kernel needs from 1/(a+n), 1/sqrt(2*pi*a) and 1/Gamma(1+a):
+// each of those is a factor of the RESULT, so a rounded reciprocal would put
+// its own half ulp straight through.
+template <class D>
+HWY_INLINE Dd<D> DdRecipDd(D d, Dd<D> b) {
+  const auto one = op::Set(d, 1.0);
+  const auto q = op::Div(one, b.hi);
+  const auto p = op::Mul(b.hi, q);
+  const auto rem =
+      op::Sub(op::Sub(op::Sub(one, p), op::ProdLow(d, b.hi, q, p)),
+              op::Mul(b.lo, q));
+  return Fast2Sum(d, q, op::Mul(rem, q));
+}
+
+// sqrt of a NON-NEGATIVE dd, ~2^-105 relative.
+//
+// s = fl(sqrt(a.hi)) is correct to half an ulp, so p = fl(s*s) is within a
+// factor of two of a.hi and p - a.hi is EXACT by Sterbenz. Adding the exact
+// product residual s^2 - p gives the true e = s^2 - a.hi with no error at
+// all, and one Newton step on y^2 = a lands the correction
+//     lo = (a.lo - e) / (2s),
+// whose neglected term is O((a.lo - e)^2 / a^1.5) = O(2^-106) relative.
+//
+// The s^2 residual MUST go through ops::SquareLow, never a bare MulSub:
+// Highway emulates MulSub as mul-then-sub on non-FMA targets, where the
+// residual comes back identically zero and this quietly degrades to a plain
+// Sqrt -- half an ulp of error where the caller asked for a hundred bits.
+// (AGENTS.md, "any op whose CORRECTNESS depends on FMA fusion".)
+//
+// a.hi == 0 is the one input the Newton step cannot take (division by 2s);
+// sqrt(0) = 0 exactly, so it is selected in. Negative a.hi is the caller's
+// problem -- it produces NaN rather than trapping, which discarded lanes are
+// allowed to do.
+template <class D>
+HWY_INLINE Dd<D> DdSqrt(D d, Dd<D> a) {
+  const auto zero = op::Zero(d);
+  const auto s = op::Sqrt(a.hi);
+  const auto p = op::Mul(s, s);
+  const auto e = op::Add(op::Sub(p, a.hi), op::SquareLow(d, s, p));
+  const auto lo = op::Div(op::Sub(a.lo, e), op::Add(s, s));
+  const auto r = Fast2Sum(d, s, lo);  // |s| >> |lo| by construction
+  const auto z = op::Eq(a.hi, zero);
+  return Dd<D>{op::IfThenElse(z, zero, r.hi), op::IfThenElse(z, zero, r.lo)};
+}
+
 // Round a dd to the nearest double (the single rounding a kernel should do
 // exactly once, at the end).
 template <class D>
