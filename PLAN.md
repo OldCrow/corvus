@@ -93,8 +93,11 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   Validated before push: native AVX3_ZEN4 gates 13/13 with the erfinv
   ULP table byte-identical, full clang-cl sweep AVX2→SSE2 + AVX3_DL/AVX3
   green, MSVC-built AVX2 gates green. No /d2 escape hatch needed for
-  erfinv.cpp. Watch one CI run, then this item can close; incomplete
-  beta outlines its driver from day one.
+  erfinv.cpp. CLOSED by CI run 30422030773 (2026-07-29): all three jobs
+  green, Windows **6m55s** (25+ timeout → 22:48 → 6:55), and the Windows
+  ULP report step confirmed emitting the measured values (identical to
+  every other validated platform). Incomplete beta outlines its driver
+  from day one per the AGENTS.md rule.
 - [RESOLVED 2026-07-25] **The erfc tail's 2 ULP and 48% not-CR are two
   different problems, and only one is cheap.** mpmath replay of the
   tail formula over 3875 points in [6, 27.2], adding one error source
