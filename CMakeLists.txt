@@ -136,6 +136,20 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU|IntelLLVM")
 endif()
 target_compile_options(corvus PRIVATE ${CORVUS_FP_FLAGS})
 
+# Real MSVC only (clang-cl reports MSVC too but rejects /d2 flags): cl.exe's
+# optimizer is superlinear in function size, and gamma.cpp — the heaviest
+# per-target TU — stalled its back end past the CI job timeout twice
+# (2026-07-29), on an unchanged runner image and compiler. The kernel already
+# outlines its region cores and driver (HWY_NOINLINE, see gamma-inl.h); this
+# flag is cl.exe's own escape hatch for the pathological cases that remain.
+# It changes compile-time behavior only for functions the optimizer deems
+# huge, and an unknown /d2 flag on some future MSVC would fail loudly, not
+# silently.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  set_source_files_properties(src/gamma.cpp PROPERTIES
+    COMPILE_OPTIONS "/d2ReducedOptimizeHugeFunctions")
+endif()
+
 if(CORVUS_SANITIZE)
   list(JOIN CORVUS_SANITIZE "," _corvus_san)
   target_compile_options(corvus PRIVATE -fsanitize=${_corvus_san})

@@ -582,8 +582,13 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
 // ------------------------------------------------------------------------
 // The driver. kP selects gamma_p (true) or gamma_q (false); the two differ
 // only in who owns the R1/R4 overlap and in which side is complemented.
+// HWY_NOINLINE like the region cores, and for the same MSVC-codegen
+// reason: even with the cores outlined this function still inlines
+// LgammaPosDd, Log1pmxDd, ExpDdFrac and the erfc core, and inlining it
+// into the two export loops re-created a function big enough to stall
+// cl.exe's back end past the CI timeout.
 template <bool kP, class D>
-HWY_INLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
+HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
   const auto one = op::Set(d, 1.0);
   const auto zero = op::Zero(d);
   const auto inf = op::Set(d, std::numeric_limits<double>::infinity());

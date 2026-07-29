@@ -50,8 +50,8 @@ machine.
 | lgamma | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | erfinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | erfcinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
-| gamma_p | ✅ 2026-07-28 | ✅ | ✅ | ✅ | — | — |
-| gamma_q | ✅ 2026-07-28 | ✅ | ✅ | ✅ | — | — |
+| gamma_p | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-07-29 | — |
+| gamma_q | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-07-29 | — |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
@@ -422,11 +422,13 @@ payload in both.
 ## gamma_p and gamma_q
 
 **Bounds, measured on the 16,734-point reference set and identical
-(max ULP cell for cell) on AVX2, SSE4, SSSE3 and SSE2** (Kaby Lake native +
-capping, AppleClang, 2026-07-28). NEON and AVX-512 are pending: NEON awaits
-the next CI run on Apple-silicon hardware; AVX-512 awaits a Ryzen session —
-neither cell is claimed until then. The gates are pinned to these values
-with no margin.
+(max ULP cell for cell) on AVX2, SSE4, SSSE3, SSE2 and NEON.** x86: Kaby
+Lake native + capping, AppleClang, 2026-07-28. NEON: Apple-silicon CI
+runner (run 30412061002, 2026-07-29), point-identical to the x86 FMA
+tiers — every count and every worst-case input matches, extending the
+cross-architecture determinism claim to this family. AVX-512 awaits a
+Ryzen session and is not claimed until measured. The gates are pinned to
+these values with no margin.
 
 | Region (direct side) | gamma_p | gamma_q |
 |---|---|---|
