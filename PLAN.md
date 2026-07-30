@@ -79,30 +79,35 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
    HWY_NOINLINE driver costs nothing measurable at 8 lanes.
 
 ## Open Items
-- [OPEN — user action] **Ryzen box stability: two kernel crashes within
-  ~45 min on 2026-07-29 evening.** #1 ~20:55: bugcheck 0x9F
-  DRIVER_POWER_STATE_FAILURE (param1=0x3, a driver blocked a power IRP)
-  after repeated Modern Standby enter/exit churn while a corvus build ran
+- [OPEN — stability watch only] **Ryzen box: two kernel crashes within
+  ~45 min on 2026-07-29 evening; remediated the same night.** #1 ~20:55:
+  bugcheck 0x9F DRIVER_POWER_STATE_FAILURE (param1=0x3, a driver blocked
+  a power IRP) after Modern Standby churn while a corvus build ran
   unattended — the build was collateral, not cause (user-mode code cannot
   block power IRPs). #2 21:25: bugcheck 0x10E
   VIDEO_MEMORY_MANAGEMENT_INTERNAL (param1=0x2D) during ordinary
-  interactive use, no load. Both are GPU-stack domain; NO WHEA
-  hardware-error events either time; no TDR history. Cause [DERIVED]: the
-  user installed NVIDIA driver 32.0.16.1088 (package dated 2026-07-21)
-  THAT EVENING, and NVIDIA installers on this box have failed to complete
-  cleanly for months (NVIDIA App error dialog, frozen until reboot) — so
-  the machine ran all evening on a half-committed driver stack, and the
-  driver store shows the debris: SIX coexisting nvpcf.inf generations
-  (the Optimus power-management component), four nvhda, three nvppc, two
-  nvvad. Mismatched-component stack explains both bugchecks; hardware
-  unlikely on this evidence. Remediation plan given to user 2026-07-29:
-  uninstall NVIDIA App + delete its ProgramData/LocalAppData state, DDU
-  safe-mode clean of NVIDIA only (AMD iGPU driver stays), then a Custom +
-  "clean installation" of a directly-downloaded Studio driver WITHOUT the
-  NVIDIA App; verify one generation each of nvpcf/nvhda/nvvad in
-  pnputil /enum-drivers afterward. If either bugcheck recurs on the clean
-  stack, THEN suspect VRAM/HW (stress test, ASUS support). Until
-  resolved, treat long unattended builds/sweeps on this box as at-risk.
+  interactive use. Both GPU-stack domain; NO WHEA events either time.
+  Cause [DERIVED]: the user installed NVIDIA driver 32.0.16.1088 that
+  evening and the installer hung per a months-long pattern (NVIDIA App
+  error dialog, frozen until reboot), leaving a half-committed driver
+  stack; the driver store held SIX coexisting nvpcf.inf generations
+  (Optimus power management), four nvhda, three nvppc.
+  **Remediation DONE 2026-07-29 late evening**: NVIDIA App state wiped,
+  DDU safe-mode clean (NVIDIA only; AMD iGPU untouched), clean reinstall
+  of 32.0.16.1088 — and the installer COMPLETED WITHOUT FREEZING for the
+  first time in months, implicating the accumulated App/NvContainer state
+  in the chronic install failures. NVIDIA App reinstalled by choice
+  (game-settings use). Verified after: driver active and healthy, zero
+  crashes/WHEA since, store down to one current generation per component
+  plus four INERT 04/2025 leftovers (nvpcf/nvhda/nvppc/nvam — not
+  referenced by any device; optional prune via elevated
+  `pnputil /delete-driver oemNN.inf`, no /force). Remaining watch: a few
+  days crash-free confirms the driver theory; recurrence of EITHER
+  bugcheck on the clean stack flips suspicion to VRAM/HW (stress test,
+  ASUS support). Watch also whether the NEXT NVIDIA App driver update
+  completes cleanly — if the freeze returns, the App is implicated and
+  driver-only manual installs are the fallback. Until a few clean days
+  accumulate, treat long unattended sweeps here as slightly at-risk.
 - [OPEN — repro ready, user action to file] **File the mingw GCC AVX-512
   by-value-argument misalignment bug upstream.** Root cause pinned
   2026-07-29 with a 60-line freestanding repro: GCC 16.1
