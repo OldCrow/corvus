@@ -67,8 +67,9 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   change nothing. Deliverables in
   `C:\Users\gdwol\Development\gcc-zmm-mingw-repro\` (repro.cpp,
   repro-struct.cpp, report.md — bugzilla-ready draft; reference
-  PR 110273, the i686 sibling, and PR 49001). Needs the user's GCC
-  bugzilla account to file.
+  PR 110273, the i686 sibling, and PR 49001). Blocked only on the user's
+  GCC bugzilla account, which is pending GNU's manual account approval
+  (anti-spam) as of 2026-07-29 — no further agent work until it clears.
 - [RESOLVED 2026-07-29] **Windows CI MSVC-codegen blowup — fixed for
   gamma (7b52ed1) and erfinv (1202273); CI Windows job 22m48s → 6m55s,
   green.** Durable rule now in AGENTS.md (Architecture): outline region
