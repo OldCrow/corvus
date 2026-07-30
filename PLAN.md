@@ -87,16 +87,22 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   block power IRPs). #2 21:25: bugcheck 0x10E
   VIDEO_MEMORY_MANAGEMENT_INTERNAL (param1=0x2D) during ordinary
   interactive use, no load. Both are GPU-stack domain; NO WHEA
-  hardware-error events either time; no TDR history. Prime suspect: the
-  NVIDIA RTX 4050 laptop driver installed 2026-07-21 (32.0.16.1088) —
-  eight days before both crashes; the AMD 740M iGPU driver (2025-09) is
-  old and stable. Hardware not excluded but less likely on this evidence.
-  User: roll back or update the NVIDIA driver; WinDbg !analyze
-  C:\Windows\MEMORY.DMP (the 0x10E dump; it overwrote the 0x9F one) to
-  confirm the faulting module; if a crash recurs on a different driver,
-  suspect VRAM/HW and run vendor diagnostics. Until resolved, treat long
-  unattended builds/sweeps on this box as at-risk, and prefer sleep-on-AC
-  disabled during them.
+  hardware-error events either time; no TDR history. Cause [DERIVED]: the
+  user installed NVIDIA driver 32.0.16.1088 (package dated 2026-07-21)
+  THAT EVENING, and NVIDIA installers on this box have failed to complete
+  cleanly for months (NVIDIA App error dialog, frozen until reboot) — so
+  the machine ran all evening on a half-committed driver stack, and the
+  driver store shows the debris: SIX coexisting nvpcf.inf generations
+  (the Optimus power-management component), four nvhda, three nvppc, two
+  nvvad. Mismatched-component stack explains both bugchecks; hardware
+  unlikely on this evidence. Remediation plan given to user 2026-07-29:
+  uninstall NVIDIA App + delete its ProgramData/LocalAppData state, DDU
+  safe-mode clean of NVIDIA only (AMD iGPU driver stays), then a Custom +
+  "clean installation" of a directly-downloaded Studio driver WITHOUT the
+  NVIDIA App; verify one generation each of nvpcf/nvhda/nvvad in
+  pnputil /enum-drivers afterward. If either bugcheck recurs on the clean
+  stack, THEN suspect VRAM/HW (stress test, ASUS support). Until
+  resolved, treat long unattended builds/sweeps on this box as at-risk.
 - [OPEN — repro ready, user action to file] **File the mingw GCC AVX-512
   by-value-argument misalignment bug upstream.** Root cause pinned
   2026-07-29 with a 60-line freestanding repro: GCC 16.1
