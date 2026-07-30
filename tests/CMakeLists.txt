@@ -25,9 +25,10 @@ endfunction()
 # Registration order is DEPENDENCY order, not development order: ctest runs
 # serially in this order, so when a shared core regresses, the first failure
 # names the core rather than one of its consumers. Foundations (exp_dd,
-# log_dd), then the function families in the order they consume each other
-# (erfc reuses erf's table; erfinv reuses erfc's core and tail; gamma reuses
-# all of them plus the Log1pmxDd primitive that gamma_util gates).
+# log_dd, then the dd_special primitives built on them), then the function
+# families in the order they consume each other (erfc reuses erf's table;
+# erfinv reuses erfc's core and tail; gamma reuses all of them plus
+# Log1pmxDd/Expm1Dd from dd_special).
 
 add_executable(test_exp_dd test_exp_dd.cpp)
 corvus_kernel_test_target(test_exp_dd)
@@ -38,6 +39,12 @@ add_executable(test_log_dd test_log_dd.cpp)
 corvus_kernel_test_target(test_log_dd)
 add_test(NAME log_dd
   COMMAND test_log_dd ${CMAKE_CURRENT_SOURCE_DIR}/data/log_dd_reference.txt)
+
+add_executable(test_dd_special test_dd_special.cpp)
+corvus_kernel_test_target(test_dd_special)
+add_test(NAME dd_special
+  COMMAND test_dd_special
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/dd_special_reference.txt)
 
 add_executable(test_erf test_erf.cpp)
 corvus_test_target(test_erf)
@@ -92,12 +99,6 @@ add_test(NAME erfinv_ulp
 add_executable(bench_erfinv bench_erfinv.cpp)
 corvus_test_target(bench_erfinv)
 # Deliberately not registered with ctest: run manually on a quiet machine.
-
-add_executable(test_gamma_util test_gamma_util.cpp)
-corvus_kernel_test_target(test_gamma_util)
-add_test(NAME gamma_util
-  COMMAND test_gamma_util
-  ${CMAKE_CURRENT_SOURCE_DIR}/data/gamma_util_reference.txt)
 
 add_executable(test_gamma test_gamma.cpp)
 corvus_test_target(test_gamma)

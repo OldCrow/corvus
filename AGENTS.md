@@ -256,6 +256,9 @@ section restates rather than deviates. It is self-sufficient for this repo.
   kernels. Written against
   `ops::` like everything else. Exact residuals go through `ops::ProdLow`,
   never a bare `MulSub` — same FMA-capability hazard as `ops::SquareLow`.
+- `src/dd_special-inl.h` — shared dd special primitives one layer above the
+  dd cores (Log1pmxDd, Expm1Dd), consumed by gamma and beta; gated by
+  `test_dd_special`.
 - `src/<fn>_dd-inl.h` — corvus-owned transcendental cores (exp_dd, later
   log_dd), internal only, no public API. They return
   mantissa + exponent so a consumer folds its own factors in before the
@@ -300,14 +303,18 @@ python3 -m venv /tmp/mpv && /tmp/mpv/bin/pip install mpmath
 /tmp/mpv/bin/python tools/gen_lgamma_reference.py > tests/data/lgamma_reference.txt
 /tmp/mpv/bin/python tools/gen_erfinv_data.py      > src/erfinv_data.h
 /tmp/mpv/bin/python tools/gen_erfinv_reference.py
+/tmp/mpv/bin/python tools/gen_dd_special_data.py  > src/dd_special_data.h
 /tmp/mpv/bin/python tools/gen_gamma_data.py       > src/gamma_data.h
 /tmp/mpv/bin/python tools/gen_gamma_reference.py
 ```
 `gen_erfinv_reference.py` writes both `tests/data/erfinv_reference.txt` and
 `tests/data/erfcinv_reference.txt` directly (two output files, so no `>`
 redirection) rather than printing one file to stdout; `gen_gamma_reference.py`
-likewise writes its three files directly (`gamma_p`/`gamma_q`/`gamma_util`
-reference). The gamma reference oracle has two non-obvious rules baked in —
+likewise writes its three files directly (`gamma_p`/`gamma_q`/`dd_special`
+reference — the last gates `Log1pmxDd`, which lives in `src/dd_special-inl.h`
+but keeps its reference generation in the gamma generator because it shares
+the seeded rng stream with the P/Q point sets; carving it out would silently
+change every point). The gamma reference oracle has two non-obvious rules baked in —
 compute the SMALL side of P/Q directly (never 1 − a near-1 value), and use
 the exact-asymptotic oracle rather than mpmath's gammainc for a > 1e4
 (mpmath's regularized lower hangs or fails to converge at large a) — both

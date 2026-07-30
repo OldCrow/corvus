@@ -1,6 +1,8 @@
-// Accuracy gate for Log1pmxDd (src/gamma-inl.h), the shared primitive
+// Accuracy gate for Log1pmxDd (src/dd_special-inl.h), the shared primitive
 // phi(u) = u - log1p(u) that the incomplete gamma's Temme region -- and
-// later the incomplete beta -- rests on.
+// later the incomplete beta -- rests on. (This gate and its reference file
+// were named gamma_util until the 2026-07-29 hoist of the shared dd
+// primitives out of the gamma kernel.)
 //
 // phi is not a public function, so this test compiles the kernel header
 // itself through foreach_target and drives it directly (the test_exp_dd /
@@ -22,10 +24,10 @@
 #include <vector>
 
 #undef HWY_TARGET_INCLUDE
-#define HWY_TARGET_INCLUDE "tests/test_gamma_util.cpp"
+#define HWY_TARGET_INCLUDE "tests/test_dd_special.cpp"
 #include "hwy/foreach_target.h"  // IWYU pragma: keep
 
-#include "src/gamma-inl.h"
+#include "src/dd_special-inl.h"
 #include "src/ops-inl.h"
 
 HWY_BEFORE_NAMESPACE();
@@ -100,7 +102,7 @@ int main(int argc, char** argv) {
   }
 
   const char* path =
-      argc > 1 ? argv[1] : "tests/data/gamma_util_reference.txt";
+      argc > 1 ? argv[1] : "tests/data/dd_special_reference.txt";
   std::ifstream f(path);
   if (!f) {
     std::fprintf(stderr, "cannot open reference file: %s\n", path);

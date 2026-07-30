@@ -38,21 +38,6 @@ inline constexpr double kGammaRecipNLo[36] = {
     0x0.0p+0, 0x0.0p+0, 0x1.5555555555555p-56, 0x0.0p+0, -0x1.999999999999ap-57, 0x1.5555555555555p-57, 0x1.2492492492492p-57, 0x0.0p+0, 0x1.c71c71c71c71cp-58, -0x1.999999999999ap-58, -0x1.745d1745d1746p-59, 0x1.5555555555555p-58, -0x1.3b13b13b13b14p-58, 0x1.2492492492492p-58, 0x1.1111111111111p-60, 0x0.0p+0, 0x1.e1e1e1e1e1e1ep-61, 0x1.c71c71c71c71cp-59, 0x1.af286bca1af28p-59, -0x1.999999999999ap-59, 0x1.8618618618618p-59, -0x1.745d1745d1746p-60, 0x1.642c8590b2164p-60, 0x1.5555555555555p-59, -0x1.eb851eb851eb8p-61, -0x1.3b13b13b13b14p-59, 0x1.2f684bda12f68p-59, 0x1.2492492492492p-59, 0x1.1a7b9611a7b96p-61, 0x1.1111111111111p-61, 0x1.0842108421084p-60, 0x0.0p+0, -0x1.f07c1f07c1f08p-61, 0x1.e1e1e1e1e1e1ep-62, 0x1.0750750750750p-60, 0x1.c71c71c71c71cp-60,
 };
 
-// Log1pmxDd small-|u| branch: phi(u) = u - log1p(u) = u^2 * T(u),
-// T(u) = sum_{k=0}^{17} (-1)^k/(k+2) * u^k, Horner in u.hi.
-inline constexpr double kGammaPhiCoef[18] = {
-    0x1.0000000000000p-1, -0x1.5555555555555p-2, 0x1.0000000000000p-2, -0x1.999999999999ap-3, 0x1.5555555555555p-3, -0x1.2492492492492p-3, 0x1.0000000000000p-3, -0x1.c71c71c71c71cp-4, 0x1.999999999999ap-4, -0x1.745d1745d1746p-4, 0x1.5555555555555p-4, -0x1.3b13b13b13b14p-4, 0x1.2492492492492p-4, -0x1.1111111111111p-4, 0x1.0000000000000p-4, -0x1.e1e1e1e1e1e1ep-5, 0x1.c71c71c71c71cp-5, -0x1.af286bca1af28p-5,
-};
-// The k=0..5 leads carry a dd low word too [added post-kernel-
-// review]: rounding 1/3 alone is 2^-55.9 absolute, which enters
-// phi at 2^-58.5 relative at the |u|=1/16 cut, and a*phi ~ 740
-// amplifies that to ~12 ULP through e^{-a*phi} in the deep Temme
-// tail (measured at a=3.79e5, lambda=1.062 before this fix).
-// Exact-in-double entries (k=0: 1/2, k=2: 1/4) get lo=0.
-inline constexpr double kGammaPhiCoefLo[6] = {
-    0x0.0p+0, -0x1.5555555555555p-56, 0x0.0p+0, 0x1.999999999999ap-57, 0x1.5555555555555p-57, -0x1.2492492492492p-57,
-};
-
 // dd constants shared by the Temme prefactor and z.lo correction.
 inline constexpr double kGammaTwoPiHi = 0x1.921fb54442d18p+2;
 inline constexpr double kGammaTwoPiLo = 0x1.1a62633145c07p-52;
@@ -65,7 +50,6 @@ inline constexpr double kGammaAT = 0x1.4000000000000p+4;
 inline constexpr int kGammaSeriesN = 64;
 inline constexpr int kGammaCfN = 44;
 inline constexpr int kGammaR4N = 36;
-inline constexpr double kGammaPhiCut = 0x1.0000000000000p-4;
 inline constexpr double kGammaExpFloor = -0x1.9000000000000p+9;
 
 }  // namespace corvus::detail

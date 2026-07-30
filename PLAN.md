@@ -1,6 +1,22 @@
 # corvus — Plan / Session State
 
-## Status [DERIVED] — 2026-07-29 (M1)
+## Status [DERIVED] — 2026-07-29 evening (Ryzen)
+**dd_special hoist landed; incomplete beta detail design is the next task.**
+Log1pmxDd/Expm1Dd hoisted out of gamma-inl.h into `src/dd_special-inl.h`
+(+ `src/dd_special_data.h` via the new `tools/gen_dd_special_data.py`,
+self-checks carried over as (a)/(b)); the gate renamed
+test_gamma_util → test_dd_special and moved to its dependency slot right
+after log_dd in all four lists; the reference file renamed VERBATIM
+(generation stays in gen_gamma_reference.py — shared seeded rng stream, see
+AGENTS.md). Validated on this box under clang-cl: native AVX3_ZEN4 gamma and
+lgamma ULP outputs byte-identical to the pre-hoist baseline, dd_special
+output byte-identical to the old gamma_util output, 13/13 native ctest, and
+the full AVX2→SSE2 capped sweep green (`build-cap-cc`). AVX3_DL/AVX3 capped
+re-runs were skipped this session (machine stability, open item below) —
+optional due diligence for the next Ryzen session given the byte-identity.
+Beta API resolved with user 2026-07-29: **beta_p / beta_q (a, b, x, out)**,
+mirroring the gamma pair; hoist-first sequencing also user-confirmed.
+
 **Phase C part 2 (incomplete gamma P/Q) SHIPPED and fully validated.**
 gamma_p/gamma_q public; max 2 ULP direct side everywhere (4 ULP on one
 complement corner), gates pinned to measured. Validated identical cell for
@@ -42,8 +58,18 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
 ## Next Steps
 1. **Start here**: regularized incomplete beta — detail design is the next frontier task
    (broad section below). It inherits Log1pmxDd, DdSqrt, DdRecipDd,
-   Expm1Dd, and the gamma reference/oracle machinery (small-side rule,
-   exact-asymptotic oracle above the mpmath ceiling).
+   Expm1Dd (all now in the shared dd layer: `src/dd-inl.h` +
+   `src/dd_special-inl.h` — the hoist is DONE, include seam ready), and the
+   gamma reference/oracle machinery (small-side rule, exact-asymptotic
+   oracle above the mpmath ceiling). API decided: beta_p/beta_q(a, b, x,
+   out). Process decided: same split as gamma — frontier detail design
+   here, then Sonnet tooling + Opus kernel sub-agents with orchestrator
+   review gates; design doc must bake in the lessons list (day-one
+   HWY_NOINLINE on cores AND driver, masked-lane scrubs incl. the CF,
+   freeze masks select-not-add, ProdLow 2^996 range check, small-side rule
+   in the ORACLE too, mpmath convergence ceiling → exact-asymptotic
+   fallback, fixed lengths proven at boundaries by generator self-checks,
+   four-list test registration, sub-agent briefs finish-and-report).
 2. Quiet-machine bench pass on Kaby Lake before publishing its performance
    numbers (its gamma bench was session-loaded, labeled indicative). The
    Ryzen gamma bench IS quiet-machine and at 7b52ed1 (2026-07-29,
@@ -53,6 +79,24 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
    HWY_NOINLINE driver costs nothing measurable at 8 lanes.
 
 ## Open Items
+- [OPEN — user action] **Ryzen box stability: two kernel crashes within
+  ~45 min on 2026-07-29 evening.** #1 ~20:55: bugcheck 0x9F
+  DRIVER_POWER_STATE_FAILURE (param1=0x3, a driver blocked a power IRP)
+  after repeated Modern Standby enter/exit churn while a corvus build ran
+  unattended — the build was collateral, not cause (user-mode code cannot
+  block power IRPs). #2 21:25: bugcheck 0x10E
+  VIDEO_MEMORY_MANAGEMENT_INTERNAL (param1=0x2D) during ordinary
+  interactive use, no load. Both are GPU-stack domain; NO WHEA
+  hardware-error events either time; no TDR history. Prime suspect: the
+  NVIDIA RTX 4050 laptop driver installed 2026-07-21 (32.0.16.1088) —
+  eight days before both crashes; the AMD 740M iGPU driver (2025-09) is
+  old and stable. Hardware not excluded but less likely on this evidence.
+  User: roll back or update the NVIDIA driver; WinDbg !analyze
+  C:\Windows\MEMORY.DMP (the 0x10E dump; it overwrote the 0x9F one) to
+  confirm the faulting module; if a crash recurs on a different driver,
+  suspect VRAM/HW and run vendor diagnostics. Until resolved, treat long
+  unattended builds/sweeps on this box as at-risk, and prefer sleep-on-AC
+  disabled during them.
 - [OPEN — repro ready, user action to file] **File the mingw GCC AVX-512
   by-value-argument misalignment bug upstream.** Root cause pinned
   2026-07-29 with a 60-line freestanding repro: GCC 16.1
@@ -529,7 +573,8 @@ PHI_CUT=1/16, −800). References: gamma_p/q_reference.txt (`a x P Q`,
 ~20k pts: per-region grids, ridge lines λ=1±2⁻ᵏ, x==a at several binades,
 boundary bit-brackets x=a+1/λ=½/λ=2/a=20/a=3/2/x=4/aφ=36, subnormal band
 aφ ∈ [700,760], huge a incl. 2⁵³ neighborhood, tiny a, specials) plus
-gamma_util_reference.txt (dd triples for the Log1pmxDd micro-gate,
+dd_special_reference.txt (renamed verbatim from gamma_util_reference.txt in
+the 2026-07-29 hoist; dd triples for the Log1pmxDd micro-gate,
 corvus_kernel_test_target pattern). Tests: smoke (specials, P+Q=1,
 lane-mix determinism probing the freeze masks) + per-region ULP gates +
 bench with scalar-walk-of-own-kernel baseline (libm has no gammainc;

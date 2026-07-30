@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate src/gamma_data.h -- every table the gamma_p/gamma_q kernel needs.
 
-Four independent pieces, per PLAN.md "Phase C part 2 -- regularized
+Three independent pieces, per PLAN.md "Phase C part 2 -- regularized
 incomplete gamma P/Q detail design":
 
   Temme table   c_0..c_10 (K=11), each a Chebyshev fit in eta over the band
@@ -22,15 +22,12 @@ incomplete gamma P/Q detail design":
 
   1/n table     dd pairs for n=1..36, R4's alternating-series weights.
 
-  phi series    18 double coefficients (-1)^k/(k+2), k=0..17: the small-|u|
-                branch of Log1pmxDd, phi(u) = u - log1p(u) = u^2*T(u). The
-                k=0..5 leads also get a dd low word (kGammaPhiCoefLo)
-                [added post-kernel-review]: plain-double rounding of 1/3
-                alone amplifies to ~12 ULP in the deep Temme tail (a*phi
-                ~ 740) through e^{-a*phi} -- see self-check (h).
-
   dd constants  2*pi and 1/sqrt(pi), for Temme's sqrt(2*pi*a) and the z.lo
                 erfc correction.
+
+(The phi series for Log1pmxDd lived here until the 2026-07-29 hoist of the
+shared dd primitives into src/dd_special-inl.h; it is now emitted by
+tools/gen_dd_special_data.py, self-checks included.)
 
 Self-checks (mandatory, budget lines to stderr; ANY miss -> exit nonzero,
 emit nothing):
@@ -45,9 +42,8 @@ emit nothing):
       first pass at N=40 actually missed budget, a blind spot in last
       session's own probe1_lengths.py grid, which skipped a in (1,2)).
   (f) R4 alternating-series length N=kGammaR4N.
-  (g) phi-series truncation at |u|=1/16.
-  (h) phi-series leading dd pairs (k=0..5) reproduce their exact rational
-      to <= 2^-107 relative.
+  (Former checks (g)/(h) covered the phi series and moved with it to
+  gen_dd_special_data.py as its checks (a)/(b).)
 
 Usage:
     python3 tools/gen_gamma_data.py > src/gamma_data.h
@@ -80,8 +76,6 @@ CF_TARGET = mp.mpf(2) ** -56
 # margin. [orchestrator decision 2026-07-27]
 R4_NMAX = 36
 R4_TARGET = mp.mpf(2) ** -58
-PHI_CUT = mp.mpf(1) / 16
-PHI_TARGET = mp.mpf(2) ** -74
 REPLAY_TARGET = mp.mpf(2) ** -56
 
 SEED_JSON = ("/private/tmp/claude-501/-Users-wolfman-Development/"
@@ -491,51 +485,6 @@ def main():
         print("    FAILED: exceeds 2^-58", file=sys.stderr)
         rc = 1
 
-    # --- self-check (g): phi series truncation --------------------------------
-    print("(g) phi series 18-term truncation at |u|=1/16:", file=sys.stderr)
-    phi_coefs = [((-1) ** k) / mp.mpf(k + 2) for k in range(18)]
-    u = PHI_CUT
-    T = mp.mpf(0)
-    for c in reversed(phi_coefs):
-        T = T * u + c
-    phi_approx = u * u * T
-    phi_exact = u - mp.log1p(u)
-    rel_g = abs((phi_approx - phi_exact) / phi_exact)
-    print(f"    rel err {float(rel_g):.3e} (2^{float(mp.log(rel_g, 2)):.2f}), "
-          f"target 2^-74", file=sys.stderr)
-    if rel_g > PHI_TARGET:
-        print("    FAILED: exceeds 2^-74", file=sys.stderr)
-        rc = 1
-
-    # --- self-check (h): phi-series leading coefficients as dd pairs ----------
-    # [added post-kernel-review]: rounding 1/3 alone is 2^-55.9 absolute,
-    # which enters phi at 2^-58.5 relative at the |u|=1/16 cut, and a*phi
-    # ~ 740 amplifies that to ~12 ULP through the exponential (measured at
-    # a=3.79e5, lambda=1.062 before this fix) -- the deep-Temme-tail band
-    # is exactly where a small-u phi error gets blown up by e^{-a*phi}.
-    print("(h) phi-series leading coefficients as dd pairs (k=0..5):",
-          file=sys.stderr)
-    PHI_LEAD = 6
-    PHI_LEAD_TARGET = mp.mpf(2) ** -107
-    phi_lead_dd = [dd_split(phi_coefs[k]) for k in range(PHI_LEAD)]
-    worst_h = mp.mpf(0)
-    worst_h_at = None
-    for k in range(PHI_LEAD):
-        exact = phi_coefs[k]
-        hi, lo = phi_lead_dd[k]
-        got = mp.mpf(hi) + mp.mpf(lo)
-        rel = abs((got - exact) / exact)
-        print(f"    k={k}: hi={hexf(hi)} lo={hexf(lo)} rel_err={float(rel):.3e}",
-              file=sys.stderr)
-        if rel > worst_h:
-            worst_h, worst_h_at = rel, k
-    worst_h_str = (f"2^{float(mp.log(worst_h, 2)):.2f}" if worst_h > 0 else "exact")
-    print(f"    worst rel err {float(worst_h):.3e} ({worst_h_str}) at k={worst_h_at}, "
-          f"target 2^-107", file=sys.stderr)
-    if worst_h > PHI_LEAD_TARGET:
-        print("    FAILED: exceeds 2^-107", file=sys.stderr)
-        rc = 1
-
     if rc:
         print("One or more self-checks failed -- emitting nothing.", file=sys.stderr)
         return rc
@@ -569,17 +518,6 @@ def main():
     emit_hex_array_1d("kGammaRecipNHi", [p[0] for p in recip_n])
     emit_hex_array_1d("kGammaRecipNLo", [p[1] for p in recip_n])
     print()
-    print("// Log1pmxDd small-|u| branch: phi(u) = u - log1p(u) = u^2 * T(u),")
-    print("// T(u) = sum_{k=0}^{17} (-1)^k/(k+2) * u^k, Horner in u.hi.")
-    emit_hex_array_1d("kGammaPhiCoef", [rd(c) for c in phi_coefs])
-    print("// The k=0..5 leads carry a dd low word too [added post-kernel-")
-    print("// review]: rounding 1/3 alone is 2^-55.9 absolute, which enters")
-    print("// phi at 2^-58.5 relative at the |u|=1/16 cut, and a*phi ~ 740")
-    print("// amplifies that to ~12 ULP through e^{-a*phi} in the deep Temme")
-    print("// tail (measured at a=3.79e5, lambda=1.062 before this fix).")
-    print("// Exact-in-double entries (k=0: 1/2, k=2: 1/4) get lo=0.")
-    emit_hex_array_1d("kGammaPhiCoefLo", [p[1] for p in phi_lead_dd])
-    print()
     print("// dd constants shared by the Temme prefactor and z.lo correction.")
     print(f"inline constexpr double kGammaTwoPiHi = {hexf(two_pi[0])};")
     print(f"inline constexpr double kGammaTwoPiLo = {hexf(two_pi[1])};")
@@ -592,7 +530,6 @@ def main():
     print(f"inline constexpr int kGammaSeriesN = {SERIES_NMAX};")
     print(f"inline constexpr int kGammaCfN = {CF_N};")
     print(f"inline constexpr int kGammaR4N = {R4_NMAX};")
-    print(f"inline constexpr double kGammaPhiCut = {hexf(float(PHI_CUT))};")
     print(f"inline constexpr double kGammaExpFloor = {hexf(-800.0)};")
     print()
     print("}  // namespace corvus::detail")

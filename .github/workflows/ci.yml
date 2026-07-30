@@ -74,12 +74,12 @@ jobs:
           # fail here under its own name, not a consumer's.
           ./build/tests/test_exp_dd tests/data/exp_dd_reference.txt
           ./build/tests/test_log_dd tests/data/log_dd_reference.txt
+          ./build/tests/test_dd_special tests/data/dd_special_reference.txt
           ./build/tests/test_erf_ulp tests/data/erf_reference.txt
           ./build/tests/test_erfc_ulp tests/data/erfc_reference.txt
           ./build/tests/test_lgamma_ulp tests/data/lgamma_reference.txt
           ./build/tests/test_erfinv_ulp \
             tests/data/erfinv_reference.txt tests/data/erfcinv_reference.txt
-          ./build/tests/test_gamma_util tests/data/gamma_util_reference.txt
           ./build/tests/test_gamma_ulp \
             tests/data/gamma_p_reference.txt tests/data/gamma_q_reference.txt
 
@@ -205,12 +205,12 @@ jobs:
           # fail here under its own name, not a consumer's.
           ./build/tests/Release/test_exp_dd.exe tests/data/exp_dd_reference.txt
           ./build/tests/Release/test_log_dd.exe tests/data/log_dd_reference.txt
+          ./build/tests/Release/test_dd_special.exe tests/data/dd_special_reference.txt
           ./build/tests/Release/test_erf_ulp.exe tests/data/erf_reference.txt
           ./build/tests/Release/test_erfc_ulp.exe tests/data/erfc_reference.txt
           ./build/tests/Release/test_lgamma_ulp.exe tests/data/lgamma_reference.txt
           ./build/tests/Release/test_erfinv_ulp.exe \
             tests/data/erfinv_reference.txt tests/data/erfcinv_reference.txt
-          ./build/tests/Release/test_gamma_util.exe tests/data/gamma_util_reference.txt
           ./build/tests/Release/test_gamma_ulp.exe \
             tests/data/gamma_p_reference.txt tests/data/gamma_q_reference.txt
 
@@ -246,11 +246,11 @@ jobs:
           # fail here under its own name, not a consumer's.
           ./build/tests/test_exp_dd tests/data/exp_dd_reference.txt
           ./build/tests/test_log_dd tests/data/log_dd_reference.txt
+          ./build/tests/test_dd_special tests/data/dd_special_reference.txt
           ./build/tests/test_erf_ulp tests/data/erf_reference.txt
           ./build/tests/test_erfc_ulp tests/data/erfc_reference.txt
           ./build/tests/test_lgamma_ulp tests/data/lgamma_reference.txt
           ./build/tests/test_erfinv_ulp \
             tests/data/erfinv_reference.txt tests/data/erfcinv_reference.txt
-          ./build/tests/test_gamma_util tests/data/gamma_util_reference.txt
           ./build/tests/test_gamma_ulp \
             tests/data/gamma_p_reference.txt tests/data/gamma_q_reference.txt

@@ -478,11 +478,17 @@ def compute_and_write(ps, fits):
     return len(rows)
 
 
-def gen_util_reference(rng):
-    """gamma_util_reference.txt: u phi_hi phi_lo, dd pairs for Log1pmxDd.
+def gen_dd_special_reference(rng):
+    """dd_special_reference.txt: u phi_hi phi_lo, dd pairs for Log1pmxDd.
 
     phi(u) = u - log1p(u), computed at dps=60 per PLAN.md's own spec for
     this table (independent of the dps=100 used for the Temme oracle above).
+
+    Log1pmxDd itself lives in src/dd_special-inl.h (hoisted out of the gamma
+    kernel 2026-07-29), but its reference generation stays HERE deliberately:
+    it consumes the same seeded rng stream as the P/Q point sets above, so
+    carving it into its own generator would silently change every point in
+    the checked-in file. The file was renamed verbatim in the hoist.
     """
     with mp.workdps(60):
         pts = set()
@@ -522,10 +528,10 @@ def gen_util_reference(rng):
             phi_lo = float(phi - mp.mpf(phi_hi))
             rows.append((u, phi_hi, phi_lo))
 
-    with open("tests/data/gamma_util_reference.txt", "w") as f:
+    with open("tests/data/dd_special_reference.txt", "w") as f:
         for u, phi_hi, phi_lo in rows:
             f.write(f"{hexd(u)} {hexd(phi_hi)} {hexd(phi_lo)}\n")
-    print(f"  wrote tests/data/gamma_util_reference.txt: {len(rows)} points",
+    print(f"  wrote tests/data/dd_special_reference.txt: {len(rows)} points",
           file=sys.stderr)
     return len(rows)
 
@@ -560,8 +566,8 @@ def main():
           file=sys.stderr)
     n_pq = compute_and_write(ps, fits)
 
-    print("generating gamma_util_reference.txt ...", file=sys.stderr)
-    n_util = gen_util_reference(rng)
+    print("generating dd_special_reference.txt ...", file=sys.stderr)
+    n_util = gen_dd_special_reference(rng)
 
     if n_pq < 10000 or n_util < 1500:
         print(f"FAILED: point counts too low (pq={n_pq}, util={n_util})",
