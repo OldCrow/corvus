@@ -14,9 +14,8 @@ and maximum-likelihood fitting.
 `erfcinv`, `gamma_p` and `gamma_q` are production-quality clean-room
 kernels validated against an mpmath oracle on every SIMD tier available
 across the development fleet — AVX-512 (`AVX3`, `AVX3_DL`, `AVX3_ZEN4`),
-AVX2, SSE4, SSSE3, SSE2 and NEON, each on native silicon (the gamma pair's
-NEON and AVX-512 validation is pending its first CI run and next Ryzen
-session; see docs/ACCURACY.md). API not yet stable.
+AVX2, SSE4, SSSE3, SSE2 and NEON, each on native silicon (see
+docs/ACCURACY.md). API not yet stable.
 
 - `erf`: max 1 ULP over the full domain.
 - `erfc`: max 1 ULP for |x| <= 6 and for subnormal results; max 2 ULP in
@@ -80,9 +79,12 @@ and Windows x86-64 (MSVC). Two Windows-specific points are worth knowing:
   broken list under MSVC, so an MSVC build silently tops out at AVX2. It
   still passes every accuracy gate — the bounds hold on all tiers — but the
   widest vectors go unused. For AVX-512 on Windows, build with `clang-cl`
-  (which keeps the MSVC ABI) or mingw-w64 GCC. `corvus::active_target()`
-  reports the tier runtime dispatch actually selected, and is the only
-  reliable way to know.
+  (which keeps the MSVC ABI). mingw-w64 GCC is not currently safe at
+  AVX-512: GCC 16.1 miscompiles 512-bit by-value vector arguments on the
+  Windows ABI (misaligned stack temporaries — crashes depend on call-chain
+  luck; see docs/ACCURACY.md). It remains fine for tiers up to AVX2.
+  `corvus::active_target()` reports the tier runtime dispatch actually
+  selected, and is the only reliable way to know.
 
 Accuracy is independent of optimization level and of compiler FP-contraction
 settings: the kernels use explicit, capability-guarded FMA rather than
@@ -105,6 +107,10 @@ corvus::erfc(x, y);
 corvus::lgamma(x, y);
 corvus::erfinv(x, y);
 corvus::erfcinv(x, y);
+
+std::vector<double> a = ..., p(a.size());  // same length as x
+corvus::gamma_p(a, x, p);
+corvus::gamma_q(a, x, p);
 ```
 
 Per-function methods, measured ULP bounds, and the validation matrix live
