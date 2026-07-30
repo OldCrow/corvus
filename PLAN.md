@@ -1,7 +1,13 @@
 # corvus — Plan / Session State
 
-## Status [DERIVED] — 2026-07-29 evening (Ryzen)
-**dd_special hoist landed; incomplete beta detail design is the next task.**
+## Status [DERIVED] — 2026-07-30 (Ryzen)
+**Incomplete beta detail design COMPLETE (section below); next step is
+G1 — spawn the Sonnet tooling sub-agent on gen_beta_data.py.** CI went
+green on the hoist commit fbefba0 with test_dd_special confirmed running
+on all three runners; zero crashes/WHEA on this box since the driver
+remediation (stability watch continues).
+
+Previous session (2026-07-29 evening): dd_special hoist landed.
 Log1pmxDd/Expm1Dd hoisted out of gamma-inl.h into `src/dd_special-inl.h`
 (+ `src/dd_special_data.h` via the new `tools/gen_dd_special_data.py`,
 self-checks carried over as (a)/(b)); the gate renamed
@@ -56,20 +62,18 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   design is the next frontier task.
 
 ## Next Steps
-1. **Start here**: regularized incomplete beta — detail design is the next frontier task
-   (broad section below). It inherits Log1pmxDd, DdSqrt, DdRecipDd,
-   Expm1Dd (all now in the shared dd layer: `src/dd-inl.h` +
-   `src/dd_special-inl.h` — the hoist is DONE, include seam ready), and the
-   gamma reference/oracle machinery (small-side rule, exact-asymptotic
-   oracle above the mpmath ceiling). API decided: beta_p/beta_q(a, b, x,
-   out). Process decided: same split as gamma — frontier detail design
-   here, then Sonnet tooling + Opus kernel sub-agents with orchestrator
-   review gates; design doc must bake in the lessons list (day-one
-   HWY_NOINLINE on cores AND driver, masked-lane scrubs incl. the CF,
-   freeze masks select-not-add, ProdLow 2^996 range check, small-side rule
-   in the ORACLE too, mpmath convergence ceiling → exact-asymptotic
-   fallback, fixed lengths proven at boundaries by generator self-checks,
-   four-list test registration, sub-agent briefs finish-and-report).
+1. **Start here**: incomplete beta implementation, gate G1 — spawn the
+   Sonnet tooling sub-agent on tools/gen_beta_data.py per the detail
+   design section below (its brief comes from that section: probes pin
+   the [OPEN] constants, self-checks (a)–(h), escalation triggers).
+   Then G2 (references) → G3 (Opus kernel) → G4 (measured gates, tier
+   order Kaby Lake → NEON CI → Ryzen last) → G5 (registration/docs).
+   The design already bakes in the lessons list (day-one HWY_NOINLINE
+   on cores AND driver, masked-lane scrubs incl. the CF, freeze masks
+   select-not-add, small-side rule in the ORACLE too, mpmath ceiling →
+   exact-asymptotic fallback, fixed lengths proven at boundaries by
+   generator self-checks, four-list registration, sub-agent briefs
+   finish-and-report).
 2. Quiet-machine bench pass on Kaby Lake before publishing its performance
    numbers (its gamma bench was session-loaded, labeled indicative). The
    Ryzen gamma bench IS quiet-machine and at 7b52ed1 (2026-07-29,
@@ -629,14 +633,249 @@ What the stage gates caught — kept for the next family's process:
   transcript. Briefs for long-running sub-agent work must say: wait
   synchronously or finish-and-report in the same turn.
 
-### Regularized incomplete beta — broad parameters (thin by intent)
-I_x(a,b): symmetry I_x(a,b) = 1 − I_{1−x}(b,a) with "compute the side
-≤ ½" routing (1 − x exact for x ∈ [1/2, 1]); CF at fixed depth as the
-core; power series for small b·x; Temme uniform regimes for large a,b;
-prefactor via Stirling-difference — the lgamma(a) + lgamma(b) −
-lgamma(a+b) cancellation removed analytically with the same φ/φst
-machinery, never by subtracting three rounded lgammas. Detail design
-deferred until gamma ships and its η/φ dd utilities exist to reuse.
+### Regularized incomplete beta — detail design [2026-07-30, frontier]
+Supersedes the earlier thin broad-parameters section; its decisions
+(symmetry routing, fixed-depth CF core, small series, Temme regimes,
+analytic Stirling-difference prefactor) all survive and are made precise
+here. API settled with user: **beta_p / beta_q (a, b, x, out)**, four
+equal-length spans. Everything below is [DERIVED] unless tagged.
+
+#### Complement doctrine and routing
+P = I_x(a,b), Q = I_{1−x}(b,a), P + Q = 1. One internal evaluation
+computes the DIRECT side to dd and the other as 1 ⊖ dd before the single
+rounding (GammaVec / GammaScale pattern, mantissa+exponent so subnormal
+directs take one rounding). Complement budget: with the direct side at dd
+relative ~2⁻⁶⁶, the complement's relative error is ~2⁻⁶⁶·P̃/(1−P̃), so
+routing only has to keep the direct side ≤ 1 − 2⁻¹² (complement then
+≤ ~¼-ulp class) — NOT ≤ ½. That slack is what makes a simple predicate
+provable.
+
+Baseline predicate: sign of λ = a − c·x with c = a + b, i.e. x vs the
+mean p = a/c — computed as λ_dd = a ⊖ x ⊗ c_dd with c_dd = TwoSum(a,b);
+no rounded p is ever formed. For min(a,b) ≥ 1 [claim]: I_mean ∈
+[~1/e, ~1−1/e] (limits I_x(a,1) = x^a and I_x(1,b) = 1−(1−x)^b both give
+exactly 1/e-class extremes) — ample slack. The predicate FAILS as
+min → 0 (Q at the mean ~ α·ln(β/α) → 0, direct side → 1): below ε_R4 the
+R4 logic routes instead, with the flip to the ξ^α side once
+α·|ln ξ| ≳ ln 2. Generator self-check (e) proves the whole tree:
+max direct-side value over a dense (α,β,ξ) boundary lattice incl.
+endpoints ≤ 1 − 2⁻¹² (the gamma probe1 lesson: never skip edge grid
+values).
+
+#### Region map (canonical direct side (α, β, ξ) after routing;
+numbering mirrors gamma)
+- **R0 specials**: table below. Masked lanes scrubbed to (2, 3, ¼)
+  before ANY core — CF products, series weights, and R3's value-derived
+  ErfcCoreDd gather index (AGENTS masked-lane rules).
+- **R1 power series** (BPSER analog):
+  I = [ξ^α / B(α,β)] · Σ_{n≥0} (1−β)_n ξⁿ / (n! (α+n)).
+  Membership β·ξ ≤ B₁ and ξ ≤ ξ₁ [targets B₁ = 8, ξ₁ = 0.45 —
+  ILLUSTRATIVE until sup-probe]. Fixed depth N₁; terms rise until
+  n ~ βξ ≤ B₁ then decay — probe (a) proves the sup on the full
+  boundary. Freeze below kBetaFreezeEps by SELECT, never add-zero
+  (DdAddD(s,0) renormalizes; lane-mix test polices). 1/(α+n) via
+  DdRecipDd of the EXACT TwoSum(α,n) (gamma R4 precedent). Prefactor
+  folds ⊖ LogDdAny(α), never 1/α (subnormal-α safe); the series is then
+  1 + α·Σ_{n≥1}, benign as α → 0.
+- **R2 continued fraction** (BFRAC analog, DLMF 8.17.22):
+  d_{2m} = m(β−m)ξ / ((α+2m−1)(α+2m)),
+  d_{2m+1} = −(α+m)(c+m)ξ / ((α+2m)(α+2m+1)); fixed depth N₂ backward
+  (GammaCfRecip pattern). Order-of-operations rule: each d formed as
+  (ratio ≤ ~1) ⊗ (bounded factor), never the raw (α+m)(c+m) product —
+  overflows at c ~ 1e308. Covers the middle band at moderate min; ALL
+  off-ridge large-c (prefactor carries the smallness; CF is fast
+  off-ridge); and the gamma-limit corner (α small, βξ > B₁) on the
+  swapped side. Probe (b) must sweep the α→0, β→∞, βξ ∈ [B₁, ∞)
+  gamma-limit line AND the near-ridge boundary at min ≈ T_ridge — the
+  depth risk. Expected N₂ ~ 44–72 [OPEN — pinned by probe; if the
+  near-ridge sup demands N₂ > ~80, lower T_ridge instead and let R3's
+  fit hold to smaller ν].
+- **R3 Temme erf-form ridge**: membership ν ≥ T_ridge and cψ below
+  saturation, where ν = αβ/c (≤ min(α,β); the true expansion
+  parameter) and
+  cψ = α·φ(u) ⊕ β·φ(v),  φ = Log1pmxDd,  u = −λ/α,  v = +λ/β —
+  ONE dd λ serves both, u,v in dd via DdMul with DdRecip. Then
+  z = DdSqrt(cψ) with λ's sign: z ≤ 6 → ½ErfcCoreDd(z.hi) plus the z.lo
+  first-order correction, e^{−z²} = e^{−cψ} from the DD cψ (never
+  re-square rounded z); z > 6 → erfc_tail_data G, scale last. Gamma R3
+  verbatim with cψ replacing aφ; z² = cψ exactly parallels z² = aφ.
+  rv = DdRecipDd(DdSqrt(2π·ν_dd)), 2πν clamped (kGammaTwoPiAClamp
+  analog). Correction series S = Σ_k e_k(ζ, p)/ν^k with ζ² = cψ/ν
+  (λ's sign) and p = α/c. In the gamma limit p→0: ν→α, ζ→η_γ, so
+  e_k(ζ, 0⁺) MUST reproduce gamma's c_k(η) — mandatory cross-check (d),
+  and the reason the ansatz is trustworthy. Extraction is the gamma
+  clean-room protocol plus one dimension: Vandermonde solve in 1/ν at
+  fixed (ζ, p) against the oracle, then per-order tensor Chebyshev in
+  (ζ, 2p−1); symmetry e_k(ζ,p) = ±e_k(−ζ,q) halves the table (check
+  (h)). Δδ (Binet difference) is ABSORBED by the extracted e_k — its
+  1/α^{2k−1} = (q/ν)^{2k−1}-type terms are p-smooth in the ν-power
+  frame, same as gamma's c_k absorbing the Stirling remainder. Budget:
+  table ≤ 32 KB [K = 11 orders, degrees ~(20, 12) ILLUSTRATIVE];
+  runtime ~2–3× gamma R3's S, ridge lanes only. T_ridge target 32
+  [OPEN — co-pinned with N₂].
+- **R4 tiny-min** (APSER/FPSER analog): min(α,β) ≤ ε_R4 [target 2⁻⁶,
+  OPEN], βξ ≤ B₁, α|ln ξ| ≲ ln 2 — the α-scaled side ~ α·J is direct.
+  Assembly is gamma-R4 verbatim in beta clothing: nothing is ever
+  "1 − rounded near-1" — ξ^α − 1 = Expm1Dd(α ⊗ LogDdAny(ξ)),
+  Γ-ratio − 1 = Expm1Dd(exact-argument lgamma combination), products of
+  (1+Eᵢ) expanded so the 1s cancel analytically. Exact-argument
+  lgammas near 1 come from lgamma's ZoneBracket at the exact shifted t
+  (the GammaSmallQ mechanism — already exposed by lgamma-inl.h). The
+  box's complement cases route away by construction: α|ln ξ| large → R1
+  (ξ^α side direct), βξ > B₁ → R2 swapped CF. Probe (f) proves the
+  α-expansion truncation over the closed box.
+
+#### Prefactor E = α ln ξ + β ln(1−ξ) − ln B(α,β)
+The central hazard. y_dd = TwoSum(1, −ξ) is EXACT and feeds LogDdAny's
+dd-argument path (the Log1pmxDd log-side mechanism) — a plain fl(1−ξ)
+for ξ < ½ costs β·2⁻⁵³ absolute in E, fatal at large β. ln B is NEVER
+three independently rounded lgammas at large c. A new intrinsic hazard
+vs gamma: c = a + b is the first ROUNDED lgamma argument in the family
+(gamma's arguments were all exact inputs); fl(c) alone costs
+ψ(c)·c·2⁻⁵³ absolute — e.g. 2⁻⁴²·class at c = 256. Every path below
+carries c as the exact TwoSum dd pair. Three assembly paths, all ending
+in the GammaClampE-analog → ExpDdFrac → factors folded in mantissa
+space → ScaleTwo LAST (one rounding into subnormals):
+- **P1** (c ≤ C_lg [target 256]):
+  E = α·LogDdAny(ξ) ⊕ β·LogDdAny(y_dd) ⊖ LgammaPosDd(α) ⊖
+  LgammaPosDd(β) ⊕ [LgammaPosDd(c.hi) ⊕ c.lo·ψ̃(c.hi)] — the c.lo
+  correction uses DigammaRough (new, ~2⁻⁴⁰ suffices: residual
+  c.lo·ψ·2⁻⁴⁰ ≪ budget). Cancellation budget: |lgamma| ≤ ~1400 at
+  c ≤ 512-class → 3·1400·2⁻⁶⁸ ≈ 2⁻⁵⁶ absolute in E ✓.
+- **P2** (c > C_lg, α ≥ Z₀ [target 10]): the analytic
+  Stirling-difference — algebra collapses to
+  E = −cψ ⊕ ½·LogDdAny(ν_dd/2π) ⊖ Δδ,  Δδ = BinetDd(α) ⊕ BinetDd(β)
+  ⊖ BinetDd(c.hi) (Binet's derivative ≤ 1/(12z²) makes c.lo
+  negligible here). cψ is the SAME dd machinery as R3 — one
+  implementation. Derivation: Stirling on all three lgammas leaves
+  a ln(x/p) + b ln(y/q) = au + bv − (aφ(u)+bφ(v)) and au + bv = 0
+  identically (u = −λ/a, v = λ/b) — the cancellation is removed on
+  paper, not in floats. Budget: cψ ≤ ~750 pre-saturation, error
+  ≤ 2·750·2⁻⁶⁴ ≈ 2⁻⁵³·½ — the same accepted ½-ulp-class extreme as
+  gamma's aφ budget line.
+- **P3** (c > C_lg, α < Z₀): E = α·LogDdAny(ξ) ⊕ β·LogDdAny(y_dd) ⊖
+  LgammaPosDd(α) ⊕ LgammaDiffDd(β, α), where LgammaDiffDd(β,α) =
+  lgamma(β+α) − lgamma(β) is computed analytically (α·ln β, a
+  Log1pmx-decomposed (β+α−½)·log1p(α/β) term, −α, Binet difference) —
+  β ≥ c/2 > 128 ≥ Z₀ always holds here, and c is never formed as an
+  lgamma argument. Cancellation scale is capped by α < Z₀:
+  pieces ≤ ~10·|ln| ≤ ~7100 → error ≤ 2⁻⁵⁵ absolute ✓.
+Overflow guard: c > ~2¹⁰²² lanes get α, β, λ halved (exact powers of
+two; ψ is 0-homogeneous in the pair through u, v, so (c/2)ψ ⊗ 2 is
+exact) [precise guard site at implementation]. Saturation: E ≤ E_floor
+(kGammaExpFloor reuse, −800) → direct saturates to 0, complement to 1,
+lane scrubbed.
+
+#### Specials [pinned now; gamma-consistent doctrine: one degenerate
+parameter gets its limit, two degeneracies (or a degenerate parameter
+meeting the x-boundary its mass sits on) → NaN]
+- NaN anywhere → NaN (payload preserved). x ∉ [0,1] → NaN. a < 0 or
+  b < 0 → NaN. Two of {a ∈ {0,∞}, b ∈ {0,∞}} degenerate → NaN.
+- x = 0 → P = +0, Q = 1;  x = 1 → P = 1, Q = +0  (a, b > 0 finite).
+- a = 0 (mass at 0): P = 1 for x ∈ (0,1]; NaN at x = 0.
+- b = 0 (mass at 1): P = +0 for x ∈ [0,1); NaN at x = 1.
+- b = +inf (mass at 0): P = 1 for x ∈ (0,1]; NaN at x = 0.
+- a = +inf (mass at 1): P = +0 for x ∈ [0,1); NaN at x = 1
+  (maps to gamma's P(∞,∞) = NaN under x=1 ↔ x=∞).
+Exact/brutal invariants for smoke + reference: I_½(a,a) = ½ EXACTLY;
+P + Q = 1 within 1 ulp; analytic lines I_x(a,1) = x^a,
+I_x(1,b) = 1−(1−x)^b, I_x(½,½) = (2/π)·asin(√x); lane-mix determinism.
+
+#### New shared primitives (and homes)
+- **BinetDd(z)**, z ≥ Z₀: Stirling tail Σ B_{2k}/(2k(2k−1)z^{2k−1}).
+  Expose from lgamma-inl.h if its Stirling zone factors cleanly, else
+  fresh with generator-emitted coefficients [OPEN at implementation —
+  ANY touch of lgamma-inl.h re-runs the full lgamma+gamma byte-identity
+  guard, the dd_special-hoist protocol].
+- **LgammaDiffDd(β, α)** (P3 above): lives in beta-inl.h until a second
+  consumer (inverse incomplete beta) hoists it — the Log1pmxDd history
+  pattern, noted at the definition site.
+- **DigammaRough(z)** on (0, 2Z₀]: small poly + recurrence, ~2⁻⁴⁰; also
+  the natural seed for the future public digamma (P1 roadmap).
+- **cψ/λ/ν machinery** shared by P2 and R3 — single implementation.
+
+#### Oracle and reference set
+gen_beta_reference.py: mpmath betainc regularized, SMALL SIDE DIRECT
+always (swap the argument triple; 1−x is exact in mpf) — the gamma
+oracle rule, enforced at the same kind of site comment. Determine
+mpmath's convergence/latency ceiling in (a,b) near the ridge
+empirically [OPEN, G1]; above it, the exact-asymptotic oracle is our
+own erf-form at full degree in mpf, validated on an overlap band
+(gamma protocol verbatim). Secondary disjoint-sample cross-check via
+high-dps power series. NEW generator with its OWN seed — shares nothing
+with gamma's rng stream (that stream stays frozen; AGENTS note).
+Point economics [target ~40k pts, ~4 MB total]: per-region
+log-lattices in (α,β) × ξ grids; ridge lines λ = 0± at binades of ν
+crossed with p ∈ {tiny, ¼, ½, ¾, 1−tiny}; bit-brackets BOTH sides of
+EVERY boundary (routing predicate, B₁, ξ₁, T_ridge, ε_R4, C_lg, Z₀,
+z = 6, E_floor); the x = ½, a = b diagonal; the three analytic lines;
+subnormal band E ∈ [−745, −700]; huge/tiny parameters incl. subnormal
+α and c near overflow; the full specials table.
+
+#### Data, generator self-checks (exit nonzero, budgets to stderr)
+src/beta_data.h ← tools/gen_beta_data.py: routing/region constants,
+N₁/N₂, R3 tensor tables + K, Binet coefficients + Z₀, DigammaRough
+poly, E_floor, clamps. Self-checks: (a) R1 truncation sup on the full
+membership boundary incl. α→0 and the (B₁, ξ₁) edges; (b) N₂ sup incl.
+gamma-limit line and near-ridge min ≈ T_ridge; (c) R3 fit residual +
+total S truncation over a (ζ, p, ν) lattice vs the mpf oracle;
+(d) e_k(ζ, p→0⁺) == gamma c_k(η); (e) routing-safety max direct side
+≤ 1 − 2⁻¹²; (f) R4 α-expansion truncation over its closed box;
+(g) Binet truncation at Z₀ vs dd target; (h) e_k symmetry identity.
+
+#### Kernel, TU, build
+src/beta-inl.h + src/beta.cpp, OWN TU — dependency set differs
+materially from gamma's (consumes dd, dd_special, exp_dd, log_dd,
+lgamma-inl (LgammaPosDd, ZoneBracket, Binet exposure), erfc_core, ops;
+does NOT include gamma-inl.h — the R2 sweep covers the gamma-limit
+corner, so no gamma-core reuse; decided here). HWY_NOINLINE from day
+one on every region core, every prefactor path, AND the per-lane
+driver (it inlines twice per export). /d2ReducedOptimizeHugeFunctions
+for beta.cpp only if MSVC CI times degrade (gamma's threshold story).
+HWY_DYNAMIC_DISPATCH called from inside namespace corvus (SSE2-cap
+collapse rule).
+
+#### Gates and tests [ILLUSTRATIVE targets; pin to measured, no margin]
+Direct side ≤ 3–4 ULP per region (R4 ~1–2); complements relative
+(≥ 2⁻¹²-ish by routing) ≤ ~6 ULP; P + Q = 1 ≤ 1 ulp; I_½(a,a) exact.
+test_beta_smoke (specials table, invariants, lane-mix) +
+test_beta_ulp (public API, `a b x P Q` reference files) — registered
+after test_gamma_ulp in ALL FOUR lists (tests/CMakeLists.txt, three
+ci.yml report steps, sweep_tiers.ps1 $gates). bench_beta with the
+scalar-walk-of-own-kernel baseline, labeled (no libm betainc; erfinv
+precedent). ACCURACY.md + README in the SAME change set as the kernel.
+
+#### Process: sub-agent split and review gates
+Sonnet tooling + Opus kernel, briefs composed from this section at
+spawn time, finish-and-report (never park on a watcher — the stopped-
+subagent lesson).
+- **G1** (Sonnet, generator): gen_beta_data.py per this design; the
+  [OPEN] constants (N₁, N₂, T_ridge, B₁, ξ₁, ε_R4, C_lg, Z₀, K, fit
+  degrees, mpmath ceiling) are pinned by its self-checks. Orchestrator
+  reviews the stderr budget lines against this section BEFORE any
+  table is committed. Escalate to frontier if: any self-check cannot
+  meet budget at target constants; cross-check (d) fails; table
+  exceeds 32 KB.
+- **G2** (Sonnet, references): gen_beta_reference.py + reference set;
+  orchestrator spot-audits vs independent oracle samples incl. all
+  analytic lines.
+- **G3** (Opus, kernel): reviewed against this design BEFORE the first
+  ULP run — checklist: freeze-by-select, masked-lane scrubs (CF
+  products, R3 gather), d-term order of operations, ⊖LogDdAny(α)
+  folds, exact c_dd handling in every path, scale-last.
+- **G4**: measured ULP tables → gates pinned. Tier order: Kaby Lake
+  native + caps first, NEON via CI, Ryzen native AVX3 last (stability
+  watch).
+- **G5**: four-list registration audit, CI green, ACCURACY.md/README/
+  PLAN in the change set.
+
+#### Decisions made here / still open
+Decided: no gamma-core dependency (R2 covers the gamma limit); erf-form
+in (ζ, p) with 1/ν powers and symmetry halving; complement-slack
+routing doctrine (≤ 1 − 2⁻¹², not ≤ ½); exact-c_dd rule for every
+lgamma-argument path; specials table above; own TU. [OPEN — G1 pins]:
+all bracketed numeric targets; BinetDd's home; the mpmath ceiling;
+the c-overflow guard site.
 
 ### Routing for Phase C [per AGENTS.md]
 - Detail design + error budgets per family: frontier model, high
