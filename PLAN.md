@@ -936,18 +936,62 @@ Two escalations, resolved here:
   anchor; (3) only then the 2D spots, solved as regularized least
   squares in a Chebyshev-in-1/ν basis on disjoint oversampled ladders.
 
+#### G1b probe results and second routing correction [2026-07-31]
+- **R2 orientation rule PINNED**: evaluate on the side with
+  ξ < (α+1)/(c+2), else swap — confirmed as literally stated over all
+  256 gap-zone points, zero failures, N₂ = 64 reconfirmed (worst
+  predicted-side error 2.8e-26 ≪ 2⁻⁶⁸). One lattice extension owed:
+  the second-param band was probed only down to β = 2⁻⁶ — generator
+  self-check (b) must extend it to β → 1e-300.
+- **R3 extraction VIABLE with wide margin.** Quad oracle validated
+  (63/63, ≤ 9.2e-47; 0.04–0.09 s/pt to min ~1e8; needs the u = t^a
+  substitution for a < 1 — endpoint singularity gave WRONG answers
+  before it); the gamma-limit anchor resolved both G1a artifacts: the
+  sign flip was a branch-order bug, and the magnitude gap is the exact
+  variable mapping **η_γ = −ζ·√2 as p → 0** — which is what the
+  definitions predict (ζ² = cψ/ν → φ = η²/2 at the limit; λ = a − cx
+  opposes x − a), so cross-check (d) is now stated as this mapping.
+  Anchor match ≤ 1e-15 through k = 5 at p = 2⁻⁵⁰ (residual at 2⁻⁴⁰ is
+  O(p), slope-confirmed). 2D spots: all 18 (p, ζ) combos stable
+  through k = 8 (disjoint-set agreement 2.7e-30..7.8e-27 vs a 1e-13
+  bar); extraction = regularized least squares in Chebyshev-in-1/ν,
+  extract K = 15 keep ~9 (truncation-bias lesson). The anchor-ladder
+  oracle is the CF (quad needs infeasible dps for that shape).
+- **Task C ESCALATE, resolved here (second routing flaw, rule-ORDER).**
+  Witness (1e-20, 1, 0.4): R1-native fires (its box has no α floor)
+  and evaluates 1.0 — yet G1a's own analysis had derived R1's tiny-α
+  validity floor (complement-slack needs α·J ≥ 2⁻¹²); the floor never
+  made it into the decision list. Correction: hoist the tiny-min guard
+  ABOVE R1 — final orientation order:
+  0. min(a,b) ≤ ε_R4 → tiny-first (τ, B, ξτ): if τ|ln ξτ| ≤ ln 2 ∧
+     ξτ ≤ ξ₁ ∧ B·ξτ ≤ B₁ → **R4**; else fall through (its ξτ^τ-side
+     and CF cases land correctly in R1/R2 below — spot-verified at the
+     witness's neighbors).
+  1. R1 if either orientation has ξ ≤ ξ₁ ∧ βξ ≤ B₁.
+  2. R3 if ν ≥ T_ridge ∧ cψ ≤ saturation.
+  3. R2, orientation by the pinned ξ < (α+1)/(c+2) rule.
+  Self-check (e) runs against THIS order in the generator and must
+  pass there — it is the regression guard for both routing flaws.
+- Probe-harness hygiene, now thrice-learned: mp.dps must be set inside
+  EVERY computation layer (worker, subprocess-send, subprocess-parse —
+  G1b found the same trap at three layers). And both G1a and G1b agents
+  parked on background jobs despite briefs forbidding it — future
+  briefs say: foreground only, sweeps chunked into ≤ ~5-minute
+  re-runnable commands, no Monitors.
+
 #### Decisions made here / still open
 Decided: no gamma-core dependency (R2 covers the gamma limit); erf-form
 in (ζ, p) with 1/ν powers and symmetry halving; complement-slack
 doctrine applied to the EVALUATED side with region-driven orientation
-(G1a correction above); exact-c_dd rule for every lgamma-argument path;
-specials table above; own TU. Pinned by G1a: N₁ = 64, N₂ = 64,
+in the G1b final order above; exact-c_dd rule for every lgamma-argument
+path; specials table above; own TU. Pinned: N₁ = 64, N₂ = 64,
 T_ridge = 32, B₁ = 8, ξ₁ = 0.45, ε_R4 = 2⁻⁶, Z₀ = 10, K_B = 16,
-C_lg = 256 (provisional), mpmath ceiling ~2000 (latency mode).
-[OPEN — G1b pins]: the R2 orientation rule; R3 extraction viability
-through k = 5+ under the corrected protocol (K, fit degrees); re-proof
-of self-check (e) under the final orientation rule; BinetDd's home; the
-c-overflow guard site.
+C_lg = 256 (provisional), R2 orientation rule ξ < (α+1)/(c+2),
+η_γ = −ζ√2 mapping, extraction protocol (Cheb-in-1/ν LSQ, K = 15 keep
+~9). [OPEN — G1c generator pins]: final K and fit degrees from
+residuals (table ≤ 32 KB); self-check (e) pass under the final order;
+(b) lattice extension to β → 1e-300; DigammaRough fit; BinetDd's home;
+the c-overflow guard site.
 
 ### Routing for Phase C [per AGENTS.md]
 - Detail design + error budgets per family: frontier model, high
