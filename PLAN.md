@@ -660,7 +660,9 @@ R4 logic routes instead, with the flip to the ξ^α side once
 α·|ln ξ| ≳ ln 2. Generator self-check (e) proves the whole tree:
 max direct-side value over a dense (α,β,ξ) boundary lattice incl.
 endpoints ≤ 1 − 2⁻¹² (the gamma probe1 lesson: never skip edge grid
-values).
+values). [G1a CORRECTION applies: the mean predicate alone strands
+β ≪ α, ξ → 1 points — orientation is region-driven and decoupled from
+the direct/complement handout; see the G1a subsection below.]
 
 #### Region map (canonical direct side (α, β, ξ) after routing;
 numbering mirrors gamma)
@@ -723,7 +725,9 @@ numbering mirrors gamma)
   (the GammaSmallQ mechanism — already exposed by lgamma-inl.h). The
   box's complement cases route away by construction: α|ln ξ| large → R1
   (ξ^α side direct), βξ > B₁ → R2 swapped CF. Probe (f) proves the
-  α-expansion truncation over the closed box.
+  α-expansion truncation over the closed box. [G1a CORRECTION: the box
+  is stated in the TINY-FIRST orientation and carries explicit caps
+  ξτ ≤ ξ₁ and B·ξτ ≤ B₁ — see the G1a subsection.]
 
 #### Prefactor E = α ln ξ + β ln(1−ξ) − ln B(α,β)
 The central hazard. y_dd = TwoSum(1, −ξ) is EXACT and feeds LogDdAny's
@@ -869,13 +873,81 @@ subagent lesson).
 - **G5**: four-list registration audit, CI green, ACCURACY.md/README/
   PLAN in the change set.
 
+#### G1a probe results and design corrections [2026-07-30]
+Sonnet probe agent, orchestrator-reviewed at frontier effort. Pinned
+[DERIVED, empirical]: **N₁ = 64** (B₁ = 8, ξ₁ = 0.45 unchanged; worst
+case the β→0 geometric corner, 2⁻⁷⁴·⁹ margin); **N₂ = 64, T_ridge =
+32** (binding case the symmetric middle (32,32,ξ≈0.70), sharp elbow to
+2⁻¹⁸⁷ by N=64; gamma-limit line needs only 48); **Z₀ = 10, K_B = 16**;
+**ε_R4 = 2⁻⁶ confirmed** (routing predicate safe above it — max direct
+0.9120 — and fails ONLY below it, checked to min ~1e-42 incl. the
+(ε_R4, 1) band); **C_lg = 256 PROVISIONAL** (budget passes by 0.23
+bits; drop to 128 if G4 measures hot); **mpmath betainc ceiling**:
+reliable but latency-bound — safe to min(a,b) ~2000 near the ridge,
+seconds by ~4000, hangs beyond; failure mode is latency ONLY, never
+wrong digits. Oracle hygiene lesson from the probe harness itself: a
+stale mp.dps (set outside the worker loop) produced fake convergence
+plateaus — generators must set dps INSIDE every computation context.
+
+Two escalations, resolved here:
+- **R4/routing coverage gap (real design flaw).** As first written, R4's
+  box had no ξ cap and the mean predicate alone strands points: the
+  probe's witness (8, 2⁻⁶, 1−9.5e-7) — a legitimate direct value 0.16 —
+  was outside every region, and the β ≪ α, ξ → 1 family generalizes it.
+  Root cause: the design conflated ORIENTATION (which argument triple
+  the kernel evaluates) with the direct/complement HANDOUT. Correction:
+  they are decoupled. The ≤ 1 − 2⁻¹² doctrine applies to the EVALUATED
+  side; the handout is a final select. Orientation is REGION-DRIVEN,
+  first match:
+  1. R1 if either orientation satisfies ξ ≤ ξ₁ ∧ βξ ≤ B₁ (at most one
+     orientation has ξ ≤ 0.45; R1 handles tiny first-param via its
+     1 + α·Σ form down to α ~ 2⁻¹¹, complement-slack covers the rest).
+  2. R4 if min ≤ ε_R4, evaluated TINY-FIRST (τ, B, ξτ) with
+     **ξτ ≤ ξ₁ AND B·ξτ ≤ B₁** (the missing caps; the probe confirms
+     N = 48–56 inside them). ξτ = 1−x is exact for x ≥ ½ (Sterbenz),
+     and for x < ½ the 2⁻⁵⁴ abs error is damped by ∂I/∂ξ ~ τ.
+  3. R3 if ν ≥ T_ridge ∧ cψ ≤ saturation (mean-predicate orientation;
+     ridge symmetric under swap).
+  4. Else R2 CF, orientation = the side where the CF converges at
+     N₂ — candidate crisp rule ξ < (α+1)/(c+2) (the DLMF-fast side,
+     reachable in exactly one orientation up to an overlap band), to be
+     PINNED by a G1b probe measuring the depth surface in BOTH
+     orientations over the gap zones (second-param ≤ 1 with
+     ξ ∈ (0.45, mean]; tiny-first with Bξτ ∈ (B₁, 800]).
+  Saturation (E ≤ E_floor) remains the net under every region in every
+  orientation. Self-check (e) must be RE-PROVEN under this final
+  orientation rule (evaluated side ≤ 1 − 2⁻¹²), not just the mean
+  predicate.
+- **R3 extraction ill-conditioning (protocol fix, ansatz intact).** The
+  spot-probe stabilized only k ≤ 1: the mpmath ceiling capped the
+  1/ν ladder at ν ≤ 2048 (7 rungs), far short of gamma's 15-rung span —
+  a conditioning problem, not evidence against the (ζ, p, 1/ν) form.
+  The e₀ sign flip vs gamma's c₀ is a convention artifact suspect (the
+  design's ζ carries λ = a − cx's sign; gamma's η carries x − a's) and
+  the ~7% magnitude gap smells of rv normalization — both to be nailed,
+  not fitted around. G1b protocol, in order: (1) build a tanh–sinh
+  quad oracle for ridge points (split at the mode, exact log-prefactor
+  at high dps; validate vs betainc below the ceiling), sidestepping the
+  hyp2f1 latency wall and restoring the tall ladder; (2) anchor at the
+  GAMMA LIMIT first — p = 2⁻⁴⁰, extract e_k along ν = 512·2^j,
+  j = 0..12+, and match gamma's c_k (conventions read from
+  gen_gamma_data.py's own extraction) to ≤ 1e-15 through k = 5 BEFORE
+  any 2D work — converting the inconclusive cross-check (d) into the
+  anchor; (3) only then the 2D spots, solved as regularized least
+  squares in a Chebyshev-in-1/ν basis on disjoint oversampled ladders.
+
 #### Decisions made here / still open
 Decided: no gamma-core dependency (R2 covers the gamma limit); erf-form
 in (ζ, p) with 1/ν powers and symmetry halving; complement-slack
-routing doctrine (≤ 1 − 2⁻¹², not ≤ ½); exact-c_dd rule for every
-lgamma-argument path; specials table above; own TU. [OPEN — G1 pins]:
-all bracketed numeric targets; BinetDd's home; the mpmath ceiling;
-the c-overflow guard site.
+doctrine applied to the EVALUATED side with region-driven orientation
+(G1a correction above); exact-c_dd rule for every lgamma-argument path;
+specials table above; own TU. Pinned by G1a: N₁ = 64, N₂ = 64,
+T_ridge = 32, B₁ = 8, ξ₁ = 0.45, ε_R4 = 2⁻⁶, Z₀ = 10, K_B = 16,
+C_lg = 256 (provisional), mpmath ceiling ~2000 (latency mode).
+[OPEN — G1b pins]: the R2 orientation rule; R3 extraction viability
+through k = 5+ under the corrected protocol (K, fit degrees); re-proof
+of self-check (e) under the final orientation rule; BinetDd's home; the
+c-overflow guard site.
 
 ### Routing for Phase C [per AGENTS.md]
 - Detail design + error budgets per family: frontier model, high
