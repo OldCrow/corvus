@@ -62,12 +62,12 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   design is the next frontier task.
 
 ## Next Steps
-1. **Start here**: incomplete beta implementation, gate G1 — spawn the
-   Sonnet tooling sub-agent on tools/gen_beta_data.py per the detail
-   design section below (its brief comes from that section: probes pin
-   the [OPEN] constants, self-checks (a)–(h), escalation triggers).
-   Then G2 (references) → G3 (Opus kernel) → G4 (measured gates, tier
-   order Kaby Lake → NEON CI → Ryzen last) → G5 (registration/docs).
+1. **Start here**: incomplete beta implementation, gate G3 — the Opus
+   kernel sub-agent (src/beta-inl.h + beta.cpp + tests, per the detail
+   design section and its G3 review checklist). G1 (gen_beta_data.py +
+   beta_data.h) and G2 (reference set) are DONE and committed — see
+   the dated subsections. Then G4 (measured gates, tier order Kaby
+   Lake → NEON CI → Ryzen last) → G5 (registration audit/docs).
    The design already bakes in the lessons list (day-one HWY_NOINLINE
    on cores AND driver, masked-lane scrubs incl. the CF, freeze masks
    select-not-add, small-side rule in the ORACLE too, mpmath ceiling →
@@ -1038,6 +1038,25 @@ generator). Generator runs ~7 min, bit-identical across runs and
 machines-of-invocation; mpmath sits in system python (the throwaway
 venv creation half-failed — rebuild the venv per AGENTS.md before any
 regeneration on a clean machine).
+
+#### G2 shipped — reference set [2026-08-01]
+tools/gen_beta_reference.py → tests/data/beta_p/q_reference.txt
+(35,478 rows each, 3.7 MB, byte-identical pair per the gamma
+convention; `a b x P Q`, fresh seed, nothing shared with gamma's rng
+stream). Oracle: CF (G1-validated) primary, mpmath betainc
+cross-check (worst 7.5e-24), plus an APSER-style small-τ branch
+Q̃ = −expm1(w + ln S) for min(a,b) ≤ 2⁻⁴ — added after the first cut
+dropped 1,614 points whose single root cause was CF failure in the
+small-τ/small-ξ corner (drop histogram audit; the lost sets included
+all nine ε_R4/ln2-wall brackets). The branch is validated at 2⁻¹⁸⁸
+worst diff on the CF overlap band and doubles as independent
+validation of R4's own kernel expansion. Final drops: 2 (one huge
+symmetric ridge bracket a=b=1e10, x=½±ulp, CF non-convergent at every
+dps — the exact-½ point itself survives). Region histogram
+R1/R2/R3/R4 = 13,484/5,937/2,906/12,900, all ≥ 2000; P+Q=1 bit-exact;
+small-side-direct enforced; analytic lines at 1.5e-31. Four generator
+bugs found by its own checks, incl. the checker itself computing a
+forbidden 1−(near-1) — fixed with expm1/acos identities.
 
 #### Decisions made here / still open
 Decided: no gamma-core dependency (R2 covers the gamma limit AND the
