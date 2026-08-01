@@ -1015,21 +1015,45 @@ bit-identical across runs, ~310 s. Two escalations, both resolved:
   review checklist item (confirm the assembly produces the small
   quantity directly) plus the smoke invariants.
 
+#### G1c revision shipped — G1 COMPLETE [2026-07-31]
+tools/gen_beta_data.py + src/beta_data.h landed (orchestrator-reviewed,
+independently re-run and hash-verified). All self-checks pass at their
+fixed targets: (a) 2⁻⁷⁴·⁹, (b) 2⁻⁷⁶·⁷ plus the transferred-risk
+ratio-cap × ν sweep — CF margin IMPROVES with ν (2⁻¹⁵⁹ at ν = 32,
+2⁻³¹⁴ at 1e4, exact beyond), so the band handoff is safe at all ν;
+(c) 2⁻⁵⁷·³⁵ vs the fixed 2⁻⁵⁶ target over the corrected band;
+(d) anchor 6.5e-16; (e) R1/R2/R3 max 0.9973, zero failures, both
+escalation witnesses in-lattice; (f) R4 N = 48 → 2⁻⁶⁰·⁵; (g) 2⁻⁷⁴·⁶;
+(h) 2.6e-43 (sign resolved: e_k(ζ,p) = −e_k(−ζ,1−p)); (i) 2⁻⁵⁰.
+R3 table: K = 10 rows × 25 × 15 tensor-Chebyshev, 29.3 KiB. Exact band
+sup DERIVED: ζ_max = √(3·ln 2/2) ≈ 1.0197 — both ratio caps bind
+jointly at p = ⅓ (closed form verified; the G1c subsection's ~0.76 was
+the p = ½ slice, superseded). Two findings worth keeping: the binding
+fit axis was N_p (p-direction), not N_ζ; and R3 test points must be
+scaled to the p-local reachable lens (zeta_max_at_p), not the global
+sup — sampling outside the lens fakes a fit plateau. Oracle note: the
+CF is the R3 extraction oracle exclusively (quad needs infeasible dps
+for the scaled-remainder ladder shape; deviation documented in the
+generator). Generator runs ~7 min, bit-identical across runs and
+machines-of-invocation; mpmath sits in system python (the throwaway
+venv creation half-failed — rebuild the venv per AGENTS.md before any
+regeneration on a clean machine).
+
 #### Decisions made here / still open
 Decided: no gamma-core dependency (R2 covers the gamma limit AND the
-off-band far ridge at all ν); erf-form in (ζ, p) with 1/ν powers and
-symmetry halving over the RATIO-BAND domain (third correction above);
-complement-slack doctrine applied to the EVALUATED side with
-region-driven orientation in the G1b final order; exact-c_dd rule for
-every lgamma-argument path; specials table above; own TU. Pinned:
-N₁ = 64, N₂ = 64, T_ridge = 32, B₁ = 8, ξ₁ = 0.45, ε_R4 = 2⁻⁶,
-Z₀ = 10, K_B = 16, C_lg = 256 (provisional), R2 orientation rule
-ξ < (α+1)/(c+2), η_γ = −ζ√2 mapping, extraction protocol
-(Cheb-in-1/ν LSQ, K = 15 keep ~9), (e) gates R1/R2/R3 with R4 by
-construction. [OPEN — G1c revision pins]: R3 fit degrees and table
-size over the corrected band at the 2⁻⁵⁶ target; the band-edge
-CF-depth ν-independence sweep; BinetDd's home; the c-overflow guard
-site.
+off-band far ridge at all ν — margin improving with ν, measured);
+erf-form in (ζ, p) with 1/ν powers and symmetry e_k(ζ,p) = −e_k(−ζ,q)
+over the RATIO-BAND domain; complement-slack doctrine applied to the
+EVALUATED side with region-driven orientation in the G1b final order;
+exact-c_dd rule for every lgamma-argument path; specials table above;
+own TU. Pinned: N₁ = 64, N₂ = 64, T_ridge = 32, B₁ = 8, ξ₁ = 0.45,
+ε_R4 = 2⁻⁶, R4 N = 48, Z₀ = 10, K_B = 16, C_lg = 256 (provisional),
+E_floor = −800, R2 orientation rule ξ < (α+1)/(c+2), ratio caps
+[½, 2], ζ_max = √(3 ln 2/2), R3 K = 10 @ 25×15 (29.3 KiB),
+η_γ = −ζ√2 mapping. [OPEN — later gates]: BinetDd's kernel home (G3;
+generator emits fresh coefficients either way); the c-overflow guard
+site (G3); C_lg drop to 128 if G4 measures hot; G2 next — reference
+generator + point sets.
 
 ### Routing for Phase C [per AGENTS.md]
 - Detail design + error budgets per family: frontier model, high

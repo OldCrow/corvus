@@ -306,6 +306,7 @@ python3 -m venv /tmp/mpv && /tmp/mpv/bin/pip install mpmath
 /tmp/mpv/bin/python tools/gen_dd_special_data.py  > src/dd_special_data.h
 /tmp/mpv/bin/python tools/gen_gamma_data.py       > src/gamma_data.h
 /tmp/mpv/bin/python tools/gen_gamma_reference.py
+/tmp/mpv/bin/python tools/gen_beta_data.py        > src/beta_data.h
 ```
 `gen_erfinv_reference.py` writes both `tests/data/erfinv_reference.txt` and
 `tests/data/erfcinv_reference.txt` directly (two output files, so no `>`
