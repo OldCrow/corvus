@@ -693,7 +693,10 @@ numbering mirrors gamma)
   near-ridge sup demands N₂ > ~80, lower T_ridge instead and let R3's
   fit hold to smaller ν].
 - **R3 Temme erf-form ridge**: membership ν ≥ T_ridge and cψ below
-  saturation, where ν = αβ/c (≤ min(α,β); the true expansion
+  saturation [G1c CORRECTION: membership is the RATIO BAND
+  ξ/p ∈ [½, 2] ∧ (1−ξ)/q ∈ [½, 2] (linked caps), saturation a separate
+  overlay — gamma's shipped table has the same shape; see the G1c
+  subsection], where ν = αβ/c (≤ min(α,β); the true expansion
   parameter) and
   cψ = α·φ(u) ⊕ β·φ(v),  φ = Log1pmxDd,  u = −λ/α,  v = +λ/β —
   ONE dd λ serves both, u,v in dd via DdMul with DdRecip. Then
@@ -979,19 +982,54 @@ Two escalations, resolved here:
   briefs say: foreground only, sweeps chunked into ≤ ~5-minute
   re-runnable commands, no Monitors.
 
+#### G1c generator results and third correction [2026-07-31]
+First cut of tools/gen_beta_data.py landed (uncommitted): checks (a),
+(b), (d), (f), (g), (h), (i) all PASS with margin (R1 2⁻⁷⁴·⁹, CF
+2⁻⁷⁶·⁷, anchor 6.6e-16, Binet 2⁻⁷⁴·⁶, DigammaRough 2⁻⁵⁰),
+bit-identical across runs, ~310 s. Two escalations, both resolved:
+- **R3 fit stalled at 2⁻¹⁶ → root cause was a DESIGN error in R3's
+  membership, found by reading gen_gamma_data.py.** Gamma's shipped
+  Temme table spans only η ∈ [−√(2φ(½)), +√(2φ(2))] ≈ [−0.62, +0.78] —
+  the ridge RATIO band λ ∈ [½, 2] — with NNODES = 33 and a 2⁻⁵⁶ replay
+  target; outside the band, series/CF cover even at huge a. This
+  design's "R3 = ν ≥ T ∧ cψ ≤ 800" mis-remembered that, and the ζ ∈
+  [−5, 5] fit domain it implied is what no 32 KB fit can span at dd
+  level (a 2⁻¹⁶ residual would cost ~2⁻¹⁹ relative on ridge values —
+  unshippable). CORRECTED R3 membership, mirroring gamma exactly:
+  **ν ≥ T_ridge ∧ ξ/p ∈ [½, 2] ∧ (1−ξ)/q ∈ [½, 2]** (the caps are
+  linked by pu + qv = 0; at p = ½ the joint cap binds at u = ±½),
+  giving a derived ζ band ⊂ ~[−0.76, +0.76] (generator derives and
+  states the exact sup). Saturation stays a separate overlay; the
+  z ∈ (6, √800] G-tail is unchanged (live wide-z lanes only occur at
+  moderate ν where cψ ≤ 800). Check (c) target becomes gamma-class
+  2⁻⁵⁶, not pinned-to-measured. NEW risk transferred to R2, to be
+  probed in the revision's check (b): the CF now owns the band edge at
+  ALL ν — sweep u = ±caps at ν ∈ {32, 1e4, 1e8, 1e12, 1e16} to confirm
+  N₂ = 64 is ν-independent at fixed ratio distance; growth with ν is
+  an ESCALATE.
+- **Check (e) "failures" in R4 are a category error, accepted as the
+  agent gated it.** R4's contract is analytic small-side assembly (the
+  Expm1Dd product expansion) — it never complements a rounded near-1
+  evaluation, so the ≤ 1 − 2⁻¹² doctrine is satisfied by construction
+  there. (e) formally gates R1/R2/R3; R4's guarantee is a G3 kernel-
+  review checklist item (confirm the assembly produces the small
+  quantity directly) plus the smoke invariants.
+
 #### Decisions made here / still open
-Decided: no gamma-core dependency (R2 covers the gamma limit); erf-form
-in (ζ, p) with 1/ν powers and symmetry halving; complement-slack
-doctrine applied to the EVALUATED side with region-driven orientation
-in the G1b final order above; exact-c_dd rule for every lgamma-argument
-path; specials table above; own TU. Pinned: N₁ = 64, N₂ = 64,
-T_ridge = 32, B₁ = 8, ξ₁ = 0.45, ε_R4 = 2⁻⁶, Z₀ = 10, K_B = 16,
-C_lg = 256 (provisional), R2 orientation rule ξ < (α+1)/(c+2),
-η_γ = −ζ√2 mapping, extraction protocol (Cheb-in-1/ν LSQ, K = 15 keep
-~9). [OPEN — G1c generator pins]: final K and fit degrees from
-residuals (table ≤ 32 KB); self-check (e) pass under the final order;
-(b) lattice extension to β → 1e-300; DigammaRough fit; BinetDd's home;
-the c-overflow guard site.
+Decided: no gamma-core dependency (R2 covers the gamma limit AND the
+off-band far ridge at all ν); erf-form in (ζ, p) with 1/ν powers and
+symmetry halving over the RATIO-BAND domain (third correction above);
+complement-slack doctrine applied to the EVALUATED side with
+region-driven orientation in the G1b final order; exact-c_dd rule for
+every lgamma-argument path; specials table above; own TU. Pinned:
+N₁ = 64, N₂ = 64, T_ridge = 32, B₁ = 8, ξ₁ = 0.45, ε_R4 = 2⁻⁶,
+Z₀ = 10, K_B = 16, C_lg = 256 (provisional), R2 orientation rule
+ξ < (α+1)/(c+2), η_γ = −ζ√2 mapping, extraction protocol
+(Cheb-in-1/ν LSQ, K = 15 keep ~9), (e) gates R1/R2/R3 with R4 by
+construction. [OPEN — G1c revision pins]: R3 fit degrees and table
+size over the corrected band at the 2⁻⁵⁶ target; the band-edge
+CF-depth ν-independence sweep; BinetDd's home; the c-overflow guard
+site.
 
 ### Routing for Phase C [per AGENTS.md]
 - Detail design + error budgets per family: frontier model, high
