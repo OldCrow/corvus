@@ -1058,9 +1058,83 @@ small-side-direct enforced; analytic lines at 1.5e-31. Four generator
 bugs found by its own checks, incl. the checker itself computing a
 forbidden 1−(near-1) — fixed with expm1/acos identities.
 
+#### G3 kernel results, fourth routing correction, escalation
+resolutions [2026-08-01]
+Opus kernel agent delivered src/beta-inl.h + beta.cpp + both tests +
+four-list registration (on branch beta/g3-kernel, NOT main — three
+routing/oracle issues below must close before merge). clang-cl
+AVX3_ZEN4: beta.cpp compiles in 19.5 s (no codegen blowup), ctest
+15/15 green (existing gates untouched — lgamma-inl.h NOT modified;
+BinetDd implemented fresh from kBetaBinetCoef), smoke fully green
+incl. the whole specials table and I_½(a,a) exact. Measured
+PROVISIONAL direct sides: R1 = 1, R2 = 0, R3 = 3, R4 = 2–3 ULP — all
+inside targets. Six kernel bugs found by the reference sweep, each
+with a witness (R3 orientation×λ sign XNOR; freeze eps 2⁻⁶⁰→2⁻¹⁰⁵;
+R2 d-terms in dd; R2 numerator overflow — two-bounded-factors rule
+restored; LgammaDiffDd compensation term removed in favor of the
+φ-form; and the FOURTH ROUTING CORRECTION, ratified: R4's ξτ cap is
+max(ξ₁, thr_τ) — for B < 0.24 there is a ξτ ∈ (ξ₁, thr_τ) window
+where neither R1 orientation fires and R2 would evaluate the near-one
+side; measured N=48 truncation in the widened window is 2⁻⁵⁷·³ (vs
+2⁻⁷¹·⁹ in-box) — G4 decides from measurement whether R4 depth bumps
+to 56). Design deviations ratified: P1 (three-lgamma) path replaced
+by P3's LgammaDiffDd(max,min) ⊖ LgammaPosDd(min) everywhere — never
+forms rounded c as an lgamma argument, and kBetaDigammaCoef is
+therefore UNUSED (keep in header for the future public digamma; G5
+cleanup decision); P2/P3 split on min(α,β), not α (α=255, β=2 broke
+the literal predicate); c-overflow guard is an exact 2⁻²⁰⁰ prescale
+inside the cψ core; λ = α·y ⊖ β·ξ with TwoSum (algebraically a − cx,
+symmetric); R2 folds ⊖LogDdAny(α) (the CF prefactor's own form).
+
+Escalations, resolved at frontier effort:
+- **(A) G2 reference defect, kernel adjudicated RIGHT (237 vs 3).**
+  small_tau_oracle forms lnΓ(B+τ) − lnΓ(B) at fixed dps: for τ ≪ B
+  the difference is identically 0 in mpf and the emitted value goes
+  INDEPENDENT of the max parameter (witness family (a, 1.4e-300,
+  1−2⁻⁵²): constant P across a ∈ [2⁻²⁰, 2⁻⁶] where ψ(a) ~ −1/a should
+  swing it by 2¹⁴). FIX (G2 revision): τ ≤ B·1e-8 → analytic Taylor
+  τ·ψ(B) + τ²/2·ψ₁(B) (with a τ³ bound check); else direct difference
+  at dps ≥ base + log10(B/τ) + 20. ~2394 rows regenerate; the
+  kernel's kRefDefectCutoff hatch is DELETED after regeneration.
+- **(B) FIFTH routing correction: R1 needs the λ ≥ 0 side.** R1's box
+  admits an evaluated side of 1 − 1.2e-6 (witness (0.158, 20, 0.396);
+  429 ULP complement — E1 error already at the 2⁻⁷⁰ floor, so this is
+  routing, not arithmetic). Correction: R1 fires only in the
+  orientation whose exact λ_dd ≥ 0 (evaluated ξ ≤ its mean; exactly
+  one orientation qualifies). Displaced traffic (ξ ∈ (mean, ξ₁],
+  βξ ≤ B₁) lands in R2 via the orientation rule — spot-verified sound
+  incl. both witnesses; generator check (b) gains the moved-traffic
+  lattice and check (e) gains the pocket its lattice MISSED (dense
+  sampling near the βξ = B₁ edge with α ∈ (ε_R4, 1) — 0.9973 was a
+  lattice artifact, not the true sup).
+- **(C) Gamma-limit slice: the no-gamma-core decision is PARTIALLY
+  REVERSED.** At (0.05, 1e100, 2e-99) the beta CF is structurally
+  degenerate (d₁ → −(1 − 2e-99); mpmath's own CF divides by zero at
+  dps 40) — no depth or precision rescues it. For max-param ≥
+  kBetaGammaLim [target 2⁸⁰, ILLUSTRATIVE — generator pins by
+  BOTH-SIDES overlap: beta-CF validity probed upward from the 2⁴⁰
+  G1a-validated line, gamma-form correction error ≤ 2⁻⁶⁰ probed
+  downward] R2 routes to a gamma-limit path: t_dd = −β·log1p(−ξ) in
+  dd, E = α·LogDdAny(t) ⊖ t ⊖ LgammaPosDd(α), core via gamma-inl.h's
+  own GammaCfRecip / GammaSeriesSum templates (instantiating exactly
+  two gamma cores in beta.o — templates cost only what is called; the
+  TU-boundary objection was about wholesale instantiation). The G2
+  oracle for that corner likewise switches to mpmath gammainc.
+- **(D)** covered by the ratified deviations above.
+
+Revision sequence: one Sonnet tooling agent updates gen_beta_data.py
+(route_final: λ≥0 R1 rule, R4 window cap, gamma-limit slice + B_gl
+pin; checks (b)/(e)/(f) lattice extensions; header regen) and
+gen_beta_reference.py (small-τ Taylor/adaptive-dps fix, gamma-corner
+gammainc oracle, full regeneration + drop audit); then the Opus
+kernel agent applies the two routing changes + deletes the defect
+hatch; then G4.
+
 #### Decisions made here / still open
-Decided: no gamma-core dependency (R2 covers the gamma limit AND the
-off-band far ridge at all ν — margin improving with ν, measured);
+Decided: no gamma-core dependency EXCEPT the (C) gamma-limit slice
+(two template cores, max-param ≥ B_gl); R2 covers the gamma limit
+below B_gl AND the off-band far ridge at all ν (margin improving with
+ν, measured);
 erf-form in (ζ, p) with 1/ν powers and symmetry e_k(ζ,p) = −e_k(−ζ,q)
 over the RATIO-BAND domain; complement-slack doctrine applied to the
 EVALUATED side with region-driven orientation in the G1b final order;
