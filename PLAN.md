@@ -62,12 +62,52 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
   design is the next frontier task.
 
 ## Next Steps
-1. **Start here**: incomplete beta implementation, gate G3 — the Opus
-   kernel sub-agent (src/beta-inl.h + beta.cpp + tests, per the detail
-   design section and its G3 review checklist). G1 (gen_beta_data.py +
-   beta_data.h) and G2 (reference set) are DONE and committed — see
-   the dated subsections. Then G4 (measured gates, tier order Kaby
-   Lake → NEON CI → Ryzen last) → G5 (registration audit/docs).
+1. **Start here — resume point 2026-08-02. Everything lives on branch
+   `beta/g3-kernel`** (pushed; CI is main/PR-only so the branch is
+   silent; merge to main only after G4 goes green). G1+G2 shipped on
+   main; G3 kernel + the G1/G2 revision are branch commits. Read the
+   dated subsections of the beta design section in order — the SIXTH
+   routing correction and kBetaGammaLim = 2⁵⁹ subsection is the
+   latest binding state. Resume sequence:
+   a. **Tooling revision cycle 2** (Sonnet agent): in
+      tools/gen_beta_data.py implement the sixth correction in
+      route_final (REVERT the fifth/λ≥0 rule; model the near-one
+      post-route: R1-evaluated value > 1 − 2⁻¹¹ → R2-CF opposite
+      orientation), swap check (b)'s lattice (vi) for the re-route
+      band (viii), re-prove check (e) with the post-route, emit
+      kBetaGammaLim = 2⁵⁹ (existing tables MUST stay bit-identical —
+      diff the header); in tools/gen_beta_reference.py add the
+      betainc-with-timeout rescue for the 5,978 small-τ-guard drops,
+      regenerate references, re-audit histogram/coverage under the
+      new routing. Values in the current checked-in reference files
+      are routing-independent and valid as a checkpoint.
+   b. **Kernel revision** (Opus agent — FRESH spawn; brief it from
+      the PLAN subsections G3 + G1/G2-revision + sixth-correction,
+      NOT from memory): the committed kernel is at FOURTH-correction
+      state. Changes: implement the sixth-correction post-route
+      (mask update between the R1 and CF passes); add the
+      gamma-limit slice (max CF-param ≥ kBetaGammaLim → t_dd =
+      −β·log1p(−ξ) dd, E = α·LogDdAny(t) ⊖ t ⊖ LgammaPosDd(α), core
+      via gamma-inl.h's GammaCfRecip/GammaSeriesSum templates —
+      instantiate only those two); DELETE the kRefDefectCutoff hatch
+      in tests/test_beta_ulp.cpp; rebuild (build-clangcl, vcvars
+      import pattern in AGENTS/old notes), re-run smoke + ULP vs the
+      regenerated references; expectations: direct ≤ 3–4 ULP/region,
+      R2-gammalim reported as its own row.
+   c. **G4**: pin gates to measured (R2-gammalim row included; decide
+      R4 depth 48 vs 56 from the widened-window data; C_lg 256→128
+      only if measured hot), Kaby Lake native+caps → NEON CI → Ryzen
+      AVX3 native + capped sweep (sweep_tiers.ps1 -CxxCompiler
+      clang-cl), then merge branch → main. **G5**: four-list audit,
+      ACCURACY.md + README in the same change set, PLAN close-out.
+   Sub-agent brief rules that earned their place: state the MECHANISM
+   "never set run_in_background on any tool call" (three agents
+   parked on the concept phrasing); mp.dps inside every layer;
+   multiprocessing child-detection via current_process().name.
+   Old-session scratchpad (agent NOTES.md, oracle checkpoints, probe
+   scripts — still on disk, path-stable): C:\Users\gdwol\AppData\
+   Local\Temp\claude\C--Users-gdwol-Development-corvus\
+   4bada365-0af6-4c65-8090-e31c82fb549a\scratchpad\beta\
    The design already bakes in the lessons list (day-one HWY_NOINLINE
    on cores AND driver, masked-lane scrubs incl. the CF, freeze masks
    select-not-add, small-side rule in the ORACLE too, mpmath ceiling →
@@ -1130,11 +1170,48 @@ gammainc oracle, full regeneration + drop audit); then the Opus
 kernel agent applies the two routing changes + deletes the defect
 hatch; then G4.
 
+#### G1/G2 revision results — SIXTH routing correction, B_GL pinned
+[2026-08-02]
+The fifth correction (R1 requires λ ≥ 0) is REVERTED as too blunt:
+its own displaced traffic broke check (b) — witness (0.158, 1000,
+0.00251) needs CF depth ~512, yet R1-native served it perfectly
+(evaluated 0.994, complement at 2⁻⁵⁸). **SIXTH correction (the
+precise form): R1 fires in either orientation as before; lanes whose
+R1-evaluated dd value exceeds 1 − 2⁻¹¹ are POST-ROUTED into the R2-CF
+pass in the opposite orientation** (a mask update between passes the
+kernel already runs; the small side is then computed directly in the
+G1b-validated CF band). Both G3 witnesses re-route correctly; the
+complement-slack doctrine is enforced by construction. Generator:
+check (b) drops the moved-traffic lattice (vi), gains the re-route
+band (viii) (swapped triples (β, α, 1−ξ) with α ∈ (ε_R4, ~1.2],
+near-one condition α|ln ξ| ≲ 1.5, βξ ≤ B₁); check (e) re-proved with
+the post-route applied.
+**kBetaGammaLim = 2⁵⁹ RATIFIED, provisional-to-measurement.** The
+literal 2⁻⁶⁰ overlap bar is unachievable (CF-dd conditioning ceiling
+2⁵⁰·³ vs gamma-form floor 2⁶⁸·⁶ — an 18-binade inversion); the agent's
+2⁻⁴⁹ bar (= the design's own ~6-ULP complement gate class) gives a
+3.75-binade overlap, pin 2⁵⁹. G4 reports R2-gammalim as its own
+region row; measured > 6-ULP class ⇒ follow-up item: first-order
+Temme correction term on the gamma form (not a threshold change).
+Reference set: oracle fix (A) verified (defect family now varies with
+the max parameter, matches independent Taylor derivation); blast
+radius 10,268 changed rows (the fix touches ALL min ≤ 2⁻⁴ points, not
+just the witness family — expected on reflection). OPEN in the next
+cycle: 5,978 drops (the new cancellation guard correctly rejects what
+the old oracle silently corrupted, but the (τ ≤ 2⁻⁴, B ~ 10³) gap
+needs a betainc-with-timeout rescue — reliable exactly there,
+off-ridge below the latency ceiling); reference VALUES are
+routing-independent so the current files are a valid checkpoint, but
+the histogram/coverage audit re-runs under the sixth correction.
+Windows multiprocessing lesson (generator): parent_process() is
+unreliable under spawn on this box — use current_process().name.
+
 #### Decisions made here / still open
 Decided: no gamma-core dependency EXCEPT the (C) gamma-limit slice
-(two template cores, max-param ≥ B_gl); R2 covers the gamma limit
-below B_gl AND the off-band far ridge at all ν (margin improving with
-ν, measured);
+(two template cores, max-param ≥ kBetaGammaLim = 2⁵⁹); R2 covers the
+gamma limit below B_GL AND the off-band far ridge at all ν (margin
+improving with ν, measured); R1 near-one lanes post-route to R2-CF
+(sixth correction);
 erf-form in (ζ, p) with 1/ν powers and symmetry e_k(ζ,p) = −e_k(−ζ,q)
 over the RATIO-BAND domain; complement-slack doctrine applied to the
 EVALUATED side with region-driven orientation in the G1b final order;

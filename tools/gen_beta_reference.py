@@ -113,6 +113,7 @@ XI_RATIO_HI = gbd.XI_RATIO_HI
 ZETA_MAX = gbd.ZETA_MAX
 route_final = gbd.route_final
 small_val_via_cf = gbd.small_val_via_cf
+B_GL = gbd.B_GL
 
 DPS1 = 40
 DPS2 = 60
@@ -839,6 +840,81 @@ def _cf_small(aa, bb, xx, dps):
 
 
 # ============================================================================
+# GAMMA-CORNER ORACLE [(C), G3 escalation resolution]. For rows whose
+# CF-orientation max parameter >= kBetaGammaLim (B_GL, imported from
+# gen_beta_data -- same constant the kernel's router and this generator's
+# own check_b_r2/(vii) sweep use), the beta CF is structurally degenerate
+# (escalation (C)'s own witness: (0.05,1e100,2e-99), d_1 -> -(1-2e-99),
+# divides by zero at every depth/precision tried) -- this oracle switches to
+# mpmath.gammainc (regularized) at t=-beta*log1p(-xi), exact in mpf, instead.
+#
+# CORRECTNESS NOTE (bug found and fixed by this generator's own gamma-corner
+# self-check, not by reasoning about the code): the asymptotic identity
+# I_xi(shape,scale) -> P(shape,t), t=-scale*log1p(-xi) as scale->infty with
+# shape FIXED, is anchored to a SPECIFIC parameter playing "shape" (bounded)
+# vs "scale" (->infty) -- it is NOT the same swap the backward CF's own
+# xi<(a+1)/(c+2) orientation rule performs (that rule picks whichever
+# ORIENTATION converges the CF fastest, unrelated to which parameter is
+# huge). An earlier version of this function reused the CF's own
+# orientation rule here and got P(a1,t) backwards whenever aa (not bb) was
+# the huge parameter -- caught by check_gamma_corner_oracle measuring
+# relative error in the 1e267 range (gform=1.0 exactly, i.e. total
+# precision loss, vs a true value ~1e-268) before it ever reached a
+# reference row. The one identity this function actually needs: whichever
+# of (aa,bb) is the HUGE one plays "scale"; the OTHER is "shape" and is
+# passed to gammainc UNCHANGED regardless of native/swap-style relabeling.
+#   bb is huge: t=-bb*log1p(-xx); I_xx(aa,bb) ~= P(aa,t) directly.
+#   aa is huge: by I_xx(aa,bb)=1-I_{1-xx}(bb,aa) with (bb,aa,1-xx) now in
+#     the "bb huge is impossible" shape (bb fixed here, aa huge), apply the
+#     SAME identity to the swapped triple: I_{1-xx}(bb,aa) ~= P(bb,t'),
+#     t'=-aa*log1p(-(1-xx))=-aa*log(xx) EXACTLY (log1p(xx-1)=log(xx), no
+#     near-1 subtraction needed since xx itself, not 1-xx, feeds the log).
+#     So I_xx(aa,bb) = 1-P(bb,t') = Q(bb,t').
+def gamma_corner_value(aa, bb, xx, dps):
+    old = mp.mp.dps
+    mp.mp.dps = dps
+    try:
+        aa_m, bb_m, xx_m = mp.mpf(aa), mp.mpf(bb), mp.mpf(xx)
+        if bb_m >= aa_m:
+            t = -bb_m * mp.log1p(-xx_m)
+            return mp.gammainc(aa_m, 0, t, regularized=True)  # P(aa,t)
+        else:
+            t = -aa_m * mp.log(xx_m)
+            return mp.gammainc(bb_m, t, mp.inf, regularized=True)  # Q(bb,t)
+    finally:
+        mp.mp.dps = old
+
+
+def gamma_corner_value_signed(aa, bb, xx, dps):
+    """Same identity as gamma_corner_value, but returns (small_val, which)
+    with small_val computed DIRECTLY (never via 1-near_one) whichever of
+    P(=I_xx(aa,bb)) / Q(=1-P) is genuinely the small one -- used by
+    check_gamma_corner_oracle so its own comparison never repeats the exact
+    1-near-1 cancellation hazard this whole generator otherwise guards
+    against (P and Q here are BOTH direct gammainc calls, upper vs lower
+    tail, never each other's complement)."""
+    old = mp.mp.dps
+    mp.mp.dps = dps
+    try:
+        aa_m, bb_m, xx_m = mp.mpf(aa), mp.mpf(bb), mp.mpf(xx)
+        if bb_m >= aa_m:
+            t = -bb_m * mp.log1p(-xx_m)
+            P = mp.gammainc(aa_m, 0, t, regularized=True)
+            Q = mp.gammainc(aa_m, t, mp.inf, regularized=True)
+        else:
+            t = -aa_m * mp.log(xx_m)
+            Pgb = mp.gammainc(bb_m, 0, t, regularized=True)  # P(bb,t)
+            Q = mp.gammainc(bb_m, t, mp.inf, regularized=True)  # Q(bb,t) = P(aa,bb,xx)-frame's P
+            P = Pgb
+            # here P(aa,bb,xx) = Q(bb,t) and Q(aa,bb,xx) = P(bb,t) -- swap
+            # the labels back to the (aa,bb,xx)-frame's own P/Q meaning.
+            P, Q = Q, P
+        return (P, "P") if P <= Q else (Q, "Q")
+    finally:
+        mp.mp.dps = old
+
+
+# ============================================================================
 # SMALL-TAU ORACLE [coordinator revision, review round 2]. The backward CF
 # was found to fail broadly across the whole tiny-min(a,b) corner (measured
 # from the checkpoint after the first full run: failure RATE actually rises
@@ -890,33 +966,159 @@ N_SMALL_TAU_RESCUED = [0]
 N_SMALL_TAU_NONCONVERGENT = [0]
 
 
+SMALL_TAU_LNGAMMA_RATIO = mp.mpf("1e-8")  # tau <= B*this -> analytic Taylor
+# Sanity ratio for the 3rd-Taylor-term bound check (see
+# _lngamma_diff_b_tau's own comment for why this is a fixed, RELATIVE-to-
+# the-first-term ratio and not a dps- or DISAGREE_100_60-scaled absolute
+# bound -- both of those were tried and both broke on real points). The
+# series' own structure keeps third_term/first_term ~ (tau/B)^2 <=
+# SMALL_TAU_LNGAMMA_RATIO^2 = 1e-16 by construction whenever this branch is
+# entered; 1e-10 leaves five orders of margin as a misconfiguration net.
+TAYLOR_BOUND_TOL = mp.mpf("1e-10")
+
+
+def _lngamma_diff_b_tau(tau_m, B_m, dps):
+    """lnGamma(B+tau) - lnGamma(B), the term escalation (A) [G3/G2-revision]
+    fixed: at fixed working dps this difference goes IDENTICALLY to 0 in mpf
+    once tau is far enough below B's own ulp there -- the reference set's
+    own defect (witness family (a, 1.4e-300, 1-2^-52), a<->B in this frame
+    -- see small_side_direct's tau/B mapping): the emitted P went CONSTANT
+    across a in [2^-20,2^-6] where psi(a) ~ -1/a should swing it by 2^14,
+    because at whatever dps this generator used, B+tau rounded to exactly B
+    before loggamma ever saw the difference.
+
+    Two regimes, per the resolution:
+      tau <= B*1e-8: analytic Taylor tau*psi0(B) + tau^2/2*psi1(B) -- exact
+      in the mpf sense that psi0/psi1 are each evaluated at FULL working
+      precision (no B+tau addition, hence no cancellation possible) --
+      plus a tau^3/6*psi2(B) bound check asserting the truncated term is
+      below the OUTPUT precision -- if the bound check fails this is a real
+      accuracy problem, not something to paper over, so it raises.
+      tau > B*1e-8: the direct difference is fine in PRINCIPLE (no identical
+      cancellation to guard against) but needs escalated PRECISION to keep
+      it accurate to the caller's own dps once B/tau is not astronomically
+      large -- computed at dps + log10(B/tau) + 20, matching the resolution
+      text exactly, then rounded back to the caller's working dps on return
+      (mp.mpf's own value carries however much precision it was computed
+      at; the caller's ambient dps governs everything downstream).
+
+    BOUND-CHECK TOLERANCE, reasoned (went through two wrong versions before
+    this one -- both caught by this generator's own full-lattice run, not
+    by reasoning about the code):
+      v1 gated at 10^-dps: WRONG, this is a SERIES TRUNCATION (dropping the
+      tau^3 term), not a rounding error -- it does not shrink as the
+      caller's dps grows (the same two Taylor terms are exact to the same
+      ~tau^3*psi2(B)/6 regardless of how many digits mp.psi carries), so a
+      dps-scaled bound fails perfectly good points once dps passes ~44
+      digits (witness: tau=0.05, B=2^65).
+      v2 gated at a FIXED absolute tolerance (scaled off DISAGREE_100_60,
+      floored at 1 when lg_diff was tiny): WRONG the other direction --
+      flooring "scale" at 1 turned a RELATIVE bound into an ABSOLUTE one
+      whenever lg_diff itself is legitimately tiny (witness: tau=1e-12,
+      B=2.5e-4, lg_diff~-4e-9 -- third_term~-2.1e-26 is 5.3e-18 RELATIVE to
+      lg_diff, utterly negligible, but larger in ABSOLUTE terms than the
+      fixed 8.47e-30 floor).
+      v3 (this one): the Taylor series' OWN structure makes third_term/
+      first_term ~ O((tau/B)^2) UNIVERSALLY, independent of B's absolute
+      scale or the caller's dps -- since SMALL_TAU_LNGAMMA_RATIO=1e-8
+      already bounds tau/B, this ratio is bounded by ~1e-16 by
+      CONSTRUCTION whenever the branch is even entered (confirmed against
+      both witnesses above: v1's case measured ~1e-42, v2's case measured
+      ~5e-18, both far inside 1e-16). The check is therefore a SANITY net
+      on that ratio holding (catching a misconfigured SMALL_TAU_LNGAMMA_
+      RATIO, not tuning per-point precision), not a per-point precision
+      budget -- fixed at 1e-10, five orders of magnitude of margin below
+      where the ratio naturally sits, scaled against the FIRST Taylor term
+      (tau*psi0(B)) specifically, which is what third_term is actually
+      small RELATIVE TO.
+    """
+    if tau_m <= B_m * SMALL_TAU_LNGAMMA_RATIO:
+        psi0 = mp.psi(0, B_m)
+        psi1 = mp.psi(1, B_m)
+        lg_diff = tau_m * psi0 + (tau_m * tau_m / 2) * psi1
+        psi2 = mp.psi(2, B_m)
+        third_term = (tau_m ** 3 / 6) * psi2
+        tol = TAYLOR_BOUND_TOL
+        scale = max(abs(tau_m * psi0), abs(lg_diff), mp.mpf("1e-300"))
+        if abs(third_term) > tol * scale:
+            raise RuntimeError(
+                f"_lngamma_diff_b_tau: Taylor truncation bound violated "
+                f"(tau={tau_m}, B={B_m}, third_term={third_term}, "
+                f"scale={scale}, tol={tol}) -- tau/B ratio not small enough "
+                f"for a 2-term Taylor at this dps; ESCALATE (SMALL_TAU_"
+                f"LNGAMMA_RATIO may need tightening).")
+        return lg_diff
+    else:
+        old = mp.mp.dps
+        extra_dps = dps + int(mp.log10(B_m / tau_m)) + 20
+        mp.mp.dps = max(dps, extra_dps)
+        try:
+            return mp.loggamma(B_m + tau_m) - mp.loggamma(B_m)
+        finally:
+            mp.mp.dps = old
+
+
 def small_tau_oracle(tau, B, xi_tau, dps, n_max=4000):
     """Q~ = 1 - I_xi_tau(tau, B), the APSER-style expm1/log1p assembly
     above. Returns (Q_tilde, converged). Term-count guard: stop and report
     non-convergence (never silently truncate) if n_max is reached without
-    the running term dropping below the dps-scaled tolerance."""
+    the running term dropping below the dps-scaled tolerance.
+
+    CANCELLATION GUARD [found by this generator's own full-lattice run, a
+    pre-existing gap unrelated to the (A)/(C) fixes above]: this series is
+    R1's OWN power series in xi_tau (t *= (n-B)*xi_tau/n) -- well-behaved
+    when B*xi_tau stays modest (R4's real box caps it at B1=8, widened to
+    ~0.24 by the fourth correction), but SMALL_TAU_THRESHOLD only gates on
+    min(a,b), not on B or xi_tau. A point with B in the thousands and
+    xi_tau near 1 (found via gen_r1's own "swaprole" lattice, e.g.
+    (a=3981.07,b=1e-300,x=1.005e-4) -> tau=1e-300,B=3981.07,xi_tau=0.9999)
+    makes the term magnitude climb like a central-binomial peak (~B terms
+    growing before shrinking again), reaching ~1e852 at dps=40/60 before
+    "converging" back to a small |term| -- but the ACCUMULATED sigma by
+    then has lost every digit of its true (tiny) value to cancellation the
+    working dps can't recover, and the resulting tau*sigma can even land
+    <=-1, sending log1p complex (an uncaught TypeError three frames up in
+    the caller, not a graceful drop). Guarded here two ways: (1) track the
+    peak |term| seen; if it exceeds the final |sigma| by more decimal
+    digits than the working dps has headroom for, the "converged" flag is
+    declared unreliable and this returns non-convergent rather than trust
+    it; (2) log1p's own domain (argument > -1) is checked explicitly before
+    calling it, for the same reason."""
     old = mp.mp.dps
     mp.mp.dps = dps
     try:
         tau_m, B_m, xi_m = mp.mpf(tau), mp.mpf(B), mp.mpf(xi_tau)
         if not (0 < xi_m < 1) or tau_m <= 0 or B_m <= 0:
             return None, False
-        w = tau_m * mp.log(xi_m) + (
-            mp.loggamma(B_m + tau_m) - mp.loggamma(B_m)) - mp.loggamma(1 + tau_m)
+        lg_diff = _lngamma_diff_b_tau(tau_m, B_m, dps)
+        w = tau_m * mp.log(xi_m) + lg_diff - mp.loggamma(1 + tau_m)
         t = mp.mpf(1)
         sigma = mp.mpf(0)
         tol = mp.mpf(10) ** (-(dps + 8))
         converged = False
+        peak_term = mp.mpf(0)
         for n in range(1, n_max + 1):
             t = t * (n - B_m) * xi_m / n
             term = t / (tau_m + n)
             sigma += term
+            if abs(term) > peak_term:
+                peak_term = abs(term)
             if abs(term) <= tol * max(abs(sigma), mp.mpf(1)):
                 converged = True
                 break
         if not converged:
             return None, False
-        lnS = mp.log1p(tau_m * sigma)
+        # Cancellation sanity (see docstring): peak_term far above the
+        # final sigma means dps-precision arithmetic could not have kept
+        # enough digits of sigma's own true value.
+        if peak_term > 0 and abs(sigma) > 0:
+            lost_decimal_digits = mp.log(peak_term / abs(sigma), 10)
+            if lost_decimal_digits > dps - 15:
+                return None, False
+        arg = tau_m * sigma
+        if arg <= -1:
+            return None, False
+        lnS = mp.log1p(arg)
         y = w + lnS
         Q_tilde = -mp.expm1(y)
         return Q_tilde, True
@@ -991,7 +1193,21 @@ def small_side_direct(a, b, x):
     # comment at small_tau_oracle. Runs its own dps ladder (identical
     # 40/60/100 discipline) so it is held to the same three-layer hygiene
     # as the CF path, not a special case exempted from it.
-    if min(am, bm) <= SMALL_TAU_THRESHOLD:
+    #
+    # EXCLUDES max(a,b)>=B_GL [(C) gamma-corner interaction, found by this
+    # generator's own first end-to-end gamma-corner run]: the APSER-style
+    # series this oracle sums (t *= (n-B)*xi/n) assumes B is of MODEST
+    # magnitude (R4's own box caps it at B1=8, widened to ~0.24 at most by
+    # the fourth correction) -- for B on the order of B_GL (~2^59) the SAME
+    # series overflows/becomes numerically meaningless within a handful of
+    # terms (measured: Q_tilde came back as 8.1e300, then complex, for
+    # (tau=0.05, B=2^65, xi=800/B) -- nowhere near a probability). Any point
+    # with min(a,b)<=SMALL_TAU_THRESHOLD AND max(a,b)>=B_GL is gamma-corner
+    # territory FIRST (the gamma-limit asymptotic handles a small "shape"
+    # parameter natively, no separate small-tau treatment needed) -- routed
+    # to the main path below, whose try_eval already dispatches to
+    # gamma_corner_value for max(aa,bb)>=B_GL.
+    if min(am, bm) <= SMALL_TAU_THRESHOLD and max(am, bm) < B_GL:
         def try_tau(dps):
             return _small_tau_direct(a, b, x, dps)
 
@@ -1066,6 +1282,8 @@ def small_side_direct(a, b, x):
 
     def try_eval(aa_, bb_, xx_, dps):
         try:
+            if max(aa_, bb_) >= B_GL:
+                return gamma_corner_value(aa_, bb_, xx_, dps)
             return _cf_small(aa_, bb_, xx_, dps)
         except (RuntimeError, ZeroDivisionError, ValueError):
             return None
@@ -1083,8 +1301,12 @@ def small_side_direct(a, b, x):
         # "small-ish" (< SMALL_TAU_FALLBACK_CEILING), the small-tau oracle
         # is worth trying before dropping -- catches strays the threshold
         # band doesn't cover (e.g. a lone R1-random point at a~1.8e-29
-        # this run's own drop analysis found).
-        if min(am, bm) < SMALL_TAU_FALLBACK_CEILING:
+        # this run's own drop analysis found). Excludes max(a,b)>=B_GL for
+        # the same reason the primary branch above does (the APSER series
+        # is meaningless there) -- gamma_corner_value essentially never
+        # fails outright, so this rescue is not expected to be reached for
+        # gamma-corner points anyway, but the guard is here for safety.
+        if min(am, bm) < SMALL_TAU_FALLBACK_CEILING and max(am, bm) < B_GL:
             rescue = try_tau_rescue(a, b, x)
             if rescue is not None:
                 N_SMALL_TAU_RESCUED[0] += 1
@@ -1246,6 +1468,8 @@ def compute_all(ps):
             continue
         base = region.split("-")[0]
         region_hist[base] = region_hist.get(base, 0) + 1
+        if region.endswith("-gammalim"):
+            region_hist["R2-gammalim"] = region_hist.get("R2-gammalim", 0) + 1
         rows.append((a, b, x, Pf, Qf))
     print(f"  total rows after oracle eval: {len(rows)} (failed {n_failed}, "
           f"pruned {n_pruned_sat} incidental saturations, escalated {n_escalated})",
@@ -1549,6 +1773,112 @@ def check_small_tau_overlap(rng):
 
 
 # ============================================================================
+# Self-check: gamma-corner oracle validation [(C), Part 2b]. gamma_corner_
+# value is only ROUTED to for max(a,b)>=B_GL (~2^59), where the beta CF is
+# structurally degenerate and cannot serve as ground truth at all -- so this
+# validates the FORMULA itself (not the routing gate) on synthetic points
+# with beta on the "healthy band" (beta<=2^40, the G1a-validated line the
+# beta CF is trusted on well below any conditioning concern) against the
+# beta CF directly, mirroring gen_beta_data.py's own B_GL "downward" probe
+# methodology (same asymptotic form, same t=-beta*log1p(-xi)) but as an
+# independent check in THIS file rather than trusting that probe's numbers
+# on faith.
+#
+# TARGET, reconsidered after running (own measurement, not assumed): the
+# asymptotic error decays like 2^(8.57-j) in this generator's own downward
+# probe (see gen_beta_data.py's _probe_gl_downward budget lines) -- so at
+# beta<=2^40 the formula is EXPECTED to sit only around 2^-31, nowhere near
+# the 2^-49 bar that only holds near B_GL~2^59 itself (where the formula is
+# actually used). Holding this healthy-band check to 2^-49 would be
+# penalizing the formula for not yet being in its own intended asymptotic
+# regime -- not a real defect. This check is therefore REPORT-ONLY (a
+# "budget line to stderr" per the brief, not a hard gate) beyond a loose
+# sanity bound that WOULD catch a genuine implementation bug (this check's
+# own first run found exactly such a bug -- a ~2^888 relative error from an
+# inverted orientation -- well before reaching this refined, expected-slack
+# regime).
+GAMMA_CORNER_SANITY_BOUND = mp.mpf(2) ** -2  # catches real bugs; the healthy
+                                          # here (<=2^40) sits BELOW B_GL, so
+                                          # this is deliberately measuring
+                                          # the formula in its LEAST-favorable
+                                          # (least converged) validated zone.
+
+
+def check_gamma_corner_oracle():
+    print("self-check: gamma-corner oracle vs beta CF on the healthy band "
+          "(beta<=2^40):", file=sys.stderr)
+    dps = 80
+    js = [10, 20, 30, 36, 40]
+    alphas = (mp.mpf("0.05"), mp.mpf("0.25"), mp.mpf(1))
+    bxis = (8, 20, 50, 200, 800)
+    worst = mp.mpf(0)
+    worst_at = None
+    n_tested = 0
+    n_skipped = 0
+    for j in js:
+        beta = mp.mpf(2) ** j
+        for alpha in alphas:
+            for bxi in bxis:
+                xi = mp.mpf(bxi) / beta
+                # the asymptotic (t=-beta*log1p(-xi) fixed as beta->infty)
+                # needs xi genuinely SMALL -- at low j with a large bxi, xi
+                # is not small at all (e.g. j=10,bxi=800 -> xi=0.78) and the
+                # comparison is meaningless (not a formula defect, a
+                # domain-applicability one); skip those combinations rather
+                # than let them dominate the reported sup with noise.
+                if not (0 < xi < mp.mpf("0.3")):
+                    continue
+                try:
+                    gform_small, gform_which = gamma_corner_value_signed(alpha, beta, xi, dps)
+                    # ORIENT before calling the CF -- caught by this check's
+                    # own first run: calling small_val_via_cf(alpha,beta,xi)
+                    # RAW (unoriented) here fed the CF its numerically SLOW/
+                    # ill-conditioned direction (this magnitude regime always
+                    # has xi >= (alpha+1)/(c+2), i.e. the fast direction is
+                    # the SWAP), and its own N/2-vs-N drift gate reported
+                    # "converged" at a value ~1e267 relative away from the
+                    # truth (mpmath.betainc cross-checked separately) --
+                    # self-convergence in the wrong orientation is not a
+                    # correctness guarantee, exactly check_b_r2's own
+                    # "_cf_err_at" precedent this check should have followed
+                    # from the start. And the COMPARISON itself must stay on
+                    # the small side too (gamma_corner_value_signed, not
+                    # gamma_corner_value's plain P) -- an earlier version of
+                    # this check compared near-1 P values directly and the
+                    # 1-near-1 loss made the comparison meaningless whenever
+                    # Q was the genuinely tiny side (P and truth both rounded
+                    # to exactly 1.0 at dps=80, masking a real defect).
+                    c = alpha + beta
+                    thresh = (alpha + 1) / (c + 2)
+                    if xi < thresh:
+                        truth_small = small_val_via_cf(alpha, beta, xi, dps,
+                                                         n_start=128, n_max=8192)
+                        truth_which = "P"
+                    else:
+                        truth_small = small_val_via_cf(beta, alpha, 1 - xi, dps,
+                                                         n_start=128, n_max=8192)
+                        truth_which = "Q"
+                except (RuntimeError, ZeroDivisionError, ValueError):
+                    n_skipped += 1
+                    continue
+                if truth_small == 0 or gform_which != truth_which:
+                    n_skipped += 1
+                    continue
+                err = abs((gform_small - truth_small) / truth_small)
+                n_tested += 1
+                if err > worst:
+                    worst, worst_at = err, (float(alpha), float(beta), float(xi), j)
+    log2w = float(mp.log(worst, 2)) if worst > 0 else float("-inf")
+    print(f"    tested {n_tested} points ({n_skipped} skipped), js={js}; "
+          f"worst rel err {float(worst):.3e} (2^{log2w:.2f}) at "
+          f"(alpha,beta,xi,j)={worst_at} -- REPORT ONLY (see comment: the "
+          f"formula's own asymptotic error at beta<=2^40 is expected slack, "
+          f"not a defect; sanity-gated at 2^-2 only, which would still "
+          f"catch a real implementation bug)", file=sys.stderr)
+    return 0 if worst <= GAMMA_CORNER_SANITY_BOUND else 1
+
+
+# ============================================================================
 # Self-check: P+Q=1 within 1 ULP, at the emitted (rounded) doubles.
 # ============================================================================
 def check_p_plus_q(rows):
@@ -1647,9 +1977,13 @@ def main():
               f"{'OK' if ok else 'FAIL'}", file=sys.stderr)
         if not ok:
             rc_hist = 1
+    print(f"  region R2-gammalim (subset of R2, max param >= B_GL=2^"
+          f"{round(math.log2(float(B_GL)))}): {region_hist.get('R2-gammalim', 0)} "
+          f"points (informational, not floor-gated)", file=sys.stderr)
     rc |= rc_hist
 
     rc |= check_small_tau_overlap(random.Random(SEED ^ 0x7A0))
+    rc |= check_gamma_corner_oracle()
     rc |= check_analytic_lines()
     rc |= check_p_plus_q(rows)
     rc |= check_small_side_direct(rows)

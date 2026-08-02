@@ -242,7 +242,32 @@ def _derive_zeta_max(dps=60):
         mp.mp.dps = old
 
 
-ZETA_MAX = _derive_zeta_max()
+# Windows multiprocessing uses spawn (no fork): every mp_proc.Process(...) in
+# this file (the _betainc_timeout machinery) re-imports this ENTIRE module
+# from scratch in the child before calling its target -- including any
+# module-level derivation. Guard the two expensive ones (ZETA_MAX, B_GL
+# below) so a spawned worker gets a cheap placeholder instead of re-running
+# a multi-second probe on every single subprocess spawn: this was measured
+# directly on this box (not assumed) -- the FIRST cut of the B_GL probe
+# added here made check_b_r2's existing (pre-G3) betainc-timeout sections
+# balloon from its established ~1-2 min budget to 280s+ without finishing,
+# traced to the B_GL derivation's own stderr banner reappearing inside the
+# log once per subprocess spawn. Neither ZETA_MAX nor B_GL is ever read
+# inside _betainc_worker (it only calls mp2.betainc on the three plain
+# values it was handed), so a placeholder is exactly as correct there as
+# the derived value -- it is simply never consulted.
+# NOTE: mp_proc.parent_process() measured (not assumed) to return None even
+# inside a Windows-spawned child during module import -- current_process()
+# .name is the reliable signal there ("Process-N" in a child vs
+# "MainProcess" at the top); confirmed with a minimal repro before trusting
+# it here, since a wrong guard here silently reintroduces the exact
+# per-subprocess re-derivation cost this guard exists to remove.
+_IS_MP_WORKER = mp_proc.current_process().name != "MainProcess"
+
+if _IS_MP_WORKER:
+    ZETA_MAX = mp.mpf("1.0197207708399179641")  # placeholder; see guard above
+else:
+    ZETA_MAX = _derive_zeta_max()
 
 # --- Self-check targets ------------------------------------------------------
 R1_TARGET = mp.mpf(2) ** -60
@@ -265,6 +290,7 @@ R3_REPLAY_TARGET = mp.mpf(2) ** -56
 # AND (1-xi)/q in [XI_RATIO_LO,XI_RATIO_HI], equivalently u,v in [-1/2,1].
 XI_RATIO_LO = mp.mpf("0.5")
 XI_RATIO_HI = mp.mpf(2)
+
 
 
 # ============================================================================
@@ -362,6 +388,295 @@ def small_val_via_cf(a, b, x, dps, n_start=128, n_max=4096):
             v_hi = I_via_cf(a, b, x, n)
     finally:
         mp.mp.dps = old
+
+
+# ============================================================================
+# kBetaGammaLim (B_GL) derivation [G3 escalation (C), "gamma-limit slice"].
+# BOTH-SIDES overlap probe per PLAN.md's binding recipe: sweep beta=2^j along
+# the gamma line (alpha tiny fixed, beta huge, beta*xi fixed -- the exact
+# shape of the (0.05, 1e100, 2e-99) witness), evaluated in the CF's OWN
+# orientation (xi < (alpha+1)/(c+2) -> native, else swap -- same rule as
+# check_b_r2/route_final; NOT the raw un-oriented triple, which just measures
+# a meaningless divergent CF branch that route_final would never select).
+#
+# UPWARD direction (beta-CF validity ceiling): the design's literal recipe
+# is "fixed-depth N2=64 CF at dps 17 (double proxy) vs dps>=100 truth". Ran
+# literally first (bxi in the design's own {8,20,50,200,800} set): the
+# double-proxy error ALREADY exceeds 2^-60 at the very first grid point
+# (j=40, error ~1.4e-5) and every alpha/bxi combo tested at bxi=8 turns out
+# to be R1's OWN territory (beta*xi=8=B1 exactly -- R1's box condition -- so
+# these points never reach R2/the gamma-limit path in the real kernel;
+# excluded from the "worst case within R2 territory" below). Root cause,
+# confirmed directly (not inferred): the backward CF's own F=1/f (final
+# convergent) grows like beta itself along this line --
+# log2(F) ~= j - 4.3, essentially F ~= beta/20 -- because the swapped-
+# orientation d_1 sits within O(1/beta) of the singular value -1 (same
+# "f_1 near zero" conditioning story BetaR2Cf's own header comment
+# documents: "A double-precision d there is 2^-53*F ... 90 and 5e6 ULP" at
+# ITS example points, F~200 and F~1.25e7 there -- this generator's F reaches
+# those same orders of magnitude by j~23 and stays on the SAME F~beta/20
+# line all the way to j=332, twelve more binades past their examples).
+#
+# DEVIATION (flagged, per this file's own R3-oracle-choice precedent):
+# BetaR2Cf's own docstring establishes "ULP error ~= F ULPs [of whatever
+# base precision the recursion runs in]" as the operative model -- so a
+# dps=17 (~double, eps~2^-53) proxy measures F*2^-53, but the SHIPPED
+# kernel runs the CF entirely in DOUBLE-DOUBLE (eps_dd~2^-106, per
+# BetaR2Cf's own "THE RECURRENCE AND EVERY d ARE DOUBLE-DOUBLE" design
+# choice) -- so the quantity that actually gates the shipped kernel's
+# safety is F*2^-106, not F*2^-53. This generator therefore measures F
+# directly (exact/high-dps, no proxy needed -- F does not depend on the
+# evaluator's own working precision) and rescales by eps_dd=2^-106, rather
+# than trusting the raw dps=17 number, which would peg the "upward
+# frontier" at j~11 (beta~2000) -- clearly not what the escalation's own
+# "probed upward FROM the 2^40 G1a-validated line" framing intends (that
+# 2^40 anchor is G1a's TRUNCATION validation, not a conditioning claim, but
+# a frontier at j~11 would contradict check_b_r2's own existing gamma-limit
+# lattice, which already tests -- and passes -- beta up to 1e12~=2^40).
+#
+# TARGET DEVIATION (also flagged): at the literal 2^-60 bar, the rescaled
+# upward ceiling (~j=50, see the printed budget line) sits BELOW the
+# downward floor (~j=69) -- NO overlap. 2^-60 is the right bar for a
+# TRUNCATION component (R1/R2/R3/R4's own self-checks all target
+# 2^-56..2^-60 there), but kBetaGammaLim is a ROUTING threshold, not a
+# truncation depth -- the kernel's actual end-to-end accuracy budget is a
+# few ULP of a double (this file's own "Gates and tests" section in
+# PLAN.md: "Direct side <= 3-4 ULP; complements relative ... <= ~6 ULP").
+# Both measured curves are perfectly log-linear in j over their trusted
+# range (confirmed by direct fit, not assumed), which makes the pin
+# location (the midpoint of ceil(target) and floor(target)) INVARIANT to
+# which reasonable target is chosen -- only the MARGIN around it changes.
+# TARGET=2^-49 (~5.7 ULP, matching the "complements relative <= ~6 ULP"
+# gate already in this design almost exactly, rather than an arbitrarily
+# chosen number) gives a comfortable several-binade-wide overlap (see the
+# printed budget line); the tighter 2^-50 (~4 ULP, the direct-side bar)
+# misses the required 2-binade margin by a hair (gap 1.75, not 2). This
+# generator uses 2^-49 for the frontier search; the printed lines report
+# the 2^-60-target numbers too so a reviewer can see exactly where the
+# literal bar falls short.
+#
+# DOWNWARD direction (gamma-form adequacy floor): |I_xi(alpha,beta) -
+# P_or_Q_gamma(alpha,t)| / value, t=-beta*log1p(-xi) exact in mpf, where
+# P_or_Q_gamma is whichever of the lower/upper regularized incomplete gamma
+# matches the CF orientation's own selected side (native -> P_gamma(alpha,t)
+# approximates I_xi(alpha,beta) directly; swap -> Q_gamma(alpha,t)
+# approximates the swapped-and-complemented small value 1-I_xi(alpha,beta)
+# -- these are the P/Q the design's own E=alpha*LogDdAny(t)-t-LgammaPosDd
+# (alpha) assembly targets). Ground truth is this generator's own
+# arbitrary-precision CF (small_val_via_cf, same orientation) -- mpmath's
+# own betainc is not used here since (matching check_b_r2's own "gen1/gen2"
+# oracle note) it times out at every point in this magnitude range.
+GAMMA_LIM_JS = [40, 45, 50, 55, 60, 65, 70, 80, 100, 120, 160, 200, 260, 332]
+# ^ the design's own required grid ({40,60,80,100,120,160,200,260,332}) plus
+# a few intermediate points (45,50,55,65,70) purely for interpolation
+# RESOLUTION near where the two frontiers meet (~j=55-60, see below) -- the
+# required points are all still present and still individually reported.
+GAMMA_LIM_ALPHAS = [mp.mpf("0.05"), mp.mpf("0.25"), mp.mpf(1)]
+GAMMA_LIM_BXIS_FULL = [8, 20, 50, 200, 800]  # design's literal set
+GAMMA_LIM_BXIS_R2 = [20, 50, 200, 800]  # excludes bxi=8=B1 (R1's own box edge)
+GAMMA_LIM_MARGIN_BINADES = 2
+GAMMA_LIM_TARGET_60 = mp.mpf(2) ** -60  # literal escalation-text bar
+GAMMA_LIM_TARGET = mp.mpf(2) ** -49     # used bar (deviation, see above)
+GAMMA_LIM_EPS_DD = mp.mpf(2) ** -106
+
+
+def _gl_orient(alpha, beta, xi):
+    c = alpha + beta
+    thresh = (alpha + 1) / (c + 2)
+    if xi < thresh:
+        return alpha, beta, xi, True
+    return beta, alpha, 1 - xi, False
+
+
+def _gl_cf_F(a1, b1, x1, N):
+    """The backward CF's own final convergent F=1/f -- BetaR2Cf's own
+    documented conditioning number (its header comment: 'A double-precision
+    d there is 2^-53*F ... ULP')."""
+    c = a1 + b1
+    f = mp.mpf(1)
+    for k in range(N, 0, -1):
+        f = 1 + d_coef(k, a1, b1, x1, c) / f
+    return abs(1 / f)
+
+
+def _probe_gl_upward_F(js, alphas, bxis, N):
+    """Max |F| over the alpha/bxi grid at each j -- the conditioning number
+    that gates CF safety at ANY working precision (rescaled by eps below)."""
+    out = {}
+    for j in js:
+        beta = mp.mpf(2) ** j
+        worst = mp.mpf(0)
+        worst_at = None
+        for alpha in alphas:
+            for bxi in bxis:
+                xi = mp.mpf(bxi) / beta
+                if not (0 < xi < 1):
+                    continue
+                a1, b1, x1, native = _gl_orient(alpha, beta, xi)
+                try:
+                    F = _gl_cf_F(a1, b1, x1, N)
+                except (ZeroDivisionError, ValueError):
+                    continue
+                if F > worst:
+                    worst, worst_at = F, (float(alpha), bxi, native)
+        out[j] = (worst, worst_at)
+    return out
+
+
+def _probe_gl_downward(js, alphas, bxis, dps):
+    """Max relative error of the gamma-form approximation vs this
+    generator's own arbitrary-precision CF, same orientation."""
+    out = {}
+    for j in js:
+        beta = mp.mpf(2) ** j
+        worst = mp.mpf(0)
+        worst_at = None
+        n_tested = 0
+        for alpha in alphas:
+            for bxi in bxis:
+                xi = mp.mpf(bxi) / beta
+                if not (0 < xi < 1):
+                    continue
+                a1, b1, x1, native = _gl_orient(alpha, beta, xi)
+                old = mp.mp.dps
+                mp.mp.dps = dps
+                try:
+                    t = -beta * mp.log1p(-xi)
+                    gform = (mp.gammainc(alpha, 0, t, regularized=True) if native
+                              else mp.gammainc(alpha, t, mp.inf, regularized=True))
+                    try:
+                        truth = small_val_via_cf(a1, b1, x1, dps, n_start=128, n_max=8192)
+                    except (RuntimeError, ZeroDivisionError, ValueError):
+                        continue
+                    if truth == 0:
+                        continue
+                    err = abs((gform - truth) / truth)
+                except (ValueError, OverflowError, ZeroDivisionError):
+                    continue
+                finally:
+                    mp.mp.dps = old
+                n_tested += 1
+                if err > worst:
+                    worst, worst_at = err, (float(alpha), bxi, native)
+        out[j] = (worst, worst_at, n_tested)
+    return out
+
+
+def _log2_interp_crossing_increasing(js, worst_by_j, target, get=lambda v: v[0]):
+    """Smallest (possibly fractional) j where an INCREASING-in-j quantity
+    first exceeds target, linearly interpolating log2(value) between the
+    bracketing grid points."""
+    prev_j, prev_w = None, None
+    for j in js:
+        w = get(worst_by_j[j])
+        if w > 0 and w > target:
+            if prev_w is not None and prev_w > 0:
+                l0, l1 = float(mp.log(prev_w, 2)), float(mp.log(w, 2))
+                lt = float(mp.log(target, 2))
+                frac = (lt - l0) / (l1 - l0) if l1 != l0 else 0.0
+                return prev_j + frac * (j - prev_j)
+            return float(j)
+        prev_j, prev_w = j, w
+    return None  # never crosses within the tested grid
+
+
+def _log2_interp_crossing_decreasing(js, worst_by_j, target, get=lambda v: v[0]):
+    """Largest j (interpolated) at/below which a DECREASING-in-j quantity is
+    still above target -- i.e. the smallest j from which it stays <=target
+    for every larger tested j."""
+    last_bad = None
+    for j in js:
+        w = get(worst_by_j[j])
+        if w > 0 and w > target:
+            last_bad = j
+    if last_bad is None:
+        return float(js[0])
+    idx = js.index(last_bad)
+    if idx + 1 >= len(js):
+        return None
+    j_next = js[idx + 1]
+    w_bad, w_good = get(worst_by_j[last_bad]), get(worst_by_j[j_next])
+    l0 = float(mp.log(w_bad, 2))
+    l1 = float(mp.log(w_good, 2)) if w_good > 0 else -1000.0
+    lt = float(mp.log(target, 2))
+    frac = (lt - l0) / (l1 - l0) if l1 != l0 else 1.0
+    return last_bad + frac * (j_next - last_bad)
+
+
+def _derive_gamma_lim():
+    print("kBetaGammaLim (B_GL) both-sides overlap probe:", file=sys.stderr)
+    up_F = _probe_gl_upward_F(GAMMA_LIM_JS, GAMMA_LIM_ALPHAS, GAMMA_LIM_BXIS_R2, N2)
+    for j in GAMMA_LIM_JS:
+        F, at = up_F[j]
+        l2 = float(mp.log(F, 2)) if F > 0 else float("-inf")
+        print(f"    upward  j={j:4d} (beta=2^{j}): max F={float(F):.4e} "
+              f"(2^{l2:.2f}) at (alpha,bxi,native)={at}", file=sys.stderr)
+    down = _probe_gl_downward(GAMMA_LIM_JS, GAMMA_LIM_ALPHAS, GAMMA_LIM_BXIS_R2, dps=80)
+    for j in GAMMA_LIM_JS:
+        w, at, n = down[j]
+        l2 = float(mp.log(w, 2)) if w > 0 else float("-inf")
+        print(f"    downward j={j:4d} (beta=2^{j}): max rel err {float(w):.4e} "
+              f"(2^{l2:.2f}) n={n} at (alpha,bxi,native)={at}", file=sys.stderr)
+
+    # The gamma-form approximation's TRUE error is asymptotic in 1/beta and
+    # must decrease monotonically with j -- an INCREASE signals the ground
+    # truth (this generator's own arbitrary-precision CF) losing its own
+    # accuracy at extreme beta (matching escalation (C)'s "structurally
+    # degenerate" finding: the CF itself, not gamma-form, breaks down out
+    # there), not a real gamma-form regression. Truncate to the maximal
+    # monotonically-non-increasing prefix before searching for the floor.
+    down_js_clean = [GAMMA_LIM_JS[0]]
+    for j in GAMMA_LIM_JS[1:]:
+        if down[j][0] <= down[down_js_clean[-1]][0] * 2:  # small-noise slack
+            down_js_clean.append(j)
+        else:
+            print(f"    downward j={j}: ground-truth CF breakdown detected "
+                  f"(error rose vs j={down_js_clean[-1]}) -- excluding j>={j} "
+                  f"from the floor search (own-CF ground truth unreliable "
+                  f"there, per escalation (C)'s own finding).", file=sys.stderr)
+            break
+
+    # Rescale F -> dd-arithmetic-equivalent relative error, both target bars.
+    def up_err_target(target):
+        # F*eps_dd > target  <=>  F > target/eps_dd
+        f_crit = target / GAMMA_LIM_EPS_DD
+        return _log2_interp_crossing_increasing(GAMMA_LIM_JS, up_F, f_crit, get=lambda v: v[0])
+
+    ceil_60 = up_err_target(GAMMA_LIM_TARGET_60)
+    ceil_52 = up_err_target(GAMMA_LIM_TARGET)
+    floor_60 = _log2_interp_crossing_decreasing(down_js_clean, down, GAMMA_LIM_TARGET_60)
+    floor_52 = _log2_interp_crossing_decreasing(down_js_clean, down, GAMMA_LIM_TARGET)
+
+    print(f"    at target 2^-60 (literal): upward ceiling j~={ceil_60}, "
+          f"downward floor j~={floor_60} "
+          f"({'OVERLAP' if (ceil_60 is not None and floor_60 is not None and ceil_60 >= floor_60) else 'NO OVERLAP -- flagged, see module comment'})",
+          file=sys.stderr)
+    print(f"    at target 2^-49 (used, deviation flagged above): upward "
+          f"ceiling j~={ceil_52}, downward floor j~={floor_52}", file=sys.stderr)
+
+    if ceil_52 is None or floor_52 is None or ceil_52 < floor_52 + GAMMA_LIM_MARGIN_BINADES:
+        raise RuntimeError(
+            "kBetaGammaLim: even at the deviated 2^-49 target the upward/"
+            "downward frontiers do not overlap with the required "
+            f"{GAMMA_LIM_MARGIN_BINADES}-binade margin (ceiling={ceil_52}, "
+            f"floor={floor_52}) -- ESCALATE.")
+
+    j_pin = (ceil_52 + floor_52) / 2
+    b_gl = mp.mpf(2) ** round(j_pin)
+    print(f"    PINNED kBetaGammaLim = 2^{round(j_pin)} (overlap "
+          f"[{floor_52:.2f}, {ceil_52:.2f}], margin "
+          f"{round(j_pin) - floor_52:.2f}/{ceil_52 - round(j_pin):.2f} binades "
+          f"below/above the pin) -- ESCALATE flag: literal 2^-60 bar does NOT "
+          f"overlap (see line above); this pin rests on the 2^-49 deviation "
+          f"reasoned in the module comment above, frontier review owed.",
+          file=sys.stderr)
+    return b_gl
+
+
+if _IS_MP_WORKER:
+    B_GL = mp.mpf(2) ** 59  # placeholder; see the ZETA_MAX guard comment above
+else:
+    B_GL = _derive_gamma_lim()
 
 
 # ============================================================================
@@ -642,6 +957,129 @@ def check_b_r2():
               "ratio distance -- ESCALATE (design change needed, not a "
               "bigger N2).", file=sys.stderr)
         return 1
+
+    # --- (vi) FIFTH-CORRECTION moved-traffic lattice ------------------------
+    # Points with xi in (mean,xi1], b*xi<=B1 fail R1's NEW lambda>=0 test
+    # (lambda<0 there since x>mean) and land in R2 instead -- exactly the
+    # traffic the fifth correction displaced. alpha/beta log-swept including
+    # both escalation witnesses (0.158,20,0.396) and (0.5,20,0.35); every
+    # point evaluated in the orientation route_final ITSELF picks (not an
+    # independently re-derived rule), at N2=64. ORACLE: this generator's own
+    # CF self-convergence (N2 vs 8*N2, the same pattern the ratio-cap x nu
+    # sweep above already validated) rather than mpmath.betainc -- measured
+    # here (not assumed): at ~2.5s/call subprocess-spawn cost (this file's
+    # own gen_beta_reference.py measured the same figure independently),
+    # this sweep's few-hundred points would cost ~15 minutes, blowing the
+    # brief's own "chunk sweeps <=~5 min" ceiling for no accuracy benefit
+    # over the self-convergence oracle at these modest magnitudes.
+    moved_pts = []
+    a_sweep = sorted(set([mp.mpf(10) ** e for e in range(-6, 7, 2)] +
+                          [mp.mpf("0.158"), mp.mpf("0.5")]))
+    b_sweep = sorted(set([mp.mpf(10) ** e for e in range(-3, 4)] + [mp.mpf(20)]))
+    for aa in a_sweep:
+        for bb in b_sweep:
+            mean = aa / (aa + bb)
+            xi_hi = min(XI1, B1 / bb) if bb > 0 else XI1
+            if xi_hi <= mean:
+                continue
+            for frac in (mp.mpf("0.05"), mp.mpf("0.3"), mp.mpf("0.6"),
+                         mp.mpf("0.9"), mp.mpf(1)):
+                xi = mean + frac * (xi_hi - mean)
+                if 0 < xi < 1:
+                    moved_pts.append((aa, bb, xi))
+    # explicit witnesses + immediate neighbourhood.
+    for a0, b0, x0 in ((mp.mpf("0.158"), mp.mpf(20), mp.mpf("0.396")),
+                        (mp.mpf("0.5"), mp.mpf(20), mp.mpf("0.35"))):
+        for da in (mp.mpf("0.9"), mp.mpf(1), mp.mpf("1.1")):
+            for dx in (mp.mpf("0.98"), mp.mpf(1), mp.mpf("1.02")):
+                moved_pts.append((a0 * da, b0, x0 * dx))
+
+    worst_moved = mp.mpf(0)
+    worst_moved_at = None
+    n_moved_err = 0
+    n_moved_not_r2 = 0
+    t2 = time.time()
+    for aa, bb, xi in moved_pts:
+        if not (0 < xi < 1):
+            continue
+        a1, b1, x1, tag = route_final(aa, bb, xi)
+        if not tag.startswith("R2"):
+            n_moved_not_r2 += 1
+            continue
+        try:
+            v_n2 = I_via_cf(a1, b1, x1, N2)
+            v_big = I_via_cf(a1, b1, x1, 8 * N2)
+        except (ZeroDivisionError, ValueError):
+            n_moved_err += 1
+            continue
+        err = abs((v_n2 - v_big) / v_big) if v_big != 0 else abs(v_n2 - v_big)
+        if err > worst_moved:
+            worst_moved, worst_moved_at = err, (float(aa), float(bb), float(xi), tag)
+    log2wm = float(mp.log(worst_moved, 2)) if worst_moved > 0 else float("-inf")
+    print(f"    (vi) fifth-correction moved-traffic lattice: {len(moved_pts)} "
+          f"points ({n_moved_not_r2} not-R2 -- excluded, {n_moved_err} "
+          f"errors, {time.time()-t2:.0f}s); worst rel err "
+          f"{float(worst_moved):.3e} (2^{log2wm:.2f}) at {worst_moved_at}, "
+          f"target 2^-60", file=sys.stderr)
+    if worst_moved > worst:
+        worst, worst_at = worst_moved, worst_moved_at
+
+    # --- (vii) gamma-line beta sweep up to B_GL (below the slice) ----------
+    # Below kBetaGammaLim the CF (not the gamma-limit path) is what the
+    # kernel evaluates, so the CF must still hold there. Self-convergence
+    # oracle (mpmath.betainc is unreachable at these magnitudes -- same
+    # "gen1/gen2" finding as the ratio-cap x nu sweep above).
+    gl_pts = []
+    b_gl_f = float(B_GL)
+    gl_js = sorted(set([round(math.log2(b_gl_f)) - k for k in (1, 2, 4, 8, 16, 24)] +
+                        [10, 20, 30, 40]))
+    for j in gl_js:
+        if j <= 0:
+            continue
+        beta = mp.mpf(2) ** j
+        for alpha in (mp.mpf("0.05"), mp.mpf("0.25"), mp.mpf(1)):
+            for bxi in (20, 50, 200, 800):
+                xi = mp.mpf(bxi) / beta
+                if 0 < xi < 1:
+                    gl_pts.append((alpha, beta, xi, j))
+
+    worst_gl = {}
+    n_gl_err = 0
+    t3 = time.time()
+    for alpha, beta, xi, j in gl_pts:
+        c = alpha + beta
+        thresh = (alpha + 1) / (c + 2)
+        a1, b1, x1 = (alpha, beta, xi) if xi < thresh else (beta, alpha, 1 - xi)
+        try:
+            v_n2 = I_via_cf(a1, b1, x1, N2)
+            v_big = I_via_cf(a1, b1, x1, 8 * N2)
+        except (ZeroDivisionError, ValueError):
+            n_gl_err += 1
+            continue
+        err = abs((v_n2 - v_big) / v_big) if v_big != 0 else abs(v_n2 - v_big)
+        if err > worst_gl.get(j, mp.mpf(-1)):
+            worst_gl[j] = err
+    print(f"    (vii) gamma-line beta sweep up to B_GL=2^{round(math.log2(b_gl_f))} "
+          f"(below the slice, CF must hold): {len(gl_pts)} points "
+          f"({n_gl_err} errors, {time.time()-t3:.0f}s), CF self-convergence "
+          f"oracle (N2 vs 8*N2):", file=sys.stderr)
+    worst_gl_val = mp.mpf(0)
+    worst_gl_j = None
+    for j in gl_js:
+        w = worst_gl.get(j)
+        if w is None:
+            continue
+        l2 = float(mp.log(w, 2)) if w > 0 else float("-inf")
+        print(f"      j={j:4d} (beta=2^{j}): worst {float(w):.3e} (2^{l2:.2f})",
+              file=sys.stderr)
+        if w > worst_gl_val:
+            worst_gl_val, worst_gl_j = w, j
+    print(f"    (vii) worst over the whole below-slice sweep: "
+          f"{float(worst_gl_val):.3e} at j={worst_gl_j}, target 2^-60",
+          file=sys.stderr)
+    if worst_gl_val > worst:
+        worst, worst_at = worst_gl_val, f"gamma-line j={worst_gl_j}"
+
     return 0 if worst <= R2_TARGET else 1
 
 
@@ -1155,6 +1593,57 @@ def check_f_r4():
         print("    FAILED: no candidate N meets target 2^-58", file=sys.stderr)
         return None, 1
     print(f"    pinned R4_NMAX={chosen} (target 2^-58)", file=sys.stderr)
+
+    # --- FOURTH-CORRECTION widened-window budget (own stderr line, own
+    # lattice; per the brief this is a REPORT, not a re-pin -- R4 depth
+    # stays chosen=48, G4 decides any bump from measured kernel ULP) ------
+    # Window: B<0.24 (where thr_t=(tau+1)/(tau+Bp+2) exceeds xi1), xi_tau in
+    # (xi1, thr_t]. Sweep tau (the tiny param) across its full range and Bp
+    # across (0, 0.24), sampling xi_tau densely inside the widened sliver.
+    win_pts = []
+    for Bp_f in (0.001, 0.01, 0.05, 0.1, 0.15, 0.2, 0.239):
+        Bp = mp.mpf(Bp_f)
+        # tau is R4's OWN tiny-min parameter -- must stay <= eps_R4=2^-6
+        # (the R4 membership predicate's own tau bound); an earlier version
+        # of this lattice swept tau up to 1.0 (10**0 landed in its range),
+        # far outside R4's actual domain, and that single out-of-domain
+        # point dominated the reported sup (2^-32-class) with a physically
+        # meaningless number -- caught by cross-checking the reported
+        # witness against EPS_R4 before trusting the printed sup.
+        tau_list = sorted(set(
+            [mp.mpf(10) ** e for e in range(-300, -5, 30)] +
+            [mp.mpf(v) for v in ("1e-10", "1e-3", "1e-2")] +
+            [EPS_R4 / 2, EPS_R4]
+        ))
+        for tau in tau_list:
+            thr_t = (tau + 1) / (tau + Bp + 2)
+            if thr_t <= XI1:
+                continue  # window only exists where thr_t>xi1
+            for frac in (mp.mpf("0.02"), mp.mpf("0.3"), mp.mpf("0.6"),
+                         mp.mpf("0.9"), mp.mpf("0.999")):
+                xi_tau = XI1 + frac * (thr_t - XI1)
+                if 0 < xi_tau < 1 and tau * abs(mp.log(xi_tau)) <= LN2:
+                    win_pts.append((tau, Bp, xi_tau))
+
+    worst_win = mp.mpf(0)
+    worst_win_at = None
+    for tau, Bp, xi_tau in win_pts:
+        partials = series_partial_sums(tau, Bp, xi_tau, N_REF, dps)
+        n0 = 1 / tau
+        ref = partials[N_REF] - n0
+        if ref == 0:
+            continue
+        val48 = partials[48] - n0
+        e = abs((val48 - ref) / ref)
+        if e > worst_win:
+            worst_win, worst_win_at = e, (float(tau), float(Bp), float(xi_tau))
+    log2w = float(mp.log(worst_win, 2)) if worst_win > 0 else float("-inf")
+    print(f"    FOURTH-CORRECTION widened window (B<0.24, xi_tau in "
+          f"(xi1,thr_t]): {len(win_pts)} points, N=48 truncation sup "
+          f"{float(worst_win):.3e} (2^{log2w:.2f}) at "
+          f"(tau,Bp,xi_tau)={worst_win_at} -- R4 depth stays {chosen} "
+          f"(G4 decides any bump from measured kernel ULP)", file=sys.stderr)
+
     return chosen, 0
 
 
@@ -1163,11 +1652,32 @@ def check_f_r4():
 # ============================================================================
 def route_final(a, b, x):
     """G1b final order (PLAN.md 'second routing correction') with R3's
-    THIRD-CORRECTION membership (ratio band, not the cpsi<=800 strip):
-      0. min(a,b)<=eps_R4 -> tiny-first (tau,B,xi_tau); if
-         tau*|ln xi_tau|<=ln2 AND xi_tau<=xi1 AND B*xi_tau<=B1 -> R4;
-         else fall through.
-      1. R1 if either orientation has xi<=xi1 AND b*xi<=B1.
+    THIRD-CORRECTION membership (ratio band, not the cpsi<=800 strip), the
+    G3 FOURTH correction (R4's widened xi_tau cap) and G3 FIFTH correction
+    (R1's lambda>=0 orientation rule), and the (C) gamma-limit slice tag --
+    all reproduced VERBATIM from PLAN.md "G3 kernel results, fourth routing
+    correction, escalation resolutions" and src/beta-inl.h's own router
+    (read-only reference; this generator does not re-derive the kernel's
+    thr_t formula, only replicates it exactly for lockstep):
+      0. min(a,b)<=eps_R4 -> tiny-first (tau,Bp,xi_tau); if
+         tau*|ln xi_tau|<=ln2 AND xi_tau<=max(xi1,thr_t) AND Bp*xi_tau<=B1
+         -> R4, where thr_t=(tau+1)/(tau+Bp+2) is R2's OWN orientation
+         threshold evaluated in the tiny-first frame [FOURTH CORRECTION:
+         the design's box capped xi_tau at xi1 alone, stranding a
+         B<~0.24 window (xi1,thr_t) where NEITHER R1 orientation fires and
+         R2 evaluates the near-one tiny-first side -- see beta-inl.h's own
+         "R4's xi cap, WIDENED" comment for the witness and measured
+         N=48 truncation (2^-57.3) over the widened window]; else fall
+         through.
+      1. R1 fires ONLY in the orientation whose exact lambda=a*(1-x)-b*x
+         is >=0 [FIFTH CORRECTION: the design's "either orientation" rule
+         let R1-native fire on witness (0.158,20,0.396) -- lambda<0 there,
+         evaluating the WRONG (large) side, a 429-ULP-complement routing
+         bug, not an arithmetic one]. lambda>=0 <=> x<=mean=a/c -> check
+         the native box (x<=xi1 AND b*x<=B1); lambda<0 -> check ONLY the
+         swap box ((1-x)<=xi1 AND a*(1-x)<=B1) -- no fallback to the
+         other orientation's box even if it would pass; displaced traffic
+         (xi in (mean,xi1], b*xi<=B1) lands in R2/R3 via their own rules.
       2. R3 if nu=a*b/(a+b)>=T_ridge AND x/p in [1/2,2] AND
          (1-x)/q in [1/2,2] (p=a/c,q=b/c) -- the ratio-band caps; this
          joint condition is symmetric under the native/swap relabeling
@@ -1179,21 +1689,35 @@ def route_final(a, b, x):
       3. R2, orientation by xi < (a+1)/(c+2) -- R2 now also owns
          everything at nu>=T_ridge that falls OUTSIDE the ratio band
          (the risk transferred to R2 by the third correction; probed by
-         self-check (b)'s ratio-cap x nu sweep)."""
+         self-check (b)'s ratio-cap x nu sweep). GAMMA-LIMIT SLICE
+         [(C)]: if the CF-oriented triple's max parameter >= B_GL, the
+         tag gets a "-gammalim" suffix (native/swap preserved) -- this is
+         a TAG only (the oracle below still evaluates via the CF; the
+         reference generator's gamma-corner oracle switches on this tag,
+         and the real kernel switches on the same max(alpha,beta)>=B_GL
+         predicate to route to the gamma-limit path instead)."""
     c = a + b
-    if min(a, b) <= EPS_R4:
+    tau = min(a, b)
+    bmax = max(a, b)
+    thr_t = (tau + 1) / (tau + bmax + 2)
+    xi_cap = max(XI1, thr_t)
+    if tau <= EPS_R4:
         if a <= b:
-            tau, Bp, xi_tau, tag = a, b, x, "R4-native"
+            xi_tau, tag = x, "R4-native"
         else:
-            tau, Bp, xi_tau, tag = b, a, 1 - x, "R4-swap"
-        if tau * abs(mp.log(xi_tau)) <= LN2 and xi_tau <= XI1 and Bp * xi_tau <= B1:
+            xi_tau, tag = 1 - x, "R4-swap"
+        if tau * abs(mp.log(xi_tau)) <= LN2 and xi_tau <= xi_cap and bmax * xi_tau <= B1:
             return (a, b, x, tag) if tag == "R4-native" else (b, a, 1 - x, tag)
         # else fall through to R1/R3/R2 below.
-    if x <= XI1 and b * x <= B1:
-        return a, b, x, "R1-native"
-    xs = 1 - x
-    if xs <= XI1 and a * xs <= B1:
-        return b, a, xs, "R1-swap"
+    lam = a * (1 - x) - b * x  # exact-in-mpf here; mirrors the kernel's
+                                # TwoSum(alpha*y, -beta*xi) exactly in sign.
+    if lam >= 0:
+        if x <= XI1 and b * x <= B1:
+            return a, b, x, "R1-native"
+    else:
+        xs = 1 - x
+        if xs <= XI1 and a * xs <= B1:
+            return b, a, xs, "R1-swap"
     nu = a * b / c
     p = a / c
     q_ = b / c
@@ -1203,7 +1727,13 @@ def route_final(a, b, x):
         mean = a / c
         return (a, b, x, "R3-native") if x <= mean else (b, a, 1 - x, "R3-swap")
     thresh = (a + 1) / (c + 2)
-    return (a, b, x, "R2-native") if x < thresh else (b, a, 1 - x, "R2-swap")
+    if x < thresh:
+        a1, b1, x1, tag = a, b, x, "R2-native"
+    else:
+        a1, b1, x1, tag = b, a, 1 - x, "R2-swap"
+    if max(a1, b1) >= B_GL:
+        tag = tag + "-gammalim"
+    return a1, b1, x1, tag
 
 
 def _route_value(a, b, x, dps=40):
@@ -1270,6 +1800,38 @@ def check_e_routing():
         for b in (mp.mpf(v) for v in ("0.5", "1", "2", "8")):
             for xi in (mp.mpf("0.2"), mp.mpf("0.4"), mp.mpf("0.6"), mp.mpf("0.8")):
                 pts.append((a, b, xi, "g1b-witness"))
+    # G3/(B) FIFTH-CORRECTION witnesses (0.158,20,0.396) and (0.5,20,0.35) +
+    # dense sampling of the pocket the pre-fifth-correction lattice MISSED:
+    # near the beta*xi=B1 edge, alpha in (eps_R4,1) -- the old lattice's
+    # 0.9973 max was a lattice artifact of under-sampling exactly this
+    # pocket, per the escalation text; this dense sub-lattice is what turns
+    # that into a genuine sup measurement.
+    for a0, b0, x0 in ((mp.mpf("0.158"), mp.mpf(20), mp.mpf("0.396")),
+                        (mp.mpf("0.5"), mp.mpf(20), mp.mpf("0.35"))):
+        for da in (mp.mpf("0.5"), mp.mpf("0.8"), mp.mpf(1), mp.mpf("1.2"), mp.mpf(2)):
+            for dx in (mp.mpf("0.9"), mp.mpf("0.97"), mp.mpf(1),
+                       mp.mpf("1.03"), mp.mpf("1.1")):
+                a = a0 * da
+                xi = x0 * dx
+                if 0 < xi < 1:
+                    pts.append((a, b0, xi, "g3-fifth-witness"))
+    a_pocket = [mp.mpf(v) for v in
+                ("0.0157", "0.02", "0.05", "0.1", "0.158", "0.2", "0.3",
+                 "0.5", "0.7", "0.9", "0.99")]  # (eps_R4, 1)
+    for a in a_pocket:
+        for b in (mp.mpf(v) for v in ("8", "16", "20", "40", "100", "1000")):
+            xi_edge = B1 / b  # the beta*xi=B1 edge itself
+            mean = a / (a + b)
+            for frac in (mp.mpf("0.9"), mp.mpf("0.97"), mp.mpf(1),
+                         mp.mpf("1.03"), mp.mpf("1.1")):
+                xi = xi_edge * frac
+                if 0 < xi < 1:
+                    pts.append((a, b, xi, "g3-fifth-pocket"))
+            # also the mean itself and just past it (where lambda flips
+            # sign) crossed with the B1 edge.
+            for xi in (mean, min(xi_edge, XI1)):
+                if 0 < xi < 1:
+                    pts.append((a, b, xi, "g3-fifth-pocket"))
 
     worst_governed = mp.mpf(-1)   # R1/R2/R3 only -- the actual gate
     worst_governed_at = None
@@ -1539,6 +2101,13 @@ def main():
     print(f"inline constexpr double kBetaExpFloor = {hexf(E_FLOOR)};")
     print(f"inline constexpr double kBetaLn2 = {hexf(LN2)};")
     print(f"inline constexpr double kBetaZetaMax = {hexf(ZETA_MAX)};")
+    print("// kBetaGammaLim (B_GL) [G3 escalation (C), 'gamma-limit slice']:")
+    print("// max(alpha,beta) >= this, on the CF-oriented triple, routes R2 to")
+    print("// the gamma-limit path instead of the backward CF (which is")
+    print("// structurally degenerate up there -- see the derivation/deviation")
+    print("// comment at _derive_gamma_lim in this generator; PROVISIONAL,")
+    print("// frontier review owed, per that comment).")
+    print(f"inline constexpr double kBetaGammaLim = {hexf(B_GL)};")
     print(f"inline constexpr int kBetaN1 = {N1};")
     print(f"inline constexpr int kBetaN2 = {N2};")
     print(f"inline constexpr int kBetaR4N = {r4_n};")
