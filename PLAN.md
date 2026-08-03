@@ -1206,12 +1206,65 @@ the histogram/coverage audit re-runs under the sixth correction.
 Windows multiprocessing lesson (generator): parent_process() is
 unreliable under spawn on this box — use current_process().name.
 
+#### SEVENTH correction + slice IMPLEMENTED (frontier, hands-on)
+[2026-08-03 — the orchestrator took over implementation per user
+decision; the escalation density showed every stage needs
+design-boundary judgment]
+The sixth correction's CF destination FAILED its own check (b)(viii)
+at 2⁻⁵⁵·⁵ (witness (0.0234, 1e6, 4e-6)) — the opposite-orientation CF
+inherits the small-second-parameter weakness. **SEVENTH correction
+(supersedes the sixth's destination): near-one R1 lanes fold into
+R4's analytic assembly in the FIRED orientation** — they are R4-shaped
+by construction (R1's box supplies R4's caps; near-one puts the Expm1
+argument below ~2⁻¹⁰; ε_R4 was a routing threshold, never a validity
+bound; post-routed lanes provably have α = min and τ ≤ ~1.35, gated
+at kBetaPrTauMax = 1.5 = lgamma's centre-2 edge). Measured: post-route
+domain truncation 2⁻⁶⁷·⁵ at N = 48 (vs the CF's 2⁻⁵⁵·⁵ — structurally
+better), check (e) PASSES (worst evaluated 0.99948), both witnesses
+post-route. IMPLEMENTED in: gen_beta_data.py (route_final, checks
+(b)/(e)/(f), kBetaNearOne/kBetaPrTauMax/kBetaGlRidgeMin emission),
+src/beta-inl.h (BetaR4Tiny two-zone lgamma; driver post-route mask
+into m_r4x; is_p flip), tests/test_beta_ulp.cpp (router sync incl.
+R4-postroute + R2-gammalim buckets; kRefDefectCutoff hatch DELETED).
+The (C) slice is ALSO implemented: R3 ridge floor drops to
+kBetaGlRidgeMin = 20 for max ≥ B_GL in-band (check (c) extension
+lattice proves the 1/ν extrapolation at the anchor p; gamma's own
+table has the same shape); off-band slice lanes go through the gamma
+limit via gamma-inl.h's GammaSeriesSum/GammaCfRecip templates with
+beta-side dd prefactor (E_g = s·ln t ⊖ t ⊖ lgamma(s), t dd; val =
+naturally-computed side, is_p double-XNOR — never a dd complement
+round-trip of a small side).
+
+RESUME STATE [2026-08-03, pre-compaction breakpoint]:
+- DONE: all source edits above, committed on beta/g3-kernel.
+- IN FLIGHT at break: final gen_beta_data.py verification run (all
+  checks incl. the (c) extension + τ-sup line; the pre-τ-gate run
+  already passed everything else) → commit regenerated src/beta_data.h
+  after diffing (tables must be bit-identical, only new constants).
+- NEXT: (1) rework the pool-based betainc rescue for the 6,106 FAILED
+  checkpoint rows — NOTE the REAL checkpoint format (probe before
+  writing): header "v2 SEED=... N=...", rows
+  "idx<TAB>P<TAB>Q<TAB>side<TAB>esc<TAB>region<TAB>ok" hex-float,
+  failures "idx<TAB>FAILED", keyed by POINT INDEX (reconstruct the
+  point list via the seeded gen_* calls, as run_prewarm_chunk.py
+  does); the old batched prewarm HANGS (killed) — use a persistent
+  Pool(6, maxtasksperchild) with per-point result timeouts and pool
+  rebuild on timeout (draft at scratchpad\beta\pool_rescue.py, needs
+  the format fix). (2) Reference regen: checkpoint reuse EXCEPT
+  invalidate rows with min ∈ (2⁻⁴, 1.5] whose route_final tag is
+  R4-postroute (their oracle dispatch changed to the small-τ path).
+  (3) Rebuild build-clangcl (vcvars import), smoke + ULP vs the
+  regenerated references — expect R1-cmp ≤ few ULP now (the 429-ULP
+  cell was the routing hole), R4-postroute/R2-gammalim as own rows.
+  (4) Then G4 proper: pin gates to measured, tier sweeps, merge.
+
 #### Decisions made here / still open
 Decided: no gamma-core dependency EXCEPT the (C) gamma-limit slice
-(two template cores, max-param ≥ kBetaGammaLim = 2⁵⁹); R2 covers the
+(two template cores + the R3 ridge-floor extension); R2 covers the
 gamma limit below B_GL AND the off-band far ridge at all ν (margin
-improving with ν, measured); R1 near-one lanes post-route to R2-CF
-(sixth correction);
+improving with ν, measured); R1 near-one lanes post-route to R4's
+assembly in the fired orientation (SEVENTH correction, supersedes the
+sixth);
 erf-form in (ζ, p) with 1/ν powers and symmetry e_k(ζ,p) = −e_k(−ζ,q)
 over the RATIO-BAND domain; complement-slack doctrine applied to the
 EVALUATED side with region-driven orientation in the G1b final order;

@@ -43,19 +43,8 @@ namespace {
 // against the routing design, not arithmetic -- see PLAN.md's G3 record.
 constexpr uint64_t kGateProvisional = 1000000;
 
-// Rows the kernel and the reference disagree about by MORE than this are not a
-// rounding disagreement, they are a disagreement about the value. Every one
-// audited during G3 (240 sampled across both files, recomputed against an
-// independent high-precision CF/APSER oracle) was a defect in the SHIPPED
-// REFERENCE SET, not in the kernel: tools/gen_beta_reference.py's small-tau
-// oracle forms lgamma(B+tau) - lgamma(B) at a fixed dps, which silently
-// returns 0 whenever tau << B and collapses the answer to a value independent
-// of B. They are skipped and counted here so the rest of the table means
-// something. G4 DELETES this escape hatch once the reference set is
-// regenerated; if it ever hides a real regression it will show up as a jump in
-// the skipped count, which is printed on every run.
-constexpr uint64_t kRefDefectCutoff = 1000000;
-size_t g_ref_defect = 0;
+// (The G3-era kRefDefectCutoff escape hatch is DELETED: the reference set was
+// regenerated with the small-tau oracle fixed, per its own commit record.)
 
 int64_t OrderedBits(double x) {
   int64_t b;
@@ -83,12 +72,16 @@ struct Region {
   double wa = 0.0, wb = 0.0, wx = 0.0;
 };
 
-enum : int { kR1 = 0, kR2 = 1, kR3 = 2, kR4 = 3, kSp = 4 };
+enum : int { kR1 = 0, kR2 = 1, kR3 = 2, kR4 = 3, kSp = 4, kPr = 5, kGl = 6 };
 
-// Re-derivation of BetaVec's router (route_final, PLAN.md G1b order).
-// `direct_is_p` reports which side of the pair the chosen region computes
-// directly at this (a, b, x).
-int Route(double a, double b, double x, bool* direct_is_p) {
+// Re-derivation of BetaVec's router (route_final, through the SEVENTH
+// correction and the (C) gamma-limit slice). `direct_is_p` reports which
+// side of the pair the chosen region computes directly at this (a, b, x).
+// pref/qref are the REFERENCE values -- the post-route decision in the
+// kernel is on its own dd R1 value, and the reference is the same number
+// to far more bits than the 2^-11 bar needs.
+int Route(double a, double b, double x, double pref, double qref,
+          bool* direct_is_p) {
   const bool in_domain = a > 0.0 && b > 0.0 && std::isfinite(a) &&
                          std::isfinite(b) && x > 0.0 && x < 1.0;
   if (!in_domain) {
@@ -119,21 +112,35 @@ int Route(double a, double b, double x, bool* direct_is_p) {
     *direct_is_p = sw4;  // R4 computes the COMPLEMENT of its own triple
     return kR4;
   }
-  // 1. power series, either orientation.
+  // 1. power series, either orientation -- with the SEVENTH-correction
+  // near-one post-route: a fired R1 orientation whose evaluated value
+  // exceeds kBetaNearOne folds into R4's analytic assembly (same
+  // orientation) instead, provided the fired first parameter is at or
+  // below the kBetaPrTauMax zone ceiling.
   const bool r1n = x <= kBetaXi1 && b * x <= kBetaB1;
   const bool r1s = y <= kBetaXi1 && a * y <= kBetaB1;
   if (r1n || r1s) {
     const bool sw = !r1n && r1s;
+    const double eval_v = sw ? qref : pref;  // I of the fired triple
+    const double fired_alpha = sw ? b : a;
+    if (eval_v > corvus::detail::kBetaNearOne &&
+        fired_alpha <= corvus::detail::kBetaPrTauMax) {
+      *direct_is_p = sw;  // val is the fired orientation's COMPLEMENT
+      return kPr;
+    }
     *direct_is_p = !sw;
     return kR1;
   }
-  // 2. ridge ratio band.
+  // 2. ridge ratio band, floor lowered to kBetaGlRidgeMin above the
+  // gamma-limit threshold [(C) slice, ridge part].
   const double nu = 1.0 / (1.0 / a + 1.0 / b);
   const double rat1 = x * (1.0 + b / a);
   const double rat2 = y * (1.0 + a / b);
   const bool band = rat1 >= kBetaXiRatioLo && rat1 <= kBetaXiRatioHi &&
                     rat2 >= kBetaXiRatioLo && rat2 <= kBetaXiRatioHi;
-  if (nu >= kBetaTRidge && band) {
+  const bool gl_hi = bmax >= corvus::detail::kBetaGammaLim;
+  if (band && (nu >= kBetaTRidge ||
+               (gl_hi && nu >= corvus::detail::kBetaGlRidgeMin))) {
     // The kernel decides R3's direct side from lambda's EXACT sign, not from
     // the router's rounded ratio, so this mirrors that (see BetaR3Out). The
     // two can disagree only where lambda is within an ulp of zero, i.e. where
@@ -143,9 +150,24 @@ int Route(double a, double b, double x, bool* direct_is_p) {
     *direct_is_p = sw ? (lam > 0.0) : (lam >= 0.0);
     return kR3;
   }
-  // 3. continued fraction, orientation by the pinned rule.
+  // 3. continued fraction, orientation by the pinned rule -- except above
+  // kBetaGammaLim, where the lane takes the (C) gamma-limit slice and val
+  // holds the NATURALLY COMPUTED gamma side (series -> P_gamma, CF ->
+  // Q_gamma; see the slice block in src/beta-inl.h for the mapping).
   const double thr = 1.0 / (1.0 + (b + 1.0) / (a + 1.0));
   const bool sw = !(x < thr);
+  if (gl_hi) {
+    const double ra = sw ? b : a;   // routed alpha
+    const double rxi = sw ? y : x;  // routed xi
+    const bool hf = ra >= corvus::detail::kBetaGammaLim;
+    const double s = hf ? (sw ? a : b) : ra;  // small routed parameter
+    const double huge = hf ? ra : (sw ? a : b);
+    const double t = -huge * std::log(hf ? rxi : 1.0 - rxi);
+    const bool ser = (s < 20.0 && t <= s + 1.0) || (s >= 20.0 && s >= 2.0 * t);
+    const bool agree = (ser == !hf);  // val == routed value?
+    *direct_is_p = agree ? !sw : sw;
+    return kGl;
+  }
   *direct_is_p = !sw;
   return kR2;
 }
@@ -197,17 +219,19 @@ int ReportRegions(const char* label, Region* r, int n) {
 
 int Measure(const char* label, bool want_p, const std::vector<double>& a,
             const std::vector<double>& b, const std::vector<double>& x,
+            const std::vector<double>& pref, const std::vector<double>& qref,
             const std::vector<double>& got, const std::vector<double>& want) {
   const uint64_t g = kGateProvisional;
-  Region reg[10] = {
+  Region reg[14] = {
       {"R1 series dir", g}, {"R1 series cmp", g}, {"R2 cf     dir", g},
       {"R2 cf     cmp", g}, {"R3 temme  dir", g}, {"R3 temme  cmp", g},
       {"R4 tiny   dir", g}, {"R4 tiny   cmp", g}, {"specials     ", 0},
-      {"specials  (-)", 0},
+      {"specials  (-)", 0}, {"R4 postrt dir", g}, {"R4 postrt cmp", g},
+      {"R2 gammalim d", g}, {"R2 gammalim c", g},
   };
   for (size_t i = 0; i < a.size(); ++i) {
     bool direct_is_p = false;
-    const int code = Route(a[i], b[i], x[i], &direct_is_p);
+    const int code = Route(a[i], b[i], x[i], pref[i], qref[i], &direct_is_p);
     const bool is_direct = (direct_is_p == want_p);
     Region& r = reg[2 * code + (is_direct ? 0 : 1)];
     uint64_t u;
@@ -222,10 +246,6 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
     } else {
       u = UlpDiff(got[i], want[i]);
     }
-    if (code != kSp && u > kRefDefectCutoff) {
-      ++g_ref_defect;
-      continue;
-    }
     ++r.n;
     if (u > 0) ++r.miss;
     if (u > r.max_ulp) {
@@ -235,7 +255,7 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
       r.wx = x[i];
     }
   }
-  return ReportRegions(label, reg, 10);
+  return ReportRegions(label, reg, 14);
 }
 
 }  // namespace
@@ -252,19 +272,16 @@ int main(int argc, char** argv) {
     if (!LoadReference(p_path, &a, &b, &x, &p, &q)) return 2;
     std::vector<double> got(a.size());
     corvus::beta_p(a, b, x, got);
-    rc |= Measure("beta_p", true, a, b, x, got, p);
+    rc |= Measure("beta_p", true, a, b, x, p, q, got, p);
   }
   {
     std::vector<double> a, b, x, p, q;
     if (!LoadReference(q_path, &a, &b, &x, &p, &q)) return 2;
     std::vector<double> got(a.size());
     corvus::beta_q(a, b, x, got);
-    rc |= Measure("beta_q", false, a, b, x, got, q);
+    rc |= Measure("beta_q", false, a, b, x, p, q, got, q);
   }
 
-  std::printf(
-      "reference-defect rows skipped (> %llu ULP, see kRefDefectCutoff): %zu\n",
-      static_cast<unsigned long long>(kRefDefectCutoff), g_ref_defect);
   if (rc == 0) std::printf("PASS: all regions within PROVISIONAL gates\n");
   return rc;
 }

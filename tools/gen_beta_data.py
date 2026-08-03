@@ -276,6 +276,26 @@ R4_TARGET = mp.mpf(2) ** -58
 BINET_TARGET = mp.mpf(2) ** -70
 DIGAMMA_TARGET = mp.mpf(2) ** -40
 ROUTE_THRESH = 1 - mp.mpf(2) ** -12
+
+# BETA_NEAR_ONE (kBetaNearOne) [SIXTH correction threshold, SEVENTH
+# correction destination]:
+# route_final()'s post-route threshold. R1 fires in EITHER orientation (the
+# fifth correction's lambda>=0 requirement is REVERTED -- it displaced sound
+# traffic, breaking check (b)'s CF-depth witness (0.158,1000,0.00251)); a
+# point that routes to R1 but whose R1-NATIVE value exceeds this bar is
+# re-tagged "R4-postroute" and evaluated by R4's analytic small-side
+# assembly in the SAME orientation [SEVENTH correction -- the sixth's
+# opposite-orientation CF destination stalled at 2^-55.5 and is
+# superseded]. 2^-11 is intentionally one bit inside ROUTE_THRESH's
+# 2^-12 complement-slack doctrine (post-route decides on the CHEAP R1-series
+# oracle at working dps, not the full self-convergent CF check (e) itself
+# uses; the extra bit of margin absorbs that oracle's own slack).
+BETA_NEAR_ONE = 1 - mp.mpf(2) ** -11
+# Gamma-limit slice ridge floor [(C) resolution]: in-band lanes with
+# max(alpha,beta) >= B_GL use R3 down to nu = 20 (gamma's own kGammaAT --
+# the CF is degenerate up there and gamma's series/CF boxes exclude the
+# band). check (c)'s extension lattice proves the 1/nu extrapolation.
+GL_RIDGE_MIN = mp.mpf(20)
 ANCHOR_TARGET = mp.mpf("1e-15")
 SYMMETRY_TARGET = mp.mpf("1e-25")
 
@@ -772,20 +792,40 @@ def _betainc_timeout(a, b, x, dps, timeout=2):
     p = mp_proc.Process(target=_betainc_worker,
                          args=(mp.nstr(a, dps + 15), mp.nstr(b, dps + 15),
                                mp.nstr(x, dps + 15), dps, q))
-    p.start()
-    p.join(timeout)
-    if p.is_alive():
-        p.terminate()
-        p.join()
+    try:
+        p.start()
+        p.join(timeout)
+        if p.is_alive():
+            p.terminate()
+            p.join()
+            return None
+        if not q.empty():
+            raw = q.get()
+            old = mp.mp.dps
+            mp.mp.dps = dps + 15
+            val = mp.mpf(raw)
+            mp.mp.dps = old
+            return val
         return None
-    if not q.empty():
-        raw = q.get()
-        old = mp.mp.dps
-        mp.mp.dps = dps + 15
-        val = mp.mpf(raw)
-        mp.mp.dps = old
-        return val
-    return None
+    finally:
+        # WINDOWS HANDLE LEAK [G1/G2 revision cycle 2, found by the batched
+        # betainc rescue's own full run]: without an explicit q.close() +
+        # q.join_thread() (releases the Queue's pipe/feeder thread) and
+        # p.close() (releases the process handle once it is no longer
+        # alive, guaranteed by the join() calls above), the OS handle
+        # table fills up after a few dozen spawn cycles and a LATER call
+        # fails with PermissionError: [WinError 5] Access is denied inside
+        # multiprocessing's own reduction.duplicate/_winapi.DuplicateHandle
+        # -- this function is called ~500 times by the cross-check step
+        # alone, so the leak is real here too, not just in the new batched
+        # path. try/finally so a call that returns early (timeout, no
+        # queue data) still cleans up.
+        q.close()
+        q.join_thread()
+        try:
+            p.close()
+        except ValueError:
+            pass  # process was somehow still alive; leave it (rare)
 
 
 def _cf_err_at(alpha, beta, xi, N, dps):
@@ -958,72 +998,6 @@ def check_b_r2():
               "bigger N2).", file=sys.stderr)
         return 1
 
-    # --- (vi) FIFTH-CORRECTION moved-traffic lattice ------------------------
-    # Points with xi in (mean,xi1], b*xi<=B1 fail R1's NEW lambda>=0 test
-    # (lambda<0 there since x>mean) and land in R2 instead -- exactly the
-    # traffic the fifth correction displaced. alpha/beta log-swept including
-    # both escalation witnesses (0.158,20,0.396) and (0.5,20,0.35); every
-    # point evaluated in the orientation route_final ITSELF picks (not an
-    # independently re-derived rule), at N2=64. ORACLE: this generator's own
-    # CF self-convergence (N2 vs 8*N2, the same pattern the ratio-cap x nu
-    # sweep above already validated) rather than mpmath.betainc -- measured
-    # here (not assumed): at ~2.5s/call subprocess-spawn cost (this file's
-    # own gen_beta_reference.py measured the same figure independently),
-    # this sweep's few-hundred points would cost ~15 minutes, blowing the
-    # brief's own "chunk sweeps <=~5 min" ceiling for no accuracy benefit
-    # over the self-convergence oracle at these modest magnitudes.
-    moved_pts = []
-    a_sweep = sorted(set([mp.mpf(10) ** e for e in range(-6, 7, 2)] +
-                          [mp.mpf("0.158"), mp.mpf("0.5")]))
-    b_sweep = sorted(set([mp.mpf(10) ** e for e in range(-3, 4)] + [mp.mpf(20)]))
-    for aa in a_sweep:
-        for bb in b_sweep:
-            mean = aa / (aa + bb)
-            xi_hi = min(XI1, B1 / bb) if bb > 0 else XI1
-            if xi_hi <= mean:
-                continue
-            for frac in (mp.mpf("0.05"), mp.mpf("0.3"), mp.mpf("0.6"),
-                         mp.mpf("0.9"), mp.mpf(1)):
-                xi = mean + frac * (xi_hi - mean)
-                if 0 < xi < 1:
-                    moved_pts.append((aa, bb, xi))
-    # explicit witnesses + immediate neighbourhood.
-    for a0, b0, x0 in ((mp.mpf("0.158"), mp.mpf(20), mp.mpf("0.396")),
-                        (mp.mpf("0.5"), mp.mpf(20), mp.mpf("0.35"))):
-        for da in (mp.mpf("0.9"), mp.mpf(1), mp.mpf("1.1")):
-            for dx in (mp.mpf("0.98"), mp.mpf(1), mp.mpf("1.02")):
-                moved_pts.append((a0 * da, b0, x0 * dx))
-
-    worst_moved = mp.mpf(0)
-    worst_moved_at = None
-    n_moved_err = 0
-    n_moved_not_r2 = 0
-    t2 = time.time()
-    for aa, bb, xi in moved_pts:
-        if not (0 < xi < 1):
-            continue
-        a1, b1, x1, tag = route_final(aa, bb, xi)
-        if not tag.startswith("R2"):
-            n_moved_not_r2 += 1
-            continue
-        try:
-            v_n2 = I_via_cf(a1, b1, x1, N2)
-            v_big = I_via_cf(a1, b1, x1, 8 * N2)
-        except (ZeroDivisionError, ValueError):
-            n_moved_err += 1
-            continue
-        err = abs((v_n2 - v_big) / v_big) if v_big != 0 else abs(v_n2 - v_big)
-        if err > worst_moved:
-            worst_moved, worst_moved_at = err, (float(aa), float(bb), float(xi), tag)
-    log2wm = float(mp.log(worst_moved, 2)) if worst_moved > 0 else float("-inf")
-    print(f"    (vi) fifth-correction moved-traffic lattice: {len(moved_pts)} "
-          f"points ({n_moved_not_r2} not-R2 -- excluded, {n_moved_err} "
-          f"errors, {time.time()-t2:.0f}s); worst rel err "
-          f"{float(worst_moved):.3e} (2^{log2wm:.2f}) at {worst_moved_at}, "
-          f"target 2^-60", file=sys.stderr)
-    if worst_moved > worst:
-        worst, worst_at = worst_moved, worst_moved_at
-
     # --- (vii) gamma-line beta sweep up to B_GL (below the slice) ----------
     # Below kBetaGammaLim the CF (not the gamma-limit path) is what the
     # kernel evaluates, so the CF must still hold there. Self-convergence
@@ -1079,6 +1053,7 @@ def check_b_r2():
           file=sys.stderr)
     if worst_gl_val > worst:
         worst, worst_at = worst_gl_val, f"gamma-line j={worst_gl_j}"
+
 
     return 0 if worst <= R2_TARGET else 1
 
@@ -1445,6 +1420,20 @@ def check_c_r3(coef2d):
     zm13 = mp.sqrt(_zeta2_at_boundary(p13))
     for nu_f in ("32", "128", "1e6"):
         pts.append((zm13 * mp.mpf("0.97"), p13, mp.mpf(nu_f)))
+    # GAMMA-LIMIT SLICE ridge extension [(C) resolution, kernel change]:
+    # above kBetaGammaLim the in-band ridge floor drops to
+    # GL_RIDGE_MIN = 20 (gamma's own kGammaAT), so the table is evaluated
+    # at nu in [20, T_RIDGE) at the p -> 0 edge -- a 1/nu EXTRAPOLATION
+    # below the extraction ladder, proved here rather than assumed
+    # (gamma's own table is likewise applied down to a = 20 from a much
+    # higher ladder). p = 2^-50 is the anchor's own p; the slice's real
+    # p is smaller still, and e_k(zeta, p) is anchor-flat below 2^-50.
+    p_gl = mp.mpf(2) ** -50
+    zm_gl = mp.sqrt(_zeta2_at_boundary(p_gl))
+    for nu_f in ("20", "22", "24", "28", "31"):
+        for zf in zeta_fracs:
+            for sign in (1, -1):
+                pts.append((mp.mpf(sign * zf) * zm_gl, p_gl, mp.mpf(nu_f)))
 
     worst = mp.mpf(0)
     worst_at = None
@@ -1644,21 +1633,130 @@ def check_f_r4():
           f"(tau,Bp,xi_tau)={worst_win_at} -- R4 depth stays {chosen} "
           f"(G4 decides any bump from measured kernel ULP)", file=sys.stderr)
 
+    # --- SEVENTH-CORRECTION post-route domain (GATING, target 2^-58) --------
+    # Near-one R1 lanes now enter THIS series in their fired orientation
+    # (route_final tag "R4-postroute") instead of the opposite-orientation
+    # CF -- the sixth correction's CF destination stalled at 2^-55.5 on
+    # (0.0234, 1e6, 4e-6) because that CF inherits the small-second-
+    # parameter weakness. Domain swept here: the R1 box with alpha ABOVE
+    # eps_R4 (at or below it, step 0 owns the point), restricted to lanes
+    # the post-route model actually fires on (_r1_native_value >
+    # BETA_NEAR_ONE -- the identical model route_final uses). tau appears
+    # only in the 1/(tau+n) weights and the exact assembly, so truncation
+    # is expected AT OR BELOW the in-box sup; this lattice PROVES it
+    # rather than assuming. Both G3 (B)-witnesses must post-route and be
+    # covered (hard assert).
+    pr_pts = []
+    alpha_pr = sorted(set(
+        [EPS_R4 * mp.mpf(m) for m in ("1.01", "1.5", "3")] +
+        [mp.mpf(v) for v in ("0.0234375", "0.05", "0.1", "0.158", "0.3",
+                              "0.5", "0.8", "1.2", "2.0")]))
+    beta_pr = sorted(set([mp.mpf(10) ** e for e in range(-3, 7)] + [mp.mpf(20)]))
+    for alpha in alpha_pr:
+        for beta in beta_pr:
+            xi_hi = min(XI1, B1 / beta)
+            if xi_hi <= 0:
+                continue
+            for frac in (mp.mpf("1e-6"), mp.mpf("0.01"), mp.mpf("0.1"),
+                         mp.mpf("0.5"), mp.mpf(1)):
+                xi = frac * xi_hi
+                if not (0 < xi < 1):
+                    continue
+                # Membership via route_final ITSELF (tag test), not a bare
+                # value filter: the first cut filtered on the value alone
+                # and collected tau = 2 points the tau-gate deliberately
+                # KEEPS in R1 (their complement sits in the (2^-12, 2^-11)
+                # band the doctrine still covers -- check (e) polices
+                # them; its pocket lattice extends to tau = 4).
+                if route_final(alpha, beta, xi)[3] == "R4-postroute":
+                    pr_pts.append((alpha, beta, xi))
+    wit_pr = [(mp.mpf("0.158"), mp.mpf(20), mp.mpf("0.396")),
+              (mp.mpf("0.5"), mp.mpf(20), mp.mpf("0.35"))]
+    n_wit_missed = 0
+    for w3 in wit_pr:
+        _, _, _, wtag = route_final(*w3)
+        if wtag == "R4-postroute":
+            pr_pts.append(w3)
+        else:
+            n_wit_missed += 1
+    worst_pr = mp.mpf(0)
+    worst_pr_at = None
+    for tau, Bp, xi_tau in pr_pts:
+        partials = series_partial_sums(tau, Bp, xi_tau, N_REF, dps)
+        n0 = 1 / tau
+        ref = partials[N_REF] - n0
+        if ref == 0:
+            continue
+        valc = partials[chosen] - n0
+        e = abs((valc - ref) / ref)
+        if e > worst_pr:
+            worst_pr, worst_pr_at = e, (float(tau), float(Bp), float(xi_tau))
+    log2pr = float(mp.log(worst_pr, 2)) if worst_pr > 0 else float("-inf")
+    tau_sup = max((float(t) for t, _, _ in pr_pts), default=0.0)
+    print(f"    SEVENTH-CORRECTION post-route domain: {len(pr_pts)} "
+          f"post-routing points, N={chosen} truncation sup "
+          f"{float(worst_pr):.3e} (2^{log2pr:.2f}) at "
+          f"(tau,B,xi_tau)={worst_pr_at}, target 2^-58; fired-tau sup "
+          f"{tau_sup:.4f} [must be <= kBetaPrTauMax = 1.5]; G3 "
+          f"(B)-witnesses not post-routing: {n_wit_missed} [MUST be 0]",
+          file=sys.stderr)
+    if tau_sup > 1.5:
+        print("    FAILED: a post-routing point exceeds the tau ceiling.",
+              file=sys.stderr)
+        return chosen, 1
+    if n_wit_missed:
+        print("    FAILED: a G3 (B)-witness did not post-route -- ESCALATE.",
+              file=sys.stderr)
+        return chosen, 1
+    if worst_pr > R4_TARGET:
+        print("    FAILED: post-route-domain truncation misses 2^-58.",
+              file=sys.stderr)
+        return chosen, 1
+
     return chosen, 0
 
 
 # ============================================================================
 # Self-check (e): routing safety under the FINAL corrected order.
 # ============================================================================
+def _r1_native_value(a, b, x, dps=40):
+    """Cheap post-route oracle for route_final(): the R1 series itself
+    (prefix * S_N1), NOT small_val_via_cf's escalating self-convergence
+    loop -- self-check (a) already proves N1=64 truncation is <=2^-60 over
+    R1's WHOLE box (x<=xi1=0.45, b*x<=B1=8), so a single fixed-depth pass
+    is exact enough to place a value against the 2^-11 near-one bar with
+    huge margin, at a cost route_final can afford to pay on every R1-box
+    lattice point (an escalating CF loop could not, at the sweep sizes
+    checks (b)/(e) run). mp.dps is set INSIDE this layer per the brief's
+    hard rule; series_partial_sums does its own save/restore too, so the
+    nesting is safe."""
+    old = mp.mp.dps
+    mp.mp.dps = dps
+    try:
+        s = series_partial_sums(a, b, x, N1, dps)[N1]
+        # PLAN.md "R1 power series": I = [xi^alpha / B(alpha,beta)] * S --
+        # NOT I_via_cf's prefactor (which carries an extra (1-xi)^beta and
+        # 1/alpha specific to the CF's own F normalization; copying it
+        # wholesale here first gave a wrong value, caught by cross-checking
+        # against mp.betainc on a plain (2,3,0.3) sanity point before this
+        # helper was trusted anywhere).
+        logpref = a * mp.log(x) - (
+            mp.loggamma(a) + mp.loggamma(b) - mp.loggamma(a + b))
+        return mp.exp(logpref) * s
+    finally:
+        mp.mp.dps = old
+
+
 def route_final(a, b, x):
     """G1b final order (PLAN.md 'second routing correction') with R3's
     THIRD-CORRECTION membership (ratio band, not the cpsi<=800 strip), the
-    G3 FOURTH correction (R4's widened xi_tau cap) and G3 FIFTH correction
-    (R1's lambda>=0 orientation rule), and the (C) gamma-limit slice tag --
-    all reproduced VERBATIM from PLAN.md "G3 kernel results, fourth routing
-    correction, escalation resolutions" and src/beta-inl.h's own router
-    (read-only reference; this generator does not re-derive the kernel's
-    thr_t formula, only replicates it exactly for lockstep):
+    G3 FOURTH correction (R4's widened xi_tau cap), the SIXTH correction
+    (R1 either-orientation + post-route model -- see below), and the (C)
+    gamma-limit slice tag -- all reproduced VERBATIM from PLAN.md "G1/G2
+    revision results -- SIXTH routing correction, B_GL pinned" and
+    src/beta-inl.h's own router (read-only reference; this generator does
+    not re-derive the kernel's thr_t formula, only replicates it exactly
+    for lockstep):
       0. min(a,b)<=eps_R4 -> tiny-first (tau,Bp,xi_tau); if
          tau*|ln xi_tau|<=ln2 AND xi_tau<=max(xi1,thr_t) AND Bp*xi_tau<=B1
          -> R4, where thr_t=(tau+1)/(tau+Bp+2) is R2's OWN orientation
@@ -1669,15 +1767,25 @@ def route_final(a, b, x):
          "R4's xi cap, WIDENED" comment for the witness and measured
          N=48 truncation (2^-57.3) over the widened window]; else fall
          through.
-      1. R1 fires ONLY in the orientation whose exact lambda=a*(1-x)-b*x
-         is >=0 [FIFTH CORRECTION: the design's "either orientation" rule
-         let R1-native fire on witness (0.158,20,0.396) -- lambda<0 there,
-         evaluating the WRONG (large) side, a 429-ULP-complement routing
-         bug, not an arithmetic one]. lambda>=0 <=> x<=mean=a/c -> check
-         the native box (x<=xi1 AND b*x<=B1); lambda<0 -> check ONLY the
-         swap box ((1-x)<=xi1 AND a*(1-x)<=B1) -- no fallback to the
-         other orientation's box even if it would pass; displaced traffic
-         (xi in (mean,xi1], b*xi<=B1) lands in R2/R3 via their own rules.
+      1. R1 fires in EITHER orientation whose box holds (x<=xi1 AND
+         b*x<=B1 for native; (1-x)<=xi1 AND a*(1-x)<=B1 for swap; native
+         checked first) [SIXTH CORRECTION, REVERTING the fifth: the fifth
+         correction's lambda>=0 requirement was too blunt -- its OWN
+         displaced traffic broke check (b) (witness (0.158,1000,0.00251)
+         needs CF depth ~512, yet R1-native serves it perfectly: evaluated
+         0.994, complement at 2^-58). POST-ROUTE MODEL (replaces the
+         orientation restriction): evaluate the R1-native value at cheap
+         working dps (_r1_native_value, N1=64 -- self-check (a)'s own
+         proven-accurate depth). If it exceeds BETA_NEAR_ONE (kBetaNearOne
+         = 1-2^-11), the point is re-tagged "R4-postroute" and evaluated
+         by R4's analytic small-side assembly in the SAME orientation
+         [SEVENTH correction; the sixth's opposite-orientation CF
+         destination is superseded -- it stalled at 2^-55.5 on the CF's
+         small-second-parameter weakness]. Mirrors the kernel's mask
+         update: near-one R1 lanes fold into the R4 core's lane set.
+         Points at or below the threshold keep R1. Both G3 witnesses
+         (0.158,20,0.396) and (0.5,20,0.35) post-route correctly under
+         this model (self-check (f)'s post-route lattice reproves it).
       2. R3 if nu=a*b/(a+b)>=T_ridge AND x/p in [1/2,2] AND
          (1-x)/q in [1/2,2] (p=a/c,q=b/c) -- the ratio-band caps; this
          joint condition is symmetric under the native/swap relabeling
@@ -1695,7 +1803,12 @@ def route_final(a, b, x):
          a TAG only (the oracle below still evaluates via the CF; the
          reference generator's gamma-corner oracle switches on this tag,
          and the real kernel switches on the same max(alpha,beta)>=B_GL
-         predicate to route to the gamma-limit path instead)."""
+         predicate to route to the gamma-limit path instead). R4-postroute
+         points keep their own tag (PLAN.md's coverage audit lists the
+         post-route traffic as its own histogram line); they never carry
+         -gammalim (R1's box keeps beta*xi <= B1 = 8, far below any
+         B_GL-scale hazard, and their evaluation path is the R4 series,
+         not the CF)."""
     c = a + b
     tau = min(a, b)
     bmax = max(a, b)
@@ -1709,21 +1822,51 @@ def route_final(a, b, x):
         if tau * abs(mp.log(xi_tau)) <= LN2 and xi_tau <= xi_cap and bmax * xi_tau <= B1:
             return (a, b, x, tag) if tag == "R4-native" else (b, a, 1 - x, tag)
         # else fall through to R1/R3/R2 below.
-    lam = a * (1 - x) - b * x  # exact-in-mpf here; mirrors the kernel's
-                                # TwoSum(alpha*y, -beta*xi) exactly in sign.
-    if lam >= 0:
-        if x <= XI1 and b * x <= B1:
-            return a, b, x, "R1-native"
-    else:
-        xs = 1 - x
-        if xs <= XI1 and a * xs <= B1:
-            return b, a, xs, "R1-swap"
+    r1_hit = None
+    if x <= XI1 and b * x <= B1:
+        r1_hit = (a, b, x, "R1-native")
+    elif (1 - x) <= XI1 and a * (1 - x) <= B1:
+        r1_hit = (b, a, 1 - x, "R1-swap")
+    if r1_hit is not None:
+        aa, bb, xx, tag = r1_hit
+        val = _r1_native_value(aa, bb, xx)
+        if val <= BETA_NEAR_ONE:
+            return aa, bb, xx, tag
+        # SEVENTH CORRECTION [supersedes the sixth's destination]: the
+        # near-one lane keeps its FIRED orientation and goes to R4's
+        # analytic small-side assembly. Post-routed lanes are R4-shaped by
+        # construction: R1's box supplies both of R4's convergence caps
+        # (xi <= xi1, beta*xi <= B1), and the near-one condition itself
+        # guarantees the Expm1 assembly's argument is < ~2^-10 -- its
+        # ideal accuracy zone. eps_R4 was a ROUTING threshold, never a
+        # validity bound of the assembly (the series' convergence is
+        # governed by xi and beta*xi, not tau). The sixth correction's
+        # opposite-orientation CF destination stalled at 2^-55.5 on
+        # (0.0234, 1e6, 4e-6) -- check (b)(viii)'s own finding -- because
+        # that CF inherits exactly the small-second-parameter weakness
+        # the fifth correction already hit; sending the lane to R4
+        # removes the CF from this traffic entirely. Gating budget:
+        # check (f)'s post-route-domain lattice.
+        # tau-ceiling kBetaPrTauMax = 1.5: R4's exact-argument
+        # lgamma(1+tau) runs on lgamma's centre-1/centre-2 zones, valid
+        # to tau = 1.5 (tau-1 Sterbenz-exact there). The near-one bar
+        # cannot fire above tau ~ 1.35 anyway (P_gamma(tau, B1) drops
+        # below 1-2^-11 by tau ~ 1.25); the gate makes that a
+        # machine-checked invariant -- points above it stay R1, and
+        # check (e) verifies none violates the doctrine.
+        if aa <= mp.mpf("1.5"):
+            return aa, bb, xx, "R4-postroute"
+        return aa, bb, xx, tag
     nu = a * b / c
     p = a / c
     q_ = b / c
     in_band = (XI_RATIO_LO <= x / p <= XI_RATIO_HI and
                XI_RATIO_LO <= (1 - x) / q_ <= XI_RATIO_HI)
-    if nu >= T_RIDGE and in_band:
+    if in_band and (nu >= T_RIDGE or
+                    (bmax >= B_GL and nu >= GL_RIDGE_MIN)):
+        # [(C) slice, ridge part]: above B_GL the CF is structurally
+        # degenerate, so the in-band ridge floor drops to GL_RIDGE_MIN=20
+        # (check (c)'s extension lattice proves the 1/nu extrapolation).
         mean = a / c
         return (a, b, x, "R3-native") if x <= mean else (b, a, 1 - x, "R3-swap")
     thresh = (a + 1) / (c + 2)
@@ -1817,7 +1960,15 @@ def check_e_routing():
                     pts.append((a, b0, xi, "g3-fifth-witness"))
     a_pocket = [mp.mpf(v) for v in
                 ("0.0157", "0.02", "0.05", "0.1", "0.158", "0.2", "0.3",
-                 "0.5", "0.7", "0.9", "0.99")]  # (eps_R4, 1)
+                 "0.5", "0.7", "0.9", "0.99",
+                 # SEVENTH-correction tau-gate margin band: tau in
+                 # (kBetaPrTauMax, 4] stays R1 even when its value sits in
+                 # the (2^-12, 2^-11) near-one band -- the doctrine still
+                 # covers it (complement ~1/4 ulp), and THIS lattice is
+                 # what proves the claim rather than an estimate (the
+                 # tau = 2, beta = 20, xi = 0.4 family measured Q ~ 3.3e-4,
+                 # 1.4x above the 2^-12 bar).
+                 "1.6", "2.0", "2.5", "3.0", "4.0")]  # (eps_R4, 4]
     for a in a_pocket:
         for b in (mp.mpf(v) for v in ("8", "16", "20", "40", "100", "1000")):
             xi_edge = B1 / b  # the beta*xi=B1 edge itself
@@ -2108,6 +2259,26 @@ def main():
     print("// comment at _derive_gamma_lim in this generator; PROVISIONAL,")
     print("// frontier review owed, per that comment).")
     print(f"inline constexpr double kBetaGammaLim = {hexf(B_GL)};")
+    print("// kBetaNearOne [SEVENTH routing correction]: after the R1 pass,")
+    print("// any lane whose R1 dd value EXCEEDS this folds into the R4")
+    print("// core's lane set in the SAME orientation (R4's analytic")
+    print("// small-side assembly; R1's box already supplies R4's")
+    print("// convergence caps and the near-one condition puts the Expm1")
+    print("// argument below ~2^-10). One bit inside the 1-2^-12")
+    print("// complement-slack doctrine bound -- margin for the compare")
+    print("// being on the dd value. Generator-proved: check (f)'s")
+    print("// post-route-domain truncation lattice.")
+    print(f"inline constexpr double kBetaNearOne = {hexf(BETA_NEAR_ONE)};")
+    print("// Post-route tau ceiling: lgamma's centre-2 zone edge (and the")
+    print("// Sterbenz-exact tau-1 range). The near-one bar cannot fire above")
+    print("// ~1.35; the gate makes that machine-checked (see route_final).")
+    print(f"inline constexpr double kBetaPrTauMax = {hexf(mp.mpf('1.5'))};")
+    print("// Gamma-limit slice ridge floor [(C) resolution]: in-band lanes")
+    print("// with max(alpha,beta) >= kBetaGammaLim use R3 down to nu = 20")
+    print("// (gamma's own kGammaAT; the CF is degenerate up there). The 1/nu")
+    print("// extrapolation below the extraction ladder is proved by check")
+    print("// (c)'s extension lattice at the anchor p.")
+    print(f"inline constexpr double kBetaGlRidgeMin = {hexf(GL_RIDGE_MIN)};")
     print(f"inline constexpr int kBetaN1 = {N1};")
     print(f"inline constexpr int kBetaN2 = {N2};")
     print(f"inline constexpr int kBetaR4N = {r4_n};")

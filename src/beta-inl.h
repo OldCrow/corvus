@@ -95,6 +95,13 @@
 #include "src/dd_special-inl.h"
 #include "src/erfc_core-inl.h"
 #include "src/exp_dd-inl.h"
+// gamma-inl.h: ONLY for the (C) gamma-limit slice's two template cores
+// (GammaSeriesSum, GammaCfRecip) -- templates instantiate what is called,
+// so this does not pull gamma's other cores into beta.o. The slice exists
+// because the beta CF is structurally degenerate above kBetaGammaLim
+// (PLAN.md escalation (C)); its dd argument-sensitivity lives entirely in
+// e^-t, which beta's own dd prefactor machinery absorbs.
+#include "src/gamma-inl.h"
 #include "src/lgamma-inl.h"
 #include "src/log_dd-inl.h"
 #include "src/ops-inl.h"
@@ -857,8 +864,16 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps) {
 // generator's own small_tau_oracle, validated there at 2^-188 against the
 // continued fraction on their overlap band.
 //
-// tau*|ln xi_tau| <= ln 2 on the whole box, so |w| stays below ~1 and Expm1Dd
-// works in its series branch wherever the answer is small.
+// tau*|ln xi_tau| <= ln 2 on R4's own box, so |w| stays below ~1 there.
+// POST-ROUTED lanes [SEVENTH correction] have no ln-2 cap and tau up to
+// kBetaPrTauMax = 1.5, but their defining property (R1 value > kBetaNearOne)
+// means w and log1p(tau*Sigma) CANCEL to below ~2^-10 -- the dd addition
+// carries that cancellation at ~2^-105 absolute, so the relative error of
+// the small result stays ~2^-94-class, and Expm1Dd receives the already-
+// combined tiny argument in its series branch. The series itself is
+// tau-benign (tau appears only in the 1/(tau+n) weights and the exact
+// assembly); the generator's check (f) post-route lattice proves the
+// N = kBetaR4N truncation over the widened domain.
 template <class D>
 HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
                               Dd<D> lxi) {
@@ -886,10 +901,14 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
     if (op::AllTrue(d, op::Eq(live, zero))) break;
   }
 
-  // lgamma(1+tau) at the exact shifted argument. tau <= eps_R4 = 2^-6 on this
-  // region (and on its scrub point), so the centre-1 selector is always true.
+  // lgamma(1+tau) at the exact shifted argument -- the full GammaSmallQ
+  // two-zone form [SEVENTH correction]: post-routed lanes carry tau up to
+  // kBetaPrTauMax = 1.5 (original R4 lanes stay <= eps_R4 = 2^-6), so the
+  // centre-2 zone (1+tau in [1.5, 2.5], t = tau - 1 exact by Sterbenz for
+  // tau in [1/2, 1.5]) is live here now, not just centre-1.
   const auto c1 = op::Ge(op::Set(d, detail::kLgammaZoneLo), tau);
-  const auto lg1 = DdMulD(d, ZoneBracket(d, tau, c1), tau);
+  const auto tz = op::IfThenElse(c1, tau, op::Sub(tau, one));
+  const auto lg1 = DdMulD(d, ZoneBracket(d, tz, c1), tz);
 
   auto w = DdMulD(d, lxi, tau);
   w = DdAdd(d, w, LgammaDiffDd(d, bb, tau));
@@ -1004,8 +1023,20 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   const auto band = op::Mul(
       op::Mul(BetaInd(d, op::Ge(rat1, lo_r)), BetaInd(d, op::Ge(hi_r, rat1))),
       op::Mul(BetaInd(d, op::Ge(rat2, lo_r)), BetaInd(d, op::Ge(hi_r, rat2))));
+  // [(C) gamma-limit slice, ridge part]: above kBetaGammaLim the CF is
+  // structurally degenerate, so the in-band ridge floor drops from T_ridge
+  // to kBetaGlRidgeMin = 20 -- exactly gamma's own kGammaAT, and exactly
+  // the p -> 0 edge where this table's e_k are anchored to gamma's
+  // validated c_k (generator check (c)'s extension lattice proves the
+  // 1/nu extrapolation there; gamma's own table is likewise applied down
+  // to a = 20 from a ladder extracted far higher).
+  const auto i_glr = op::Mul(
+      BetaInd(d, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim))),
+      BetaInd(d, op::Ge(nu_r, op::Set(d, detail::kBetaGlRidgeMin))));
   auto i_r3 = op::Mul(
-      op::Mul(BetaInd(d, op::Ge(nu_r, op::Set(d, detail::kBetaTRidge))), band),
+      op::Mul(op::Max(BetaInd(d, op::Ge(nu_r, op::Set(d, detail::kBetaTRidge))),
+                      i_glr),
+              band),
       op::Mul(BetaIndNot(d, i_r4), BetaIndNot(d, i_r1)));
 
   const auto thr = op::Div(
@@ -1149,6 +1180,30 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     }
   }
 
+  // --- SEVENTH ROUTING CORRECTION: near-one post-route ---------------------
+  // An R1 lane whose evaluated dd value exceeds kBetaNearOne (1 - 2^-11)
+  // would hand back a complement made of dd rounding noise (the
+  // complement-slack doctrine's 1 - 2^-12 bound, with one bit of margin
+  // for this compare being on the dd value). Such lanes are R4-SHAPED by
+  // construction -- R1's box supplies R4's convergence caps (xi <= xi1,
+  // beta*xi <= B1) and near-one puts the Expm1 argument in its ideal
+  // zone -- so they fold into the R4 core's lane set below, SAME
+  // orientation (alpha = min there, so the tiny-first frame and lxt
+  // already agree). The tau ceiling kBetaPrTauMax = 1.5 is lgamma's
+  // centre-2 zone edge; the generator proves the bar cannot fire above
+  // ~1.35 and check (e) covers the remainder. This replaces the sixth
+  // correction's opposite-orientation CF destination, which stalled at
+  // 2^-55.5 on the CF's small-second-parameter weakness (generator check
+  // (b)(viii), witness (0.0234, 1e6, 4e-6)).
+  const auto i_pr = op::Mul(
+      i_r1, op::Mul(BetaInd(d, op::Gt(val.dd.hi,
+                                      op::Set(d, detail::kBetaNearOne))),
+                    BetaInd(d, op::Ge(op::Set(d, detail::kBetaPrTauMax),
+                                      alpha))));
+  const auto m_pr = BetaIndMask(d, i_pr);
+  const auto i_r4x = op::Max(i_r4, i_pr);
+  const auto m_r4x = BetaIndMask(d, i_r4x);
+
   if (!op::AllFalse(d, m_r3)) {
     auto t3 = BetaR3Temme(d, ps);
     t3.val.v = op::IfThenElse(t3.sat, zero, t3.val.v);
@@ -1166,22 +1221,102 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     is_p = op::IfThenElse(m_r3, xn, is_p);
   }
 
-  if (!op::AllFalse(d, m_r4)) {
+  if (!op::AllFalse(d, m_r4x)) {
     // R4's scrub point is its OWN interior (tau <= eps_R4), not the shared
-    // (2, 3, 1/4): tau = 2 is outside this core's box and would take
-    // lgamma(1+tau) out of the centre-1 zone.
-    const auto t4 = op::IfThenElse(m_r4, alpha, op::Set(d, detail::kBetaEpsR4));
-    const auto b4 = op::IfThenElse(m_r4, beta, safe_b);
-    const auto x4 = op::IfThenElse(m_r4, xi.hi, safe_x);
+    // (2, 3, 1/4): tau = 2 is outside this core's zones and would take
+    // lgamma(1+tau) past the centre-2 edge. The mask is the EXTENDED set
+    // m_r4x [SEVENTH correction]: routed R4 lanes plus near-one post-routed
+    // R1 lanes -- for the latter, alpha/beta/xi ARE the fired orientation
+    // and coincide with the tiny-first frame (alpha = min on every lane the
+    // near-one bar can fire on), so lxt is the right log for both kinds.
+    const auto t4 =
+        op::IfThenElse(m_r4x, alpha, op::Set(d, detail::kBetaEpsR4));
+    const auto b4 = op::IfThenElse(m_r4x, beta, safe_b);
+    const auto x4 = op::IfThenElse(m_r4x, xi.hi, safe_x);
     // ln(1/4) = -2 ln 2, exact halving/doubling of log_dd's own dd pair, so
     // the scrubbed lane's log stays consistent with its scrubbed xi.
     const Dd<D> l4{
-        op::IfThenElse(m_r4, lxt.hi, op::Set(d, -2.0 * detail::kLogLn2Hi)),
-        op::IfThenElse(m_r4, lxt.lo, op::Set(d, -2.0 * detail::kLogLn2Lo))};
+        op::IfThenElse(m_r4x, lxt.hi, op::Set(d, -2.0 * detail::kLogLn2Hi)),
+        op::IfThenElse(m_r4x, lxt.lo, op::Set(d, -2.0 * detail::kLogLn2Lo))};
     const auto q4 = BetaR4Tiny(d, t4, b4, x4, l4);
-    val.v = op::IfThenElse(m_r4, DdToDouble(q4), val.v);
-    val.dd.hi = op::IfThenElse(m_r4, q4.hi, val.dd.hi);
-    val.dd.lo = op::IfThenElse(m_r4, q4.lo, val.dd.lo);
+    val.v = op::IfThenElse(m_r4x, DdToDouble(q4), val.v);
+    val.dd.hi = op::IfThenElse(m_r4x, q4.hi, val.dd.hi);
+    val.dd.lo = op::IfThenElse(m_r4x, q4.lo, val.dd.lo);
+    // Post-routed lanes now hold the COMPLEMENT of the orientation they
+    // evaluated in R1, so their is_p flips to the R4 convention.
+    is_p = op::IfThenElse(m_pr, i_sw, is_p);
+  }
+
+  // --- (C) gamma-limit slice: R2's off-band remainder above B_GL -----------
+  // (In-band traffic above B_GL went to R3 via the lowered ridge floor
+  // kBetaGlRidgeMin.) One routed parameter is >= kBetaGammaLim = 2^59; the
+  // beta CF is structurally degenerate there (d1 -> -(1 - tiny); mpmath's
+  // own CF divides by zero at working precision -- G3 escalation (C)), so
+  // the lane goes through the gamma limit: with s = the small routed
+  // parameter and t = -(huge)*(ln of the huge side's own x-argument), dd:
+  //   huge SECOND: I_xi(s, huge) ~ P_gamma(s, t),      t = -(huge)ln(1-xi)
+  //   huge FIRST : I_xi(huge, s) ~ 1 - P_gamma(s, t),  t = -(huge)ln(xi)
+  // relative correction O(1/huge), 2^-49-class at the B_GL pin (generator
+  // overlap probe; PROVISIONAL to G4 -- R2-gammalim gates as its own row).
+  // The sub-map mirrors gamma-inl.h's own routing verbatim (series for
+  // s < kGammaAT and t <= s+1, or s >= kGammaAT and s >= 2t; CF otherwise;
+  // gamma's in-band Temme case cannot occur here, those lanes are R3's).
+  // val takes the NATURALLY COMPUTED side (series -> P_gamma, CF ->
+  // Q_gamma) -- never a dd complement round-trip, which would hand a small
+  // side back as absolute noise -- and is_p records which side of the
+  // ORIGINAL pair that is.
+  const auto i_gl = op::Mul(
+      i_r2, BetaInd(d, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim))));
+  const auto m_gl = BetaIndMask(d, i_gl);
+  if (!op::AllFalse(d, m_gl)) {
+    const auto hf = op::Ge(alpha, op::Set(d, detail::kBetaGammaLim));
+    const auto i_hf = BetaInd(d, hf);
+    const auto ss = op::IfThenElse(m_gl, op::IfThenElse(hf, beta, alpha), one);
+    const auto huge = op::IfThenElse(hf, alpha, beta);
+    const Dd<D> lx_gl =
+        LogDdAny(d, Dd<D>{op::IfThenElse(hf, xi.hi, yv.hi),
+                          op::IfThenElse(hf, xi.lo, yv.lo)});
+    const auto t_dd = DdMulD(d, lx_gl, op::Neg(huge));  // t > 0, dd
+    // E_g = s*ln t - t - lgamma(s); all the e^-t argument sensitivity is
+    // absorbed HERE, in dd -- the cores below only see t.hi, whose 2^-53
+    // relative slack enters their series/CF factors with O(1) sensitivity.
+    auto e_g = DdMulD(d, LogDdAny(d, t_dd), ss);
+    e_g = DdSub(d, e_g, t_dd);
+    e_g = DdSub(d, e_g, LgammaPosDd(d, ss));
+    const auto th = t_dd.hi;
+    const auto i_ser = op::Max(
+        op::Mul(BetaInd(d, op::Lt(ss, op::Set(d, detail::kGammaAT))),
+                BetaInd(d, op::Ge(op::Add(ss, one), th))),
+        op::Mul(BetaInd(d, op::Ge(ss, op::Set(d, detail::kGammaAT))),
+                BetaInd(d, op::Ge(ss, op::Add(th, th)))));
+    const auto m_ser = BetaIndMask(d, i_ser);
+    const auto e_s = DdSub(d, e_g, LogDdAny(d, ss));  // gamma's R1 fold
+    const Dd<D> e_pick{op::IfThenElse(m_ser, e_s.hi, e_g.hi),
+                       op::IfThenElse(m_ser, e_s.lo, e_g.lo)};
+    const auto ea = BetaClampE(d, e_pick.hi, e_pick.lo);
+    const auto s_c = op::IfThenElse(ea.sat, one, ss);
+    const auto t_c = op::IfThenElse(ea.sat, op::Set(d, 3.0),
+                                    op::Min(th, op::Set(d, 4e306)));
+    const auto ex = ExpDdFrac(d, ea.hi, ea.lo);
+    const auto ser = GammaSeriesSum(d, s_c, t_c);
+    const auto cfr = GammaCfRecip(d, s_c, t_c);
+    const Dd<D> fac{op::IfThenElse(m_ser, ser.hi, cfr.hi),
+                    op::IfThenElse(m_ser, ser.lo, cfr.lo)};
+    auto gl = BetaScale(d, DdMul(d, ex.m, fac), ex.e);
+    gl.v = op::IfThenElse(ea.sat, zero, gl.v);
+    gl.dd.hi = op::IfThenElse(ea.sat, zero, gl.dd.hi);
+    gl.dd.lo = op::IfThenElse(ea.sat, zero, gl.dd.lo);
+    val.v = op::IfThenElse(m_gl, gl.v, val.v);
+    val.dd.hi = op::IfThenElse(m_gl, gl.dd.hi, val.dd.hi);
+    val.dd.lo = op::IfThenElse(m_gl, gl.dd.lo, val.dd.lo);
+    // val holds P_gamma on series lanes, Q_gamma on CF lanes. P_gamma is
+    // the ROUTED value iff the huge parameter is SECOND; the routed value
+    // is P-of-original iff the orientation was native. XNOR twice:
+    const auto agree = op::MulAdd(i_ser, BetaIndNot(d, i_hf),
+                                  op::Mul(BetaIndNot(d, i_ser), i_hf));
+    const auto isp_gl = op::MulAdd(agree, i_nat,
+                                   op::Mul(BetaIndNot(d, agree), i_sw));
+    is_p = op::IfThenElse(m_gl, isp_gl, is_p);
   }
 
   // The complement is formed from the dd BEFORE any rounding, so the single

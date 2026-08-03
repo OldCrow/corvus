@@ -86,6 +86,7 @@ import struct
 import sys
 import time
 import random
+import multiprocessing as mp_proc
 
 import mpmath as mp
 
@@ -1165,6 +1166,333 @@ def try_tau_rescue(a, b, x):
     return P, Q, which, False, False
 
 
+N_BETAINC_RESCUED = [0]
+BETAINC_RESCUE_TIMEOUT = 5  # seconds, per dps layer -- see call site comment.
+
+# ============================================================================
+# BATCHED betainc rescue [Part 2a, tractability]. The per-point path below
+# (_betainc_rescue, kept as a correctness fallback -- see its own
+# docstring) spawns one subprocess per dps layer per point -- measured at
+# ~2.5s/call, DOMINATED by Windows process-spawn overhead, not the
+# arithmetic (typical betainc call on these points completes in under 1ms
+# once running -- confirmed by sampling 80 of the 5,978 known drops
+# directly: 79/80 finished in <1ms, one took ~37s before mpmath's own
+# hypercomb() raised a convergence error -- slow, not the "hangs
+# indefinitely" hazard gen_beta_data.py's _betainc_timeout docstring warns
+# about for a DIFFERENT point population, but real: this is why per-item
+# safety still matters and a bare try/except in-process is not enough).
+# At ~6000 points that is ~4 hours one item at a time -- not tractable in
+# a chunked session. BATCHING amortizes the spawn cost across many points
+# per subprocess (same algorithm, same dps ladder, same escalation
+# discipline -- purely a throughput change): one worker process evaluates
+# a whole batch sequentially and PUTS EACH RESULT AS SOON AS IT IS READY
+# (not accumulated to one final put), so a batch-level timeout kill still
+# keeps every result computed before whatever item was slow/hanging --
+# partial progress survives. prewarm_betainc_rescue_checkpoint (defined
+# after _betainc_rescue below) runs this batched ladder ONCE, up front, for
+# every currently-FAILED checkpoint point, and writes successes STRAIGHT
+# TO THE CHECKPOINT -- reusing that file as the resumability mechanism
+# rather than a separate cache (see its own docstring).
+# ============================================================================
+BETAINC_BATCH_SIZE = 500
+BETAINC_BATCH_TIMEOUT = 150  # seconds per batch (not per item) -- measured
+# (this session's own run): a 150-item batch consistently took ~70s (a
+# handful of genuinely slow points, not linear per-item scaling -- see
+# _betainc_batch_eval's own comment), so 500 items budgets room for
+# several more such outliers without an unbounded batch. Sized together
+# with MAX_PREWARM_CANDIDATES so one prewarm invocation (dps=40 + dps=60
+# batch, the two that always run) fits inside an explicit, generous
+# per-call Bash timeout this agent sets on each invocation.
+
+
+def _betainc_batch_worker(items, dps, q):
+    import mpmath as mp2
+    mp2.mp.dps = dps
+    for idx, a_str, b_str, x_str in items:
+        try:
+            v = mp2.betainc(mp2.mpf(a_str), mp2.mpf(b_str), 0, mp2.mpf(x_str),
+                             regularized=True)
+            q.put((idx, mp2.nstr(v, dps + 15)))
+        except Exception:
+            q.put((idx, None))
+
+
+def _betainc_batch_eval(oriented, dps):
+    """oriented: dict idx -> (a,b,x) mpf, ALREADY the small-side-direct
+    native orientation this dps layer should evaluate. Returns dict
+    idx -> mpf value for every idx that completed; a missing idx means
+    that item failed or was not reached before its batch's timeout (the
+    caller treats it exactly like the per-point path's None return)."""
+    idxs = list(oriented.keys())
+    results = {}
+    n_batches = (len(idxs) + BETAINC_BATCH_SIZE - 1) // BETAINC_BATCH_SIZE or 1
+    for bi, start in enumerate(range(0, len(idxs), BETAINC_BATCH_SIZE)):
+        chunk = idxs[start:start + BETAINC_BATCH_SIZE]
+        items = []
+        for idx in chunk:
+            a, b, x = oriented[idx]
+            items.append((idx, mp.nstr(a, dps + 15), mp.nstr(b, dps + 15),
+                           mp.nstr(x, dps + 15)))
+        q = mp_proc.Queue()
+        p = mp_proc.Process(target=_betainc_batch_worker, args=(items, dps, q))
+        t0 = time.time()
+        n_got = 0
+
+        def _drain():
+            nonlocal n_got
+            while not q.empty():
+                idx, raw = q.get()
+                n_got += 1
+                if raw is not None:
+                    old = mp.mp.dps
+                    mp.mp.dps = dps + 15
+                    results[idx] = mp.mpf(raw)
+                    mp.mp.dps = old
+
+        try:
+            p.start()
+            # POLL rather than a single blocking p.join(timeout): measured
+            # (this generator's own run) that the worker process routinely
+            # does NOT exit promptly on its own after finishing its work --
+            # every batch paid the FULL BETAINC_BATCH_TIMEOUT even when
+            # n_got reached the expected count almost immediately (150/150
+            # and 500/500 "returned" but each batch still took exactly the
+            # timeout). Polling lets this loop notice "every result is in"
+            # and terminate the (done-computing, hung-on-shutdown) worker
+            # immediately instead of idly waiting out the rest of the
+            # budget -- the fix is purely a throughput one, the actual
+            # values returned are identical either way.
+            deadline = t0 + BETAINC_BATCH_TIMEOUT
+            while time.time() < deadline:
+                _drain()
+                if n_got >= len(chunk):
+                    break
+                if not p.is_alive():
+                    break
+                time.sleep(0.1)
+            _drain()  # final catch-all for a last burst just before exit
+            if p.is_alive():
+                p.terminate()
+            p.join(5)
+        finally:
+            # WINDOWS HANDLE LEAK, found by this generator's own full run:
+            # without explicitly closing the Queue's feeder thread/pipe and
+            # the Process's own handle, the OS handle table fills up after
+            # a few dozen spawn cycles and a LATER spawn fails outright
+            # with PermissionError: [WinError 5] Access is denied inside
+            # multiprocessing's own reduction.duplicate/_winapi.
+            # DuplicateHandle -- reproduced here after 3 clean dps=40
+            # batches, dying 8s into the first dps=60 batch. q.close() +
+            # q.join_thread() releases the pipe; p.close() (Process is no
+            # longer alive at this point, guaranteed by the join() calls
+            # above) releases the process handle. try/finally so a batch
+            # that raises for any other reason still cleans up.
+            q.close()
+            q.join_thread()
+            try:
+                p.close()
+            except ValueError:
+                pass  # process was somehow still alive; leave it (rare)
+        print(f"    betainc batch dps={dps}: {bi + 1}/{n_batches} "
+              f"({len(chunk)} pts, {n_got} returned, "
+              f"{time.time() - t0:.0f}s)", file=sys.stderr)
+        sys.stderr.flush()
+    return results
+
+
+def prewarm_betainc_rescue_checkpoint(ps, done_map, fh):
+    """Batched pre-pass [Part 2a], called by compute_all BEFORE its main
+    per-point loop. Resolves every currently-FAILED point via the SAME
+    algorithm as the per-point _betainc_rescue above (small-side-direct,
+    dps ladder 40/60/100, same DISAGREE_60_40/100 escalation discipline)
+    but BATCHED across many points per subprocess spawn (see the module
+    comment above _betainc_batch_eval -- the per-point path is ~2.5s/call,
+    spawn-dominated, and not tractable at the ~6000-point scale this
+    rescue actually sees: ~4 hours one point at a time vs. tens of
+    subprocess spawns batched).
+
+    Writes successes DIRECTLY to the checkpoint via append_checkpoint, in
+    the EXACT format compute_all's own main loop uses for a success, so
+    that loop -- which runs immediately after this returns -- just skips
+    them (non-FAILED checkpoint entry). This IS the resumability
+    mechanism: no separate cache file is needed, because a run
+    interrupted mid-prewarm (this generator's own external chunking, per
+    the brief's <=5 min-per-invocation rule) leaves whatever this pass
+    already resolved sitting in the checkpoint, and the next invocation's
+    prewarm call simply finds a smaller remaining FAILED set (identical
+    in spirit to compute_all's own "retry only FAILED" logic). Points
+    still unresolved after this pass are left FAILED for the main loop's
+    small_side_direct -> per-point _betainc_rescue fallback, which reaches
+    the identical answer (genuinely non-rescuable, not an inconsistency
+    between the batched and per-point paths -- same algorithm, same
+    inputs). Returns the count actually rescued this call."""
+    candidates = [(idx, a, b, x, keep_sat)
+                  for idx, (a, b, x, keep_sat, tag) in enumerate(ps.pts)
+                  if idx in done_map and done_map[idx][0] == "FAILED"]
+    if not candidates:
+        return 0
+    total_failed = len(candidates)
+    if MAX_PREWARM_CANDIDATES is not None:
+        candidates = candidates[:MAX_PREWARM_CANDIDATES]
+    print(f"  prewarming betainc rescue for {len(candidates)} of "
+          f"{total_failed} currently-FAILED points (batched dps ladder "
+          f"40/60/100) ...", file=sys.stderr)
+    t0 = time.time()
+    by_idx = {idx: (a, b, x) for idx, a, b, x, keep_sat in candidates}
+    oriented = {}
+    which_map = {}
+    for idx, a, b, x, keep_sat in candidates:
+        am, bm, xm = mp.mpf(a), mp.mpf(b), mp.mpf(x)
+        c = am + bm
+        if xm * c <= am:
+            oriented[idx], which_map[idx] = (am, bm, xm), "P"
+        else:
+            oriented[idx], which_map[idx] = (bm, am, 1 - xm), "Q"
+
+    v40 = _betainc_batch_eval(oriented, DPS1)
+    # Mean-predicate misfire (v>0.5): flip orientation once and re-evaluate
+    # at dps=40, same self-correction every other oracle branch uses.
+    flip_idx = [i for i, v in v40.items() if v > mp.mpf("0.5")]
+    if flip_idx:
+        flipped = {}
+        for i in flip_idx:
+            a, b, x = by_idx[i]
+            am, bm, xm = mp.mpf(a), mp.mpf(b), mp.mpf(x)
+            if which_map[i] == "P":
+                flipped[i], which_map[i] = (bm, am, 1 - xm), "Q"
+            else:
+                flipped[i], which_map[i] = (am, bm, xm), "P"
+        v40_flip = _betainc_batch_eval(flipped, DPS1)
+        for i, v in v40_flip.items():
+            oriented[i] = flipped[i]
+            v40[i] = v
+
+    v60 = _betainc_batch_eval(oriented, DPS2)
+
+    need100 = {}
+    for i in oriented:
+        if i not in v40 or i not in v60:
+            continue
+        a40, a60 = v40[i], v60[i]
+        rel = abs((a60 - a40) / a60) if a60 != 0 else abs(a60 - a40)
+        if rel > DISAGREE_60_40:
+            need100[i] = oriented[i]
+    v100 = _betainc_batch_eval(need100, DPS3) if need100 else {}
+
+    n_rescued = 0
+    for idx, a, b, x, keep_sat in candidates:
+        final, escalated = None, False
+        if idx in v100:
+            escalated = True
+            final = v100[idx]
+            a60 = v60.get(idx)
+            if a60 is not None:
+                rel2 = abs((final - a60) / final) if final != 0 else abs(final - a60)
+                if rel2 > DISAGREE_100_60:
+                    ESCALATIONS.append((float(a), float(b), float(x),
+                                         which_map.get(idx, "?"), float("nan"),
+                                         float(rel2)))
+        elif idx in v60:
+            final = v60[idx]
+        elif idx in v40:
+            final = v40[idx]
+        if final is None or not (0 <= final <= 1):
+            continue  # leave FAILED -- the main loop's per-point fallback
+                      # gets one more (equivalent) try, then it's a real drop.
+        which = which_map[idx]
+        P, Q = (final, 1 - final) if which == "P" else (1 - final, final)
+        Pf, Qf = float(P), float(Q)
+        if not (math.isfinite(Pf) and math.isfinite(Qf)):
+            continue
+        region = route_final(mp.mpf(a), mp.mpf(b), mp.mpf(x))[3]
+        append_checkpoint(fh, idx,
+                           [hexd(Pf), hexd(Qf), which, "1" if escalated else "0",
+                            region, "1" if keep_sat else "0"])
+        N_BETAINC_RESCUED[0] += 1
+        n_rescued += 1
+    print(f"  betainc rescue prepass: {n_rescued}/{len(candidates)} rescued "
+          f"({time.time() - t0:.0f}s)", file=sys.stderr)
+    return n_rescued
+
+
+def _betainc_rescue(a, b, x):
+    """G1/G2 revision cycle 2, Part 2a: betainc-with-timeout rescue for
+    points small_tau_oracle's own CANCELLATION GUARD declines (the
+    tau<=SMALL_TAU_THRESHOLD=2^-4, B in the thousands-plus gap where the
+    APSER-style series' running term climbs to a central-binomial-like
+    peak before "converging", swamping working dps -- see
+    small_tau_oracle's docstring; this generator's prior run dropped 5,978
+    points there). mpmath.betainc takes a genuinely DIFFERENT code path
+    (its own hypergeometric/CF selection, not this generator's APSER
+    assembly), so a point where our series loses precision to cancellation
+    is not guaranteed to defeat betainc too -- worth trying before
+    dropping. SMALL-SIDE-DIRECT (mean predicate, self-correcting exactly
+    like small_side_direct's own primary branch -- never a bare 1-near-1
+    subtraction), three-layer dps ladder (40/60/100) with the SAME
+    DISAGREE_60_40/DISAGREE_100_60 escalation discipline as the primary
+    oracle. HARD PER-POINT TIMEOUT: gbd._betainc_timeout's own
+    multiprocessing hard-kill (needed because some (a,b,x) magnitude-
+    mismatch shapes hang mpmath's own hypergeometric path indefinitely --
+    gen_beta_data.py's own _betainc_timeout docstring), timeout scoped per
+    dps layer so a hang at dps=40 costs at most BETAINC_RESCUE_TIMEOUT
+    seconds, not the full ladder. mp.dps is set INSIDE
+    gbd._betainc_timeout's worker/parse layers already (reused, not
+    re-derived, per the module docstring).
+
+    NOTE: compute_all runs prewarm_betainc_rescue_checkpoint BEFORE its main
+    per-point loop, which resolves the entire currently-known FAILED
+    population via the batched path (see the module comment above) and
+    writes results straight to the checkpoint -- by the time the main loop
+    reaches those points it skips them outright (non-FAILED checkpoint
+    entry), never calling this function at all. This per-point path
+    therefore only fires for a point that fails FRESH (not part of a prior
+    prewarm pass, e.g. a future re-run with new points) -- correctness
+    fallback, not the hot path."""
+    am, bm, xm = mp.mpf(a), mp.mpf(b), mp.mpf(x)
+    c = am + bm
+    native = (xm * c <= am)
+    if native:
+        aa, bb, xx, which = am, bm, xm, "P"
+    else:
+        aa, bb, xx, which = bm, am, 1 - xm, "Q"
+
+    def try_bi(dps):
+        return gbd._betainc_timeout(aa, bb, xx, dps, timeout=BETAINC_RESCUE_TIMEOUT)
+
+    v40 = try_bi(DPS1)
+    if v40 is None:
+        return None
+    if v40 > mp.mpf("0.5"):
+        # Mean predicate misfired -- flip once, same self-correction as
+        # small_side_direct's own primary CF branch.
+        aa, bb, xx, which = (bm, am, 1 - xm, "Q") if which == "P" else (am, bm, xm, "P")
+        v40 = try_bi(DPS1)
+        if v40 is None or v40 > mp.mpf("0.5"):
+            return None
+    v60 = try_bi(DPS2)
+    if v60 is None:
+        v60 = v40
+    rel = abs((v60 - v40) / v60) if v60 != 0 else abs(v60 - v40)
+    final = v60
+    escalated = False
+    if rel > DISAGREE_60_40:
+        v100 = try_bi(DPS3)
+        if v100 is not None:
+            escalated = True
+            rel2 = abs((v100 - v60) / v100) if v100 != 0 else abs(v100 - v60)
+            final = v100
+            if rel2 > DISAGREE_100_60:
+                ESCALATIONS.append((float(a), float(b), float(x), which,
+                                     float(rel), float(rel2)))
+    if final is None or not (0 <= final <= 1):
+        return None
+    if which == "P":
+        P, Q = final, 1 - final
+    else:
+        Q, P = final, 1 - final
+    return P, Q, which, escalated, False
+
+
 def small_side_direct(a, b, x):
     """Returns (P, Q, which, escalated, failed): P, Q are mpf (unrounded);
     which in {'P','Q'} names the side computed DIRECTLY (never via a bare
@@ -1207,7 +1535,20 @@ def small_side_direct(a, b, x):
     # parameter natively, no separate small-tau treatment needed) -- routed
     # to the main path below, whose try_eval already dispatches to
     # gamma_corner_value for max(aa,bb)>=B_GL.
-    if min(am, bm) <= SMALL_TAU_THRESHOLD and max(am, bm) < B_GL:
+    # SEVENTH-CORRECTION oracle alignment: R4-postroute points (near-one R1
+    # traffic, min(a,b) in (SMALL_TAU_THRESHOLD, ~9]) are evaluated by the
+    # kernel's R4 assembly, so the ORACLE uses the same analytic form --
+    # the CF is exactly what stalls on this traffic (2^-55.5, the sixth
+    # correction's own failure). The tag is only computed for the cheap
+    # candidate band: post-route provably requires mean < xi <= 0.45 and
+    # beta*xi <= B1, which bounds min(a,b) <= ~8/(1-8/beta) < 9-ish; the
+    # min-first orientation _small_tau_direct derives coincides with the
+    # fired orientation there (near-one forces alpha < beta).
+    _tag_pr = None
+    if SMALL_TAU_THRESHOLD < min(am, bm) <= 9 and max(am, bm) < B_GL:
+        _tag_pr = route_final(am, bm, xm)[3]
+    if ((min(am, bm) <= SMALL_TAU_THRESHOLD or _tag_pr == "R4-postroute")
+            and max(am, bm) < B_GL):
         def try_tau(dps):
             return _small_tau_direct(a, b, x, dps)
 
@@ -1249,6 +1590,13 @@ def small_side_direct(a, b, x):
             # whole generator exists to avoid -- caught here rather than
             # trusted blindly, and dropped (reported) rather than emitted.
             if final_small > mp.mpf("0.5"):
+                # Q~ converged but ISN'T the genuinely small side -- betainc
+                # rescue [Part 2a] before dropping: a different code path
+                # may still land the correct small side directly.
+                rescue = _betainc_rescue(a, b, x)
+                if rescue is not None:
+                    N_BETAINC_RESCUED[0] += 1
+                    return rescue
                 N_SMALL_TAU_NONCONVERGENT[0] += 1
                 N_CF_FAILED[0] += 1
                 return None, None, which_tau, False, True
@@ -1257,9 +1605,19 @@ def small_side_direct(a, b, x):
                 return final_small, 1 - final_small, "P", escalated, False
             else:
                 return 1 - final_small, final_small, "Q", escalated, False
-        # Non-convergence in the primary small-tau band: per the brief,
-        # fall back to dropping (reported), NOT a CF retry -- the CF is
-        # what this branch exists to route AROUND in exactly this regime.
+        # Non-convergence in the primary small-tau band [small_tau_oracle's
+        # own cancellation guard declined outright, r40 is None]: BETAINC-
+        # WITH-TIMEOUT RESCUE [G1/G2 revision cycle 2, Part 2a] -- before
+        # this cycle, every point here was dropped unconditionally (5,978
+        # points in the prior run, concentrated in the tau<=SMALL_TAU_
+        # THRESHOLD, B~10^3+ gap; see _betainc_rescue's own docstring for
+        # why mpmath.betainc's different code path is worth trying here).
+        # Only points failing BOTH the guard and this rescue are actually
+        # dropped.
+        rescue = _betainc_rescue(a, b, x)
+        if rescue is not None:
+            N_BETAINC_RESCUED[0] += 1
+            return rescue
         N_SMALL_TAU_NONCONVERGENT[0] += 1
         N_CF_FAILED[0] += 1
         native_guess = (xm * (am + bm) <= am)
@@ -1354,7 +1712,17 @@ def small_side_direct(a, b, x):
 import tempfile
 
 CKPT_PATH = os.path.join(tempfile.gettempdir(), f"corvus_beta_ref_ckpt_{SEED}.tsv")
-WALL_CLOCK_BUDGET_S = 480.0  # ~8 minutes of oracle evaluation per invocation
+WALL_CLOCK_BUDGET_S = 260.0  # bounded per invocation; resumable via checkpoint
+# (reduced from 480s during the G1/G2 revision cycle 2 session to fit this
+# agent's own "chunk sweeps to <=~5 minutes" hard rule with headroom for
+# interpreter/import startup -- purely a session-chunking knob, does not
+# change what gets computed, only how much per invocation.)
+MAX_PREWARM_CANDIDATES = int(os.environ.get("CORVUS_BETA_PREWARM_LIMIT", "0")) or None
+# Optional cap on how many currently-FAILED points prewarm_betainc_rescue_
+# checkpoint processes in one call (env-var only, no code-path effect when
+# unset/0) -- lets an interactive session bound a single invocation's
+# batched-rescue wall time explicitly instead of relying on
+# BETAINC_BATCH_TIMEOUT alone; resumable exactly like everything else here.
 
 
 def load_checkpoint(path, expected_sig):
@@ -1408,6 +1776,13 @@ def compute_all(ps):
         if mode == "w":
             fh.write(sig + "\n")
             fh.flush()
+        prewarm_betainc_rescue_checkpoint(ps, done_map, fh)
+    # Reload: the prewarm pass above wrote new entries via a SEPARATE file
+    # handle lifetime (its own append_checkpoint calls flushed already,
+    # but this process's done_map dict was built before those writes) --
+    # re-read so the main loop below sees them as done, not FAILED.
+    done_map = load_checkpoint(CKPT_PATH, sig)
+    with open(CKPT_PATH, "a") as fh:
         for idx, (a, b, x, keep_sat, tag) in enumerate(ps.pts):
             # Skip only genuinely-succeeded points -- a checkpoint entry of
             # "FAILED" from an EARLIER small_side_direct (before the
@@ -1454,10 +1829,12 @@ def compute_all(ps):
     n_failed = 0
     n_pruned_sat = 0
     n_escalated = 0
+    drop_hist = {}  # Part 2a: per-point-set (gen_r*'s own "tag") drop count.
     for idx, (a, b, x, keep_sat, tag) in enumerate(ps.pts):
         fields = done_map[idx]
         if fields[0] == "FAILED":
             n_failed += 1
+            drop_hist[tag] = drop_hist.get(tag, 0) + 1
             continue
         Ph, Qh, which, esc, region, keep_sat_ckpt = fields
         Pf, Qf = float.fromhex(Ph), float.fromhex(Qh)
@@ -1470,11 +1847,16 @@ def compute_all(ps):
         region_hist[base] = region_hist.get(base, 0) + 1
         if region.endswith("-gammalim"):
             region_hist["R2-gammalim"] = region_hist.get("R2-gammalim", 0) + 1
+        if region == "R2-postroute":
+            region_hist["R2-postroute"] = region_hist.get("R2-postroute", 0) + 1
         rows.append((a, b, x, Pf, Qf))
     print(f"  total rows after oracle eval: {len(rows)} (failed {n_failed}, "
           f"pruned {n_pruned_sat} incidental saturations, escalated {n_escalated})",
           file=sys.stderr)
     print(f"  region histogram (route_final classification): {region_hist}",
+          file=sys.stderr)
+    print(f"  drop histogram by point-set tag ({n_failed} total): "
+          f"{dict(sorted(drop_hist.items(), key=lambda kv: -kv[1]))}",
           file=sys.stderr)
     return rows, region_hist, True
 
@@ -1980,6 +2362,9 @@ def main():
     print(f"  region R2-gammalim (subset of R2, max param >= B_GL=2^"
           f"{round(math.log2(float(B_GL)))}): {region_hist.get('R2-gammalim', 0)} "
           f"points (informational, not floor-gated)", file=sys.stderr)
+    print(f"  region R2-postroute (subset of R2, SIXTH-correction near-one "
+          f"post-route from R1): {region_hist.get('R2-postroute', 0)} points "
+          f"(informational, not floor-gated)", file=sys.stderr)
     rc |= rc_hist
 
     rc |= check_small_tau_overlap(random.Random(SEED ^ 0x7A0))
@@ -2025,6 +2410,10 @@ def main():
     print(f"small-tau oracle: rescued {N_SMALL_TAU_RESCUED[0]}, "
           f"non-convergent (dropped) {N_SMALL_TAU_NONCONVERGENT[0]}",
           file=sys.stderr)
+    print(f"betainc-with-timeout rescue [Part 2a]: rescued "
+          f"{N_BETAINC_RESCUED[0]} of the small-tau-guard drops above "
+          f"(only points failing BOTH are counted in the non-convergent "
+          f"total)", file=sys.stderr)
     return 0
 
 
