@@ -156,7 +156,11 @@ int Route(double a, double b, double x, double pref, double qref,
   // Q_gamma; see the slice block in src/beta-inl.h for the mapping).
   const double thr = 1.0 / (1.0 + (b + 1.0) / (a + 1.0));
   const bool sw = !(x < thr);
-  if (gl_hi) {
+  // Both-huge lanes are EXCLUDED from the slice (kernel mirror): the
+  // small/huge mapping needs exactly one parameter above the limit;
+  // both-huge off-band lanes stay plain R2 and saturate via the PB
+  // E-clamp.
+  if (gl_hi && std::min(a, b) < corvus::detail::kBetaGammaLim) {
     const double ra = sw ? b : a;   // routed alpha
     const double rxi = sw ? y : x;  // routed xi
     const bool hf = ra >= corvus::detail::kBetaGammaLim;

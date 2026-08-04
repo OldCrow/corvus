@@ -1323,8 +1323,19 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // Q_gamma) -- never a dd complement round-trip, which would hand a small
   // side back as absolute noise -- and is_p records which side of the
   // ORIGINAL pair that is.
+  // BOTH-HUGE EXCLUSION (found by the first fresh-reference ULP run): the
+  // slice's small/huge mapping is meaningless when BOTH parameters are
+  // >= kBetaGammaLim -- s would itself be huge and the "shape" identity
+  // breaks (witness (1.02e100, 5e101, 0.01), a band-edge float-fuzz
+  // escapee of R3, which came back P = 1 for a true P ~ 0). Such lanes
+  // stay in ordinary R2: off-band with nu >= 2^58 their cpsi exceeds the
+  // saturation floor astronomically, so the PB prefactor's E-clamp
+  // saturates them to the correct side by orientation alone.
   const auto i_gl = op::Mul(
-      i_r2, BetaInd(d, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim))));
+      op::Mul(i_r2,
+              BetaInd(d, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim)))),
+      BetaInd(d, op::Gt(op::Set(d, detail::kBetaGammaLim),
+                        op::Min(alpha, beta))));
   const auto m_gl = BetaIndMask(d, i_gl);
   if (!op::AllFalse(d, m_gl)) {
     const auto hf = op::Ge(alpha, op::Set(d, detail::kBetaGammaLim));

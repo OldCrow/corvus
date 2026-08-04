@@ -1544,6 +1544,40 @@ def small_side_direct(a, b, x):
         return half, half, "P", False, False
     am, bm, xm = mp.mpf(a), mp.mpf(b), mp.mpf(x)
 
+    # NEAR-diagonal midpoint shortcut [rescue round 3]: the diagonal-
+    # BRACKET family (a == b, x = 1/2 -+ one ulp, gen_diagonal's crest
+    # coverage) sits one ulp from the exact shortcut above, where the CF
+    # keeps its documented symmetric instability and mpmath's betainc
+    # HANGS outright (the last two FAILED rows of the whole 41,864-point
+    # set: (1e10, 1e10, 0.5 -+ ulp)). Over |delta| = |x - 1/2| this small
+    # the Beta(a,a) density is constant to a*delta^2 relative (the
+    # integrand is f(1/2)*(1 - 4u^2)^(a-1), and 4(a-1)*delta^2/3 bounds
+    # the correction), so
+    #     I_x(a,a) = 1/2 + f(1/2)*delta,   f(1/2) = (1/4)^(a-1)/B(a,a)
+    # with f evaluated by three lgammas in log space -- no cancellation
+    # anywhere (both sides are ~1/2, so even the complement is safe).
+    # Gate: a*delta^2 <= 1e-20 keeps the neglected term ~1e-20 RELATIVE
+    # TO DELTA, far below double resolution of the emitted pair; the
+    # tight |delta| <= 1e-8 cap keeps this a bracket-family shortcut
+    # rather than a general near-center method (the CF owns that range).
+    if float(a) == float(b):
+        delta = xm - mp.mpf("0.5")
+        if delta != 0 and abs(delta) <= mp.mpf("1e-8") and \
+                am * delta * delta <= mp.mpf("1e-20"):
+            old = mp.mp.dps
+            mp.mp.dps = DPS2
+            try:
+                lnf = (am - 1) * mp.log(mp.mpf(1) / 4) - (
+                    2 * mp.loggamma(am) - mp.loggamma(2 * am))
+                fd = mp.exp(lnf) * abs(delta)
+                half = mp.mpf("0.5")
+                small, big = half - fd, half + fd
+            finally:
+                mp.mp.dps = old
+            if delta < 0:
+                return small, big, "P", False, False
+            return big, small, "Q", False, False
+
     # SMALL-TAU ORACLE branch [round-2 revision]: primary method whenever
     # min(a,b) <= SMALL_TAU_THRESHOLD -- see the derivation/threshold
     # comment at small_tau_oracle. Runs its own dps ladder (identical

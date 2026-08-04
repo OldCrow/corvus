@@ -1306,12 +1306,68 @@ RESUME STATE [2026-08-03, second breakpoint]:
   betainc batches) → on completion writes the three reference files
   + self-checks + coverage audit (histogram rows for R4-postroute
   and R2-gammalim; expect drops ~0 now).
-- NEXT: (1) gating ULP run vs regenerated references (build-clangcl
-  is already built with the new header/kernel; smoke green) — expect
-  R1-cmp fixed (the 429-ULP cell was the routing hole), R4-postroute/
-  R2-gammalim/R3-floor as own rows. (2) G4: pin gates to measured,
-  tier order Kaby native+caps → NEON CI → Ryzen last, merge to main;
-  G5 four-list audit + ACCURACY.md/README same change set.
+- REFERENCE SET COMPLETE [2026-08-04 early]: all 41,864 points
+  resolved, ZERO drops (was 5,978 → 2,623 → 0). The last 2 were the
+  diagonal brackets (1e10, 1e10, ½∓ulp) — CF unstable, betainc HANGS;
+  fixed by a NEAR-diagonal midpoint shortcut in small_side_direct
+  (I = ½ + f(½)·δ, valid to a·δ² ≪ 1; quad-validated to 1e-22 on the
+  delta). Files written: 37,111 rows/side + specials; assembly
+  self-checks all green (analytic 1.5e-31, P+Q exact, cross-check
+  3.4e-24 vs 1e-20).
+
+#### FIRST FRESH-REFERENCE ULP RUN — triage [2026-08-04]
+The catastrophic buckets are 2⁶³-class (sign-flip signature). Direct
+kernel probe (scratchpad\beta\probe_kernel.cpp/exe) + reference-row
+pulls established THREE distinct defects:
+1. KERNEL (FIXED, needs rebuild+verify): the gamma-limit slice
+   admitted BOTH-huge lanes (witness (1.02e100, 5e101, 0.01), a
+   band-edge float-fuzz escapee of R3) where the small/huge mapping is
+   meaningless → returned P=1 for true P≈0. Fix: i_gl requires
+   min(alpha,beta) < kBetaGammaLim (beta-inl.h) + test Route mirror
+   (test_beta_ulp.cpp). Excluded lanes stay plain R2: off-band at
+   ν ≥ 2^58, cψ ≫ 800 always → PB E-clamp saturates the right side.
+2. ORACLE, LIVE BUG (NOT yet fixed): small-τ deep-cancellation noise.
+   When the true small side lies below the w-vs-log1p(τΣ) cancellation
+   noise floor (~scale·10⁻ᵈᵖˢ), the ladder emits noise — 167 NEGATIVE
+   rows in the checkpoint (R1-native 92, R1-swap 42, R2-swap 20,
+   R2-native 13, all esc=1), and the CURRENT oracle still reproduces
+   it: (100, 1e-100, 0.068) → P = −6.6e-105 today (true ≈ +1.9e-219;
+   kernel gets it right: probe P=+1.91e-219). Positive noise of wrong
+   magnitude is equally possible and sign-invisible. FIX PLAN: in
+   small_side_direct's primary small-τ branch, treat as UNRESOLVED and
+   escalate to a deep ladder (dps 160/240/400, accept on consecutive
+   agreement; 400 covers every non-saturated case — worst needed
+   ≈ 325) when: final_small ≤ 0, OR rel2 > DISAGREE_100_60 (currently
+   only appended to ESCALATIONS and still EMITTED — that is the bug's
+   second half), OR final_small < min(a,b)·1e-15 (deep-cancellation
+   proxy). Unresolved after deep ladder → prefilter → rescue → FAILED.
+3. STALE ROWS (NOT yet invalidated): gammalim-family rows predating
+   the gamma-corner oracle carry unjustified saturated pairs —
+   (1, 1e100, 8e-100) stored (1.0, 0.0) vs true P = 1−e⁻⁸ = 0.99966
+   (kernel right, matches the R4-postrt-cmp 3.02e12-ULP and
+   R4-tiny-cmp 339263-ULP signatures exactly). AUDIT+INVALIDATE
+   predicates over the checkpoint: (A) any P/Q outside [0,1];
+   (B) fully-saturated stored pairs {(1,0),(0,1)} whose mean-oriented
+   cheap_logE est ≥ −800 (unjustified saturation; legit half-rounded
+   rows have a nonzero small side and are NOT flagged); (C) all rows
+   with max(a,b) ≥ B_GL (recompute under the NOW-correct gamma-corner
+   + prefilter oracle; ~13–15k rows, ~30–45 min of regen chunks).
+   Count each predicate before invalidating.
+- KERNEL VERDICT SO FAR: every probed catastrophic point is KERNEL-
+  CORRECT except defect 1 (now fixed): (15.85, 6.3e-8, 0.09) →
+  +1.16e-25 ✓, (70.2, 4.4e-7, 0.55) → +8.2e-27 ✓, (1, 1e100, 8e-100)
+  → Q = e⁻⁸ ✓ analytic, (1, 1e250, 2e-250) → Q = e⁻² ✓,
+  (1e-6, 1e250, 8e-250) → Q = s·E₁(8) ✓. The clean buckets (R3 ≤ 3
+  ULP, all cmp-sides ≤ 13) already look G4-grade.
+  ARITHMETIC TRAP that cost an hour: 8e-100·1e100 = 8, not 0.8 — a
+  false ×10 kernel-bug hypothesis; verify t = b·x by exponent sum.
+- NEXT (resume order): (1) implement oracle fix 2 (deep ladder).
+  (2) audit script (predicates A/B/C, counts first) → invalidate →
+  regen loop (CORVUS_BETA_PREWARM_LIMIT=1) → re-run assembly checks.
+  (3) rebuild build-clangcl (kernel fix 1 landed but NOT rebuilt),
+  smoke + gating ULP vs the re-regenerated references. (4) G4: pin
+  gates to measured, tier order Kaby native+caps → NEON CI → Ryzen
+  last, merge to main; G5 four-list audit + ACCURACY.md/README.
 
 #### Decisions made here / still open
 Decided: no gamma-core dependency EXCEPT the (C) gamma-limit slice
