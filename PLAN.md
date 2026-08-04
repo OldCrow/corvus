@@ -1287,17 +1287,29 @@ RESUME STATE [2026-08-03, second breakpoint]:
   kernel edits (they compile only together — kBetaR3GlExt).
   ALSO in flight: rescue loop (pool_rescue3.py × ≤16 chunks; was
   4,405 FAILED after two chunks from 4,872).
-- NEXT: (1) finish rescue loop (leave genuinely-dead rows FAILED).
-  (2) Invalidate checkpoint rows whose oracle dispatch changed:
-  min ∈ (2⁻⁴, 2.5] & route_final tag R4-postroute — REMOVE the rows
-  (compact the file, keep latest-per-idx) so the MAIN loop recomputes
-  via the small-τ path, NOT by marking FAILED (prewarm would betainc
-  them instead). NOTE the gate is now 2.5, not 1.5. (3) Reference
-  regen chunks to completion; self-checks + coverage audit (histogram
-  rows for R4-postroute and R2-gammalim). (4) Rebuild build-clangcl
-  (vcvars64 import), smoke + ULP vs regenerated references — expect
+- RESCUE COMPLETE [2026-08-03 late]: betainc pool drained 4,872 →
+  2,623 (zero ladder disagreements); the residue autopsy found the
+  REAL story — 4/5 sampled "dead" rows succeed in 0.6 s under the
+  CURRENT oracle (their FAILED verdicts predate the revisions), and
+  the rest are SATURATION-class (small side ~1e-869000). Root cause:
+  the small-τ branch was the only oracle branch WITHOUT the
+  cheap_logE saturation prefilter. FIXED: _saturation_prefilter()
+  added to both of its failure paths (gen_beta_reference.py, before
+  the betainc rescue). All 5 samples now resolve in 0.1 s.
+  TRAP for probes: _betainc_timeout from a guardless top-level script
+  breaks Windows spawn bootstrapping and masquerades as a fast
+  failure — wrap probes in if __name__ == '__main__'.
+- DONE: invalidation compaction ran — 129 dispatch-changed
+  R4-postroute rows removed (rows 41,864 → 41,735 latest-per-idx).
+- IN FLIGHT: reference regen loop (CORVUS_BETA_PREWARM_LIMIT=1 so
+  FAILED re-attempts go through the main loop's prefilter/CF, not
+  betainc batches) → on completion writes the three reference files
+  + self-checks + coverage audit (histogram rows for R4-postroute
+  and R2-gammalim; expect drops ~0 now).
+- NEXT: (1) gating ULP run vs regenerated references (build-clangcl
+  is already built with the new header/kernel; smoke green) — expect
   R1-cmp fixed (the 429-ULP cell was the routing hole), R4-postroute/
-  R2-gammalim/R3-floor as own rows. (5) G4: pin gates to measured,
+  R2-gammalim/R3-floor as own rows. (2) G4: pin gates to measured,
   tier order Kaby native+caps → NEON CI → Ryzen last, merge to main;
   G5 four-list audit + ACCURACY.md/README same change set.
 

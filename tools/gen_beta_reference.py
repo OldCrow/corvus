@@ -1493,6 +1493,34 @@ def _betainc_rescue(a, b, x):
     return P, Q, which, escalated, False
 
 
+def _saturation_prefilter(am, bm, xm):
+    """Mean-predicate-oriented cheap_logE saturation check -- the SAME
+    prefilter/threshold the main CF path applies before its dps ladder
+    (see SATURATION_LOG_THRESHOLD's comment for the -900 margin argument).
+    Returns the standard 5-tuple with an exact saturated pair, or None.
+
+    [G2 rescue round 3, found by drop-population autopsy]: the small-tau
+    branch was the ONLY oracle branch WITHOUT the prefilter, and its
+    failure paths returned FAILED for points whose small side is
+    astronomically past the subnormal floor -- e.g. (8.4e-4, 3.9e7, 0.05),
+    small side ~ 1e-869000, where the APSER guard rightly declines and
+    betainc rightly fails, yet the correct double reference row is exactly
+    (1.0, 0.0), certifiable from the prefactor magnitude alone. ~2.6k
+    checkpoint rows sat FAILED with a certifiable answer."""
+    c = am + bm
+    if xm * c <= am:
+        aa, bb, xx, which = am, bm, xm, "P"
+    else:
+        aa, bb, xx, which = bm, am, 1 - xm, "Q"
+    est = cheap_logE(float(aa), float(bb), float(xx))
+    if est < SATURATION_LOG_THRESHOLD:
+        N_PREFILTER_SATURATED[0] += 1
+        zero, one = mp.mpf(0), mp.mpf(1)
+        return (zero, one, which, False, False) if which == "P" else \
+               (one, zero, which, False, False)
+    return None
+
+
 def small_side_direct(a, b, x):
     """Returns (P, Q, which, escalated, failed): P, Q are mpf (unrounded);
     which in {'P','Q'} names the side computed DIRECTLY (never via a bare
@@ -1590,9 +1618,16 @@ def small_side_direct(a, b, x):
             # whole generator exists to avoid -- caught here rather than
             # trusted blindly, and dropped (reported) rather than emitted.
             if final_small > mp.mpf("0.5"):
-                # Q~ converged but ISN'T the genuinely small side -- betainc
-                # rescue [Part 2a] before dropping: a different code path
-                # may still land the correct small side directly.
+                # Q~ converged but ISN'T the genuinely small side. Cheap
+                # saturation prefilter FIRST [rescue round 3] -- the true
+                # small side may be certifiably past the subnormal floor,
+                # in which case the betainc rescue below can only waste
+                # its three timeout layers on it.
+                sat = _saturation_prefilter(am, bm, xm)
+                if sat is not None:
+                    return sat
+                # betainc rescue [Part 2a] before dropping: a different
+                # code path may still land the correct small side directly.
                 rescue = _betainc_rescue(a, b, x)
                 if rescue is not None:
                     N_BETAINC_RESCUED[0] += 1
@@ -1613,7 +1648,11 @@ def small_side_direct(a, b, x):
         # THRESHOLD, B~10^3+ gap; see _betainc_rescue's own docstring for
         # why mpmath.betainc's different code path is worth trying here).
         # Only points failing BOTH the guard and this rescue are actually
-        # dropped.
+        # dropped. Saturation prefilter FIRST [rescue round 3] -- same
+        # rationale as the near-one site above.
+        sat = _saturation_prefilter(am, bm, xm)
+        if sat is not None:
+            return sat
         rescue = _betainc_rescue(a, b, x)
         if rescue is not None:
             N_BETAINC_RESCUED[0] += 1
