@@ -1235,28 +1235,71 @@ beta-side dd prefactor (E_g = s·ln t ⊖ t ⊖ lgamma(s), t dd; val =
 naturally-computed side, is_p double-XNOR — never a dd complement
 round-trip of a small side).
 
-RESUME STATE [2026-08-03, pre-compaction breakpoint]:
-- DONE: all source edits above, committed on beta/g3-kernel.
-- IN FLIGHT at break: final gen_beta_data.py verification run (all
-  checks incl. the (c) extension + τ-sup line; the pre-τ-gate run
-  already passed everything else) → commit regenerated src/beta_data.h
-  after diffing (tables must be bit-identical, only new constants).
-- NEXT: (1) rework the pool-based betainc rescue for the 6,106 FAILED
-  checkpoint rows — NOTE the REAL checkpoint format (probe before
-  writing): header "v2 SEED=... N=...", rows
-  "idx<TAB>P<TAB>Q<TAB>side<TAB>esc<TAB>region<TAB>ok" hex-float,
-  failures "idx<TAB>FAILED", keyed by POINT INDEX (reconstruct the
-  point list via the seeded gen_* calls, as run_prewarm_chunk.py
-  does); the old batched prewarm HANGS (killed) — use a persistent
-  Pool(6, maxtasksperchild) with per-point result timeouts and pool
-  rebuild on timeout (draft at scratchpad\beta\pool_rescue.py, needs
-  the format fix). (2) Reference regen: checkpoint reuse EXCEPT
-  invalidate rows with min ∈ (2⁻⁴, 1.5] whose route_final tag is
-  R4-postroute (their oracle dispatch changed to the small-τ path).
-  (3) Rebuild build-clangcl (vcvars import), smoke + ULP vs the
-  regenerated references — expect R1-cmp ≤ few ULP now (the 429-ULP
-  cell was the routing hole), R4-postroute/R2-gammalim as own rows.
-  (4) Then G4 proper: pin gates to measured, tier sweeps, merge.
+#### R3 depth extension + EIGHTH correction (frontier, hands-on)
+[2026-08-03, post-compaction session — both found by the verification
+run the seventh-correction commit left in flight]
+1. **Check (c) extension lattice FAILED at 2⁻⁵⁰·²⁷ (ν = 20, p-edge)**
+   — the K = 10 table's 1/ν truncation alone (probe-matched exactly),
+   NOT a fit or extrapolation defect. Fix: **p→0-edge DEPTH EXTENSION**
+   kBetaR3GlExt[3][25] — e_k(ζ, 2⁻²⁰) for k = 10..12, 1D Chebyshev in
+   the same t = ζ/ζ_max, applied by BetaR4Temme→BetaR3Temme on
+   gamma-limit lanes only (masked add ·r¹⁰; safe at every slice ν
+   since non-negligible ⇒ p tiny). K = 13 measured 2⁻⁶⁰·¹ worst
+   all-interpolated (4-bit margin); table now 29.88 KiB of 32.
+   TRAPS learned: (a) extraction at p = 2⁻⁵⁰ is INVALID — the ladder's
+   c = ν/p crosses the CF-ground-truth ceiling (~2⁶¹, B_GL derivation's
+   own finding) and LSQ fits the noise into high orders; extract at
+   2⁻²⁰ (ladder c ≤ 2³⁵; e_k p-slope ~1e-7, ÷ν¹⁰ ⇒ 2⁻⁶⁶-class).
+   (b) POINTWISE extraction at small nonzero ζ (|ζ| ~ 0.03) is
+   ill-conditioned at ANY p (e_9: 5.9e-4 → 19; ~1/ζ growth signature)
+   — node extraction + interpolation is clean and probe-validated at
+   exactly those ζ (2⁻⁶⁰·⁶..2⁻⁶²). Probes: scratchpad\beta\probe9*.
+2. **Check (e) extended pocket FAILED (first actual run — the prior
+   pass died at (c) before reaching it): (1.6, 20, 0.4) value 0.99985,
+   complement 1.52e-4 < 2⁻¹² doctrine bound, stay-R1 under the 1.5
+   τ-gate.** The "τ > 1.5 safe band" claim was gamma-limit reasoning,
+   wrong at moderate β (second time this class of error bit — see the
+   τ-gate lattice bug). **EIGHTH correction: kBetaPrTauMax 1.5 → 2.5**
+   + BetaR4Tiny's lgamma(1+τ) grows a third zone (one recurrence step:
+   lgamma(τ) + ln τ, τ−2 Sterbenz-exact, LogDdAny; sum cannot cancel —
+   lgamma ≥ −0.1215 vs ln τ ≥ 0.405). Bar (1−2⁻¹¹) < doctrine bound
+   (1−2⁻¹²) ⇒ every violating τ ≤ 2.5 lane post-routes by
+   construction; pocket alphas 2.6/2.8/3/4 police the remainder
+   (box-corner Q ~ 7e-4 at 2.6, ~3× margin). Rejected alternatives:
+   R1 swap-orientation (violates ξ₁ cap: 0.6⁶⁴ = 2⁻⁴⁷); routing-time
+   R2-swap diversion (reintroduces the sixth-correction CF stall shape
+   at ξ→1). LgammaDiffDd audit: m ≤ 256 covers τ ≤ 2.5; α = min holds
+   at any gate (near-one ⇒ β > α(1−ξ₁)/ξ₁ > 1.22α).
+
+RESUME STATE [2026-08-03, second breakpoint]:
+- DONE this session: generator (P_EXT_GL/K_GL_EXT/BETA_PR_TAU_MAX,
+  build_r3_gl_ext, eval_r3_S gl_ext, check (c) gl lattice w/ ext +
+  ν 45/128 rows, check (f) α lattice to 2.5 + (1.6,20,0.4) witness,
+  check (e) pocket + 2.6/2.8, kBetaR3GlExt/kBetaPrTauMax emission);
+  kernel (BetaR3Temme i_gl arg + ext Clenshaw block, BetaR4Tiny
+  three-zone lgamma, driver comment + call site); pool_rescue3.py
+  (windowed-parallel, works: ~340/chunk, format verified).
+- IN FLIGHT: generator run 3 (scratchpad\beta_data_final3.h +
+  beta_gen_final3_stderr.txt) — expect ALL checks green now; then
+  diff vs committed src/beta_data.h: pre-existing tables bit-identical,
+  NEW kBetaR3GlExt[3][25] + kBetaPrTauMax now 2.5 + kBetaGammaLim/
+  kBetaNearOne/kBetaGlRidgeMin as before. Install + commit with the
+  kernel edits (they compile only together — kBetaR3GlExt).
+  ALSO in flight: rescue loop (pool_rescue3.py × ≤16 chunks; was
+  4,405 FAILED after two chunks from 4,872).
+- NEXT: (1) finish rescue loop (leave genuinely-dead rows FAILED).
+  (2) Invalidate checkpoint rows whose oracle dispatch changed:
+  min ∈ (2⁻⁴, 2.5] & route_final tag R4-postroute — REMOVE the rows
+  (compact the file, keep latest-per-idx) so the MAIN loop recomputes
+  via the small-τ path, NOT by marking FAILED (prewarm would betainc
+  them instead). NOTE the gate is now 2.5, not 1.5. (3) Reference
+  regen chunks to completion; self-checks + coverage audit (histogram
+  rows for R4-postroute and R2-gammalim). (4) Rebuild build-clangcl
+  (vcvars64 import), smoke + ULP vs regenerated references — expect
+  R1-cmp fixed (the 429-ULP cell was the routing hole), R4-postroute/
+  R2-gammalim/R3-floor as own rows. (5) G4: pin gates to measured,
+  tier order Kaby native+caps → NEON CI → Ryzen last, merge to main;
+  G5 four-list audit + ACCURACY.md/README same change set.
 
 #### Decisions made here / still open
 Decided: no gamma-core dependency EXCEPT the (C) gamma-limit slice
@@ -1272,8 +1315,10 @@ exact-c_dd rule for every lgamma-argument path; specials table above;
 own TU. Pinned: N₁ = 64, N₂ = 64, T_ridge = 32, B₁ = 8, ξ₁ = 0.45,
 ε_R4 = 2⁻⁶, R4 N = 48, Z₀ = 10, K_B = 16, C_lg = 256 (provisional),
 E_floor = −800, R2 orientation rule ξ < (α+1)/(c+2), ratio caps
-[½, 2], ζ_max = √(3 ln 2/2), R3 K = 10 @ 25×15 (29.3 KiB),
-η_γ = −ζ√2 mapping. [OPEN — later gates]: BinetDd's kernel home (G3;
+[½, 2], ζ_max = √(3 ln 2/2), R3 K = 10 @ 25×15 + gl-ext K 10..12 @ 25
+(29.88 KiB total), η_γ = −ζ√2 mapping, kBetaPrTauMax = 2.5 (EIGHTH),
+kBetaGammaLim = 2⁵⁹, kBetaNearOne = 1−2⁻¹¹, kBetaGlRidgeMin = 20,
+P_EXT_GL = 2⁻²⁰ (extraction-side only). [OPEN — later gates]: BinetDd's kernel home (G3;
 generator emits fresh coefficients either way); the c-overflow guard
 site (G3); C_lg drop to 128 if G4 measures hot; G2 next — reference
 generator + point sets.

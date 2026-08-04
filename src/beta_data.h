@@ -18,6 +18,37 @@ inline constexpr double kBetaClg = 0x1.0000000000000p+8;
 inline constexpr double kBetaExpFloor = -0x1.9000000000000p+9;
 inline constexpr double kBetaLn2 = 0x1.62e42fefa39efp-1;
 inline constexpr double kBetaZetaMax = 0x1.0508e55795f63p+0;
+// kBetaGammaLim (B_GL) [G3 escalation (C), 'gamma-limit slice']:
+// max(alpha,beta) >= this, on the CF-oriented triple, routes R2 to
+// the gamma-limit path instead of the backward CF (which is
+// structurally degenerate up there -- see the derivation/deviation
+// comment at _derive_gamma_lim in this generator; PROVISIONAL,
+// frontier review owed, per that comment).
+inline constexpr double kBetaGammaLim = 0x1.0000000000000p+59;
+// kBetaNearOne [SEVENTH routing correction]: after the R1 pass,
+// any lane whose R1 dd value EXCEEDS this folds into the R4
+// core's lane set in the SAME orientation (R4's analytic
+// small-side assembly; R1's box already supplies R4's
+// convergence caps and the near-one condition puts the Expm1
+// argument below ~2^-10). One bit inside the 1-2^-12
+// complement-slack doctrine bound -- margin for the compare
+// being on the dd value. Generator-proved: check (f)'s
+// post-route-domain truncation lattice.
+inline constexpr double kBetaNearOne = 0x1.ffc0000000000p-1;
+// Post-route tau ceiling [EIGHTH correction: 1.5 -> 2.5]: one
+// lgamma recurrence step past the centre-2 zone edge (BetaR4Tiny's
+// three-zone lgamma(1+tau)). The bar above sits BELOW the 1-2^-12
+// doctrine bound, so every doctrine-violating tau <= 2.5 lane
+// post-routes by construction; check (e)'s pocket proves the
+// tau > 2.5 remainder clears the bound on its own (the 1.5 gate
+// failed exactly there: (1.6, 20, 0.4), Q = 1.52e-4 < 2^-12).
+inline constexpr double kBetaPrTauMax = 0x1.4000000000000p+1;
+// Gamma-limit slice ridge floor [(C) resolution]: in-band lanes
+// with max(alpha,beta) >= kBetaGammaLim use R3 down to nu = 20
+// (gamma's own kGammaAT; the CF is degenerate up there). The 1/nu
+// extrapolation below the extraction ladder is proved by check
+// (c)'s extension lattice at the anchor p.
+inline constexpr double kBetaGlRidgeMin = 0x1.4000000000000p+4;
 inline constexpr int kBetaN1 = 64;
 inline constexpr int kBetaN2 = 64;
 inline constexpr int kBetaR4N = 48;
@@ -351,6 +382,28 @@ inline constexpr double kBetaR3Cheb[10][25][15] = {
         {0x1.356f69621f701p-48, -0x1.25158ce46877ep-47, 0x1.f04f8cb2df0aep-48, -0x1.74d16630f26d4p-48, 0x1.eddf690aa0a07p-49, -0x1.1ff7dc0ef075fp-49, 0x1.2852c53bfe065p-50, -0x1.0df77521f8616p-51, 0x1.b36699c693b2ep-53, -0x1.335438948b6c4p-54, 0x1.6d80fb0e79bcbp-56, -0x1.41be904c169f7p-58, 0x1.231750930b973p-62, 0x1.e7331f61a959cp-62, -0x1.35614f73f352fp-62},
         {-0x1.c2d1b4c9d072bp-47, 0x1.aa4a44fc04e0bp-46, -0x1.68542ee2ce9c7p-46, 0x1.102402109c28fp-46, -0x1.6f1dd4580d676p-47, 0x1.ba07bc61dae95p-48, -0x1.da70cdebf3457p-49, 0x1.c4e7c391bd803p-50, -0x1.7e0f9ab19f30ap-51, 0x1.17b2837b0970bp-52, -0x1.54edf5d69ecb8p-54, 0x1.33de673937dd4p-56, -0x1.b47e9b3b5ac8ep-61, -0x1.072e30188aa06p-59, 0x1.9e57dd8347fdep-61},
     },
+};
+
+// [(C) slice DEPTH EXTENSION] p->0-edge rows k = 10..12:
+// e_k(zeta, 2^-20) as 1D Chebyshev in the SAME t =
+// zeta/kBetaZetaMax the 2D table uses. Gamma-limit ridge lanes
+// (in R3 with max(alpha,beta) >= kBetaGammaLim) add
+//   tsign * Horner_j(kBetaR3GlExt[j], 1/nu) / nu^kBetaR3K
+// after the main K rows: K=10 truncation alone is 2^-50-class
+// at nu = kBetaGlRidgeMin; with these rows the measured worst
+// is 2^-60-class (check (c)'s extension lattice). The rows are
+// p->0-EDGE values: whenever they are non-negligible (nu small)
+// the slice lane's own p = min/(a+b) <= nu/kBetaGammaLim is
+// tiny, so applying them at every slice-ridge nu is safe by
+// construction (at large nu the /nu^10 weight erases them).
+// Extracted at p = 2^-20, NOT smaller: the extraction ladder's
+// c = nu/p must stay below the CF-ground-truth ceiling (~2^61)
+// -- see build_r3_gl_ext in the generator.
+inline constexpr int kBetaR3GlK = 3;
+inline constexpr double kBetaR3GlExt[3][25] = {
+    {0x1.818810bc38e0dp-10, 0x1.7c19bfc3ce65dp-10, -0x1.a7e114560ea05p-13, -0x1.3a8fa3e0d100ap-11, -0x1.5a165a63895cdp-12, -0x1.2c1d7fe6af26cp-14, 0x1.32e92948bf78bp-16, 0x1.586d1d7d4a7cdp-16, 0x1.fea8626d75337p-18, 0x1.07d56496ae7e2p-20, -0x1.eda9949da78dcp-22, -0x1.5448f9e3a7093p-22, -0x1.7fc99440385cap-24, -0x1.970af4e3eaabcp-28, 0x1.ab033e69aca4ap-28, 0x1.a9e6baaf388b8p-29, 0x1.7e09b1b631e5cp-31, 0x1.4c021bc582da7p-37, -0x1.0edcd7703da2bp-34, -0x1.dcc024bcaca06p-36, 0x1.bd591635760a1p-40, 0x1.f5a7af1cb161fp-39, -0x1.a3854c69c155ep-38, -0x1.bab2e89c47299p-40, 0x1.df560a394b254p-38},
+    {-0x1.f402be53aaaccp-11, -0x1.c10449eea43abp-9, -0x1.41644196cc8c6p-9, -0x1.60820a869a97cp-11, 0x1.a95803c5edf3fp-13, 0x1.1afe5feb6048ap-12, 0x1.e2981de74cdffp-14, 0x1.1b123cad34cdbp-16, -0x1.23069f791044ep-17, -0x1.bbeda627dde37p-18, -0x1.11fcd73a81cc8p-19, -0x1.3dfde197d90d4p-23, 0x1.62f5a3d614639p-23, 0x1.7bdddc2cd8f15p-24, 0x1.6c46cc7553947p-26, 0x1.d3709ad06aaacp-32, -0x1.1f91ffcafe94dp-29, -0x1.2661fc28a87a7p-30, 0x1.7c5539e4fab95p-35, 0x1.e2f8e1ea3d903p-33, -0x1.fa1d0746ad3a5p-33, -0x1.3711e4927b275p-33, 0x1.391c9f7527474p-32, 0x1.4d6a9d60d2843p-34, -0x1.4d4866e4d7b94p-32},
+    {-0x1.07cbd94366ec3p-8, -0x1.df750af83e022p-9, 0x1.750ebb7ceccbbp-10, 0x1.45bc33d2dac3dp-9, 0x1.533bf8ddf713cp-10, 0x1.dbd1885049096p-13, -0x1.0ebb924fa3deap-13, -0x1.d82ad0480f5e9p-14, -0x1.46db2221dffdfp-15, -0x1.b106c507563d6p-19, 0x1.f6fd55095aed3p-19, 0x1.267b47eccc9a6p-19, 0x1.31fd89ec27c75p-21, 0x1.f72751102c557p-27, -0x1.07857b303622ep-24, -0x1.2b0a5c0af08c1p-25, -0x1.b9b8159a7d547p-30, 0x1.0825b179ce2a6p-27, -0x1.4f9226f1cbb72p-28, -0x1.885ba3ae5756dp-28, 0x1.e4d1b9b8ffc90p-28, 0x1.1ed9fb5b7964bp-28, -0x1.1565b77b496fep-27, -0x1.28ce0ec2ca20ep-29, 0x1.27cb02880090ep-27},
 };
 
 // Binet/Stirling tail coefficients (fresh table, own Z0/K_B target;

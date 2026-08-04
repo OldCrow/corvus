@@ -769,8 +769,11 @@ HWY_INLINE op::V<D> BetaClenshawP(D d, const double* row, op::V<D> u,
   return op::Sub(op::MulAdd(u, b1, op::Set(d, row[0])), b2);
 }
 
+// i_gl: 1.0 on gamma-limit lanes (max(alpha,beta) >= kBetaGammaLim), which
+// additionally evaluate the p->0-edge depth-extension rows -- see below.
 template <class D>
-HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps) {
+HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
+                                      op::V<D> i_gl) {
   const auto one = op::Set(d, 1.0);
   const auto zero = op::Zero(d);
   const auto half = op::Set(d, 0.5);
@@ -801,6 +804,36 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps) {
     const auto r0 = BetaClenshawP(d, detail::kBetaR3Cheb[k][0], u, u2);
     const auto row = op::Sub(op::MulAdd(t, b1, r0), b2);
     sum = op::MulAdd(sum, r, op::Mul(tsign, row));
+  }
+
+  // [(C) slice DEPTH EXTENSION]: gamma-limit ridge lanes add the p->0-edge
+  // rows k = 10..12 (kBetaR3GlExt, 1D Chebyshev in the same t) -- the main
+  // K=10 truncation alone is 2^-50-class at nu = kBetaGlRidgeMin, 2^-60
+  // with these (generator check (c)'s extension lattice). The rows are
+  // p-edge values, applied at EVERY slice nu: whenever they are
+  // non-negligible (small nu) the lane's own p <= nu/kBetaGammaLim is
+  // tiny, so the edge coefficients are the right ones by construction;
+  // at large nu the r^10 weight erases them. tsign carries the p > 1/2
+  // symmetry exactly as for the main rows.
+  {
+    auto es = zero;
+    for (int k = detail::kBetaR3GlK - 1; k >= 0; --k) {
+      auto b1 = zero;
+      auto b2 = zero;
+      for (int n = detail::kBetaR3NZ - 1; n >= 1; --n) {
+        const auto nb = op::Sub(
+            op::MulAdd(t2, b1, op::Set(d, detail::kBetaR3GlExt[k][n])), b2);
+        b2 = b1;
+        b1 = nb;
+      }
+      const auto row = op::Sub(
+          op::MulAdd(t, b1, op::Set(d, detail::kBetaR3GlExt[k][0])), b2);
+      es = op::MulAdd(es, r, row);
+    }
+    const auto r2 = op::Mul(r, r);
+    const auto r4 = op::Mul(r2, r2);
+    const auto r10 = op::Mul(op::Mul(r4, r4), r2);
+    sum = op::MulAdd(op::Mul(i_gl, r10), op::Mul(tsign, es), sum);
   }
 
   const auto z = DdSqrt(d, ps.cpsi);
@@ -865,8 +898,9 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps) {
 // continued fraction on their overlap band.
 //
 // tau*|ln xi_tau| <= ln 2 on R4's own box, so |w| stays below ~1 there.
-// POST-ROUTED lanes [SEVENTH correction] have no ln-2 cap and tau up to
-// kBetaPrTauMax = 1.5, but their defining property (R1 value > kBetaNearOne)
+// POST-ROUTED lanes [SEVENTH correction; EIGHTH widens the gate] have no
+// ln-2 cap and tau up to
+// kBetaPrTauMax = 2.5, but their defining property (R1 value > kBetaNearOne)
 // means w and log1p(tau*Sigma) CANCEL to below ~2^-10 -- the dd addition
 // carries that cancellation at ~2^-105 absolute, so the relative error of
 // the small result stays ~2^-94-class, and Expm1Dd receives the already-
@@ -901,14 +935,26 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
     if (op::AllTrue(d, op::Eq(live, zero))) break;
   }
 
-  // lgamma(1+tau) at the exact shifted argument -- the full GammaSmallQ
-  // two-zone form [SEVENTH correction]: post-routed lanes carry tau up to
-  // kBetaPrTauMax = 1.5 (original R4 lanes stay <= eps_R4 = 2^-6), so the
-  // centre-2 zone (1+tau in [1.5, 2.5], t = tau - 1 exact by Sterbenz for
-  // tau in [1/2, 1.5]) is live here now, not just centre-1.
+  // lgamma(1+tau) at the exact shifted argument -- the GammaSmallQ zone
+  // form, three-zone [EIGHTH correction widens the SEVENTH's tau gate]:
+  // post-routed lanes carry tau up to kBetaPrTauMax = 2.5 (original R4
+  // lanes stay <= eps_R4 = 2^-6):
+  //   tau <= 1/2:        centre-1 at tz = tau (1+tau in [1, 1.5]);
+  //   1/2 < tau <= 3/2:  centre-2 at tz = tau - 1 (Sterbenz-exact);
+  //   3/2 < tau <= 5/2:  one recurrence step, lgamma(1+tau) = lgamma(tau)
+  //                      + ln tau, centre-2 at tz = tau - 2 (Sterbenz-
+  //                      exact for tau in [1, 4]) plus LogDdAny(tau).
+  //                      Both pieces are dd-relative-accurate and the sum
+  //                      cannot cancel to below its own class: lgamma(tau)
+  //                      >= -0.1215 on (3/2, 5/2] while ln tau >= 0.405.
   const auto c1 = op::Ge(op::Set(d, detail::kLgammaZoneLo), tau);
-  const auto tz = op::IfThenElse(c1, tau, op::Sub(tau, one));
-  const auto lg1 = DdMulD(d, ZoneBracket(d, tz, c1), tz);
+  const auto m3 = op::Gt(tau, op::Set(d, detail::kLgammaZoneMid));
+  const auto tz = op::IfThenElse(
+      c1, tau, op::Sub(tau, op::IfThenElse(m3, op::Add(one, one), one)));
+  auto lg1 = DdMulD(d, ZoneBracket(d, tz, c1), tz);
+  const auto lt = LogDdAny(d, tau);
+  lg1 = DdAdd(d, lg1, Dd<D>{op::IfThenElse(m3, lt.hi, zero),
+                            op::IfThenElse(m3, lt.lo, zero)});
 
   auto w = DdMulD(d, lxi, tau);
   w = DdAdd(d, w, LgammaDiffDd(d, bb, tau));
@@ -1188,12 +1234,20 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // construction -- R1's box supplies R4's convergence caps (xi <= xi1,
   // beta*xi <= B1) and near-one puts the Expm1 argument in its ideal
   // zone -- so they fold into the R4 core's lane set below, SAME
-  // orientation (alpha = min there, so the tiny-first frame and lxt
-  // already agree). The tau ceiling kBetaPrTauMax = 1.5 is lgamma's
-  // centre-2 zone edge; the generator proves the bar cannot fire above
-  // ~1.35 and check (e) covers the remainder. This replaces the sixth
-  // correction's opposite-orientation CF destination, which stalled at
-  // 2^-55.5 on the CF's small-second-parameter weakness (generator check
+  // orientation (alpha = min there: near-one requires the mean below
+  // xi <= xi1, i.e. beta > alpha*(1-xi1)/xi1 > alpha -- holds at any
+  // gate). The tau ceiling kBetaPrTauMax = 2.5 [EIGHTH correction; was
+  // 1.5] is one lgamma recurrence step past the centre-2 edge (see
+  // BetaR4Tiny's three-zone lgamma(1+tau)): check (e)'s extended pocket
+  // found stay-R1 lanes at tau = 1.6 (b = 20, x = 0.4) whose complement
+  // dips BELOW the 2^-12 doctrine bound -- the earlier "safe band"
+  // claim was gamma-limit reasoning, wrong at moderate beta. With the
+  // gate at 2.5, any doctrine-violating lane also exceeds the
+  // kBetaNearOne bar (1 - 2^-11 < 1 - 2^-12) and therefore post-routes;
+  // above 2.5 the pocket shows the box-corner complement clears 2^-12
+  // with ~3x margin. This replaces the sixth correction's
+  // opposite-orientation CF destination, which stalled at 2^-55.5 on
+  // the CF's small-second-parameter weakness (generator check
   // (b)(viii), witness (0.0234, 1e6, 4e-6)).
   const auto i_pr = op::Mul(
       i_r1, op::Mul(BetaInd(d, op::Gt(val.dd.hi,
@@ -1205,7 +1259,11 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   const auto m_r4x = BetaIndMask(d, i_r4x);
 
   if (!op::AllFalse(d, m_r3)) {
-    auto t3 = BetaR3Temme(d, ps);
+    // The depth-extension indicator is the bmax gate alone (not i_glr's
+    // nu part): every R3 slice lane gets the extension rows, including
+    // nu >= T_ridge ones -- safe at any nu, see BetaR3Temme's comment.
+    auto t3 = BetaR3Temme(
+        d, ps, BetaInd(d, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim))));
     t3.val.v = op::IfThenElse(t3.sat, zero, t3.val.v);
     t3.val.dd.hi = op::IfThenElse(t3.sat, zero, t3.val.dd.hi);
     t3.val.dd.lo = op::IfThenElse(t3.sat, zero, t3.val.dd.lo);
