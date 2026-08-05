@@ -1361,13 +1361,42 @@ pulls established THREE distinct defects:
   ULP, all cmp-sides ≤ 13) already look G4-grade.
   ARITHMETIC TRAP that cost an hour: 8e-100·1e100 = 8, not 0.8 — a
   false ×10 kernel-bug hypothesis; verify t = b·x by exponent sum.
-- NEXT (resume order): (1) implement oracle fix 2 (deep ladder).
-  (2) audit script (predicates A/B/C, counts first) → invalidate →
-  regen loop (CORVUS_BETA_PREWARM_LIMIT=1) → re-run assembly checks.
-  (3) rebuild build-clangcl (kernel fix 1 landed but NOT rebuilt),
-  smoke + gating ULP vs the re-regenerated references. (4) G4: pin
-  gates to measured, tier order Kaby native+caps → NEON CI → Ryzen
-  last, merge to main; G5 four-list audit + ACCURACY.md/README.
+- DONE [2026-08-04]: oracle fix 2 (deep ladder) — _small_tau_deep
+  (dps 160/240/400, accept on consecutive-level agreement with
+  0 < s ≤ ½ and rel ≤ DISAGREE_100_60), wired ahead of the wrong-side
+  check in small_side_direct's small-τ branch; rel2 initialized so the
+  noise flag is always defined. Verified vs INDEPENDENT mp.quad
+  (scratchpad\beta\verify_deep.py): (100, 1e-100, 0.068) now
+  +1.9105e-219 (was −6.58e-105), quad agrees to 1.3e-4 of itself;
+  the (630.96, 1e-300, ·) pair correctly saturates (true ~1e-1941);
+  both ULP witnesses re-resolve to 2⁻⁴⁶-or-better agreement.
+- DONE [2026-08-04]: audit + invalidation (predicates A/B/C/D,
+  scratchpad\beta\audit_invalidate.py): rows 41,864; A(out-of-range)
+  =167, B(unjustified-sat)=138, C(gammalim)=1,784, D(noise-suspect,
+  min(a,b) ≤ 2⁻⁴ ∧ esc ∧ small < min(a,b)·1e-15)=553; union dropped
+  2,483, checkpoint compacted to 39,381 rows, 0 FAILED.
+- NEXT (resume order): (1) regen loop over the 2,483 invalidated rows
+  (CORVUS_BETA_PREWARM_LIMIT=1, BETAINC_BATCH_TIMEOUT=10 via
+  scratchpad\beta\run_regen_final.py) → assembly self-checks +
+  coverage audit on completion. (2) rebuild build-clangcl (kernel
+  both-huge fix landed but NOT rebuilt), smoke + gating ULP vs the
+  re-regenerated references. (3) G4: pin gates to measured, tier
+  order Kaby native+caps → NEON CI → Ryzen last, merge to main;
+  G5 four-list audit + ACCURACY.md/README.
+- ADOPTED VALIDATION GAPS [2026-08-04 design review; add at the named
+  steps, not before]:
+  (i) Monotonicity-in-x gate — at step (2)/G4: post-pass grouping the
+      reference set by (a,b), assert P non-decreasing in x on BOTH the
+      oracle values (catches residual oracle noise of the deep-ladder
+      class) and kernel output (catches seam discontinuities the
+      pointwise ULP gate can miss when both sides of a boundary are
+      individually in-budget). Lives in test_beta_ulp as a post-pass.
+  (ii) Seam-crossing sweep — at G4: dense x-line through each routing
+      boundary (R1/R2, R2/R3, R3 ridge floor, gamma-limit band edges,
+      R4-postroute gate) at fixed representative (a,b) per seam;
+      assert continuity/monotonicity across the crossing. Point
+      families exist in the reference set but no dense-crossing gate
+      does.
 
 #### Decisions made here / still open
 Decided: no gamma-core dependency EXCEPT the (C) gamma-limit slice

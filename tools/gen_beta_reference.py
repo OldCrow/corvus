@@ -1493,6 +1493,49 @@ def _betainc_rescue(a, b, x):
     return P, Q, which, escalated, False
 
 
+N_SMALL_TAU_DEEP = [0]
+
+
+def _small_tau_deep(a, b, x):
+    """Deep-dps re-evaluation for a small-tau ladder result flagged as
+    NOISE [rescue round 4 -- the deep-cancellation live bug]: the
+    assembly's w and log1p(tau*Sigma) cancel to the true small side, and
+    when that lies below the cancellation noise floor (~assembly scale *
+    10^-dps) the 40/60/100 ladder emits noise -- the checkpoint carried
+    167 NEGATIVE smalls (impossible values, all esc=1; e.g.
+    (100, 1e-100, 0.068) -> -6.6e-105 for a true +1.9e-219), and
+    positive noise of wrong magnitude is equally possible and
+    sign-invisible. The 100-vs-60 disagreement was even detected at
+    those rows -- and then APPENDED TO ESCALATIONS AND EMITTED ANYWAY;
+    this helper is where such rows now go instead.
+
+    dps 400 resolves every non-saturated case: a non-saturated small
+    side is >= ~1e-324 (anything smaller is the saturation prefilter's
+    by construction) and the assembly scale is bounded by tau*|ln xi|
+    plus lgamma-difference terms ~ O(50), so the worst needed dps is
+    ~ log10(50 / 1e-324) ~ 326. Accepts on consecutive-level agreement
+    at DISAGREE_100_60 class with a positive, <= 1/2 value; anything
+    else returns None (caller falls through to prefilter -> betainc
+    rescue -> FAILED, same as any other decline)."""
+    prev = None
+    for dps in (160, 240, 400):
+        r = _small_tau_direct(a, b, x, dps)
+        if r is None:
+            return None
+        P, Q, which = r
+        s = P if which == "P" else Q
+        if (prev is not None and which == prev[1] and s > 0
+                and s <= mp.mpf("0.5")):
+            rel = abs((s - prev[0]) / s)
+            if rel <= DISAGREE_100_60:
+                N_SMALL_TAU_DEEP[0] += 1
+                if which == "P":
+                    return s, 1 - s, "P", True, False
+                return 1 - s, s, "Q", True, False
+        prev = (s, which)
+    return None
+
+
 def _saturation_prefilter(am, bm, xm):
     """Mean-predicate-oriented cheap_logE saturation check -- the SAME
     prefilter/threshold the main CF path applies before its dps ladder
@@ -1626,6 +1669,7 @@ def small_side_direct(a, b, x):
             rel = abs((small60 - small40) / small60) if small60 != 0 else abs(small60 - small40)
             final_small = small60
             escalated = False
+            rel2 = mp.mpf(0)
             if rel > DISAGREE_60_40:
                 r100 = try_tau(DPS3)
                 if r100 is not None:
@@ -1637,6 +1681,31 @@ def small_side_direct(a, b, x):
                     if rel2 > DISAGREE_100_60:
                         ESCALATIONS.append((float(a), float(b), float(x), which_tau,
                                              float(rel), float(rel2)))
+            # NOISE DETECTION [rescue round 4] -- BEFORE the wrong-side
+            # check below, since a noise value can be <= 1/2 (or
+            # negative) and would otherwise be EMITTED. Suspect when:
+            # the small side is <= 0 (impossible -> definitely noise);
+            # the 100-vs-60 recheck disagreed beyond DISAGREE_100_60
+            # (previously logged to ESCALATIONS and emitted anyway --
+            # the bug's second half); or the value sits more than 15
+            # orders below the tau scale (s = tau*J with J ~ O(1) in the
+            # benign zone -- deep cancellation territory, worth the
+            # cheap re-verification even when it then just confirms).
+            if (final_small <= 0 or rel2 > DISAGREE_100_60
+                    or final_small < min(am, bm) * mp.mpf("1e-15")):
+                deep = _small_tau_deep(a, b, x)
+                if deep is not None:
+                    return deep
+                sat = _saturation_prefilter(am, bm, xm)
+                if sat is not None:
+                    return sat
+                rescue = _betainc_rescue(a, b, x)
+                if rescue is not None:
+                    N_BETAINC_RESCUED[0] += 1
+                    return rescue
+                N_SMALL_TAU_NONCONVERGENT[0] += 1
+                N_CF_FAILED[0] += 1
+                return None, None, which_tau, False, True
             # SAFETY CHECK: Q~=-expm1(w+lnS) is accurate to ~dps digits of
             # ITS OWN value regardless of magnitude (expm1 has no
             # cancellation hazard at either extreme), but the DERIVED
@@ -2481,7 +2550,9 @@ def main():
     print(f"saturation pre-filter shortcuts (skipped CF entirely): "
           f"{N_PREFILTER_SATURATED[0]}", file=sys.stderr)
     print(f"small-tau oracle: rescued {N_SMALL_TAU_RESCUED[0]}, "
-          f"non-convergent (dropped) {N_SMALL_TAU_NONCONVERGENT[0]}",
+          f"non-convergent (dropped) {N_SMALL_TAU_NONCONVERGENT[0]}, "
+          f"deep-dps re-resolved {N_SMALL_TAU_DEEP[0]} "
+          f"[rescue round 4: noise-flagged rows re-run at dps 160/240/400]",
           file=sys.stderr)
     print(f"betainc-with-timeout rescue [Part 2a]: rescued "
           f"{N_BETAINC_RESCUED[0]} of the small-tau-guard drops above "
