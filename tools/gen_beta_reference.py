@@ -796,6 +796,17 @@ def gen_specials_rows():
 # (never to decide an emitted value -- those always go through the real
 # CF oracle in small_side_direct). Not self-check-critical.
 # ============================================================================
+def _ln_beta(am, bm, dps):
+    """ln B(a,b), robust for hugely mismatched parameters: the naive
+    lnG(a)+lnG(b)-lnG(a+b) forms a+b at ambient dps (1e250+1 truncates to
+    1e250 exactly, making lnG(a+b)-lnG(a) cancel to 0 instead of -ln a --
+    a 575-unit bias that turned est=-394 into est=-969 and falsely
+    saturated (1, 1e250, 4e-248), true Q=e^-400). Route the mismatched
+    pair through _lngamma_diff_b_tau's exact extra-dps difference."""
+    lo, hi = (am, bm) if am <= bm else (bm, am)
+    return mp.loggamma(lo) - _lngamma_diff_b_tau(lo, hi, dps)
+
+
 def cheap_logE(a, b, xi, dps=25):
     if not (0.0 < xi < 1.0) or a <= 0.0 or b <= 0.0:
         return float("-inf")
@@ -803,8 +814,7 @@ def cheap_logE(a, b, xi, dps=25):
     mp.mp.dps = dps
     try:
         am, bm, xim = mp.mpf(a), mp.mpf(b), mp.mpf(xi)
-        E = am * mp.log(xim) + bm * mp.log1p(-xim) - (
-            mp.loggamma(am) + mp.loggamma(bm) - mp.loggamma(am + bm))
+        E = am * mp.log(xim) + bm * mp.log1p(-xim) - _ln_beta(am, bm, dps)
         return float(E)
     except (ValueError, OverflowError):
         return float("-inf")
@@ -860,8 +870,7 @@ def cheap_logE_logs(a, b, ln_xi, ln_1m_xi, dps=25):
     mp.mp.dps = dps
     try:
         am, bm = mp.mpf(a), mp.mpf(b)
-        E = am * ln_xi + bm * ln_1m_xi - (
-            mp.loggamma(am) + mp.loggamma(bm) - mp.loggamma(am + bm))
+        E = am * ln_xi + bm * ln_1m_xi - _ln_beta(am, bm, dps)
         return float(E)
     except (ValueError, OverflowError):
         return float("-inf")
@@ -1106,30 +1115,27 @@ def _lngamma_diff_b_tau(tau_m, B_m, dps):
       (tau*psi0(B)) specifically, which is what third_term is actually
       small RELATIVE TO.
     """
-    if tau_m <= B_m * SMALL_TAU_LNGAMMA_RATIO:
-        psi0 = mp.psi(0, B_m)
-        psi1 = mp.psi(1, B_m)
-        lg_diff = tau_m * psi0 + (tau_m * tau_m / 2) * psi1
-        psi2 = mp.psi(2, B_m)
-        third_term = (tau_m ** 3 / 6) * psi2
-        tol = TAYLOR_BOUND_TOL
-        scale = max(abs(tau_m * psi0), abs(lg_diff), mp.mpf("1e-300"))
-        if abs(third_term) > tol * scale:
-            raise RuntimeError(
-                f"_lngamma_diff_b_tau: Taylor truncation bound violated "
-                f"(tau={tau_m}, B={B_m}, third_term={third_term}, "
-                f"scale={scale}, tol={tol}) -- tau/B ratio not small enough "
-                f"for a 2-term Taylor at this dps; ESCALATE (SMALL_TAU_"
-                f"LNGAMMA_RATIO may need tightening).")
-        return lg_diff
-    else:
-        old = mp.mp.dps
-        extra_dps = dps + int(mp.log10(B_m / tau_m)) + 20
-        mp.mp.dps = max(dps, extra_dps)
-        try:
-            return mp.loggamma(B_m + tau_m) - mp.loggamma(B_m)
-        finally:
-            mp.mp.dps = old
+    # v4 [round 6]: the Taylor branch is DELETED. v3's bound was correct
+    # about lg_diff's own accuracy and still WRONG about the assembly's:
+    # w's terms CANCEL against tau*sigma downstream, and the result y can
+    # be 15+ orders below lg_diff's scale, so a truncation that is 1e-18
+    # OF LG_DIFF can be 70% OF THE RESULT (tau=1e-10, B=20: dropped
+    # third_term -4.3e-34 vs true y -6.2e-34), 13x (tau=7.4e-6, B=7896:
+    # -1.1e-24 vs 8.5e-26), or invisible (tau=4.4e-7, B=70: -2.9e-24 vs
+    # 3.4e-11) -- three measured points, one rule: the required accuracy
+    # is set by the RESULT's cancellation depth, unknowable at this site,
+    # so no truncated form can be certified here. The exact extra-dps
+    # loggamma difference (forming B+tau with digits(B/tau)+20 headroom)
+    # costs ~ms and is exact for every (tau, B). Found by the fresh-
+    # reference ULP run: the kernel matched analytic truth at every
+    # probed point and the ORACLE carried these errors.
+    old = mp.mp.dps
+    extra_dps = dps + int(mp.log10(B_m / tau_m)) + 20
+    mp.mp.dps = max(dps, extra_dps)
+    try:
+        return mp.loggamma(B_m + tau_m) - mp.loggamma(B_m)
+    finally:
+        mp.mp.dps = old
 
 
 def small_tau_oracle(tau, B, xi_tau, dps, n_max=4000):

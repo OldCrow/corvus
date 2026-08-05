@@ -1424,6 +1424,38 @@ pulls established THREE distinct defects:
     =15,990, F(false-sat certificates, corrected est >= threshold)
     =300; union 16,206 dropped, compacted to 25,658 rows. Regen
     running under the fixed oracle.
+- ROUND 6 [2026-08-05]: the round-5 ULP re-run collapsed most buckets
+  (gammalim-P, R4-cmp, R2-cmp all 0 ULP; R3 unchanged <= 3) but left
+  R1/R2 dir spikes at min(a,b) in [1e-10, 1e-5] and 7 gammalim-c rows.
+  Three-way probe (fresh oracle vs reference file vs kernel) flipped
+  the verdict: THE KERNEL MATCHED ANALYTIC TRUTH AT EVERY PROBED POINT
+  and the ORACLE carried the errors. Two mechanisms, both residues of
+  truncation-at-ambient-precision:
+  (1) _lngamma_diff_b_tau's v3 Taylor branch: truncation bounded
+      relative to lg_diff (~1e-18, correct) but w cancels against
+      tau*sigma downstream and the result can sit 15+ orders below
+      lg_diff -- dropped third_term was 70% of the result at
+      (20, 1e-10, 0.08), 13x at (7896.5, 7.4e-6, 0.995), invisible at
+      (70.2, 4.4e-7, 0.9); three measured points, all matching the
+      dropped tau^3*psi2(B)/6 exactly. v4: Taylor branch DELETED --
+      required accuracy is set by the RESULT's cancellation depth,
+      unknowable at that site; always use the exact extra-dps loggamma
+      difference.
+  (2) cheap_logE(_logs) lnB: naive lnG(a)+lnG(b)-lnG(a+b) forms a+b at
+      ambient dps -- 1e250+1 truncates to 1e250 EXACTLY, so
+      lnG(a+b)-lnG(a) cancels to 0 instead of -ln(a), biasing est
+      DOWN by ln(max param) (575 units at 1e250) -> false saturation
+      inside the est window (witness (1, 1e250, 4e-248): est -969 vs
+      true -394, true Q = e^-400 stored as (1,0)). Fixed: _ln_beta()
+      routes the mismatched pair through the exact diff.
+  All 12 witnesses re-verified (five Taylor casualties now match the
+  kernel to display precision; e^-400 point correct; every prior
+  witness green). KERNEL RESIDUALS after oracle fixes: R4-postrt dir
+  55/209 ULP (n=9/185, cmp exact 0) -- real but bounded kernel gap in
+  the tau<=2.5 postroute domain, assess at G4 gate-pinning.
+  AUDIT ROUND 4: G(min(a,b)<=2^-4 band, small_tau_oracle exposure)
+  =27,367 + H(lnB-collapse false-sats)=141 -> 27,508 dropped,
+  compacted to 14,356. Regen running.
 - ADOPTED VALIDATION GAPS [2026-08-04 design review; add at the named
   steps, not before]:
   (i) Monotonicity-in-x gate — at step (2)/G4: post-pass grouping the
