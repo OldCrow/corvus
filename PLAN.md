@@ -1548,7 +1548,19 @@ pulls established THREE distinct defects:
   (+0 monotonicity, 0 P+Q), negative control passed, all strata
   covered (identity full 3,332; 60-row samples elsewhere; saturated
   60/60 certified). THE ROUND-6 REFERENCE FILES ARE TRUSTED per the
-  oracle-trust directive. Next: re-run beta_ulp (kernel unchanged).
+  oracle-trust directive.
+- BETA_ULP AGAINST TRUSTED REFERENCES [2026-08-05, AVX3_ZEN4,
+  clang-cl, provisional gates]: PASS. Measured per region (dir/cmp
+  max ULP): R1 series 1/1 (P), 1/13 (Q; q-cmp worst a=0.5 b=100
+  x=0.05); R2 cf 0/0; R3 temme 3/0 (P, not-CR 12.7%), 3/1 (Q, not-CR
+  18.7%); R4 tiny 2/0 (P), 3/0 (Q); specials 0 exact; R2 gammalim
+  0/0 (P), 0/1 (Q). SOLE REAL RESIDUAL: R4-postroute dir -- 55 ULP
+  (P, n=9, 88.9% not-CR) / 209 ULP (Q, n=185, 47.0% not-CR), worst
+  a=0.398 b=20 x=0.3825; cmp sides exact 0. These are now REAL kernel
+  numbers (references certified), so G4 starts with the R4-postroute
+  assembly assessment, then gate pinning to measured, monotonicity
+  post-pass, seam sweep, tier order Kaby native+caps -> NEON CI ->
+  Ryzen last.
 - ADOPTED VALIDATION GAPS [2026-08-04 design review; add at the named
   steps, not before]:
   (i) Monotonicity-in-x gate — at step (2)/G4: post-pass grouping the
