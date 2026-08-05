@@ -1383,6 +1383,47 @@ pulls established THREE distinct defects:
   re-regenerated references. (3) G4: pin gates to measured, tier
   order Kaby native+caps → NEON CI → Ryzen last, merge to main;
   G5 four-list audit + ACCURACY.md/README.
+- ROUND 5 [2026-08-04]: first fixed-kernel ULP run against the fresh
+  references FAILED on 2^60-class buckets; triage found the kernel
+  CORRECT at every worst point and TWO oracle defect classes, ONE
+  root cause: **mpf ops at ambient dps truncate higher-precision
+  operands** (and mp.mpf() on an mpf RE-ROUNDS to ambient dps).
+  - Class 1 (gamma*tau artifact): loggamma(1+tau) at ambient dps forms
+    1+tau = 1 exactly for tau < 10^-dps, dropping the -EulerGamma*tau
+    leading term -- emitted small side = 0.5772...*min(a,b), IDENTICAL
+    at every ladder level below tau's exponent, so levels AGREE and no
+    escalation fires (that is why round 4's noise predicates missed it:
+    the artifact is ~1e100x too LARGE, not too small). Witnesses: five
+    ULP-run worst points, all stored exactly gamma*min(a,b).
+  - Class 2 (false saturation certificates): swapped orientation formed
+    xx = 1-xm (collapses to 1.0 for tiny xm), then float(xx)=1.0 failed
+    cheap_logE's domain check -> -inf -> "certified saturated" ->
+    (1,0)/(0,1) stored for rows with true small side up to e^-8. The
+    just-recomputed gammalim rows re-saturated through this exact path
+    (519 prefilter shortcuts).
+  - Probed mpmath rules the fixes rest on: mp.log(exact near-1 mpf) is
+    CORRECT at ambient dps; mp.log1p(-(exact near-1 mpf)) returns -INF
+    (never push a complement through log1p); double-derived operands
+    (<=53-bit mantissas) are always safe.
+  - FIXES (gen_beta_reference.py): _one_minus() exact complement at
+    every orientation site; cheap_logE_logs()/_oriented_logs() so both
+    emission-deciding prefilters take exact logs of the ORIGINAL xm
+    (swapped frame: ln_xi=log1p(-xm), ln_1m_xi=log(xm) -- no complement
+    ever formed); small_tau_oracle computes loggamma(1+tau) under
+    workdps(dps + digits(tau) + 20); gamma_corner_value{,_signed} no
+    longer re-round xx through mp.mpf(); _betainc_rescue hard-guarded
+    OUT of the gammalim family (probed: mpmath betainc returns
+    (P=8e-250, Q=1) for (1, 1e250, 8e-250) with both dps layers
+    AGREEING on the garbage -- consistency checks cannot catch it).
+  - All witnesses verified post-fix: five gamma*tau points to exact
+    truth, gammalim family to e^-8/e^-20/3.77e-11 with correct
+    direct-side labels, deep-ladder + near-diagonal + saturation
+    regressions intact.
+  - AUDIT ROUND 3: A(out-of-range)=0, E(min(a,b)<=1e-24 gamma-tau
+    exposure band; artifact is value-undetectable without recompute)
+    =15,990, F(false-sat certificates, corrected est >= threshold)
+    =300; union 16,206 dropped, compacted to 25,658 rows. Regen
+    running under the fixed oracle.
 - ADOPTED VALIDATION GAPS [2026-08-04 design review; add at the named
   steps, not before]:
   (i) Monotonicity-in-x gate — at step (2)/G4: post-pass grouping the

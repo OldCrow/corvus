@@ -813,6 +813,71 @@ def cheap_logE(a, b, xi, dps=25):
 
 
 # ============================================================================
+# EXACT-COMPLEMENT DISCIPLINE [round 5, root cause of BOTH residual ULP
+# defect classes after the deep-ladder fix]. mpf addition/subtraction at
+# ambient dps TRUNCATES operands to working precision first: forming
+# 1 - xm for xm below 10^-dps silently yields exactly 1, and (the dual
+# hazard) mp.log1p(-xx) on a HIGH-precision near-1 complement returns
+# -inf (probed directly: log1p(-(1-8e-250 formed exactly)) = -inf at
+# dps 25, while mp.log on the same exact operand is correct). Two rules:
+#   (1) form every orientation complement through _one_minus (exact at
+#       any xm; ~-log10(xm)+20 extra digits when xm is tiny);
+#   (2) never push a complement through log1p -- in the swapped frame
+#       the two logs are EXACTLY log1p(-xm) and log(xm) of the ORIGINAL
+#       double-derived xm (always safe: <=53-bit mantissas are never
+#       truncated at dps>=25), so pass logs, not the complement
+#       (cheap_logE_logs below).
+# Double-derived operands (53-bit mantissas) are exempt from both
+# hazards; only ops mixing ambient precision with HIGHER-precision
+# operands truncate. The same truncation dropped loggamma(1+tau)'s
+# entire -gamma*tau term for tau < 10^-dps in small_tau_oracle (the
+# systematic "stored small side = EulerGamma * min(a,b)" artifact
+# family), fixed at that site by a workdps bump.
+# ============================================================================
+def _one_minus(xm):
+    """Exact 1 - xm as an mpf carrying full precision, for xm in (0, 1)
+    derived from a double. Safe to consume via mp.log at ambient dps;
+    NOT safe to consume via mp.log1p(-result) -- see block comment."""
+    if not (0 < xm < 1):
+        return 1 - xm
+    extra = max(0, int(-mp.log10(xm))) + 20
+    with mp.workdps(mp.mp.dps + extra):
+        return 1 - xm
+
+
+def cheap_logE_logs(a, b, ln_xi, ln_1m_xi, dps=25):
+    """cheap_logE with the two logs supplied exactly by the caller (the
+    orientation-safe form: a swapped frame passes ln_xi=log1p(-xm),
+    ln_1m_xi=log(xm) from the ORIGINAL xm and never forms a complement).
+    Emission-deciding callers (_saturation_prefilter and the main-path
+    prefilter) MUST use this form -- float(1-xm) collapses to 1.0 for
+    tiny xm, fails cheap_logE's domain check, and the resulting -inf
+    reads as a saturation certificate for a point whose small side is
+    O(1e-4) (witness: (1, 1e250, 8e-250), true Q = e^-8)."""
+    if a <= 0.0 or b <= 0.0:
+        return float("-inf")
+    old = mp.mp.dps
+    mp.mp.dps = dps
+    try:
+        am, bm = mp.mpf(a), mp.mpf(b)
+        E = am * ln_xi + bm * ln_1m_xi - (
+            mp.loggamma(am) + mp.loggamma(bm) - mp.loggamma(am + bm))
+        return float(E)
+    except (ValueError, OverflowError):
+        return float("-inf")
+    finally:
+        mp.mp.dps = old
+
+
+def _oriented_logs(xm, native):
+    """(ln_xi, ln_1m_xi) for cheap_logE_logs in the given orientation,
+    computed from the original double-derived xm only (both safe)."""
+    if native:
+        return mp.log(xm), mp.log1p(-xm)
+    return mp.log1p(-xm), mp.log(xm)
+
+
+# ============================================================================
 # Primary value oracle: SMALL-SIDE-DIRECT via the CF, three-layer dps
 # ladder (40 -> recheck 60 -> escalate 100 on disagreement).
 # ============================================================================
@@ -875,7 +940,13 @@ def gamma_corner_value(aa, bb, xx, dps):
     old = mp.mp.dps
     mp.mp.dps = dps
     try:
-        aa_m, bb_m, xx_m = mp.mpf(aa), mp.mpf(bb), mp.mpf(xx)
+        # xx may be a HIGH-precision exact complement (_one_minus): mp.mpf()
+        # on an mpf RE-ROUNDS to ambient dps, collapsing 1-tiny back to 1.0
+        # (t then computes 0 and the value saturates falsely, forcing the
+        # caller's mean-predicate flip and a big-side-direct emission).
+        # Pass it through untouched -- mp.log consumes full precision.
+        aa_m, bb_m = mp.mpf(aa), mp.mpf(bb)
+        xx_m = xx if isinstance(xx, mp.mpf) else mp.mpf(xx)
         if bb_m >= aa_m:
             t = -bb_m * mp.log1p(-xx_m)
             return mp.gammainc(aa_m, 0, t, regularized=True)  # P(aa,t)
@@ -897,7 +968,9 @@ def gamma_corner_value_signed(aa, bb, xx, dps):
     old = mp.mp.dps
     mp.mp.dps = dps
     try:
-        aa_m, bb_m, xx_m = mp.mpf(aa), mp.mpf(bb), mp.mpf(xx)
+        # Same no-re-round rule as gamma_corner_value above.
+        aa_m, bb_m = mp.mpf(aa), mp.mpf(bb)
+        xx_m = xx if isinstance(xx, mp.mpf) else mp.mpf(xx)
         if bb_m >= aa_m:
             t = -bb_m * mp.log1p(-xx_m)
             P = mp.gammainc(aa_m, 0, t, regularized=True)
@@ -1092,7 +1165,21 @@ def small_tau_oracle(tau, B, xi_tau, dps, n_max=4000):
         if not (0 < xi_m < 1) or tau_m <= 0 or B_m <= 0:
             return None, False
         lg_diff = _lngamma_diff_b_tau(tau_m, B_m, dps)
-        w = tau_m * mp.log(xi_m) + lg_diff - mp.loggamma(1 + tau_m)
+        # loggamma(1+tau) needs 1+tau formed EXACTLY: at ambient dps the
+        # addition truncates tau away entirely once tau < 10^-dps, the
+        # -EulerGamma*tau leading term silently vanishes from w, and the
+        # assembly emits gamma*tau instead of the true small side -- at
+        # EVERY ladder level below tau's exponent, so the levels AGREE on
+        # the wrong value and no escalation fires (witnesses: (100,
+        # 3.05e-151, 0.1) emitted 1.7634e-151 = gamma*b for a true
+        # 3.39e-253; (20, 1e-300, 0.65) same at every dps <= 300). Same
+        # workdps idiom as _lngamma_diff_b_tau's own B/tau bump above.
+        if 0 < tau_m < 1:
+            with mp.workdps(dps + max(0, int(-mp.log10(tau_m))) + 20):
+                lg1ptau = mp.loggamma(1 + tau_m)
+        else:
+            lg1ptau = mp.loggamma(1 + tau_m)
+        w = tau_m * mp.log(xi_m) + lg_diff - lg1ptau
         t = mp.mpf(1)
         sigma = mp.mpf(0)
         tol = mp.mpf(10) ** (-(dps + 8))
@@ -1135,7 +1222,7 @@ def _small_tau_direct(a, b, x, dps):
     if am <= bm:
         tau, B, xi_tau, which = am, bm, xm, "Q"
     else:
-        tau, B, xi_tau, which = bm, am, 1 - xm, "P"
+        tau, B, xi_tau, which = bm, am, _one_minus(xm), "P"
     Q_tilde, ok = small_tau_oracle(tau, B, xi_tau, dps)
     if not ok:
         return None
@@ -1347,7 +1434,7 @@ def prewarm_betainc_rescue_checkpoint(ps, done_map, fh):
         if xm * c <= am:
             oriented[idx], which_map[idx] = (am, bm, xm), "P"
         else:
-            oriented[idx], which_map[idx] = (bm, am, 1 - xm), "Q"
+            oriented[idx], which_map[idx] = (bm, am, _one_minus(xm)), "Q"
 
     v40 = _betainc_batch_eval(oriented, DPS1)
     # Mean-predicate misfire (v>0.5): flip orientation once and re-evaluate
@@ -1359,7 +1446,7 @@ def prewarm_betainc_rescue_checkpoint(ps, done_map, fh):
             a, b, x = by_idx[i]
             am, bm, xm = mp.mpf(a), mp.mpf(b), mp.mpf(x)
             if which_map[i] == "P":
-                flipped[i], which_map[i] = (bm, am, 1 - xm), "Q"
+                flipped[i], which_map[i] = (bm, am, _one_minus(xm)), "Q"
             else:
                 flipped[i], which_map[i] = (am, bm, xm), "P"
         v40_flip = _betainc_batch_eval(flipped, DPS1)
@@ -1449,12 +1536,21 @@ def _betainc_rescue(a, b, x):
     prewarm pass, e.g. a future re-run with new points) -- correctness
     fallback, not the hot path."""
     am, bm, xm = mp.mpf(a), mp.mpf(b), mp.mpf(x)
+    # GAMMALIM GUARD [round 5]: mpmath.betainc is systematically WRONG in
+    # the gamma-limit family, not merely slow -- probed directly:
+    # (1, 1e250, 8e-250) returns (P=8e-250, Q=1) against a true
+    # P = 1-e^-8, and the two dps layers AGREE on the garbage, so the
+    # ladder's own consistency check cannot catch it. That family is
+    # exactly why gamma_corner_value exists; never let this rescue emit
+    # there.
+    if max(am, bm) >= B_GL:
+        return None
     c = am + bm
     native = (xm * c <= am)
     if native:
         aa, bb, xx, which = am, bm, xm, "P"
     else:
-        aa, bb, xx, which = bm, am, 1 - xm, "Q"
+        aa, bb, xx, which = bm, am, _one_minus(xm), "Q"
 
     def try_bi(dps):
         return gbd._betainc_timeout(aa, bb, xx, dps, timeout=BETAINC_RESCUE_TIMEOUT)
@@ -1465,7 +1561,7 @@ def _betainc_rescue(a, b, x):
     if v40 > mp.mpf("0.5"):
         # Mean predicate misfired -- flip once, same self-correction as
         # small_side_direct's own primary CF branch.
-        aa, bb, xx, which = (bm, am, 1 - xm, "Q") if which == "P" else (am, bm, xm, "P")
+        aa, bb, xx, which = (bm, am, _one_minus(xm), "Q") if which == "P" else (am, bm, xm, "P")
         v40 = try_bi(DPS1)
         if v40 is None or v40 > mp.mpf("0.5"):
             return None
@@ -1551,11 +1647,13 @@ def _saturation_prefilter(am, bm, xm):
     (1.0, 0.0), certifiable from the prefactor magnitude alone. ~2.6k
     checkpoint rows sat FAILED with a certifiable answer."""
     c = am + bm
-    if xm * c <= am:
-        aa, bb, xx, which = am, bm, xm, "P"
+    native = xm * c <= am
+    if native:
+        aa, bb, which = am, bm, "P"
     else:
-        aa, bb, xx, which = bm, am, 1 - xm, "Q"
-    est = cheap_logE(float(aa), float(bb), float(xx))
+        aa, bb, which = bm, am, "Q"
+    ln_xi, ln_1m_xi = _oriented_logs(xm, native)
+    est = cheap_logE_logs(float(aa), float(bb), ln_xi, ln_1m_xi)
     if est < SATURATION_LOG_THRESHOLD:
         N_PREFILTER_SATURATED[0] += 1
         zero, one = mp.mpf(0), mp.mpf(1)
@@ -1771,9 +1869,10 @@ def small_side_direct(a, b, x):
     if native:
         aa, bb, xx, which = am, bm, xm, "P"
     else:
-        aa, bb, xx, which = bm, am, 1 - xm, "Q"
+        aa, bb, xx, which = bm, am, _one_minus(xm), "Q"
 
-    est = cheap_logE(float(aa), float(bb), float(xx))
+    ln_xi, ln_1m_xi = _oriented_logs(xm, native)
+    est = cheap_logE_logs(float(aa), float(bb), ln_xi, ln_1m_xi)
     if est < SATURATION_LOG_THRESHOLD:
         N_PREFILTER_SATURATED[0] += 1
         zero, one = mp.mpf(0), mp.mpf(1)
@@ -1793,7 +1892,7 @@ def small_side_direct(a, b, x):
         # mean predicate misfired (mean != true median off-diagonal) --
         # P+Q=1 guarantees whichever side computes <=0.5 is the true small
         # one, so recompute the OTHER orientation and use that instead.
-        aa, bb, xx, which = (bm, am, 1 - xm, "Q") if which == "P" else (am, bm, xm, "P")
+        aa, bb, xx, which = (bm, am, _one_minus(xm), "Q") if which == "P" else (am, bm, xm, "P")
         v40 = try_eval(aa, bb, xx, DPS1)
     if v40 is None:
         # RESCUE NET: outside the primary small-tau band the CF is still
@@ -2046,7 +2145,7 @@ def check_analytic_lines():
                 closed_P = xm ** mp.mpf(a)
                 closed_Q = -mp.expm1(mp.mpf(a) * mp.log(xm))
             elif kind == "1-b":
-                closed_Q = (1 - xm) ** mp.mpf(b)
+                closed_Q = mp.exp(mp.mpf(b) * mp.log1p(-xm))
                 closed_P = -mp.expm1(mp.mpf(b) * mp.log1p(-xm))
             else:  # half-half
                 closed_P = (2 / mp.pi) * mp.asin(mp.sqrt(xm))
@@ -2153,7 +2252,7 @@ def run_cross_check(rows):
             am, bm, xm = mp.mpf(a), mp.mpf(b), mp.mpf(x)
             c = am + bm
             native = (xm * c <= am)
-            aa, bb, xx = (am, bm, xm) if native else (bm, am, 1 - xm)
+            aa, bb, xx = (am, bm, xm) if native else (bm, am, _one_minus(xm))
             try:
                 cf_v = small_val_via_cf(aa, bb, xx, 60)
             except (RuntimeError, ZeroDivisionError, ValueError):
