@@ -1510,6 +1510,45 @@ pulls established THREE distinct defects:
   rebuild nothing (kernel unchanged), re-run beta_ulp; (4) kernel
   residual to assess at G4: R4-postrt dir 55/209 ULP (n=9/185, cmp
   exact); (5) gamma oracle spot-check; (6) G4 gate pinning.
+- HARNESS ADJUDICATION + V2 REBUILD [2026-08-05, post-reboot session]:
+  regen COMPLETE (round-6 files written: 37,099 rows each, 0 CF
+  failures; only 4 rows changed vs round-5 among the harness failure
+  set). Two-of-three adjudication of all 154 negative-control failures
+  (stored vs harness-quad vs betainc-300/360-layered third, series
+  fallback): 139 HARNESS-QUAD (stored right, quad wrong), 4
+  ORACLE-DEFECT = exactly the 4 round-5 rows round 6 already fixed
+  (independent confirmation of both the defect and the fix), 11
+  NO-THIRD/NO-CONSENSUS = the x'->1 exact-complement family, resolved
+  by hand (stored = a*E1(b*x) to 16 digits on the flagship gammalim
+  row) in stored's favor. ORACLE FULLY VINDICATED: zero unexplained
+  defects. The defective party was the harness's own quadrature.
+  Harness v2 (tools/verify_beta_reference.py): quad evaluator replaced
+  by layered series (DLMF 8.17.8, all-positive terms, dps 160+220
+  mandatory agreement) + half-split for x'>0.75 (series at 1/2 +
+  log-coordinate tail quad, integrand normalized to O(1)). THREE
+  defects found in the harness itself during the rebuild, all
+  instances of already-catalogued disease classes:
+  (a) mp.quad returns sqrt(eps)-scale noise when the integral's
+      magnitude sits far below working epsilon -> normalize integrand
+      by peak log-magnitude over split points, scale back after;
+  (b) `1 - mp.mpf(xp)` complement recovery: mp.mpf() on an mpf
+      RE-ROUNDS to working precision, collapsing d to 0 at dps
+      160+40 for x'=1-2e-216 (third harness infection of the oracle's
+      round-5 disease class) -> d is now CARRIED through small_frame,
+      never recomputed;
+  (c) methodology: spot-check inputs reconstructed from 6-sig-digit
+      display values produced phantom 2e-3 "errors" at d(ln I)/dx ~
+      6800 -- always probe with exact hex from the dump.
+  Negative control now BAKED INTO every harness invocation: the 4
+  adjudicated round-5 defects must be rejected and their round-6
+  corrections accepted before any row is judged; harness aborts (exit
+  2) otherwise. Spot-checks post-fix: every previously-failing regime
+  agrees with stored at ~1e-17 (subnormals within 1 ulp absolute).
+  Full harness gate run: CLEAN PASS [2026-08-05] -- FAILURES: 0
+  (+0 monotonicity, 0 P+Q), negative control passed, all strata
+  covered (identity full 3,332; 60-row samples elsewhere; saturated
+  60/60 certified). THE ROUND-6 REFERENCE FILES ARE TRUSTED per the
+  oracle-trust directive. Next: re-run beta_ulp (kernel unchanged).
 - ADOPTED VALIDATION GAPS [2026-08-04 design review; add at the named
   steps, not before]:
   (i) Monotonicity-in-x gate — at step (2)/G4: post-pass grouping the
