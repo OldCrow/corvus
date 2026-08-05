@@ -1456,6 +1456,60 @@ pulls established THREE distinct defects:
   AUDIT ROUND 4: G(min(a,b)<=2^-4 band, small_tau_oracle exposure)
   =27,367 + H(lnB-collapse false-sats)=141 -> 27,508 dropped,
   compacted to 14,356. Regen running.
+- ORACLE-TRUST DIRECTIVE [2026-08-05, user]: after six oracle defect
+  classes vs zero kernel defects, the comparison standard itself must
+  be independently verified before any further pipeline coding. Root
+  cause accepted: reference-oracle construction for a function WITHOUT
+  a trusted library baseline (mpmath betainc is broken in exactly the
+  corners that matter) is FRONTIER work, not the routing table's
+  "generators copy existing patterns" mid-tier class. TODO: amend
+  AGENTS.md Model & Effort Routing accordingly (one sentence).
+  Exposure ranking of the other oracles (idiom scan + structure):
+  gamma P/Q is the only other one with custom logic (small-side
+  selection + a>1e4 asymptotic branch) but has NO complement formation
+  (no 1-x symmetry in gamma), no lnB difference, zero hazard-idiom
+  hits -- targeted independent spot-check still owed. All remaining
+  generators (erf/erfc/lgamma/erfinv/exp_dd/log_dd) are thin wrappers
+  over gold-standard single-argument mpmath calls (3-8 defs each),
+  zero hazard hits, and their measured 0-4 ULP gates across 3 machines
+  x 7 tiers would have exposed a wrong oracle the same way beta's did.
+- VERIFICATION HARNESS [2026-08-05]: tools/verify_beta_reference.py --
+  INDEPENDENT of the oracle module (no import): log-space quad of the
+  Beta density in the left-tail small-side frame (ln(1-t) formed as
+  ln(d + x'(1-u)), d exact -- no cancellation anywhere; w = a'(1-t)
+  coordinates for a' >= 1e6 where the mass is invisible in u), exact
+  closed forms on analytic lines (both sides computed DIRECTLY -- the
+  harness's own first draft repeated the 1-P collapse; fixed), dps-300
+  betainc self-certification inside its trusted zone, rigorous
+  log-bound certification for saturated rows, subnormal 1-ulp absolute
+  criterion, full-file P+Q and monotonicity-in-x invariants, and NAMED
+  uncovered strata (near-diagonal spike: certified by the round-3
+  bracket derivation instead). NEGATIVE CONTROL: run against the
+  stale round-5 files it must flag the known-bad small-tau rows and
+  pass the rest; first two runs caught harness-side bugs (identity
+  complement collapse, subnormal rel-test) -- fix-and-rerun until the
+  failure list is exactly the known-stale population. STATUS AT
+  SHUTDOWN: third run = 154 failures, only first 25 printed (11
+  normal-stratum + 9 smalltau-typ among them). smalltau failures are
+  the expected stale rows; the NORMAL-stratum failures are
+  UNADJUDICATED -- could be stale rows, harness quad tolerance on
+  hard shapes, or something real. NEXT SESSION FIRST TASK: add a
+  per-stratum failure histogram + full failure dump to the harness,
+  adjudicate every normal/identity failure individually BEFORE
+  trusting either the harness or the references. Outputs in
+  scratchpad\beta\harness_nc3_stderr.txt (scratchpad is
+  session-specific -- rerun the harness fresh if gone).
+- RESUME STATE [2026-08-05, shutdown breakpoint]: round-6 oracle fixes
+  committed (b02454c). Regen of the 27,508 invalidated rows IN FLIGHT
+  at ~12k/27.5k done -- checkpoint at
+  %TEMP%\corvus_beta_ref_ckpt_20260731.tsv (SURVIVES REBOOT; re-run
+  scratchpad run_regen_final.py from the REPO ROOT repeatedly until it
+  writes the reference files). Then: (1) harness negative-control
+  must show ONLY known-stale rows; (2) after regen, harness must pass
+  CLEAN -- that is the gate for trusting the references; (3) then
+  rebuild nothing (kernel unchanged), re-run beta_ulp; (4) kernel
+  residual to assess at G4: R4-postrt dir 55/209 ULP (n=9/185, cmp
+  exact); (5) gamma oracle spot-check; (6) G4 gate pinning.
 - ADOPTED VALIDATION GAPS [2026-08-04 design review; add at the named
   steps, not before]:
   (i) Monotonicity-in-x gate — at step (2)/G4: post-pass grouping the
