@@ -18,12 +18,11 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
 (issue #2 closed). One branch (main).
 
 ## Next Steps
-1. **P1 families, smallest-first**: digamma (DigammaRough +
-   kBetaDigammaCoef already staged as seeds in beta_data.h), then
-   inverse incomplete gamma/beta (erfinv's seed + dd-Newton pattern),
-   then Bessel I0/I1. Detail design + error budgets = frontier effort;
-   implementation via the Sonnet-tooling + Opus-kernel split with
-   orchestrator review gates (gamma/beta precedent).
+1. **digamma — G1 generator stage** (design below is binding; Sonnet
+   tooling agent, orchestrator reviews stderr budgets before any table
+   is committed), then G2 references → G3 kernel (Opus) → G4 gates +
+   ladder → G5 docs. After digamma: inverse incomplete gamma/beta
+   (erfinv seed + dd-Newton pattern), then Bessel I0/I1.
 2. **Quiet-machine bench_beta re-run** [bench SHIPPED 2026-08-06 —
    numbers below are loaded/indicative]: re-run on an idle Ryzen for
    publishable numbers, and fold into the Kaby bench pass when that
@@ -344,6 +343,74 @@ the concept ("never set run_in_background on any tool call");
 foreground only, chunk sweeps ≤ ~5-min re-runnable commands. Verify
 exponent arithmetic by exponent SUM (8e-100·1e100 = 8, not 0.8 — a
 false kernel-bug hypothesis cost an hour).
+
+## P1 digamma — detail design [2026-08-06, frontier; BINDING]
+Probe-validated (Sonnet probe agent, scratchpad digamma/p1–p6 scripts,
+layered dps 60/100 clean; orchestrator-reviewed). [DERIVED, empirical]
+unless noted.
+
+**API**: digamma(x, out), full real axis. Specials (scipy 1.17.1
+parity, probed): ψ(±0) = ∓inf (signed-zero pole convention); negative
+integers → NaN (every double ≤ −2^53 is an integer → NaN); +inf →
++inf; −inf → NaN; NaN propagates; subnormal x → ∓inf (the −1/x term).
+
+**Positive pipeline** (every shifted argument via exact TwoSum, never
+a bare subtraction; x₀ dd: hi 0x1.762d86356be3fp+0, lo
+0x1.b86a722197829p-54; trigamma(x₀) ≈ 0.9677):
+- **Zone [1, 2)** — the full width-1 recurrence landing interval
+  (probe: a narrower window cannot be a landing target under integer
+  steps): product form ψ = t ⊗ P(t), t = dd shift vs x₀. Probe:
+  all-double coefficients PLATEAU at 2^-53.85..2^-54.7 (degree 19–21)
+  → dd LEADING coefficients required, the lgamma-zone pattern; degree
+  and dd-lead count pinned by generator replay against 2^-55 relative,
+  including 1e-14 neighborhoods of x₀.
+- **(0, 1)** — one up-step WITHOUT forming 1+x (fl(1+x) would cost
+  ~2^-52.5 relative near x → 1⁻): the same P evaluated at t₁ = dd
+  shift vs (x₀−1) (x₀.hi − 1 exact; lo unchanged), then ψ =
+  t₁⊗P(t₁) ⊖ DdRecip(x). Probe cancellation ratio < 1.74 (~1 bit) —
+  dd absorbs trivially. −1/x dominates as x → 0 (no cancellation at
+  the pole; ratio → 1).
+- **[2, X0)** — masked fixed-step down-walk to [1,2): ψ = zone ⊕
+  Σ_{j=1..m} 1/(x−j) in dd, x−j exact (Sterbenz, x < X0), weights
+  DdRecipDd of exact pairs (gamma-R4 pattern), freeze-by-select.
+- **[X0, ∞), X0 = 8** [probe table: K = 9 Bernoulli terms → 2^-56.5
+  relative, the best margin of the sweep; X0 ≤ 5 cannot reach 2^-55
+  at all, 6 is marginal]: ψ = LogDd(x) ⊖ DdRecip(2x) ⊖ x⁻²·S(x⁻²),
+  dd head + double Horner tail, replay pins the dd-head count.
+**Negative axis**: ψ(x) = ψ(1−x) − π·cot(πx), assembled in dd.
+y_dd = TwoSum(1, −x) EXACT feeds the positive pipeline at dd argument
+(lo correction via a rough-trigamma poly, ~2^-40 suffices — beta's
+c.lo·ψ̃ pattern). cot from exact reduction u = x − round(x) (exact for
+every double; π cancelled analytically via sinc-pair fits sin(πu)/πu
+and cos(πu), lgamma-reflection pattern), ratio in dd. Probe HEADLINE:
+at the nearest double to each of the first 20 negative zeros a plain-
+double assembly loses 47.8–49.0 bits (3–4 correct bits — these are
+legitimate ULP-sweep inputs, not edge cases); the dd assembly retains
+~55+ bits → target near-relative accuracy even there, generator
+self-check (c) must REPLAY-VERIFY ≥ ~54.5 bits at all 20 adversarial
+doubles (ESCALATE otherwise). Accuracy doctrine (lgamma analog):
+relative where |ψ| ≥ 1, else 2^-53-class absolute; per-zero band
+width W ≈ target/|trigamma(z₀)| (|trigamma| grows 8.9 → 18.9 over
+n = 1..20). NO reflection domain ceiling: u is exact everywhere and
+|x| ≥ 2^53 negatives are all integers → NaN (scipy's NaN at
+−1e300+0.5 is input rounding to an integer, not a formula limit).
+**Seeds**: DigammaRough/kBetaDigammaCoef NOT reusable — plain value
+fit whose measured floor (2^-43.8) sits exactly at x₀; prior art only;
+stays in beta_data.h documented unused.
+**Oracle**: mpmath.digamma — gold-standard single-argument thin
+wrapper; standard generator/reference pattern, no independent harness
+(inside the oracle-trust doctrine's trusted-baseline scope).
+Reference set: per-region grids; x₀ bit-neighborhoods (offsets to
+1e-14 both sides); the 20 adversarial nearest-double negative-zero
+points ± offsets; pole neighborhoods −n ± ulp-scale; zone/X0 boundary
+brackets; subnormals; huge x; the specials table.
+**Targets** [ILLUSTRATIVE until measured; pin to measured, no
+margin]: positive axis ≤ 1 ULP relative; negative axis ≤ 1–2 ULP
+where |ψ| ≥ 1 and 2^-53-class absolute inside the zero bands.
+**Kernel/TU**: src/digamma-inl.h + digamma.cpp, own TU (consumes dd,
+log_dd, ops; no gamma/beta cores); HWY_NOINLINE day-one on cores AND
+driver; test_digamma_ulp + smoke registered in DEPENDENCY position in
+all FOUR lists.
 
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —
