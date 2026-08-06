@@ -1,6 +1,7 @@
 # corvus
 
 [![CI](https://github.com/OldCrow/corvus/actions/workflows/ci.yml/badge.svg)](https://github.com/OldCrow/corvus/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/OldCrow/corvus)](https://github.com/OldCrow/corvus/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 SIMD-vectorized statistical special functions for C++20, with runtime
@@ -120,6 +121,10 @@ corvus::erfcinv(x, y);
 std::vector<double> a = ..., p(a.size());  // same length as x
 corvus::gamma_p(a, x, p);
 corvus::gamma_q(a, x, p);
+
+std::vector<double> b = ...;               // same length as a and x
+corvus::beta_p(a, b, x, p);                // x in [0, 1]
+corvus::beta_q(a, b, x, p);
 ```
 
 Per-function methods, measured ULP bounds, and the validation matrix live
