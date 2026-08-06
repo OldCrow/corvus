@@ -1666,8 +1666,23 @@ pulls established THREE distinct defects:
   no machine visit, only the merge. After the merge, only Kaby
   AVX2-native remains deferred [OPEN, machine access].
   Machine-independent queue, in order:
-  (1) merge beta/g3-kernel -> main; watch CI (Linux sweep, NEON ULP
-      report = real-silicon NEON numbers, MSVC toolchain gate);
+  (1) DONE [2026-08-06]: merged (fast-forward, main = 9fbbca8). First
+      CI run failed in the macOS job only: Apple Clang + brew
+      Highway's NEON_BF16 slice rejects IMPLICIT default ctors of
+      vector-member structs (generated outside the per-target
+      attribute region); beta had the codebase's only three
+      default-construction sites (BetaPsi x2, loop Dd) -- all now
+      aggregate-initialize. Same commit fixed clang-cl's -Wall ==
+      /Wall == -Weverything flag mapping (dev warnings now /W4
+      -Wpedantic under the MSVC frontend variant) and the getenv
+      deprecation straggler; local clang-cl build is warning-free.
+      SECOND RUN ALL GREEN: Linux tier sweep + sanitizers, macOS
+      arm64, Windows MSVC. NEON ULP REPORT (run 31066128952, the
+      ACCURACY.md source): IDENTICAL gate cells to the x86 ladder --
+      R1 1/1, R2 0/0, R3 3/<=1, R4 tiny <=2/0, postrt 1/0, gammalim
+      0/1, specials exact; monotonicity 0 violations; all ten seams
+      crossed, 0 wrong-direction. NEON LEG COMPLETE. Only Kaby
+      AVX2-native remains deferred.
   (2) G5: ACCURACY.md beta section (record per-tier: Ryzen
       native+capped now, NEON from the CI report, Kaby marked
       pending) + README beta bullet; four-list audit DONE (verified
