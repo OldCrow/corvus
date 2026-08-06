@@ -152,22 +152,16 @@ surface lean and justify every runner:
   direct-push-to-main workflow); caching (build is ~minutes; add only
   if minutes grow). AVX-512 cannot run on hosted runners — Ryzen stays a
   manual validation stop.
-- **Deviation from the house style, deferred to the first tagged release
-  (issue #2)**: corvus carries no `lint-workflows.yml`, and `ci.yml` pins
-  `actions/checkout` by moving tag rather than by SHA. §6 asks every repo
-  for the actionlint + zizmor pair, and §5 for a SHA pin on every action.
-  Both wait on the same trigger as the other pre-release items in PLAN.md.
-  Reason is this section's own rule — justify every runner. The workflow
-  surface is one rarely-changing file, so linting it now guards against
-  drift that is not happening, while SHA-pinning turns on a weekly
-  Dependabot stream (~1 PR/repo/week across the five siblings that already
-  carry it). Neither earns its review cost until enough of the P0 function
-  set exists to tag: incomplete gamma P/Q and incomplete beta are still
-  outstanding. Revisit when the tag does, not before.
+- House-style §5/§6 adopted at the first tagged release (v0.1.0,
+  2026-08-06, closing issue #2): `lint-workflows.yml` carries the fleet
+  actionlint + zizmor pair, and every action in both workflows is
+  SHA-pinned with a `# vX.Y.Z` comment plus `persist-credentials: false`
+  on every checkout. The pre-tag deferral (avoid the weekly Dependabot
+  bump stream while the workflow surface was one rarely-changing file)
+  is recorded in issue #2 for the rationale trail.
 - Workflow security: GITHUB_TOKEN read-only (repo setting + workflow
   `permissions:`), no event-payload interpolation in `run:` blocks,
-  Dependabot keeps action versions fresh — within the pinning limit noted
-  above, so it currently bumps only the SHA-pinned `actions/cache`.
+  Dependabot keeps action versions fresh across all SHA-pinned actions.
 
 ### CMake standard
 
