@@ -21,8 +21,11 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
 1. **digamma — G1 generator stage** (design below is binding; Sonnet
    tooling agent, orchestrator reviews stderr budgets before any table
    is committed), then G2 references → G3 kernel (Opus) → G4 gates +
-   ladder → G5 docs. After digamma: inverse incomplete gamma/beta
-   (erfinv seed + dd-Newton pattern), then Bessel I0/I1.
+   ladder → G5 docs. Escalation-density rule [2026-08-06, user]: if
+   resolving an escalation spawns a new one more than ~3 deep in a
+   chain, the stage defaults back to frontier hands-on work (the beta
+   seventh-correction precedent). After digamma: inverse incomplete
+   gamma/beta (erfinv seed + dd-Newton pattern), then Bessel I0/I1.
 2. **Quiet-machine bench_beta re-run** [bench SHIPPED 2026-08-06 —
    numbers below are loaded/indicative]: re-run on an idle Ryzen for
    publishable numbers, and fold into the Kaby bench pass when that
