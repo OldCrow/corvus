@@ -229,10 +229,12 @@ production-quality (per-tier audit record: docs/ACCURACY.md):
 - [OPEN] CORVUS_SANITIZE is not MSVC-aware: emits `-fsanitize=<list>`
   unconditionally, which cl.exe rejects. Harmless while sanitizer
   builds are Linux-only; branch on MSVC or reject with FATAL_ERROR.
-- [OPEN] Install/export when Highway is FetchContent-built is disabled
-  (the exported target would dangle). Decide before the first tagged
-  release: require system hwy (status quo), bundle hwy objects into
-  libcorvus.a, or install a nested hwy.
+- [RESOLVED 2026-08-06, user decision at first tag] Install/export when
+  Highway is FetchContent-built: status quo ratified — `cmake --install`
+  requires a system Highway (find_package(hwy 1.4)); FetchContent builds
+  stay build-tree-only. No bundling, no nested install; keeps the source
+  tag free of Highway's binary-NOTICE obligation and matches the
+  build-stack find_package floor. Revisit only if packaging starts.
 - [OPEN] Pre-release legal: binary artifacts linking Highway must carry
   its Apache-2.0 NOTICE; source-only distribution needs nothing. Handle
   when packaging starts.
@@ -1724,6 +1726,23 @@ pulls established THREE distinct defects:
   PowerShell) in the first sweep attempt -- not the known Git-Bash DLL
   shadowing signature; clang-cl sweep used instead; diagnose the mingw
   runtime issue on a quiet day.
+- FIRST TAGGED RELEASE v0.1.0 [2026-08-06, user decisions]: the Kaby
+  Lake leg does NOT gate forward progress (stays [OPEN, machine access]
+  as an additional cross-machine check per the ACCURACY.md dagger note)
+  — that satisfied the tag trigger. Version v0.1.0 (P0 surface complete
+  and audited; API stability not yet promised, P1 ahead). Pre-tag
+  checklist executed:
+  (a) issue #2 landed (dbcb4a1): fleet lint-workflows.yml (actionlint
+      v1.73.0 + zizmor 1.28.0, copied from libhmm), all three ci.yml
+      checkouts SHA-pinned to v7.0.1 with persist-credentials: false,
+      AGENTS.md deviation record rewritten as adoption record;
+      dependabot.yml already covered github-actions — unchanged.
+  (b) protect-tags ruleset created (see repo-settings section).
+  (c) Install/export decision ratified status quo (see Open Items).
+  (d) Pre-release legal: no-op for a source-only tag (Highway NOTICE
+      attaches to binary artifacts only).
+  Tag placed after the dbcb4a1 CI + first lint-workflows run came back
+  green (house style: the first real lint run is the gate).
 - ADOPTED VALIDATION GAPS [2026-08-04 design review; add at the named
   steps, not before]:
   (i) Monotonicity-in-x gate — at step (2)/G4: post-pass grouping the
@@ -1924,9 +1943,11 @@ Wiki and projects DISABLED (four-file docs policy), issues on,
 discussions off. Topics set. Security: Dependabot alerts + auto fixes,
 secret scanning + push protection, private vulnerability reporting.
 Ruleset "protect-main": blocks force-push/deletion, direct pushes
-allowed (solo workflow). Actions GITHUB_TOKEN read-only, cannot approve
-PRs. Deferred: signed-commits rule (confirm the M1 and Ryzen boxes sign
-before enabling), tag-protection ruleset for v* at first release.
+allowed (solo workflow). Ruleset "protect-tags" [added 2026-08-06 at
+first release, id 20491885]: v* tags immutable once pushed (deletion +
+update blocked, no bypass actors; creation stays open). Actions
+GITHUB_TOKEN read-only, cannot approve PRs. Deferred: signed-commits
+rule (confirm the M1 and Ryzen boxes sign before enabling).
 Required status checks deliberately absent (incompatible with
 direct-push workflow).
 
