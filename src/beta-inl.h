@@ -409,9 +409,10 @@ HWY_NOINLINE Dd<D> BinetDiffDd(D d, Dd<D> z, Dd<D> w) {
 // SCALING. The only operand that can leave ops::ProdLow's non-FMA Dekker range
 // is z itself (M is unbounded above). w and the two products that carry a z
 // are computed on an exactly down-scaled pair and scaled back; m is bounded by
-// 256 at every live call site (PA has c <= C_lg or min < Z0; R4 has
-// tau <= 2^-6), so no other operand is at risk. That audit is the AGENTS.md
-// 2^996 rule discharged for this function.
+// 256 at every live call site (PA has c <= C_lg or min < Z0; R4 hands
+// tau <= kBetaPrTauMax = 2.5 for its lgdiff term and m <= 3/2 for its
+// lgamma(1+tau) form [NINTH correction]), so no other operand is at risk.
+// That audit is the AGENTS.md 2^996 rule discharged for this function.
 template <class D>
 HWY_NOINLINE Dd<D> LgammaDiffDd(D d, op::V<D> bigm, op::V<D> smallm) {
   const auto one = op::Set(d, 1.0);
@@ -888,10 +889,11 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
 //   * the lgamma difference is analytic (LgammaDiffDd) -- lgamma(B+tau) and
 //     lgamma(B) are equal to the last bit once tau is small, so their
 //     difference cannot be taken numerically;
-//   * lgamma(1+tau) is lgamma's OWN centre-1 zone polynomial evaluated at the
-//     EXACT shifted argument t = tau, never LgammaPosDd(1+tau) -- fl(1+tau)
-//     rounds to exactly 1 below 2^-53 and would return a flat zero, losing the
-//     -gamma*tau that is the whole signal (the GammaSmallQ mechanism);
+//   * lgamma(1+tau) is the analytic difference LgammaDiffDd(1, tau) [NINTH
+//     correction; see the block comment at its call below], never
+//     LgammaPosDd(1+tau) -- fl(1+tau) rounds to exactly 1 below 2^-53 and
+//     would return a flat zero, losing the -gamma*tau that is the whole
+//     signal (the GammaSmallQ mechanism);
 //   * log1p(tau*Sigma) is a log1p, not a log of 1 + something.
 // The identity Sigma*e^w telescoping to the BPSER value is the reference
 // generator's own small_tau_oracle, validated there at 2^-188 against the
@@ -935,26 +937,35 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
     if (op::AllTrue(d, op::Eq(live, zero))) break;
   }
 
-  // lgamma(1+tau) at the exact shifted argument -- the GammaSmallQ zone
-  // form, three-zone [EIGHTH correction widens the SEVENTH's tau gate]:
-  // post-routed lanes carry tau up to kBetaPrTauMax = 2.5 (original R4
-  // lanes stay <= eps_R4 = 2^-6):
-  //   tau <= 1/2:        centre-1 at tz = tau (1+tau in [1, 1.5]);
-  //   1/2 < tau <= 3/2:  centre-2 at tz = tau - 1 (Sterbenz-exact);
-  //   3/2 < tau <= 5/2:  one recurrence step, lgamma(1+tau) = lgamma(tau)
-  //                      + ln tau, centre-2 at tz = tau - 2 (Sterbenz-
-  //                      exact for tau in [1, 4]) plus LogDdAny(tau).
-  //                      Both pieces are dd-relative-accurate and the sum
-  //                      cannot cancel to below its own class: lgamma(tau)
-  //                      >= -0.1215 on (3/2, 5/2] while ln tau >= 0.405.
-  const auto c1 = op::Ge(op::Set(d, detail::kLgammaZoneLo), tau);
-  const auto m3 = op::Gt(tau, op::Set(d, detail::kLgammaZoneMid));
-  const auto tz = op::IfThenElse(
-      c1, tau, op::Sub(tau, op::IfThenElse(m3, op::Add(one, one), one)));
-  auto lg1 = DdMulD(d, ZoneBracket(d, tz, c1), tz);
-  const auto lt = LogDdAny(d, tau);
-  lg1 = DdAdd(d, lg1, Dd<D>{op::IfThenElse(m3, lt.hi, zero),
-                            op::IfThenElse(m3, lt.lo, zero)});
+  // lgamma(1+tau) via the SAME analytic difference machinery as the
+  // lgamma(B+tau) - lgamma(B) term below [NINTH correction]:
+  //   lgamma(1+tau) = LgammaDiffDd(1, tau)      (tau <= 1)
+  //                 = LgammaDiffDd(2, tau - 1)  (1 < tau <= kBetaPrTauMax)
+  // exact identities, since lgamma(1) = lgamma(2) = 0 and tau - 1 is an
+  // exact subtraction for tau in (1, 2.5] (integer off a finer grid).
+  // m = tau or tau-1 stays in (0, 3/2] <= M in {1, 2}: inside
+  // LgammaDiffDd's precondition, its walk range (M < Z0 fires <= 7 of
+  // the 10 unit steps), and its already-exercised Log1pmxDd argument
+  // range (the PA call sites reach comparable s).
+  // WHY NOT the previous three-zone ZoneBracket form: that reused
+  // lgamma's zone polynomial, whose replayed-evaluation budget
+  // (ZONE_TARGET = 3e-17, floored by the tail Horner's own DOUBLE
+  // rounding) is relative to lg1 ITSELF. Post-routed lanes cancel w
+  // down to Qtilde ~ 2^-11..2^-17, amplifying that budget by
+  // |lg1|/Qtilde ~ 2^13..2^17: measured 55/209 ULP against the
+  // certified reference set, implied dw = (1..3)e-18 x lg1 -- squarely
+  // the polynomial's class, twenty orders above the dd class of every
+  // other component in w. Same disease shape as the reference oracle's
+  // round-6 lg_diff defect: a truncation/rounding budget proven
+  // relative to a component's own scale is void once the assembly
+  // cancels below it. Original R4 lanes (tau <= eps_R4) were immune --
+  // there |lg1| ~ gamma*tau and Qtilde ~ tau*O(10), no amplification --
+  // but take the analytic form too: one code path, and the walk is
+  // cheap next to the N=48 series above.
+  const auto gt1 = op::Gt(tau, one);
+  const auto lg1 = LgammaDiffDd(
+      d, op::IfThenElse(gt1, op::Add(one, one), one),
+      op::IfThenElse(gt1, op::Sub(tau, one), tau));
 
   auto w = DdMulD(d, lxi, tau);
   w = DdAdd(d, w, LgammaDiffDd(d, bb, tau));

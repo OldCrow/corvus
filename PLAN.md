@@ -1561,6 +1561,25 @@ pulls established THREE distinct defects:
   assembly assessment, then gate pinning to measured, monotonicity
   post-pass, seam sweep, tier order Kaby native+caps -> NEON CI ->
   Ryzen last.
+- G4 STEP 1 DONE -- R4-POSTROUTE ROOT CAUSE + NINTH CORRECTION
+  [2026-08-05]: the 55/209 ULP residual was lgamma(1+tau) via
+  ZoneBracket -- lgamma's zone polynomial carries a replayed budget of
+  ZONE_TARGET = 3e-17 RELATIVE TO ITSELF (double-class Horner floor,
+  documented in gen_lgamma_data.py), and the post-route assembly
+  cancels w to Qtilde ~ 2^-11..2^-17, amplifying it by |lg1|/Qtilde ~
+  2^13..2^17. Confirmed quantitatively: kernel implied dw = (1..3)e-18
+  x lg1 on both worst rows (poly class; dd class of every other
+  component is 20 orders below; Sigma-roundoff excluded at 2^-94).
+  Same disease shape as the oracle's round-6 lg_diff defect -- a
+  budget proven relative to a component's own scale voided by
+  downstream cancellation. FIX: lg1 = LgammaDiffDd(1, tau) for tau <=
+  1, LgammaDiffDd(2, tau-1) for tau in (1, 2.5] (exact identities,
+  lgamma(1) = lgamma(2) = 0; tau-1 exact; m <= 3/2 <= M inside the
+  walk's existing range). One code path for ALL R4 lanes. RESULT:
+  R4-postrt dir 55/209 -> 1/1 ULP; R4 tiny dir max 3 -> 2 (Q side);
+  everything else byte-stable; full suite 15/15 green on AVX3_ZEN4.
+  Largest residual anywhere is now beta_q R1-series CMP 13 ULP (n=14
+  rows, worst a=0.5 b=100 x=0.05) -- assess during gate pinning.
 - ADOPTED VALIDATION GAPS [2026-08-04 design review; add at the named
   steps, not before]:
   (i) Monotonicity-in-x gate — at step (2)/G4: post-pass grouping the
