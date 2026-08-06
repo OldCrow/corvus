@@ -66,10 +66,9 @@ own escape-hatch caveat below, MSVC) is unaffected. Minimal repro + draft
 upstream report: `C:\Users\gdwol\Development\gcc-zmm-mingw-repro\`. GCC remains fine for capped tiers up to AVX2
 (no zmm there),
 which is all `tools/sweep_tiers.ps1` compiles — its `g++` default is safe
-for the sweep itself, but the uncapped native build must be clang-cl
-(from a VS dev shell so link.exe resolves; the 2026-07-28 session ran the
-whole sweep under `-CxxCompiler clang-cl -CCompiler clang-cl` too, and
-either compiler choice is fine there).
+for the sweep, but the uncapped native build must be clang-cl (from a VS
+dev shell so link.exe resolves; the sweep itself also runs clean under
+`-CxxCompiler clang-cl -CCompiler clang-cl`).
 Confirm the active set before trusting any tier result:
 `build/_deps/highway-build/hwy_list_targets`. Also note `AVX3_SPR`
 (Intel Sapphire Rapids) and `AVX10_2` are not available on Zen 4, so
@@ -301,6 +300,7 @@ python3 -m venv /tmp/mpv && /tmp/mpv/bin/pip install mpmath
 /tmp/mpv/bin/python tools/gen_gamma_data.py       > src/gamma_data.h
 /tmp/mpv/bin/python tools/gen_gamma_reference.py
 /tmp/mpv/bin/python tools/gen_beta_data.py        > src/beta_data.h
+/tmp/mpv/bin/python tools/gen_beta_reference.py
 ```
 `gen_erfinv_reference.py` writes both `tests/data/erfinv_reference.txt` and
 `tests/data/erfcinv_reference.txt` directly (two output files, so no `>`
@@ -314,6 +314,13 @@ compute the SMALL side of P/Q directly (never 1 − a near-1 value), and use
 the exact-asymptotic oracle rather than mpmath's gammainc for a > 1e4
 (mpmath's regularized lower hangs or fails to converge at large a) — both
 documented at the enforcement sites in the generator.
+`gen_beta_reference.py` writes both beta reference files directly
+(checkpointed and resumable — re-run until it writes the files), and any
+beta reference regeneration MUST end with a clean
+`tools/verify_beta_reference.py` pass before the files are trusted: the
+harness is oracle-independent and carries a baked-in negative control
+(known-bad rows that must be rejected, exit 2 otherwise) — the
+oracle-trust doctrine's enforcement point (see PLAN.md Decisions).
 Reference files and generated tables are checked in; regenerate only when
 the method or point selection changes, and re-run the ULP tests after.
 Table generators self-check on every run and exit non-zero rather than emit
