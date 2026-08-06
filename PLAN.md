@@ -1656,7 +1656,41 @@ pulls established THREE distinct defects:
   byte-stable under the clamp change as predicted). RYZEN COVERAGE
   COMPLETE. Remaining for the accuracy claim: Kaby AVX2-native + caps,
   M1 NEON (CI counts as real silicon), then ACCURACY.md beta section +
-  README at G5. Environment note: mingw-g++-built test binaries
+  README at G5.
+- VALIDATION-LEG DELAYS + NEXT STEPS [2026-08-05, user decision]: the
+  Intel (Kaby) and ARM (M1) Macs are unavailable for a while; their
+  legs are DEFERRED, not dropped. Note CI runs only on pushes to MAIN
+  (branch pushes never trigger it), so beta/g3-kernel has had zero CI:
+  MERGING TO MAIN (already a recorded G4 step) triggers the Linux
+  capped sweep AND the macOS arm64 job -- the NEON leg therefore needs
+  no machine visit, only the merge. After the merge, only Kaby
+  AVX2-native remains deferred [OPEN, machine access].
+  Machine-independent queue, in order:
+  (1) merge beta/g3-kernel -> main; watch CI (Linux sweep, NEON ULP
+      report = real-silicon NEON numbers, MSVC toolchain gate);
+  (2) G5: ACCURACY.md beta section (record per-tier: Ryzen
+      native+capped now, NEON from the CI report, Kaby marked
+      pending) + README beta bullet; four-list audit DONE (verified
+      2026-08-05: tests/CMakeLists, 3x ci.yml ULP report, sweep
+      $gates);
+  (3) gamma follow-ups on this box: witness rows a >= 2^998 on the
+      Temme path at the next reference touch (clamp-fix coverage) and
+      the targeted independent spot-check of the a > 1e4 asymptotic
+      oracle branch (oracle-trust directive follow-through);
+  (4) AGENTS.md Model & Effort Routing amendment (reference-oracle
+      construction without a trusted library baseline is frontier
+      work);
+  (5) [LOW] mingw exit-crash diagnosis (0xC0000005 after PASS, from
+      PowerShell -- not the Git-Bash DLL signature).
+  AFTER BETA: beta was the LAST P0 FAMILY (P0 = erf/erfc, lgamma,
+  incomplete gamma P/Q, incomplete beta -- all now implemented and
+  gated). P0 completion + the validation legs are the trigger for the
+  FIRST TAGGED RELEASE, which in turn unlocks the deferred issue #2
+  workflow items (lint-workflows.yml + SHA pinning, per AGENTS.md CI
+  policy). P1 families next, smallest-first per the roadmap: digamma
+  (DigammaRough + kBetaDigammaCoef already staged as seeds), then
+  inverse incomplete gamma/beta (reuse erfinv's seed + dd-Newton
+  pattern), then Bessel I0/I1. Environment note: mingw-g++-built test binaries
   crashed at process EXIT (0xC0000005 after full PASS output, from
   PowerShell) in the first sweep attempt -- not the known Git-Bash DLL
   shadowing signature; clang-cl sweep used instead; diagnose the mingw
