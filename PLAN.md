@@ -1580,6 +1580,26 @@ pulls established THREE distinct defects:
   everything else byte-stable; full suite 15/15 green on AVX3_ZEN4.
   Largest residual anywhere is now beta_q R1-series CMP 13 ULP (n=14
   rows, worst a=0.5 b=100 x=0.05) -- assess during gate pinning.
+- G4 STEP 2 DONE -- R1-CMP ROOT CAUSE + TENTH CORRECTION [2026-08-05]:
+  row-level census (new BETA_ULP_DUMP env in test_beta_ulp: prints
+  every not-CR row at/above a ULP threshold -- permanent gate-pinning
+  tool) showed ONE row at 13 ULP (0.5, 100, 0.05) + two at 2 ULP (both
+  tau = 0.398); all exposed lanes tau < 1. Implied prefactor error
+  5e-18 = 5.1e-18 * |lgamma(0.5)| = LgammaPosDd's zone-poly class: the
+  NINTH-correction disease at its second site (PA's -lnB =
+  LgammaDiffDd(max,min) - lgamma(min); the lgamma(min) term was the
+  only non-dd component). FIX: for min <= kBetaPrTauMax, lgamma(min) =
+  lgamma(1+min) - ln(min) via the NINTH identities -- dd-ABSOLUTE
+  ~2^-100 (cancellation at lgamma's zeros 1, 2 is benign, absolute is
+  what lnB needs); min > 2.5 keeps LgammaPosDd (near-one values
+  require tau <= 2.5 per the eighth-correction pocket). If the G4 seam
+  sweep exposes a tau > 2.5 corner: extend via lgamma(min) =
+  LgammaDiffDd(floor(min), frac) + exact ln((n-1)!) dd table.
+  RESULT: R1 cmp 13 -> 1 ULP max (not-CR 14 -> 2 rows); R1 dir not-CR
+  9 -> 2; all other buckets byte-stable; 15/15 green. FULL TABLE NOW
+  (AVX3_ZEN4): R1 1/1, R2 cf 0/0, R3 temme 3/<=1, R4 tiny 2/0,
+  postrt 1/0, gammalim 0/1, specials exact. G4 remaining: monotonicity
+  post-pass, seam sweep, gate pinning, tier ladder.
 - ADOPTED VALIDATION GAPS [2026-08-04 design review; add at the named
   steps, not before]:
   (i) Monotonicity-in-x gate — at step (2)/G4: post-pass grouping the

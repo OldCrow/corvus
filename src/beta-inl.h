@@ -1169,12 +1169,41 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     const auto la = LogDdAny(d, alpha);
 
     // PA: -ln B = LgammaDiffDd(max, min) - lgamma(min). Scrubbed to (3, 2).
+    //
+    // lgamma(min) [TENTH correction]: for min <= kBetaPrTauMax it is the
+    // analytic identity lgamma(min) = lgamma(1+min) - ln(min), with
+    // lgamma(1+min) via the NINTH correction's LgammaDiffDd forms -- every
+    // piece dd-relative, so the assembled lgamma(min) is dd-ABSOLUTE
+    // (~2^-100; the cancellation at lgamma's zeros min = 1, 2 only ever
+    // cancels to an absolute level dd carries). WHY: LgammaPosDd's
+    // zone/Stirling budgets (3e-17 / 1e-18) are relative to lgamma
+    // ITSELF with a double-class Horner floor, and a near-one R1 lane
+    // hands its CMP side out at ulp(complement) ~ 2^-62..2^-64 --
+    // measured 13 ULP at (a, b, x) = (0.5, 100, 0.05), implied
+    // prefactor error 5e-18 = 5.1e-18 * |lgamma(0.5)|, squarely the
+    // polynomial class (the R4-postroute/NINTH mechanism at its second
+    // site). Near-one values require tau <= kBetaPrTauMax (the eighth-
+    // correction pocket: above it the box-corner complement clears the
+    // doctrine bound with margin), so min > 2.5 keeps LgammaPosDd; if
+    // the G4 seam sweep exposes the tau > 2.5 corner, extend via
+    // lgamma(min) = LgammaDiffDd(floor(min), frac) + ln((floor-1)!)
+    // table (PLAN.md).
     Dd<D> epa{zero, zero};
     if (!op::AllFalse(d, m_pa)) {
       const auto mn = op::IfThenElse(m_pa, op::Min(alpha, beta), safe_a);
       const auto mx = op::IfThenElse(m_pa, op::Max(alpha, beta), safe_b);
+      const auto lo = op::Ge(op::Set(d, detail::kBetaPrTauMax), mn);
+      const auto mns = op::IfThenElse(lo, mn, one);  // scrub dead lanes
+      const auto g1 = op::Gt(mns, one);
+      const auto lg1m = LgammaDiffDd(
+          d, op::IfThenElse(g1, op::Add(one, one), one),
+          op::IfThenElse(g1, op::Sub(mns, one), mns));
+      const auto lga = DdSub(d, lg1m, LogDdAny(d, mns));
+      const auto lgp = LgammaPosDd(d, mn);
+      const Dd<D> lgmn{op::IfThenElse(lo, lga.hi, lgp.hi),
+                       op::IfThenElse(lo, lga.lo, lgp.lo)};
       epa = DdAdd(d, DdAdd(d, l1, l2),
-                  DdSub(d, LgammaDiffDd(d, mx, mn), LgammaPosDd(d, mn)));
+                  DdSub(d, LgammaDiffDd(d, mx, mn), lgmn));
     }
     // PB: the analytic Stirling difference. Binet's derivative is <= 1/(12z^2)
     // here, so c.lo is negligible in Delta and c may even be +inf (Binet -> 0).

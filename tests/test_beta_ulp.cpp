@@ -21,6 +21,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <string>
@@ -252,6 +253,16 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
     }
     ++r.n;
     if (u > 0) ++r.miss;
+    // Row-level dump for gate pinning: BETA_ULP_DUMP=<min ULP> prints
+    // every not-correctly-rounded row at or above the threshold.
+    static const char* dump_env = std::getenv("BETA_ULP_DUMP");
+    if (u > 0 && dump_env && u >= std::strtoull(dump_env, nullptr, 10)) {
+      std::fprintf(stderr,
+                   "DUMP %s %s ulp=%llu a=%.17g b=%.17g x=%.17g got=%a "
+                   "want=%a\n",
+                   label, r.name, static_cast<unsigned long long>(u), a[i],
+                   b[i], x[i], got[i], want[i]);
+    }
     if (u > r.max_ulp) {
       r.max_ulp = u;
       r.wa = a[i];
