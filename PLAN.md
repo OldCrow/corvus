@@ -1747,10 +1747,13 @@ pulls established THREE distinct defects:
   (CMake project VERSION already 0.1.0 — no bump needed). Issue #2
   auto-closed COMPLETED. Note: tag pushes trigger no CI by design
   (push filter is branches:[main]); the tag is gated on the branch
-  run instead. [OPEN, user call] GitHub Release object for v0.1.0:
-  notes drafted in the tag annotation; creating a Release is a
-  publish step awaiting explicit user approval of the text — or skip
-  it and let the bare tag stand.
+  run instead. Release object PUBLISHED [2026-08-06, user approved]:
+  https://github.com/OldCrow/corvus/releases/tag/v0.1.0, notes from
+  the tag annotation, marked Latest; cadence note — future v-tags
+  should each get a Release so the page stays coherent.
+  beta/g3-kernel PRUNED (local + origin; was 30fdb8a, fully merged —
+  survived auto-delete because the merge was a direct fast-forward
+  push, not a PR).
   NEXT after v0.1.0: P1 families smallest-first — digamma
   (DigammaRough + kBetaDigammaCoef staged as seeds), then inverse
   incomplete gamma/beta (erfinv seed + dd-Newton pattern), then
