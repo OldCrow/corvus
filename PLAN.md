@@ -1741,8 +1741,22 @@ pulls established THREE distinct defects:
   (c) Install/export decision ratified status quo (see Open Items).
   (d) Pre-release legal: no-op for a source-only tag (Highway NOTICE
       attaches to binary artifacts only).
-  Tag placed after the dbcb4a1 CI + first lint-workflows run came back
-  green (house style: the first real lint run is the gate).
+  TAG PLACED [2026-08-06]: dbcb4a1 CI fully green (Linux sweep +
+  sanitizers + install leg, Windows MSVC, macOS NEON) and the first
+  lint-workflows run green in 13s; annotated v0.1.0 pushed at b4eaeea
+  (CMake project VERSION already 0.1.0 — no bump needed). Issue #2
+  auto-closed COMPLETED. Note: tag pushes trigger no CI by design
+  (push filter is branches:[main]); the tag is gated on the branch
+  run instead. [OPEN, user call] GitHub Release object for v0.1.0:
+  notes drafted in the tag annotation; creating a Release is a
+  publish step awaiting explicit user approval of the text — or skip
+  it and let the bare tag stand.
+  NEXT after v0.1.0: P1 families smallest-first — digamma
+  (DigammaRough + kBetaDigammaCoef staged as seeds), then inverse
+  incomplete gamma/beta (erfinv seed + dd-Newton pattern), then
+  Bessel I0/I1. Still open elsewhere: Kaby leg [machine access],
+  gamma a >= 2^998 witness rows [next reference touch], mingw
+  exit-crash [low], signed-commits rule [confirm M1/Ryzen sign].
 - ADOPTED VALIDATION GAPS [2026-08-04 design review; add at the named
   steps, not before]:
   (i) Monotonicity-in-x gate — at step (2)/G4: post-pass grouping the
