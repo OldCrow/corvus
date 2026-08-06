@@ -18,16 +18,16 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
 (issue #2 closed). One branch (main).
 
 ## Next Steps
-1. **bench_beta** [queued 2026-08-06]: does not exist yet — beta shipped
-   with no performance numbers. Pattern-follow tests/bench_gamma.cpp
-   (per-region point sets matching the router regions; scalar-walk-of-
-   own-kernel baseline, LABELED as an upper bound — no libm betainc);
-   then a quiet-machine Ryzen Release pass for publishable numbers.
-   Mid-tier work per the AGENTS.md routing table.
-2. **P1 families, smallest-first**: digamma (DigammaRough +
+1. **P1 families, smallest-first**: digamma (DigammaRough +
    kBetaDigammaCoef already staged as seeds in beta_data.h), then
    inverse incomplete gamma/beta (erfinv's seed + dd-Newton pattern),
-   then Bessel I0/I1. Detail design + error budgets = frontier effort.
+   then Bessel I0/I1. Detail design + error budgets = frontier effort;
+   implementation via the Sonnet-tooling + Opus-kernel split with
+   orchestrator review gates (gamma/beta precedent).
+2. **Quiet-machine bench_beta re-run** [bench SHIPPED 2026-08-06 —
+   numbers below are loaded/indicative]: re-run on an idle Ryzen for
+   publishable numbers, and fold into the Kaby bench pass when that
+   machine leg happens.
 3. **Kaby Lake legs when the machine is available** [OPEN, machine
    access; ruled NON-GATING 2026-08-06, user decision]: beta AVX2-native
    + capped sweep (additional cross-machine check, not a claim gap —
@@ -324,6 +324,14 @@ threshold (permanent gate-pinning tool). bf16 lesson (2026-08-06 CI):
 never default-construct vector-member structs — implicit ctors
 instantiate outside the per-target attribute region; aggregate-init
 (now everywhere).
+
+**Bench** [2026-08-06, tests/bench_beta.cpp — Sonnet agent, reviewed]:
+per-region point sets with a router-replica membership diagnostic
+(printed, never gated; all six sets 100% in-region), scalar-walk
+upper-bound baseline (bench_gamma pattern). Ryzen AVX3_ZEN4,
+LOADED/INDICATIVE: R1 292, R2 448, R3 320, R4-tiny 278, postroute 543,
+gammalim 598 ns/el (7.4–15.1× the walk). Quiet-machine re-run owed
+before publishing (Next Steps).
 
 **Process lessons** (tooling, not math): mp.dps must be set INSIDE
 every computation layer — worker, subprocess-send, subprocess-parse

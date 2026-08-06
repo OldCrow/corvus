@@ -131,3 +131,10 @@ add_test(NAME beta_ulp
   COMMAND test_beta_ulp
   ${CMAKE_CURRENT_SOURCE_DIR}/data/beta_p_reference.txt
   ${CMAKE_CURRENT_SOURCE_DIR}/data/beta_q_reference.txt)
+
+add_executable(bench_beta bench_beta.cpp)
+corvus_test_target(bench_beta)
+# Links the public API, but re-derives the kernel's region routing from
+# src/beta_data.h so the two cannot drift apart — hence the source root.
+target_include_directories(bench_beta PRIVATE ${PROJECT_SOURCE_DIR})
+# Deliberately not registered with ctest: run manually on a quiet machine.
