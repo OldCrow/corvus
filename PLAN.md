@@ -1692,10 +1692,20 @@ pulls established THREE distinct defects:
       AGENTS.md routing amendment added (reference-oracle construction
       without a trusted baseline is frontier work). Four-list audit
       was already verified 2026-08-05.
-  (3) gamma follow-ups on this box: witness rows a >= 2^998 on the
-      Temme path at the next reference touch (clamp-fix coverage) and
-      the targeted independent spot-check of the a > 1e4 asymptotic
-      oracle branch (oracle-trust directive follow-through);
+  (3) gamma follow-ups: SPOT-CHECK DONE [2026-08-06] -- the a > 1e4
+      exact-asymptotic oracle branch verified 42/42 sampled rows
+      (scratchpad spotcheck_gamma_oracle.py: three Temme-independent
+      evaluators -- brute-dps series x/a <= 0.9, peak-normalized
+      log-space quad on the ridge, high-depth Legendre CF x/a >= 1.1
+      -- with overlap self-certification and layered-dps agreement; 41
+      rows independently computed, the a = x = 1e250 ridge point
+      verified analytically: P = 1/2 - 1.3e-126 rounds to the stored
+      exact 0.5; the probe's own quad refused that row via layer
+      disagreement rather than emitting garbage -- the harness
+      discipline working). THE ORACLE-TRUST DIRECTIVE IS FULLY
+      DISCHARGED across both families. Witness rows a >= 2^998 on the
+      Temme path remain owed at gamma's NEXT reference touch (avoid a
+      full regen cycle now) [OPEN];
   (4) AGENTS.md Model & Effort Routing amendment (reference-oracle
       construction without a trusted library baseline is frontier
       work);
