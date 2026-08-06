@@ -35,16 +35,19 @@
 
 namespace {
 
-// PROVISIONAL GATES [G3]. A deliberately useless placeholder, NOT a measured
-// bound: this stage's job is to produce the per-region table, and G4 pins
-// every cell to what it measures with no margin (the house rule). A passing
-// run here is NOT an accuracy claim. What G3 actually measured on
-// AVX3_ZEN4/clang-cl, with the reference-defect rows below excluded:
-//   direct side     R1 1, R2 0, R3 3, R4 3 ULP
-//   complement      R2 0, R3 1, R4 0 ULP; R1 55/429 ULP
-// The R1 complement cell and the R2 complement's worst point are escalations
-// against the routing design, not arithmetic -- see PLAN.md's G3 record.
-constexpr uint64_t kGateProvisional = 1000000;
+// PINNED GATES [G4, 2026-08-05]: every cell is the value measured on
+// AVX3_ZEN4/clang-cl against the round-6 certified reference set (max over
+// the beta_p and beta_q runs), pinned with NO margin (the house rule). The
+// G3-era 55/209-ULP R1-cmp and R4-postroute cells were the NINTH and TENTH
+// corrections (double-class lgamma components amplified by cancellation);
+// see PLAN.md. A tier that measures above any cell is an escalation, not a
+// gate bump.
+constexpr uint64_t kGateR1Dir = 1, kGateR1Cmp = 1;
+constexpr uint64_t kGateR2Dir = 0, kGateR2Cmp = 0;
+constexpr uint64_t kGateR3Dir = 3, kGateR3Cmp = 1;
+constexpr uint64_t kGateR4Dir = 2, kGateR4Cmp = 0;
+constexpr uint64_t kGatePrDir = 1, kGatePrCmp = 0;
+constexpr uint64_t kGateGlDir = 0, kGateGlCmp = 1;
 
 // (The G3-era kRefDefectCutoff escape hatch is DELETED: the reference set was
 // regenerated with the small-tau oracle fixed, per its own commit record.)
@@ -228,13 +231,14 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
             const std::vector<double>& b, const std::vector<double>& x,
             const std::vector<double>& pref, const std::vector<double>& qref,
             const std::vector<double>& got, const std::vector<double>& want) {
-  const uint64_t g = kGateProvisional;
   Region reg[14] = {
-      {"R1 series dir", g}, {"R1 series cmp", g}, {"R2 cf     dir", g},
-      {"R2 cf     cmp", g}, {"R3 temme  dir", g}, {"R3 temme  cmp", g},
-      {"R4 tiny   dir", g}, {"R4 tiny   cmp", g}, {"specials     ", 0},
-      {"specials  (-)", 0}, {"R4 postrt dir", g}, {"R4 postrt cmp", g},
-      {"R2 gammalim d", g}, {"R2 gammalim c", g},
+      {"R1 series dir", kGateR1Dir}, {"R1 series cmp", kGateR1Cmp},
+      {"R2 cf     dir", kGateR2Dir}, {"R2 cf     cmp", kGateR2Cmp},
+      {"R3 temme  dir", kGateR3Dir}, {"R3 temme  cmp", kGateR3Cmp},
+      {"R4 tiny   dir", kGateR4Dir}, {"R4 tiny   cmp", kGateR4Cmp},
+      {"specials     ", 0},          {"specials  (-)", 0},
+      {"R4 postrt dir", kGatePrDir}, {"R4 postrt cmp", kGatePrCmp},
+      {"R2 gammalim d", kGateGlDir}, {"R2 gammalim c", kGateGlCmp},
   };
   for (size_t i = 0; i < a.size(); ++i) {
     bool direct_is_p = false;
@@ -456,6 +460,6 @@ int main(int argc, char** argv) {
     rc |= Measure("beta_q", false, a, b, x, p, q, got, q);
   }
 
-  if (rc == 0) std::printf("PASS: all regions within PROVISIONAL gates\n");
+  if (rc == 0) std::printf("PASS: all regions within G4 pinned gates\n");
   return rc;
 }
