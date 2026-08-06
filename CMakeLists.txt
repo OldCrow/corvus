@@ -97,7 +97,17 @@ target_link_libraries(corvus PRIVATE hwy::hwy)
 # is also applied to test/bench targets in tests/CMakeLists.txt.
 set(CORVUS_WARN_FLAGS "")
 if(CORVUS_DEV_WARNINGS)
-  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang"
+     AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    # clang-cl: -Wall is an ALIAS for MSVC /Wall, which clang-cl maps to
+    # -Weverything (thousands of -W*-compat pedantry against our own C++20
+    # baseline). /W4 is the spelling that maps to clang's -Wall -Wextra;
+    # -Wpedantic passes through as the native clang flag.
+    list(APPEND CORVUS_WARN_FLAGS /W4 -Wpedantic)
+    if(CORVUS_WERROR)
+      list(APPEND CORVUS_WARN_FLAGS /WX)
+    endif()
+  elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     list(APPEND CORVUS_WARN_FLAGS -Wall -Wextra -Wpedantic)
     if(CORVUS_WERROR)
       list(APPEND CORVUS_WARN_FLAGS -Werror)

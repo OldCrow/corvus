@@ -261,7 +261,15 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
     if (u > 0) ++r.miss;
     // Row-level dump for gate pinning: BETA_ULP_DUMP=<min ULP> prints
     // every not-correctly-rounded row at or above the threshold.
+    // getenv deprecation suppressed locally, expect_target.h's pattern.
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
     static const char* dump_env = std::getenv("BETA_ULP_DUMP");
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
     if (u > 0 && dump_env && u >= std::strtoull(dump_env, nullptr, 10)) {
       std::fprintf(stderr,
                    "DUMP %s %s ulp=%llu a=%.17g b=%.17g x=%.17g got=%a "

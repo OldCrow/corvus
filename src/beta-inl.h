@@ -558,13 +558,18 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   const auto nus = DdMulD(d, DdMulD(d, rc, bs), as);
   const auto z2 = DdMul(d, cs, DdRecipDd(d, nus));
 
-  BetaPsi<D> out;
-  out.cpsi = Dd<D>{op::Mul(cs.hi, up), op::Mul(cs.lo, up)};
-  out.nu = Dd<D>{op::Mul(nus.hi, up), op::Mul(nus.lo, up)};
-  out.zeta = op::CopySign(DdSqrt(d, z2).hi, lam.hi);
-  out.p = op::Div(as, c.hi);
-  out.q = op::Div(bs, c.hi);
-  out.lam = lam.hi;
+  // Aggregate-initialized, never default-constructed: an implicitly
+  // generated default constructor is instantiated OUTSIDE the per-target
+  // attribute region on Apple Clang, and the NEON_BF16 slice of a newer
+  // system Highway then refuses to inline the vector members'
+  // always_inline ctors into it (caught by the first macOS CI run of
+  // this TU; gamma/erf never default-construct and were unaffected).
+  const BetaPsi<D> out{Dd<D>{op::Mul(cs.hi, up), op::Mul(cs.lo, up)},
+                       Dd<D>{op::Mul(nus.hi, up), op::Mul(nus.lo, up)},
+                       op::CopySign(DdSqrt(d, z2).hi, lam.hi),
+                       op::Div(as, c.hi),
+                       op::Div(bs, c.hi),
+                       lam.hi};
   return out;
 }
 
@@ -697,7 +702,7 @@ HWY_NOINLINE Dd<D> BetaR2Cf(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi) {
   for (int k = detail::kBetaN2; k >= 1; --k) {
     const double mv = static_cast<double>(k / 2);
     const auto m = op::Set(d, mv);
-    Dd<D> dk;
+    Dd<D> dk{zero, zero};  // brace-init: see BetaPsiCore's ctor note
     if ((k & 1) == 0) {
       // d_{2m} = [m/(alpha+2m-1)] * [(beta-m)xi/(alpha+2m)]
       const auto bx = DdSub(d, DdMulD(d, xis, bs), DdMulD(d, xi, m));
@@ -1198,13 +1203,9 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // --- shared cpsi machinery (R3 and PB) ----------------------------------
   // Scrubbed outside its own lanes: the prescale's no-underflow argument rests
   // on min(alpha,beta) >= Z0, which only holds where this is live.
-  BetaPsi<D> ps;
-  ps.cpsi = Dd<D>{zero, zero};
-  ps.nu = Dd<D>{one, zero};
-  ps.zeta = zero;
-  ps.p = half;
-  ps.q = half;
-  ps.lam = zero;
+  // Aggregate-initialized (see BetaPsiCore's ctor note); the scrub values
+  // are unchanged: cpsi 0, nu 1, zeta 0, p = q = 1/2, lam 0.
+  BetaPsi<D> ps{Dd<D>{zero, zero}, Dd<D>{one, zero}, zero, half, half, zero};
   const bool need_psi = !op::AllFalse(d, m_psi);
   if (need_psi) {
     const auto pa = op::IfThenElse(m_psi, alpha, safe_a);
