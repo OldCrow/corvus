@@ -1683,11 +1683,15 @@ pulls established THREE distinct defects:
       0/1, specials exact; monotonicity 0 violations; all ten seams
       crossed, 0 wrong-direction. NEON LEG COMPLETE. Only Kaby
       AVX2-native remains deferred.
-  (2) G5: ACCURACY.md beta section (record per-tier: Ryzen
-      native+capped now, NEON from the CI report, Kaby marked
-      pending) + README beta bullet; four-list audit DONE (verified
-      2026-08-05: tests/CMakeLists, 3x ci.yml ULP report, sweep
-      $gates);
+  (2) DONE [2026-08-06]: G5 docs — ACCURACY.md beta_p/beta_q rows in
+      the validation matrix (dagger note: x86 tiers from Ryzen
+      native+capped + Linux CI, all real silicon; Kaby is an
+      additional cross-machine check, not a claim gap) + full family
+      section (pinned bounds table, method summary, the three hazard
+      classes, specials doctrine); README status line + beta bullet;
+      AGENTS.md routing amendment added (reference-oracle construction
+      without a trusted baseline is frontier work). Four-list audit
+      was already verified 2026-08-05.
   (3) gamma follow-ups on this box: witness rows a >= 2^998 on the
       Temme path at the next reference touch (clamp-fix coverage) and
       the targeted independent spot-check of the a > 1e4 asymptotic

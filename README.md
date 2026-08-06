@@ -11,11 +11,11 @@ inverses — the functions that gate vectorized statistical CDFs, quantiles,
 and maximum-likelihood fitting.
 
 **Status: early development.** `erf`, `erfc`, `lgamma`, `erfinv`,
-`erfcinv`, `gamma_p` and `gamma_q` are production-quality clean-room
-kernels validated against an mpmath oracle on every SIMD tier available
-across the development fleet — AVX-512 (`AVX3`, `AVX3_DL`, `AVX3_ZEN4`),
-AVX2, SSE4, SSSE3, SSE2 and NEON, each on native silicon (see
-docs/ACCURACY.md). API not yet stable.
+`erfcinv`, `gamma_p`, `gamma_q`, `beta_p` and `beta_q` are
+production-quality clean-room kernels validated against an mpmath oracle
+on every SIMD tier available across the development fleet — AVX-512
+(`AVX3`, `AVX3_DL`, `AVX3_ZEN4`), AVX2, SSE4, SSSE3, SSE2 and NEON, each
+on native silicon (see docs/ACCURACY.md). API not yet stable.
 
 - `erf`: max 1 ULP over the full domain.
 - `erfc`: max 1 ULP for |x| <= 6 and for subnormal results; max 2 ULP in
@@ -35,6 +35,15 @@ docs/ACCURACY.md). API not yet stable.
   bound is relative — the routing always computes the smaller of P/Q
   directly, so tiny values keep full relative accuracy down to (and
   through) the subnormals, including Q for arbitrarily small a.
+- `beta_p` / `beta_q` (regularized incomplete beta): max 3 ULP on the
+  directly computed (smaller) side over the whole (a, b, x) domain — the
+  continued-fraction and gamma-limit regions are correctly rounded, the
+  Temme ridge carries the 3 — with the same always-compute-the-smaller-side
+  relative guarantee as the gamma pair, down to subnormal results and out
+  to parameters at the ends of the double range. The reference set is
+  additionally certified by an independent verification harness, and every
+  target passes a monotonicity post-pass plus dense sweeps across all ten
+  routing seams.
 
 Both transcendental cores the kernels need (`exp_dd`, `log_dd`) are
 corvus's own, so no accuracy-critical path depends on the backend's math

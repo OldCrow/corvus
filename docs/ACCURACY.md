@@ -52,8 +52,17 @@ machine.
 | erfcinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | gamma_p | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-07-29 | ✅ 2026-07-28 |
 | gamma_q | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-07-29 | ✅ 2026-07-28 |
+| beta_p | ✅ 2026-08-05 † | ✅ | ✅ | ✅ | ✅ 2026-08-06 | ✅ 2026-08-05 |
+| beta_q | ✅ 2026-08-05 † | ✅ | ✅ | ✅ | ✅ 2026-08-06 | ✅ 2026-08-05 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
+
+† The beta x86 rows come from the Ryzen box (AVX3_ZEN4 native dispatch,
+clang-cl; AVX2/SSE4/SSSE3/SSE2 via capping on the same silicon) plus the
+Linux/GCC CI sweep — every tier executes natively on real x86 silicon, so
+the per-tier claims stand. Cross-machine reproduction on Kaby Lake
+(AVX2+FMA native, AppleClang) is pending machine access and is an
+additional check, not a gap in the claim.
 
 `exp_dd` and `log_dd` are not public API; they are audited here because the
 erfc tail's bound rests on `exp_dd` and lgamma's rests on `log_dd`.
@@ -512,6 +521,91 @@ Specials (SciPy limit conventions, exercised by the smoke test): x<0, a<0,
 (a=0, x>0) → P=1, Q=+0; x=+∞ → P=1; a=+∞ → Q=1. P+Q = 1 holds within
 1 ULP everywhere. Results underflow gradually; deep-tail lanes saturate to
 the exact 0/1 pair below e^-800.
+
+## beta_p and beta_q
+
+**Bounds, measured on the 37,099-point reference set (+251 specials) and
+identical (max ULP cell for cell) on AVX3_ZEN4, AVX2, SSE4, SSSE3, SSE2
+and NEON.** x86: Ryzen 7445HS, clang-cl, 2026-08-05 — `AVX3_ZEN4` native
+dispatch plus the four lower tiers via capping, re-run by the Linux/GCC CI
+sweep. NEON: Apple-silicon CI runner (run 31066128952, 2026-08-06),
+gate-cell-identical to the x86 ladder; the only cross-target difference
+anywhere is a handful of exact-diagonal points binning under a different
+*report label* (the router replica's documented measure-zero note — what
+is measured does not change). The gates are pinned to these values with no
+margin.
+
+| Region (direct side) | max ULP (dir) | complement |
+|---|---|---|
+| R1 power series | **1 ULP** (0.02% not-CR) | 1 ULP |
+| R2 continued fraction | **0 ULP** (CR) | 0 ULP (CR) |
+| R3 Temme ridge | **3 ULP** (12–19% not-CR at 1–2) | 1 ULP |
+| R4 tiny-min corner | **2 ULP** (≤1.3% not-CR) | 0 ULP (CR) |
+| R4 near-one post-route | **1 ULP** | 0 ULP (CR) |
+| R2 gamma-limit slice | **0 ULP** (CR) | 1 ULP |
+
+The small side is always the directly-computed side (P ≤ ½ invariant via
+the symmetry I_x(a,b) = 1 − I_{1−x}(b,a)), so every bound above is
+relative down to the subnormal band; complements are handed out as
+1 ⊖ (dd) with the complement-slack doctrine bounding the evaluated side
+away from 1. Two gates beyond the pointwise table run on every target:
+a monotonicity-in-x post-pass over all 3,278 reference (a,b) groups
+(strict on the reference values, 4-ULP slack on the kernel), and ten
+dense 4,001-point seam-crossing sweeps, one per routing boundary, each
+asserting directional monotonicity and that the line actually crossed
+its seam. Both measure **zero** violations on every validated target —
+the worst wrong-direction step anywhere is 0 ULP.
+
+Method: four regions plus two overlays — the tiny-first power series
+(dd terms, per-lane freeze), a backward fixed-depth continued fraction,
+the Temme uniform asymptotic in (ζ, p) (tensor Chebyshev in 1/ν with a
+p-edge depth extension), the tiny-min log-space assembly
+Q̃ = −expm1(τ·lnξ + lgΔ − lg1 + log1p(τΣ)) whose every component is
+individually dd-relative, a near-one post-route folding R1 lanes whose
+value exceeds 1 − 2⁻¹¹ into that assembly, and a gamma-limit slice
+(one parameter ≥ 2⁵⁹) routed through the incomplete-gamma limit. Region
+map, seams and the eleven routing/assembly corrections: PLAN.md G3–G4.
+
+Three hazard classes worth recording, each caught by this family's
+validation machinery and each a lesson with reach beyond beta:
+
+1. **An error budget proven relative to a component's own scale is void
+   once the assembly cancels below it.** lgamma's zone-polynomial serves
+   its own double-precision contract (3e-17 relative to *itself*); used
+   inside the post-route assembly, the cancellation to Q̃ ~ 2⁻¹⁷
+   amplified that budget to 209 ULP (and the same mechanism, at PA's
+   −lnB, to 13 ULP on R1 complements). Both sites now compute
+   lgamma analytically via `LgammaDiffDd` identities — dd-absolute,
+   erasing the amplification. The reference oracle's worst defect
+   (lg_diff Taylor truncation) was the same disease in mpmath clothing.
+2. **Non-FMA Dekker splits have a ceiling and a floor.** Operands above
+   2⁹⁹⁶ overflow the 2²⁷+1 split (the ν clamp sat at 2¹⁰⁰⁰ → NaN on the
+   a = b ≥ 2⁹⁹⁸ diagonal, SSE tiers only; gamma carried the identical
+   latent clamp), and products landing subnormal collapse the residual
+   (2,709 ULP at a subnormal τ). Fixed by lowering the clamps to 2⁹⁰⁰
+   and by two exact power-of-two reframings of the tiny-τ assembly.
+   Only the capped-tier sweep can see this class; FMA targets mask it.
+3. **The reference oracle is a proof obligation, not a given.** mpmath's
+   `betainc` returns internally-consistent garbage in the gamma-limit
+   band, and complement formation at ambient precision silently
+   truncates. The shipped reference set is certified by an independent
+   verification harness (`tools/verify_beta_reference.py`: layered
+   brute-precision series + half-split log-coordinate quadrature,
+   sharing no code with the generator) that carries a mandatory
+   negative control — four adjudicated-bad rows from an earlier oracle
+   round must be rejected, and their corrections accepted, before any
+   row is judged.
+
+Specials (gamma-consistent doctrine, exercised by the smoke test's full
+251-row table): x = 0 → P = +0, Q = 1 and x = 1 → P = 1, Q = +0 at any
+finite positive (a, b); negative or NaN inputs → NaN; degenerate
+parameters (a or b ∈ {0, +∞}) take their point-mass limits — except when
+the degenerate parameter *meets the x-boundary its own mass sits on*
+(e.g. a = 0 at x = 0, b = 0 at x = 1, a = +∞ at x = 1, both parameters
+degenerate), which is 0·∞ and → NaN. P + Q = 1 holds within 1 ULP on all
+37,099 points. Results underflow gradually; fully-saturated pairs return
+the exact 0/1 doubles, each certified against a rigorous log-space bound
+in the harness.
 
 ## exp_dd (internal)
 

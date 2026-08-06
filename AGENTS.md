@@ -367,6 +367,11 @@ effort; much of the surrounding work did not need that).
 - Diagnosing accuracy regressions from symptom to root cause (precedents:
   the erfc series-truncation metric mismatch; the non-FMA MulSub
   zero-residual hazard — both multi-step numerical reasoning).
+- Reference-oracle construction wherever no trusted library baseline
+  exists (precedent: the beta oracle — mpmath betainc returns
+  internally-consistent garbage in whole parameter regions, and six
+  oracle defect classes cost more sessions than the kernel itself;
+  "it's just a generator script" was the misjudgment that caused it).
 - Public API changes, facade/seam design, governance and policy decisions.
 
 **Default effort, mid-tier model** — pattern-following with judgment:
