@@ -1625,6 +1625,42 @@ pulls established THREE distinct defects:
   G4 remaining: gate pinning to measured, tier ladder (Kaby
   native+caps -> NEON CI -> Ryzen last), then ACCURACY.md + README at
   G5.
+- G4 STEPS 4+5 DONE -- GATES PINNED + RYZEN TIER LADDER GREEN
+  [2026-08-05]: gates pinned to AVX3_ZEN4 measured, no margin (R1 1/1,
+  R2 0/0, R3 3/1, R4 2/0, Pr 1/0, Gl 0/1, specials exact). First
+  capped sweep EXPOSED TWO REAL NON-FMA DEFECTS (the sweep doing its
+  job; both invisible on FMA targets):
+  (1) kBetaTwoPiNuClamp = 2^1000 sits above ops::ProdLow's 2^996
+      non-FMA Dekker ceiling -> DdMulD(twopi, nu) NaN on the a = b >=
+      2^998 diagonal (probe-bisected onset exactly at nu = a/2 >
+      2^996). Clamp lowered to 2^900 (term is < 2^-450 of the result
+      there; same rounding). GAMMA had the IDENTICAL latent defect
+      (kGammaTwoPiAClamp = 2^1000) -- fixed too; latent because
+      gamma's reference set lacks a >= 2^998 Temme rows. OPEN ITEM
+      (gamma family): add such witness rows at gamma's next reference
+      touch.
+  (2) ELEVENTH correction -- subnormal-tau R4 lanes (2709 ULP at
+      (1.57e-311, 4.6e-210, 0.44) on SSE4): tau-scale intermediate
+      products land subnormal where non-FMA Dekker residuals collapse.
+      Fix: two exact power-of-two reframings in BetaR4Tiny -- tau <
+      2^-950 with bb > 2^-140 runs the whole assembly at tau*2^700
+      (linear to <= 2^-110) and unscales once; bb <= 2^-140 (both-tiny
+      corner, tau <= bb) takes the closed form Qtilde = r/(1+r) with
+      r = (tau*2^900)/(bb*2^900) (corrections bounded by bb*|ln xi| <
+      2^-130). One session bug caught by the native gate: the shortcut
+      initially divided the ALREADY-rescaled tau (overflow) -- tau0
+      preserved.
+  FINAL LADDER: AVX3_ZEN4 native + AVX2/SSE4/SSSE3/SSE2 capped ALL
+  PASS pinned gates, monotonicity, and all ten seam sweeps (sweep exit
+  0, 4x PASS; R4 tiny improved to max 1-2 ULP everywhere; gamma
+  byte-stable under the clamp change as predicted). RYZEN COVERAGE
+  COMPLETE. Remaining for the accuracy claim: Kaby AVX2-native + caps,
+  M1 NEON (CI counts as real silicon), then ACCURACY.md beta section +
+  README at G5. Environment note: mingw-g++-built test binaries
+  crashed at process EXIT (0xC0000005 after full PASS output, from
+  PowerShell) in the first sweep attempt -- not the known Git-Bash DLL
+  shadowing signature; clang-cl sweep used instead; diagnose the mingw
+  runtime issue on a quiet day.
 - ADOPTED VALIDATION GAPS [2026-08-04 design review; add at the named
   steps, not before]:
   (i) Monotonicity-in-x gate — at step (2)/G4: post-pass grouping the

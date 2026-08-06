@@ -113,9 +113,14 @@ inline constexpr double kGammaTemmeZ2Split = 36.0;
 // and DdSqrt would then return NaN. Above this clamp the only non-saturated
 // R3 lane possible is x == a exactly (any other x differs from a by at least
 // ulp(a), which already puts a*phi far past kGammaExpFloor), and there the
-// whole S/sqrt(2*pi*a) term is below 1e-150 against a result of 1/2 -- so
-// the clamped value and the true one round identically.
-inline constexpr double kGammaTwoPiAClamp = 0x1.0p+1000;
+// whole S/sqrt(2*pi*a) term is below 2^-450 against a result of 1/2 -- so
+// the clamped value and the true one round identically. Must also sit under
+// ops::ProdLow's 2^996 non-FMA Dekker ceiling minus the 2^27 split factor:
+// at the original 2^1000 the split of the clamped a overflowed on SSE tiers
+// (found via beta's identical kBetaTwoPiNuClamp in the G4 capped sweep;
+// gamma's reference set does not yet sample a >= 2^998 on the Temme path,
+// so this was latent here).
+inline constexpr double kGammaTwoPiAClamp = 0x1.0p+900;
 
 // --- indicator helpers ---------------------------------------------------
 // The ops facade deliberately exposes no mask AND/OR (erfcinv's comment says

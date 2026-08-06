@@ -139,9 +139,25 @@ inline constexpr double kBetaZ2Split = 36.0;
 
 // Ceiling on nu when forming 1/sqrt(2*pi*nu): 2*pi*nu overflows above ~2.9e307
 // and DdSqrt would then return NaN. Above this clamp the whole S/sqrt(2*pi*nu)
-// term is below 1e-150 against a result of order 1/2, so the clamped value and
-// the true one round identically (kGammaTwoPiAClamp, same argument).
-inline constexpr double kBetaTwoPiNuClamp = 0x1.0p+1000;
+// term is below 2^-450 against a result of order 1/2, so the clamped value and
+// the true one round identically (kGammaTwoPiAClamp, same argument). The clamp
+// must ALSO sit under ops::ProdLow's 2^996 non-FMA Dekker ceiling minus the
+// 2^27 split factor: the original 2^1000 value overflowed the split of nu
+// inside DdMulD(twopi, nu) on SSE tiers -- NaN on the a = b >= 2^998 diagonal,
+// caught by the G4 capped sweep (FMA targets never see it).
+inline constexpr double kBetaTwoPiNuClamp = 0x1.0p+900;
+
+// R4 subnormal-tau reframing [ELEVENTH correction; see BetaR4Tiny]. All
+// five are exact powers of two: the two thresholds partition the hazard
+// (tau below kBetaTauSubn puts tau-scale products at the subnormal
+// boundary, where non-FMA Dekker residuals collapse), kBetaTauUp/Down are
+// the linear-lane reframing pair, and kBetaTinyPairUp is the joint scale
+// for the both-tiny closed form's division.
+inline constexpr double kBetaTauSubn = 0x1.0p-950;
+inline constexpr double kBetaBTinyCut = 0x1.0p-140;
+inline constexpr double kBetaTauUp = 0x1.0p+700;
+inline constexpr double kBetaTauDown = 0x1.0p-700;
+inline constexpr double kBetaTinyPairUp = 0x1.0p+900;
 
 // Exact power-of-two prescale for the cpsi machinery. See BetaPsiCore: it is
 // what makes c = a+b representable, and what keeps every Dekker-split operand
@@ -918,6 +934,30 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
   const auto half = op::Set(d, 0.5);
   const auto eps = op::Set(d, kBetaFreezeEps);
 
+  // --- subnormal-tau guard [ELEVENTH correction] --------------------------
+  // For tau < 2^-950 every term of w is tau-scale and the intermediate
+  // PRODUCTS land at or below the subnormal boundary, where the non-FMA
+  // Dekker residual in ops::ProdLow collapses (sub-products round at
+  // 2^-1074 granularity): measured 2709 ULP at
+  // (1.57e-311, 4.6e-210, 0.44) on the SSE4 capped sweep, clean on FMA
+  // targets. Two exact power-of-two reframings, selected per lane:
+  //  * tau < 2^-950, bb > 2^-140: the assembly is linear in tau to
+  //    relative O(tau_w/bb) <= 2^-110, so run it ENTIRELY at
+  //    tau_w = tau * 2^700 (in [2^-374, 2^-250]: every product normal)
+  //    and unscale the result once at the end -- the final multiply is
+  //    the single subnormal rounding the contract allows.
+  //  * bb <= 2^-140 (both-tiny corner; tau <= bb since tau is the min):
+  //    w = -log1p(r) + tau*(ln xi + Sigma + ...) with r = tau/bb, and the
+  //    tau-linear remainder is relatively bounded by bb*|ln xi| <=
+  //    2^-140 * 745 < 2^-130, so Qtilde = r/(1+r) exactly, with r from a
+  //    JOINTLY 2^900-scaled division (both operands exact, all normal;
+  //    r <= 1 because tau <= bb). Handled after the main assembly below.
+  const auto tsub = op::Gt(op::Set(d, kBetaTauSubn), tau);
+  const auto btiny = op::Ge(op::Set(d, kBetaBTinyCut), bb);
+  const auto tau0 = tau;  // the shortcut divides the ORIGINAL pair
+  tau = op::IfThenElse(tsub, op::Mul(tau, op::Set(d, kBetaTauUp)),
+                       tau);
+
   Dd<D> t{one, zero};
   Dd<D> s{zero, zero};
   auto live = one;
@@ -971,7 +1011,23 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
   w = DdAdd(d, w, LgammaDiffDd(d, bb, tau));
   w = DdSub(d, w, lg1);
   w = DdAdd(d, w, Log1pDdWide(d, DdMulD(d, s, tau)));
-  return DdNeg(d, Expm1Dd(d, w));
+  auto q = DdNeg(d, Expm1Dd(d, w));
+
+  // [ELEVENTH correction] unscale the tau_w lanes (exact except the one
+  // allowed final subnormal rounding), then override the both-tiny lanes
+  // with the r/(1+r) closed form. Dead-lane execution of the shortcut can
+  // produce inf/NaN from the 2^900 up-scale of a large bb; those lanes are
+  // discarded by the select and feed no gather (masked-execution rule).
+  const auto dnw = op::IfThenElse(tsub, op::Set(d, kBetaTauDown), one);
+  q = Dd<D>{op::Mul(q.hi, dnw), op::Mul(q.lo, dnw)};
+  const auto sc = op::Set(d, kBetaTinyPairUp);
+  const auto r = DdDivDd(d, Dd<D>{op::Mul(tau0, sc), zero},
+                         Dd<D>{op::Mul(bb, sc), zero});
+  const auto qs = DdMul(d, r, DdRecipDd(d, DdAddD(d, r, one)));
+  const auto mbt =
+      BetaIndMask(d, op::Mul(BetaInd(d, tsub), BetaInd(d, btiny)));
+  return Dd<D>{op::IfThenElse(mbt, qs.hi, q.hi),
+               op::IfThenElse(mbt, qs.lo, q.lo)};
 }
 
 // ------------------------------------------------------------------------
