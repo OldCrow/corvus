@@ -1600,6 +1600,31 @@ pulls established THREE distinct defects:
   (AVX3_ZEN4): R1 1/1, R2 cf 0/0, R3 temme 3/<=1, R4 tiny 2/0,
   postrt 1/0, gammalim 0/1, specials exact. G4 remaining: monotonicity
   post-pass, seam sweep, gate pinning, tier ladder.
+- G4 STEP 3 DONE -- MONOTONICITY POST-PASS + SEAM SWEEPS [2026-08-05]:
+  both adopted validation gaps now live in test_beta_ulp (no new
+  binary: runs wherever beta_ulp runs, so the four-list rule and tier
+  coverage are satisfied automatically).
+  (i) MonoPostPass: groups the P-reference by (a,b) (3,278 groups >=
+  3 x-points), asserts ref P non-decreasing STRICTLY (certified by the
+  harness; any violation = regen regression) and kernel P dips <=
+  kMonoSlackUlp = 4 (a bigger dip is a seam discontinuity pointwise
+  gates cannot see).
+  (ii) SeamSweeps: ten dense 4001-point lines, one per routing
+  boundary, each asserting directional monotonicity (P up in x and b,
+  down in a) AND that the line actually crossed a boundary (router-
+  replica region sequence printed; a no-crossing sweep FAILS, so
+  constants drift cannot silently green it). Lines: R4->R2 (bmax*xt=
+  B1), R4->Pr (tau=epsR4), R1->R2 (b*x=B1), R2->R3->R2 (both band
+  edges), R2->R3 (nu=TRidge), R1->Pr->R2 (near-one bar in x), Pr->R1
+  (bar in a), R2->Gl (bmax=2^59), R1->Gl (containing the Gl-internal
+  series/CF seam at t=s+1), Gl->R3 (nu=GlRidgeMin).
+  RESULT: ZERO violations -- worst wrong-direction step is 0 ulp on
+  every line and over every reference group; every sweep crossed its
+  seam. The tau=epsR4 sweep exits R4 into POSTROUTE (near-one corner),
+  confirming the eighth-correction pocket geometry. 15/15 suite green.
+  G4 remaining: gate pinning to measured, tier ladder (Kaby
+  native+caps -> NEON CI -> Ryzen last), then ACCURACY.md + README at
+  G5.
 - ADOPTED VALIDATION GAPS [2026-08-04 design review; add at the named
   steps, not before]:
   (i) Monotonicity-in-x gate — at step (2)/G4: post-pass grouping the

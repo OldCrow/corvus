@@ -24,7 +24,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "corvus/corvus.h"
@@ -273,6 +275,161 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
   return ReportRegions(label, reg, 14);
 }
 
+// ---- G4 post-pass (i): monotonicity in x over the reference set ----------
+// P(a, b, x) is strictly increasing in x. The REFERENCE values must be
+// non-decreasing with NO slack (the independent harness certified exact
+// monotonicity over every (a, b) group; any violation here is a regen
+// regression). The KERNEL values are each within their bucket's ULP bound
+// of a monotone function, so adjacent values may legally dip by the sum of
+// two bounds; a dip beyond kMonoSlackUlp is a seam discontinuity the
+// pointwise gates cannot see (both sides individually in-budget).
+constexpr uint64_t kMonoSlackUlp = 4;
+
+int MonoPostPass(const std::vector<double>& a, const std::vector<double>& b,
+                 const std::vector<double>& x, const std::vector<double>& pref,
+                 const std::vector<double>& got) {
+  std::map<std::pair<double, double>, std::vector<size_t>> groups;
+  for (size_t i = 0; i < a.size(); ++i) {
+    if (a[i] > 0.0 && b[i] > 0.0 && std::isfinite(a[i]) &&
+        std::isfinite(b[i]) && x[i] > 0.0 && x[i] < 1.0) {
+      groups[{a[i], b[i]}].push_back(i);
+    }
+  }
+  size_t n_groups = 0, ref_bad = 0, ker_bad = 0;
+  uint64_t worst = 0;
+  double wa = 0.0, wb = 0.0, wx = 0.0;
+  for (auto& kv : groups) {
+    auto& idx = kv.second;
+    if (idx.size() < 3) continue;
+    ++n_groups;
+    std::sort(idx.begin(), idx.end(),
+              [&](size_t i, size_t j) { return x[i] < x[j]; });
+    for (size_t k = 1; k < idx.size(); ++k) {
+      const size_t i0 = idx[k - 1], i1 = idx[k];
+      if (x[i1] == x[i0]) continue;
+      if (pref[i1] < pref[i0]) {
+        ++ref_bad;
+        std::fprintf(stderr,
+                     "MONO ref: a=%.17g b=%.17g x=%.17g->%.17g P %.17g->%.17g\n",
+                     a[i0], b[i0], x[i0], x[i1], pref[i0], pref[i1]);
+      }
+      if (got[i1] < got[i0]) {
+        const uint64_t u = UlpDiff(got[i1], got[i0]);
+        if (u > worst) {
+          worst = u;
+          wa = a[i0];
+          wb = b[i0];
+          wx = x[i1];
+        }
+        if (u > kMonoSlackUlp) {
+          ++ker_bad;
+          std::fprintf(
+              stderr,
+              "MONO kernel: a=%.17g b=%.17g x=%.17g->%.17g P dips %llu ulp\n",
+              a[i0], b[i0], x[i0], x[i1], static_cast<unsigned long long>(u));
+        }
+      }
+    }
+  }
+  std::printf(
+      "beta_p  monotonicity-in-x: %zu groups; ref violations=%zu; kernel "
+      "dips > %llu ulp: %zu (worst dip %llu ulp at a=%.6g b=%.6g x=%.6g)\n",
+      n_groups, ref_bad, static_cast<unsigned long long>(kMonoSlackUlp),
+      ker_bad, static_cast<unsigned long long>(worst), wa, wb, wx);
+  return (ref_bad || ker_bad) ? 1 : 0;
+}
+
+// ---- G4 post-pass (ii): dense seam-crossing sweeps -----------------------
+// One dense line per routing boundary, crossing the seam at fixed
+// representative parameters. Monotonicity of the KERNEL output along the
+// line (increasing in x and b, decreasing in a) is the continuity gate: a
+// method-value mismatch at a seam shows as a wrong-direction step larger
+// than the pointwise slack. Each line also reports the region sequence it
+// actually crossed (via the router replica) so a constants drift that
+// makes a sweep miss its seam is visible rather than silently green.
+struct Seam {
+  const char* name;
+  int vary;  // 0 = x, 1 = a, 2 = b
+  double fa, fb, fx;
+  double lo, hi;
+  bool geometric;
+};
+
+int SeamSweeps() {
+  static const Seam kSeams[] = {
+      {"R4->R2  bmax*xt=B1   [x]", 0, 0.01, 100.0, 0.0, 0.04, 0.12, false},
+      {"R4->R1  tau=epsR4    [a]", 1, 0.0, 100.0, 0.05, 0.008, 0.03, true},
+      {"R1->R2  b*x=B1       [x]", 0, 5.0, 30.0, 0.0, 0.20, 0.35, false},
+      {"R2->R3->R2 band edges[x]", 0, 100.0, 100.0, 0.0, 0.15, 0.85, false},
+      {"R2->R3  nu=TRidge    [a]", 1, 0.0, 100.0, 0.4, 40.0, 55.0, false},
+      {"R1->Pr->R2 near-one  [x]", 0, 0.5, 100.0, 0.0, 0.03, 0.10, false},
+      {"Pr->R1  bar in a     [a]", 1, 0.0, 20.0, 0.4, 0.2, 3.0, false},
+      {"R2->Gl  bmax=2^59    [b]", 2, 0.5, 0.0, 1e-16, 0x1p58, 0x1p60, true},
+      {"R1->Gl ser->Gl cf    [x]", 0, 10.0, 0x1p60, 0.0, 7.0 / 0x1p60,
+       14.0 / 0x1p60, false},
+      {"Gl->R3  nu=GlMin     [a]", 1, 0.0, 0x1p60, 1.735e-17, 15.0, 26.0,
+       false},
+  };
+  constexpr int kN = 4001;
+  int rc = 0;
+  for (const Seam& s : kSeams) {
+    std::vector<double> a(kN), b(kN), x(kN), p(kN);
+    for (int i = 0; i < kN; ++i) {
+      const double t = static_cast<double>(i) / (kN - 1);
+      const double v = s.geometric
+                           ? s.lo * std::exp(t * std::log(s.hi / s.lo))
+                           : s.lo + t * (s.hi - s.lo);
+      a[i] = s.vary == 1 ? v : s.fa;
+      b[i] = s.vary == 2 ? v : s.fb;
+      x[i] = s.vary == 0 ? v : s.fx;
+    }
+    corvus::beta_p(a, b, x, p);
+    // Direction: P increases in x and b, decreases in a.
+    const bool increasing = s.vary != 1;
+    uint64_t worst = 0;
+    size_t bad = 0;
+    double wv = 0.0;
+    for (int i = 1; i < kN; ++i) {
+      const bool dip = increasing ? (p[i] < p[i - 1]) : (p[i] > p[i - 1]);
+      if (!dip) continue;
+      const uint64_t u = UlpDiff(p[i], p[i - 1]);
+      if (u > worst) {
+        worst = u;
+        wv = s.vary == 0 ? x[i] : (s.vary == 1 ? a[i] : b[i]);
+      }
+      if (u > kMonoSlackUlp) ++bad;
+    }
+    // Region sequence actually crossed (router replica; complement from the
+    // kernel value is more than accurate enough for the near-one bar).
+    char seq[64];
+    int sn = 0, last = -1;
+    seq[0] = '\0';
+    for (int i = 0; i < kN && sn < 56; ++i) {
+      bool dp;
+      const int code = Route(a[i], b[i], x[i], p[i], 1.0 - p[i], &dp);
+      if (code != last) {
+        static const char* names[] = {"R1", "R2", "R3", "R4",
+                                      "Sp", "Pr", "Gl"};
+        sn += std::snprintf(seq + sn, sizeof(seq) - sn, "%s%s",
+                            last < 0 ? "" : ">", names[code]);
+        last = code;
+      }
+    }
+    std::printf(
+        "beta_p  seam %-24s crossed %-14s wrong-dir > %llu ulp: %zu (worst "
+        "%llu at %.9g)\n",
+        s.name, seq, static_cast<unsigned long long>(kMonoSlackUlp), bad,
+        static_cast<unsigned long long>(worst), wv);
+    if (bad) rc = 1;
+    if (last == -1 || std::strchr(seq, '>') == nullptr) {
+      std::fprintf(stderr, "FAIL: seam sweep '%s' crossed no boundary (%s)\n",
+                   s.name, seq);
+      rc = 1;
+    }
+  }
+  return rc;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -288,6 +445,8 @@ int main(int argc, char** argv) {
     std::vector<double> got(a.size());
     corvus::beta_p(a, b, x, got);
     rc |= Measure("beta_p", true, a, b, x, p, q, got, p);
+    rc |= MonoPostPass(a, b, x, p, got);
+    rc |= SeamSweeps();
   }
   {
     std::vector<double> a, b, x, p, q;
