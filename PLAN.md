@@ -18,14 +18,31 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
 (issue #2 closed). One branch (main).
 
 ## Next Steps
-1. **digamma — G1 generator stage** (design below is binding; Sonnet
-   tooling agent, orchestrator reviews stderr budgets before any table
-   is committed), then G2 references → G3 kernel (Opus) → G4 gates +
-   ladder → G5 docs. Escalation-density rule [2026-08-06, user]: if
-   resolving an escalation spawns a new one more than ~3 deep in a
-   chain, the stage defaults back to frontier hands-on work (the beta
-   seventh-correction precedent). After digamma: inverse incomplete
-   gamma/beta (erfinv seed + dd-Newton pattern), then Bessel I0/I1.
+1. **digamma — RESUME AT G3 (kernel, Opus agent)**. G1 + G2 are DONE
+   and committed (stage record in the design section below). G3 brief
+   composes from: the BINDING design section (incl. FIRST correction),
+   src/digamma_data.h's G3 comments (the rough-trigamma floor-6 walk
+   the kernel must mirror; root-vs-X0 naming note), and the G3
+   checklist: every shifted argument via exact TwoSum (never bare
+   subtraction; never form 1+x on the (0,1) branch), freeze-by-select,
+   masked-lane scrubs, HWY_NOINLINE day-one on cores AND driver,
+   HWY_DYNAMIC_DISPATCH inside namespace corvus, own TU (consumes dd +
+   log_dd + ops ONLY — no lgamma/erfc/gamma cores). Tests:
+   test_digamma_smoke (specials table incl. ψ(±0) = ∓inf signed,
+   negative integers → NaN, subnormal → ∓inf; lane-mix determinism) +
+   test_digamma_ulp reading the lgamma-format reference with the DUAL
+   negative-axis metric (relative where |ψ| ≥ 1, else 2^-53-class
+   absolute — the lgamma test's band pattern). FOUR-LIST registration:
+   end of each list is dependency-correct (digamma consumes only dd
+   cores, which appear earlier). Orchestrator reviews kernel vs the
+   checklist BEFORE the first ULP run (beta G3 precedent). Then G4
+   gates + ladder → G5 docs. Escalation-density rule [2026-08-06,
+   user]: if resolving an escalation spawns a new one more than ~3
+   deep in a chain, the stage defaults back to frontier hands-on work
+   (the beta seventh-correction precedent). Ledger so far: G1 one
+   escalation (depth 1 → FIRST correction), G2 zero. After digamma:
+   inverse incomplete gamma/beta (erfinv seed + dd-Newton pattern),
+   then Bessel I0/I1.
 2. **Quiet-machine bench_beta re-run** [bench SHIPPED 2026-08-06 —
    numbers below are loaded/indicative]: re-run on an idle Ryzen for
    publishable numbers, and fold into the Kaby bench pass when that
@@ -429,6 +446,21 @@ where |ψ| ≥ 1 and 2^-53-class absolute inside the zero bands.
 log_dd, ops; no gamma/beta cores); HWY_NOINLINE day-one on cores AND
 driver; test_digamma_ulp + smoke registered in DEPENDENCY position in
 all FOUR lists.
+**Stage record**: G1 SHIPPED [2026-08-06, 9203b1f] — pinned by
+replay: zone degree 21 / 2 dd leads (2.44e-17), asymptotic K = 9 /
+1 dd head (9.82e-18), sinc 8/3 rel + cos 9/3 abs at 2^-58,
+rough-trigamma K = 8 floor-6 walk (3.47e-13 vs 2^-40); reflection
+(c1) 4.83e-18 abs worst at the 20 adversarial doubles, (c2) 7.19e-18
+rel worst over 855 |ψ| ≥ 1 samples. One escalation (depth 1 → FIRST
+correction); three self-caught tooling bugs (spurious π² in the cot
+ratio, Chebyshev truncate-from-high-degree cancellation → per-degree
+matched-node fitting, array-emission double-subscript). CI green.
+G2 SHIPPED [2026-08-06, 8f23e99] — 15,709 rows, lgamma two-hex-double
+format; every row layered-dps 60/100; root + 20 negative zeros
+independently recomputed (6.8e-67 worst layer disagreement);
+independent hand-derived 25-row spot rederivation worst 6.0e-17; 139
+oracle-overflow points excluded (subnormal-x → ∓inf is smoke
+doctrine); walk-step brackets added (325 rows). Zero escalations.
 
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —
