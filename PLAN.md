@@ -388,13 +388,28 @@ every double; π cancelled analytically via sinc-pair fits sin(πu)/πu
 and cos(πu), lgamma-reflection pattern), ratio in dd. Probe HEADLINE:
 at the nearest double to each of the first 20 negative zeros a plain-
 double assembly loses 47.8–49.0 bits (3–4 correct bits — these are
-legitimate ULP-sweep inputs, not edge cases); the dd assembly retains
-~55+ bits → target near-relative accuracy even there, generator
-self-check (c) must REPLAY-VERIFY ≥ ~54.5 bits at all 20 adversarial
-doubles (ESCALATE otherwise). Accuracy doctrine (lgamma analog):
-relative where |ψ| ≥ 1, else 2^-53-class absolute; per-zero band
-width W ≈ target/|trigamma(z₀)| (|trigamma| grows 8.9 → 18.9 over
-n = 1..20). NO reflection domain ceiling: u is exact everywhere and
+legitimate ULP-sweep inputs, not edge cases). FIRST DESIGN CORRECTION
+[2026-08-06, G1 escalation, chain depth 1]: the probe's "dd assembly
+retains ~55+ bits" assumed IDEAL-dd components; with the design's own
+2^-55-class fits the difference caps at fit-precision − cancellation
+(replay: 5–20 relative bits at the adversarial doubles, components'
+identity verified to ~249 bits in exact arithmetic — architecture
+sound, metric wrong). Near-relative at the zeros would need
+2^-104-class fits (zone degree ~40 all-dd + raised X0) — REJECTED on
+cost for a contract lgamma's negative axis doesn't offer either.
+Check (c) is the doctrine's own dual metric: (c1) ABSOLUTE ≤ 2^-56 at
+the 20 adversarial doubles (replay measured 2.4e-18 ≈ 2^-58.5 —
+margin held); (c2) RELATIVE ≤ 2^-52 at dense negative-axis samples
+with |ψ| ≥ 1 (n = 1..20 intervals + log-spaced far intervals).
+Accuracy doctrine (lgamma analog): relative where |ψ| ≥ 1, else
+2^-53-class absolute; per-zero band width W ≈ target/|trigamma(z₀)|
+(|trigamma| grows 8.9 → 18.9 over n = 1..20); pin to measured at G4.
+Ratified G1 deviations: cos(πu) fit target is ABSOLUTE 2^-58 (cos has
+a zero at u = ½; the cot assembly inherits the zero-band doctrine
+there); rough-trigamma uses a floor-6 recurrence walk (~5 cheap
+double steps — the KERNEL must mirror it); Chebyshev fits use
+per-degree matched-node fitting (truncating a high-degree fit cancels
+catastrophically in the monomial conversion). NO reflection domain ceiling: u is exact everywhere and
 |x| ≥ 2^53 negatives are all integers → NaN (scipy's NaN at
 −1e300+0.5 is input rounding to an integer, not a formula limit).
 **Seeds**: DigammaRough/kBetaDigammaCoef NOT reusable — plain value
