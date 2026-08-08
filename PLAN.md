@@ -18,11 +18,12 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
 (issue #2 closed). One branch (main).
 
 ## Next Steps
-1. **NEXT SESSION (fork point): inverse incomplete gamma/beta** —
-   the last P1 family before Bessel I0/I1. Detail design + error
-   budgets = frontier work, probe stage first; the
-   probe→design→G1(+G2)→G3→G4/G5 pipeline is the template (digamma
-   and trigamma both shipped through it, one session each).
+1. **IN FLIGHT (this session): inverse incomplete gamma** — probe
+   complete, detail design BINDING (section below); G1 (seed data) +
+   G2 (certified references) next, then G3 kernel. Beta inverse
+   follows as its own pipeline. Last P1 family before Bessel I0/I1.
+   Pipeline template: probe→design→G1/G2→G3→G4/G5 (digamma and
+   trigamma both shipped through it, one session each).
    Escalation-density rule [2026-08-06, user]: ~3 chained
    escalations in a delegated stage → default back to frontier.
    Pipeline ledgers: digamma probe 0 / G1 1 / G2 0 / G3 0; trigamma
@@ -599,6 +600,117 @@ not-CR counts), Windows MSVC (12m11s — trigamma.cpp needs NO /d2
 flag); (0,1) bucket correctly rounded; walk amplification cost no
 bit (shows as not-CR 2.97%/4.44% FMA/non-FMA). ACCURACY.md + README
 in the change set. Bench indicative: 5.7–27 ns/el.
+
+## P1 inverse incomplete gamma — detail design [2026-08-08, frontier; BINDING]
+Probe-validated (Sonnet probe agent, scratchpad gammainv/p1–p6 + common.py,
+layered dps 60/100; orchestrator-reviewed). [DERIVED, empirical] unless noted.
+
+**API**: gamma_p_inv(a, p, out) → x with P(a,x) = p; gamma_q_inv(a, q, out)
+→ x with Q(a,x) = q. Full [0,1] contract on BOTH sides: input s > 1/2 flips
+to the complement side via 1 − s, EXACT by Sterbenz for s ≥ 1/2 — the
+inverse's complement transform is on the INPUT and costs nothing (cleaner
+than the forward pair, whose complement rounding is on the output). One
+shared core pipeline, two exports (erfinv/erfcinv TU pattern).
+**Specials (scipy parity, probed P1c)**: p=0 → 0, p=1 → +inf (q mirrored:
+0 → +inf, 1 → 0); s outside [0,1] → NaN; a ≤ 0, a = +inf, NaN → NaN.
+**Conditioning adjudication (frontier review of probe P1 — the probe's two
+"severe collapse" findings DISSOLVE, neither weakens the contract):**
+- Tiny-a "zero-bit collapse" (κ_p = 1/a unbounded): lies ENTIRELY inside
+  the output-underflow region — P1b measured that for a ≤ ~9.3e-4 the whole
+  small-p side maps below DBL_MIN_NORMAL, and beyond-round-to-zero for most
+  of it (CR answer 0, exact). The probe's high-κ tiny-a interior points all
+  have their SMALL side on q with κ ≈ O(1). With the exact input-side flip,
+  every input whose true x is a normal double has κ ≤ ~2^10.1 (κ = 2^10
+  contour at a = 2^-10, self-limited: |ln p|/a ≤ 745 wherever x is
+  representable).
+- Huge-a "non-injectivity" (a ≳ 3e34: whole transition < 1 ULP of x): κ → 0
+  there (measured 5e-91 at a = 1e90) — the Temme seed alone is CR-class and
+  Newton steps SELF-FREEZE (Δ/x ~ κ). Test stratum, not a branch.
+**Architecture** (erfinv seed+dd-step precedent; forward-core reuse per
+beta's gamma-limit precedent — the inverse TU assembles prefactor ⊗ region
+core in dd itself, mirroring GammaVec's internal assembly unrounded):
+1. Side selection: solve against small side s ≤ 1/2 (exact flip above).
+2. SEED (double precision, per-region; parameters replay-pinned at G1 with
+   edge-refined bit-stepped sampling):
+   - S1 (a ≥ a_T ≈ 20): Temme normal-quantile — z = erfcinv(2s) (sign by
+     side), η₀ = -z·√(2/a), invert ½η² = λ − 1 − ln λ (series near η = 0,
+     Newton elsewhere; scheme pinned at G1), x₀ = a·λ(η₀), ε_k(η)/a^k
+     corrections (count by replay; probe's S1 one-Newton anomalies at
+     a ~ 100 were its own correction formula — G1 re-derives from the
+     published Temme 1992 expansion, clean-room paper math).
+   - S2 (p-side, a < a_T): x₀ = exp((ln p + lnΓ(1+a))/a) + Picard
+     corrections (count by replay; probe: wins everywhere on p-side at
+     a < 1, 60 bits at small p).
+   - S3 (q-side, a < a_T): L = -ln(q·Γ(a)) fixed-point iterations (count
+     by replay).
+   - Weak-seed middle band (a ∈ [~0.1, a_T), s near 1/2 — probe S4: best
+     seed ~4–6 bits): curvature is benign there — covered by step count 3;
+     if G1 replay shows 3 steps insufficient anywhere, ESCALATE (a
+     dedicated 2D fit is a design change).
+3. STEPS (dd residual against forward template cores GammaSeriesSum /
+   GammaCfRecip / GammaTemme / GammaSmallQ + prefactor e^E machinery;
+   routing by (a, x_seed) mirrors the forward region map;
+   freeze-by-select; per-region count pinned by replay, max 3):
+   - Plain dd Newton Δ = (P_dd(x) ⊖ p)/g; g from the forward prefactor
+     (dP/dx = e^{E}-class, dQ/dx = −g).
+   - Log-residual Newton in the far q-tail — MANDATORY, not an
+     optimization (P3: 65 bits from a 14-bit seed vs 30 plain): Δ =
+     (ln Q_dd ⊖ ln q)·Q/g in dd; also the recovery tool on the ridge
+     curvature band (a ≫ 1, λ within O(1/√a) of 1) if replay wants it.
+   - Halley (analytic g'/g = (a−1)/x − 1) available; G3 may trade 1
+     Halley vs 2 Newton on bench, gates must hold either way.
+   Probe P3/P4: 2 steps from a ≥ 20-bit seed reach the internal-dd floor
+   (57–69 bits) in every interior; internal budgets 2^-56..2^-58 (fit-
+   limited, not dd-representation-limited); R3 ridge does NOT inherit the
+   forward's external 2 ULP.
+4. DEEP-SMALL closed form (p-side, when a·x₀ < 2^-60 — the correction
+   series is dead): x = exp_dd((LogDd(p) ⊕ dd lnΓ(1+a)) ⊘ a), mantissa +
+   exponent scaling LAST = one rounding into subnormals/zero. Owns the
+   entire tiny-a collapse zone and the subnormal-x band. Amplification
+   argument: rel-x error = |ΔS|/a ≤ 745·rel_S (self-limited by the exp
+   underflow range |S/a| ≤ 745), so dd S ⇒ ≤ 2^-90-class — CR throughout.
+**Targets** [ILLUSTRATIVE until measured; pin at G4, no margin]: 1–2 ULP
+relative, both sides, full domain including subnormal outputs. scipy
+baseline (probe P1c vs prototype oracle): median 3 ULP, p99 341, max 793.
+**Oracle (G2; frontier-specified, oracle-trust doctrine — no library
+inverse exists anywhere)**: per-row BRACKET CERTIFICATION at layered dps
+60/100 (dps 30 measured under-certifying 2/20 — never lower): root-find
+x* seeded by S1/S2/S3, round to xd, then certify sign(P − p) flips across
+the two half-ulp midpoints of xd as exact mpf, forward evals via mpmath
+gammainc with the a > 1e4 exact-asymptotic branch reused from
+gen_gamma_reference.py. Deep-small rows: NO root-find — closed-form
+log-space oracle (ln x = S/a in mpf), certified in log space against the
+subnormal/zero boundary midpoints. Huge-a rows: exact-asymptotic oracle
+as the independent second route (probe's elementary-series cross-check
+cannot converge there — expected, not a defect). Negative controls baked
+in (beta doctrine): known-bad rows the certifier must reject, exit 2
+otherwise. Measured cost 29 ms/row median → 15–40k rows ≈ 10–90 min.
+**Reference strata (G2)**: per-region (a, s, side) grids; underflow
+p-threshold brackets (P1b table); subnormal-x band; deep p-tail to
+subnormal-min p; far q-tail to subnormal-min q; ridge band λ ∈ 1 ±
+O(1/√a); huge-a {1e16 … 1.7e308} incl. a·φ saturation edges; a_T
+brackets; weak-seed middle band dense; specials excluded (smoke).
+**Kernel/TU**: src/gammainv-inl.h + gammainv.cpp, both exports one TU
+(shared cores); consumes gamma-inl.h template cores + dd/dd_special +
+exp_dd/log_dd + lgamma internals. HWY_NOINLINE day-one on cores AND
+driver; /d2ReducedOptimizeHugeFunctions on gammainv.cpp from day one
+(real MSVC only — the TU instantiates the heavy gamma cores twice per
+export; gamma.cpp precedent). Tests at the END of all FOUR lists.
+**Process**: G1 (Sonnet, generator gen_gammainv_data.py →
+src/gammainv_data.h) and G2 (Sonnet, oracle + references, SEPARATE agent
+— the oracle is the risk item) → G3 (Opus kernel) → G4/G5 orchestrator.
+Escalation-density rule applies. Beta inverse follows as its own
+pipeline after this one ships (P6 scoping: swap identity
+I_x(a,b) = 1 − I_{1−x}(b,a) gives lossless near-1 output via argument
+swap; tiny-a AND tiny-b are independent collapse triggers — needs its
+own probe).
+**Stage record**: PROBE COMPLETE [2026-08-08, Sonnet]: 6 self-caught
+tooling bugs (worst: native-float bisection bounds silently capping the
+oracle at double precision — caught by bracket-certification failures),
+0 design escalations; both "severe" findings adjudicated at frontier
+review as metric-framing artifacts (see Conditioning above); P2's
+largest-a S1 rows predate the bisection fix — indicative only, G1 replay
+re-measures.
 
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —
