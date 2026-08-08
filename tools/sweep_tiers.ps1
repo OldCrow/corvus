@@ -66,7 +66,8 @@ $gates = @(
   @{ exe = "test_lgamma_ulp"; data = "lgamma_reference.txt" },
   @{ exe = "test_erfinv_ulp"; data = "erfinv_reference.txt", "erfcinv_reference.txt" },
   @{ exe = "test_gamma_ulp"; data = "gamma_p_reference.txt", "gamma_q_reference.txt" },
-  @{ exe = "test_beta_ulp"; data = "beta_p_reference.txt", "beta_q_reference.txt" }
+  @{ exe = "test_beta_ulp"; data = "beta_p_reference.txt", "beta_q_reference.txt" },
+  @{ exe = "test_digamma_ulp"; data = "digamma_reference.txt" }
 )
 
 $selected = if ($Tier) { $Tier } else { $caps.Keys }

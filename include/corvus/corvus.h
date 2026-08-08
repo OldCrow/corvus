@@ -152,6 +152,27 @@ void beta_p(std::span<const double> a, std::span<const double> b,
 void beta_q(std::span<const double> a, std::span<const double> b,
             std::span<const double> x, std::span<double> out);
 
+/// \brief out[i] = psi(in[i]), the digamma function (SciPy's `digamma`).
+///
+/// psi(x) = d/dx log Gamma(x) = Gamma'(x)/Gamma(x), defined on the whole real
+/// axis.
+///
+/// Accuracy on validated tiers: see docs/ACCURACY.md for the per-region
+/// table. The bound is RELATIVE on the positive axis, including arbitrarily
+/// close to the unique positive zero at x ~ 1.4616321, which the kernel
+/// reproduces by construction. On the negative axis psi also has a zero
+/// between every consecutive pair of poles -- infinitely many points with no
+/// closed form -- so there the bound is relative where |psi| >= 1 and
+/// ABSOLUTE, of order 2^-53, inside the bands around those zeros; the
+/// measured split is documented.
+///
+/// Specials: psi(+0) = -inf and psi(-0) = +inf (signed-zero pole
+/// convention); NaN at every negative-integer pole, which includes -inf and
+/// every double <= -2^53 since all of those are integers; +inf at +inf;
+/// arguments small enough that -1/x overflows give -+inf accordingly; NaN
+/// propagates (payload preserved).
+void digamma(std::span<const double> in, std::span<double> out);
+
 }  // namespace corvus
 
 #endif  // CORVUS_CORVUS_H_

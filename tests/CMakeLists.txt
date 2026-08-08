@@ -138,3 +138,22 @@ corvus_test_target(bench_beta)
 # src/beta_data.h so the two cannot drift apart — hence the source root.
 target_include_directories(bench_beta PRIVATE ${PROJECT_SOURCE_DIR})
 # Deliberately not registered with ctest: run manually on a quiet machine.
+
+# digamma consumes only the dd cores and log_dd, both registered above, so its
+# dependency position is the end of the list.
+add_executable(test_digamma_smoke test_digamma_smoke.cpp)
+corvus_test_target(test_digamma_smoke)
+add_test(NAME digamma COMMAND test_digamma_smoke)
+
+add_executable(test_digamma_ulp test_digamma_ulp.cpp)
+corvus_test_target(test_digamma_ulp)
+add_test(NAME digamma_ulp
+  COMMAND test_digamma_ulp
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/digamma_reference.txt)
+
+add_executable(bench_digamma bench_digamma.cpp)
+corvus_test_target(bench_digamma)
+# Builds its point sets from the kernel's own region constants in
+# src/digamma_data.h so the two cannot drift apart — hence the source root.
+target_include_directories(bench_digamma PRIVATE ${PROJECT_SOURCE_DIR})
+# Deliberately not registered with ctest: run manually on a quiet machine.

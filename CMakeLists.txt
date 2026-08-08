@@ -64,6 +64,7 @@ include(cmake/FindOrFetchHighway.cmake)
 
 add_library(corvus STATIC
   src/beta.cpp
+  src/digamma.cpp
   src/erf.cpp
   src/erf_data.cpp
   src/erfc.cpp
