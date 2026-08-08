@@ -27,11 +27,13 @@
 
 namespace {
 
-// PROVISIONAL gates (G3). G4 pins them to measured with no margin, the way
-// every other family's are; until then they are loose enough not to be a
-// tripwire on a first run and tight enough to catch a broken branch.
-constexpr uint64_t kMaxUlpRel = 8;
-constexpr double kMaxAbsUnits = 8.0;  // in units of 2^-53
+// Gates PINNED to measured, no margin (G4, 2026-08-08). Identical cells on
+// every validated leg: AVX3_ZEN4 native, AVX2/SSE4/SSSE3/SSE2 capped
+// (Ryzen), Linux CI sweep, NEON (CI), Windows MSVC — 1 ULP max in all five
+// relative buckets, 1.00 x 2^-53 absolute in the negative zero bands (NEON
+// matches native down to the not-CR counts).
+constexpr uint64_t kMaxUlpRel = 1;
+constexpr double kMaxAbsUnits = 1.0;  // in units of 2^-53
 constexpr double kAbsUnit = 0x1p-53;
 
 int64_t OrderedBits(double x) {

@@ -18,31 +18,16 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
 (issue #2 closed). One branch (main).
 
 ## Next Steps
-1. **digamma — RESUME AT G3 (kernel, Opus agent)**. G1 + G2 are DONE
-   and committed (stage record in the design section below). G3 brief
-   composes from: the BINDING design section (incl. FIRST correction),
-   src/digamma_data.h's G3 comments (the rough-trigamma floor-6 walk
-   the kernel must mirror; root-vs-X0 naming note), and the G3
-   checklist: every shifted argument via exact TwoSum (never bare
-   subtraction; never form 1+x on the (0,1) branch), freeze-by-select,
-   masked-lane scrubs, HWY_NOINLINE day-one on cores AND driver,
-   HWY_DYNAMIC_DISPATCH inside namespace corvus, own TU (consumes dd +
-   log_dd + ops ONLY — no lgamma/erfc/gamma cores). Tests:
-   test_digamma_smoke (specials table incl. ψ(±0) = ∓inf signed,
-   negative integers → NaN, subnormal → ∓inf; lane-mix determinism) +
-   test_digamma_ulp reading the lgamma-format reference with the DUAL
-   negative-axis metric (relative where |ψ| ≥ 1, else 2^-53-class
-   absolute — the lgamma test's band pattern). FOUR-LIST registration:
-   end of each list is dependency-correct (digamma consumes only dd
-   cores, which appear earlier). Orchestrator reviews kernel vs the
-   checklist BEFORE the first ULP run (beta G3 precedent). Then G4
-   gates + ladder → G5 docs. Escalation-density rule [2026-08-06,
-   user]: if resolving an escalation spawns a new one more than ~3
-   deep in a chain, the stage defaults back to frontier hands-on work
-   (the beta seventh-correction precedent). Ledger so far: G1 one
-   escalation (depth 1 → FIRST correction), G2 zero. After digamma:
-   inverse incomplete gamma/beta (erfinv seed + dd-Newton pattern),
-   then Bessel I0/I1.
+1. **DIGAMMA SHIPPED [2026-08-08] — next P1 family: inverse
+   incomplete gamma/beta** (erfinv's seed + dd-Newton pattern; then
+   Bessel I0/I1). Detail design + error budgets = frontier work,
+   probe stage first (the digamma probe→G1→G2→G3 pipeline is the
+   template). Escalation-density rule [2026-08-06, user]: if
+   resolving an escalation spawns a new one more than ~3 deep in a
+   chain, the stage defaults back to frontier hands-on work. Digamma
+   pipeline ledger (final): probe 0, G1 one (depth 1 → FIRST
+   correction), G2 zero, G3 zero (three reviewed-accepted
+   deviations).
 2. **Quiet-machine bench_beta re-run** [bench SHIPPED 2026-08-06 —
    numbers below are loaded/indicative]: re-run on an idle Ryzen for
    publishable numbers, and fold into the Kaby bench pass when that
@@ -474,13 +459,22 @@ rounding at 2⁻⁶¹-relative dropped terms; derivation at the site),
 infinities cannot flow through TwoSum), (iii) w = (1/x)² never 1/x²
 (x·x overflows past 1.3e154). Bench loaded/indicative: 7.0–27.4
 ns/el, 7.2–25.2× scalar walk.
-G4 REMAINING: pin gates to measured (currently PROVISIONAL 8/8.0);
-Ryzen AVX2/SSE4/SSSE3 capped sweeps (native + SSE2 done); CI run on
-a931228 supplies the Linux 4-tier sweep + NEON + MSVC legs; decide
-whether the negative near-pole −1/u shortcut band gets reference
-rows (currently smoke-only, min |u| in the reference is 2⁻⁵³). G5:
-ACCURACY.md (deliberately NOT written with provisional numbers) +
-README in the same change set as gate pinning.
+G4 COMPLETE [2026-08-08]: gates PINNED to measured, no margin (1 ULP
+in all five relative buckets, 1.0 × 2⁻⁵³ absolute band). Full ladder:
+AVX3_ZEN4 native; AVX2/SSE4/SSSE3/SSE2 capped (clang-cl sweep, all
+tiers passed); Linux CI 4-tier sweep + sanitizers; NEON (CI run
+31231085106 — table identical to native INCLUDING not-CR counts and
+worst-x points); Windows MSVC. The near-pole shortcut-coverage watch
+item CLOSED by analysis: |u| < 2⁻⁹⁶⁰ is reachable only through
+x ∈ (−2⁻⁹⁶⁰, 0) — near a pole −n the smallest representable |u| is
+ulp-scale ≥ 2⁻⁵³ — and that band's doctrine answer (±inf) is
+smoke-gated; no reference rows needed.
+G5 COMPLETE [2026-08-08]: ACCURACY.md matrix row (dagger extended to
+digamma) + full family section; README status/bullet/example — same
+change set as the gate pinning. **DIGAMMA SHIPPED** — the first P1
+family, via the agent pipeline: probe (Sonnet) → G1 (Sonnet, one
+escalation → FIRST correction) → G2 (Sonnet, zero) → G3 (Opus, zero,
+three reviewed-and-accepted deviations) → G4/G5 (orchestrator).
 
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —

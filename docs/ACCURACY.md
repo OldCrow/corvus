@@ -54,14 +54,15 @@ machine.
 | gamma_q | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-07-29 | ✅ 2026-07-28 |
 | beta_p | ✅ 2026-08-05 † | ✅ | ✅ | ✅ | ✅ 2026-08-06 | ✅ 2026-08-05 |
 | beta_q | ✅ 2026-08-05 † | ✅ | ✅ | ✅ | ✅ 2026-08-06 | ✅ 2026-08-05 |
+| digamma | ✅ 2026-08-08 † | ✅ | ✅ | ✅ | ✅ 2026-08-08 | ✅ 2026-08-07 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
-† The beta x86 rows come from the Ryzen box (AVX3_ZEN4 native dispatch,
-clang-cl; AVX2/SSE4/SSSE3/SSE2 via capping on the same silicon) plus the
-Linux/GCC CI sweep — every tier executes natively on real x86 silicon, so
-the per-tier claims stand. Cross-machine reproduction on Kaby Lake
-(AVX2+FMA native, AppleClang) is pending machine access and is an
+† The beta and digamma x86 rows come from the Ryzen box (AVX3_ZEN4 native
+dispatch, clang-cl; AVX2/SSE4/SSSE3/SSE2 via capping on the same silicon)
+plus the Linux/GCC CI sweep — every tier executes natively on real x86
+silicon, so the per-tier claims stand. Cross-machine reproduction on Kaby
+Lake (AVX2+FMA native, AppleClang) is pending machine access and is an
 additional check, not a gap in the claim.
 
 `exp_dd` and `log_dd` are not public API; they are audited here because the
@@ -606,6 +607,78 @@ degenerate), which is 0·∞ and → NaN. P + Q = 1 holds within 1 ULP on all
 37,099 points. Results underflow gradually; fully-saturated pairs return
 the exact 0/1 doubles, each certified against a rigorous log-space bound
 in the harness.
+
+## digamma
+
+**Bounds, measured on the 15,709-point reference set and identical on every
+validated leg** (the NEON run matches native AVX3_ZEN4 down to the not-CR
+counts, and the no-FMA capped tiers move only those counts by a few rows):
+
+| Region | Bound | not-CR |
+|---|---|---|
+| 0 < x < 1 (one up-step) | 1 ULP | 0.23% |
+| 1 ≤ x < 2 (the positive root) | 1 ULP | 5.28% |
+| 2 ≤ x < 8 (recurrence) | 1 ULP | 2.16% |
+| x ≥ 8 (asymptotic) | 1 ULP | 0.13% |
+| x < 0, \|ψ\| ≥ 1 | 1 ULP | 0.27% |
+| x < 0, \|ψ\| < 1 | 2^−53 **absolute** | 32.8% |
+
+The absolute band is lgamma's negative-axis doctrine, but the two axes
+trade places structurally. On the positive axis digamma's only zero,
+x₀ ≈ 1.46163, is **irrational** — the exact-argument trick at lgamma's
+integer zeros is unavailable — so the zone forms t = x − x₀ against a
+double-double x₀ (the subtraction against the hi word is exact for every
+zone input; the lo word folds in afterwards) and evaluates ψ = t·P(t):
+the product form reproduces the zero at a dd-exact t, and relative
+accuracy holds arbitrarily close to the root. On the negative axis there
+is one zero in every interval (−n−1, −n), none representable and none
+with a closed form; at the binary64 double nearest each zero the
+reflection's two terms cancel by ~49 bits, so a plain-double assembly
+keeps 3–4 correct bits there — the fully double-double assembly is what
+holds the measured band at exactly 1.00 × 2^−53. Those adversarial
+doubles are in the reference set deliberately (the first twenty zeros,
+bisected at dps 100), and the band is gated separately.
+
+Method, by region:
+
+* **1 ≤ x < 2**: t·P(t) with two leading coefficients in double-double
+  and a degree-21 tail in plain double (all-double coefficients plateau
+  at 2^−54-class; the dd leads are what reach the 2^−55 fit budget).
+* **0 < x < 1**: the same polynomial evaluated at the shifted centre
+  x₀ − 1 (1 + x is never formed — rounding it would cost ~2^−52.5
+  relative near x → 1⁻), minus 1/x in double-double. Below 2^−960 a
+  single correctly-rounded division **is** ψ to better than 2^−950
+  relative, and its overflow is what delivers −inf for subnormal x:
+  infinities cannot flow through TwoSum, so the shortcut is
+  load-bearing, not an optimization.
+* **2 ≤ x < 8**: walk down by ψ(x) = ψ(x−1) − 1/(x−1), up to six masked
+  steps into [1, 2); every x − j is exact, every reciprocal is
+  double-double, frozen lanes select their accumulator rather than
+  adding zero.
+* **x ≥ 8**: log_dd(x) − 1/(2x) − w·S(w) with K = 9 Bernoulli terms,
+  w = (1/x)² — x·x would overflow beyond 1.3e154. Above 2^85 the
+  correction terms are ≤ 2^−92 relative and log_dd(x) alone is the
+  rounded result; that cut also retires every dd operand long before the
+  non-FMA Dekker-split ceiling at 2^996.
+* **x < 0**: ψ(1−x) − π·cot(πx), assembled entirely in double-double.
+  The reflected argument is the exact TwoSum(1, −x), with its lo word
+  applied through a ~2^−40 rough trigamma; cot comes from the exact
+  reduction u = x − round(x) as cospi(u)/(u·sinc(u)) — π cancelled
+  analytically, three dd leading coefficients on each fit. Every
+  negative double of magnitude ≥ 2^53 is an integer and lands on the
+  pole doctrine by construction.
+
+Oracle: mpmath digamma — a trusted single-argument baseline (unlike the
+gamma/beta oracles, no custom assembly), with every reference row gated
+on dps-60/100 agreement, the root and all twenty negative zeros
+recomputed independently at both precisions, and a 25-row spot
+rederivation through a hand-built recurrence + Bernoulli evaluator that
+shares no mpmath digamma internals.
+
+Special values: ψ(+0) = −inf and ψ(−0) = +inf (signed-zero pole
+convention, matching SciPy); every negative integer → NaN; ψ(+inf) =
++inf; ψ(−inf) = NaN; NaN propagates; positive subnormals → −inf,
+negative subnormals → +inf.
 
 ## exp_dd (internal)
 
