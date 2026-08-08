@@ -157,3 +157,25 @@ corvus_test_target(bench_digamma)
 # src/digamma_data.h so the two cannot drift apart — hence the source root.
 target_include_directories(bench_digamma PRIVATE ${PROJECT_SOURCE_DIR})
 # Deliberately not registered with ctest: run manually on a quiet machine.
+
+# trigamma consumes only the dd cores (no log_dd, no lgamma/gamma/beta cores),
+# all registered above, so its dependency position is the end of the list.
+add_executable(test_trigamma_smoke test_trigamma_smoke.cpp)
+corvus_test_target(test_trigamma_smoke)
+add_test(NAME trigamma COMMAND test_trigamma_smoke)
+
+add_executable(test_trigamma_ulp test_trigamma_ulp.cpp)
+corvus_test_target(test_trigamma_ulp)
+# Links the public API, but re-derives the kernel's region routing from
+# src/trigamma_data.h so the two cannot drift apart — hence the source root.
+target_include_directories(test_trigamma_ulp PRIVATE ${PROJECT_SOURCE_DIR})
+add_test(NAME trigamma_ulp
+  COMMAND test_trigamma_ulp
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/trigamma_reference.txt)
+
+add_executable(bench_trigamma bench_trigamma.cpp)
+corvus_test_target(bench_trigamma)
+# Builds its point sets from the kernel's own region constants in
+# src/trigamma_data.h so the two cannot drift apart — hence the source root.
+target_include_directories(bench_trigamma PRIVATE ${PROJECT_SOURCE_DIR})
+# Deliberately not registered with ctest: run manually on a quiet machine.

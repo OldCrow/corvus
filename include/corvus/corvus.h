@@ -173,6 +173,27 @@ void beta_q(std::span<const double> a, std::span<const double> b,
 /// propagates (payload preserved).
 void digamma(std::span<const double> in, std::span<double> out);
 
+/// \brief out[i] = psi_1(in[i]), the trigamma function (SciPy's
+///   `polygamma(1, .)`).
+///
+/// psi_1(x) = d/dx psi(x) = d^2/dx^2 log Gamma(x), defined on the whole real
+/// axis.
+///
+/// Accuracy on validated tiers: see docs/ACCURACY.md for the per-region
+/// table. The bound is RELATIVE EVERYWHERE, with no absolute band anywhere --
+/// psi_1(x) = sum over n >= 0 of 1/(x + n)^2 is a sum of squares, hence
+/// strictly positive wherever it is finite, so unlike digamma and lgamma this
+/// function has no zeros for a relative metric to break down at. Its
+/// negative-axis minimum is 8.933, at x ~ -0.4957.
+///
+/// Specials: every pole is a DOUBLE pole and therefore sign-unambiguous, so
+/// the answer is +inf at both +0 and -0, at every negative-integer pole
+/// (which includes -inf and every double <= -2^53, all of which are
+/// integers), and at any argument small enough that 1/x^2 overflows --
+/// subnormals of either sign included. psi_1(+inf) = +0; NaN propagates
+/// (payload preserved).
+void trigamma(std::span<const double> in, std::span<double> out);
+
 }  // namespace corvus
 
 #endif  // CORVUS_CORVUS_H_
