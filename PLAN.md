@@ -494,6 +494,75 @@ family, via the agent pipeline: probe (Sonnet) → G1 (Sonnet, one
 escalation → FIRST correction) → G2 (Sonnet, zero) → G3 (Opus, zero,
 three reviewed-and-accepted deviations) → G4/G5 (orchestrator).
 
+## P1 trigamma — detail design [2026-08-08, frontier; BINDING]
+Probe-validated (scratchpad trigamma/p1–p5, layered dps 60/100 clean).
+Digamma-shaped MINUS the hard parts; ALL-RELATIVE everywhere.
+
+**API**: trigamma(x, out), full real axis. ψ₁(x) = Σ 1/(x+n)² is a sum
+of squares — positive wherever finite (the no-zeros PROOF), so no
+absolute band exists anywhere; single relative metric. Negative-axis
+global min 8.933 at x ≈ −0.4957; per-interval minima rise
+monotonically to π²; worst reflection cancellation ratio 1.107
+(≈ 0.15 bit) at x ≈ −0.455.
+**Specials (scipy parity, probed — NOT digamma's convention)**: every
+pole is a DOUBLE pole, sign-unambiguous → **+inf** at ±0, at every
+negative integer, and at every negative double |x| ≥ 2^53 (all
+integers); +inf → +0; −inf → +inf (scipy); NaN propagates;
+subnormals of both signs → +inf.
+**Positive pipeline** (shifts via exact TwoSum, digamma mechanisms):
+- Zone [1,2): PLAIN value fit (no product form — no zero), degree 24,
+  1 dd-lead (probe 2^-55.16; all-double plateau 2^-52.79).
+- (0,1): up-step without forming 1+x (zone at shifted centre) ⊕
+  dd(1/x²). Covers tiny x naturally — the zone term → ψ₁(1) = π²/6,
+  the Laurent constant (probe REFUTED the 1/x term: coefficient is
+  exactly 0; π²/6 stops mattering below ~2^-28). Deep-tiny guard:
+  below ~2^-480 the dd 1/x² alone is the result (zone < 2^-950
+  relative), overflowing to +inf at x ≤ 2^-512 = 1/√DBL_MAX. PROBE
+  WARNING for G3: naive double (1/x)² or 1/(x·x) is NOT reliably CR
+  (24–46% 1-ULP misses) — the reciprocal-square stays dd end-to-end
+  down to the overflow boundary; if Dekker-split limbs land subnormal
+  in the deep-tiny lane, use exact power-of-two rescaling (beta
+  ELEVENTH pattern). ESCALATE if dd cannot reach the gate there.
+- [2,8): down-walk ≤ 6 exact steps subtracting dd 1/(x−j)²
+  (x−j exact), freeze-by-select.
+- [8, 2^89): Bernoulli asymptotic in the DIRECT (unfactored) sum form
+  (probe: conditions better than 1/x-factored), K = 11, dd-head count
+  by generator replay. NOTE: log-free — trigamma does not consume
+  log_dd at all.
+- x ≥ kTrigammaAsymCut = 2^89 (conservative analytic cut per the
+  digamma doctrine; empirical crossover ~2^55): fl(1/x) alone
+  (dropped part < 2^-90 relative); retires every large-operand dd op
+  below the non-FMA Dekker ceiling.
+**Negative axis**: ψ₁(x) = π²/sin²(πx) − ψ₁(1−x) in dd: exact
+u = x − round(x); π²/sin² = 1/(u·sinc(u))² from the sinc fit
+(re-emitted into trigamma's own header by the same fit procedure —
+~10 duplicated constants beat invoking the hoist/byte-identity
+protocol on shipped digamma); y_dd = TwoSum(1, −x) exact, lo
+correction y.lo·ψ₂(y.hi) via a CRUDE tetragamma (bound analysis:
+whole correction ≤ ~2^-55.9 relative because ψ₁ ≥ 8.93 — a ~2^-30
+floor-walk asymptotic fit is ample; pattern-identical to digamma's
+rough-trigamma, far looser target). Probe (c): simulated dd assembly
+worst 2^-54.7 with 2^-55 components — all-relative gating safe.
+**Oracle**: mpmath trigamma/polygamma(1,·) — trusted single-argument
+baseline; layered dps on every row; NO adversarial-zero stratum
+(no zeros exist). Independent spot rederivation: direct Σ 1/(x+n)²
++ Euler–Maclaurin tail (trivially mpmath-digamma-independent).
+**Reference strata**: region grids ((0,1) log incl. the 2^-512
+overflow boundary, the ~2^-480 guard, and π²/6-crossover ~2^-28
+brackets; zone dense; walk + step brackets; asym log to the 2^89 cut
+both sides and on to 1e308); negative: dense (−50, 0), global-min
+neighborhood, near-pole ulp-offset brackets (n = 1..20, 100, 1e3,
+1e6-class), far log-spaced to 2^52. Specials excluded (smoke).
+**Targets** [ILLUSTRATIVE until measured; pin at G4, no margin]:
+≤ 1 ULP relative everywhere, single metric.
+**Kernel/TU**: src/trigamma-inl.h + trigamma.cpp, own TU (consumes dd
++ ops ONLY); HWY_NOINLINE day-one; tests at the END of all four
+lists; bench_trigamma per-region.
+**Process**: combined G1+G2 in ONE Sonnet tooling agent (generator +
+reference set, both self-check families, single review gate —
+justified by family simplicity); G3 Opus; G4/G5 orchestrator.
+Escalation-density rule applies.
+
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —
 a direct fast-forward push bypasses it; prune manually). Wiki and
