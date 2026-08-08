@@ -461,6 +461,26 @@ independently recomputed (6.8e-67 worst layer disagreement);
 independent hand-derived 25-row spot rederivation worst 6.0e-17; 139
 oracle-overflow points excluded (subnormal-x → ∓inf is smoke
 doctrine); walk-step brackets added (325 rows). Zero escalations.
+G3 SHIPPED [2026-08-07, a931228, Opus agent, zero escalations] —
+kernel + smoke + ULP + bench + four-list registration. Measured
+(AVX3_ZEN4 native AND SSE2 capped, IDENTICAL gate cells): 1 ULP max
+in all five relative buckets ((0,1)/zone/walk/asym/neg-|ψ|≥1),
+1.00×2⁻⁵³ absolute in the negative zero bands; all 15 prior gates
+byte-identical. Three deviations reviewed and ACCEPTED: (i) large-x
+cut kDigammaAsymCut = 2⁸⁵ (brief's 2⁵⁵-class sketch would flip
+rounding at 2⁻⁶¹-relative dropped terms; derivation at the site),
+(ii) 2⁻⁹⁶⁰ direct-reciprocal shortcuts on (0,1) and the cot ratio
+(quotient-side Dekker ceiling; delivers the subnormal ∓inf doctrine —
+infinities cannot flow through TwoSum), (iii) w = (1/x)² never 1/x²
+(x·x overflows past 1.3e154). Bench loaded/indicative: 7.0–27.4
+ns/el, 7.2–25.2× scalar walk.
+G4 REMAINING: pin gates to measured (currently PROVISIONAL 8/8.0);
+Ryzen AVX2/SSE4/SSSE3 capped sweeps (native + SSE2 done); CI run on
+a931228 supplies the Linux 4-tier sweep + NEON + MSVC legs; decide
+whether the negative near-pole −1/u shortcut band gets reference
+rows (currently smoke-only, min |u| in the reference is 2⁻⁵³). G5:
+ACCURACY.md (deliberately NOT written with provisional numbers) +
+README in the same change set as gate pinning.
 
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —
