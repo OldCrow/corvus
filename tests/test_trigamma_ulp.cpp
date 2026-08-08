@@ -32,13 +32,15 @@
 
 namespace {
 
-// PROVISIONAL gate (G3). The design's expectation is 1 ULP in every bucket
-// except the [2, 8) down-walk, where the zone fit's absolute error is divided
-// by an output that shrinks by up to psi_1(1)/psi_1(8) = 12.36x along the walk
-// (the SECOND CORRECTION in tools/gen_trigamma_data.py) and 2 ULP is the
-// predicted, accepted cost. 8 is a provisional ceiling that leaves room to see
-// the real numbers; G4 pins every cell to measured.
-constexpr uint64_t kMaxUlp = 8;
+// Gate PINNED to measured, no margin (G4, 2026-08-08). Identical cells on
+// every validated leg — AVX3_ZEN4 native, AVX2/SSE4/SSSE3/SSE2 capped
+// (Ryzen), Linux CI sweep, NEON (CI, identical to native including not-CR
+// counts), Windows MSVC: (0,1) correctly rounded, all other buckets 1 ULP
+// max. The down-walk's predicted 12.36x amplification cost (SECOND
+// CORRECTION in tools/gen_trigamma_data.py) did not consume a bit on this
+// reference set — it shows as the walk bucket's elevated not-CR rate
+// (2.97% FMA / 4.44% non-FMA) instead.
+constexpr uint64_t kMaxUlp = 1;
 
 int64_t OrderedBits(double x) {
   int64_t b;
@@ -68,11 +70,17 @@ void Accumulate(Region& r, double x, uint64_t u) {
 }
 
 void Report(const Region& r, bool gated) {
+  char gate[24];
+  if (gated) {
+    std::snprintf(gate, sizeof(gate), "gate %llu",
+                  static_cast<unsigned long long>(kMaxUlp));
+  } else {
+    std::snprintf(gate, sizeof(gate), "report only");
+  }
   std::printf(
       "%-20s n=%6zu  max ULP=%3llu (%s)  not-CR: %zu (%.2f%%)  "
       "worst x=%.17g\n",
-      r.name, r.n, static_cast<unsigned long long>(r.max_ulp),
-      gated ? "gate 8" : "report only", r.miss,
+      r.name, r.n, static_cast<unsigned long long>(r.max_ulp), gate, r.miss,
       r.n ? 100.0 * static_cast<double>(r.miss) / static_cast<double>(r.n)
           : 0.0,
       r.worst_x);

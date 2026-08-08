@@ -12,7 +12,8 @@ inverses — the functions that gate vectorized statistical CDFs, quantiles,
 and maximum-likelihood fitting.
 
 **Status: early development.** `erf`, `erfc`, `lgamma`, `digamma`,
-`erfinv`, `erfcinv`, `gamma_p`, `gamma_q`, `beta_p` and `beta_q` are
+`trigamma`, `erfinv`, `erfcinv`, `gamma_p`, `gamma_q`, `beta_p` and
+`beta_q` are
 production-quality clean-room kernels validated against an mpmath oracle
 on every SIMD tier available across the development fleet — AVX-512
 (`AVX3`, `AVX3_DL`, `AVX3_ZEN4`), AVX2, SSE4, SSSE3, SSE2 and NEON, each
@@ -52,6 +53,11 @@ on native silicon (see docs/ACCURACY.md). API not yet stable.
   being irrational — and 2^-53 absolute near the negative-axis zeros,
   where the reflection's terms cancel by ~49 bits and a plain-double
   assembly would keep only 3–4 correct bits.
+
+- `trigamma`: max 1 ULP over the full real axis — correctly rounded on
+  (0, 1) — under a single relative metric everywhere: ψ₁ is a sum of
+  squares with no zeros on either axis, so unlike lgamma and digamma no
+  absolute-error band exists, even near the reflection's poles.
 
 Both transcendental cores the kernels need (`exp_dd`, `log_dd`) are
 corvus's own, so no accuracy-critical path depends on the backend's math
@@ -123,6 +129,7 @@ corvus::erf(x, y);
 corvus::erfc(x, y);
 corvus::lgamma(x, y);
 corvus::digamma(x, y);
+corvus::trigamma(x, y);
 corvus::erfinv(x, y);
 corvus::erfcinv(x, y);
 

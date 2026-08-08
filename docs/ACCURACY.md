@@ -55,10 +55,11 @@ machine.
 | beta_p | ✅ 2026-08-05 † | ✅ | ✅ | ✅ | ✅ 2026-08-06 | ✅ 2026-08-05 |
 | beta_q | ✅ 2026-08-05 † | ✅ | ✅ | ✅ | ✅ 2026-08-06 | ✅ 2026-08-05 |
 | digamma | ✅ 2026-08-08 † | ✅ | ✅ | ✅ | ✅ 2026-08-08 | ✅ 2026-08-07 |
+| trigamma | ✅ 2026-08-08 † | ✅ | ✅ | ✅ | ✅ 2026-08-08 | ✅ 2026-08-08 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
-† The beta and digamma x86 rows come from the Ryzen box (AVX3_ZEN4 native
+† The beta, digamma and trigamma x86 rows come from the Ryzen box (AVX3_ZEN4 native
 dispatch, clang-cl; AVX2/SSE4/SSSE3/SSE2 via capping on the same silicon)
 plus the Linux/GCC CI sweep — every tier executes natively on real x86
 silicon, so the per-tier claims stand. Cross-machine reproduction on Kaby
@@ -679,6 +680,75 @@ Special values: ψ(+0) = −inf and ψ(−0) = +inf (signed-zero pole
 convention, matching SciPy); every negative integer → NaN; ψ(+inf) =
 +inf; ψ(−inf) = NaN; NaN propagates; positive subnormals → −inf,
 negative subnormals → +inf.
+
+## trigamma
+
+**Bounds, measured on the 14,928-point reference set and identical on
+every validated leg** (NEON matches native AVX3_ZEN4 including not-CR
+counts; the capped no-FMA tiers move only those tallies):
+
+| Region | Bound | not-CR |
+|---|---|---|
+| 0 < x < 1 (one up-step) | **0 ULP — correctly rounded** | 0.00% |
+| 1 ≤ x < 2 (zone) | 1 ULP | 0.58% |
+| 2 ≤ x < 8 (recurrence) | 1 ULP | 2.97% |
+| x ≥ 8 (asymptotic) | 1 ULP | 0.69% |
+| x < 0 | 1 ULP | 0.22% |
+
+**One metric, everywhere.** ψ₁(x) = Σ 1/(x+n)² is a sum of squares —
+positive wherever finite — so unlike lgamma and digamma there is no
+zero on either axis and no absolute-error band: the negative axis
+gates relative like everything else. Its global minimum is ≈ 8.933
+(at x ≈ −0.4957) and the reflection ψ₁(x) = π²/sin²(πx) − ψ₁(1−x)
+cancels by at most 0.15 bit (component ratio ≤ 1.107) — structurally
+benign where digamma's reflection loses ~49 bits near its zeros.
+
+Method, by region:
+
+* **1 ≤ x < 2**: plain Chebyshev value fit at centre 3/2, degree 27
+  with three double-double leading coefficients. The probe's original
+  one-lead figure was a sampling artifact — the fit's worst points sit
+  within ~1e-10 of the interval edges, where the Chebyshev coefficient
+  roundings add coherently — and every replay self-check in this
+  family bit-steps its domain boundaries as a result.
+* **0 < x < 1**: the same polynomial at the shifted centre ½ (1 + x is
+  never formed) plus 1/x² in double-double — dd end-to-end, because a
+  naive double reciprocal-square misses correct rounding on up to 46%
+  of deep-tiny inputs. Below 2^−480 the term alone is the result,
+  computed on an exact 2^512 rescale whose lower clamp itself delivers
+  +inf below 2^−512 = 1/√DBL_MAX: one rounding, one code path on FMA
+  and non-FMA alike. The bucket is correctly rounded end to end.
+* **2 ≤ x < 8**: downward walk into the zone, subtracting dd
+  reciprocal-squares of exact x − j. The zone's absolute error is
+  amplified by up to ψ₁(1)/ψ₁(8) ≈ 12.4× as the output shrinks along
+  the walk; measured, that costs no bit — it appears as this bucket's
+  elevated not-CR rate (2.97% FMA / 4.44% non-FMA) instead.
+* **x ≥ 8**: 1/x + 1/(2x²) + x⁻³·S(x⁻²) with K = 11 Bernoulli terms
+  in the direct (unfactored) form, B₂ head in double-double. Above
+  2^89 the corrections are < 2^−90 relative and a single division is
+  the rounded result — which also retires every large-operand dd op
+  far below the non-FMA Dekker-split ceiling at 2^996.
+* **x < 0**: π²/sin²(πx) − ψ₁(1−x), assembled in double-double: exact
+  u = x − round(x), and π² cancelled analytically via
+  π²/sin² = 1/(u·sinc(u))² — squaring removes the (−1)ⁿ parity, so
+  this family has no cosine table at all. The reflected argument is
+  the exact TwoSum(1, −x), its lo word applied through a crude
+  (2^−30-class) tetragamma — ample, because ψ₁ ≥ 8.93 bounds the
+  whole correction at ~2^−56 relative.
+
+Oracle: mpmath polygamma(1, ·) with layered-dps agreement on every
+row; far-negative rows are routed through the reflection onto the
+positive-argument branch (mpmath's own negative-axis polygamma is
+O(|x|) and effectively hangs by |x| ~ 1e15 — the reroute was verified
+exact to 1e-99 before use); 25-row independent spot rederivation via
+a direct Σ 1/(x+n)² + Euler–Maclaurin evaluator.
+
+Special values — deliberately NOT digamma's convention: every pole of
+ψ₁ is a **double pole** with positive residue, sign-unambiguous, so
+trigamma is +inf at ±0, at every negative integer, and at every
+negative double of magnitude ≥ 2^53 (all of which are integers);
+ψ₁(+inf) = +0; ψ₁(−inf) = +inf (SciPy convention); NaN propagates;
+subnormals of both signs → +inf.
 
 ## exp_dd (internal)
 

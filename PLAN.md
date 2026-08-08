@@ -18,16 +18,22 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
 (issue #2 closed). One branch (main).
 
 ## Next Steps
-1. **DIGAMMA SHIPPED [2026-08-08] — next P1 family: inverse
-   incomplete gamma/beta** (erfinv's seed + dd-Newton pattern; opens
-   next session). Detail design + error budgets = frontier work,
-   probe stage first (the digamma probe→G1→G2→G3 pipeline is the
-   template). Escalation-density rule [2026-08-06, user]: if
-   resolving an escalation spawns a new one more than ~3 deep in a
-   chain, the stage defaults back to frontier hands-on work. Digamma
-   pipeline ledger (final): probe 0, G1 one (depth 1 → FIRST
-   correction), G2 zero, G3 zero (three reviewed-accepted
-   deviations).
+1. **NEXT SESSION (fork point): inverse incomplete gamma/beta** —
+   the last P1 family before Bessel I0/I1. Detail design + error
+   budgets = frontier work, probe stage first; the
+   probe→design→G1(+G2)→G3→G4/G5 pipeline is the template (digamma
+   and trigamma both shipped through it, one session each).
+   Escalation-density rule [2026-08-06, user]: ~3 chained
+   escalations in a delegated stage → default back to frontier.
+   Pipeline ledgers: digamma probe 0 / G1 1 / G2 0 / G3 0; trigamma
+   probe 0 / G1+G2 1 (+1 process fault) / G3 0 — both families' sole
+   design escalations were probe-grid artifacts caught by the next
+   stage's replay, and the edge-refined-sampling rule from
+   trigamma's FIRST correction is binding for all future families.
+   DIGAMMA + TRIGAMMA SHIPPED [2026-08-08]: with them, every MLE
+   update in libhmm/libstats has its ψ/ψ′ pair; after the inverse
+   pair lands, corvus covers every PDF/CDF/quantile/MLE need in both
+   consumers' current inventories except von Mises (Bessel, last).
 2. **ROADMAP GAP ANALYSIS [2026-08-08, vs the actual libhmm +
    libstats distribution inventories]**: one REQUIRED addition —
    **trigamma** (public ψ₁): every second-order MLE in both consumers
@@ -570,6 +576,29 @@ lists; bench_trigamma per-region.
 reference set, both self-check families, single review gate —
 justified by family simplicity); G3 Opus; G4/G5 orchestrator.
 Escalation-density rule applies.
+**Stage record — TRIGAMMA SHIPPED [2026-08-08]**: G1+G2 (a3bcbf6,
+combined Sonnet agent): zone 27/3 dd-leads (9.6e-18, edge-refined),
+asym K=11 head B₂ dd (1.4e-17), sinc 8/3 bit-identical to digamma's,
+crude tetragamma floor-6 K=6, deep-tiny guard 2⁻⁴⁸⁰ derived,
+reflection replay 2⁻⁵⁹·², 14,928 rows all layered-dps, oracle
+fast-path via reflection for |x| > 50 (mpmath polygamma(1,·) is
+O(|x|) on the negative axis — verified 1e-99), 25-row independent
+spot check. Ledger: one design escalation (grid artifact → FIRST
+correction + the edge-refined-sampling binding rule), one SECOND
+correction self-diagnosed (derived recurrence replay target,
+ψ₁(1)/ψ₁(8) ≈ 12.4× amplification), one process fault (parked on a
+Monitor — recovered by resume; memory updated to name every
+background door). G3 (eb0a556, Opus, zero escalations, seven
+reviewed-accepted deviations — the standout: deep-tiny via exact
+2⁵¹² rescale whose lower clamp itself delivers +inf, one rounding,
+one code path). G4/G5: gate PINNED at 1 ULP single relative metric
+(a hardcoded "gate 8" display string fixed — enforcement was always
+kMaxUlp); ladder identical cells everywhere — AVX3_ZEN4 native,
+AVX2/SSE4/SSSE3/SSE2 capped, Linux CI sweep, NEON (identical incl.
+not-CR counts), Windows MSVC (12m11s — trigamma.cpp needs NO /d2
+flag); (0,1) bucket correctly rounded; walk amplification cost no
+bit (shows as not-CR 2.97%/4.44% FMA/non-FMA). ACCURACY.md + README
+in the change set. Bench indicative: 5.7–27 ns/el.
 
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —
