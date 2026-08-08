@@ -19,8 +19,8 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
 
 ## Next Steps
 1. **DIGAMMA SHIPPED [2026-08-08] — next P1 family: inverse
-   incomplete gamma/beta** (erfinv's seed + dd-Newton pattern; then
-   Bessel I0/I1). Detail design + error budgets = frontier work,
+   incomplete gamma/beta** (erfinv's seed + dd-Newton pattern; opens
+   next session). Detail design + error budgets = frontier work,
    probe stage first (the digamma probe→G1→G2→G3 pipeline is the
    template). Escalation-density rule [2026-08-06, user]: if
    resolving an escalation spawns a new one more than ~3 deep in a
@@ -28,6 +28,24 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
    pipeline ledger (final): probe 0, G1 one (depth 1 → FIRST
    correction), G2 zero, G3 zero (three reviewed-accepted
    deviations).
+2. **ROADMAP GAP ANALYSIS [2026-08-08, vs the actual libhmm +
+   libstats distribution inventories]**: one REQUIRED addition —
+   **trigamma** (public ψ₁): every second-order MLE in both consumers
+   needs it alongside digamma (Gamma shape Newton, Beta bivariate
+   Newton on ψ′(a)/ψ′(b)/ψ′(a+b), NegBin r-update). Added to P1;
+   cheapest family left (digamma architecture minus the root
+   product-form — ψ₁ has no positive zero; reflection is the SUM
+   identity ψ₁(x) + ψ₁(1−x) = π²/sin²(πx) on existing sinc-pair
+   machinery; the internal rough-trigamma is the structural sketch).
+   Slot at user's discretion: warm-up before the inverse pair or
+   immediately after. REFINEMENT to the planned Bessel item: must
+   include exponentially-scaled variants (i0e/i1e or log-I0) — I0
+   overflows past κ ≈ 713 and von Mises log-density at large κ is a
+   primary consumer use. [OPEN, P2 candidates, not required]: public
+   lbeta (consumers currently form ln B as three lgammas — the a+b
+   cancellation hazard corvus solved internally via LgammaDiffDd);
+   erfcx (nearly free from the erfc tail machinery; no current
+   consumer — neither library has a truncated Gaussian).
 2. **Quiet-machine bench_beta re-run** [bench SHIPPED 2026-08-06 —
    numbers below are loaded/indicative]: re-run on an idle Ryzen for
    publishable numbers, and fold into the Kaby bench pass when that
