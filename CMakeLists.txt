@@ -155,9 +155,11 @@ target_compile_options(corvus PRIVATE ${CORVUS_FP_FLAGS})
 # flag is cl.exe's own escape hatch for the pathological cases that remain.
 # It changes compile-time behavior only for functions the optimizer deems
 # huge, and an unknown /d2 flag on some future MSVC would fail loudly, not
-# silently.
+# silently. beta.cpp added 2026-08-07 per the trigger recorded at its
+# design ("only if MSVC CI times degrade"): the Windows job went ~7 min →
+# ~20–22 min when beta landed and hit its 25-min timeout on a slow runner.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-  set_source_files_properties(src/gamma.cpp PROPERTIES
+  set_source_files_properties(src/gamma.cpp src/beta.cpp PROPERTIES
     COMPILE_OPTIONS "/d2ReducedOptimizeHugeFunctions")
 endif()
 
