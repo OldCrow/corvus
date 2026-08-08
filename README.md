@@ -105,7 +105,8 @@ and Windows x86-64 (MSVC). Two Windows-specific points are worth knowing:
   (which keeps the MSVC ABI). mingw-w64 GCC is not currently safe at
   AVX-512: GCC 16.1 miscompiles 512-bit by-value vector arguments on the
   Windows ABI (misaligned stack temporaries — crashes depend on call-chain
-  luck; see docs/ACCURACY.md). It remains fine for tiers up to AVX2.
+  luck; GCC PR 126741, see docs/ACCURACY.md). It remains fine for tiers
+  up to AVX2.
   `corvus::active_target()` reports the tier runtime dispatch actually
   selected, and is the only reliable way to know.
 

@@ -112,8 +112,9 @@ unaligned `vmovupd`, and named over-aligned locals get an aligned
 scratch pointer, so this is a GCC bug (argument-temporary path only),
 not a corvus or Highway one; it reproduces at -O0 and no flag avoids it.
 clang-cl and MSVC compile the identical pattern correctly. Until it is
-fixed upstream, mingw GCC is **not** a valid AVX-512 validation compiler
-here; clang-cl is the sole source of Windows AVX-512 numbers.
+fixed upstream (filed 2026-08-08 as GCC PR 126741), mingw GCC is
+**not** a valid AVX-512 validation compiler here; clang-cl is the sole
+source of Windows AVX-512 numbers.
 
 **A default MSVC build does not exercise AVX-512 at all**: Highway marks
 every AVX3\* target broken under MSVC (`HWY_BROKEN_MSVC`), so such a build

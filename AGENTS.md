@@ -62,8 +62,9 @@ slots in isolation get an aligned scratch pointer — only the argument
 temporaries are broken. Reproduces at every -O level including -O0; no
 flag rescues it (tested 2026-07-29: `-mstackrealign` and
 `-mpreferred-stack-boundary=6` change nothing). clang-cl (and, per its
-own escape-hatch caveat below, MSVC) is unaffected. Minimal repro + draft
-upstream report: `C:\Users\gdwol\Development\gcc-zmm-mingw-repro\`. GCC remains fine for capped tiers up to AVX2
+own escape-hatch caveat below, MSVC) is unaffected. Filed upstream
+2026-08-08 as GCC PR 126741; minimal repro:
+`C:\Users\gdwol\Development\gcc-zmm-mingw-repro\`. GCC remains fine for capped tiers up to AVX2
 (no zmm there),
 which is all `tools/sweep_tiers.ps1` compiles — its `g++` default is safe
 for the sweep, but the uncapped native build must be clang-cl (from a VS

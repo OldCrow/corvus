@@ -71,11 +71,11 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
   completes cleanly (chronic installer freezes implicate accumulated App
   state; manual driver-only installs are the fallback). Recurrence of
   either bugcheck on the clean stack flips suspicion to VRAM/hardware.
-- [OPEN — user action] File the mingw GCC 16.1 AVX-512
-  by-value-argument misalignment bug upstream. Repro + bugzilla-ready
-  draft: `C:\Users\gdwol\Development\gcc-zmm-mingw-repro\` (repro.cpp,
-  repro-struct.cpp, report.md; cite PR 110273 and PR 49001). Blocked on
-  GNU bugzilla account approval (pending since 2026-07-29). Technical
+- [WATCH] mingw GCC 16.1 AVX-512 by-value-argument misalignment bug:
+  filed upstream 2026-08-08 as GCC PR 126741
+  (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=126741). Local repro
+  kept at `C:\Users\gdwol\Development\gcc-zmm-mingw-repro\`. Re-qualify
+  mingw GCC for AVX-512 work only after the fix lands. Technical
   detail lives in AGENTS.md (Development Fleet).
 - [OPEN] CORVUS_SANITIZE is not MSVC-aware (emits `-fsanitize=<list>`
   unconditionally). Harmless while sanitizer builds are Linux-only;
