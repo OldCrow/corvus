@@ -510,8 +510,16 @@ negative integer, and at every negative double |x| ≥ 2^53 (all
 integers); +inf → +0; −inf → +inf (scipy); NaN propagates;
 subnormals of both signs → +inf.
 **Positive pipeline** (shifts via exact TwoSum, digamma mechanisms):
-- Zone [1,2): PLAIN value fit (no product form — no zero), degree 24,
-  1 dd-lead (probe 2^-55.16; all-double plateau 2^-52.79).
+- Zone [1,2): PLAIN value fit (no product form — no zero). FIRST
+  CORRECTION [2026-08-08, G1 escalation, depth 1]: the probe's
+  "degree 24 / 1 dd-lead / 2^-55.16" was a GRID ARTIFACT — the true
+  worst points sit within ~1e-10 of the interval edges (coherent
+  Chebyshev coefficient-rounding), and edge-refined bit-stepped
+  sampling shows 1 lead plateaus at 2^-53.7..54.0, 2 leads at
+  2^-54.9. PINNED: **degree 27, 3 dd-leads** (2^-56.5, >1 bit
+  margin). BINDING RULE from the root cause: every replay self-check
+  in this family uses edge-refined bit-stepped boundary sampling —
+  the gamma probe1 / beta R3-lens disease at its third occurrence.
 - (0,1): up-step without forming 1+x (zone at shifted centre) ⊕
   dd(1/x²). Covers tiny x naturally — the zone term → ψ₁(1) = π²/6,
   the Laurent constant (probe REFUTED the 1/x term: coefficient is
