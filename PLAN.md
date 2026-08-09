@@ -120,7 +120,12 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
   constraints at definition sites (those ARE the maintainer docs) while
   pruning narrative history to pointers. First instances fixed
   2026-08-08: three stale PROVISIONAL markers in beta-inl.h/beta_data.h
-  that predated the G4 gate pinning.
+  that predated the G4 gate pinning. SAME PASS [added 2026-08-09,
+  user]: review/compress docs/ENVIRONMENT.md and
+  docs/NUMERICAL-DOCTRINE.md — the 2026-08-09 carve moved AGENTS.md
+  content near-verbatim for diff auditability; the references still
+  carry dated incident narrative that can shrink to rules + pointers
+  once the split has proven itself in agent use.
 - [OPEN] Signed-commits ruleset: confirm the M1 and Ryzen boxes sign
   before enabling.
 - [ILLUSTRATIVE] Possible future consumers: C++ port of multi-agent_sim
