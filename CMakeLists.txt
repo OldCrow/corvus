@@ -71,6 +71,7 @@ add_library(corvus STATIC
   src/erfinv.cpp
   src/exp_dd_data.cpp
   src/gamma.cpp
+  src/gammainv.cpp
   src/lgamma.cpp
   src/log_dd_data.cpp
   src/trigamma.cpp
@@ -160,9 +161,13 @@ target_compile_options(corvus PRIVATE ${CORVUS_FP_FLAGS})
 # silently. beta.cpp added 2026-08-07 per the trigger recorded at its
 # design ("only if MSVC CI times degrade"): the Windows job went ~7 min →
 # ~20–22 min when beta landed and hit its 25-min timeout on a slow runner.
+# gammainv.cpp carries it from day one, per its detail design: the inverse
+# instantiates all four forward region cores plus erfcinv and the dd
+# transcendentals, twice per target (one per export), so it is the heaviest
+# TU in the library by construction rather than by measurement.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-  set_source_files_properties(src/gamma.cpp src/beta.cpp PROPERTIES
-    COMPILE_OPTIONS "/d2ReducedOptimizeHugeFunctions")
+  set_source_files_properties(src/gamma.cpp src/beta.cpp src/gammainv.cpp
+    PROPERTIES COMPILE_OPTIONS "/d2ReducedOptimizeHugeFunctions")
 endif()
 
 if(CORVUS_SANITIZE)

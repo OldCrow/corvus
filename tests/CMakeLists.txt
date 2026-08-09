@@ -179,3 +179,27 @@ corvus_test_target(bench_trigamma)
 # src/trigamma_data.h so the two cannot drift apart — hence the source root.
 target_include_directories(bench_trigamma PRIVATE ${PROJECT_SOURCE_DIR})
 # Deliberately not registered with ctest: run manually on a quiet machine.
+
+# gammainv consumes EVERYTHING above — the dd cores, log_dd/exp_dd, lgamma,
+# erfinv's erfcinv core and all four of gamma's region cores — so its
+# dependency position is the very end of the list.
+add_executable(test_gammainv_smoke test_gammainv_smoke.cpp)
+corvus_test_target(test_gammainv_smoke)
+add_test(NAME gammainv COMMAND test_gammainv_smoke)
+
+add_executable(test_gammainv_ulp test_gammainv_ulp.cpp)
+corvus_test_target(test_gammainv_ulp)
+# Links the public API, but re-derives the kernel's regime thresholds from
+# src/gammainv_data.h so the two cannot drift apart — hence the source root.
+target_include_directories(test_gammainv_ulp PRIVATE ${PROJECT_SOURCE_DIR})
+add_test(NAME gammainv_ulp
+  COMMAND test_gammainv_ulp
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/gammainv_p_reference.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/gammainv_q_reference.txt)
+
+add_executable(bench_gammainv bench_gammainv.cpp)
+corvus_test_target(bench_gammainv)
+# Builds its point sets from the kernel's own regime constants in
+# src/gammainv_data.h so the two cannot drift apart — hence the source root.
+target_include_directories(bench_gammainv PRIVATE ${PROJECT_SOURCE_DIR})
+# Deliberately not registered with ctest: run manually on a quiet machine.

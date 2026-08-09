@@ -194,6 +194,41 @@ void digamma(std::span<const double> in, std::span<double> out);
 /// (payload preserved).
 void trigamma(std::span<const double> in, std::span<double> out);
 
+/// \brief out[i] = x with P(a[i], x) = p[i], the inverse of the regularized
+///   lower incomplete gamma function in its second argument (SciPy's
+///   `gammaincinv`).
+///
+/// Equivalently the quantile function of a Gamma(a, 1) variate. Three spans,
+/// all the same length: `a`, `p` and `out`.
+///
+/// Whichever of p and 1 - p is <= 1/2 is the one solved against, the switch
+/// being exact, so the accuracy bound is relative on both sides of the
+/// median and down to subnormal answers. See docs/ACCURACY.md for the
+/// measured per-regime table. Note that for a above ~3e34 the whole
+/// transition from P = 0 to P = 1 happens inside one ulp of x, so the answer
+/// there is x = a for every p in (0, 1) that is not a hard limit; that is
+/// the correctly rounded result, not a shortcut.
+///
+/// Specials: p = 0 gives +0 and p = 1 gives +inf; p outside [0, 1] gives
+/// NaN, as do a <= 0 and a = +inf; NaN propagates (payload preserved).
+void gamma_p_inv(std::span<const double> a, std::span<const double> p,
+                 std::span<double> out);
+
+/// \brief out[i] = x with Q(a[i], x) = q[i], the inverse of the regularized
+///   upper incomplete gamma function in its second argument (SciPy's
+///   `gammainccinv`).
+///
+/// The survival-function quantile of a Gamma(a, 1) variate. Same span
+/// contract, same exact side switch and the same accuracy statement as
+/// gamma_p_inv -- the two are one kernel with one bit of orientation, so a
+/// q of 1e-300 is solved as accurately as the corresponding p of
+/// 1 - 1e-300 could never be represented.
+///
+/// Specials: q = 0 gives +inf and q = 1 gives +0; q outside [0, 1] gives
+/// NaN, as do a <= 0 and a = +inf; NaN propagates (payload preserved).
+void gamma_q_inv(std::span<const double> a, std::span<const double> q,
+                 std::span<double> out);
+
 }  // namespace corvus
 
 #endif  // CORVUS_CORVUS_H_

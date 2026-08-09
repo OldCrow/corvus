@@ -824,6 +824,40 @@ Ratified deviations: no in-file header (matches all 13 existing
 reference files + the raw-tokenizer reader pattern); route 2 as an
 independently-anchored Temme fit (no unrelated trusted method exists
 at that scale).
+G3 SHIPPED [2026-08-09, Opus, zero escalations, NINE reviewed-and-
+accepted deviations — the standout family of the arc]: kernel + smoke
++ ULP + bench + four-list registration. Measured 1 ULP max in every
+bucket, deep-small/subnormal/x=0 correctly rounded, IDENTICAL cells
+(incl. not-CR and worst points) on clang-cl AVX3_ZEN4 native, g++
+SSE2-capped, and MSVC AVX2 — three toolchains, FMA and non-FMA.
+Accepted deviations, each measured against the pinned alternative:
+(1) deep-small cut is x₀(1+a) < 2⁻⁶⁰, NOT a·x₀ — dropped-factor
+error ~x/(1+a) is a-independent; the pinned form is 1/a looser below
+a=1 (90 ULP reachable at a=1e-4 via the q orientation; G1
+self-check (g) swept only the p orientation — [OPEN] annotate the
+generator); (2) Newton objective is the LOGIT m = lnP − lnQ (solved-
+side log saturates: 2e18 ULP at a=1.9e34; signed ln min(P,Q) jumps
+2ln2 at the median: 5e14 ULP; logit is continuous, saturates
+nowhere, first-order-identical step, nsteps=3 holds); (3)
+safeguarded Newton (reject residual-increasing steps, 1/8 backtrack,
+bypass when |resid| < 1/2) — the design's "steps self-freeze" fails
+in the collapse zone where lnF is locally quadratic (6626 ULP
+measured), and the bypass is needed the other way (99 ULP);
+(4) additive-x step (log-x converges slower: 12 ULP vs CR), −0.9
+relative-step floor; (5) E dual-form split at a_T (direct form's
+terms ~7e302 at a=1e300; a·ln x overflows past ~2.5e305), Stirling
+μ from kLgammaStirCoef; (6) forward returns logit+slope, NO
+saturation clamp — keeps the whole underflow range live; (7)
+tri-candidate seeds at ALL a per FIRST correction (the G3 brief's
+"S1 alone ≥ a_T" was the brief's error); (8) lnΓ(1+a) via lgamma
+zone poly at exact shifted arg for a ≤ 3/2; (9) non-finite
+candidates score +inf. Six self-caught bugs (worst: a=DBL_MAX
+candidate rejected by Lt(x, DBL_MAX) → uninitialized-forward step to
+5.5e307). Bench indicative: 43 ns/el deep-small fast path, 520–1056
+elsewhere, 6.3–12.3× scalar walk (cost is structural: 3 seeds + 6
+forward evals). MSVC WATCH: gammainv.cpp 2.0 min with /d2, library
+9.3 min on the Ryzen box — largest single Windows-build jump; CI
+timeout 25 min.
 
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —
