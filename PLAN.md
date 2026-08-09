@@ -1067,6 +1067,32 @@ whole-vector all-converged skip after step 3 (bench call; gates
 must hold either way). Closure requires full replay at 4 steps
 everywhere (no floor may regress), band-wide basin verification
 from the worst seed, gap bucket joining the hard 55-bit gate.
+SECOND-correction closure verified: 4-step floors S1 59.27 / S2
+95.83 / S4 74.38 / plateau 67.74 / former-gap 74.75 (joins hard
+gate); 2,592-point band sweep, zero below 55b, worst seed 2.06b →
+84.73b; byte-reproducible, rc=0.
+**THIRD CORRECTION [2026-08-09, orchestrator review of closed
+deliverables — RATIFIED, resolution in flight]**: the deep-small
+piece carries the gammainv G3 deviation-1 disease in beta form,
+three related defects confined to that subsystem. (1) deep_small_y
+missing +ln a (the exact bug the agent fixed in seed_S2 this cycle,
+surviving in the twin function; masked as a seed candidate by
+residual selection). (2) The pinned cut a·y < 2⁻⁶⁰ has NO
+b-dependence, but the dropped-factor error is |1−b|·y/(1+a) — the
+OTHER side's parameter is the leading coefficient (gamma had no
+second parameter; that's why its fixed form was x₀(1+a)). Reachable
+witness: a=0.9, b=1e5, y=2⁻⁶⁰ (σ ≈ 2e-12, all normal doubles) —
+route fires, ships ~410 ULP. (3) Self-check (f) validated none of
+it: grid never samples the cut boundary (violates the binding
+edge-refined rule), b fixed at 5, and the q-side loop is DEAD CODE
+(pre-swapped args + side="p" make ax0 ≈ b, always skipped) — "both
+orientations" swept zero q rows, the single-orientation hole the
+contract named verbatim. Fixes: correct formula both branches;
+re-derive + re-pin the cut from the dropped-factor bound (class
+|1−b|·y/(1+a) < 2⁻⁶⁰ + exact q twin), measured boundary tightness
+both orientations across b to 1e300; rebuild (f) with bit-stepped
+boundary sampling; directed audit of checks (a)–(h) for the two
+disease classes (boundary never sampled; dead orientation branch).
 **Process**: G1 (Sonnet, gen_betainv_data.py → src/betainv_data.h:
 replay with per-point analytic eps, edge-refined bit-stepped sampling,
 both-orientation deep-small validation, c(α,β) derivation, t_jt +
