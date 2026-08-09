@@ -18,10 +18,13 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
 (issue #2 closed). One branch (main).
 
 ## Next Steps
-1. **IN FLIGHT (this session): inverse incomplete gamma** — probe
+1. **IN FLIGHT (this session): inverse incomplete beta** — probe
    complete, detail design BINDING (section below); G1 (seed data) +
-   G2 (certified references) next, then G3 kernel. Beta inverse
-   follows as its own pipeline. Last P1 family before Bessel I0/I1.
+   G2 (certified references) next, then G3 kernel. GAMMA_P_INV /
+   GAMMA_Q_INV SHIPPED [2026-08-09] (ledger: probe 0 / G1 2 ratified
+   corrections + frontier takeover at chain depth 3 / G2 0 / G3 0
+   with nine accepted deviations). Last P1 family before Bessel
+   I0/I1.
    Pipeline template: probe→design→G1/G2→G3→G4/G5 (digamma and
    trigamma both shipped through it, one session each).
    Escalation-density rule [2026-08-06, user]: ~3 chained
@@ -875,6 +878,154 @@ background CI watch attached to the previous still-running run and
 reported a false green — verify the watched run's SHA, always.
 Next session opens the BETA inverse (own probe → design pipeline;
 P6 scoping notes in the probe record).
+
+## P1 inverse incomplete beta — detail design [2026-08-09, frontier; BINDING]
+Probe COMPLETE [2026-08-09, Sonnet]: 5 self-caught tooling bugs, 0 design
+escalations; 4 flagged open questions, ALL adjudicated here. The full
+record was scratchpad-only; everything binding survives in this section.
+**API**: beta_p_inv(a, b, p, x) solves I_x(a,b) = p; beta_q_inv(a, b, q,
+x) solves 1 − I_x(a,b) = q. Spans, one TU two exports. The swap identity
+I_x(a,b) = 1 − I_{1−x}(b,a) is the documented lossless-near-1 mechanism:
+1 − x at full relative precision = beta_p_inv(b, a, q). Doxygen states it.
+**Conditioning adjudications (probe B-P1; one dissolves, one is REAL,
+one is a stratum)**:
+- Single-tiny parameter: DISSOLVES per gamma's precedent with the
+  boundary GENERALIZED — κ = 1/a exactly in the power-law regime,
+  self-limiting boundary a*(b) ≈ 1/(1074 − log2(b)); the gamma-limit
+  corner (b → 1e300) WIDENS the collapse zone 14× (a* ≈ 1.3e-2 there).
+  Input-side flip + deep-small closed form own it, as in gamma.
+- JOINT-tiny plateau (both a, b tiny) — REAL, does not dissolve
+  [measured]: interior density f(1/2) ≈ 4·min(a,b) ⇒ κ ~ 1/min(a,b) at
+  interior REPRESENTABLE x where NEITHER probability side is small
+  (plateau value s* = b/(a+b) is interior). dd (2^-105-class) resolves
+  y to 1 ULP only for κ ≤ 2^52 (min(a,b) ≳ 2^-52; measured threshold
+  1.1e-16). ADJUDICATION — dedicated joint-tiny route (S4 below) plus a
+  CONTRACT SPLIT: rows with κ ≤ 2^52 stay under the y-ULP gate; rows
+  above carry a BACKWARD-ERROR contract (forward value of the returned
+  y within ~2 ulp of s — the statistically meaningful guarantee: the
+  returned quantile inverts a probability indistinguishable at double
+  precision). Metric-band precedent: lgamma/digamma absolute bands.
+  G2 computes κ per row and buckets. The route achieves the
+  information limit of dd precision in ONE evaluation — no iteration
+  scheme at dd precision can beat κ·2^-105, so the split is honest.
+- Huge-ν beyond-resolution: whole transition < 1 ulp of x once the
+  SHAPE-side parameter reaches ~1e33–7e34 at every skew tested — the
+  beta→gamma limit reproducing gamma's own ~3e34 threshold. Test
+  stratum, not a branch (gamma precedent); bucketed separately.
+**Architecture** (gammainv is the pattern; its G3-proven mechanisms are
+carried as house doctrine, not re-derived):
+1. Input side: solve against s = min(p, 1−p), exact Sterbenz flip.
+2. Output orientation: per-lane swap so the solved variable y is the
+   end x is near — I_y(α,β) = target with (α,β,side) relabeled by the
+   swap identity, σ carried EXACT through both flips (the swap
+   re-labels p↔q; no complement is ever recomputed). The logit
+   objective is antisymmetric under both flips — one code path.
+3. SEEDS — quad-candidate, cheap forward-residual global selection at
+   ALL (a,b,s) (the FIRST-correction mechanism, now standard; probe
+   measured every candidate everywhere):
+   - S1 beta-Temme: z = erfcinv(2σ), invert beta's ridge mapping
+     (clean-room from the published Temme beta expansion; forward R3's
+     e_k(ζ,p) machinery direction-reversed). Probe floor (plain CLT)
+     already wins the balanced ridge.
+   - S2 small-y series inversion: y₀ = exp((ln σ + ln α + lnB)/α) +
+     Picard via the R1 series (count replay-pinned); swapped twin
+     covers the other end free. Wins R1-tiny (11/12) and the moderate
+     plurality.
+   - S3 gamma-limit transfer: for huge β, map t = −β·log1p(−y) and
+     seed via the EXISTING GammaInvSeedS1/S2/S3 template functions
+     (src/gammainv-inl.h; cross-family include, ErfcinvVec precedent),
+     inverting y = −expm1(−t/β). Probe: wins gamma-limit by 15–52
+     bits with a sharp measured seam at α ≈ 20 = kGammaAT (reference
+     the constant, never duplicate it).
+   - S4 joint-tiny logit closed form: logit(y) = (s − s*)/w + c(α,β),
+     w = αβ/(α+β), s* = β/(α+β) — from the u = logit(t) substitution
+     B_y = ∫^{logit y} exp(−α·ln(1+e^-u) − β·ln(1+e^u)) du (integrand
+     → min(e^{αu}, e^{−βu}); c = 0 at α = β by symmetry). G1 derives
+     c(α,β) and the correction order on paper, pins the route gate
+     (max(α,β) < t_jt, which MUST own min(a,b) ≤ 2^-52 with margin)
+     and the large-|logit| seam onto the power-law/deep-small form.
+4. STEPS: safeguarded logit-Newton m = lnP − lnQ, 3 shared steps —
+   the gammainv G3 package carried whole (reject residual-increasing
+   steps, 1/8 backtrack, bypass |resid| < 1/2, additive-y step with
+   relative floor; no saturation clamp, forward returns logit+slope).
+   Forward: dd assembly of beta's region cores (R1 series / R2 CF /
+   R3 Temme / gamma-limit via gamma cores), lnB via the LgammaDiffDd
+   identities, prefactor in log space (params to 1e308 — the E
+   dual-form lesson applies). Probe: 3 steps from a 6-bit seed reach
+   the noise floor in EVERY region; the ridge inherits NO external
+   penalty from the forward's 3 ULP. G1 replay: per-point analytic
+   eps wherever series super-converge (SECOND-correction lesson,
+   q-side twins included from day one), always solving against the
+   root of the ROUNDED double s.
+5. DEEP-SMALL closed form at both ends: y = exp_dd((LogDd(σ) ⊕ ln α ⊕
+   lnB_dd)/α), mantissa + exponent, scaling last; cut on the
+   DROPPED-FACTOR error < 2^-60 measured in BOTH orientations from
+   the start (gammainv G3 deviation-1: the single-orientation
+   self-check left 90 ULP reachable).
+**Targets** [ILLUSTRATIVE until G4; pin to measured, no margin]: 1–2 ULP
+relative, both sides, full domain, EXCLUDING the two named buckets:
+plateau κ > 2^52 (backward-error ≤ 2-ulp-class contract) and huge-ν
+beyond-resolution (xd at least as close as either neighbor). scipy
+betaincinv baseline [probe B-P1d]: median 2.7 ULP, p99 4.7e11, max
+5.4e14 — it collapses near s = 1; the lossless near-1 story via the
+swap identity is exactly the gap.
+**Oracle (G2; frontier-specified — THREE binding constructions beyond
+the gammainv pattern)**:
+1. FAST-PATH forward evaluator for R1-tiny/joint-tiny certification:
+   plain mpf series at target dps, bypassing small_side_direct's
+   escalation ladder — measured 100× per-call cost there (400–524 ms
+   vs 3–6 ms; 43 s/row unseeded ⇒ infeasible at any stratum size).
+   Validate fast-vs-full on a stratum sample, then certify with the
+   fast path plus layered spot-checks. Seed every root-find from the
+   winning seed candidate (iteration savings are real but secondary).
+2. GUARD the reused gamma-corner route AT THE ENFORCEMENT SITE:
+   small_side_direct HANGS for both params ≳ 1e17 balanced
+   (gamma_corner_value feeds min(a,b) to mpmath.gammainc as a shape
+   argument unconditionally — untested at huge shape). Bound the
+   shape argument; route both-huge-balanced traffic through an
+   R3-Temme extraction (gen_beta_data.py gamma_ck machinery),
+   dual-anchored per gammainv G2's route-2 — this same route is the
+   huge-ν stratum's independent certification.
+3. Plateau rows: κ per row; κ ≤ 2^52 → normal bracket certification;
+   above → BACKWARD-ERROR certification (forward of the stored y at
+   dps 100 within the contract) — no y-bracket exists to certify
+   there. Deep-small rows: log-space certification (gammainv pattern).
+Everything else per gammainv G2: half-ulp midpoint sign-flip bracket
+certification, layered dps 60→100, negative controls baked in with
+exit 2 (probe prototype already rejected 3/3).
+**Reference strata (G2)** [probe B-P5; ~14–21k logical rows]: R1-tiny
+both orientations (4–6k); ridge balanced + skewed sub-bands + the
+S1/S3 skew seam (3–4k); gamma-limit dense at the α ≈ 20 seam (2–3k);
+joint-tiny plateau band, SEPARATE BUCKET (1.5–2.5k); underflow
+thresholds both ends across the widened a*(b) boundary (1–1.5k);
+subnormal-y both ends (0.8–1.2k); huge-ν beyond-resolution, SEPARATE
+BUCKET (1–1.5k); a_T-seam bit-stepped bracket (0.5–0.8k); specials
+smoke (~250). The swap identity HALVES orientation coverage (one of
+(a,b)/(b,a) per logical point) EXCEPT near-diagonal and plateau rows,
+where the swap maps s ↔ 1−s — both orientations needed there.
+**Kernel/TU**: src/betainv-inl.h + betainv.cpp, both exports one TU;
+consumes beta-inl.h region cores + gammainv-inl.h seed machinery +
+dd/dd_special + exp_dd/log_dd + lgamma internals. HWY_NOINLINE day one
+on cores AND driver; /d2ReducedOptimizeHugeFunctions day one (real
+MSVC only). MSVC BUILD-TIME GATE: heaviest TU yet (beta cores AND
+gammainv seeds, instantiated twice per export) — if the Windows CI
+build pushes past ~18 min, ESCALATE before G4 (mitigations: audit
+which cores the TU actually instantiates, TU split). Tests at the END
+of all FOUR lists.
+**Process**: G1 (Sonnet, gen_betainv_data.py → src/betainv_data.h:
+replay with per-point analytic eps, edge-refined bit-stepped sampling,
+both-orientation deep-small validation, c(α,β) derivation, t_jt +
+seam pins) → G2 (Sonnet, SEPARATE agent — the oracle is the risk item;
+the three binding constructions above are its brief) → G3 (Opus
+kernel) → G4/G5 orchestrator. Escalation-density judgment rule
+applies. Probe stage record: 5 self-caught bugs (linear-space
+bisection unusable at y ~ 1e-300, fixed to ln-space; a positional-arg
+swap feeding y_true into the target slot — plausible-looking wrong
+numbers, caught only by hand-deriving one point; the
+small_side_direct hang, two orphaned PIDs killed per process rule;
+CF non-convergence boundary mapped at ν ~ 1e18 — real R3 territory,
+not a bug; one grid point silently in the wrong regime, left
+documented as a non-fit rather than dropped).
 
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —
