@@ -139,8 +139,17 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
   pinned to the audited version (1.4.0 — bump only with revalidation).
   Static lib, PIC on, Highway not exposed. MIT, clean-room only.
 - Naming/extension/header/doc conventions and the CMake standard:
-  AGENTS.md is canonical. Documentation capped at four files. Deferred
-  deliberately: LTO/IPO (profile first), shared lib (no demand).
+  AGENTS.md is canonical. Doc policy REVISED [2026-08-09, user]: the
+  former four-file cap had concentrated growth into a 28 KB AGENTS.md
+  — a recurring per-session context cost. Now: compact always-read
+  AGENTS.md core (~4 KB: architecture map, non-negotiable traps,
+  conventions, reading map) + on-demand references
+  docs/ENVIRONMENT.md (fleet/build/CMake/CI) and
+  docs/NUMERICAL-DOCTRINE.md (kernel hazards, test doctrine,
+  generators, oracle doctrine, effort routing), carved by
+  WHEN-needed, not topic. Same intent as the old cap (bounded context
+  cost); resist growth in the core. Deferred deliberately: LTO/IPO
+  (profile first), shared lib (no demand).
 - **FP contraction off project-wide** (2026-07-25): GCC's default
   contraction fused inside log_dd's dd identities and shifted it 0.6
   bits vs MSVC — BETTER, which is why one compiler alone could never
