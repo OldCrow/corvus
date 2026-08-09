@@ -1032,6 +1032,41 @@ band vs step traversal — the last is a NEW escalation, not a silent
 step-count bump). Acceptance: the gap bucket JOINS the hard 55-bit
 gate; only plateau-contract and beyond-resolution stay outside the
 y-ULP gate.
+**FIRST-correction resolution [2026-08-09]**: mechanism (i) confirmed
+at the witness — S4 was never offered (candidate-gated at t_jt, a
+contract deviation; fallback S3 seeded 3.8e-14 bits). Fixes landed:
+S4 global candidacy (t_jt now gates only the closed-form route); the
+S4 linear form's error measured O(C·|L|) — replaced by the EXACT
+leading-order relation (exp-form with exact lnB, error O(C) uniform
+in L; c(α,β) DROPPED — it hurts once B is exact, 3.95b → 0.17b at
+C=2), which is S2's own zeroth iterate and thereby exposed two
+independent S2 bugs (missing +ln α term, catastrophic at tiny α; a
+q-side orientation bug complementing σ with unswapped a,b). Fix
+level (c) tested and RULED OUT by measurement (S1's floor at ν=0.18
+is asymptotic O(1/√ν), not Newton convergence). Fifth seed ratified
+and added: logit-normal via exact ψ/ψ₁ moments of logit(Y)
+(Gamma-ratio identity, clean-room); Cornish-Fisher skewness tested
+and rejected. Also caught: eps_for's region-name gate missed
+plateau-adjacent points labeled "gap" (74.38b → 25.38b regression),
+generalized to min(a,b). Floors after cycle: S1 59.27 / S2 59.49 /
+S4 74.38 / plateau 67.73.
+**SECOND CORRECTION [2026-08-09, G1 re-escalation, chain depth 2 —
+RATIFIED]**: residual gap sub-band (min(a,b) ≈ 0.02–0.5, skew
+3–10×, y interior 0.1–0.3) is STEP TRAVERSAL, not seed quality —
+the named tripwire, correctly re-escalated rather than silently
+fixed. Seeds top out at 2–5 bits after five families honestly
+exhausted; measured convergence is cleanly quadratic
+(2.12→6.66→16.48→36.16→75.51 bits), step 4 clearing the gate by
+20+ bits band-wide. RULING: StepsN = 4 shared. The gammainv "fix
+the seed, don't shave margin" precedent does not apply: the seed
+side is exhausted, nothing is shaved (full 75+-bit margin
+restored), and the safeguard package makes a fourth step idempotent
+for converged lanes — cost bounded at one forward eval, strictly
+cheaper than a sixth fitted seed. G3 latitude: MAY add a
+whole-vector all-converged skip after step 3 (bench call; gates
+must hold either way). Closure requires full replay at 4 steps
+everywhere (no floor may regress), band-wide basin verification
+from the worst seed, gap bucket joining the hard 55-bit gate.
 **Process**: G1 (Sonnet, gen_betainv_data.py → src/betainv_data.h:
 replay with per-point analytic eps, edge-refined bit-stepped sampling,
 both-orientation deep-small validation, c(α,β) derivation, t_jt +
