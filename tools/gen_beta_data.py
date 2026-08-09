@@ -718,9 +718,11 @@ def _derive_gamma_lim():
     print(f"    PINNED kBetaGammaLim = 2^{round(j_pin)} (overlap "
           f"[{floor_52:.2f}, {ceil_52:.2f}], margin "
           f"{round(j_pin) - floor_52:.2f}/{ceil_52 - round(j_pin):.2f} binades "
-          f"below/above the pin) -- ESCALATE flag: literal 2^-60 bar does NOT "
-          f"overlap (see line above); this pin rests on the 2^-49 deviation "
-          f"reasoned in the module comment above, frontier review owed.",
+          f"below/above the pin) -- 2^-49 target deviation frontier-reviewed "
+          f"and RATIFIED 2026-08-09 (PLAN.md Resolved log): routing threshold, "
+          f"not truncation depth -- end-to-end ULP bar applies; pin midpoint "
+          f"is target-invariant (log-linear frontiers); validated on silicon "
+          f"by beta's shipped gammalim gates + seam sweeps.",
           file=sys.stderr)
     return b_gl
 

@@ -67,6 +67,11 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
    gamma bench numbers are loaded/indicative only).
 
 ## Open Items
+- [OPEN, no rush — user, 2026-08-09] docs/ARCHITECTURE.md (layering
+  diagram, added by user): decide whether README (users/maintainers)
+  and/or AGENTS.md's reading map (agents) should reference it; if the
+  reading map takes it, as a load-on-demand visual-reference entry,
+  not always-read content.
 - [WATCH] Ryzen box stability: two GPU-stack bugchecks 2026-07-29 (0x9F
   power-IRP, 0x10E video memory), root-caused [DERIVED] to a
   half-committed NVIDIA driver install; DDU clean reinstall the same
@@ -1093,6 +1098,44 @@ re-derive + re-pin the cut from the dropped-factor bound (class
 both orientations across b to 1e300; rebuild (f) with bit-stepped
 boundary sampling; directed audit of checks (a)–(h) for the two
 disease classes (boundary never sampled; dead orientation branch).
+**THIRD-correction resolution [2026-08-09]**: all three defects
+confirmed and fixed. The agent's measurement then found the
+orchestrator's leading-order bound ITSELF insufficient at the
+widened gamma-limit corner (true/bound ratio to 13.8 — the ln(S′)
+linearization needs the leading term small, which fails at huge
+other-side parameter); resolved with an exact closed-form
+multiplier corr(y′) = −ln(1−y′)/y′, exact in the huge-other-side
+limit (S′ → (1−y′)^(other−1)), verified sound (ratio ≤ 1, worst
+1.0000000004 = boundary float noise) across 1,141 bit-stepped
+boundary points, both orientations, b < 1 through b = 1e300. Final
+route: P |1−β|·y/(1+α)·corr(y) < 2⁻⁶⁰, Q twin mirrored. Witness
+re-tested: correctly rejected (true error 205-ULP-class). Directed
+audit found ONE more real instance: check (b)'s "deep-small both
+orientations" block appended 5-tuples into a list dispatched on
+len==4 — 20 points silently dropped every run (removed, superseded
+by rebuilt (f)); remaining checks clean or N/A, one low-risk note
+((a) approaches but does not bit-step its domain edge; continuous
+check, not a route decision). Floors unchanged, rc=0,
+byte-reproducible.
+**Stage record**: G1 SHIPPED [2026-08-09, Sonnet, three ratified
+corrections — FIRST chain depth 1→2 (S4 candidacy + exact-B form +
+two S2 bugs + fifth seed S5 logit-normal via exact ψ/ψ₁ moments;
+Cornish-Fisher tested-and-rejected), SECOND (StepsN=4, the named
+step-traversal tripwire, correctly re-escalated), THIRD
+(orchestrator review: deep-small transfer-bug cluster)]:
+gen_betainv_data.py + src/betainv_data.h (162 lines). Final floors
+S1 59.27 / S2 95.83 / S4 74.38 / plateau 67.74 / former-gap 74.75
+vs 55-bit gate; 2,592-point gap-band sweep zero below gate. Pinned:
+S1 K=2 15×9 Chebyshev (ζ ≤ 3.5, ν ≥ 2 — the 1/ν series diverges
+below, measured), S2 Picard 6, S4 exact-B global candidate (t_jt =
+2⁻⁸ PROVISIONAL as closed-form-route gate only), S5 tableless, 
+StepsN=4 TrustResid=1/2, deep-small cut per THIRD correction.
+STAGE THEME for the G3 brief: every G1 defect except the SECOND
+correction was a TRANSFER BUG — gamma formulas or gamma-shaped
+assumptions carried where beta's second parameter changes the math
+(√2 scaling, missing ν factor, missing +ln α twice, b-independent
+deep-small cut, single-orientation checks). G3 must treat every
+gammainv-inherited formula as UNVERIFIED until re-derived for beta.
 **Process**: G1 (Sonnet, gen_betainv_data.py → src/betainv_data.h:
 replay with per-point analytic eps, edge-refined bit-stepped sampling,
 both-orientation deep-small validation, c(α,β) derivation, t_jt +
@@ -1131,6 +1174,12 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-09 gen_beta_data.py kBetaGammaLim standing "frontier review
+  owed" flag (2^-49 target deviation, from the beta G1's escalation (C))
+  reviewed and RATIFIED: routing threshold not truncation depth (end-to-
+  end ULP bar applies), pin midpoint target-invariant (log-linear
+  frontiers), empirically confirmed by beta's shipped gammalim gates +
+  boundary-crossing seam sweeps; flag text retired at the print site.
 - 2026-08-06 v0.1.0 first release: tag at b4eaeea gated on full CI
   green; issue #2 closed (fleet lint-workflows.yml, SHA-pinned actions,
   persist-credentials: false); protect-tags ruleset; install/export
