@@ -698,12 +698,13 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
 
     auto best_x = a;
     auto best_r = inf;
-    // Member-wise, not aggregate-initialized: a brace-init of a struct whose
-    // members are themselves vector-member structs is what broke the macOS CI
-    // build once already (2026-08-06).
-    GammaInvFwdOut<D> best_f;
-    best_f.m = Dd<D>{zero, zero};
-    best_f.w = zero;
+    // AGGREGATE-init, never default-construction: `GammaInvFwdOut<D> f;`
+    // instantiates the struct's implicit ctor as a separate, UNATTRIBUTED
+    // function, and the NEON_BF16 target then inlines Vec128's always_inline
+    // ctor into it -- the exact macOS-CI break of 2026-08-06 (PLAN.md, beta
+    // bf16 lesson). Brace-init has no such function; it is the fix, not the
+    // hazard.
+    GammaInvFwdOut<D> best_f{Dd<D>{zero, zero}, zero};
     GammaInvConsider(d, a, x1, i_ok1, i_wp, lga, lna, mt, &best_x, &best_r,
                      &best_f);
     GammaInvConsider(d, a, x2, one, i_wp, lga, lna, mt, &best_x, &best_r,
