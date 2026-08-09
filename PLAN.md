@@ -1012,6 +1012,26 @@ gammainv seeds, instantiated twice per export) — if the Windows CI
 build pushes past ~18 min, ESCALATE before G4 (mitigations: audit
 which cores the TU actually instantiates, TU split). Tests at the END
 of all FOUR lists.
+**FIRST CORRECTION [2026-08-09, G1 escalation, chain depth 1 —
+RATIFIED, resolution in flight]**: G1's replay found a seed-coverage
+gap — near-symmetric moderate-tiny (a,b) between t_jt = 2⁻⁸ and S1's
+ν ≥ 2 boundary with a moderate target (witness (a,b,y) =
+(0.02, 0.02, 1e-4), 0.00 bits post-steps; bucket tracked un-gated,
+correctly escalated). Frontier ruling: t_jt gates the CLOSED-FORM
+ROUTE, not S4's candidacy — the contract's candidates are global, and
+excluding S4 above t_jt is the suspected primary cause (at C = 0.04
+its leading form still seeds several bits). Fix hierarchy ratified:
+(a) offer S4 globally; (b) pin next-order S4 correction in C
+(measured residual coeff ≈ −0.4817·C; L-dependence to be determined)
+holding ≥6 seed bits as far up in ν as it reaches; (c) lower S1's
+ν-gate via a log-space λ(ζ) Newton (also retires the generator's
+niter=100 wart rather than bequeathing it to G3); (d) fifth-seed fit
+only as last resort. Mechanism must be named before the fix is
+pinned (S4-not-offered vs residual-selection failure in the log-flat
+band vs step traversal — the last is a NEW escalation, not a silent
+step-count bump). Acceptance: the gap bucket JOINS the hard 55-bit
+gate; only plateau-contract and beyond-resolution stay outside the
+y-ULP gate.
 **Process**: G1 (Sonnet, gen_betainv_data.py → src/betainv_data.h:
 replay with per-point analytic eps, edge-refined bit-stepped sampling,
 both-orientation deep-small validation, c(α,β) derivation, t_jt +
