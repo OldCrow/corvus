@@ -747,8 +747,14 @@ max(series-tail bound at N, dd-accumulation, prefactor-component bound,
 safety floor 2^-64) — uniform 2^-56/2^-58 retained everywhere fits and
 lengths genuinely bind. Gate stays ≥ 55 bits, unshaved; predicted floor
 at the class ≈ 60+ bits. G3's silicon gates remain the arbiter — the
-replay is design-sanity, not proof. NEXT escalation in this stage hits
-chain depth 3 → frontier takeover per the escalation-density rule. 6 self-caught
+replay is design-sanity, not proof. A further escalation hits chain
+depth 3 — takeover assessed under the escalation-density rule, which
+is a JUDGMENT call, not a hard ceiling [2026-08-08, user refinement]:
+take over on churn, or when sequential local fixes signal a global
+flaw a larger-context pass should assess whole; clean,
+precisely-diagnosed chains (as both of this stage's have been) may
+continue delegated.
+**Stage record**: PROBE COMPLETE [2026-08-08, Sonnet]: 6 self-caught
 tooling bugs (worst: native-float bisection bounds silently capping the
 oracle at double precision — caught by bracket-certification failures),
 0 design escalations; both "severe" findings adjudicated at frontier
