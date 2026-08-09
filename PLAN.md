@@ -801,6 +801,29 @@ plain leaves shallow worst cases at 20–30 bits — G3 gets ONE step
 variant, a kernel simplification); deep-small cut 2⁻⁶⁰; replay
 floors deep 59.68 / shallow 57.54 vs 55-bit gate, per-point eps
 audited (198 uses, floor-term wins 171, max 2⁻⁵⁹·¹).
+G2 SHIPPED [2026-08-09, Sonnet, zero escalations]:
+gen_gammainv_reference.py + 14,926 rows (p 8,406 / q 6,520,
+three-hex-double a s xd), every row bracket-certified at layered dps
+60→100; deep-small rows via the log-space closed form with the
+dropped-correction bound folded into certification slack; a ≥ 1e16
+rows dual-route (two independently-anchored Temme fits, kext 15/13,
+distinct nodes+anchors, overlap-validated 1.7e-35 / 5.8e-30); 4
+negative controls REJECTED on every run (they caught the certifier's
+own first-draft deep-small hint bypass — the doctrine paying for
+itself); 40/14,966 boundary-ladder points correctly declined rather
+than guessed. KEY FINDING (test design input for G3/G4): the
+beyond-resolution collapse is domain-wide for a ≳ 3e34 — 1 ULP off
+x = a already saturates a·φ past 800 — so ~half the random-grid rows
+certify xd = a exactly; correct but trivial. The ULP test MUST
+bucket beyond-resolution rows separately so their zeros don't dilute
+real-region statistics; the resolvable domain carries ~7.0k rows
+across all named strata. Orchestrator review: 12/12 independent
+mpmath bracket spot-check (direct-side evaluation — the reviewer's
+own first check hit complement collapse, disease class (a), fixed).
+Ratified deviations: no in-file header (matches all 13 existing
+reference files + the raw-tokenizer reader pattern); route 2 as an
+independently-anchored Temme fit (no unrelated trusted method exists
+at that scale).
 
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —
