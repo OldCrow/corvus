@@ -732,7 +732,23 @@ budgets, marginal seed-bit gain); S3 stability gate L > 3·|a−1| (the
 design's L > 0 was necessary, not sufficient — contraction factor is
 (a−1)/x); step variant is per-depth-bucket (log-residual deep, plain
 shallow), not global.
-**Stage record**: PROBE COMPLETE [2026-08-08, Sonnet]: 6 self-caught
+**SECOND CORRECTION [2026-08-08, G1 re-escalation, chain depth 2]**:
+the replay's UNIFORM internal-dd noise model (2^-56/2^-58) is wrong at
+the shallow small-x class (a ≈ 0.1–0.3, moderate s, x tiny) — those
+budgets are region-worst fit/series-LENGTH bounds that bind near the
+forward region's far boundary (x ≈ a+1, slowest convergence), while at
+tiny x the R1/R4 series is super-converged and the true per-point
+forward error is component-limited via the prefactor's ABSOLUTE-E error
+(LogDd 2^-67.9, lgamma dd core 2^-68-class → ~2^-66 at |E| ≈ 3.5).
+Diagnostic confirmation: the measured 54.68-bit floor is EXACTLY
+58 − log2(1/a) at a = 0.1 — pure eps·κ, seeds and steps already
+optimal. RATIFIED: per-point analytic eps in the replay at that class —
+max(series-tail bound at N, dd-accumulation, prefactor-component bound,
+safety floor 2^-64) — uniform 2^-56/2^-58 retained everywhere fits and
+lengths genuinely bind. Gate stays ≥ 55 bits, unshaved; predicted floor
+at the class ≈ 60+ bits. G3's silicon gates remain the arbiter — the
+replay is design-sanity, not proof. NEXT escalation in this stage hits
+chain depth 3 → frontier takeover per the escalation-density rule. 6 self-caught
 tooling bugs (worst: native-float bisection bounds silently capping the
 oracle at double precision — caught by bracket-certification failures),
 0 design escalations; both "severe" findings adjudicated at frontier
