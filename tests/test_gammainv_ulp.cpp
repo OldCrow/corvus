@@ -37,9 +37,12 @@
 
 namespace {
 
-// PROVISIONAL (G3): the forward pair's own direct-side class. G4 pins to
-// measured, no margin.
-constexpr uint64_t kMaxUlp = 2;
+// Gate PINNED to measured, no margin (G4, 2026-08-09). Identical cells on
+// every validated leg -- clang-cl AVX3_ZEN4 native, g++ SSE2-capped, MSVC
+// AVX2, and the capped clang-cl sweep -- including not-CR counts and
+// worst-case points: 1 ULP max in every bucket, with the deep-small
+// closed-form, subnormal-x and x=0 bands correctly rounded (max 0).
+constexpr uint64_t kMaxUlp = 1;
 
 // Beyond-resolution floor. Not a kernel constant -- the kernel has no such
 // branch, by design -- but a property of the domain: a*phi(1 +- ulp/a) > 800

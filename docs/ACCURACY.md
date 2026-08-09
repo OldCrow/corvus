@@ -56,10 +56,12 @@ machine.
 | beta_q | ✅ 2026-08-05 † | ✅ | ✅ | ✅ | ✅ 2026-08-06 | ✅ 2026-08-05 |
 | digamma | ✅ 2026-08-08 † | ✅ | ✅ | ✅ | ✅ 2026-08-08 | ✅ 2026-08-07 |
 | trigamma | ✅ 2026-08-08 † | ✅ | ✅ | ✅ | ✅ 2026-08-08 | ✅ 2026-08-08 |
+| gamma_p_inv | ✅ 2026-08-09 † | ✅ | ✅ | ✅ | ✅ 2026-08-09 | ✅ 2026-08-09 |
+| gamma_q_inv | ✅ 2026-08-09 † | ✅ | ✅ | ✅ | ✅ 2026-08-09 | ✅ 2026-08-09 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
-† The beta, digamma and trigamma x86 rows come from the Ryzen box (AVX3_ZEN4 native
+† The beta, digamma, trigamma and inverse-gamma x86 rows come from the Ryzen box (AVX3_ZEN4 native
 dispatch, clang-cl; AVX2/SSE4/SSSE3/SSE2 via capping on the same silicon)
 plus the Linux/GCC CI sweep — every tier executes natively on real x86
 silicon, so the per-tier claims stand. Cross-machine reproduction on Kaby
@@ -750,6 +752,64 @@ trigamma is +inf at ±0, at every negative integer, and at every
 negative double of magnitude ≥ 2^53 (all of which are integers);
 ψ₁(+inf) = +0; ψ₁(−inf) = +inf (SciPy convention); NaN propagates;
 subnormals of both signs → +inf.
+
+## gamma_p_inv and gamma_q_inv
+
+**Bounds, measured on the 14,926-row certified reference set and
+identical on every validated leg** — clang-cl AVX3_ZEN4 native, the
+capped AVX2/SSE4/SSSE3/SSE2 sweep, Linux CI, NEON, and MSVC AVX2 —
+including not-CR tallies and worst-case points:
+
+| Regime | Bound | not-CR (p / q) |
+|---|---|---|
+| deep-small closed form (x·(1+a) < 2⁻⁶⁰) | **0 ULP — correctly rounded** | 0.00% |
+| small-a seeds (a < 20), tail targets | 1 ULP | 0.52% / 0.94% |
+| small-a seeds, near-median targets | 1 ULP | 4.29% / 4.22% |
+| Temme seed (20 ≤ a ≲ 3·10³⁴) | 1 ULP | 0.18% / 0.38% |
+| beyond-resolution (a ≳ 3·10³⁴) | 1 ULP | 0.08% / 0.08% |
+| large-side inputs (s > ½, exact flip) | 1 ULP | 0.84% / 0.73% |
+| subnormal and zero results | **0 ULP — correctly rounded** | 0.00% |
+
+**Both sides of the median carry the full relative bound.** An input
+s > ½ is replaced by 1 − s, exact by Sterbenz, so the kernel always
+solves against the small side and the answer never comes from a
+subtraction — the inverse's complement transform sits on the *input*,
+where it is free, unlike the forward pair's output-side complement.
+
+Method: per-lane analytic seed — three candidates (Temme
+normal-quantile inversion through the 1-ULP erfcinv core; the
+small-p exponential form with six Picard corrections; a far-tail
+fixed-point form under its own stability gate), scored by one cheap
+forward residual — then three safeguarded Newton steps in log space
+on the **logit** m = ln P − ln Q, which saturates nowhere and is
+continuous at the median. The forward is assembled unrounded from the
+forward gamma family's own region cores, returning the logit and its
+slope rather than a probability, so no saturation clamp exists and
+the entire underflow range stays live: E is computed in a dual form
+(direct below a = 20, Stirling above) that never overflows out to
+a = 1.7·10³⁰⁸. Results below the closed-form cut come from
+exp_dd((ln p + lnΓ(1+a))/a) assembled in double-double with the
+power-of-two scaling last — one rounding into the subnormals and to
+zero, which is why that whole band is correctly rounded.
+
+For a ≳ 3·10³⁴ the entire transition from P = 0 to P = 1 happens
+inside one ulp of x = a, so x = a is the correctly rounded answer for
+every interior input — returned through the same pipeline, not a
+special case.
+
+Oracle: no library baseline exists for the inverse anywhere, so every
+reference row is individually **bracket-certified**: the stored
+double xd is proven correct by sign flips of the forward across xd's
+exact half-ulp neighbours at dps 60 and again at dps 100, with
+deep-small rows certified in log space against the closed form and
+every a ≥ 10¹⁶ row additionally required to agree with a second,
+independently-anchored asymptotic route. Four known-bad rows are
+baked into the generator as negative controls and must be rejected on
+every run before anything is written.
+
+Special values (SciPy parity): p = 0 → +0 and p = 1 → +inf, mirrored
+for q; inputs outside [0, 1] → NaN, as are a ≤ 0 and a = +inf; NaN
+propagates from either argument (payload preserved).
 
 ## exp_dd (internal)
 

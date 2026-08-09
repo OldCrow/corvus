@@ -12,8 +12,8 @@ inverses — the functions that gate vectorized statistical CDFs, quantiles,
 and maximum-likelihood fitting.
 
 **Status: early development.** `erf`, `erfc`, `lgamma`, `digamma`,
-`trigamma`, `erfinv`, `erfcinv`, `gamma_p`, `gamma_q`, `beta_p` and
-`beta_q` are
+`trigamma`, `erfinv`, `erfcinv`, `gamma_p`, `gamma_q`, `gamma_p_inv`,
+`gamma_q_inv`, `beta_p` and `beta_q` are
 production-quality clean-room kernels validated against an mpmath oracle
 on every SIMD tier available across the development fleet — AVX-512
 (`AVX3`, `AVX3_DL`, `AVX3_ZEN4`), AVX2, SSE4, SSSE3, SSE2 and NEON, each
@@ -58,6 +58,14 @@ on native silicon (see docs/ACCURACY.md). API not yet stable.
   (0, 1) — under a single relative metric everywhere: ψ₁ is a sum of
   squares with no zeros on either axis, so unlike lgamma and digamma no
   absolute-error band exists, even near the reflection's poles.
+
+- `gamma_p_inv` / `gamma_q_inv` (inverse regularized incomplete gamma —
+  directly the Gamma-distribution quantile): max 1 ULP over the whole
+  (a, p) domain, on both sides of the median (the solve-side switch is
+  exact), with subnormal and zero results correctly rounded. Since no
+  library baseline exists for the inverse, every reference row is
+  individually bracket-certified: the stored answer is proven to be the
+  correctly rounded inverse of its exact double input.
 
 Both transcendental cores the kernels need (`exp_dd`, `log_dd`) are
 corvus's own, so no accuracy-critical path depends on the backend's math
@@ -137,6 +145,8 @@ corvus::erfcinv(x, y);
 std::vector<double> a = ..., p(a.size());  // same length as x
 corvus::gamma_p(a, x, p);
 corvus::gamma_q(a, x, p);
+corvus::gamma_p_inv(a, p, x);              // Gamma quantile: P(a, x) = p
+corvus::gamma_q_inv(a, p, x);
 
 std::vector<double> b = ...;               // same length as a and x
 corvus::beta_p(a, b, x, p);                // x in [0, 1]

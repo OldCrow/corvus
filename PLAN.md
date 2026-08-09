@@ -858,6 +858,16 @@ elsewhere, 6.3–12.3× scalar walk (cost is structural: 3 seeds + 6
 forward evals). MSVC WATCH: gammainv.cpp 2.0 min with /d2, library
 9.3 min on the Ryzen box — largest single Windows-build jump; CI
 timeout 25 min.
+G4/G5 [2026-08-09]: gate PINNED to measured, no margin (1 ULP every
+bucket; deep-small/subnormal/x=0 bands CR) — native pinned pass
+confirmed; ACCURACY.md matrix rows + family section (dagger extended
+to the inverse pair), README status/bullet/example in the same
+change set. Assertion legs: clang-cl capped sweep + pinned-gate CI
+(Linux sweep, NEON, MSVC) run on this push — three legs already
+measured identical at G3 (AVX3_ZEN4, g++ SSE2-capped, MSVC AVX2).
+On green: gamma_p_inv/gamma_q_inv SHIPPED; next session opens the
+BETA inverse (own probe → design pipeline, P6 scoping notes in the
+probe record).
 
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —
