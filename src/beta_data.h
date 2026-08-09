@@ -22,8 +22,7 @@ inline constexpr double kBetaZetaMax = 0x1.0508e55795f63p+0;
 // max(alpha,beta) >= this, on the CF-oriented triple, routes R2 to
 // the gamma-limit path instead of the backward CF (which is
 // structurally degenerate up there -- see the derivation/deviation
-// comment at _derive_gamma_lim in this generator; PROVISIONAL,
-// frontier review owed, per that comment).
+// comment at _derive_gamma_lim in this generator).
 inline constexpr double kBetaGammaLim = 0x1.0000000000000p+59;
 // kBetaNearOne [SEVENTH routing correction]: after the R1 pass,
 // any lane whose R1 dd value EXCEEDS this folds into the R4

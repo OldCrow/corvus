@@ -112,6 +112,15 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
   (0xC0000005 AFTER full PASS output, from PowerShell — not the known
   Git-Bash DLL-shadowing signature). clang-cl sweeps unaffected.
   Diagnose on a quiet day.
+- [OPEN, pre-v1.0.0] Source-comment trim [2026-08-08, user]: many
+  implementation comments embed operational history (stage tags,
+  correction ordinals, session dates) whose authoritative record is
+  PLAN.md/ACCURACY.md/git history — a drift hazard as code evolves.
+  Sweep src/ + tools/ keeping math derivations, error bounds, and
+  constraints at definition sites (those ARE the maintainer docs) while
+  pruning narrative history to pointers. First instances fixed
+  2026-08-08: three stale PROVISIONAL markers in beta-inl.h/beta_data.h
+  that predated the G4 gate pinning.
 - [OPEN] Signed-commits ruleset: confirm the M1 and Ryzen boxes sign
   before enabling.
 - [ILLUSTRATIVE] Possible future consumers: C++ port of multi-agent_sim

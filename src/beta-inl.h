@@ -70,17 +70,9 @@
 // series' terms would carry infinities from perfectly ordinary (if utterly
 // saturated) arguments.
 //
-// ACCURACY IS PROVISIONAL [G3]. Every bound quoted below is a G3 measurement
-// on one tier (AVX3_ZEN4, clang-cl) against a reference set with a known
-// defect (see tests/test_beta_ulp.cpp's kRefDefectCutoff), not a validated
-// claim. G4 measures per tier and pins the gates; docs/ACCURACY.md carries the
-// audited table. Two families are known to sit outside the design's own
-// complement budget and are open routing questions, not arithmetic ones:
-// R1's complement where its box admits an evaluated side above 1 - 2^-12
-// (worst 429 ULP at a=0.5, b=20, x=0.35), and R2's gamma-limit corner where
-// the orientation rule's own side has a degenerate continued fraction (worst
-// 5.3e4 ULP at a=0.05, b=1e100, x=2e-99; the CF there needs >100 digits and
-// divides by zero at 40).
+// ACCURACY. Per-tier gates pinned at G4 (2026-08-05/06) against the
+// harness-certified reference set; docs/ACCURACY.md carries the audited
+// per-region table.
 #if defined(CORVUS_BETA_INL_H_) == defined(HWY_TARGET_TOGGLE)
 #ifdef CORVUS_BETA_INL_H_
 #undef CORVUS_BETA_INL_H_
@@ -1412,7 +1404,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   //   huge SECOND: I_xi(s, huge) ~ P_gamma(s, t),      t = -(huge)ln(1-xi)
   //   huge FIRST : I_xi(huge, s) ~ 1 - P_gamma(s, t),  t = -(huge)ln(xi)
   // relative correction O(1/huge), 2^-49-class at the B_GL pin (generator
-  // overlap probe; PROVISIONAL to G4 -- R2-gammalim gates as its own row).
+  // overlap probe; gated at G4 as its own ULP row -- gammalim).
   // The sub-map mirrors gamma-inl.h's own routing verbatim (series for
   // s < kGammaAT and t <= s+1, or s >= kGammaAT and s >= 2t; CF otherwise;
   // gamma's in-band Temme case cannot occur here, those lanes are R3's).
