@@ -858,16 +858,23 @@ elsewhere, 6.3–12.3× scalar walk (cost is structural: 3 seeds + 6
 forward evals). MSVC WATCH: gammainv.cpp 2.0 min with /d2, library
 9.3 min on the Ryzen box — largest single Windows-build jump; CI
 timeout 25 min.
-G4/G5 [2026-08-09]: gate PINNED to measured, no margin (1 ULP every
-bucket; deep-small/subnormal/x=0 bands CR) — native pinned pass
-confirmed; ACCURACY.md matrix rows + family section (dagger extended
-to the inverse pair), README status/bullet/example in the same
-change set. Assertion legs: clang-cl capped sweep + pinned-gate CI
-(Linux sweep, NEON, MSVC) run on this push — three legs already
-measured identical at G3 (AVX3_ZEN4, g++ SSE2-capped, MSVC AVX2).
-On green: gamma_p_inv/gamma_q_inv SHIPPED; next session opens the
-BETA inverse (own probe → design pipeline, P6 scoping notes in the
-probe record).
+G4/G5 COMPLETE — **GAMMA_P_INV / GAMMA_Q_INV SHIPPED [2026-08-09]**:
+gate PINNED to measured, no margin (1 ULP every bucket;
+deep-small/subnormal/x=0 bands CR). Full ladder asserting: AVX3_ZEN4
+native; AVX2/SSE4/SSSE3/SSE2 capped clang-cl sweep (all tiers
+passed, cells identical); Linux CI sweep + sanitizers; NEON (CI run
+31324636938); Windows MSVC (13.7 min — watch item stands, timeout
+25). ACCURACY.md matrix rows + family section, README, in the gate-
+pinning change set. POSTSCRIPT (fifth family to teach a lesson at
+the last leg): the first pinned-gate CI run failed on NEON — G3 had
+default-constructed GammaInvFwdOut, the 2026-08-06 bf16 lesson with
+its site comment INVERTED (the agent cited the precedent but
+memorized the fix backwards; only the macOS job materializes the
+attribute mismatch). Fixed 88a980b, aggregate-init. Also: a
+background CI watch attached to the previous still-running run and
+reported a false green — verify the watched run's SHA, always.
+Next session opens the BETA inverse (own probe → design pipeline;
+P6 scoping notes in the probe record).
 
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —
