@@ -760,12 +760,33 @@ oracle at double precision — caught by bracket-certification failures),
 0 design escalations; both "severe" findings adjudicated at frontier
 review as metric-framing artifacts (see Conditioning above); P2's
 largest-a S1 rows predate the bisection fix — indicative only, G1 replay
-re-measures. G1 [Sonnet, in flight]: escalated once per its own
-trigger (i) — adjudicated above (FIRST correction), resumed; 6
-self-caught bugs (worst: fixed-dps erfcinv rounding 1−y to 1 for
-y < 1e-30, corrupting every deep-tail S1 seed; the probe's S1
-correction-formula side-sign bug — the a ~ 100 anomaly's root cause,
-re-derived side-symmetric).
+re-measures. G1 SHIPPED [2026-08-09, Sonnet + frontier takeover at
+chain depth 3]: gen_gammainv_data.py + src/gammainv_data.h. Sonnet
+carried both ratified corrections and 14 self-caught bugs (worst:
+fixed-dps erfcinv rounding 1−y to 1 for y < 1e-30 corrupting every
+deep-tail S1 seed; the probe's S1 correction-formula side-sign bug —
+the a ~ 100 anomaly's root cause; the direct-region-vs-small-
+probability side confusion in the replay harness). TAKEOVER (judgment
+per the refined rule — not the count): the last two fixes changed
+measurement infrastructure and the numbers moved in ways the agent
+could not characterize. Frontier root cause, one line: the main
+replay loop solved against the UNROUNDED mpf forward value while
+being measured against oracle_x's root of the ROUNDED double s — a
+κ·2⁻⁵⁴ basis mismatch (50.95 bits at κ ≈ 2^3.3, exactly as
+predicted). Second frontier fix: the per-point eps model extended to
+the q-side twins of the SECOND-correction class (same components,
+P→Q ratio conversion max(1, (1−s)/s), floor stays absolute 2⁻⁶⁴) —
+those q-side points (κ ≈ 9–10) were the residual 54.68 floor. FINAL
+PINS: a_T = 20 (= kGammaAT, referenced not duplicated); λ(η) series
+order 12 |η| < 1/2 + 6-iter log-space Newton to |η| ≤ 9.24; S1 K=2
+Chebyshev 2×25 wide-η; S2 Picard 6; S3 fixed-point 3 gated
+L > 3|a−1|; S1_A_MIN = 0.3; tri-candidate residual-compared seed at
+all a < a_T; steps: nsteps = 3 shared, LOG-RESIDUAL NEWTON BOTH
+BUCKETS (the plain-wins-shallow read was a basis-mismatch artifact;
+plain leaves shallow worst cases at 20–30 bits — G3 gets ONE step
+variant, a kernel simplification); deep-small cut 2⁻⁶⁰; replay
+floors deep 59.68 / shallow 57.54 vs 55-bit gate, per-point eps
+audited (198 uses, floor-term wins 171, max 2⁻⁵⁹·¹).
 
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —
