@@ -713,13 +713,37 @@ pipeline after this one ships (P6 scoping: swap identity
 I_x(a,b) = 1 − I_{1−x}(b,a) gives lossless near-1 output via argument
 swap; tiny-a AND tiny-b are independent collapse triggers — needs its
 own probe).
+**FIRST CORRECTION [2026-08-08, G1 escalation, chain depth 1]**: the
+seed partition is by (side, λ-regime) at ALL a, not by a alone — the
+probe's "S2 wins p-side / S3 wins q-side" was a λ-regime truth tested
+only at a < 1. G1's replay caught the two corners the a-gated partition
+leaves uncovered: (i) deep p-tail at a ≥ a_T (a=20, λ=0.02: S1's
+η ≈ −2.4 weak tail, 47.98 bits at 3 steps — while S2's Picard
+contraction x/(a+1) ≈ 0.02 there seeds ~17 bits and converges easily);
+(ii) small-a mid band (best seed 4–6 bits; Halley topped at 54.5,
+half a bit under margin — fix the seed, don't shave margin). RATIFIED:
+tri-candidate seed {S1 if |η| in domain, S2 p-form (usable from either
+input side via the exact complement), S3 under its stability gate}
+selected per lane by cheap forward-residual comparison (G1's own
+mechanism, now global); S2 Picard count re-pinned by replay; a_T
+governs only the central/ridge band. Ratified G1 deviations: S1
+corrections K=2 (c₂ Vandermonde extraction unstable at sane node/dps
+budgets, marginal seed-bit gain); S3 stability gate L > 3·|a−1| (the
+design's L > 0 was necessary, not sufficient — contraction factor is
+(a−1)/x); step variant is per-depth-bucket (log-residual deep, plain
+shallow), not global.
 **Stage record**: PROBE COMPLETE [2026-08-08, Sonnet]: 6 self-caught
 tooling bugs (worst: native-float bisection bounds silently capping the
 oracle at double precision — caught by bracket-certification failures),
 0 design escalations; both "severe" findings adjudicated at frontier
 review as metric-framing artifacts (see Conditioning above); P2's
 largest-a S1 rows predate the bisection fix — indicative only, G1 replay
-re-measures.
+re-measures. G1 [Sonnet, in flight]: escalated once per its own
+trigger (i) — adjudicated above (FIRST correction), resumed; 6
+self-caught bugs (worst: fixed-dps erfcinv rounding 1−y to 1 for
+y < 1e-30, corrupting every deep-tail S1 seed; the probe's S1
+correction-formula side-sign bug — the a ~ 100 anomaly's root cause,
+re-derived side-symmetric).
 
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —
