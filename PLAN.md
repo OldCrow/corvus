@@ -1175,6 +1175,19 @@ G2 self-caught bug ledger so far: 11 across both cycles (worst:
 both-huge bisection at 500 ms/call inside a 150-iteration loop;
 q-side round-to-one threshold off by ~700 decades; blind-σ
 deep-small construction 77% drop → inversion-first fix → ~12%).
+NEXT SESSION PLAN [2026-08-10, user-accepted recommendation]:
+open at FRONTIER and close open items 1–3 as rulings first
+(calibration-probe root-cause — script is in the betainv_g2
+scratchpad, suspects named above; dilution → likely moot via
+G4 bucket-by-formula; r1-tiny imbalance — suspect STRUCTURALLY
+EXPECTED, tiny-a small side is q almost everywhere per B-P1a, so
+symmetric logical points yield asymmetric side files; adjudicate,
+don't assume bug). Then launch a FRESH agent (not a resume — the
+G2 agent is 3 cycles/~600k tokens deep; this record + G2-STATUS.md
+are the cold-start brief) for the execution tail: seam-yield fix
+(bracketing at extreme b), scale-up to 14–21k, final report.
+G3 brief drafts in the same frontier pass (transfer-bug theme,
+marker-column test semantics).
 **Process**: G1 (Sonnet, gen_betainv_data.py → src/betainv_data.h:
 replay with per-point analytic eps, edge-refined bit-stepped sampling,
 both-orientation deep-small validation, c(α,β) derivation, t_jt +
