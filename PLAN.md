@@ -1175,19 +1175,44 @@ G2 self-caught bug ledger so far: 11 across both cycles (worst:
 both-huge bisection at 500 ms/call inside a 150-iteration loop;
 q-side round-to-one threshold off by ~700 decades; blind-σ
 deep-small construction 77% drop → inversion-first fix → ~12%).
-NEXT SESSION PLAN [2026-08-10, user-accepted recommendation]:
-open at FRONTIER and close open items 1–3 as rulings first
-(calibration-probe root-cause — script is in the betainv_g2
-scratchpad, suspects named above; dilution → likely moot via
-G4 bucket-by-formula; r1-tiny imbalance — suspect STRUCTURALLY
-EXPECTED, tiny-a small side is q almost everywhere per B-P1a, so
-symmetric logical points yield asymmetric side files; adjudicate,
-don't assume bug). Then launch a FRESH agent (not a resume — the
-G2 agent is 3 cycles/~600k tokens deep; this record + G2-STATUS.md
-are the cold-start brief) for the execution tail: seam-yield fix
-(bracketing at extreme b), scale-up to 14–21k, final report.
-G3 brief drafts in the same frontier pass (transfer-bug theme,
-marker-column test semantics).
+FRONTIER RULINGS [2026-08-10, open items 1–3 CLOSED; completion
+agent launched with them]:
+(1) Calibration probe root cause: its "resolvable" criterion tested
+forward-VALUE saturation (P/Q == exactly 0.0/1.0 in double at the
+z-probe point) — not y-space collapse; the balanced case
+degenerates because the probed y rounds to the mean double 0.5
+where P = 0.5 by symmetry, never saturating at ANY ν (the
+"resolvable to 1e60" artifact); the skewed 2e36–4e36 numbers
+measure a third quantity (rounding perturbation exceeding the
+whole z-range). CORRECT criterion, per-(a,b): y(z = ±Z_MAX ≈
+±38.5, the subnormal-σ limit) double-rounded ≤ 1 ulp apart ⇒
+beyond-resolution. Anchors: balanced central-band onset between
+ν = 1e31 and 1e32 (measured directly); balanced full collapse
+~5e35-class. Shipped B rows (ν ≥ 1e35) accepted as-is.
+(2) Dilution: NO relabeling — G4's ULP test buckets huge-ν
+statistics BY FORMULA from (a,b); markers carry certification
+semantics only. Rule recorded in the generator's format docstring.
+(3) r1-tiny 17:1: STRUCTURALLY EXPECTED, not a bug — log-uniform-y
+sampling with tiny a puts the P ≤ 1/2 crossover at y_med ≈
+exp(−ln2/a) (a = 0.01 → ~1e-30), so nearly all sampled decades are
+p-side. Coverage intent still binds: scale-up constructs q-side
+rows DIRECTLY (σ-targeted, inversion-first). Same for the
+single-sided subnormal-y/underflow strata.
+G2-COMPLETION agent (fresh, Sonnet) IN FLIGHT with rulings 1–3 +
+seam-yield fix (S3-seeded tightly-bracketed root-find at extreme
+b) + scale-up to 14–21k.
+G3 BRIEF INGREDIENTS (compose at launch): transfer-bug stage theme
+(every gammainv-inherited formula UNVERIFIED until re-derived —
+G1's ledger is the witness list); marker-column semantics (N/P/B;
+P = backward-error contract rows — the test verifies |forward(yd)
+− σ| ≤ contract, NOT y-ULP; B = neighbor semantics; huge-ν
+statistics bucketed by formula per ruling 2); StepsN = 4 with the
+whole-vector all-converged skip latitude; deep-small cut is the
+THIRD-correction form (other-side coefficient × corr(y′), NOT
+a·y); S5 needs the kernel's own digamma/trigamma cores (tableless);
+S3 calls GammaInvSeed* cross-family (include gammainv-inl.h);
+/d2 flag + MSVC build-time gate ~18 min; four-list registration at
+END; betainv-inl.h + betainv.cpp one TU two exports.
 **Process**: G1 (Sonnet, gen_betainv_data.py → src/betainv_data.h:
 replay with per-point analytic eps, edge-refined bit-stepped sampling,
 both-orientation deep-small validation, c(α,β) derivation, t_jt +
