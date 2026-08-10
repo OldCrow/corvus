@@ -4,49 +4,11 @@ How a call travels from the public API down to SIMD instructions, and where
 the Highway dependency is contained. Detail on hazards, doctrine, and the
 build lives in the other docs; this page is the map.
 
-```mermaid
-flowchart TB
-    caller["Caller<br/><i>std::span in/out, no SIMD types</i>"]
+![corvus internal layering](architecture-layers.svg)
 
-    subgraph pub["Public API — include/corvus/"]
-        api["<b>corvus.h</b><br/>std-only surface, Doxygen<br/>Highway never appears here"]
-    end
-
-    subgraph disp["Dispatch — src/&lt;fn&gt;.cpp, one TU per function family"]
-        tu["<b>foreach_target.h</b> compiles each kernel per SIMD target<br/><b>HWY_EXPORT</b> + <b>HWY_DYNAMIC_DISPATCH</b> select at runtime"]
-    end
-
-    subgraph kern["Kernel layer — per-target headers, written against ops:: only"]
-        k["<b>&lt;fn&gt;-inl.h / &lt;fn&gt;_core-inl.h</b><br/>region cores + per-lane drivers<br/>one masked path for vector and tail"]
-        data["<b>&lt;fn&gt;_data.h / .inc</b><br/>checked-in coefficient tables<br/>(generated, self-checking generators)"]
-        k --- data
-    end
-
-    subgraph ddlayer["Double-double primitives — also written against ops:: only"]
-        dd["<b>dd-inl.h</b><br/>Dekker/Knuth exact arithmetic<br/>(~106-bit unevaluated sums)"]
-        ddsp["<b>dd_special-inl.h</b><br/>shared dd specials<br/>(Log1pmxDd, Expm1Dd)"]
-        ddtr["<b>exp_dd-inl.h / log_dd-inl.h</b><br/>corvus-owned transcendental cores<br/>mantissa+exponent form"]
-        ddsp --> dd
-        ddtr --> dd
-    end
-
-    subgraph facade["SIMD facade — the swap point"]
-        ops["<b>ops-inl.h</b> — ~20-op surface mirroring hn:: names 1:1<br/>the ONLY file that touches hn:: &nbsp;·&nbsp; also the FMA policy boundary (ops::MulAdd)"]
-    end
-
-    subgraph backend["Backend"]
-        hwy["<b>Google Highway</b><br/>multi-target codegen + runtime dispatch<br/>SSE2 … AVX-512, NEON"]
-        stdsimd["<b>std::simd</b> (future)<br/>reimplement ops-inl.h,<br/>kernels untouched"]
-    end
-
-    caller --> api --> tu --> k
-    k --> ddsp
-    k --> ddtr
-    k --> ops
-    dd --> ops
-    ops --> hwy
-    ops -.-> stdsimd
-```
+Adjacency is the relationship: each band rests on the one below it. Function
+kernels and dd primitives share a band because both are written directly
+against `ops::`; the dd primitives are not a layer beneath the kernels.
 
 ## The layers
 
