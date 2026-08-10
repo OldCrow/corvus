@@ -1136,6 +1136,45 @@ assumptions carried where beta's second parameter changes the math
 (√2 scaling, missing ν factor, missing +ln α twice, b-independent
 deep-small cut, single-orientation checks). G3 must treat every
 gammainv-inherited formula as UNVERIFIED until re-derived for beta.
+**G2 IN FLIGHT — paused mid-stage [2026-08-10, session pause; two
+agent cycles done, deliverables UNCOMMITTED→committed as WIP this
+change set]**: gen_betainv_reference.py + 9,352 certified rows
+(6,084 p / 3,268 q; five-hex rows a b sigma yd marker, marker
+N/P/B — P = plateau backward-error contract, B =
+beyond-resolution). ACCEPTED as implemented and validated: the
+three binding constructions — fast path (worst fast-vs-full
+disagreement 4.1e-59 on 40-point sample), gamma-corner hang guard
+(hang confirmed at shape as low as 1.6e17 when near gammainc's OWN
+ridge — proximity-dependent, not magnitude alone; guard threshold
+1e10 + exception rescue, external wrapper only) with dual-anchored
+R3-Temme route 2, per-row κ-split (9 plateau-contract rows);
+negative controls 5/5 rejected first on every run; route-2
+dual-check caught 1 real disagreement → row correctly DECLINED.
+OPEN ITEMS for the completion round (next session, same agent or
+fresh with this record): (1) huge-ν calibration harness DEFECT —
+its "balanced resolvable to ν=1e60 under z=3 probe" claim is
+impossible (frontier direct check 2026-08-10: balanced
+central-band collapse starts between ν=1e31 and 1e32; at 1e60 even
+σ=0.3 rounds to yd=0.5 exactly); root-cause the probe (suspect
+mpf-space comparison or residual ζ-vs-z confusion). The SHIPPED
+bucketing survives review anyway: B-floor ν=1e35 sits inside
+central-band collapse and near the max-z full-collapse boundary
+(~5e35 by direct estimate; probe's 3e33 was the ±6σ convention) —
+B rows are certified under neighbor semantics and safe. (2)
+N-marked huge-ν rows between collapse onset (~1e32) and 1e35 are
+trivially-satisfiable dilution rows — G4's ULP test must bucket
+huge-ν separately regardless (gammainv dilution lesson); relabel
+or bucket-by-formula decision owed. (3) r1-tiny p/q imbalance
+17:1 (1872:110) despite nominally-symmetric construction —
+root-cause owed. (4) gamma-limit-seam declines: 365/409 declines
+concentrate there (root-finder converges to a wrong point at
+b ~ 1e111–1e250; bracket certification correctly rejects — no bad
+rows shipped, a YIELD problem). (5) scale 9.4k → design's 14–21k;
+subnormal-y/underflow strata still single-sided by construction.
+G2 self-caught bug ledger so far: 11 across both cycles (worst:
+both-huge bisection at 500 ms/call inside a 150-iteration loop;
+q-side round-to-one threshold off by ~700 decades; blind-σ
+deep-small construction 77% drop → inversion-first fix → ~12%).
 **Process**: G1 (Sonnet, gen_betainv_data.py → src/betainv_data.h:
 replay with per-point analytic eps, edge-refined bit-stepped sampling,
 both-orientation deep-small validation, c(α,β) derivation, t_jt +
