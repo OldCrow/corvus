@@ -1198,9 +1198,41 @@ exp(−ln2/a) (a = 0.01 → ~1e-30), so nearly all sampled decades are
 p-side. Coverage intent still binds: scale-up constructs q-side
 rows DIRECTLY (σ-targeted, inversion-first). Same for the
 single-sided subnormal-y/underflow strata.
-G2-COMPLETION agent (fresh, Sonnet) IN FLIGHT with rulings 1–3 +
-seam-yield fix (S3-seeded tightly-bracketed root-find at extreme
-b) + scale-up to 14–21k.
+G2 SHIPPED [2026-08-10, two agents: original (3 cycles) + fresh
+completion round carrying the frontier rulings]: 16,883 certified
+rows (8,603 p / 8,280 q, 99.32% of constructed; 115 declines, all
+boundary-ladder/root-find classes), five-hex format a b sigma yd
+marker. Rulings implemented: Z_MAX = 27.2005633… derived by mpf
+bisection in the file's own erfc z-convention (≡ the frontier's
+38.5 normal-quantile figure), both sanity anchors reproduced
+(central-band onset 1e31–1e32 exact; full collapse 6.0e34–1.3e35);
+bucket-by-formula note in the format docstring; q-side coverage
+r1-tiny 1.68:1 / subnormal-y 1.26:1 / underflow 1.90:1 (was 17:1 /
+q=0 / q=0). Completion round's own catches: (i) q-branch
+construction built near-1 arguments as native-float 1.0−y —
+collapses to exactly 1.0 for y < ~2⁻⁵³ (96.5% of the r1-tiny draw
+range; witness float(1.0−1e-150).hex() == 0x1.0p+0) — the
+escalation was raised rather than folded in silently; (ii) seam
+declines root-caused DEEPER than the ruling: gb.route_final
+silently misroutes a neighborhood just past the true root into
+small_val_via_cf, which is INVALID at extreme skew and returns
+catastrophically wrong values with no exception (witness: true
+P=0.5207 vs computed 1e-4541) — fixed by bisecting against the
+audited evaluator directly (oracle_y_audited, S3-seeded); seam
+declines 66% → 2.5%. SHARED-MACHINERY CAVEAT recorded: the
+route_final/small_val_via_cf silent-garbage combination is
+reachable when shipped generator machinery is driven at
+out-of-domain points; the shipped beta FORWARD reference set is
+believed unaffected (its constructions stay in-domain) but any
+future reuse must guard routes the way this generator now does.
+ACCEPTED SHORTS: underflow 806 vs 1–1.5k target; huge-ν B-bucket
+646 vs 1–1.5k (doctrine-correct: the Z_MAX criterion bounds the
+outer envelope, specific σ draws inside it legitimately certify N
+— those rows still enter the huge-ν formula bucket at G4).
+Negative controls 5/5 on all ~21 invocations; ~2.5 h compute,
+checkpointed. Orchestrator review: 12/12 independent mpmath
+bracket spot-check (moderate-param rows, dps 60), zero format
+defects.
 G3 BRIEF INGREDIENTS (compose at launch): transfer-bug stage theme
 (every gammainv-inherited formula UNVERIFIED until re-derived —
 G1's ledger is the witness list); marker-column semantics (N/P/B;
