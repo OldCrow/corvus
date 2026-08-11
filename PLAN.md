@@ -95,6 +95,17 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
   huge-b). betainv is IMMUNE (routes E to PA except where gated).
   Needs its own fix arc: kernel correction + reference rows covering
   the corner + full revalidation. Scheduling at user's discretion.
+- [OPEN, scheduled next session as warm-up — 2026-08-10, user] MSVC
+  build-time headroom: retro-apply betainv G3's log/exp HWY_NOINLINE
+  wrapper pattern (~20 call sites through wrappers took betainv.cpp
+  from >45 min to 127 s) to the three heavy TUs that predate it —
+  beta.cpp (547–904 s local MSVC, the CI job's critical path),
+  lgamma.cpp (681 s), gammainv.cpp (486 s). Motivation: Windows CI at
+  17.4 min vs 25 timeout with Bessel + lbeta still to land.
+  Mechanical, mid-tier, delegable; acceptance = byte-identical ULP
+  tables per tier across the change (bit-identity expected under
+  contraction-off; verify anyway per doctrine) + measured build-time
+  table before/after. Run BEFORE Bessel's TU lands.
 - [OPEN, enhancement, low priority — 2026-08-10] exp_dd accuracy
   bump (one more polynomial term + keep r.lo through the quadratic)
   would raise betainv's y-ULP κ-horizon from 2¹⁸ toward the design's
