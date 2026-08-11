@@ -50,16 +50,17 @@
 
 namespace {
 
-// Gates: PROVISIONAL (G3), one unit of headroom over the measured maxima.
-// G4 pins them to measured with no margin across every validated leg, as
-// gammainv's were. Measured on the first validated leg (clang-cl AVX3_ZEN4
-// native and g++ SSE2-capped, identical): 1 ULP in every y-gated bucket on
-// both sides, 2 ULP on the B rows, 0.0 ulp(sigma) backward error on both the
-// P rows and the kappa bucket.
-constexpr uint64_t kMaxUlp = 2;
-constexpr uint64_t kMaxUlpHugeNu = 2;
-constexpr double kMaxBackwardUlp = 8.0;  // P and kappa rows, in ulp of sigma
-constexpr uint64_t kMaxUlpBeyond = 3;    // B rows, vs the stored yd
+// Gates: PINNED to measured, no margin (G4, 2026-08-10), gammainv
+// precedent. Measured identically on clang-cl AVX3_ZEN4 native and g++
+// SSE2-capped: 1 ULP in every y-gated bucket on both sides, 2 ULP on the
+// B rows, 0.000 ulp(sigma) displayed backward error on both the P rows and
+// the kappa bucket. The backward gate is 1.0 ulp(sigma) -- the smallest
+// robust bound above the (display-rounded) measured maximum; the design
+// contract stated ~2, the kernel beats it.
+constexpr uint64_t kMaxUlp = 1;
+constexpr uint64_t kMaxUlpHugeNu = 1;
+constexpr double kMaxBackwardUlp = 1.0;  // P and kappa rows, in ulp of sigma
+constexpr uint64_t kMaxUlpBeyond = 2;    // B rows, vs the stored yd
 
 // Huge-nu formula bucket. The frontier's own measurement puts balanced
 // central-band collapse between nu = 1e31 and 1e32 and full collapse in the

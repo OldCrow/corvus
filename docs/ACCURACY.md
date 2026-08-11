@@ -58,10 +58,12 @@ machine.
 | trigamma | ✅ 2026-08-08 † | ✅ | ✅ | ✅ | ✅ 2026-08-08 | ✅ 2026-08-08 |
 | gamma_p_inv | ✅ 2026-08-09 † | ✅ | ✅ | ✅ | ✅ 2026-08-09 | ✅ 2026-08-09 |
 | gamma_q_inv | ✅ 2026-08-09 † | ✅ | ✅ | ✅ | ✅ 2026-08-09 | ✅ 2026-08-09 |
+| beta_p_inv | ✅ 2026-08-10 † | ✅ | ✅ | ✅ | ✅ 2026-08-10 | ✅ 2026-08-10 |
+| beta_q_inv | ✅ 2026-08-10 † | ✅ | ✅ | ✅ | ✅ 2026-08-10 | ✅ 2026-08-10 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
-† The beta, digamma, trigamma and inverse-gamma x86 rows come from the Ryzen box (AVX3_ZEN4 native
+† The beta, digamma, trigamma, inverse-gamma and inverse-beta x86 rows come from the Ryzen box (AVX3_ZEN4 native
 dispatch, clang-cl; AVX2/SSE4/SSSE3/SSE2 via capping on the same silicon)
 plus the Linux/GCC CI sweep — every tier executes natively on real x86
 silicon, so the per-tier claims stand. Cross-machine reproduction on Kaby
@@ -810,6 +812,82 @@ every run before anything is written.
 Special values (SciPy parity): p = 0 → +0 and p = 1 → +inf, mirrored
 for q; inputs outside [0, 1] → NaN, as are a ≤ 0 and a = +inf; NaN
 propagates from either argument (payload preserved).
+
+## beta_p_inv and beta_q_inv
+
+**Bounds, measured on the 16,883-row certified reference set and
+identical on every validated leg** — clang-cl AVX3_ZEN4 native, the
+capped AVX2/SSE4/SSSE3/SSE2 sweep, Linux CI, NEON, and MSVC AVX2:
+
+| Regime | Bound |
+|---|---|
+| deep-small closed form, both ends | **0 ULP — correctly rounded** |
+| small-parameter seeds (series / closed-form / logit-normal) | 1 ULP |
+| Temme ridge | 1 ULP |
+| gamma-limit transfer (max(a,b) ≳ 10⁶) | 1 ULP |
+| huge-ν band (ν = ab/(a+b) ≥ 10³¹) | 1 ULP |
+| beyond-resolution rows (transition < 1 ulp of x) | ≤ 2 ULP vs the certified answer (neighbour semantics) |
+| conditioning-limited band (κ > 2¹⁸, see below) | backward error ≤ 1 ulp(p) — measured 0.000 |
+| subnormal x and x = 1 results | **0 ULP — correctly rounded** |
+
+**Both ends of [0, 1] are lossless.** The input side is flipped
+exactly (s = min(p, 1−p), Sterbenz), and the *output* end is chosen by
+the swap identity I_x(a,b) = 1 − I_{1−x}(b,a): the kernel always
+solves for whichever of x, 1−x is small, so a quantile near 1 loses
+nothing — call `beta_p_inv(b, a, q)` to get 1−x at full relative
+precision. (For comparison, SciPy's `betaincinv` reaches p99 ≈ 5·10¹¹
+ULP on inputs near 1; its median elsewhere is ~3 ULP.)
+
+**The conditioning-limited band is a property of the function, not
+the kernel.** Where both parameters are tiny, the density is nearly
+zero across the whole interior, and the quantile's condition number
+κ = p/(x·f(x)) grows without bound — no finite-precision algorithm
+can pin x to 1 ulp there. Above κ ≈ 2¹⁸ the kernel's guarantee
+switches to **backward error**: the returned x is the exact quantile
+of a probability within one ulp of the input — the statistically
+meaningful contract — and the measured worst case is 0.000 ulp.
+Below that κ the normal 1-ULP forward bound applies everywhere.
+
+Method: per-lane analytic seed — five candidates (a beta-Temme
+normal-quantile ridge inversion through the 1-ULP erfcinv core; the
+small-end series inversion with Picard corrections, applied to either
+end via the swap; a gamma-limit transfer that reuses the shipped
+inverse-gamma seed machinery; an exact-lnB closed form that owns the
+joint-tiny plateau; and a logit-normal form built on the kernel's own
+digamma/trigamma cores), scored by one cheap forward residual — then
+four safeguarded Newton steps on the **logit** m = ln P − ln Q, which
+saturates nowhere and is antisymmetric under both the input flip and
+the orientation swap, so one code path serves all four (side, end)
+combinations. The forward is assembled unrounded from the forward
+beta family's own region cores with the prefactor kept in log space;
+it returns the logit and its slope, so no saturation clamp exists and
+the whole underflow range stays live out to parameters at 10³⁰⁸.
+Results below the closed-form cut (whose boundary correctly involves
+the *other* side's parameter) are assembled in double-double with the
+power-of-two scaling last — one rounding into the subnormals.
+
+For ν ≳ 10³⁵ the entire transition happens inside one ulp of the mean
+a/(a+b), so the mean is the correctly rounded answer for every
+interior input; rows past that boundary are certified against
+neighbour semantics, and everything from the collapse onset (ν ≥
+10³¹) is reported in its own band so trivially-satisfiable rows never
+dilute the real-region statistics.
+
+Oracle: no library baseline exists, so every reference row is
+individually **bracket-certified** (sign flips across the stored
+double's exact half-ulp neighbours at dps 60 and again at 100), with
+deep-small rows certified in log space, plateau rows certified in
+backward error (no x-bracket exists there by construction), and
+huge-ν rows required to agree with a second, independently-anchored
+Temme route. A fast-path series evaluator carries the tiny-parameter
+strata (validated against the full oracle to 4·10⁻⁵⁹ worst
+disagreement), five known-bad negative controls must be rejected on
+every run before anything is written, and rows the certifier cannot
+prove are declined, never guessed (115 of 16,998).
+
+Special values (SciPy parity): p = 0 → +0 and p = 1 → 1, mirrored for
+q; inputs outside [0, 1] → NaN, as are non-positive or non-finite
+parameters; NaN propagates from any argument.
 
 ## exp_dd (internal)
 

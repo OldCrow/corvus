@@ -469,7 +469,7 @@ HWY_NOINLINE BetaInvCtx<D> BetaInvPrepare(D d, op::V<D> alpha, op::V<D> beta) {
 // orientation probe can run against one context and the winner be selected
 // field-wise instead of the whole preparation being repeated.
 template <class D>
-HWY_INLINE BetaInvCtx<D> BetaInvSwapCtx(D d, const BetaInvCtx<D>& cx,
+HWY_INLINE BetaInvCtx<D> BetaInvSwapCtx(D, const BetaInvCtx<D>& cx,
                                         op::M<D> m) {
   const BetaInvCtx<D> out{
       op::IfThenElse(m, cx.beta, cx.alpha),
@@ -589,8 +589,6 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   const auto rb = op::IfThenElse(m_sw, alpha, beta);
   const Dd<D> rxi{op::IfThenElse(m_sw, yc.hi, y),
                   op::IfThenElse(m_sw, yc.lo, zero)};
-  const Dd<D> ryv{op::IfThenElse(m_sw, y, yc.hi),
-                  op::IfThenElse(m_sw, zero, yc.lo)};
   const Dd<D> lrxi{op::IfThenElse(m_sw, lnyc.hi, lny.hi),
                    op::IfThenElse(m_sw, lnyc.lo, lny.lo)};
   const Dd<D> lryv{op::IfThenElse(m_sw, lny.hi, lnyc.hi),
@@ -610,7 +608,6 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   // then directly this frame's "the value is P", with none of beta's XNOR.
   // Scrubbed outside its own lanes: the prescale's no-underflow argument rests
   // on min(alpha, beta) >= Z0, which only holds where this is live.
-  const auto m_pb = BetaIndMask(d, cx.i_pb);
   const auto m_psi = BetaIndMask(d, op::Max(i_r3, cx.i_pb));
   BetaPsi<D> ps{Dd<D>{zero, zero}, Dd<D>{one, zero}, zero, half, half, zero};
   if (!op::AllFalse(d, m_psi)) {
