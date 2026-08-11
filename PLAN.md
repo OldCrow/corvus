@@ -6,7 +6,13 @@ session narratives, and measurement play-by-play live in this file's git
 history (compacted 2026-08-06), docs/ACCURACY.md, and the kernel/generator
 source, which are the official record for finished work.
 
-## Status [DERIVED] — 2026-08-10
+## Status [DERIVED] — 2026-08-11
+
+**P2 IN PROGRESS**: Bessel I0/I1 frontier probe+design pass COMPLETE
+(binding design below; probe closed all five staged questions, 2
+probe-stage self-caught bugs). Retro-outlining warm-up (MSVC headroom,
+Open Items) delegated and running in parallel — it must land before
+Bessel's TU (G3). lbeta follows Bessel, possibly same session.
 
 **v0.2.0 RELEASED — P1 COMPLETE** (tag at b0221d1, CI-gated,
 immutable under protect-tags;
@@ -1386,51 +1392,57 @@ CF non-convergence boundary mapped at ν ~ 1e18 — real R3 territory,
 not a bug; one grid point silently in the wrong regime, left
 documented as a non-fit rather than dropped).
 
-## P2 Bessel I0/I1 — STAGING [2026-08-10, pre-probe; design next session]
-Last planned family; smallest since erf/erfc. Estimate: ONE session
-for the full pipeline, ~half trigamma's effort.
-**Consumer requirements** (the reason the family exists): von Mises
-log-density needs log I0(κ) at large κ — plain I0 overflows past
-x ≈ 713.5 (e^x/√(2πx) vs DBL_MAX) — and the von Mises MLE κ-update
-needs the ratio A(κ) = I1/I0. Plain I0/I1 for densities at small κ.
-**API candidates [design decides]**: i0, i1 (unscaled, overflow past
-~713); i0e = e⁻ˣI0, i1e (scaled — the kernel-natural pair, full
-axis); log-I0 direct vs composed log(i0e(x)) + x — composition is
-accuracy-fine (the log term is O(ln x) against x, its error vanishes
-relatively; verify at probe) so the question is API convenience only.
-A(κ) = i1e/i0e composes exactly (scaling cancels) — likely document,
-not ship. Negative axis free: I0 even, I1 odd.
-**Structure** (two regimes, both precedented): small-x power series
-Σ(x²/4)ᵏ/(k!)² — ALL-POSITIVE terms, no cancellation, perfectly
-conditioned; large-x scaled asymptotic → clean-room Chebyshev refit
-of e⁻ˣI0(x)·√x-class in 1/x via the standard generator approach
-(erfc-tail machinery is the direct precedent; A&S-form coefficients
-are NOT to be ported — refit from scratch, own nodes and budgets).
-Unscaled assembly: i0e · e^x via exp_dd mantissa+exponent (scaling
-last), inheriting exp's conditioning honestly — document like the
-erfc tail. i1e ~ (x/2)e⁻ˣ near 0, relative-clean, no hazard.
-**Conditioning**: i0e/i1e bounded mild condition numbers, no zeros
-on the axis, no reflection, no ill-conditioned bands. The first
-family since erf with NO adversarial conditioning story.
-**Oracle**: mpmath besseli has no known pathology classes —
-erf/lgamma-difficulty verification (layered dps + ONE independent
-cross-check route, e.g. own-series at high dps vs besseli), no
-bracket certification. Doctrine minimums still apply (negative
-controls in the generator self-check, oracle-trust posture).
-**Probe questions (light — probe + design in one frontier pass)**:
-(a) series/fit split point and fit degree/budget per function
-(1-ULP target expected; the fit region may carry 2 like erfc's
-tail); (b) composed-log-I0 accuracy measurement (close the API
-question with numbers); (c) i1 sign/odd-extension and specials
-policy (x=0: I0=1 exact, I1=0 exact; NaN propagation); (d) overflow
-boundary exactness for unscaled forms (saturate to +inf past the
-measured cut, erfc-underflow precedent in reverse); (e) [from the
-2026-08-10 milestone sweep] von Mises CDF (libstats #51) needs
-Σ I_j(κ)·sin(jθ)/j — higher-order I_j via standard backward
-recurrence from I0/I1: DESIGN DECIDES whether i0e/i1e alone
-suffice (libstats recurs on its own; document the recipe) or a
-recurrence helper is worth shipping — measure the recurrence's
-stability/accuracy from corvus seeds before deciding.
+## P2 Bessel I0/I1 — BINDING DESIGN [2026-08-11, frontier probe+design]
+Probe closed all five staged questions (scripts + PROBE-RECORD.md in
+session scratchpad; 2 probe-stage self-caught bugs — a Miller
+off-by-one caught by the impossible-number rule, and unscaled seeds
+overflowing at κ=1000). Binding decisions:
+**API**: four exports, one TU: `i0, i1, i0e, i1e` (scipy-convention
+names, house snake_case). i0/i0e even; i1/i1e odd, sign-carrying
+(i1(−0) = −0; i1e = sign(x)·e^{−|x|}I1(|x|)). NO log_i0 and NO
+recurrence helper — probe closed both:
+- log I0 = log(i0e(x)) + x composed: < 1 ulp RELATIVE for x ≳ 2 and
+  ≤ 3.3e-16 ABSOLUTE over the whole axis (von Mises log-density is
+  an absolute-metric consumer). Relative blowup below x ≈ 2 (103 ulp
+  @ 0.1, 1.9e8 @ 1e-4) is inherent to composing through ANY rounded
+  I0-form — naive log(i0(x)) is equally bad small-x and 10× worse
+  large-x. Document composition + caveat in ACCURACY.
+- von Mises CDF I_j (libstats #51): Miller backward from
+  j_start = j_max + ~15 run on scaled values, normalized by shipped
+  i0e → CDF-series abs err ≤ 5e-16 for κ ∈ [0.5, 1000] (j_max
+  12→254). FORWARD recurrence from seeds unusable: per-term garbage
+  at j_max, CDF abs err 1e-4-class — worse than the A&S capping it
+  would replace. Document the Miller recipe; A(κ) = i1e/i0e composes
+  exactly (document, don't ship).
+**Structure**: two regimes, split x_s PROVISIONAL 8, G1 latitude
+[8, 12] on replay evidence. Measured: series 23 terms @ x_s=8 for
+tail < 2^-62 (25 @ 10); tail Chebyshev in t = 1/x on [0, 1/x_s] of
+f_ν = e^{−x}I_ν(x)√(2πx): degree 27 @ 8 / 22 @ 10 for 2^-60
+truncation (subgeometric decay — asymptotic non-analyticity at t=0
+— exactly as expected); I0 and I1 need the SAME degree everywhere
+measured. A&S coefficients NOT ported — G1 refits clean-room, own
+nodes and budgets, self-checked.
+- Series side: truncated series in q = x²/4, all-positive, perfectly
+  conditioned; dd-assisted Horner per erfc-tail discipline (G1 replay
+  pins the dd/double split). i0e = series·exp_dd(−x); i1e =
+  (x/2)·series₁·exp_dd(−x). Tiny-x: i1 → round(x/2) correct incl.
+  subnormals; no hazard.
+- Tail side: p_ν(1/x) dd-assisted, ÷ √(2πx) in dd; round once.
+- Unscaled: iν = iνe·e^{|x|} via exp_dd mantissa+exponent (scaling
+  last); saturate +inf (±inf for i1) past the EXACT pinned boundary:
+  I0 last-finite x = 0x1.64fe5304e83e4p+9 (713.9869085439682), I1
+  last-finite x = 0x1.64fe69ff9fec7p+9 — bisected against the
+  round-to-inf threshold 2^1024·(1 − 2^-54). i0e never underflows on
+  finite doubles (min ≈ 3e-155 at DBL_MAX).
+**Specials**: x=0: i0 = i0e = 1 exact, i1 = i1e = ±0 by sign; ±inf:
+i0 = +inf, i0e = +0, i1 = ±inf, i1e = ±0; NaN propagates.
+**Targets**: 1 ULP both regimes expected; tail-fit region may carry
+2 (erfc precedent); gates pinned to measured per doctrine. First
+family since erf with NO adversarial conditioning story (no zeros,
+no reflection, mild bounded condition numbers).
+**Oracle**: mpmath besseli, erf-difficulty class — layered dps + ONE
+independent cross-check route (own series at high dps vs besseli);
+negative controls in generator self-check; no bracket certification.
 **lbeta (committed P2, after Bessel — possibly same session)**:
 public ln B(a,b) exposing the internal LgammaDiffDd assembly (the
 a+b cancellation hazard is already solved in-house); consumer
@@ -1440,16 +1452,20 @@ co-located with an existing lgamma-family TU per the dependency-
 boundary rule — design decides placement. erfcx stays optional:
 Mills-ratio consumer (TruncatedNormal far truncation) is
 speculative, no filed need.
-**Kernel/TU**: src/bessel-inl.h + bessel.cpp, one TU, exports for
-the chosen API set (shared series/fit cores); consumes exp_dd only.
-HWY_NOINLINE day one; four-list registration at END. MSVC: expected
+**Kernel/TU**: src/bessel-inl.h + bessel.cpp, one TU, four
+HWY_EXPORTs (shared series/fit cores); consumes exp_dd only.
+HWY_NOINLINE day one incl. BesselExp-style outlined exp wrappers
+(betainv pattern); four-list registration at END. MSVC: expected
 LIGHT (no heavy core instantiation) — no /d2 unless measured.
-**Effort routing**: probe+design frontier (one pass); G1 fits
-generator + G2 references Sonnet (G2 is light here); G3 mid-tier
-candidate per the effort table (settled two-regime design — Sonnet
-with escalation rights; Opus only if the design pass flags risk);
-G4/G5 orchestrator. Transfer-bug theme does NOT carry (no gamma/beta
-formula inheritance) — but the erfc-tail fit-budget discipline does.
+**Effort routing**: probe+design frontier DONE (this pass); G1
+Sonnet (gen_bessel_data.py → src/bessel_data.h; replay with
+per-point analytic eps; edge-refined bit-stepped sampling incl. the
+split seam and overflow boundary); G2 Sonnet, light
+(gen_bessel_reference.py → checked-in reference sets); G3 Sonnet
+WITH escalation rights (settled two-regime design; Opus only if G1/
+G2 surface risk); G4/G5 orchestrator. Escalation-density rule
+applies. Transfer-bug theme does NOT carry (no gamma/beta formula
+inheritance) — but the erfc-tail fit-budget discipline does.
 
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —
