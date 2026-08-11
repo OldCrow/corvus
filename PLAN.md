@@ -1443,6 +1443,25 @@ no reflection, mild bounded condition numbers).
 **Oracle**: mpmath besseli, erf-difficulty class — layered dps + ONE
 independent cross-check route (own series at high dps vs besseli);
 negative controls in generator self-check; no bracket certification.
+**G1 stage record [2026-08-11]**: tools/gen_bessel_data.py +
+src/bessel_data.h shipped; self-check green (11 s, exit-0),
+orchestrator re-ran independently — reproducible, byte-identical.
+Split PINNED x_s = 8: the only candidate in [8,12] reaching the
+1-ULP series floor. ONE ratified design amendment (FIRST
+correction): the series hazard is q = x²/4's single rounding under
+the series' log-sensitivity q·S′/S = (x/2)·I1/I0 (≈3.7 at x=8,
+grows with split — the dd-depth-independent plateau was the tell;
+orchestrator re-derived the sensitivity independently before
+ratifying). Fix: exact q via TwoProd/SquareLow residual + first-
+order S′(q_hi)·q_lo correction in plain double (erfc ssq/sl idiom).
+Pinned: klead 3 (I0) / 2 (I1) series dd-Horner depth; tail
+plain-double Horner (klead 0 measured equal, erfc precedent),
+NCoef 27 both ν, fit tol 8.674e-19 < 2^-60. Boundaries re-derived
+at dps 50, bit-identical to probe. Replay floors: series 1.000 /
+tail 1.000 ULP, all four functions (ULP-distance metric — relative-
+error bits mislead near the subnormal floor). Seam 0.00 ULP;
+negative controls caught at ~1e13 ULP; independent cross-check at
+the dps floor. G1 ledger: 1 ratified amendment, 0 escalations.
 **lbeta (committed P2, after Bessel — possibly same session)**:
 public ln B(a,b) exposing the internal LgammaDiffDd assembly (the
 a+b cancellation hazard is already solved in-house); consumer
