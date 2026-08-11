@@ -203,3 +203,29 @@ corvus_test_target(bench_gammainv)
 # src/gammainv_data.h so the two cannot drift apart — hence the source root.
 target_include_directories(bench_gammainv PRIVATE ${PROJECT_SOURCE_DIR})
 # Deliberately not registered with ctest: run manually on a quiet machine.
+
+# betainv consumes everything gammainv does PLUS all four of beta's region
+# cores, the shared cpsi machinery and gammainv's own seed functions, so its
+# dependency position is after gammainv's — the very end of the list.
+add_executable(test_betainv_smoke test_betainv_smoke.cpp)
+corvus_test_target(test_betainv_smoke)
+add_test(NAME betainv COMMAND test_betainv_smoke)
+
+add_executable(test_betainv_ulp test_betainv_ulp.cpp)
+corvus_test_target(test_betainv_ulp)
+# Links the public API, but re-derives the kernel's internal frame and its
+# regime thresholds from src/betainv_data.h so the two cannot drift apart —
+# hence the source root.
+target_include_directories(test_betainv_ulp PRIVATE ${PROJECT_SOURCE_DIR})
+add_test(NAME betainv_ulp
+  COMMAND test_betainv_ulp
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/betainv_p_reference.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/betainv_q_reference.txt)
+
+add_executable(bench_betainv bench_betainv.cpp)
+corvus_test_target(bench_betainv)
+# Builds its point sets from the kernel's own regime constants in
+# src/betainv_data.h and src/beta_data.h so the two cannot drift apart —
+# hence the source root.
+target_include_directories(bench_betainv PRIVATE ${PROJECT_SOURCE_DIR})
+# Deliberately not registered with ctest: run manually on a quiet machine.

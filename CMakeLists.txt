@@ -64,6 +64,7 @@ include(cmake/FindOrFetchHighway.cmake)
 
 add_library(corvus STATIC
   src/beta.cpp
+  src/betainv.cpp
   src/digamma.cpp
   src/erf.cpp
   src/erf_data.cpp
@@ -165,8 +166,13 @@ target_compile_options(corvus PRIVATE ${CORVUS_FP_FLAGS})
 # instantiates all four forward region cores plus erfcinv and the dd
 # transcendentals, twice per target (one per export), so it is the heaviest
 # TU in the library by construction rather than by measurement.
+# betainv.cpp likewise carries it from day one, and takes gammainv's title:
+# it instantiates all four of BETA's region cores plus the shared cpsi
+# machinery, gammainv's three seed functions, erfcinv, digamma, trigamma and
+# the dd transcendentals — twice per target.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   set_source_files_properties(src/gamma.cpp src/beta.cpp src/gammainv.cpp
+    src/betainv.cpp
     PROPERTIES COMPILE_OPTIONS "/d2ReducedOptimizeHugeFunctions")
 endif()
 

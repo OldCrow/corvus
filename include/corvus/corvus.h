@@ -229,6 +229,63 @@ void gamma_p_inv(std::span<const double> a, std::span<const double> p,
 void gamma_q_inv(std::span<const double> a, std::span<const double> q,
                  std::span<double> out);
 
+/// \brief out[i] = x with I_x(a[i], b[i]) = p[i], the inverse of the
+///   regularized incomplete beta function in its third argument (SciPy's
+///   `betaincinv`).
+///
+/// Equivalently the quantile function of a Beta(a, b) variate. Four spans, all
+/// the same length: `a`, `b`, `p` and `out`.
+///
+/// Whichever of p and 1 - p is <= 1/2 is the one solved against, the switch
+/// being exact, and the kernel then solves for whichever end of [0, 1] the
+/// answer approaches -- so the accuracy bound is relative on both sides of the
+/// median and down to subnormal answers. See docs/ACCURACY.md for the measured
+/// per-regime table.
+///
+/// THE SWAP IDENTITY IS THE LOSSLESS ROUTE FOR AN ANSWER NEAR 1. A double
+/// cannot hold 1 - 1e-30 to better than 1e-16 absolute, so an x near the top
+/// of the range is resolution-limited no matter how it is computed. The
+/// identity I_x(a, b) = 1 - I_{1-x}(b, a) turns that into a question with a
+/// representable answer: `1 - x` AT FULL RELATIVE PRECISION is
+/// `beta_p_inv(b, a, q)` (equivalently `beta_q_inv(b, a, p)`), because the two
+/// calls solve the SAME equation with the parameters and the probability side
+/// exchanged. Callers who need the distance from 1 rather than x itself should
+/// use that form; it is exactly what the kernel does internally.
+///
+/// Two named regimes carry a weaker guarantee, both by the nature of the
+/// problem rather than by the method. Where BOTH a and b are below ~1e-16 the
+/// distribution's interior density is ~4 min(a, b), so an interior x is not
+/// resolvable to 1 ULP by any double-precision inverse; there the returned x
+/// satisfies a BACKWARD-error contract instead (its forward value is within a
+/// few ulp of the requested probability). Where the shape-side parameter
+/// exceeds ~1e32 the entire transition from I = 0 to I = 1 happens inside one
+/// or two ulp of x, so every interior probability has effectively the same
+/// answer; that is the correctly rounded result, not a shortcut.
+///
+/// Specials, with `a` and `b` finite and positive unless stated: p = 0 gives
+/// +0 and p = 1 gives 1. a = 0 or b = +inf puts all the mass at 0, so every
+/// quantile is +0; b = 0 or a = +inf puts all the mass at 1, so every quantile
+/// is 1. Any two-way degeneracy among {a in {0, +inf}, b in {0, +inf}} gives
+/// NaN, as do negative a or b and p outside [0, 1]; NaN propagates (payload
+/// preserved).
+void beta_p_inv(std::span<const double> a, std::span<const double> b,
+                std::span<const double> p, std::span<double> out);
+
+/// \brief out[i] = x with 1 - I_x(a[i], b[i]) = q[i], the inverse of the
+///   complementary regularized incomplete beta function in its third argument.
+///
+/// The survival-function quantile of a Beta(a, b) variate. Same span contract,
+/// same exact side switch and the same accuracy statement as beta_p_inv -- the
+/// two are one kernel with one bit of orientation, so a q of 1e-300 is solved
+/// as accurately as the corresponding p of 1 - 1e-300 could never be
+/// represented. The swap identity documented on beta_p_inv applies here too:
+/// `1 - x` at full relative precision is `beta_q_inv(b, a, p)`.
+///
+/// Specials: q = 0 gives 1 and q = 1 gives +0; the parameter degeneracies and
+/// the NaN cases are identical to beta_p_inv's.
+void beta_q_inv(std::span<const double> a, std::span<const double> b,
+                std::span<const double> q, std::span<double> out);
+
 }  // namespace corvus
 
 #endif  // CORVUS_CORVUS_H_

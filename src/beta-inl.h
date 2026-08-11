@@ -768,6 +768,16 @@ struct BetaR3Out {
   BetaVal<D> val;
   op::V<D> lam_pos;  // 1.0 where lambda >= 0, i.e. where val is I_xi(alpha,beta)
   op::M<D> sat;
+  // The TAIL branch's bracket, so a consumer that wants ln(val) rather than
+  // val can take it in LOG space: val = e^-cpsi * brk there, so
+  // ln val = -cpsi (+) ln brk exactly, with no exponential in between. This
+  // file's own driver does not use it -- it wants the value -- but the
+  // INVERSE does, and it must: past cpsi ~ 708 the assembled value is
+  // subnormal and its log is quantized to a few bits, which for an inverse
+  // is not a small error in the answer but a flat spot in the residual (two
+  // y's 1e-8 apart returning the identical logit). Added for that consumer;
+  // no arithmetic here changed, this field is a value already computed.
+  Dd<D> brk;
 };
 
 template <class D>
@@ -884,7 +894,7 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
   BetaVal<D> val{op::IfThenElse(tm, tail.v, DdToDouble(core)),
                  Dd<D>{op::IfThenElse(tm, tail.dd.hi, core.hi),
                        op::IfThenElse(tm, tail.dd.lo, core.lo)}};
-  return {val, BetaInd(d, op::Ge(ps.lam, zero)), ea.sat};
+  return {val, BetaInd(d, op::Ge(ps.lam, zero)), ea.sat, brk_tail};
 }
 
 // ------------------------------------------------------------------------

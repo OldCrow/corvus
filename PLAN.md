@@ -67,6 +67,25 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
    gamma bench numbers are loaded/indicative only).
 
 ## Open Items
+- [OPEN, PRIORITY — 2026-08-10, found by betainv G3] TWO defects in
+  the SHIPPED beta forward (beta_p/beta_q), PB prefactor's cpsi →
+  Log1pmxDd at u → −1 (u = −λ/α): (1) 1+u < 2⁻⁵³ → u.hi rounds to
+  exactly −1 → LogDdAny of a zero-high pair → NaN path → beta_p(19,
+  1e5, 5.204222470155122e-21) returns EXACTLY 0, truth 3.36e-308
+  (boundary y ≈ 2.1e-20); (2) 1+u merely small → Log1pmxDd adds u.lo
+  into an exact TwoSum's low word and LogDd(Dd) keeps only the
+  quadratic, t³/3 survives → 1.4e-4 error in E at (19, 1e5,
+  1.73e-19), verified against a correct reference row. The forward
+  reference set never sampled this corner (deep tail at moderate-a/
+  huge-b). betainv is IMMUNE (routes E to PA except where gated).
+  Needs its own fix arc: kernel correction + reference rows covering
+  the corner + full revalidation. Scheduling at user's discretion.
+- [OPEN, enhancement, low priority — 2026-08-10] exp_dd accuracy
+  bump (one more polynomial term + keep r.lo through the quadratic)
+  would raise betainv's y-ULP κ-horizon from 2¹⁸ toward the design's
+  2⁵²; shared-core change, full-fleet revalidation; only worth it if
+  a consumer needs y-ULP in the plateau band κ ∈ (2¹⁸, 2⁵²) — those
+  rows already meet the backward contract at 0.000 ulp(σ).
 - [OPEN, no rush — user, 2026-08-09] docs/ARCHITECTURE.md (layering
   diagram, added by user): decide whether README (users/maintainers)
   and/or AGENTS.md's reading map (agents) should reference it; if the
@@ -1233,6 +1252,42 @@ Negative controls 5/5 on all ~21 invocations; ~2.5 h compute,
 checkpointed. Orchestrator review: 12/12 independent mpmath
 bracket spot-check (moderate-param rows, dps 60), zero format
 defects.
+G3 SHIPPED [2026-08-10, Opus, ONE escalation adjudicated + NINE
+measured deviations, 8 self-caught bugs]: kernel + smoke + ULP +
+bench + four-list registration (confirmed, dependency position).
+Measured, IDENTICAL tables clang-cl AVX3_ZEN4 native and g++
+SSE2-capped: deep-small 0/0; huge-ν formula bucket (ν ≥ 1e31,
+from (a,b) alone per ruling 2) 1/1; ridge 1/1; gamma-limit 1/1;
+small-param remainder 1/1; B rows 1/2 (neighbor semantics); P rows
++ κ-bucket backward contract 0.000 ulp(σ); subnormal-x and x=1
+cross-cuts 0. ESCALATION ADJUDICATED (frontier): the κ contract
+boundary is 2¹⁸, not the design's 2⁵² — the design assumed a
+dd-accurate forward, but near the median the logit's ln(1−u) chain
+rides exp_dd's ~2⁻⁷⁰ budget; κ·2⁻⁷⁰ crosses 2⁻⁵³ at κ ≈ 2¹⁸.
+ACCEPTED: the 731 affected rows all meet the backward contract at
+0.000 ulp(σ); semantics unchanged, band boundary moves; exp_dd
+upgrade recorded as optional enhancement (Open Items). Key
+deviations (full list in the G3 report/git history): orientation
+frame by definitive median probe (the "σ ≤ 1/2 ⇒ y below median"
+brief wording was wrong when β ≪ α); S1 λ-inversion in √-space (8
+iters vs the generator's niter=100 raw-λ oscillation); S1 offered
+globally (the ν ≥ 2 gate was the correction table's, not the
+seed's); one ADDITIVE field on BetaR3Out (tail bracket in log
+space — no arithmetic changed) so the inverse's residual has no
+subnormal flat spot; residual-uncertainty freeze (beta's w reaches
+2⁵⁰ vs gamma's 2¹⁰ — trust bypass was accepting noise steps);
+StepsN=4 kept, all-converged skip DECLINED (seed stage dominates).
+MSVC BUILD GATE RESOLVED, not deferred: betainv.cpp >45 min/7 GB
+before outlining ~20 log/exp call sites through HWY_NOINLINE
+wrappers → 127 s, lighter than beta.cpp; ULP tables byte-identical
+across the change. Also FOUND (not fixed): two defects in the
+shipped beta forward at u → −1 (Open Items, PRIORITY). Bench
+indicative: 0.59–11.4 µs/el; cost dominated by up to 12
+region-routed forward evals (probe + 7 candidates + 4 steps);
+candidate count is the throughput lever if wanted. Orchestrator
+review: 23/23 ctest re-run verified on the agent's tree; BetaR3Out
+single construction site, no default-construction anywhere in the
+new TU (bf16 pattern grep clean).
 G3 BRIEF INGREDIENTS (compose at launch): transfer-bug stage theme
 (every gammainv-inherited formula UNVERIFIED until re-derived —
 G1's ledger is the witness list); marker-column semantics (N/P/B;
