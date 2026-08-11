@@ -125,10 +125,10 @@ and Windows x86-64 (MSVC). Two Windows-specific points are worth knowing:
   still passes every accuracy gate — the bounds hold on all tiers — but the
   widest vectors go unused. For AVX-512 on Windows, build with `clang-cl`
   (which keeps the MSVC ABI). mingw-w64 GCC is not currently safe at
-  AVX-512: GCC 16.1 miscompiles 512-bit by-value vector arguments on the
-  Windows ABI (misaligned stack temporaries — crashes depend on call-chain
-  luck; GCC PR 126741, see docs/ACCURACY.md). It remains fine for tiers
-  up to AVX2.
+  AVX2 or above: GCC 16.1 miscompiles 256- and 512-bit by-value vector
+  arguments on the Windows ABI (misaligned stack temporaries — crashes
+  depend on call-chain luck; GCC PR 126741, see docs/ACCURACY.md). It
+  remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4).
   `corvus::active_target()` reports the tier runtime dispatch actually
   selected, and is the only reliable way to know.
 

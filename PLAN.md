@@ -128,12 +128,19 @@ on Linux (tier sweep + sanitizers + install contract), macOS arm64
   completes cleanly (chronic installer freezes implicate accumulated App
   state; manual driver-only installs are the fallback). Recurrence of
   either bugcheck on the clean stack flips suspicion to VRAM/hardware.
-- [WATCH] mingw GCC 16.1 AVX-512 by-value-argument misalignment bug:
-  filed upstream 2026-08-08 as GCC PR 126741
-  (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=126741). Local repro
-  kept at `C:\Users\gdwol\Development\gcc-zmm-mingw-repro\`. Re-qualify
-  mingw GCC for AVX-512 work only after the fix lands. Technical
-  detail lives in AGENTS.md (Development Fleet).
+- [WATCH] mingw GCC 16.1 by-value-vector-argument misalignment bug,
+  AVX2 and above: filed upstream 2026-08-08 as GCC PR 126741
+  (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=126741) against
+  512-bit. 2026-08-10: an independently contributed repro, verified
+  locally (faults at -O2 and -O0; `-mstackrealign` no help; clang-cl
+  clean), shows the identical defect at 256-bit — follow-up comment
+  drafted for the PR. Repros:
+  `C:\Users\gdwol\Development\gcc-zmm-mingw-repro\` (512-bit),
+  `C:\Users\gdwol\Development\gcc-ymm-mingw-repro\` (256-bit). Docs
+  re-scoped 2026-08-10: mingw GCC qualified for 128-bit tiers only;
+  past GCC AVX2 numbers stay valid (fault, never corruption).
+  Re-qualify for AVX2+ only after the fix lands. Technical detail:
+  docs/ENVIRONMENT.md.
 - [OPEN] CORVUS_SANITIZE is not MSVC-aware (emits `-fsanitize=<list>`
   unconditionally). Harmless while sanitizer builds are Linux-only;
   branch on MSVC or reject with FATAL_ERROR.
@@ -167,7 +174,9 @@ on Linux (tier sweep + sanitizers + install contract), macOS arm64
 - [OPEN, low] mingw-g++-built test binaries crash at process EXIT
   (0xC0000005 AFTER full PASS output, from PowerShell — not the known
   Git-Bash DLL-shadowing signature). clang-cl sweeps unaffected.
-  Diagnose on a quiet day.
+  Diagnose on a quiet day. 2026-08-10 candidate cause: PR 126741 is now
+  confirmed at 256-bit, and a ymm argument temporary in an
+  atexit/destructor chain would present exactly this way.
 - [OPEN, pre-v1.0.0] Source-comment trim [2026-08-08, user]: many
   implementation comments embed operational history (stage tags,
   correction ordinals, session dates) whose authoritative record is

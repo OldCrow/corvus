@@ -38,27 +38,38 @@ Highway puts every AVX3\* target in `HWY_BROKEN_TARGETS` under MSVC, so an
 MSVC build silently tops out at AVX2 while still looking like a clean pass
 — never make an AVX-512 claim from one. Use Clang (clang-cl), which
 dispatches `AVX3_ZEN4` natively. mingw-w64 GCC also dispatches it but is
-**disqualified for AVX-512 work as of 2026-07-28**: GCC 16.1 accesses the
-ms_abi invisible-reference temporaries for 512-bit BY-VALUE arguments and
-returns (any `__m512d` or wrapper struct passed to a non-inlined function
-— exactly what HWY_NOINLINE outlining creates) with the aligned
-`vmovapd`, while allocating them at plain `rsp`-relative offsets with no
-realignment. The Windows ABI guarantees only 16-byte stack alignment, so
-whether a binary faults is call-chain luck — `test_gamma_ulp` segfaulted
-while the smoke test on the same kernel ran clean. Genuine register
-spills are correctly `vmovupd`, and named over-aligned locals/return
-slots in isolation get an aligned scratch pointer — only the argument
-temporaries are broken. Reproduces at every -O level including -O0; no
-flag rescues it (tested 2026-07-29: `-mstackrealign` and
-`-mpreferred-stack-boundary=6` change nothing). clang-cl (and, per its
-own escape-hatch caveat below, MSVC) is unaffected. Filed upstream
-2026-08-08 as GCC PR 126741; minimal repro:
-`C:\Users\gdwol\Development\gcc-zmm-mingw-repro\`. GCC remains fine for
-capped tiers up to AVX2 (no zmm there), which is all
-`tools/sweep_tiers.ps1` compiles — its `g++` default is safe for the
-sweep, but the uncapped native build must be clang-cl (from a VS dev
-shell so link.exe resolves; the sweep itself also runs clean under
-`-CxxCompiler clang-cl -CCompiler clang-cl`).
+**disqualified for every tier above 128-bit — found at AVX-512
+2026-07-28, confirmed at AVX2 2026-08-10**: GCC 16.1 accesses the
+ms_abi invisible-reference temporaries for 256- and 512-bit BY-VALUE
+arguments and returns (any `__m256d`/`__m512d` or wrapper struct passed
+to a non-inlined function — exactly what HWY_NOINLINE outlining creates)
+with the aligned `vmovapd`, while allocating them at plain
+`rsp`-relative offsets with no realignment. The Windows ABI guarantees
+only 16-byte stack alignment, so whether a binary faults is call-chain
+luck (one ABI-legal residue in two is safe at 256-bit, one in four at
+512) — `test_gamma_ulp` segfaulted while the smoke test on the same
+kernel ran clean. Genuine register spills are correctly `vmovupd`, and
+named over-aligned locals/return slots in isolation get an aligned
+scratch pointer — only the argument temporaries are broken. Reproduces
+at every -O level including -O0; no flag rescues it (tested 2026-07-29
+at 512-bit: `-mstackrealign` and `-mpreferred-stack-boundary=6` change
+nothing; `-mstackrealign` re-confirmed useless at 256-bit 2026-08-10).
+clang-cl (and, per its own escape-hatch caveat below, MSVC) is
+unaffected. Filed upstream 2026-08-08 as GCC PR 126741 (512-bit; the
+256-bit extension is queued as a follow-up comment). Minimal repros:
+`C:\Users\gdwol\Development\gcc-zmm-mingw-repro\` (512-bit) and
+`C:\Users\gdwol\Development\gcc-ymm-mingw-repro\` (256-bit,
+independently contributed, verified on this box 2026-08-10). The
+failure mode is a fault, never silent corruption — an aligned store to
+a misaligned address traps — so GCC-built runs that completed produced
+valid numbers; the disqualification is about reliability, not past
+results. GCC remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4),
+where the ABI's 16-byte guarantee already covers the temporaries. The
+`tools/sweep_tiers.ps1` `g++` default is therefore qualified only for
+those capped tiers; run the sweep under `-CxxCompiler clang-cl
+-CCompiler clang-cl` (verified clean) for AVX2 and wider, and the
+uncapped native build must be clang-cl (from a VS dev shell so link.exe
+resolves).
 Confirm the active set before trusting any tier result:
 `build/_deps/highway-build/hwy_list_targets`. Also note `AVX3_SPR`
 (Intel Sapphire Rapids) and `AVX10_2` are not available on Zen 4, so

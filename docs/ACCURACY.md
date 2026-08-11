@@ -115,10 +115,18 @@ such by-value vector calls. Genuine register spills are correctly
 unaligned `vmovupd`, and named over-aligned locals get an aligned
 scratch pointer, so this is a GCC bug (argument-temporary path only),
 not a corvus or Highway one; it reproduces at -O0 and no flag avoids it.
-clang-cl and MSVC compile the identical pattern correctly. Until it is
-fixed upstream (filed 2026-08-08 as GCC PR 126741), mingw GCC is
-**not** a valid AVX-512 validation compiler here; clang-cl is the sole
-source of Windows AVX-512 numbers.
+clang-cl and MSVC compile the identical pattern correctly. 2026-08-10
+update: an independently contributed minimal repro, verified on this
+machine, shows the identical defect at 256 bits — `__m256d` argument
+temporaries written with aligned `vmovapd` at unrealigned
+`rsp`-relative offsets, one ABI-legal residue in two safe — so the bug
+is not AVX-512-specific. Until it is fixed upstream (filed 2026-08-08
+as GCC PR 126741), mingw GCC is **not** a valid validation compiler for
+any tier above 128-bit; clang-cl is the sole source of Windows AVX2 and
+AVX-512 numbers. The GCC-built AVX2-and-below results already recorded
+in this document remain numerically valid: the failure mode is a fault
+(an aligned store to a misaligned address traps), never silent
+corruption, and those runs agreed point-for-point with clang-cl.
 
 **A default MSVC build does not exercise AVX-512 at all**: Highway marks
 every AVX3\* target broken under MSVC (`HWY_BROKEN_MSVC`), so such a build
@@ -478,8 +486,8 @@ AVX-512: Ryzen, clang-cl, 2026-07-28 — `AVX3_ZEN4` native plus
 not-CR counts, worst-case inputs), with the four lower tiers re-swept on
 that box the same day. The gates are pinned to these values with no
 margin. The Ryzen numbers are clang-cl only: mingw GCC 16.1 miscompiles
-this TU at AVX-512 (misaligned zmm spills; see the note under the
-validation matrix).
+this TU at AVX-512 (misaligned by-value argument temporaries; see the
+note under the validation matrix).
 
 | Region (direct side) | gamma_p | gamma_q |
 |---|---|---|

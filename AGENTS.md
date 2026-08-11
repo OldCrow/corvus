@@ -66,8 +66,9 @@ capping recipes, sweep scripts: `docs/ENVIRONMENT.md`.
 - Assert the tier, never assume it: validate under
   `CORVUS_EXPECT_TARGET=<tier>` and confirm the active target before
   trusting any tier result. Windows validation numbers come from clang-cl
-  ONLY — MSVC silently caps at AVX2, and uncapped mingw GCC miscompiles
-  AVX-512 (GCC PR 126741).
+  ONLY — MSVC silently caps at AVX2, and mingw GCC miscompiles by-value
+  vector calls at AVX2 and above (GCC PR 126741; safe only for the
+  128-bit tiers).
 - Accuracy claims are made per SIMD tier only after native-silicon
   validation.
 - Clean-room only — no ports of GPL/LGPL code. FP contraction is OFF
