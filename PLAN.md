@@ -6,16 +6,19 @@ session narratives, and measurement play-by-play live in this file's git
 history (compacted 2026-08-06), docs/ACCURACY.md, and the kernel/generator
 source, which are the official record for finished work.
 
-## Status [DERIVED] — 2026-08-06
+## Status [DERIVED] — 2026-08-10
 
-**v0.1.0 RELEASED** (tag at b4eaeea, immutable under protect-tags;
-https://github.com/OldCrow/corvus/releases/tag/v0.1.0). P0 is complete:
-erf/erfc, erfinv/erfcinv, lgamma, gamma_p/q, beta_p/q — all shipped,
-audited per tier on real silicon (docs/ACCURACY.md), reference oracles
-independently certified (oracle-trust directive discharged for both
-gamma and beta). CI green on Linux (tier sweep + sanitizers + install
-contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
-(issue #2 closed). One branch (main).
+**v0.2.0 — P1 COMPLETE** (tag pending CI green on the bump commit,
+then immutable under protect-tags; v0.1.0 record at
+https://github.com/OldCrow/corvus/releases/tag/v0.1.0). Shipped since
+v0.1.0: digamma, trigamma, gamma_p_inv/gamma_q_inv,
+beta_p_inv/beta_q_inv — every family audited per tier on real silicon
+(docs/ACCURACY.md), inverse-family references bracket-certified per
+row (no library baseline exists for either inverse). Known issue
+disclosed in the release notes: two beta-forward defects at the
+u → −1 prefactor corner (Open Items, present since v0.1.0). CI green
+on Linux (tier sweep + sanitizers + install contract), macOS arm64
+(NEON), Windows (MSVC). One branch (main).
 
 ## Next Steps
 1. **NEXT SESSION (fresh fork): Bessel I0/I1 + lbeta (P2)** — staged
