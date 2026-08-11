@@ -8,9 +8,9 @@ source, which are the official record for finished work.
 
 ## Status [DERIVED] — 2026-08-10
 
-**v0.2.0 — P1 COMPLETE** (tag pending CI green on the bump commit,
-then immutable under protect-tags; v0.1.0 record at
-https://github.com/OldCrow/corvus/releases/tag/v0.1.0). Shipped since
+**v0.2.0 RELEASED — P1 COMPLETE** (tag at b0221d1, CI-gated,
+immutable under protect-tags;
+https://github.com/OldCrow/corvus/releases/tag/v0.2.0). Shipped since
 v0.1.0: digamma, trigamma, gamma_p_inv/gamma_q_inv,
 beta_p_inv/beta_q_inv — every family audited per tier on real silicon
 (docs/ACCURACY.md), inverse-family references bracket-certified per
@@ -1464,6 +1464,10 @@ and docs/ACCURACY.md.
   end ULP bar applies), pin midpoint target-invariant (log-linear
   frontiers), empirically confirmed by beta's shipped gammalim gates +
   boundary-crossing seam sweeps; flag text retired at the print site.
+- 2026-08-10 v0.2.0 released: tag at b0221d1 gated on full CI green
+  (run 31449939039, per-job verified); P1 complete — digamma,
+  trigamma, gamma_p_inv/gamma_q_inv, beta_p_inv/beta_q_inv; Release
+  notes disclose the beta-forward u→−1 known issue.
 - 2026-08-06 v0.1.0 first release: tag at b4eaeea gated on full CI
   green; issue #2 closed (fleet lint-workflows.yml, SHA-pinned actions,
   persist-credentials: false); protect-tags ruleset; install/export
