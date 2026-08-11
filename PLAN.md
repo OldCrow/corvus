@@ -171,12 +171,19 @@ on Linux (tier sweep + sanitizers + install contract), macOS arm64
 - [OPEN, gamma] Add a ≥ 2^998 Temme witness rows at gamma's next
   reference touch — the kGammaTwoPiAClamp Dekker-ceiling defect was
   latent for lack of them (clamp already fixed to 2^900, 2026-08-05).
-- [OPEN, low] mingw-g++-built test binaries crash at process EXIT
-  (0xC0000005 AFTER full PASS output, from PowerShell — not the known
-  Git-Bash DLL-shadowing signature). clang-cl sweeps unaffected.
-  Diagnose on a quiet day. 2026-08-10 candidate cause: PR 126741 is now
-  confirmed at 256-bit, and a ymm argument temporary in an
-  atexit/destructor chain would present exactly this way.
+- [RESOLVED 2026-08-10] The mingw-g++ test-binary "exit crash" is GCC
+  PR 126741 at 256-bit, not a teardown bug. gdb on a crashing
+  test_gamma_ulp: fault at `vmovapd %ymm0,0x30(%rsp)` in
+  N_AVX2::GammaPImpl (store address ≡ 16 mod 32), called from main —
+  BEFORE any output; crashing runs flush zero bytes to a redirected
+  stdout. The "PASS then segfault at teardown" reading was stream
+  adjacency: the PASS above gamma's failure line in sweep output is
+  erfinv's. Trigger is initial-stack residue, so the same binary flips
+  pass/crash with invocation context (15 of 33 one-char env paddings
+  crashed ≈ the 1-in-2 legal-residue odds); the binary holds 42
+  aligned-ymm accesses, all in kernel code, none reachable at exit —
+  an after-PASS fault is structurally impossible in these tests.
+  Closes with the WATCH item above when the GCC fix lands.
 - [OPEN, pre-v1.0.0] Source-comment trim [2026-08-08, user]: many
   implementation comments embed operational history (stage tags,
   correction ordinals, session dates) whose authoritative record is

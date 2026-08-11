@@ -63,7 +63,8 @@ independently contributed, verified on this box 2026-08-10). The
 failure mode is a fault, never silent corruption — an aligned store to
 a misaligned address traps — so GCC-built runs that completed produced
 valid numbers; the disqualification is about reliability, not past
-results. GCC remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4),
+results. (The long-standing mingw test-binary "exit crash" was this
+bug firing in-kernel, diagnosed 2026-08-10 — PLAN.md resolved record.) GCC remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4),
 where the ABI's 16-byte guarantee already covers the temporaries. The
 `tools/sweep_tiers.ps1` `g++` default is therefore qualified only for
 those capped tiers; run the sweep under `-CxxCompiler clang-cl
