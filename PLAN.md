@@ -1315,6 +1315,56 @@ CF non-convergence boundary mapped at ν ~ 1e18 — real R3 territory,
 not a bug; one grid point silently in the wrong regime, left
 documented as a non-fit rather than dropped).
 
+## P2 Bessel I0/I1 — STAGING [2026-08-10, pre-probe; design next session]
+Last planned family; smallest since erf/erfc. Estimate: ONE session
+for the full pipeline, ~half trigamma's effort.
+**Consumer requirements** (the reason the family exists): von Mises
+log-density needs log I0(κ) at large κ — plain I0 overflows past
+x ≈ 713.5 (e^x/√(2πx) vs DBL_MAX) — and the von Mises MLE κ-update
+needs the ratio A(κ) = I1/I0. Plain I0/I1 for densities at small κ.
+**API candidates [design decides]**: i0, i1 (unscaled, overflow past
+~713); i0e = e⁻ˣI0, i1e (scaled — the kernel-natural pair, full
+axis); log-I0 direct vs composed log(i0e(x)) + x — composition is
+accuracy-fine (the log term is O(ln x) against x, its error vanishes
+relatively; verify at probe) so the question is API convenience only.
+A(κ) = i1e/i0e composes exactly (scaling cancels) — likely document,
+not ship. Negative axis free: I0 even, I1 odd.
+**Structure** (two regimes, both precedented): small-x power series
+Σ(x²/4)ᵏ/(k!)² — ALL-POSITIVE terms, no cancellation, perfectly
+conditioned; large-x scaled asymptotic → clean-room Chebyshev refit
+of e⁻ˣI0(x)·√x-class in 1/x via the standard generator approach
+(erfc-tail machinery is the direct precedent; A&S-form coefficients
+are NOT to be ported — refit from scratch, own nodes and budgets).
+Unscaled assembly: i0e · e^x via exp_dd mantissa+exponent (scaling
+last), inheriting exp's conditioning honestly — document like the
+erfc tail. i1e ~ (x/2)e⁻ˣ near 0, relative-clean, no hazard.
+**Conditioning**: i0e/i1e bounded mild condition numbers, no zeros
+on the axis, no reflection, no ill-conditioned bands. The first
+family since erf with NO adversarial conditioning story.
+**Oracle**: mpmath besseli has no known pathology classes —
+erf/lgamma-difficulty verification (layered dps + ONE independent
+cross-check route, e.g. own-series at high dps vs besseli), no
+bracket certification. Doctrine minimums still apply (negative
+controls in the generator self-check, oracle-trust posture).
+**Probe questions (light — probe + design in one frontier pass)**:
+(a) series/fit split point and fit degree/budget per function
+(1-ULP target expected; the fit region may carry 2 like erfc's
+tail); (b) composed-log-I0 accuracy measurement (close the API
+question with numbers); (c) i1 sign/odd-extension and specials
+policy (x=0: I0=1 exact, I1=0 exact; NaN propagation); (d) overflow
+boundary exactness for unscaled forms (saturate to +inf past the
+measured cut, erfc-underflow precedent in reverse).
+**Kernel/TU**: src/bessel-inl.h + bessel.cpp, one TU, exports for
+the chosen API set (shared series/fit cores); consumes exp_dd only.
+HWY_NOINLINE day one; four-list registration at END. MSVC: expected
+LIGHT (no heavy core instantiation) — no /d2 unless measured.
+**Effort routing**: probe+design frontier (one pass); G1 fits
+generator + G2 references Sonnet (G2 is light here); G3 mid-tier
+candidate per the effort table (settled two-regime design — Sonnet
+with escalation rights; Opus only if the design pass flags risk);
+G4/G5 orchestrator. Transfer-bug theme does NOT carry (no gamma/beta
+formula inheritance) — but the erfc-tail fit-budget discipline does.
+
 ## GitHub repo settings [applied 2026-07-21 via gh api]
 Merge: all three styles, auto-delete head branches (PR merges only —
 a direct fast-forward push bypasses it; prune manually). Wiki and
