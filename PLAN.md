@@ -18,13 +18,18 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
 (issue #2 closed). One branch (main).
 
 ## Next Steps
-1. **IN FLIGHT (this session): inverse incomplete beta** — probe
-   complete, detail design BINDING (section below); G1 (seed data) +
-   G2 (certified references) next, then G3 kernel. GAMMA_P_INV /
-   GAMMA_Q_INV SHIPPED [2026-08-09] (ledger: probe 0 / G1 2 ratified
-   corrections + frontier takeover at chain depth 3 / G2 0 / G3 0
-   with nine accepted deviations). Last P1 family before Bessel
-   I0/I1.
+1. **NEXT SESSION (fresh fork): Bessel I0/I1 + lbeta (P2)** — staged
+   in full below (probe questions, API decision points, effort
+   routing); open at frontier with the staging block. BETA_P_INV /
+   BETA_Q_INV SHIPPED [2026-08-10] (ledger: probe 0 / G1 3 ratified
+   corrections incl. one orchestrator-review catch / G2 0 design +
+   2 scope continuations + 3 frontier rulings / G3 1 adjudicated
+   escalation + nine accepted deviations / G4-G5 1 CI warning fix).
+   GAMMA_P_INV / GAMMA_Q_INV SHIPPED [2026-08-09] (ledger: probe 0 /
+   G1 2 ratified corrections + frontier takeover at chain depth 3 /
+   G2 0 / G3 0 with nine accepted deviations). P1 COMPLETE — corvus
+   now covers every PDF/CDF/quantile/MLE need in the libhmm/libstats
+   inventories except von Mises (Bessel, P2).
    Pipeline template: probe→design→G1/G2→G3→G4/G5 (digamma and
    trigamma both shipped through it, one session each).
    Escalation-density rule [2026-08-06, user]: ~3 chained
@@ -1298,6 +1303,32 @@ candidate count is the throughput lever if wanted. Orchestrator
 review: 23/23 ctest re-run verified on the agent's tree; BetaR3Out
 single construction site, no default-construction anywhere in the
 new TU (bf16 pattern grep clean).
+G4/G5 COMPLETE — **BETA_P_INV / BETA_Q_INV SHIPPED [2026-08-10]**:
+gates PINNED to measured, no margin (1 ULP every y-bucket both
+sides; B rows 2 vs certified answer; backward contract 1.0 ulp(σ),
+measured 0.000; deep-small/subnormal/x=1 CR). Full ladder
+asserting under CORVUS_EXPECT_TARGET: AVX3_ZEN4 native;
+AVX2/SSE4/SSSE3/SSE2 capped clang-cl sweep (all tiers, run under
+pwsh in the VS dev env); Linux CI sweep + sanitizers 10.3 min;
+NEON; Windows MSVC 17.4 min (watch item stands — heaviest yet,
+timeout 25; betainv.cpp itself 127 s post-outlining). CI run
+31448781077 verified by SHA and per-job conclusions. ACCURACY.md
+matrix rows + family section (κ contract band, swap-identity
+lossless-near-1, oracle record), README, in the gate-pinning
+change set. POSTSCRIPT lessons: (i) the G3 commit failed
+Linux/macOS CI on three -Werror unused-variable hits — the G3
+agent's g++ leg had CORVUS_DEV_WARNINGS=OFF (build-cap trees carry
+it OFF; only CI's dev-warnings build catches this class) — fixed
+after verifying all three were genuinely dead, swept to zero under
+a dev-warnings g++ build; (ii) sweep_tiers.ps1 invoked under
+Windows PowerShell 5.1 silently fails to apply the pipe-delimited
+cap (cap didn't bite, AVX3_ZEN4 ran under the AVX2 name — the
+script's own expect-target assertion caught it); use pwsh; (iii)
+the g++-default sweep hits the standing mingw exit-crash item
+(gamma prints PASS then segfaults at teardown → false gate
+failure) — the validated sweep compiler on this box is clang-cl,
+matching the ENVIRONMENT.md rule.
+Next: Bessel I0/I1 + lbeta (P2, staged below) from a fresh fork.
 G3 BRIEF INGREDIENTS (compose at launch): transfer-bug stage theme
 (every gammainv-inherited formula UNVERIFIED until re-derived —
 G1's ledger is the witness list); marker-column semantics (N/P/B;
