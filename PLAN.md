@@ -51,11 +51,21 @@ contract), macOS arm64 (NEON), Windows (MSVC); lint-workflows adopted
    immediately after. REFINEMENT to the planned Bessel item: must
    include exponentially-scaled variants (i0e/i1e or log-I0) — I0
    overflows past κ ≈ 713 and von Mises log-density at large κ is a
-   primary consumer use. [OPEN, P2 candidates, not required]: public
-   lbeta (consumers currently form ln B as three lgammas — the a+b
-   cancellation hazard corvus solved internally via LgammaDiffDd);
-   erfcx (nearly free from the erfc tail machinery; no current
-   consumer — neither library has a truncated Gaussian).
+   primary consumer use. lbeta PROMOTED to committed P2 for v1.0.0
+   [2026-08-10, user decision after the milestone/issue sweep]: the
+   BetaBinomial PMF (libstats v2.4.0, #62) needs two ln B per point
+   in its hot path on top of the F/StudentT/Binomial delegations;
+   consumers currently form ln B as three lgammas — the a+b
+   cancellation hazard corvus solved internally via LgammaDiffDd.
+   Nearly free: expose the internal machinery as one thin public
+   kernel; slot after Bessel, possibly same session. [OPEN, P2
+   candidate, not required]: erfcx (nearly free from the erfc tail
+   machinery; speculative consumer found 2026-08-10 — TruncatedNormal
+   far-truncation moments/MLE run on the Mills ratio = erfcx — but no
+   filed need yet). Sweep also confirmed: libstats #47 (A&S Bessel
+   fallback capping VonMises at ~1e-7) is exactly what P2 Bessel
+   retires, and libstats #52 (slow Binomial CDF) is beta_p — an
+   integration note for libstats, not a corvus gap.
 2. **Quiet-machine bench_beta re-run** [bench SHIPPED 2026-08-06 —
    numbers below are loaded/indicative]: re-run on an idle Ryzen for
    publishable numbers, and fold into the Kaby bench pass when that
@@ -1353,7 +1363,22 @@ tail); (b) composed-log-I0 accuracy measurement (close the API
 question with numbers); (c) i1 sign/odd-extension and specials
 policy (x=0: I0=1 exact, I1=0 exact; NaN propagation); (d) overflow
 boundary exactness for unscaled forms (saturate to +inf past the
-measured cut, erfc-underflow precedent in reverse).
+measured cut, erfc-underflow precedent in reverse); (e) [from the
+2026-08-10 milestone sweep] von Mises CDF (libstats #51) needs
+Σ I_j(κ)·sin(jθ)/j — higher-order I_j via standard backward
+recurrence from I0/I1: DESIGN DECIDES whether i0e/i1e alone
+suffice (libstats recurs on its own; document the recipe) or a
+recurrence helper is worth shipping — measure the recurrence's
+stability/accuracy from corvus seeds before deciding.
+**lbeta (committed P2, after Bessel — possibly same session)**:
+public ln B(a,b) exposing the internal LgammaDiffDd assembly (the
+a+b cancellation hazard is already solved in-house); consumer
+drivers: BetaBinomial PMF hot path (2 evals/point), F/StudentT/
+Binomial delegations. Trivial oracle (mpmath directly), thin TU or
+co-located with an existing lgamma-family TU per the dependency-
+boundary rule — design decides placement. erfcx stays optional:
+Mills-ratio consumer (TruncatedNormal far truncation) is
+speculative, no filed need.
 **Kernel/TU**: src/bessel-inl.h + bessel.cpp, one TU, exports for
 the chosen API set (shared series/fit cores); consumes exp_dd only.
 HWY_NOINLINE day one; four-list registration at END. MSVC: expected
