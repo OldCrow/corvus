@@ -60,10 +60,14 @@ machine.
 | gamma_q_inv | ✅ 2026-08-09 † | ✅ | ✅ | ✅ | ✅ 2026-08-09 | ✅ 2026-08-09 |
 | beta_p_inv | ✅ 2026-08-10 † | ✅ | ✅ | ✅ | ✅ 2026-08-10 | ✅ 2026-08-10 |
 | beta_q_inv | ✅ 2026-08-10 † | ✅ | ✅ | ✅ | ✅ 2026-08-10 | ✅ 2026-08-10 |
+| i0 | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
+| i1 | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
+| i0e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
+| i1e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
-† The beta, digamma, trigamma, inverse-gamma and inverse-beta x86 rows come from the Ryzen box (AVX3_ZEN4 native
+† The beta, digamma, trigamma, inverse-gamma, inverse-beta and Bessel x86 rows come from the Ryzen box (AVX3_ZEN4 native
 dispatch, clang-cl; AVX2/SSE4/SSSE3/SSE2 via capping on the same silicon)
 plus the Linux/GCC CI sweep — every tier executes natively on real x86
 silicon, so the per-tier claims stand. Cross-machine reproduction on Kaby
@@ -896,6 +900,65 @@ prove are declined, never guessed (115 of 16,998).
 Special values (SciPy parity): p = 0 → +0 and p = 1 → 1, mirrored for
 q; inputs outside [0, 1] → NaN, as are non-positive or non-finite
 parameters; NaN propagates from any argument.
+
+## i0, i1, i0e, i1e
+
+**Bound: max 1 ULP over the full real axis, every function, every
+region, every tier** — the first family since erf with a single
+uniform bound and no conditioning caveats. Gate pinned at 1 with no
+margin; the doctrine's 2-ULP tail allowance was not needed.
+
+| Region | Bound | Notes |
+|---|---|---|
+| series, \|x\| ≤ 8 (all four) | 1 ULP | ≤ 5% not-CR, worst at the split seam |
+| tail, \|x\| > 8 (all four) | 1 ULP | i0e/i1e verified through DBL_MAX |
+| overflow boundary (i0/i1) | exact | last finite double → finite; one ulp above → ±inf, 220 bit-stepped rows exact-match |
+
+Method: two regimes on ax = \|x\| split at x = 8. Series side: the
+all-positive power series in q = x²/4 with q captured **exactly**
+(TwoProd residual + first-order S′·q_lo correction — a rounded q
+alone costs (x/2)·I1/I0 ≈ 3.7 ULP at the split), four dd lead
+coefficients, remainder in plain double. Tail side: clean-room
+Chebyshev refit of e^−x I_ν(x)·√(2πx) in 1/x (degree 26, own nodes
+and budgets, truncation < 2^−60), divided by a dd
+√(2πx) with an exact 2^−32 power-of-two prescale sized to the
+non-FMA tiers' Dekker-split operand bound, not merely DBL_MAX.
+Unscaled forms assemble as iνe·e^{\|x\|} through exp_dd's
+mantissa+exponent form, scaling last, saturating at the exact
+measured boundary doubles (i0: 0x1.64fe5304e83e4p+9; i1 one
+ulp-neighborhood higher). i1/i1e are odd with the sign applied once
+by CopySign at the end (i1(−0) = −0 exact).
+
+The per-tier claims are backed by a replay discipline extended for
+this family: the generator's self-check replays every assembly under
+BOTH fused and unfused MulAdd semantics (SSE4/SSSE3/SSE2 ship
+without FMA) and pins the dd depth by that sweep — the original
+FMA-only replay under-pinned it and was caught by the tier sweep at
+SSE4 (2-ULP series rows, and 2^63-ULP tail garbage from a
+Dekker-split overflow past x ≈ 4·10³⁰²; both fixed, all tiers
+re-validated at 1 ULP).
+
+Oracle: mpmath `besseli` at layered dps (40/80, escalation to 150;
+zero disagreements, zero declined rows across 9,732 reference rows),
+independently cross-checked by an own-series/own-asymptotic route
+and a 52-row orchestrator spot-check; overflow boundaries derived
+three times independently (dps 40/50/50), bit-identical.
+
+Consumer notes (von Mises): log I0(κ) composes as
+`log(i0e(x)) + x` — relative error < 1 ulp for x ≳ 2 and absolute
+error ≤ 3.3·10⁻¹⁶ on the whole axis (sufficient for log-density
+work; a relative-accurate log I0 near 0 would need a dedicated
+kernel no consumer requires). A(κ) = i1e/i0e composes exactly
+(the scalings cancel). Higher-order I_j for the von Mises CDF:
+Miller backward recurrence seeded at j_max + ~15, run on scaled
+values and normalized by i0e, delivers the CDF series to ≤ 5·10⁻¹⁶
+absolute for κ ∈ [0.5, 1000]; the forward recurrence from I0/I1 is
+unstable and must not be used.
+
+Special values: i0(0) = i0e(0) = 1 and i1(±0) = i1e(±0) = ±0, all
+exact; i0(±inf) = +inf, i0e(±inf) = +0, i1(±inf) = ±inf,
+i1e(±inf) = ±0; NaN propagates with payload. i0e/i1e never
+underflow on finite doubles (minimum ≈ 3·10⁻¹⁵⁵ at DBL_MAX).
 
 ## exp_dd (internal)
 

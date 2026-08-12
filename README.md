@@ -7,13 +7,14 @@
 SIMD-vectorized statistical special functions for C++20, with runtime
 multi-target dispatch. Fills the gap between basic-transcendental SIMD
 libraries (SLEEF, Highway's contrib math) and SciPy-level special-function
-coverage: erf/erfc, lgamma, regularized incomplete gamma and beta, and their
-inverses — the functions that gate vectorized statistical CDFs, quantiles,
-and maximum-likelihood fitting.
+coverage: erf/erfc, lgamma, regularized incomplete gamma and beta and their
+inverses, and modified Bessel I0/I1 — the functions that gate vectorized
+statistical CDFs, quantiles, and maximum-likelihood fitting.
 
 **Status: early development.** `erf`, `erfc`, `lgamma`, `digamma`,
 `trigamma`, `erfinv`, `erfcinv`, `gamma_p`, `gamma_q`, `gamma_p_inv`,
-`gamma_q_inv`, `beta_p`, `beta_q`, `beta_p_inv` and `beta_q_inv` are
+`gamma_q_inv`, `beta_p`, `beta_q`, `beta_p_inv`, `beta_q_inv`, `i0`,
+`i1`, `i0e` and `i1e` are
 production-quality clean-room kernels validated against an mpmath oracle
 on every SIMD tier available across the development fleet — AVX-512
 (`AVX3`, `AVX3_DL`, `AVX3_ZEN4`), AVX2, SSE4, SSSE3, SSE2 and NEON, each
@@ -80,6 +81,16 @@ on native silicon (see docs/ACCURACY.md). API not yet stable.
   of the input — which is the statistically meaningful contract, and
   the measured backward error is 0.000 ulp. Every reference row is
   individually bracket-certified, as with the gamma inverse.
+
+- `i0` / `i1` / `i0e` / `i1e` (modified Bessel functions of the first
+  kind, orders 0 and 1, plain and exponentially scaled): max 1 ULP over
+  the full real axis — every function, every region, every tier, with
+  no conditioning caveats. The unscaled forms saturate to ±inf exactly
+  at the measured overflow boundary (|x| ≈ 713.99); the scaled forms
+  stay finite to DBL_MAX and never underflow. For von Mises work:
+  log I0(κ) composes as `log(i0e(x)) + x`, and A(κ) = `i1e/i0e`
+  composes exactly (see docs/ACCURACY.md for the recipes, including
+  stable higher-order I_j for the CDF series).
 
 Both transcendental cores the kernels need (`exp_dd`, `log_dd`) are
 corvus's own, so no accuracy-critical path depends on the backend's math
@@ -167,6 +178,11 @@ corvus::beta_p(a, b, x, p);                // x in [0, 1]
 corvus::beta_q(a, b, x, p);
 corvus::beta_p_inv(a, b, p, x);            // Beta quantile: I_x(a,b) = p
 corvus::beta_q_inv(a, b, p, x);
+
+corvus::i0(x, y);                          // modified Bessel I0, I1
+corvus::i1(x, y);
+corvus::i0e(x, y);                         // e^-|x| I0(x): full axis, no overflow
+corvus::i1e(x, y);
 ```
 
 Per-function methods, measured ULP bounds, and the validation matrix live

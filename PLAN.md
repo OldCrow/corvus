@@ -8,13 +8,17 @@ source, which are the official record for finished work.
 
 ## Status [DERIVED] — 2026-08-11
 
-**P2 IN PROGRESS**: Bessel I0/I1 frontier probe+design pass COMPLETE
-(binding design below; probe closed all five staged questions, 2
-probe-stage self-caught bugs). Retro-outlining warm-up SHIPPED
-(d3e09aa; Windows CI 17.4 → 10.6 min). G3 kernel in flight. lbeta
-follows Bessel, possibly same session. Sequenced between them
-[2026-08-11, user]: clear Dependabot PR #3 (actionlint 1.73.0 →
-1.73.1 bump).
+**I0 / I1 / I0E / I1E SHIPPED [2026-08-11]** — max 1 ULP, every
+function, every region, every tier; full ladder green (AVX3_ZEN4
+native, AVX2/SSE4/SSSE3/SSE2 capped sweep, NEON + sanitizers via CI
+run 31556511765 on ded7693). Pipeline ledger: probe 2 self-caught /
+G1 1 ratified amendment (exact-q) / G2 0 escalations, 2 self-caught
+/ G3 0 escalations, 2 accepted deviations, 1 self-caught / G4 1
+frontier SECOND correction (non-FMA replay + Dekker prescale — the
+sweep catch that CI reproduced on the exact FMA fault line).
+Retro-outlining warm-up SHIPPED (d3e09aa; Windows CI 17.4 → 10.6
+min). Remaining this session: clear Dependabot PR #3 [user], then
+lbeta (staged below), then v0.3.0 decision.
 
 **v0.2.0 RELEASED — P1 COMPLETE** (tag at b0221d1, CI-gated,
 immutable under protect-tags;
