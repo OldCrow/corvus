@@ -64,6 +64,7 @@ machine.
 | i1 | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
 | i0e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
 | i1e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
+| lbeta | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
@@ -959,6 +960,49 @@ Special values: i0(0) = i0e(0) = 1 and i1(±0) = i1e(±0) = ±0, all
 exact; i0(±inf) = +inf, i0e(±inf) = +0, i1(±inf) = ±inf,
 i1e(±inf) = ±0; NaN propagates with payload. i0e/i1e never
 underflow on finite doubles (minimum ≈ 3·10⁻¹⁵⁵ at DBL_MAX).
+
+## lbeta
+
+**Bound: CORRECTLY ROUNDED on every measured row of every band** — the
+strongest result in the library. Relative metric where |ln B| ≥ 1:
+max 0 ULP (4,569 rows, gate pinned at 0). The band around ln B's zero
+curve through (1,1), where the result itself is relative-ill-conditioned:
+max 0.500·2^−53 absolute — the final rounding itself (gate 0.5·2^−53).
+Both-parameters-huge band (min > 2^990): 0 ULP. True values below
+−DBL_MAX round to −inf exactly (44 bit-stepped boundary rows).
+
+Method: ln B = lgamma(a) + lgamma(b) − lgamma(a+b) assembled from the
+beta family's own audited machinery — LgammaPosDd(min) −
+LgammaDiffDd(max, min), the exact pair beta_p's prefactor uses, so the
+a+b cancellation that costs a naive three-lgamma assembly its accuracy
+at large parameters is removed analytically and c = a+b is never
+rounded. Above min = 2^990 (where the main assembly's terms would
+overflow before the finite result does) a grouped Stirling difference
+runs on exactly 2^−64-prescaled operands with the Binet terms dropped
+under a written < 2^−1980-relative bound. Domain: a, b > 0 finite;
+anything else is NaN (SciPy's betaln accepts negatives via |Γ| — a
+documented deviation with no statistical consumer). Symmetric in
+(a, b) by construction (min/max routing).
+
+Only near-symmetric huge parameters can reach the −inf boundary at
+all: ln B ~ −(a+b)·H(a/(a+b)) with the entropy factor H maximized at
+a = b, so skewed rays top out at large finite values even at DBL_MAX
+(measured: −6.0·10³⁰⁷ at 10:1). The a = b crossing is at
+a ≈ 1.2968·10³⁰⁸, bracketed by adjacent-double reference rows.
+
+Oracle: mpmath loggamma sums with CANCELLATION-AWARE layered dps — the
+naive 40/80 ladder is provably insufficient here (both-huge parameters
+cancel ~89 digits, and both tiers can round to an identical exact zero
+that a relative agreement check accepts; that defect was caught by
+review of the generator's own statistics and fixed by scaling dps to a
+cancellation-free term-magnitude probe). Independent cross-check via
+mp.log(mp.beta) at 2.6·10⁻⁴⁴ worst; 18-row orchestrator spot-check
+including −inf rows re-verified at dps 400.
+
+Consumer note: BetaBinomial log-PMF hot paths use differences of ln B;
+correctly rounded terms make the difference's error the subtraction's
+own cancellation, which is the theoretical floor available to any
+ln B implementation.
 
 ## exp_dd (internal)
 

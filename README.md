@@ -14,7 +14,7 @@ statistical CDFs, quantiles, and maximum-likelihood fitting.
 **Status: early development.** `erf`, `erfc`, `lgamma`, `digamma`,
 `trigamma`, `erfinv`, `erfcinv`, `gamma_p`, `gamma_q`, `gamma_p_inv`,
 `gamma_q_inv`, `beta_p`, `beta_q`, `beta_p_inv`, `beta_q_inv`, `i0`,
-`i1`, `i0e` and `i1e` are
+`i1`, `i0e`, `i1e` and `lbeta` are
 production-quality clean-room kernels validated against an mpmath oracle
 on every SIMD tier available across the development fleet — AVX-512
 (`AVX3`, `AVX3_DL`, `AVX3_ZEN4`), AVX2, SSE4, SSSE3, SSE2 and NEON, each
@@ -81,6 +81,15 @@ on native silicon (see docs/ACCURACY.md). API not yet stable.
   of the input — which is the statistically meaningful contract, and
   the measured backward error is 0.000 ulp. Every reference row is
   individually bracket-certified, as with the gamma inverse.
+
+- `lbeta` (ln B(a,b)): **correctly rounded on every measured row** —
+  0 ULP wherever |ln B| >= 1 and half-ulp absolute in the
+  ill-conditioned band around ln B's zero curve. Computed through the
+  beta family's double-double lgamma-difference machinery, so the a+b
+  cancellation that degrades a naive lgamma(a)+lgamma(b)-lgamma(a+b)
+  assembly at large parameters is removed analytically. Positive
+  finite parameters only (else NaN); saturates to -inf exactly where
+  the true value leaves the double range.
 
 - `i0` / `i1` / `i0e` / `i1e` (modified Bessel functions of the first
   kind, orders 0 and 1, plain and exponentially scaled): max 1 ULP over
@@ -178,6 +187,7 @@ corvus::beta_p(a, b, x, p);                // x in [0, 1]
 corvus::beta_q(a, b, x, p);
 corvus::beta_p_inv(a, b, p, x);            // Beta quantile: I_x(a,b) = p
 corvus::beta_q_inv(a, b, p, x);
+corvus::lbeta(a, b, p);                    // ln B(a,b), correctly rounded
 
 corvus::i0(x, y);                          // modified Bessel I0, I1
 corvus::i1(x, y);
