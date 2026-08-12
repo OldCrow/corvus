@@ -104,9 +104,15 @@ TAIL_FIT_REL_TARGET = 2.5e-16  # dense-verification gate for the RAW fitted
 # gen_erfc_tail_poly.py's exact choice, reused): this is a ~1.5 ULP
 # evaluation-rounding floor, NOT the mpmath-side truncation cut (FIT_TOL,
 # checked separately at full precision before any double rounding enters).
-KLEAD = {0: 3, 1: 2}         # pinned by G1 replay: smallest dd depth reaching the floor
-                             # (klead swept 0..9 at dense sample; beyond these values the
-                             # floor stopped improving -- see module docstring/report)
+KLEAD = {}                   # DERIVED during the replay self-check [SECOND
+                             # correction 2026-08-11]: smallest dd depth whose
+                             # worst replay ULP over BOTH assemblies (unscaled
+                             # bare hi+lo AND scaled i_nu_e) and BOTH MulAdd
+                             # semantics (fused / unfused -- SSE4/SSSE3/SSE2
+                             # ship without FMA) meets ULP_TARGET_SERIES. The
+                             # original static pin {0:3, 1:2} was swept against
+                             # an FMA-only, scaled-only, partially idealized
+                             # sim and let 2-ULP unscaled rows through at SSE4.
 TAIL_NODES = 50
 
 T0 = time.time()
@@ -159,6 +165,62 @@ def horner_plain(coeffs_desc, x):
     acc = coeffs_desc[0]
     for c in coeffs_desc[1:]:
         acc = fma_d(acc, x, c)
+    return acc
+
+
+# ---- faithful dd/float-semantics primitives [SECOND correction 2026-08-11] --
+# The primitives above model correctly-rounded FMA arithmetic -- true on the
+# FMA-capable tiers (AVX2 and up) ONLY. SSE4/SSSE3/SSE2 are SHIPPING tiers
+# without FMA: there op::MulAdd is an unfused mul-then-add (two roundings)
+# and the dd layer's TwoProd takes ops-inl.h's Dekker path (exact in range,
+# so two_prod above validly models BOTH). The kernel assemblies must
+# therefore be replayed under BOTH semantics, with the dd algorithms
+# mirrored from dd-inl.h op-for-op (TwoSum/Fast2Sum chains) rather than the
+# idealized exact-dd folds the original sim used. Python float arithmetic IS
+# IEEE double round-to-nearest, so plain expressions give unfused semantics
+# directly.
+def _mafold(a, b, c, fused):
+    return fma_d(a, b, c) if fused else (a * b) + c
+
+
+def two_sum_f(a, b):
+    s = a + b
+    bv = s - a
+    return s, (a - (s - bv)) + (b - bv)
+
+
+def fast2sum_f(a, b):
+    s = a + b
+    return s, (a - s) + b
+
+
+def dd_add_f(ah, al, bh, bl):
+    sh, sl = two_sum_f(ah, bh)
+    th, tl = two_sum_f(al, bl)
+    vh, vl = fast2sum_f(sh, sl + th)
+    return fast2sum_f(vh, vl + tl)
+
+
+def dd_addd_f(ah, al, b):
+    sh, sl = two_sum_f(ah, b)
+    return fast2sum_f(sh, sl + al)
+
+
+def dd_muld_f(ah, al, b, fused):
+    ph, pl = two_prod(ah, b)
+    return fast2sum_f(ph, _mafold(al, b, pl, fused))
+
+
+def dd_mul_f(ah, al, bh, bl, fused):
+    ph, pl = two_prod(ah, bh)
+    lo = _mafold(ah, bl, _mafold(al, bh, pl, fused), fused)
+    return fast2sum_f(ph, lo)
+
+
+def horner_plain_sem(coeffs_desc, x, fused):
+    acc = coeffs_desc[0]
+    for c in coeffs_desc[1:]:
+        acc = _mafold(acc, x, c, fused)
     return acc
 
 
@@ -355,21 +417,53 @@ def build_tail_fit(nu, x_s, tol, n_nodes=TAIL_NODES):
 # Part 4: simulated kernel assembly (mirrors the planned C++ exactly enough
 # to measure the real ULP floor -- see module docstring).
 # ============================================================================
-def series_ive_sim(nu, coeffs_hi, coeffs_lo, dcoef_desc, klead, x, exp_sign):
-    xx_hi, xx_lo = two_prod(x, x)
-    q_hi, q_lo = xx_hi / 4.0, xx_lo / 4.0
-    s_hi, s_lo = horner_dd_lead(coeffs_hi, coeffs_lo, klead, q_hi)
-    if q_lo != 0.0 and dcoef_desc:
-        dS = horner_plain(dcoef_desc, q_hi)
-        corr = mul_d(dS, q_lo)
-        exact = mp.mpf(s_hi) + mp.mpf(s_lo) + mp.mpf(corr)
-        s_hi = float(exact)
-        s_lo = float(exact - mp.mpf(s_hi))
-    m_hi, m_lo, e = exp_dd_sim(-x, 2.0 ** -70, exp_sign)
-    prod = (mp.mpf(s_hi) + mp.mpf(s_lo)) * (mp.mpf(m_hi) + mp.mpf(m_lo))
-    if nu == 1:
-        prod *= x / 2.0
-    return float(prod * mp.mpf(2) ** e)
+def series_assemble_sim(nu, coeffs_hi, coeffs_lo, dcoef_desc, klead, x,
+                        exp_sign, fused):
+    """Faithful replay of src/bessel-inl.h's series branch [SECOND
+    correction 2026-08-11]: BOTH assemblies (unscaled i_nu = bare hi+lo /
+    (x/2)-scaled hi+lo; scaled i_nu_e via a faithful DdMul against the
+    exp_dd pair) under fused OR unfused MulAdd semantics, with the dd
+    algorithms mirrored from dd-inl.h op-for-op. The original sim modeled
+    FMA-capable targets only, replayed only the scaled assembly, and
+    idealized the correction/product folds in exact arithmetic -- it let
+    2-ULP unscaled-series rows through at the SSE4 tier (caught by the G4
+    tier sweep against the G2 reference seam bracket).
+    Returns (unscaled, scaled)."""
+    ssq, sl = two_prod(x, x)             # SquareLow: exact on BOTH paths
+    q_hi, q_lo = ssq * 0.25, sl * 0.25   # exact power-of-two scales
+    n = len(coeffs_hi)
+    # BesselLeadTailScalar, faithfully
+    if klead == 0:
+        s_hi, s_lo = horner_plain_sem(list(reversed(coeffs_hi)), q_hi,
+                                      fused), 0.0
+    else:
+        acc = (coeffs_hi[klead - 1], coeffs_lo[klead - 1])
+        if klead < n:
+            s = horner_plain_sem(list(reversed(coeffs_hi[klead:])), q_hi,
+                                 fused)
+            acc = dd_addd_f(acc[0], acc[1], mul_d(s, q_hi))
+        for k in range(klead - 2, -1, -1):
+            acc = dd_muld_f(acc[0], acc[1], q_hi, fused)
+            acc = dd_add_f(acc[0], acc[1], coeffs_hi[k], coeffs_lo[k])
+        s_hi, s_lo = acc
+    # BesselSeriesS derivative correction
+    if dcoef_desc:
+        dS = horner_plain_sem(dcoef_desc, q_hi, fused)
+        s_hi, s_lo = dd_addd_f(s_hi, s_lo, mul_d(dS, q_lo))
+    # exp_dd(-x) as a dd VALUE (the series regime uses ExpDd directly, not
+    # the mantissa+exponent form), documented ~2^-70 budget injected
+    # worst-case in the given sign
+    ev = mp.exp(-mp.mpf(x)) * (1 + exp_sign * mp.mpf(2) ** -70)
+    eh = float(ev)
+    el = float(ev - mp.mpf(eh))
+    if nu == 0:
+        unscaled = s_hi + s_lo
+        sch, scl = dd_mul_f(s_hi, s_lo, eh, el, fused)
+    else:
+        mag_h, mag_l = dd_muld_f(s_hi, s_lo, x * 0.5, fused)
+        unscaled = mag_h + mag_l
+        sch, scl = dd_mul_f(mag_h, mag_l, eh, el, fused)
+    return unscaled, sch + scl
 
 
 def tail_ive_sim(coeffs_desc, scale, shift, x):
@@ -408,8 +502,9 @@ def series_sample_points(x_s, n=300):
         t = (i + 0.5) / n
         pts.append(x_s * math.exp(-10 * (1 - t)))
     b = struct_bits(float(x_s))
-    for k in range(-40, 1):
-        pts.append(bits_to_float(b + k))
+    for k in range(-200, 1):   # widened bracket [SECOND correction]: the
+        pts.append(bits_to_float(b + k))   # unfused-noise worst sits ~13
+        # ulps below the split; 200 gives deep margin either side of it
     pts += [1e-300, 1e-150, 1e-30, 1e-10, 1e-5, 5e-324, 2.0 ** -1074,
             2.0 ** -1022, 2.0 ** -1021]
     return sorted(set(p for p in pts if 0 < p <= x_s))
@@ -438,7 +533,8 @@ def main():
     ok = True
 
     print(f"[gen_bessel_data] split x_s={X_S}, fit tol={float(FIT_TOL):.3e}, "
-          f"klead={KLEAD}", file=sys.stderr)
+          f"klead=derived-by-sweep (both semantics, both assemblies)",
+          file=sys.stderr)
 
     # ---- (overflow boundaries) ----
     global I0_BOUND_CACHE, I1_BOUND_CACHE
@@ -503,31 +599,59 @@ def main():
     if not ok:
         return 1
 
-    # ---- (end-to-end replay self-check) ----
-    print("[gen_bessel_data] replay: series regime", file=sys.stderr)
+    # ---- (end-to-end replay self-check + klead derivation) ----
+    print("[gen_bessel_data] replay: series regime "
+          "(fused+unfused x unscaled+scaled; klead swept)", file=sys.stderr)
     for nu in (0, 1):
         coeffs = series[nu]["coeffs"]
         coeffs_hi = [round_to_dd(c)[0] for c in coeffs]
         coeffs_lo = [round_to_dd(c)[1] for c in coeffs]
         dcoef_desc = [float(c) for c in reversed(series[nu]["dcoeffs"])]
-        klead = KLEAD[nu]
         pts = series_sample_points(X_S)
-        worst = -1.0
-        worst_pt = None
+        truth_u = {}
+        truth_e = {}
         for p in pts:
-            for sign in (1.0, -1.0):
-                got = series_ive_sim(nu, coeffs_hi, coeffs_lo, dcoef_desc, klead, p, sign)
-                truth = truth_ive(nu, p)
-                u = ulp_distance_pos(truth, got)
-                if u > worst:
-                    worst, worst_pt = u, p
-        print(f"[gen_bessel_data]   nu={nu} klead={klead}: worst {worst:.3f} ULP "
-              f"@ x={worst_pt!r} (target <= {ULP_TARGET_SERIES})", file=sys.stderr)
-        if worst > ULP_TARGET_SERIES:
-            print(f"[gen_bessel_data] FAILED: series nu={nu} exceeds ULP target",
+            te = truth_ive(nu, p)
+            truth_e[p] = te
+            truth_u[p] = te * mp.exp(mp.mpf(p))   # unscaled I_nu (same dps)
+        chosen = None
+        for klead in range(1, 13):
+            worst = -1.0
+            worst_pt = None
+            worst_tag = None
+            for p in pts:
+                for fused in (True, False):
+                    for sign in (1.0, -1.0):
+                        un, sc = series_assemble_sim(
+                            nu, coeffs_hi, coeffs_lo, dcoef_desc, klead, p,
+                            sign, fused)
+                        du = ulp_distance_pos(truth_u[p], un)
+                        ds = ulp_distance_pos(truth_e[p], sc)
+                        if du > worst:
+                            worst, worst_pt = du, p
+                            worst_tag = ("unscaled", fused)
+                        if ds > worst:
+                            worst, worst_pt = ds, p
+                            worst_tag = ("scaled", fused)
+            print(f"[gen_bessel_data]   nu={nu} klead={klead}: worst "
+                  f"{worst:.3f} ULP @ x={worst_pt!r} "
+                  f"[{worst_tag[0]}, {'fused' if worst_tag[1] else 'unfused'}]",
+                  file=sys.stderr)
+            if worst <= ULP_TARGET_SERIES:
+                chosen = klead
+                series[nu]["worst_ulp"] = worst
+                break
+        if chosen is None:
+            print(f"[gen_bessel_data] FAILED: series nu={nu} misses "
+                  f"{ULP_TARGET_SERIES} ULP at every klead <= 12",
                   file=sys.stderr)
             ok = False
-        series[nu]["worst_ulp"] = worst
+        else:
+            KLEAD[nu] = chosen
+            print(f"[gen_bessel_data]   nu={nu}: klead PINNED at {chosen}",
+                  file=sys.stderr)
+    if not ok:
+        return 1
 
     print("[gen_bessel_data] replay: tail regime", file=sys.stderr)
     for nu in (0, 1):
@@ -558,7 +682,8 @@ def main():
         coeffs_hi = [round_to_dd(c)[0] for c in coeffs]
         coeffs_lo = [round_to_dd(c)[1] for c in coeffs]
         dcoef_desc = [float(c) for c in reversed(series[nu]["dcoeffs"])]
-        ser_val = series_ive_sim(nu, coeffs_hi, coeffs_lo, dcoef_desc, KLEAD[nu], X_S, 1.0)
+        _, ser_val = series_assemble_sim(nu, coeffs_hi, coeffs_lo, dcoef_desc,
+                                         KLEAD[nu], X_S, 1.0, True)
         coeffs_desc = list(reversed(tail[nu]["mono"]))
         tail_val = tail_ive_sim(coeffs_desc, tail[nu]["scale"], tail[nu]["shift"], X_S)
         truth = truth_ive(nu, X_S)
@@ -584,7 +709,8 @@ def main():
         bad_lo[idx] = bad_lo[idx] + 1e-3
         worst_bad = -1.0
         for p in series_sample_points(X_S)[:300]:
-            got = series_ive_sim(nu, coeffs_hi, bad_lo, dcoef_desc, klead, p, 1.0)
+            _, got = series_assemble_sim(nu, coeffs_hi, bad_lo, dcoef_desc,
+                                         klead, p, 1.0, True)
             truth = truth_ive(nu, p)
             worst_bad = max(worst_bad, ulp_distance_pos(truth, got))
         caught = worst_bad > 100.0

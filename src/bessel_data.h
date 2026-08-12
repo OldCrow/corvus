@@ -43,19 +43,18 @@ inline constexpr double kBesselI1OverflowX = 0x1.64fe69ff9fec7p+9;
 // Horner pass (erfinv-inl.h ErfinvCentralDd's nested dd/double
 // pattern) -- *SeriesCoef holds degrees [Lead..N] ascending.
 
-inline constexpr int kBesselI0SeriesLead = 3;
-inline constexpr int kBesselI0SeriesNCoef = 19;
-inline constexpr double kBesselI0SeriesLeadHi[3] = {
-    0x1.0000000000000p+0, 0x1.0000000000000p+0, 0x1.0000000000000p-2,
+inline constexpr int kBesselI0SeriesLead = 4;
+inline constexpr int kBesselI0SeriesNCoef = 18;
+inline constexpr double kBesselI0SeriesLeadHi[4] = {
+    0x1.0000000000000p+0, 0x1.0000000000000p+0, 0x1.0000000000000p-2, 0x1.c71c71c71c71cp-6,
 };
-inline constexpr double kBesselI0SeriesLeadLo[3] = {
-    0x0.0p+0, 0x0.0p+0, 0x0.0p+0,
+inline constexpr double kBesselI0SeriesLeadLo[4] = {
+    0x0.0p+0, 0x0.0p+0, 0x0.0p+0, 0x1.c71c71c71c71cp-60,
 };
-inline constexpr double kBesselI0SeriesCoef[19] = {
-    0x1.c71c71c71c71cp-6, 0x1.c71c71c71c71cp-10, 0x1.23456789abcdfp-14, 0x1.02e85c0898b71p-19, 0x1.522a43f65486ap-25, 0x1.522a43f65486ap-31,
-    0x1.0b313289be0b9p-37, 0x1.5601885e63e5dp-44, 0x1.69ca9cf3b7f54p-51, 0x1.4197a7f5154bcp-58, 0x1.e725594ee52e9p-66, 0x1.3e22d70ef3b5fp-73,
-    0x1.69f7da8510bcdp-81, 0x1.69f7da8510bcdp-89, 0x1.40a2dc2460523p-97, 0x1.faaf2fa1c79e5p-106, 0x1.674f8e46c208cp-114, 0x1.cbeaf38dc529fp-123,
-    0x1.0afb53e9cec0bp-131,
+inline constexpr double kBesselI0SeriesCoef[18] = {
+    0x1.c71c71c71c71cp-10, 0x1.23456789abcdfp-14, 0x1.02e85c0898b71p-19, 0x1.522a43f65486ap-25, 0x1.522a43f65486ap-31, 0x1.0b313289be0b9p-37,
+    0x1.5601885e63e5dp-44, 0x1.69ca9cf3b7f54p-51, 0x1.4197a7f5154bcp-58, 0x1.e725594ee52e9p-66, 0x1.3e22d70ef3b5fp-73, 0x1.69f7da8510bcdp-81,
+    0x1.69f7da8510bcdp-89, 0x1.40a2dc2460523p-97, 0x1.faaf2fa1c79e5p-106, 0x1.674f8e46c208cp-114, 0x1.cbeaf38dc529fp-123, 0x1.0afb53e9cec0bp-131,
 };
 inline constexpr double kBesselI0SeriesDCoef[21] = {
     0x1.0000000000000p+0, 0x1.0000000000000p-1, 0x1.5555555555555p-4, 0x1.c71c71c71c71cp-8, 0x1.6c16c16c16c17p-12, 0x1.845c8a0ce5129p-17,
@@ -64,19 +63,18 @@ inline constexpr double kBesselI0SeriesDCoef[21] = {
     0x1.aaae78f4066a6p-110, 0x1.1f72d8389b3a3p-118, 0x1.5e69de22df5cep-127,
 };
 
-inline constexpr int kBesselI1SeriesLead = 2;
-inline constexpr int kBesselI1SeriesNCoef = 20;
-inline constexpr double kBesselI1SeriesLeadHi[2] = {
-    0x1.0000000000000p+0, 0x1.0000000000000p-1,
+inline constexpr int kBesselI1SeriesLead = 4;
+inline constexpr int kBesselI1SeriesNCoef = 18;
+inline constexpr double kBesselI1SeriesLeadHi[4] = {
+    0x1.0000000000000p+0, 0x1.0000000000000p-1, 0x1.5555555555555p-4, 0x1.c71c71c71c71cp-8,
 };
-inline constexpr double kBesselI1SeriesLeadLo[2] = {
-    0x0.0p+0, 0x0.0p+0,
+inline constexpr double kBesselI1SeriesLeadLo[4] = {
+    0x0.0p+0, 0x0.0p+0, 0x1.5555555555555p-58, 0x1.c71c71c71c71cp-62,
 };
-inline constexpr double kBesselI1SeriesCoef[20] = {
-    0x1.5555555555555p-4, 0x1.c71c71c71c71cp-8, 0x1.6c16c16c16c17p-12, 0x1.845c8a0ce5129p-17, 0x1.27e4fb7789f5cp-22, 0x1.522a43f65486ap-28,
-    0x1.2c9758daf5cd0p-34, 0x1.ab81ea75fcdf4p-41, 0x1.f17697cf1cf13p-48, 0x1.e2637bef9ff1ap-55, 0x1.8bce58901a35ep-62, 0x1.165e7c2d153f3p-69,
-    0x1.53585cdcbfb10p-77, 0x1.69f7da8510bcdp-85, 0x1.54ad09e6a6575p-93, 0x1.1d028acb00491p-101, 0x1.aaae78f4066a6p-110, 0x1.1f72d8389b3a3p-118,
-    0x1.5e69de22df5cep-127, 0x1.84564b82a1184p-136,
+inline constexpr double kBesselI1SeriesCoef[18] = {
+    0x1.6c16c16c16c17p-12, 0x1.845c8a0ce5129p-17, 0x1.27e4fb7789f5cp-22, 0x1.522a43f65486ap-28, 0x1.2c9758daf5cd0p-34, 0x1.ab81ea75fcdf4p-41,
+    0x1.f17697cf1cf13p-48, 0x1.e2637bef9ff1ap-55, 0x1.8bce58901a35ep-62, 0x1.165e7c2d153f3p-69, 0x1.53585cdcbfb10p-77, 0x1.69f7da8510bcdp-85,
+    0x1.54ad09e6a6575p-93, 0x1.1d028acb00491p-101, 0x1.aaae78f4066a6p-110, 0x1.1f72d8389b3a3p-118, 0x1.5e69de22df5cep-127, 0x1.84564b82a1184p-136,
 };
 inline constexpr double kBesselI1SeriesDCoef[21] = {
     0x1.0000000000000p-1, 0x1.5555555555555p-3, 0x1.5555555555555p-6, 0x1.6c16c16c16c17p-10, 0x1.e573ac901e574p-15, 0x1.bbd779334ef0bp-20,

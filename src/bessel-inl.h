@@ -90,14 +90,21 @@ inline constexpr double kBesselTwoPiLo = 0x1.1a62633145c07p-52;
 // reach [a hazardous] range must scale by a power of two first and scale
 // back after"). ax reaches DBL_MAX (the tail's own domain, per the
 // reference set's DBL_MAX-neighborhood coverage), where 2*pi*ax OVERFLOWS
-// (2*pi*DBL_MAX ~= 1.13e309) -- forming it directly is not an option.
-// Prescaling ax by 2^-8 before multiplying by 2*pi keeps the product at
-// most ~4.4e306, forty-fold below DBL_MAX, which also keeps DdSqrt's own
-// internal s*s reconstruction (see dd-inl.h) safely clear of the boundary
-// where a correctly-rounded sqrt's square can itself overflow. The sqrt of
-// a 2^-8 scale is a 2^-4 scale, so the postscale on the RESULT is 2^+4.
-inline constexpr double kBesselSqrtPrescale = 0x1.0p-8;
-inline constexpr double kBesselSqrtPostscale = 0x1.0p+4;
+// (2*pi*DBL_MAX ~= 1.13e309). The BINDING constraint is NOT DBL_MAX but
+// ops-inl.h ProdLow's Dekker-split operand bound: on the tiers WITHOUT
+// native FMA (SSE4/SSSE3/SSE2) every dd TwoProd splits its operands via
+// multiplication by 2^27+1, exact only for operands below ~2^996
+// (~6.7e299). The original 2^-8 prescale kept the product under DBL_MAX --
+// sufficient for the FMA tiers, where this was validated -- but left
+// DdMulD's ax operand at up to ~7e305, far past the split bound, producing
+// ~2^63-ULP garbage in i0e/i1e at the SSE4 tier for x ~> 4e302 (G4 sweep
+// catch, 2026-08-11). 2^-32 (even exponent, so the sqrt's scale stays an
+// exact power of two) puts the largest split operand at ~4.2e299 < 2^996
+// with 1.6x headroom; the sqrt of a 2^-32 scale is 2^-16, so the postscale
+// on the RESULT is 2^+16. Small side is safe: live tail lanes have
+// ax >= 8, so the prescaled operand never approaches the subnormal range.
+inline constexpr double kBesselSqrtPrescale = 0x1.0p-32;
+inline constexpr double kBesselSqrtPostscale = 0x1.0p+16;
 
 // Element counts of the *DCoef arrays, derived from their declared extent
 // rather than duplicated as a literal: src/bessel_data.h fixes the array

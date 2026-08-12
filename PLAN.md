@@ -1493,6 +1493,33 @@ G3 ledger: 0 escalations, 2 accepted deviations, 1 self-caught
 overflow bug. Orchestrator review: kernel read in full (Horner
 algebra, scrub discipline, boundary semantics, sign/NaN ordering
 verified); gates re-run independently.
+**SECOND correction [2026-08-11, frontier — G4 sweep catch]**: the
+G4 capped sweep failed test_bessel_ulp at SSE4 (first non-FMA
+tier; AVX2 green, native green — and CI reproduced: Linux red,
+Windows/macOS green, exactly the FMA fault line). TWO distinct
+non-FMA defects, both frontier-diagnosed by faithful replication:
+(1) SERIES: G1's replay sim modeled FMA-only semantics (its Part-0
+comment said so explicitly), replayed ONLY the scaled i_νe
+assembly, and idealized the correction/product folds in exact
+arithmetic. The unscaled bare-hi+lo assembly under unfused MulAdd
+hits 2 ULP (i0, 13 ulps below the split; sim later found an i1 row
+at 3 ULP that even the reference set never sampled). Fix IN THE
+GENERATOR: faithful dd algorithms (TwoSum/Fast2Sum chains mirrored
+from dd-inl.h), both semantics × both assemblies replayed, seam
+bracket widened to 200 ulps, klead DERIVED by the honest sweep —
+re-pinned 3/2 → 4/4; header regenerated. Independent repro
+confirms the old worst rows drop to 0–1 ULP unfused.
+(2) TAIL: the 2^-8 sqrt prescale satisfied DBL_MAX but not
+ops-inl.h ProdLow's Dekker-split operand bound (~2^996): on
+non-FMA tiers DdMulD's ax operand reached ~7e305 → ~2^63-ULP
+garbage in i0e/i1e for x ≳ 4e302. Fix: prescale 2^-32 / postscale
+2^16 (largest split operand 4.2e299, 1.6× headroom; live tail
+lanes have ax ≥ 8 so no subnormal risk). LESSON (binding for
+future families): replay sims MUST model unfused MulAdd semantics
+and ALL shipped assemblies — non-FMA tiers (SSE4/SSSE3/SSE2) are
+first-class, and FMA-only validation is exactly the "assert the
+tier, never assume it" trap in numerical form. Native 25/25 green
+post-fix; full sweep + CI revalidation in flight.
 **lbeta (committed P2, after Bessel — possibly same session)**:
 public ln B(a,b) exposing the internal LgammaDiffDd assembly (the
 a+b cancellation hazard is already solved in-house); consumer
