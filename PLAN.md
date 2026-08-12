@@ -8,7 +8,10 @@ source, which are the official record for finished work.
 
 ## Status [DERIVED] — 2026-08-11
 
-**P2 COMPLETE — v0.3.0 release in flight [2026-08-11]**. This
+**v0.3.0 RELEASED — P2 COMPLETE** (tag at 0bebf95, CI-gated,
+immutable under protect-tags;
+https://github.com/OldCrow/corvus/releases/tag/v0.3.0). [2026-08-12]
+This
 session shipped: retro-outlining warm-up (d3e09aa; Windows CI
 17.4 → 10.6 min), i0/i1/i0e/i1e (max 1 ULP everywhere after the
 non-FMA SECOND correction), Dependabot PR #3 cleared, and lbeta
@@ -1623,6 +1626,12 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-12 v0.3.0 released: tag at 0bebf95 gated on full CI green
+  (run 31561265568, per-job verified); P2 complete — i0/i1/i0e/i1e
+  (1 ULP everywhere) + lbeta (correctly rounded everywhere); version
+  sweep found corvus.h kVersion* still at 0.1.0 (missed at v0.2.0) —
+  fixed + configure-time consistency check added (negative-controlled).
+  Major code-writing closed; next phase is analysis/clean-up.
 - 2026-08-11 MSVC build-time headroom retro-outlining shipped: log/exp
   HWY_NOINLINE wrappers in beta/lgamma/gammainv -inl.h (11+3+17 call
   sites). Isolated Ninja+cl per-TU times: beta 339.0→96.5 s (3.51×),
