@@ -1531,7 +1531,8 @@ and docs/ACCURACY.md.
   baseline going forward (betainv 130.3 vs known ~127 s anchored the
   method). Process lessons → ENVIRONMENT.md (vcvars bootstrap, pwsh)
   and user-memory (effort routing by validation-protocol load;
-  bounded sleep-poll wait recipe).
+  bounded sleep-poll wait recipe). CI confirmed on d3e09aa: Windows
+  17.4 → 10.6 min, Linux 10.3 → 7.0 min, all jobs green.
 - 2026-08-09 gen_beta_data.py kBetaGammaLim standing "frontier review
   owed" flag (2^-49 target deviation, from the beta G1's escalation (C))
   reviewed and RATIFIED: routing threshold not truncation depth (end-to-
