@@ -11,7 +11,7 @@ HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
 
-void ErfinvImpl(const double* in, double* out, size_t n) {
+static void ErfinvImpl(const double* in, double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;
@@ -24,7 +24,7 @@ void ErfinvImpl(const double* in, double* out, size_t n) {
   }
 }
 
-void ErfcinvImpl(const double* in, double* out, size_t n) {
+static void ErfcinvImpl(const double* in, double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;

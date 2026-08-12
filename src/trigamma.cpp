@@ -11,7 +11,7 @@ HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
 
-void TrigammaImpl(const double* in, double* out, size_t n) {
+static void TrigammaImpl(const double* in, double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;

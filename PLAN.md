@@ -16,6 +16,19 @@ revalidation ladder green (see Resolved log). Remaining phase work:
 static-analysis sweep, quiet-machine bench pass, consumer-integration
 notes, pre-v1.0.0 doc trim.
 
+**Version roadmap [user, 2026-08-12]:** consider a v0.4.0 bump after
+the static-analysis work and any corrections it forces; v0.5.0 once
+all QC/cleanup tasks are done. v0.5.0 FREEZES core code, generators,
+and tests — anything after it (user-focused examples and other
+additions) builds on the frozen base. Static-analysis routing
+[ratified]: tool runs inline; triage by a Sonnet agent briefed on the
+analyzer-hostile idioms (foreach_target, HWY_NAMESPACE, masked
+dead-lane arithmetic, kernel short names); fixes routed by touch
+surface — kernel-touching fixes stay at frontier and batch into ONE
+revalidation ladder. Lizard thresholds: CCN 15 + length 400 (both
+clean today — max CCN 14 at BetaVec; tripwires against drift, not
+targets).
+
 **v0.3.0 RELEASED — P2 COMPLETE** (tag at 0bebf95, CI-gated,
 immutable under protect-tags;
 https://github.com/OldCrow/corvus/releases/tag/v0.3.0). [2026-08-12]
@@ -154,9 +167,6 @@ on Linux (tier sweep + sanitizers + install contract), macOS arm64
   past GCC AVX2 numbers stay valid (fault, never corruption).
   Re-qualify for AVX2+ only after the fix lands. Technical detail:
   docs/ENVIRONMENT.md.
-- [OPEN] CORVUS_SANITIZE is not MSVC-aware (emits `-fsanitize=<list>`
-  unconditionally). Harmless while sanitizer builds are Linux-only;
-  branch on MSVC or reject with FATAL_ERROR.
 - [OPEN] Pre-release legal: BINARY artifacts linking Highway must carry
   its Apache-2.0 NOTICE; source-only distribution needs nothing (v0.1.0
   is source-only). Handle when packaging starts.
@@ -1630,6 +1640,26 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-12 static-analysis sweep COMPLETE (cppcheck 2.21 + clang-tidy
+  22.1.3 + lizard 1.22.1, check set pinned in .clang-tidy): 73 raw
+  findings triaged to a small hygiene batch — `static` on all
+  per-target Impl/dispatch functions and in-TU template kernels (25),
+  dead DdNorm removed, two confusable-identifier renames (bessel
+  sl→sqlo, beta g1→gt1), two const-correctness sites, three test
+  const-pointer sites, NOLINTNEXTLINE on the CF's intentional floor
+  k/2. Zero kernel-arithmetic changes; post-batch: 0 build warnings,
+  0 tidy warnings, 27/27 ctest. ACCEPTED (won't-fix, recorded):
+  bench raw fill loops (useStlAlgorithm ×19), aggregate-table
+  uninitMemberVarNoCtor ×17 (always brace-initialized), the
+  betainv-ulp gate ternary (distinct gates currently equal),
+  Case::why documentation member, and the Windows CI D9025 pair —
+  Highway's own deliberate /EHs-c- retraction of CMake's default
+  exception flags, upstream-intentional and confined to the
+  FetchContent MSVC path. CCN measured: max 14 (BetaVec), avg 1.8 —
+  the masked-lane idiom is branchless; lizard tripwires CCN 15 /
+  length 400. CORVUS_SANITIZE Open Item also closed: MSVC-ABI
+  configure now FATAL_ERRORs instead of letting cl D9002-ignore
+  -fsanitize (negative-controlled both directions).
 - 2026-08-12 beta-forward u → −1 defect pair FIXED (the PRIORITY item
   open since 2026-08-10, disclosed in every release since v0.1.0):
   closed-form 1+u = c·ξ/α / 1+v = c·y/β on corner lanes in BetaPsiCore

@@ -18,7 +18,7 @@ namespace HWY_NAMESPACE {
 // NaN is masked explicitly rather than relying on per-target Min/convert
 // NaN semantics.
 template <class D>
-HWY_INLINE op::V<D> ErfVec(D d, op::V<D> x) {
+static HWY_INLINE op::V<D> ErfVec(D d, op::V<D> x) {
   const auto one = op::Set(d, 1.0);
   const auto amax = op::Set(d, detail::kErfAMax);
 
@@ -35,7 +35,7 @@ HWY_INLINE op::V<D> ErfVec(D d, op::V<D> x) {
   return op::CopySign(res, x);            // erf is odd; also -0 -> -0
 }
 
-void ErfImpl(const double* in, double* out, size_t n) {
+static void ErfImpl(const double* in, double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;
@@ -48,7 +48,7 @@ void ErfImpl(const double* in, double* out, size_t n) {
   }
 }
 
-const char* TargetNameImpl() { return hwy::TargetName(HWY_TARGET); }
+static const char* TargetNameImpl() { return hwy::TargetName(HWY_TARGET); }
 
 }  // namespace HWY_NAMESPACE
 }  // namespace corvus

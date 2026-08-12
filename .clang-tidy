@@ -1,0 +1,15 @@
+# Static-analysis configuration, pinned by the 2026-08-12 QC sweep so
+# future runs reproduce the adjudicated check set. Exclusions, with the
+# reasoning of record (PLAN.md Resolved log):
+#  - misc-include-cleaner: header-hygiene noise on foreach_target TUs
+#    (every -inl.h is deliberately included per target).
+#  - bugprone-easily-swappable-parameters: kernel signatures are
+#    positional by design (a, b, x span triples mirror the math).
+#  - misc-use-anonymous-namespace: per-target kernels and dispatch
+#    entries use `static` instead (the paired internal-linkage check is
+#    satisfied); HWY_EXPORT references qualified names and static is
+#    the smaller structural change than nesting anonymous namespaces
+#    inside HWY_NAMESPACE.
+Checks: '-*,bugprone-*,performance-*,portability-*,misc-*,-misc-include-cleaner,-bugprone-easily-swappable-parameters,-misc-use-anonymous-namespace'
+WarningsAsErrors: ''
+FormatStyle: none

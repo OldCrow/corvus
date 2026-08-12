@@ -68,12 +68,6 @@ HWY_INLINE Dd<D> TwoProd(D d, op::V<D> a, op::V<D> b) {
   return {p, op::ProdLow(d, a, b, p)};
 }
 
-// Renormalize a hi/lo pair whose lo may have grown past ulp(hi)/2.
-template <class D>
-HWY_INLINE Dd<D> DdNorm(D d, op::V<D> hi, op::V<D> lo) {
-  return Fast2Sum(d, hi, lo);
-}
-
 // dd + dd, accurate to ~2^-104 relative (Knuth's two-length addition).
 template <class D>
 HWY_INLINE Dd<D> DdAdd(D d, Dd<D> a, Dd<D> b) {

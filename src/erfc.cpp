@@ -50,7 +50,7 @@ namespace HWY_NAMESPACE {
 // x < 0 mirrors via erfc(x) = 2 - erfc(|x|); in the tail erfc(|x|) < 2^-52
 // so the subtraction rounds to exactly 2, matching erfc's saturation.
 template <class D, class M>
-HWY_INLINE op::V<D> ErfcCoreVec(D d, op::V<D> x, op::V<D> ax, M nan) {
+static HWY_INLINE op::V<D> ErfcCoreVec(D d, op::V<D> x, op::V<D> ax, M nan) {
   // Safe table index for NaN lanes; ErfcCoreDd does its own <= 6 clamp.
   const auto ax_safe = op::IfThenElse(nan, op::Zero(d), ax);
   const auto pair = ErfcCoreDd(d, x, ax_safe);
@@ -58,7 +58,7 @@ HWY_INLINE op::V<D> ErfcCoreVec(D d, op::V<D> x, op::V<D> ax, M nan) {
 }
 
 template <class D>
-HWY_INLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
+static HWY_INLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
   const auto at = op::Min(ax, op::Set(d, 28.0));
   const auto ssq = op::Mul(at, at);
   const auto sl = op::SquareLow(d, at, ssq);  // exact: at^2 = ssq + sl
@@ -74,7 +74,7 @@ HWY_INLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
 }
 
 template <class D>
-HWY_INLINE op::V<D> ErfcVec(D d, op::V<D> x) {
+static HWY_INLINE op::V<D> ErfcVec(D d, op::V<D> x) {
   const auto ax = op::Abs(x);
   const auto nan = op::IsNaN(x);
   // NaN lanes have tail_m false and are handled in the core branch.
@@ -96,7 +96,7 @@ HWY_INLINE op::V<D> ErfcVec(D d, op::V<D> x) {
   return res;
 }
 
-void ErfcImpl(const double* in, double* out, size_t n) {
+static void ErfcImpl(const double* in, double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;

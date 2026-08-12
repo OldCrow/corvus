@@ -798,6 +798,9 @@ HWY_NOINLINE Dd<D> BetaR2Cf(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi) {
 
   Dd<D> f{one, zero};
   for (int k = detail::kBetaN2; k >= 1; --k) {
+    // m = floor(k/2) BY CONSTRUCTION (d_{2m} at even k, d_{2m+1} at odd);
+    // the integer division is the point.
+    // NOLINTNEXTLINE(bugprone-integer-division)
     const double mv = static_cast<double>(k / 2);
     const auto m = op::Set(d, mv);
     Dd<D> dk{zero, zero};  // brace-init: see BetaPsiCore's ctor note
@@ -997,9 +1000,9 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
   const auto tail = BetaScale(d, DdMul(d, exf.m, brk_tail), exf.e);
 
   const auto tm = op::Gt(ps.cpsi.hi, op::Set(d, kBetaZ2Split));
-  BetaVal<D> val{op::IfThenElse(tm, tail.v, DdToDouble(core)),
-                 Dd<D>{op::IfThenElse(tm, tail.dd.hi, core.hi),
-                       op::IfThenElse(tm, tail.dd.lo, core.lo)}};
+  const BetaVal<D> val{op::IfThenElse(tm, tail.v, DdToDouble(core)),
+                       Dd<D>{op::IfThenElse(tm, tail.dd.hi, core.hi),
+                             op::IfThenElse(tm, tail.dd.lo, core.lo)}};
   return {val, BetaInd(d, op::Ge(ps.lam, zero)), ea.sat, brk_tail};
 }
 
@@ -1378,10 +1381,10 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       const auto mx = op::IfThenElse(m_pa, op::Max(alpha, beta), safe_b);
       const auto lo = op::Ge(op::Set(d, detail::kBetaPrTauMax), mn);
       const auto mns = op::IfThenElse(lo, mn, one);  // scrub dead lanes
-      const auto g1 = op::Gt(mns, one);
+      const auto gt1 = op::Gt(mns, one);
       const auto lg1m = LgammaDiffDd(
-          d, op::IfThenElse(g1, op::Add(one, one), one),
-          op::IfThenElse(g1, op::Sub(mns, one), mns));
+          d, op::IfThenElse(gt1, op::Add(one, one), one),
+          op::IfThenElse(gt1, op::Sub(mns, one), mns));
       const auto lga = DdSub(d, lg1m, BetaLog(d, mns));
       const auto lgp = LgammaPosDd(d, mn);
       const Dd<D> lgmn{op::IfThenElse(lo, lga.hi, lgp.hi),

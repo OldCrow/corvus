@@ -65,7 +65,7 @@ bool LoadReference(const char* path, std::vector<double>* in,
   return true;
 }
 
-int ReportRegions(const char* label, Region* regions, int n_regions) {
+int ReportRegions(const char* label, const Region* regions, int n_regions) {
   int rc = 0;
   for (int i = 0; i < n_regions; ++i) {
     const Region& r = regions[i];

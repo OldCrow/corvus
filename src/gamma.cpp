@@ -16,7 +16,7 @@ namespace HWY_NAMESPACE {
 // same four region cores and differ only in the router's two decisions, so
 // splitting them would instantiate every core (and the Temme table's eleven
 // Clenshaw passes) twice per target for nothing.
-void GammaPImpl(const double* a, const double* x, double* out, size_t n) {
+static void GammaPImpl(const double* a, const double* x, double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;
@@ -33,7 +33,7 @@ void GammaPImpl(const double* a, const double* x, double* out, size_t n) {
   }
 }
 
-void GammaQImpl(const double* a, const double* x, double* out, size_t n) {
+static void GammaQImpl(const double* a, const double* x, double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;

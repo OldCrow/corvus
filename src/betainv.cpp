@@ -21,7 +21,7 @@ namespace HWY_NAMESPACE {
 // the dd transcendentals -- twice per target for nothing. This is the heaviest
 // TU in the library and gets /d2ReducedOptimizeHugeFunctions on real MSVC
 // (CMakeLists.txt) from day one.
-void BetaPInvImpl(const double* a, const double* b, const double* p,
+static void BetaPInvImpl(const double* a, const double* b, const double* p,
                   double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
@@ -41,7 +41,7 @@ void BetaPInvImpl(const double* a, const double* b, const double* p,
   }
 }
 
-void BetaQInvImpl(const double* a, const double* b, const double* q,
+static void BetaQInvImpl(const double* a, const double* b, const double* q,
                   double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);

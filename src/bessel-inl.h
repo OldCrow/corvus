@@ -20,7 +20,8 @@
 // series' own log-sensitivity q*S'/S = (x/2)*I1/I0 (grows with x -- this is
 // the FIRST correction ratified at G1, not a probe artifact), so q is split
 // into an exact hi/lo pair via ops::SquareLow's residual (the erfc/erfinv
-// ssq/sl idiom) and the series is evaluated as
+// ssq/sl idiom; named sqlo here so it cannot be misread as the s1 series
+// value) and the series is evaluated as
 //     S(q_hi + q_lo) ~= S(q_hi) + S'(q_hi)*q_lo,
 // a first-order derivative correction in PLAIN DOUBLE (the correction
 // itself is already ~2^-53 relative of the result, so it needs no more).
@@ -254,9 +255,9 @@ HWY_NOINLINE BesselPair<D> BesselNu0(D d, op::V<D> x) {
   // --- series branch (computed on every lane; selected in on in_series) ---
   const auto ax_s = op::Min(ax, split);
   const auto ssq = op::Mul(ax_s, ax_s);
-  const auto sl = op::SquareLow(d, ax_s, ssq);
+  const auto sqlo = op::SquareLow(d, ax_s, ssq);
   const auto q_hi = op::Mul(ssq, quarter);  // exact: *0.25 is a power of 2
-  const auto q_lo = op::Mul(sl, quarter);
+  const auto q_lo = op::Mul(sqlo, quarter);
 
   const auto s0 = BesselSeriesS(
       d, q_hi, q_lo, detail::kBesselI0SeriesLeadHi,
@@ -324,9 +325,9 @@ HWY_NOINLINE BesselPair<D> BesselNu1(D d, op::V<D> x) {
   // --- series branch -------------------------------------------------------
   const auto ax_s = op::Min(ax, split);
   const auto ssq = op::Mul(ax_s, ax_s);
-  const auto sl = op::SquareLow(d, ax_s, ssq);
+  const auto sqlo = op::SquareLow(d, ax_s, ssq);
   const auto q_hi = op::Mul(ssq, quarter);
-  const auto q_lo = op::Mul(sl, quarter);
+  const auto q_lo = op::Mul(sqlo, quarter);
 
   const auto s1 = BesselSeriesS(
       d, q_hi, q_lo, detail::kBesselI1SeriesLeadHi,

@@ -18,7 +18,7 @@ namespace HWY_NAMESPACE {
 // would instantiate the whole pipeline -- which itself instantiates all four
 // forward region cores, erfcinv and the dd transcendentals -- twice per
 // target for nothing.
-void GammaPInvImpl(const double* a, const double* p, double* out, size_t n) {
+static void GammaPInvImpl(const double* a, const double* p, double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;
@@ -35,7 +35,7 @@ void GammaPInvImpl(const double* a, const double* p, double* out, size_t n) {
   }
 }
 
-void GammaQInvImpl(const double* a, const double* q, double* out, size_t n) {
+static void GammaQInvImpl(const double* a, const double* q, double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;

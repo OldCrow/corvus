@@ -19,7 +19,7 @@ namespace HWY_NAMESPACE {
 // src/bessel-inl.h's file header for the evaluation scheme and
 // PLAN.md's "P2 Bessel I0/I1" binding design.
 
-void I0Impl(const double* in, double* out, size_t n) {
+static void I0Impl(const double* in, double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;
@@ -33,7 +33,7 @@ void I0Impl(const double* in, double* out, size_t n) {
   }
 }
 
-void I0eImpl(const double* in, double* out, size_t n) {
+static void I0eImpl(const double* in, double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;
@@ -46,7 +46,7 @@ void I0eImpl(const double* in, double* out, size_t n) {
   }
 }
 
-void I1Impl(const double* in, double* out, size_t n) {
+static void I1Impl(const double* in, double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;
@@ -59,7 +59,7 @@ void I1Impl(const double* in, double* out, size_t n) {
   }
 }
 
-void I1eImpl(const double* in, double* out, size_t n) {
+static void I1eImpl(const double* in, double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;

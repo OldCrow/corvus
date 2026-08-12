@@ -18,7 +18,7 @@ namespace HWY_NAMESPACE {
 // (and the R3 table's ten nested Clenshaw passes) twice per target for
 // nothing. The TU does NOT include src/gamma-inl.h: R2's sweep covers the
 // gamma-limit corner, so there is no gamma-core reuse to share.
-void BetaPImpl(const double* a, const double* b, const double* x, double* out,
+static void BetaPImpl(const double* a, const double* b, const double* x, double* out,
                size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
@@ -37,7 +37,7 @@ void BetaPImpl(const double* a, const double* b, const double* x, double* out,
   }
 }
 
-void BetaQImpl(const double* a, const double* b, const double* x, double* out,
+static void BetaQImpl(const double* a, const double* b, const double* x, double* out,
                size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
@@ -59,7 +59,7 @@ void BetaQImpl(const double* a, const double* b, const double* x, double* out,
 // prefactor's own LgammaPosDd/LgammaDiffDd assembly re-handed (see
 // LbetaVec's header in beta-inl.h) -- a separate TU would re-instantiate
 // that machinery per target for nothing.
-void LbetaImpl(const double* a, const double* b, double* out, size_t n) {
+static void LbetaImpl(const double* a, const double* b, double* out, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;

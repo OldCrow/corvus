@@ -457,9 +457,9 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
   const auto tail = GammaScale(d, DdMul(d, exf.m, brk_tail), exf.e);
 
   const auto tm = op::Gt(aphi.hi, op::Set(d, kGammaTemmeZ2Split));
-  GammaVal<D> val{op::IfThenElse(tm, tail.v, DdToDouble(core)),
-                  Dd<D>{op::IfThenElse(tm, tail.dd.hi, core.hi),
-                        op::IfThenElse(tm, tail.dd.lo, core.lo)}};
+  const GammaVal<D> val{op::IfThenElse(tm, tail.v, DdToDouble(core)),
+                        Dd<D>{op::IfThenElse(tm, tail.dd.hi, core.hi),
+                              op::IfThenElse(tm, tail.dd.lo, core.lo)}};
   return {val, Ind(d, op::Lt(xma, zero)), ea.sat};
 }
 

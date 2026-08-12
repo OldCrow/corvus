@@ -122,7 +122,7 @@ bool LoadReference(const char* path, std::vector<double>* a,
   return true;
 }
 
-int ReportRegions(const char* label, Region* r, int n) {
+int ReportRegions(const char* label, const Region* r, int n) {
   int rc = 0;
   for (int i = 0; i < n; ++i) {
     std::printf(
