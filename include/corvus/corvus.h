@@ -152,6 +152,23 @@ void beta_p(std::span<const double> a, std::span<const double> b,
 void beta_q(std::span<const double> a, std::span<const double> b,
             std::span<const double> x, std::span<double> out);
 
+/// \brief out[i] = ln B(a[i], b[i]) = lgamma(a) + lgamma(b) - lgamma(a+b).
+///
+/// Positive-parameter domain: a > 0 and b > 0, finite; anything else
+/// returns NaN. (SciPy's `betaln` accepts non-positive arguments through
+/// |Gamma|; corvus deliberately does not -- no statistical consumer needs
+/// them.) Computed through the same double-double lgamma-difference
+/// machinery as beta_p/beta_q's prefactor, so the a+b cancellation that
+/// costs a plain three-lgamma assembly its accuracy for large parameters
+/// is removed analytically. Accuracy: measured per-tier bounds in
+/// docs/ACCURACY.md (relative where |ln B| >= 1, absolute 2^-53-class in
+/// the band around the zero curve of ln B through (1,1), where the result
+/// itself is ill-conditioned). Symmetric in (a, b); saturates to -inf
+/// where the true ln B falls below the double range (both parameters
+/// huge); NaN propagates.
+void lbeta(std::span<const double> a, std::span<const double> b,
+           std::span<double> out);
+
 /// \brief out[i] = psi(in[i]), the digamma function (SciPy's `digamma`).
 ///
 /// psi(x) = d/dx log Gamma(x) = Gamma'(x)/Gamma(x), defined on the whole real

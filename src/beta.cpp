@@ -55,6 +55,24 @@ void BetaQImpl(const double* a, const double* b, const double* x, double* out,
   }
 }
 
+// Third export in this TU per the same sharing rule: lbeta is the PA
+// prefactor's own LgammaPosDd/LgammaDiffDd assembly re-handed (see
+// LbetaVec's header in beta-inl.h) -- a separate TU would re-instantiate
+// that machinery per target for nothing.
+void LbetaImpl(const double* a, const double* b, double* out, size_t n) {
+  const op::ScalableTag<double> d;
+  const size_t N = op::Lanes(d);
+  size_t i = 0;
+  for (; i + N <= n; i += N) {
+    op::Store(LbetaVec(d, op::Load(d, a + i), op::Load(d, b + i)), d, out + i);
+  }
+  if (i < n) {
+    const size_t m = n - i;
+    op::StoreN(LbetaVec(d, op::LoadN(d, a + i, m), op::LoadN(d, b + i, m)), d,
+               out + i, m);
+  }
+}
+
 }  // namespace HWY_NAMESPACE
 }  // namespace corvus
 HWY_AFTER_NAMESPACE();
@@ -64,6 +82,7 @@ namespace corvus {
 
 HWY_EXPORT(BetaPImpl);
 HWY_EXPORT(BetaQImpl);
+HWY_EXPORT(LbetaImpl);
 
 // The dispatch calls stay INSIDE namespace corvus: with a single compiled
 // target (the SSE2 cap) Highway collapses HWY_DYNAMIC_DISPATCH to
@@ -80,6 +99,12 @@ void beta_q(std::span<const double> a, std::span<const double> b,
             std::span<const double> x, std::span<double> out) {
   HWY_DYNAMIC_DISPATCH(BetaQImpl)
   (a.data(), b.data(), x.data(), out.data(), a.size());
+}
+
+void lbeta(std::span<const double> a, std::span<const double> b,
+           std::span<double> out) {
+  HWY_DYNAMIC_DISPATCH(LbetaImpl)
+  (a.data(), b.data(), out.data(), a.size());
 }
 
 }  // namespace corvus

@@ -255,3 +255,19 @@ corvus_test_target(bench_bessel)
 # src/bessel_data.h so the two cannot drift apart — hence the source root.
 target_include_directories(bench_bessel PRIVATE ${PROJECT_SOURCE_DIR})
 # Deliberately not registered with ctest: run manually on a quiet machine.
+
+# lbeta lives in the beta TU (third export; PA's own lgamma-difference
+# machinery re-handed) — in dependency position after beta.
+add_executable(test_lbeta_smoke test_lbeta_smoke.cpp)
+corvus_test_target(test_lbeta_smoke)
+add_test(NAME lbeta COMMAND test_lbeta_smoke)
+
+add_executable(test_lbeta_ulp test_lbeta_ulp.cpp)
+corvus_test_target(test_lbeta_ulp)
+add_test(NAME lbeta_ulp
+  COMMAND test_lbeta_ulp
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/lbeta_reference.txt)
+
+add_executable(bench_lbeta bench_lbeta.cpp)
+corvus_test_target(bench_lbeta)
+# Deliberately not registered with ctest: run manually on a quiet machine.

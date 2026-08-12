@@ -1524,15 +1524,62 @@ and ALL shipped assemblies — non-FMA tiers (SSE4/SSSE3/SSE2) are
 first-class, and FMA-only validation is exactly the "assert the
 tier, never assume it" trap in numerical form. Native 25/25 green
 post-fix; full sweep + CI revalidation in flight.
-**lbeta (committed P2, after Bessel — possibly same session)**:
-public ln B(a,b) exposing the internal LgammaDiffDd assembly (the
-a+b cancellation hazard is already solved in-house); consumer
-drivers: BetaBinomial PMF hot path (2 evals/point), F/StudentT/
-Binomial delegations. Trivial oracle (mpmath directly), thin TU or
-co-located with an existing lgamma-family TU per the dependency-
-boundary rule — design decides placement. erfcx stays optional:
-Mills-ratio consumer (TruncatedNormal far truncation) is
-speculative, no filed need.
+**lbeta — BINDING DESIGN [2026-08-11, frontier]**: public ln B(a,b),
+consumer drivers BetaBinomial PMF hot path, F/StudentT/Binomial
+delegations. RULINGS:
+- TU: third HWY_EXPORT in beta.cpp, driver in beta-inl.h — the
+  dependency-boundary rule verbatim (lbeta consumes LgammaDiffDd
+  [beta-inl.h:451] + LgammaPosDd [lgamma-inl.h:256], the exact pair
+  beta's PA prefactor already assembles as
+  −ln B = LgammaDiffDd(max, min) − LgammaPosDd(min)). Kernel is
+  that assembly negated, one rounding: lbeta = LgammaPosDd(min) −
+  LgammaDiffDd(max, min) in dd, round once. No new fits, no data
+  header, no replay sim (all machinery already tier-audited under
+  beta's gates); the non-FMA lesson is carried by the full sweep on
+  lbeta's own pinned gate.
+- Domain: a > 0 and b > 0 finite; else NaN (NaN propagates).
+  Positive-domain contract like beta_p/beta_q — SciPy's betaln
+  accepts negatives via |Γ|; documented deviation, no consumer
+  needs negatives.
+- Bound structure: relative gate where |ln B| ≥ 1; 2^-53-class
+  ABSOLUTE band near the zero manifold ln B = 0 (through (1,1);
+  ln of a value near 1 — inherently relative-ill-conditioned, the
+  lgamma-negative-axis precedent). Gates pinned to measured.
+- Edges: ln B → −inf legitimately for huge parameters (lgamma(a+b)
+  ~ (a+b)ln(a+b) overflows past ~2.5e305); saturate per measured
+  boundary semantics, reference rows bit-stepped there. Tiny
+  params: ln B ≈ −ln(min) ≤ ~745, benign. Symmetric in (a, b).
+- References: G1/G2 collapse to ONE light pass (forward function,
+  mpmath lgamma-sum oracle at layered dps, no bracket
+  certification); 2D log-spaced (a,b) coverage + zero-manifold
+  band + huge-parameter boundary + symmetry mirrors; odd row
+  count. Registration: the beta TU's existing four-list entries
+  do NOT cover a new test — test_lbeta_ulp needs its own ctest +
+  3× ci.yml + $gates additions.
+- Effort: references delegated (Sonnet); kernel+tests inline at
+  frontier (assembly of audited cores, smaller than the
+  orchestration cost of delegating); G4/G5 orchestrator.
+**lbeta stage record [2026-08-11]**: MEASURED CORRECTLY ROUNDED on
+every row of every band — relative 0 ULP (4,569 rows), big band
+0 ULP (165), absolute band max 0.500·2^-53 (921; the final rounding
+itself), −inf boundary 44/44 exact. Gates pinned 0 / 0.5·2^-53.
+Native suite 27/27. Ledger — kernel (frontier inline): 2 compile
+fixes (no op::Not in facade; orphaned decl), 2 real defects caught
+by tests (big-band overflow NaN through TwoSum's inf−inf error
+algebra → clamp-and-select on acc.hi with the empty-sliver proof
+via ulp(DBL_MAX); main-band scrub wrongly clamped MAX as well as
+min → corrupted every lane with max > 2^990 — caught by the
+reference grid, symmetric so the smoke symmetry check was blind to
+it). References (agent): 1 park+resume; 1 ratified reinterpretation
+(only the a=b ray reaches −inf — entropy factor H(a/c); skewed rays
+became finite stress rays); 1 serious oracle defect caught by the
+orchestrator's impossible-number read of its own report (2,269
+exact-zero rows: an ungated hi==0∧lo==0 "agreement" shortcut where
+~89-digit cancellation zeroed BOTH dps tiers identically — its
+self-checks re-derived the same wrong value; fixed with a
+cancellation-free term-magnitude probe scaling dps to the floor,
+2,268 rows corrected, sole legitimate zero (1,1) kept). Orchestrator
+independent spot-check 18/18 incl. −inf rows at dps 400.
 **Kernel/TU**: src/bessel-inl.h + bessel.cpp, one TU, four
 HWY_EXPORTs (shared series/fit cores); consumes exp_dd only.
 HWY_NOINLINE day one incl. BesselExp-style outlined exp wrappers

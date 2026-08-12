@@ -1567,6 +1567,122 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   return res;
 }
 
+// ------------------------------------------------------------------------
+// lbeta(a, b) = ln B(a, b) = lgamma(a) + lgamma(b) - lgamma(a+b), on the
+// positive-parameter domain (a, b > 0 finite; anything else is NaN --
+// SciPy's betaln accepts negatives through |Gamma|, a documented deviation
+// with no consumer need). This is the beta TU's third export because it is
+// nothing but this TU's own prefactor machinery re-handed: with m = min,
+// M = max,
+//     lbeta = LgammaPosDd(m) - LgammaDiffDd(M, m),
+// the exact pair PA assembles for -ln B, negated, rounded ONCE.
+//
+// TWO BANDS on m (one masked path, both computed, selected):
+//  * m <= 2^990: the assembly above. This extends LgammaDiffDd's discharged
+//    call-site bound (m <= 256) to 2^990 on the strength of the mechanism
+//    audit, re-run for this caller [lbeta design, PLAN.md]: every
+//    m-carrying TwoProd operand (m*ln z, (m-1/2)*log1p(w), the DdDivDd
+//    numerator) stays below ops::ProdLow's 2^996 non-FMA Dekker ceiling up
+//    to m = 2^990 with 64x headroom; the up-walk never fires (M >= m > Z0
+//    whenever m > 256); w = m/z <= 1 sits inside Log1pmxDd's audited
+//    domain; LgammaPosDd(m) and the internal m*ln z stay below DBL_MAX
+//    (lgamma(2^990) ~ 7e300). Worst cancellation in the final subtraction
+//    is ln(M)/ln(2) <= ~2^10 against the dd's ~2^-104 -- budgeted.
+//  * m > 2^990: all three lgammas are deep-Stirling and the assembly's
+//    terms would overflow before the RESULT does (ln B stays finite to
+//    ~ -1.3e308 on the a = b ray). Direct grouped Stirling difference on
+//    EXACTLY 2^-64-prescaled operands (the log RATIOS are scale-invariant;
+//    the AGENTS.md 2^996 rule again):
+//        ln B = -m*ln(c/m) - M*ln(c/M) + (1/2)*ln(c/(m*M)),
+//    with c = m + M carried as an exact scaled TwoSum. No cancellation: both
+//    leading terms are negative and |ln B| >= m*ln 2 here. The Binet terms
+//    Binet(m)+Binet(M)-Binet(c) are DROPPED: each is < 1/(12*2^990), i.e.
+//    < 2^-993 absolute against a result of magnitude >= 2^990*ln 2 --
+//    relative < 2^-1980, unrepresentable. The (1/2)*ln term (magnitude
+//    <= ~710) is likewise ~2^-990 relative but is kept -- it is one cheap
+//    log. A result below -DBL_MAX saturates to -inf through the exact
+//    final power-of-two scale-back's IEEE rounding, which is the correct
+//    value-driven boundary (verified by bit-stepped reference rows).
+inline constexpr double kLbetaBigMin = 0x1.0p+990;
+inline constexpr double kLbetaScaleDown = 0x1.0p-64;
+inline constexpr double kLbetaScaleUp = 0x1.0p+64;
+
+template <class D>
+HWY_NOINLINE op::V<D> LbetaVec(D d, op::V<D> a, op::V<D> b) {
+  const auto zero = op::Zero(d);
+  const auto one = op::Set(d, 1.0);
+  const auto nan = op::Set(d, std::numeric_limits<double>::quiet_NaN());
+
+  // Domain: a, b > 0 and finite. Everything else -> NaN (payload of a NaN
+  // input is NOT preserved across the min/max scrub; the smoke test pins
+  // quiet-NaN-out, matching beta_p's convention).
+  const auto maxf = op::Set(d, (std::numeric_limits<double>::max)());
+  const auto bad = op::Or(
+      op::Or(op::Or(op::Ge(zero, a), op::Ge(zero, b)),
+             op::Or(op::IsNaN(a), op::IsNaN(b))),
+      op::Or(op::Gt(a, maxf), op::Gt(b, maxf)));
+
+  // Scrub invalid lanes to a benign interior point before any arithmetic.
+  auto as = op::IfThenElse(bad, one, a);
+  auto bs = op::IfThenElse(bad, one, b);
+  const auto m_raw = op::Min(as, bs);
+  const auto mm_raw = op::Max(as, bs);
+
+  const auto big = op::Gt(m_raw, op::Set(d, kLbetaBigMin));
+
+  // --- main band (computed on every lane; big lanes scrubbed down) -------
+  // ONLY the min is clamped: the scrub exists so big-band lanes stay
+  // benign through this dead computation, and m <= 2^990 alone already
+  // guarantees that (every m-carrying operand stays in range; see the
+  // audit above). M is legitimate at ANY magnitude in the main band --
+  // clamping it too corrupted every live lane with max > 2^990 (caught by
+  // the reference gate's grid rows, 2026-08-11).
+  const auto m1 = op::Min(m_raw, op::Set(d, kLbetaBigMin));
+  const auto lgm = LgammaPosDd(d, m1);
+  const auto dlg = LgammaDiffDd(d, mm_raw, m1);
+  const auto main_dd = DdSub(d, lgm, dlg);
+
+  // --- big band (m > 2^990; small lanes scrubbed up) ---------------------
+  const auto m2 = op::Max(m_raw, op::Set(d, kLbetaBigMin));
+  const auto mm2 = op::Max(mm_raw, op::Set(d, kLbetaBigMin));
+  const auto dn = op::Set(d, kLbetaScaleDown);
+  const auto ms = op::Mul(m2, dn);    // exact: operands normal, 2^-64 scale
+  const auto mms = op::Mul(mm2, dn);  // exact
+  const auto cs = TwoSum(d, mms, ms);  // c' = (m + M)*2^-64, exact dd
+  const auto lr1 = BetaLog(d, DdDivDd(d, cs, Dd<D>{ms, zero}));   // ln(c/m)
+  const auto lr2 = BetaLog(d, DdDivDd(d, cs, Dd<D>{mms, zero}));  // ln(c/M)
+  auto acc = DdAdd(d, DdMulD(d, lr1, ms), DdMulD(d, lr2, mms));
+  // Scale back exactly; overflow here IS the -inf boundary (see header).
+  const auto up = op::Set(d, kLbetaScaleUp);
+  acc = Dd<D>{op::Mul(acc.hi, up), op::Mul(acc.lo, up)};
+  // + (1/2) ln(c/(m*M)) = (1/2) ln((c'/m'/M') * 2^-64), formed stepwise so
+  // no intermediate overflows; ~2^-990 relative to the result, kept cheap.
+  const auto rr = op::Mul(op::Div(op::Div(cs.hi, ms), mms), dn);
+  const auto lhalf = BetaLog(d, rr);
+  // If the scale-back overflowed, acc.hi is +inf and feeding it onward
+  // would put inf-inf NaNs through TwoSum's error algebra -- detect it
+  // HERE, hand the subtraction a benign clamped value, and select -inf.
+  // No finite acc can overflow inside the subtraction instead: ulp(DBL_MAX)
+  // is ~2^971, so subtracting the <=~710-magnitude half-log term cannot
+  // push a finite sum across the rounding boundary to -inf.
+  const auto inf = op::Set(d, std::numeric_limits<double>::infinity());
+  const auto acc_ovf = op::Ge(acc.hi, inf);
+  const Dd<D> acc_safe{op::IfThenElse(acc_ovf, one, acc.hi),
+                       op::IfThenElse(acc_ovf, zero, acc.lo)};
+  const auto big_dd =
+      DdSub(d, Dd<D>{op::Mul(lhalf.hi, op::Set(d, 0.5)),
+                     op::Mul(lhalf.lo, op::Set(d, 0.5))},
+            acc_safe);
+  const auto big_val = op::IfThenElse(acc_ovf, op::Neg(inf),
+                                      op::Add(big_dd.hi, big_dd.lo));
+
+  // --- combine, one rounding, specials last ------------------------------
+  auto res = op::IfThenElse(big, big_val,
+                            op::Add(main_dd.hi, main_dd.lo));
+  res = op::IfThenElse(bad, nan, res);
+  return res;
+}
+
 }  // namespace HWY_NAMESPACE
 }  // namespace corvus
 HWY_AFTER_NAMESPACE();
