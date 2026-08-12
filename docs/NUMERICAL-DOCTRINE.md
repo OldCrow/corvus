@@ -156,6 +156,11 @@ baked-in negative controls — same exit-2 doctrine.
 
 Reference files and generated tables are checked in; regenerate only when
 the method or point selection changes, and re-run the ULP tests after.
+A resumable generator's checkpoint signature must bind to the POINT
+IDENTITIES (a bits-digest), not just the count: an edit that preserves N
+replays stale oracle values under new point identities — caught live
+2026-08-12 when a b-column swap in the pb-corner family kept N = 786 and
+the first re-run served b = 1e20 values as b = 1e30 rows.
 Table generators self-check on every run and exit non-zero rather than emit
 a table that misses its error budget — `gen_exp_table.py` re-derives the
 whole budget (reduction exactness, polynomial truncation, table dd error)

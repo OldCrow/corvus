@@ -6,7 +6,15 @@ session narratives, and measurement play-by-play live in this file's git
 history (compacted 2026-08-06), docs/ACCURACY.md, and the kernel/generator
 source, which are the official record for finished work.
 
-## Status [DERIVED] — 2026-08-11
+## Status [DERIVED] — 2026-08-12
+
+**Post-v0.3.0 QC phase underway.** First arc COMPLETE: the
+beta-forward u → −1 defect pair (PRIORITY, shipped since v0.1.0) is
+fixed, plus a third latent huge-β defect its reference rows exposed —
+be55662/68deb66/d275bcd, both witnesses correctly rounded, full
+revalidation ladder green (see Resolved log). Remaining phase work:
+static-analysis sweep, quiet-machine bench pass, consumer-integration
+notes, pre-v1.0.0 doc trim.
 
 **v0.3.0 RELEASED — P2 COMPLETE** (tag at 0bebf95, CI-gated,
 immutable under protect-tags;
@@ -105,19 +113,15 @@ on Linux (tier sweep + sanitizers + install contract), macOS arm64
    gamma bench numbers are loaded/indicative only).
 
 ## Open Items
-- [OPEN, PRIORITY — 2026-08-10, found by betainv G3] TWO defects in
-  the SHIPPED beta forward (beta_p/beta_q), PB prefactor's cpsi →
-  Log1pmxDd at u → −1 (u = −λ/α): (1) 1+u < 2⁻⁵³ → u.hi rounds to
-  exactly −1 → LogDdAny of a zero-high pair → NaN path → beta_p(19,
-  1e5, 5.204222470155122e-21) returns EXACTLY 0, truth 3.36e-308
-  (boundary y ≈ 2.1e-20); (2) 1+u merely small → Log1pmxDd adds u.lo
-  into an exact TwoSum's low word and LogDd(Dd) keeps only the
-  quadratic, t³/3 survives → 1.4e-4 error in E at (19, 1e5,
-  1.73e-19), verified against a correct reference row. The forward
-  reference set never sampled this corner (deep tail at moderate-a/
-  huge-b). betainv is IMMUNE (routes E to PA except where gated).
-  Needs its own fix arc: kernel correction + reference rows covering
-  the corner + full revalidation. Scheduling at user's discretion.
+- [OPEN — 2026-08-12, surfaced by the beta-forward fix arc] betainv's
+  own DdMulD log-times-parameter sites (betainv-inl.h:630/659/683,
+  `DdMulD(lrxi, ra)` / `DdMulD(lryv, rb)`) are unaudited above
+  ops::ProdLow's 2^996 non-FMA Dekker ceiling, and its reference set
+  has no >2^996-parameter rows — the same latent-hazard family the
+  corner arc fixed at beta's three sites (68deb66). Needs: coverage
+  decision (do >2^996 params reach those products unsaturated?),
+  reference rows if so, and the same exact-prescale fix. Not a
+  shipped-defect witness — audit, not emergency.
 - [OPEN, enhancement, low priority — 2026-08-10] exp_dd accuracy
   bump (one more polynomial term + keep r.lo through the quadratic)
   would raise betainv's y-ULP κ-horizon from 2¹⁸ toward the design's
@@ -1626,6 +1630,22 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-12 beta-forward u → −1 defect pair FIXED (the PRIORITY item
+  open since 2026-08-10, disclosed in every release since v0.1.0):
+  closed-form 1+u = c·ξ/α / 1+v = c·y/β on corner lanes in BetaPsiCore
+  (be55662; non-corner lanes bit-identical; Log1pmxDd gained the 2-arg
+  w-overload + a definition-site u → −1 hazard rule). The fix's own
+  786-row pb-corner reference family (d275bcd, --corner-append mode
+  with point-bits-digest checkpoint sig) found a THIRD latent defect —
+  R1 series recurrence overflow at β ~ 1e307 (NaN from a healthy
+  3.55e-4 row) plus non-FMA Dekker-ceiling breaks at l1/l2 and the
+  gammalim t·, all fixed by exact power-of-two prescales (68deb66,
+  bit-identical below 2^900). Generator cross-check repaired en route
+  (compared raw CF where the oracle's routing replaces it; betainc's
+  internal 1−x truncation → dps escalated by −log10 x). Both witnesses
+  now CORRECTLY ROUNDED; gates re-pinned at the one moved cell
+  (gammalim dir 0 → 1 ULP, 6/430 rows); full-suite + tier sweep + CI
+  revalidation in this arc's commits.
 - 2026-08-12 v0.3.0 released: tag at 0bebf95 gated on full CI green
   (run 31561265568, per-job verified); P2 complete — i0/i1/i0e/i1e
   (1 ULP everywhere) + lbeta (correctly rounded everywhere); version

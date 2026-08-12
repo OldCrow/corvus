@@ -544,9 +544,10 @@ the exact 0/1 pair below e^-800.
 
 ## beta_p and beta_q
 
-**Bounds, measured on the 37,099-point reference set (+251 specials) and
+**Bounds, measured on the 37,885-point reference set (+251 specials) and
 identical (max ULP cell for cell) on AVX3_ZEN4, AVX2, SSE4, SSSE3, SSE2
-and NEON.** x86: Ryzen 7445HS, clang-cl, 2026-08-05 — `AVX3_ZEN4` native
+and NEON.** x86: Ryzen 7445HS, clang-cl, 2026-08-05, re-measured
+2026-08-12 with the u → −1 corner rows (below) — `AVX3_ZEN4` native
 dispatch plus the four lower tiers via capping, re-run by the Linux/GCC CI
 sweep. NEON: Apple-silicon CI runner (run 31066128952, 2026-08-06),
 gate-cell-identical to the x86 ladder; the only cross-target difference
@@ -562,7 +563,23 @@ margin.
 | R3 Temme ridge | **3 ULP** (12–19% not-CR at 1–2) | 1 ULP |
 | R4 tiny-min corner | **2 ULP** (≤1.3% not-CR) | 0 ULP (CR) |
 | R4 near-one post-route | **1 ULP** | 0 ULP (CR) |
-| R2 gamma-limit slice | **0 ULP** (CR) | 1 ULP |
+| R2 gamma-limit slice | **1 ULP** (1.4% not-CR) | 1 ULP |
+
+**u → −1 corner, fixed 2026-08-12** (the defect pair disclosed in the
+v0.1.0–v0.3.0 release notes, plus a third found by the fix's own
+reference rows). The PB prefactor's 1 + u degenerated for x deep in the
+tail at moderate min / huge max — an exact-0 return where the truth was
+3.4e-308, and 1.4e-4 in E nearby — fixed by the subtraction-free closed
+forms 1 + u = c·ξ/α, 1 + v = c·y/β on corner lanes (`BetaPsiCore`), with
+every non-corner lane bit-identical. The new 786-row pb-corner family
+(w = c·x/min spanning 2⁻⁶⁰..0.4, bit-level brackets of the u.hi = −1
+rounding boundary, swapped-frame and PA-control rows, both defect
+witnesses bit-exact) also exposed and now gates a huge-β overflow in the
+R1 series recurrence and non-FMA Dekker-ceiling breaks in three
+β ~ 1e307 product sites (all fixed by exact power-of-two prescales). The
+corner rows moved exactly one measured cell: the gamma-limit direct
+slice, 0 → 1 ULP (6 of 430 rows, worst (40, 1e307, 1.6e-306), row
+re-verified against mpmath betainc at dps 380).
 
 The small side is always the directly-computed side (P ≤ ½ invariant via
 the symmetry I_x(a,b) = 1 − I_{1−x}(b,a)), so every bound above is
@@ -623,7 +640,7 @@ parameters (a or b ∈ {0, +∞}) take their point-mass limits — except when
 the degenerate parameter *meets the x-boundary its own mass sits on*
 (e.g. a = 0 at x = 0, b = 0 at x = 1, a = +∞ at x = 1, both parameters
 degenerate), which is 0·∞ and → NaN. P + Q = 1 holds within 1 ULP on all
-37,099 points. Results underflow gradually; fully-saturated pairs return
+37,885 points. Results underflow gradually; fully-saturated pairs return
 the exact 0/1 doubles, each certified against a rigorous log-space bound
 in the harness.
 
