@@ -76,6 +76,27 @@ namespace HWY_NAMESPACE {
 
 namespace op = ops;
 
+// ------------------------------------------------------------------------
+// OUTLINED log [MSVC BUILD-TIME GATE, AGENTS.md]. A thin wrapper whose only
+// purpose is the HWY_NOINLINE: log_dd (via LogDdAny) is large, and this file
+// reaches it from three call sites -- the zone/Stirling seam in LgammaLow
+// and both reflection-term logs in LgammaVec. Inlined, each of those becomes
+// its own copy of a table gather plus a polynomial IN EVERY ONE OF THE
+// COMPILED TARGETS, and cl.exe's optimizer is superlinear in function size:
+// this is the same fix that took betainv.cpp (src/betainv-inl.h) from past
+// 45 minutes and 7 GB on one MSVC invocation to 127 s, retro-applied here
+// per PLAN.md's "MSVC build-time headroom" item. Bit-identity is guaranteed
+// by contraction-off and verified by byte-comparing the ULP tables across
+// the change.
+template <class D>
+HWY_NOINLINE Dd<D> LgammaLog(D d, Dd<D> x) {
+  return LogDdAny(d, x);
+}
+template <class D>
+HWY_NOINLINE Dd<D> LgammaLog(D d, op::V<D> x) {
+  return LgammaLog(d, Dd<D>{x, op::Zero(d)});
+}
+
 // Pick between the two zone coefficient sets. One Horner pass over per-lane
 // selected coefficients beats two Horners plus a select on the result: the
 // centre-1 fit needs degree 34 and the centre-2 fit 21, so running both would
@@ -222,7 +243,7 @@ HWY_INLINE Dd<D> LgammaLow(D d, op::V<D> x) {
   // be subnormal here.
   const Dd<D> arg{op::IfThenElse(small, x, prod.hi),
                   op::IfThenElse(small, op::Zero(d), prod.lo)};
-  const auto lg = LogDdAny(d, arg);
+  const auto lg = LgammaLog(d, arg);
   const Dd<D> corr{op::IfThenElse(small, op::Neg(lg.hi), lg.hi),
                    op::IfThenElse(small, op::Neg(lg.lo), lg.lo)};
   return DdAdd(d, base, corr);
@@ -291,8 +312,8 @@ HWY_INLINE op::V<D> LgammaVec(D d, op::V<D> x) {
     const auto u = op::Sub(x, op::Round(x));
     const auto au = op::Abs(u);
     // lgamma(x) = -log|u| - logsinc(u) - log(-x) - lgamma(-x).
-    auto r = DdAdd(d, LogDdAny(d, au), LogSinc(d, u));
-    r = DdAdd(d, r, DdAdd(d, LogDdAny(d, ax), g));
+    auto r = DdAdd(d, LgammaLog(d, au), LogSinc(d, u));
+    r = DdAdd(d, r, DdAdd(d, LgammaLog(d, ax), g));
     const Dd<D> refl{op::Neg(r.hi), op::Neg(r.lo)};
     const auto pole = op::Eq(u, zero);
     res = Dd<D>{op::IfThenElse(neg, op::IfThenElse(pole, inf, refl.hi), res.hi),

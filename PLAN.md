@@ -104,17 +104,6 @@ on Linux (tier sweep + sanitizers + install contract), macOS arm64
   huge-b). betainv is IMMUNE (routes E to PA except where gated).
   Needs its own fix arc: kernel correction + reference rows covering
   the corner + full revalidation. Scheduling at user's discretion.
-- [OPEN, scheduled next session as warm-up — 2026-08-10, user] MSVC
-  build-time headroom: retro-apply betainv G3's log/exp HWY_NOINLINE
-  wrapper pattern (~20 call sites through wrappers took betainv.cpp
-  from >45 min to 127 s) to the three heavy TUs that predate it —
-  beta.cpp (547–904 s local MSVC, the CI job's critical path),
-  lgamma.cpp (681 s), gammainv.cpp (486 s). Motivation: Windows CI at
-  17.4 min vs 25 timeout with Bessel + lbeta still to land.
-  Mechanical, mid-tier, delegable; acceptance = byte-identical ULP
-  tables per tier across the change (bit-identity expected under
-  contraction-off; verify anyway per doctrine) + measured build-time
-  table before/after. Run BEFORE Bessel's TU lands.
 - [OPEN, enhancement, low priority — 2026-08-10] exp_dd accuracy
   bump (one more polynomial term + keep r.lo through the quadratic)
   would raise betainv's y-ULP κ-horizon from 2¹⁸ toward the design's
@@ -1530,6 +1519,19 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-11 MSVC build-time headroom retro-outlining shipped: log/exp
+  HWY_NOINLINE wrappers in beta/lgamma/gammainv -inl.h (11+3+17 call
+  sites). Isolated Ninja+cl per-TU times: beta 339.0→96.5 s (3.51×),
+  lgamma 193.0→72.1 s, gammainv 75.6→52.1 s, betainv (untouched)
+  130.3→95.9 s downstream via smaller lgamma instantiation. All 7 ULP
+  gates byte-identical at native AVX3_ZEN4; 4-tier capped sweep green
+  with expect-target held; zero new warnings with DEV_WARNINGS=ON.
+  NOTE: the historic 547–904/681/486 s priors were MSBuild-batched
+  measurements — the Ninja isolated-edge numbers are the comparable
+  baseline going forward (betainv 130.3 vs known ~127 s anchored the
+  method). Process lessons → ENVIRONMENT.md (vcvars bootstrap, pwsh)
+  and user-memory (effort routing by validation-protocol load;
+  bounded sleep-poll wait recipe).
 - 2026-08-09 gen_beta_data.py kBetaGammaLim standing "frontier review
   owed" flag (2^-49 target deviation, from the beta G1's escalation (C))
   reviewed and RATIFIED: routing threshold not truncation depth (end-to-
