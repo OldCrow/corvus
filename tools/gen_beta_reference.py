@@ -686,6 +686,96 @@ def gen_witnesses(ps):
 
 
 # ============================================================================
+# PB-prefactor u -> -1 corner family [2026-08-12 fix arc; PLAN.md's
+# "TWO defects in the SHIPPED beta forward" Open Item]. The corner the
+# original families never sampled: moderate min >= Z0 with huge max and x
+# deep in the tail, where w = c*x/min (the kernel's 1+u) falls to 2^-53
+# and below -- the shipped kernel's TwoSum spelling of 1+u degenerated
+# there (u.hi rounding to exactly -1 -> NaN -> a silent exact-0 return;
+# 1+u merely small -> an unnormalized dd into LogDdAny -> 1.4e-4 in E).
+# DETERMINISTIC (no rng draw, so a fresh full run reproduces every earlier
+# family byte-identically; called LAST in main() for the same reason --
+# gen_random_fill's stream and stopping point are untouched).
+#
+# These points route R1 (x tiny puts them inside the series box), but the
+# PREFACTOR is PB whenever c > C_lg and min >= Z0 -- which is exactly how
+# the defect reached shipped beta_p: the R1/R2 split does not gate the
+# prefactor path, i_e = max(i_r1, i_r2) does.
+# ============================================================================
+def gen_pb_corner(ps):
+    n0 = len(ps.pts)
+    # The two recorded defect witnesses, bit-exact as filed.
+    ps.add(19.0, 1e5, 5.204222470155122e-21, tag="pb-corner-witness")
+    ps.add(19.0, 1e5, 1.73e-19, tag="pb-corner-witness")
+    # Grid: x = w*min/c targets w = c*x/min directly, spanning the whole
+    # hazard (w < 2^-53 is the NaN corner, 2^-53..2^-8 the unnormalized-dd
+    # corner, up to 0.4 as the healthy-side control). Depth-saturated rows
+    # (truth rounds to exact 0) are capped at two per (m, b) pair -- they
+    # lock the saturation edge without bloating the set. cheap_logE
+    # classifies; its ~ln(a) slack vs ln P is immaterial at the -760 cut
+    # (double underflows to 0 below ln P ~ -744.4 already).
+    m_list = [10.0, 12.5, 19.0, 40.0, 100.0, 400.0, 1000.0]
+    # No b between 1e12 and 1e30: above B_GL = 2^59 the oracle switches to
+    # the gamma-limit form, whose O(a*t/b) truncation (t = w*m <= 400 here)
+    # reaches 4e-15 at b = 1e20 -- NOT certifiable for double rounding. At
+    # b >= 1e30 the worst combination is 4e-25, below the cross-check
+    # target with margin; below B_GL the CF is mpf-exact. The u -> -1
+    # corner mechanics depend only on w, not on b's magnitude, so the gap
+    # costs no defect coverage.
+    b_list = [300.0, 1e3, 1e4, 1e5, 1e8, 1e12, 1e30, 1e50, 1e100, 1e200,
+              1e307]
+    w_list = [2.0 ** -60, 2.0 ** -56, 2.0 ** -54, 2.0 ** -53, 2.0 ** -52,
+              2.0 ** -50, 2.0 ** -45, 2.0 ** -40, 2.0 ** -30, 2.0 ** -20,
+              2.0 ** -12, 2.0 ** -8, 2.0 ** -4, 0.25, 0.4]
+    for m in m_list:
+        for bb in b_list:
+            if bb <= m:
+                continue  # bb is strictly the max in this family's geometry
+            c = m + bb
+            if not c > 256.0:
+                continue  # PB gate is c > C_lg = 256 strict
+            n_sat = 0
+            for w in w_list:
+                x = w * m / c
+                if not 0.0 < x < 1.0:
+                    continue
+                if cheap_logE(m, bb, x) < -760.0:
+                    n_sat += 1
+                    if n_sat > 2:
+                        continue
+                ps.add(m, bb, x, tag="pb-corner")
+    # Bit-level brackets of the u.hi == -1 rounding boundary (w crossing
+    # 2^-54 flips u.hi between -1-exact and its predecessor; 2^-53 is the
+    # last w whose 1+u survives in u.hi at all). Pairs chosen unsaturated.
+    for m, bb in ((19.0, 1e5), (10.0, 1e8), (12.5, 1e10)):
+        c = m + bb
+        for wb in (2.0 ** -54, 2.0 ** -53):
+            xb = wb * m / c
+            for x in (NEXT_DN(NEXT_DN(xb)), NEXT_DN(xb), xb, NEXT_UP(xb),
+                      NEXT_UP(NEXT_UP(xb))):
+                ps.add(m, bb, x, tag="pb-corner-bracket")
+    # Swapped-frame corner: x one-to-a-thousand ulps below 1 routes the
+    # complement (min, max, 1-x) with 1-x exact in dd -- the same corner
+    # entered through beta_q's orientation (and betainv's fixed frame).
+    for k in (1.0, 2.0, 19.0, 1000.0):
+        x = 1.0 - k * 2.0 ** -53
+        ps.add(1e5, 19.0, x, tag="pb-corner-swap")
+        ps.add(1e8, 10.0, x, tag="pb-corner-swap")
+    # Negative controls: the PA side of both gate inequalities (min < Z0,
+    # c <= C_lg) never had the defect; these pin the gate boundary itself,
+    # including c == 256 exactly (strict inequality -> PA).
+    for x in (5.2e-21, 1.7e-19):
+        ps.add(9.5, 1e5, x, tag="pb-corner-pa-control")
+    for x in (1e-6, 1e-9):
+        ps.add(19.0, 200.0, x, tag="pb-corner-pa-control")
+    ps.add(10.0, 246.0, 1e-8, tag="pb-corner-gate-bracket")  # c == 256: PA
+    ps.add(10.0, NEXT_UP(246.0), 1e-8, tag="pb-corner-gate-bracket")  # PB
+    ps.add(NEXT_DN(10.0), 1e5, 2e-20, tag="pb-corner-gate-bracket")  # PA
+    ps.add(10.0, 1e5, 2e-20, tag="pb-corner-gate-bracket")  # PB
+    print(f"  pb-corner family: {len(ps.pts) - n0} points", file=sys.stderr)
+
+
+# ============================================================================
 # Random seeded fill (own fresh stream, SEED=20260731) to reach the target
 # total point count.
 # ============================================================================
@@ -2001,25 +2091,27 @@ def existing_checkpoint_sig(path):
         return f0.readline().strip()
 
 
-def compute_all(ps):
+def compute_all(ps, ckpt_path=CKPT_PATH, sig_ver="v2"):
     """Resumable oracle pass over every point in ps.pts. Returns
     (rows, region_hist, done) where done is True iff every point in ps.pts
     has a checkpoint entry (rows/region_hist are only meaningful when
-    done is True -- callers must check)."""
+    done is True -- callers must check). ckpt_path/sig_ver default to the
+    full-run values; --corner-append passes its own so the two checkpoint
+    families can never be confused for one another."""
     total = len(ps.pts)
-    sig = f"v2 SEED={SEED} N={total}"
-    done_map = load_checkpoint(CKPT_PATH, sig)
+    sig = f"{sig_ver} SEED={SEED} N={total}"
+    done_map = load_checkpoint(ckpt_path, sig)
     n_prev_failed = sum(1 for v in done_map.values() if v[0] == "FAILED")
     print(f"  checkpoint: {len(done_map)}/{total} points already computed "
           f"({n_prev_failed} previously FAILED -> will be RETRIED with the "
           f"current small_side_direct, per the round-2 revision) "
-          f"({CKPT_PATH})", file=sys.stderr)
+          f"({ckpt_path})", file=sys.stderr)
 
     t_start = time.time()
     newly_done = 0
-    existing_sig = existing_checkpoint_sig(CKPT_PATH)
+    existing_sig = existing_checkpoint_sig(ckpt_path)
     mode = "a" if existing_sig == sig else "w"
-    with open(CKPT_PATH, mode) as fh:
+    with open(ckpt_path, mode) as fh:
         if mode == "w":
             fh.write(sig + "\n")
             fh.flush()
@@ -2028,8 +2120,8 @@ def compute_all(ps):
     # handle lifetime (its own append_checkpoint calls flushed already,
     # but this process's done_map dict was built before those writes) --
     # re-read so the main loop below sees them as done, not FAILED.
-    done_map = load_checkpoint(CKPT_PATH, sig)
-    with open(CKPT_PATH, "a") as fh:
+    done_map = load_checkpoint(ckpt_path, sig)
+    with open(ckpt_path, "a") as fh:
         for idx, (a, b, x, keep_sat, tag) in enumerate(ps.pts):
             # Skip only genuinely-succeeded points -- a checkpoint entry of
             # "FAILED" from an EARLIER small_side_direct (before the
@@ -2070,7 +2162,7 @@ def compute_all(ps):
           file=sys.stderr)
 
     # Second pass: re-read the now-complete checkpoint and assemble rows.
-    done_map = load_checkpoint(CKPT_PATH, sig)
+    done_map = load_checkpoint(ckpt_path, sig)
     rows = []
     region_hist = {}
     n_failed = 0
@@ -2218,7 +2310,11 @@ CKPT_XCHECK_PATH = os.path.join(tempfile.gettempdir(),
 XCHECK_WALL_BUDGET_S = 420.0
 
 
-def run_cross_check(rows):
+def run_cross_check(rows, n=CROSS_CHECK_N, force_idx=()):
+    """force_idx: row indices ALWAYS cross-checked ahead of the random
+    sample (--corner-append pins the two u->-1 fix witnesses with it);
+    defaults leave the full-run behavior and checkpoint signature
+    byte-identical."""
     if not rows:
         return True, None
     rng = random.Random(SEED ^ 0x5EED)
@@ -2231,9 +2327,12 @@ def run_cross_check(rows):
     # content) rather than a genuine test of the CF's accuracy.
     idx_all = [i for i, r in enumerate(rows) if 0.0 < r[3] < 1.0 and 0.0 < r[4] < 1.0]
     rng.shuffle(idx_all)
-    sample = idx_all[:CROSS_CHECK_N]
+    fset = set(force_idx)
+    sample = list(force_idx) + [i for i in idx_all[:n] if i not in fset]
 
-    sig = f"v1 SEED={SEED} NROWS={len(rows)} K={len(sample)}"
+    # v2: comparison method changed (small_side_direct vs raw CF, dps
+    # escalation for tiny oriented x) -- v1 checkpoints must not be reused.
+    sig = f"v2 SEED={SEED} NROWS={len(rows)} K={len(sample)}"
     done_map = load_checkpoint(CKPT_XCHECK_PATH, sig)
     print(f"self-check: mpmath betainc vs CF cross-check "
           f"({len(done_map)}/{len(sample)} already done)", file=sys.stderr)
@@ -2256,16 +2355,40 @@ def run_cross_check(rows):
                 return False, None
             a, b, x, Pf, Qf = rows[idx]
             am, bm, xm = mp.mpf(a), mp.mpf(b), mp.mpf(x)
-            c = am + bm
-            native = (xm * c <= am)
-            aa, bb, xx = (am, bm, xm) if native else (bm, am, _one_minus(xm))
+            # Compare the oracle AS USED for the emitted row -- i.e.
+            # small_side_direct with its whole routing (gamma-corner,
+            # small-tau, near-diagonal shortcuts), not raw small_val_via_cf.
+            # [corner-arc revision, 2026-08-12: the raw CF is structurally
+            # invalid exactly where the routing replaces it -- the first
+            # pb-corner run's sample drew (100, 1e307, 4e-306), where raw
+            # CF returns 2.6e-30542 against a true 1.206e-15; the emitted
+            # row (via gamma_corner_value) was CORRECT, and the old
+            # comparison flagged a defect that was in the CHECK, not the
+            # data. Verified by betainc at dps 500.]
             try:
-                cf_v = small_val_via_cf(aa, bb, xx, 60)
+                cf_p, cf_q, which, _esc, cf_failed = small_side_direct(a, b, x)
             except (RuntimeError, ZeroDivisionError, ValueError):
+                cf_failed = True
+            if cf_failed:
                 append_checkpoint(fh, si, ["SKIP_CF"])
                 newly += 1
                 continue
-            mm_v = gbd._betainc_timeout(aa, bb, xx, CROSS_CHECK_MPMATH_DPS,
+            if which == "P":
+                aa, bb, xx, cf_v = am, bm, xm, cf_p
+            else:
+                aa, bb, xx, cf_v = bm, am, _one_minus(xm), cf_q
+            # betainc forms 1-xx INTERNALLY at its working dps (the
+            # exact-complement hazard documented above): for xx below
+            # ~10^-dps that truncates to exactly 1 and silently drops the
+            # whole (1-xx)^b factor (measured: (100, 1e307, 4e-306) at
+            # dps 50 returns 1.7e-30698 for a true 1.2e-15). Escalate dps
+            # so xx stays visible; unreachable points TIMEOUT and are
+            # excluded, exactly as before.
+            need_dps = CROSS_CHECK_MPMATH_DPS
+            xf = float(xx)
+            if 0.0 < xf < 1e-20:
+                need_dps = max(need_dps, int(30.0 - math.log10(xf)))
+            mm_v = gbd._betainc_timeout(aa, bb, xx, need_dps,
                                          timeout=CROSS_CHECK_TIMEOUT)
             if mm_v is None:
                 append_checkpoint(fh, si, ["TIMEOUT"])
@@ -2586,6 +2709,10 @@ def main():
     gen_huge_tiny(ps, rng)
     gen_witnesses(ps)
     gen_random_fill(ps, rng, TARGET_TOTAL)
+    # LAST, deterministically, so every family above (including the rng
+    # fill's stream and stopping point) is byte-identical to the pre-corner
+    # runs; --corner-append splices exactly this block's rows.
+    gen_pb_corner(ps)
     print(f"  total distinct (a,b,x) points: {len(ps.pts)}", file=sys.stderr)
 
     print("evaluating oracle (CF, dps ladder 40/60/100, resumable) ...",
@@ -2666,5 +2793,127 @@ def main():
     return 0
 
 
+# ============================================================================
+# --corner-append: incremental certification of the pb-corner family alone.
+#
+# The full-run checkpoint (42k points, hours of oracle work including the
+# subprocess-guarded betainc rescues) did not survive the temp-dir cleanup;
+# re-deriving every certified row to append ~600 is waste with no accuracy
+# upside. This mode evaluates ONLY gen_pb_corner's points -- same
+# small_side_direct protocol, same dps ladder, own checkpoint file -- runs
+# the applicable self-checks plus a cross-check with both defect witnesses
+# force-included, and splices the rows into the existing reference files
+# immediately BEFORE the specials block, which is exactly where a fresh
+# full run (gen_pb_corner called last, specials appended after) would put
+# them. The splice refuses to run if the existing files' specials tail
+# does not match gen_specials_rows() bit-for-bit.
+# ============================================================================
+CKPT_CORNER_PATH = os.path.join(tempfile.gettempdir(),
+                                f"corvus_beta_ref_ckpt_corner_{SEED}.tsv")
+
+
+def _splice_corner(corner_rows):
+    specials = gen_specials_rows()
+    spec_lines = [f"{hexd(a)} {hexd(b)} {hexd(x)} {hexd(P)} {hexd(Q)}"
+                  for a, b, x, P, Q in specials]
+    for path in ("tests/data/beta_p_reference.txt",
+                 "tests/data/beta_q_reference.txt"):
+        with open(path) as f:
+            lines = [ln.rstrip("\n") for ln in f if ln.strip()]
+        if lines[-len(spec_lines):] != spec_lines:
+            print(f"  FAILED: {path} specials tail does not match "
+                  f"gen_specials_rows() -- refusing to splice.",
+                  file=sys.stderr)
+            return 1
+        body = lines[:-len(spec_lines)]
+        seen = {tuple(ln.split()[:3]) for ln in body}
+        added = []
+        for a, b, x, P, Q in corner_rows:
+            key = (hexd(a), hexd(b), hexd(x))
+            if key in seen:
+                continue  # PointSet-consistent: earlier family owns the row
+            seen.add(key)
+            added.append(f"{key[0]} {key[1]} {key[2]} {hexd(P)} {hexd(Q)}")
+        with open(path, "w", newline="\n") as f:
+            f.write("\n".join(body + added + spec_lines) + "\n")
+        print(f"  wrote {path}: +{len(added)} corner rows "
+              f"({len(body) + len(added) + len(spec_lines)} total)",
+              file=sys.stderr)
+    return 0
+
+
+def corner_append():
+    t_all = time.time()
+    ps = PointSet()
+    gen_pb_corner(ps)
+    print(f"corner point set: {len(ps.pts)} distinct points", file=sys.stderr)
+
+    # Signature carries a digest of the POINT BITS, not just the count: a
+    # grid edit that preserves N would otherwise replay stale checkpoint
+    # values under new point identities (caught live when the b-column
+    # swap 1e20 -> 1e30 kept N = 786 and the first re-run served b = 1e20
+    # oracle values as b = 1e30 rows).
+    import hashlib
+    dig = hashlib.sha256()
+    for a, b, x, _, _ in ps.pts:
+        dig.update(struct.pack("<QQQ", as_bits(a), as_bits(b), as_bits(x)))
+    rows, region_hist, done = compute_all(
+        ps, ckpt_path=CKPT_CORNER_PATH,
+        sig_ver=f"v1-corner-{dig.hexdigest()[:16]}")
+    if not done:
+        print("\nPARTIAL RUN: re-invoke with --corner-append to continue "
+              "(checkpoint saved).", file=sys.stderr)
+        return 3
+    print(f"  corner region histogram: {region_hist}", file=sys.stderr)
+
+    rc = 0
+    rc |= check_p_plus_q(rows)
+    rc |= check_small_side_direct(rows)
+
+    # Both defect witnesses must be present as emitted rows, and are
+    # force-included in the cross-check sample below.
+    wit = [(19.0, 1e5, 5.204222470155122e-21), (19.0, 1e5, 1.73e-19)]
+    wit_idx = []
+    for wa, wb, wx in wit:
+        hits = [i for i, r in enumerate(rows)
+                if as_bits(r[0]) == as_bits(wa) and as_bits(r[1]) == as_bits(wb)
+                and as_bits(r[2]) == as_bits(wx)]
+        if not hits:
+            print(f"  FAILED: witness row ({wa}, {wb}, {wx:.17e}) missing "
+                  f"from the corner set.", file=sys.stderr)
+            rc = 1
+        else:
+            wit_idx.append(hits[0])
+            r = rows[hits[0]]
+            print(f"  witness ({wa}, {wb:.0e}, {wx:.17e}): P={r[3]:.17e} "
+                  f"Q={r[4]:.17g}", file=sys.stderr)
+
+    xcheck_ok, xcheck_summary = run_cross_check(rows, n=60,
+                                                force_idx=tuple(wit_idx))
+    if not xcheck_ok:
+        print("\nPARTIAL RUN: cross-check incomplete, re-invoke with "
+              "--corner-append to continue (checkpoint saved).",
+              file=sys.stderr)
+        return 3
+    if xcheck_summary is not None and \
+            xcheck_summary["worst"] > float(CROSS_CHECK_TARGET):
+        print(f"  FAILED: cross-check worst disagreement "
+              f"{xcheck_summary['worst']:.3e} exceeds target "
+              f"{float(CROSS_CHECK_TARGET):.0e}.", file=sys.stderr)
+        rc = 1
+
+    if rc:
+        print("\nSelf-checks FAILED -- not touching reference files.",
+              file=sys.stderr)
+        return rc
+
+    rc = _splice_corner(rows)
+    print(f"\ncorner-append runtime: {time.time() - t_all:.1f}s",
+          file=sys.stderr)
+    return rc
+
+
 if __name__ == "__main__":
+    if "--corner-append" in sys.argv[1:]:
+        sys.exit(corner_append())
     sys.exit(main())

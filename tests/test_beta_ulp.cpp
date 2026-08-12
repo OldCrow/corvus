@@ -42,12 +42,19 @@ namespace {
 // corrections (double-class lgamma components amplified by cancellation);
 // see PLAN.md. A tier that measures above any cell is an escalation, not a
 // gate bump.
+//
+// [2026-08-12, u -> -1 corner arc] GlDir re-pinned 0 -> 1: the pb-corner
+// reference rows are the first to stress the gammalim slice's E_g at
+// b ~ 1e307 with t ~ w*m in the deep tail; 6 of 430 rows measure exactly
+// 1 ULP there (worst (40, 1e307, 1.6e-306), row re-verified against
+// mpmath betainc at dps 380 -- reference correct, kernel one ulp off).
+// Every other cell is unchanged by the corner arc.
 constexpr uint64_t kGateR1Dir = 1, kGateR1Cmp = 1;
 constexpr uint64_t kGateR2Dir = 0, kGateR2Cmp = 0;
 constexpr uint64_t kGateR3Dir = 3, kGateR3Cmp = 1;
 constexpr uint64_t kGateR4Dir = 2, kGateR4Cmp = 0;
 constexpr uint64_t kGatePrDir = 1, kGatePrCmp = 0;
-constexpr uint64_t kGateGlDir = 0, kGateGlCmp = 1;
+constexpr uint64_t kGateGlDir = 1, kGateGlCmp = 1;
 
 // (The G3-era kRefDefectCutoff escape hatch is DELETED: the reference set was
 // regenerated with the small-tau oracle fixed, per its own commit record.)
