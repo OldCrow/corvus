@@ -77,14 +77,27 @@ inline constexpr int kPhiLead = 6;
 // u.lo^2/u^2 <= 2^-106 relative -- uniformly, at every u.
 //
 // LARGE |u|: no cancellation to protect against (phi >= 2^-9 while u <= 1),
-// so the direct difference is used, with 1 + u carried EXACTLY as a dd
-// (TwoSum, plus u.lo folded into the low word) into LogDdAny. At the cut
-// this inherits log_dd's error amplified by 2/u; log_dd near argument 1 is
-// far better than its ~2^-68 global bound (the table's L_j is exact to
-// 2^-107 and log1p(r) is relative to itself), which is what keeps the seam
-// continuous in accuracy as well as in value.
+// so the direct difference is used, with 1 + u handed to LogDdAny as a dd.
+// At the cut this inherits log_dd's error amplified by 2/u; log_dd near
+// argument 1 is far better than its ~2^-68 global bound (the table's L_j is
+// exact to 2^-107 and log1p(r) is relative to itself), which is what keeps
+// the seam continuous in accuracy as well as in value.
+//
+// TWO SPELLINGS OF 1 + u. The 2-arg overload takes w = 1 + u from the
+// CALLER, for use where the caller owns an exact closed form (beta's
+// BetaPsiCore: 1 + u = c*xi/alpha with no subtraction anywhere). The 1-arg
+// form derives w from u itself -- TwoSum(1, u.hi) plus u.lo folded into the
+// low word -- which is exact as an unevaluated sum, BUT NOT a normalized dd
+// when u is near -1: for 1 + u ~ 2^-53 the folded u.lo is comparable to (or
+// larger than) the high word, and LogDdAny's expansion in lo/hi drops the
+// cubic (measured 1.4e-4 in beta's E at u.lo/w.hi ~ 1); at u.hi == -1
+// exactly the high word is zero and LogDdAny has no valid path at all.
+// HAZARD RULE: a caller whose u can approach -1 closer than ~2^-8 must use
+// the 2-arg overload with an independently computed w. Every 1-arg call
+// site today satisfies this (gamma's Temme band has u in [-1/2, 1], beta's
+// R3 ratio band likewise, Log1pDdWide's arguments are >= -1 + 2^-12-class).
 template <class D>
-HWY_INLINE Dd<D> Log1pmxDd(D d, Dd<D> u) {
+HWY_INLINE Dd<D> Log1pmxDd(D d, Dd<D> u, Dd<D> w) {
   const auto one = op::Set(d, 1.0);
   const auto uh = u.hi;
   constexpr int kN =
@@ -107,14 +120,19 @@ HWY_INLINE Dd<D> Log1pmxDd(D d, Dd<D> u) {
   ser = DdAddD(d, ser, op::Mul(u.lo, op::Div(uh, op::Add(one, uh))));
 
   // --- |u| > 1/16 ---------------------------------------------------------
-  auto w = TwoSum(d, one, uh);  // exact
-  w.lo = op::Add(w.lo, u.lo);
   const auto lg = LogDdAny(d, w);
   const auto big = DdAdd(d, u, Dd<D>{op::Neg(lg.hi), op::Neg(lg.lo)});
 
   const auto m = op::Ge(op::Set(d, detail::kPhiCut), op::Abs(uh));
   return Dd<D>{op::IfThenElse(m, ser.hi, big.hi),
                op::IfThenElse(m, ser.lo, big.lo)};
+}
+
+template <class D>
+HWY_INLINE Dd<D> Log1pmxDd(D d, Dd<D> u) {
+  auto w = TwoSum(d, op::Set(d, 1.0), u.hi);  // exact
+  w.lo = op::Add(w.lo, u.lo);
+  return Log1pmxDd(d, u, w);
 }
 
 // e^w - 1 for a dd w, to dd precision relative to the result.

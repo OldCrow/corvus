@@ -566,9 +566,65 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
 
   const auto u = DdMul(d, DdNeg(d, lam), DdRecip(d, as));
   const auto v = DdMul(d, lam, DdRecip(d, bs));
+
+  // 1 + u AND 1 + v BY CLOSED FORM ON THE CORNER LANES [u -> -1 fix,
+  // 2026-08-12; the shipped-since-v0.1.0 beta_p/beta_q defect pair]. The
+  // identities
+  //     1 + u = (alpha - lambda)/alpha = c*xi/alpha,
+  //     1 + v = (beta + lambda)/beta  = c*y/beta
+  // have NO subtraction anywhere, so the corner w they produce is
+  // dd-relative at every size, where the generic spelling inside 1-arg
+  // Log1pmxDd (TwoSum(1, u.hi) + u.lo) degenerates for u near -1: at
+  // 1 + u < 2^-53, u.hi rounds to exactly -1 and LogDdAny receives a
+  // zero-high pair (NaN -> the exact-0 return at (19, 1e5, 5.2e-21)); at
+  // 1 + u merely small, the folded u.lo rivals the high word and LogDdAny
+  // drops the cubic in lo/hi (the 1.4e-4 E error at (19, 1e5, 1.73e-19)).
+  //
+  // Corner select at u.hi < -1/2 (v mirrored; betainv's fixed-frame call
+  // reaches the v corner even though beta's routed frame cannot):
+  //  * Non-corner lanes keep the generic spelling BIT-IDENTICALLY -- for
+  //    u in (-1/2, -1/16] Sterbenz makes TwoSum(1, u.hi) exact with zero
+  //    low word, and |u.lo| <= 2^-53 stays far under w.hi >= 1/2, so the
+  //    pair is a normalized dd and nothing needed fixing there.
+  //  * Ordering (c (x) xi) (/) alpha, NOT (c/alpha) (x) xi: c/alpha
+  //    reaches 2^1021 (alpha = Z0 scaled 2^-200 against c_s ~ 2^824) and
+  //    would overflow the non-FMA Dekker split (2^996 ceiling,
+  //    docs/NUMERICAL-DOCTRINE.md). c (x) xi is split-safe (c_s <= 2^901
+  //    unscaled-frame, >= 2^700 whenever the prescale fired, so no live
+  //    lane's product goes subnormal either), and the quotient is the
+  //    corner w < ~1/2, in range by construction.
+  //  * The numerator is scrubbed to alpha (quotient exactly 1) on
+  //    non-corner lanes so the division never sees the huge-w lanes
+  //    (w = c*xi/alpha is unbounded when xi ~ 1 with alpha << c; those
+  //    lanes take the generic spelling anyway).
+  // Corner accuracy: w carries ~2^-103 relative (one DdMul + one DdDivDd),
+  // log(w) takes that to 2^-103 ABSOLUTE in phi, and alpha*phi <= ~750
+  // (saturation) bounds the E contribution at 2^-93-class -- invisible
+  // against the 2^-60s budget.
+  const auto mzero = op::Zero(d);
+  const auto mhalf = op::Set(d, -0.5);
+  const auto cor_u = op::Lt(u.hi, mhalf);
+  const auto cor_v = op::Lt(v.hi, mhalf);
+  const auto cxi = DdMul(d, c, xi);
+  const auto cyv = DdMul(d, c, y);
+  const Dd<D> num_u{op::IfThenElse(cor_u, cxi.hi, as),
+                    op::IfThenElse(cor_u, cxi.lo, mzero)};
+  const Dd<D> num_v{op::IfThenElse(cor_v, cyv.hi, bs),
+                    op::IfThenElse(cor_v, cyv.lo, mzero)};
+  const auto wuc = DdDivDd(d, num_u, Dd<D>{as, mzero});
+  const auto wvc = DdDivDd(d, num_v, Dd<D>{bs, mzero});
+  auto wug = TwoSum(d, one, u.hi);  // exact (generic spelling)
+  wug.lo = op::Add(wug.lo, u.lo);
+  auto wvg = TwoSum(d, one, v.hi);  // exact
+  wvg.lo = op::Add(wvg.lo, v.lo);
+  const Dd<D> wu{op::IfThenElse(cor_u, wuc.hi, wug.hi),
+                 op::IfThenElse(cor_u, wuc.lo, wug.lo)};
+  const Dd<D> wv{op::IfThenElse(cor_v, wvc.hi, wvg.hi),
+                 op::IfThenElse(cor_v, wvc.lo, wvg.lo)};
+
   // Both phi are >= 0, so this sum never cancels.
-  const auto cs = DdAdd(d, DdMulD(d, Log1pmxDd(d, u), as),
-                        DdMulD(d, Log1pmxDd(d, v), bs));
+  const auto cs = DdAdd(d, DdMulD(d, Log1pmxDd(d, u, wu), as),
+                        DdMulD(d, Log1pmxDd(d, v, wv), bs));
 
   const auto rc = DdRecipDd(d, c);
   // nu = alpha*(beta/c): beta/c <= 1 and alpha*(beta/c) <= min(alpha,beta), so
