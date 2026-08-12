@@ -121,12 +121,20 @@ def series_regularized(ap, bp, xp, dps):
     partial sum (the lesson of round 6's truncation defect)."""
     with mpmath.workdps(dps):
         am, bm, xm = mp.mpf(ap), mp.mpf(bp), mp.mpf(xp)
-        # complement: xm is either an original double or an exact 1-d
-        # mpf; in both cases the exact difference has a short mantissa
-        # (recovery direction), so widened subtraction is exact.
-        with mpmath.workdps(mp.dps + 40):
-            omx = 1 - xm
-        lnpre = (am * mp.log(xm) + bm * mp.log(omx)
+        # (1-x)^b in log form via log1p, NEVER via a formed complement:
+        # the previous spelling (omx = 1 - xm at dps+40) truncated to
+        # exactly 1 for x below 10^-(dps+40), silently DROPPING the whole
+        # b*ln(1-x) term -- caught 2026-08-12 by the pb-corner rows, where
+        # b*x reaches 400 with x ~ 4e-305: the "independent" value came
+        # back e^400 too large (an impossible P = 4.75e34), and the same
+        # truncation at the 160-layer's 10^-200 horizon produced pure
+        # layer disagreements at b = 1e200. log1p consumes xm directly:
+        # an original double is exact at any dps >= 25, and the exact
+        # carried complement only reaches this branch when <= 3/4, where
+        # log1p is cancellation-free and its argument truncation is a
+        # relative 10^-dps. (This is the harness's own small_frame
+        # discipline, applied to the one spelling that had escaped it.)
+        lnpre = (am * mp.log(xm) + bm * mp.log1p(-xm)
                  - mp.log(am) - ln_beta(am, bm))
         s = mp.mpf(1)
         term = mp.mpf(1)
