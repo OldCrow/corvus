@@ -8,17 +8,22 @@ source, which are the official record for finished work.
 
 ## Status [DERIVED] — 2026-08-11
 
-**I0 / I1 / I0E / I1E SHIPPED [2026-08-11]** — max 1 ULP, every
-function, every region, every tier; full ladder green (AVX3_ZEN4
-native, AVX2/SSE4/SSSE3/SSE2 capped sweep, NEON + sanitizers via CI
-run 31556511765 on ded7693). Pipeline ledger: probe 2 self-caught /
-G1 1 ratified amendment (exact-q) / G2 0 escalations, 2 self-caught
-/ G3 0 escalations, 2 accepted deviations, 1 self-caught / G4 1
-frontier SECOND correction (non-FMA replay + Dekker prescale — the
-sweep catch that CI reproduced on the exact FMA fault line).
-Retro-outlining warm-up SHIPPED (d3e09aa; Windows CI 17.4 → 10.6
-min). Remaining this session: clear Dependabot PR #3 [user], then
-lbeta (staged below), then v0.3.0 decision.
+**P2 COMPLETE — v0.3.0 release in flight [2026-08-11]**. This
+session shipped: retro-outlining warm-up (d3e09aa; Windows CI
+17.4 → 10.6 min), i0/i1/i0e/i1e (max 1 ULP everywhere after the
+non-FMA SECOND correction), Dependabot PR #3 cleared, and lbeta
+(CORRECTLY ROUNDED on every measured row — the library's strongest
+bound). Full ladders green per family; version-consistency check
+added at configure time after kVersion* was found still reading
+0.1.0 (missed at v0.2.0). With lbeta, corvus covers every
+PDF/CDF/quantile/MLE special-function need in the libhmm/libstats
+inventories, von Mises included. Next phase [user]: code analysis
+and clean-up/improvements — major code-writing closed at v0.3.0.
+Bessel ledger: probe 2 self-caught / G1 1 ratified amendment
+(exact-q) / G2 0 escalations, 2 self-caught / G3 0 escalations, 2
+accepted deviations, 1 self-caught / G4 1 frontier SECOND
+correction (non-FMA replay + Dekker prescale — the sweep catch CI
+reproduced on the exact FMA fault line).
 
 **v0.2.0 RELEASED — P1 COMPLETE** (tag at b0221d1, CI-gated,
 immutable under protect-tags;

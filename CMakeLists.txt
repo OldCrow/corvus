@@ -1,7 +1,24 @@
 cmake_minimum_required(VERSION 3.25)  # 3.25: FetchContent SYSTEM keyword
-project(corvus VERSION 0.2.0 LANGUAGES CXX
+project(corvus VERSION 0.3.0 LANGUAGES CXX
   DESCRIPTION "SIMD-vectorized statistical special functions"
   HOMEPAGE_URL "https://github.com/OldCrow/corvus")
+
+# The public header carries its own kVersion{Major,Minor,Patch} constants;
+# they sat at 0.1.0 through the v0.2.0 release unnoticed, so a mismatch is
+# now a configure-time error rather than a release-checklist item.
+file(READ include/corvus/corvus.h _corvus_hdr)
+foreach(_part Major Minor Patch)
+  string(TOUPPER "${_part}" _PART)
+  if(NOT _corvus_hdr MATCHES "kVersion${_part} = ([0-9]+);")
+    message(FATAL_ERROR "corvus.h: kVersion${_part} not found")
+  endif()
+  if(NOT CMAKE_MATCH_1 STREQUAL PROJECT_VERSION_${_PART})
+    message(FATAL_ERROR "corvus.h kVersion${_part} = ${CMAKE_MATCH_1} but "
+      "project(VERSION) says ${PROJECT_VERSION_${_PART}} — update the header "
+      "constants alongside the CMake version")
+  endif()
+endforeach()
+unset(_corvus_hdr)
 
 # --- Build type ---------------------------------------------------------
 # Single-config generators default to Release: this is a numerical library

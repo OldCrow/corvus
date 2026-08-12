@@ -23,8 +23,11 @@
 
 namespace corvus {
 
+// Must match CMakeLists.txt's project(VERSION) — enforced at configure
+// time (a mismatch is a FATAL_ERROR; added after these constants sat at
+// 0.1.0 through the v0.2.0 release unnoticed).
 inline constexpr int kVersionMajor = 0;
-inline constexpr int kVersionMinor = 1;
+inline constexpr int kVersionMinor = 3;
 inline constexpr int kVersionPatch = 0;
 
 /// \brief Name of the SIMD target selected by runtime dispatch.
@@ -160,10 +163,11 @@ void beta_q(std::span<const double> a, std::span<const double> b,
 /// them.) Computed through the same double-double lgamma-difference
 /// machinery as beta_p/beta_q's prefactor, so the a+b cancellation that
 /// costs a plain three-lgamma assembly its accuracy for large parameters
-/// is removed analytically. Accuracy: measured per-tier bounds in
-/// docs/ACCURACY.md (relative where |ln B| >= 1, absolute 2^-53-class in
-/// the band around the zero curve of ln B through (1,1), where the result
-/// itself is ill-conditioned). Symmetric in (a, b); saturates to -inf
+/// is removed analytically. Accuracy: CORRECTLY ROUNDED on every measured
+/// row of every band and tier — 0 ULP where |ln B| >= 1, half-ulp
+/// absolute in the band around ln B's zero curve through (1,1), where the
+/// result itself is ill-conditioned (docs/ACCURACY.md). Symmetric in
+/// (a, b); saturates to -inf
 /// where the true ln B falls below the double range (both parameters
 /// huge); NaN propagates.
 void lbeta(std::span<const double> a, std::span<const double> b,
