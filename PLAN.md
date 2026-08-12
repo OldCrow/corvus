@@ -1462,6 +1462,27 @@ tail 1.000 ULP, all four functions (ULP-distance metric — relative-
 error bits mislead near the subnormal floor). Seam 0.00 ULP;
 negative controls caught at ~1e13 ULP; independent cross-check at
 the dps floor. G1 ledger: 1 ratified amendment, 0 escalations.
+**G2 stage record [2026-08-11]**: tools/gen_bessel_reference.py +
+four reference files (house bare input-hex/output-hex format):
+i0/i1 2515 rows each, i0e/i1e 2351 — all odd counts (masked-tail
+rule), ~40% negative-axis mirrors via genuine oracle evaluation at
+the negative point (not hand-flipped). Coverage: log-spaced whole
+domain, subnormal cluster, bit-stepped seam bracket at x=8,
+bit-stepped overflow-boundary bracket (i0/i1; inf tokens past it,
+strtod round-trip verified) and DBL_MAX neighborhood (i0e/i1e).
+Layered dps 40/80→150: 0 escalations, 0 declines. Boundary
+re-bisected a THIRD time (dps 50), bit-identical. Independent
+cross-check route (own series ≤25, own A&S-9.7.1-math asymptotic
+>25) floors at ~1e-16 for i0/i1/i1e — the asymptotic route's own
+truncation floor near its x=25 handoff, adequate as a gross-defect
+tripwire but NOT dps-floor certification; the primary layered-dps
+oracle plus the orchestrator's independent 52-row spot-check
+(52/52 exact, incl. seam/ceiling/negative/inf rows) carry the
+trust. G2 ledger: 0 escalations; 2 self-caught bugs (cross-check
+against double-rounded stored values; odd-sign drop at negative x)
++ 1 reproducibility fix (salted string hash as RNG seed). FLAG for
+G3's ULP test: house tests hard-code a `size < 10000` sanity gate —
+these files are deliberately 2.3–2.5k rows; lower the threshold.
 **lbeta (committed P2, after Bessel — possibly same session)**:
 public ln B(a,b) exposing the internal LgammaDiffDd assembly (the
 a+b cancellation hazard is already solved in-house); consumer
