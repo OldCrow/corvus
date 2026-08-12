@@ -195,6 +195,18 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif()
 
 if(CORVUS_SANITIZE)
+  # MSVC-ABI toolchains (cl AND clang-cl) get a hard configure error, not
+  # GNU-style flags: cl emits D9002 and IGNORES -fsanitize, producing a
+  # "sanitizer" build that sanitizes nothing (the silent pre-2026-08-12
+  # behavior this guard replaces), and the /fsanitize=address runtime
+  # plumbing on that ABI is unvalidated for corvus. Sanitizer builds run
+  # on the Linux CI job (docs/ENVIRONMENT.md).
+  if(MSVC)
+    message(FATAL_ERROR
+      "CORVUS_SANITIZE is supported on GNU-driver toolchains only "
+      "(sanitizer builds are the Linux CI job's); the MSVC ABI would "
+      "silently ignore -fsanitize=${CORVUS_SANITIZE}.")
+  endif()
   list(JOIN CORVUS_SANITIZE "," _corvus_san)
   target_compile_options(corvus PRIVATE -fsanitize=${_corvus_san})
   target_link_options(corvus PUBLIC -fsanitize=${_corvus_san})
