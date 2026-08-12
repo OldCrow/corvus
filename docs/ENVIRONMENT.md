@@ -107,7 +107,22 @@ Manual alternative (no preset): `cmake -B build -DCMAKE_BUILD_TYPE=Release -G Ni
 - Generator: Ninja preferred (faster, identical behavior across macOS/
   Linux/Windows-with-vcvars); Unix Makefiles works, nothing depends on it.
   Presets never pin a generator — pass `-G Ninja` alongside `--preset` (CI
-  does the same).
+  does the same, except the Windows CI job — see the CI section: it
+  deliberately uses the default VS generator, no vcvars).
+- Windows vcvars bootstrap (required for Ninja with cl or clang-cl —
+  neither compiler nor link.exe resolves outside a VS dev shell; this
+  is the non-interactive recipe, added 2026-08-11 after an agent
+  correctly fell back to the VS generator because only that path was
+  fully documented):
+  ```powershell
+  $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+  cmd /c "call `"$vs\VC\Auxiliary\Build\vcvars64.bat`" && cmake -B build-msvc-ninja -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl && cmake --build build-msvc-ninja"
+  ```
+  Same wrapper for clang-cl (swap the compiler names). Per-TU compile
+  timing: Ninja only — touch exactly one source file, rebuild, read
+  that edge's `(end_ms − start_ms)` from `.ninja_log`; verify exactly
+  one dirty edge first with `ninja -n`. MSBuild batches/parallelizes
+  ClCompile and cannot give clean per-TU numbers.
 - Build types (single-config default Release — house rule: perf and
   accuracy numbers from optimized builds only):
   - `Release` — benchmarks, accuracy validation, distribution
@@ -189,6 +204,15 @@ for TIER in AVX2 SSE4 SSSE3 SSE2; do
   CORVUS_EXPECT_TARGET="$TIER" ctest --test-dir build-cap --output-on-failure
 done
 ```
+
+`sweep_tiers.ps1` MUST run under `pwsh` (PowerShell 7+), never Windows
+PowerShell 5.1: 5.1 silently fails to apply the pipe-delimited
+`CORVUS_DISABLED_TARGETS` caps, so every "capped" iteration builds the
+full target set and runs under the native tier's name — the script's
+own `CORVUS_EXPECT_TARGET` assertion is the tripwire that catches it
+(observed 2026-08-10: AVX3_ZEN4 ran under the AVX2 label). The script
+also documents its own single-element-splat gotcha at the top; read it
+before editing the `$gates` array handling.
 
 Benchmarks (`bench_*`, not ctest-registered): Release build, quiet machine
 only; numbers taken on a loaded machine are indicative and must be labeled
