@@ -10,9 +10,11 @@ source, which are the official record for finished work.
 
 **P2 IN PROGRESS**: Bessel I0/I1 frontier probe+design pass COMPLETE
 (binding design below; probe closed all five staged questions, 2
-probe-stage self-caught bugs). Retro-outlining warm-up (MSVC headroom,
-Open Items) delegated and running in parallel — it must land before
-Bessel's TU (G3). lbeta follows Bessel, possibly same session.
+probe-stage self-caught bugs). Retro-outlining warm-up SHIPPED
+(d3e09aa; Windows CI 17.4 → 10.6 min). G3 kernel in flight. lbeta
+follows Bessel, possibly same session. Sequenced between them
+[2026-08-11, user]: clear Dependabot PR #3 (actionlint 1.73.0 →
+1.73.1 bump).
 
 **v0.2.0 RELEASED — P1 COMPLETE** (tag at b0221d1, CI-gated,
 immutable under protect-tags;
