@@ -286,6 +286,64 @@ void beta_p_inv(std::span<const double> a, std::span<const double> b,
 void beta_q_inv(std::span<const double> a, std::span<const double> b,
                 std::span<const double> q, std::span<double> out);
 
+/// \brief out[i] = I0(in[i]), the modified Bessel function of the first
+///   kind, order 0 (SciPy's `iv(0, .)` / `i0`).
+///
+/// Method: a truncated power series in q = x^2/4 for |x| <= 8 (all terms
+/// positive, well conditioned), and a Chebyshev fit in 1/x times
+/// exp(|x|)/sqrt(2*pi*|x|) for |x| > 8. PROVISIONAL accuracy note: 1 ULP
+/// expected in both regimes (measured per-tier bounds land in
+/// docs/ACCURACY.md).
+///
+/// Specials: I0(0) = 1; I0(+-inf) = +inf; NaN propagates (payload
+/// preserved). I0 saturates to +inf for |x| above the last finite double
+/// (~713.99, the exact boundary is documented in docs/ACCURACY.md).
+void i0(std::span<const double> in, std::span<double> out);
+
+/// \brief out[i] = I1(in[i]), the modified Bessel function of the first
+///   kind, order 1 (SciPy's `iv(1, .)` / `i1`).
+///
+/// Same method as i0, on the ODD series/fit pair: I1 is odd, so the sign of
+/// a nonzero result matches the sign of the input. PROVISIONAL accuracy
+/// note: 1 ULP expected in both regimes (measured per-tier bounds land in
+/// docs/ACCURACY.md).
+///
+/// Specials: I1(+0) = +0, I1(-0) = -0; I1(+inf) = +inf, I1(-inf) = -inf; NaN
+/// propagates (payload preserved). I1 saturates to +-inf for |x| above the
+/// last finite double (~713.99, close to but not identical to i0's
+/// boundary; see docs/ACCURACY.md).
+void i1(std::span<const double> in, std::span<double> out);
+
+/// \brief out[i] = exp(-|in[i]|) * I0(in[i]), the exponentially-scaled
+///   modified Bessel function of the first kind, order 0 (SciPy's
+///   `ive(0, .)`).
+///
+/// Useful wherever I0 itself would overflow (I0 overflows past |x| ~ 714):
+/// this stays finite over the whole real axis. A(kappa) = i1e(kappa) /
+/// i0e(kappa) is the exact mean resultant length of a von Mises(kappa)
+/// distribution, computed without ever forming the unscaled I0/I1.
+/// PROVISIONAL accuracy note: 1 ULP expected in both regimes (measured
+/// per-tier bounds land in docs/ACCURACY.md).
+///
+/// Specials: i0e(0) = 1; i0e(+-inf) = +0; NaN propagates (payload
+/// preserved). Never underflows on a finite double (minimum ~3e-155 at
+/// DBL_MAX).
+void i0e(std::span<const double> in, std::span<double> out);
+
+/// \brief out[i] = sign(in[i]) * exp(-|in[i]|) * I1(|in[i]|), the
+///   exponentially-scaled modified Bessel function of the first kind,
+///   order 1 (SciPy's `ive(1, .)`).
+///
+/// Same scaling rationale as i0e, on the odd pair; see i0e's doc for the von
+/// Mises mean-resultant-length identity. PROVISIONAL accuracy note: 1 ULP
+/// expected in both regimes (measured per-tier bounds land in
+/// docs/ACCURACY.md).
+///
+/// Specials: i1e(+0) = +0, i1e(-0) = -0; i1e(+inf) = +0, i1e(-inf) = -0
+/// (sign follows the input at both zero and infinity); NaN propagates
+/// (payload preserved).
+void i1e(std::span<const double> in, std::span<double> out);
+
 }  // namespace corvus
 
 #endif  // CORVUS_CORVUS_H_

@@ -63,6 +63,7 @@ set(CORVUS_SANITIZE "" CACHE STRING
 include(cmake/FindOrFetchHighway.cmake)
 
 add_library(corvus STATIC
+  src/bessel.cpp
   src/beta.cpp
   src/betainv.cpp
   src/digamma.cpp

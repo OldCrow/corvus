@@ -229,3 +229,29 @@ corvus_test_target(bench_betainv)
 # hence the source root.
 target_include_directories(bench_betainv PRIVATE ${PROJECT_SOURCE_DIR})
 # Deliberately not registered with ctest: run manually on a quiet machine.
+
+# bessel (i0/i1/i0e/i1e) consumes only the dd cores and exp_dd (both
+# registered above; no log_dd, no lgamma/gamma/beta cores) — new family,
+# appended at the end per house convention (trigamma's own comment).
+add_executable(test_bessel_smoke test_bessel_smoke.cpp)
+corvus_test_target(test_bessel_smoke)
+add_test(NAME bessel COMMAND test_bessel_smoke)
+
+add_executable(test_bessel_ulp test_bessel_ulp.cpp)
+corvus_test_target(test_bessel_ulp)
+# Re-derives the kernel's own split constant from src/bessel_data.h so the
+# test and the kernel cannot drift apart — hence the source root.
+target_include_directories(test_bessel_ulp PRIVATE ${PROJECT_SOURCE_DIR})
+add_test(NAME bessel_ulp
+  COMMAND test_bessel_ulp
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/i0_reference.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/i1_reference.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/i0e_reference.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/i1e_reference.txt)
+
+add_executable(bench_bessel bench_bessel.cpp)
+corvus_test_target(bench_bessel)
+# Builds its point sets from the kernel's own split constant in
+# src/bessel_data.h so the two cannot drift apart — hence the source root.
+target_include_directories(bench_bessel PRIVATE ${PROJECT_SOURCE_DIR})
+# Deliberately not registered with ctest: run manually on a quiet machine.

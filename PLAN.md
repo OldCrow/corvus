@@ -1474,6 +1474,25 @@ against double-rounded stored values; odd-sign drop at negative x)
 + 1 reproducibility fix (salted string hash as RNG seed). FLAG for
 G3's ULP test: house tests hard-code a `size < 10000` sanity gate —
 these files are deliberately 2.3–2.5k rows; lower the threshold.
+**G3 stage record [2026-08-11]**: src/bessel-inl.h + bessel.cpp
+(one TU, four exports), tests (smoke/ulp/bench), four-list
+registration complete. MEASURED: 1 ULP max in EVERY bucket, all
+four functions, both regimes and both signs; boundary inf rows
+exact-match (108/112 for i0/i1). Gate pinned kMaxUlp=1 — the 2-ULP
+tail latitude was not needed. Full suite 25/25 at native AVX3_ZEN4,
+zero warnings. MSVC TU ~2.8 s isolated (LIGHT as designed, no /d2).
+Two accepted deviations (reported, neither an escalation): (i)
+shared per-ν drivers returning {unscaled, scaled} pairs — halves
+per-target instantiation; (ii) exact 2^-8/2^+4 prescale/postscale
+around the tail's sqrt(2π·ax) — 2π·DBL_MAX overflows (lgamma-
+Stirling hazard class; the design's "dd sqrt divide" didn't spell
+out DBL_MAX-range arithmetic; orchestrator re-derived: tail core
+sees only ax ≥ 8 on live lanes, so the prescale never denormalizes).
+Bench (loaded, indicative): 11.5–19.0 ns/el, 8.4–10.5× scalar.
+G3 ledger: 0 escalations, 2 accepted deviations, 1 self-caught
+overflow bug. Orchestrator review: kernel read in full (Horner
+algebra, scrub discipline, boundary semantics, sign/NaN ordering
+verified); gates re-run independently.
 **lbeta (committed P2, after Bessel — possibly same session)**:
 public ln B(a,b) exposing the internal LgammaDiffDd assembly (the
 a+b cancellation hazard is already solved in-house); consumer
