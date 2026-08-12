@@ -689,15 +689,39 @@ HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
   const auto half = op::Set(d, 0.5);
   const auto eps = op::Set(d, kBetaFreezeEps);
 
+  // HUGE-beta EXACT PRESCALE [2026-08-12, third defect found by the u -> -1
+  // corner reference rows; never sampled before -- R1 with beta within
+  // ~100x of DBL_MAX needs beta*xi <= B1, i.e. xi ~ 8e-307-class]. Two
+  // independent hazards, one cure:
+  //  * The recurrence's grouping t (x) ((n-beta)/n) peaks at |t|*beta/n
+  //    BEFORE xi rescales it -- overflow at (19, 1e307, 7.6e-307), where
+  //    |t_3|*beta/4 = 1.83e308 > DBL_MAX (witness: NaN out of a healthy
+  //    3.55e-4 row). The grouping itself is load-bearing elsewhere and is
+  //    NOT changed.
+  //  * beta > 2^996 breaks ops::ProdLow's non-FMA Dekker split
+  //    (docs/NUMERICAL-DOCTRINE.md) inside the same DdMul.
+  // Scaling beta down and xi up by the same exact power of two fixes both:
+  // (n - beta)*2^-200 is an exact TwoSum of exactly-scaled operands, the
+  // intermediate peak drops to ~2^836, and the xi*2^200 factor restores
+  // the true term exactly (xi <= XI1 < 1/2 keeps the upscale finite;
+  // subnormal xi upscales exactly). Non-big lanes multiply by 1.0 -- an
+  // IEEE identity -- so every previously-validated lane is BIT-IDENTICAL.
+  const auto rbig = op::Gt(b, op::Set(d, kBetaScaleAbove));
+  const auto rdn = op::IfThenElse(rbig, op::Set(d, kBetaScaleDown), one);
+  const auto rup = op::IfThenElse(rbig, op::Set(d, kBetaScaleUp), one);
+  const auto bsd = op::Mul(b, rdn);
+  const auto xu = op::Mul(xi, rup);
+
   Dd<D> t{one, zero};
   Dd<D> s{zero, zero};
   auto live = one;
   for (int n = 1; n <= detail::kBetaN1; ++n) {
     const auto nv = op::Set(d, static_cast<double>(n));
-    const auto nb = TwoSum(d, nv, op::Neg(b));  // n - beta, EXACT
+    // (n - beta) * 2^-s, EXACT (both scalings exact powers of two)
+    const auto nb = TwoSum(d, op::Mul(nv, rdn), op::Neg(bsd));
     const Dd<D> rn{op::Set(d, detail::kBetaRecipNHi[n - 1]),
                    op::Set(d, detail::kBetaRecipNLo[n - 1])};
-    t = DdMulD(d, DdMul(d, t, DdMul(d, nb, rn)), xi);
+    t = DdMulD(d, DdMul(d, t, DdMul(d, nb, rn)), xu);
     const auto wgt = DdRecipDd(d, TwoSum(d, a, nv));
     const auto contrib = DdMul(d, t, wgt);
     const auto lm = op::Gt(live, half);
@@ -1305,8 +1329,27 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   BetaVal<D> val{zero, Dd<D>{zero, zero}};
 
   if (!op::AllFalse(d, m_r1) || !op::AllFalse(d, m_r2)) {
-    const auto l1 = DdMulD(d, BetaLog(d, xi), alpha);
-    const auto l2 = DdMulD(d, BetaLog(d, yv), beta);
+    // HUGE-parameter EXACT PRESCALE for the two DdMulD multiplicands
+    // [2026-08-12, with BetaR1Series' huge-beta fix]: alpha or beta above
+    // ops::ProdLow's 2^996 non-FMA Dekker ceiling breaks the split inside
+    // DdMulD (a NaN, not a rounding -- and a NaN e defeats the saturation
+    // clamp's comparison, so it REACHES the output). beta = 1e307 lanes
+    // are live and unsaturated (l2 = beta*ln(y) ~ -7.6 on the corner
+    // rows); alpha-huge lanes are always saturated but must still compute
+    // a clean -inf-side e for the clamp to see. Scale-back by an exact
+    // power of two; a true overflow scale-back lands on +-inf, which the
+    // clamp handles (both logs are <= 0, so no inf - inf exists here).
+    // Non-big lanes multiply by 1.0: bit-identical.
+    const auto pba = op::Gt(alpha, op::Set(d, kBetaScaleAbove));
+    const auto pbb = op::Gt(beta, op::Set(d, kBetaScaleAbove));
+    const auto sa = op::IfThenElse(pba, op::Set(d, kBetaScaleDown), one);
+    const auto ua = op::IfThenElse(pba, op::Set(d, kBetaScaleUp), one);
+    const auto sb = op::IfThenElse(pbb, op::Set(d, kBetaScaleDown), one);
+    const auto ub = op::IfThenElse(pbb, op::Set(d, kBetaScaleUp), one);
+    const auto l1s = DdMulD(d, BetaLog(d, xi), op::Mul(alpha, sa));
+    const Dd<D> l1{op::Mul(l1s.hi, ua), op::Mul(l1s.lo, ua)};
+    const auto l2s = DdMulD(d, BetaLog(d, yv), op::Mul(beta, sb));
+    const Dd<D> l2{op::Mul(l2s.hi, ub), op::Mul(l2s.lo, ub)};
     const auto la = BetaLog(d, alpha);
 
     // PA: -ln B = LgammaDiffDd(max, min) - lgamma(min). Scrubbed to (3, 2).
@@ -1526,7 +1569,14 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     const Dd<D> lx_gl =
         BetaLog(d, Dd<D>{op::IfThenElse(hf, xi.hi, yv.hi),
                          op::IfThenElse(hf, xi.lo, yv.lo)});
-    const auto t_dd = DdMulD(d, lx_gl, op::Neg(huge));  // t > 0, dd
+    // t > 0, dd. Same huge-parameter exact prescale as l1/l2 above: huge
+    // exceeds ops::ProdLow's 2^996 non-FMA Dekker ceiling on the corner
+    // rows' b = 1e307 gammalim lanes (bit-identical below 2^900).
+    const auto gbig = op::Gt(huge, op::Set(d, kBetaScaleAbove));
+    const auto gdn = op::IfThenElse(gbig, op::Set(d, kBetaScaleDown), one);
+    const auto gup = op::IfThenElse(gbig, op::Set(d, kBetaScaleUp), one);
+    const auto tds = DdMulD(d, lx_gl, op::Neg(op::Mul(huge, gdn)));
+    const Dd<D> t_dd{op::Mul(tds.hi, gup), op::Mul(tds.lo, gup)};
     // E_g = s*ln t - t - lgamma(s); all the e^-t argument sensitivity is
     // absorbed HERE, in dd -- the cores below only see t.hi, whose 2^-53
     // relative slack enters their series/CF factors with O(1) sensitivity.
