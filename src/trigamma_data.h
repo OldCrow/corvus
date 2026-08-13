@@ -25,10 +25,10 @@ inline constexpr double kTrigammaAsymCut = 0x1.0000000000000p+89;
 
 // Zone [1,2): psi_1(x) = P(t), t = x - kTrigammaZoneCentre (dd).
 // P(t) = L0 + t*(L1 + ... + t*S(t)); L* are the first 3 dd-lead
-// coefficients [FIRST CORRECTION: 3, not the probe's 1 -- see
-// PLAN.md; the original '1 dd-lead' number was a grid artifact,
-// missed by uniform/random sampling, that edge-refined bit-
-// stepped replay near x=1/x=2 caught], S the plain-double tail
+// coefficients (pinned by edge-refined bit-stepped replay near
+// x=1/x=2: uniform/random sampling misses the true worst points,
+// which sit within ~1e-10 of the domain edges and need more dd
+// leads than a coarse grid implies), S the plain-double tail
 // (degree 27 total). Replay-measured worst relative
 // error 9.598e-18 (target 2^-55).
 inline constexpr int kTrigammaZoneLead = 3;
@@ -87,7 +87,7 @@ inline constexpr double kTrigammaSincCoef[6] = {
 // argument. Whole correction bounded <= ~2^-55.9 relative
 // overall (psi_1 >= 8.93, the negative-axis global min), so
 // 2^-30 is ample margin. Replay-measured worst 1.482e-10.
-// WALK FORM (G3: mirror this in the kernel): while (y <
+// WALK FORM (the kernel MUST mirror this): while (y <
 // kTrigammaRoughTetraFloor) { s -= 2/(y*y*y); y += 1; } then
 // psi_2(y) ~= -(1/y^2 + 1/y^3 + (1/y^2)^2 * Horner(coef, 1/y^2)),
 // return s + that (recurrence psi_2(y) = psi_2(y+1) - 2/y^3).
@@ -101,13 +101,13 @@ inline constexpr double kTrigammaRoughTetraCoef[6] = {
 // term (~pi^2/6 at worst) is < 2^-950 relative of the dd 1/x^2
 // term (self-check derivation: e=480 chosen with margin
 // over the measured crossover) -- the kernel may return dd(1/x^2)
-// alone there. PROBE WARNING (G3): naive double (1/x)^2 or
+// alone there. WARNING: naive double (1/x)^2 or
 // 1/(x*x) is NOT reliably correctly-rounded in this regime
 // (measured 24-46% 1-ULP misses) -- the reciprocal-square must
 // stay dd end-to-end down to the overflow boundary below; if
 // Dekker-split limbs land subnormal in this deep-tiny lane, use
 // exact power-of-two rescaling (beta's non-FMA subnormal-tau
-// reframing pattern, PLAN.md correction 11).
+// reframing pattern).
 // Overflow boundary (NOTE ONLY, no separate constant): 1/x^2
 // itself overflows double below x = 2^-512 = 1/sqrt(DBL_MAX).
 inline constexpr double kTrigammaDeepTinyGuard = 0x1.0000000000000p-480;

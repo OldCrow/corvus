@@ -3,7 +3,7 @@
 // i1e(x) = sign(x)*e^-|x|*I1(|x|). Per-target include guard (Highway -inl.h
 // idiom).
 //
-// Per PLAN.md's "P2 Bessel I0/I1 -- BINDING DESIGN" and the parameters
+// The parameters are
 // pinned in src/bessel_data.h (whose header comment specifies the exact
 // evaluation scheme this file follows): two regimes, split at
 // kBesselSplit = 8, on ax = |x| -- both I0 and I1 are functions of ax alone
@@ -17,9 +17,8 @@
 // exponential is needed at all to answer i0/i1 in this regime.
 //
 // q IS CAPTURED EXACTLY. A rounded q = fl(x^2/4) costs ~x ULP through the
-// series' own log-sensitivity q*S'/S = (x/2)*I1/I0 (grows with x -- this is
-// the FIRST correction ratified at G1, not a probe artifact), so q is split
-// into an exact hi/lo pair via ops::SquareLow's residual (the erfc/erfinv
+// series' own log-sensitivity q*S'/S = (x/2)*I1/I0 (grows with x), so q is
+// split into an exact hi/lo pair via ops::SquareLow's residual (the erfc/erfinv
 // ssq/sl idiom; named sqlo here so it cannot be misread as the s1 series
 // value) and the series is evaluated as
 //     S(q_hi + q_lo) ~= S(q_hi) + S'(q_hi)*q_lo,
@@ -32,7 +31,7 @@
 //
 // TAIL REGIME, ax > kBesselSplit. i_nu_e(x) = f_nu(t)/sqrt(2*pi*x), t = 1/x,
 // f_nu a Chebyshev refit in normalized s = t*Scale + Shift (own nodes and
-// budget, clean-room -- A&S coefficients were NOT ported, see PLAN.md).
+// budget, clean-room -- A&S coefficients were NOT ported).
 // Plain-double Horner: t is flat/well-conditioned there and klead 0/1/2
 // were measured to land at the same floor (erfc-tail precedent). The
 // divide-by-sqrt(2*pi*x) is dd-assisted (DdSqrt then DdRecipDd), so the
@@ -95,15 +94,11 @@ inline constexpr double kBesselTwoPiLo = 0x1.1a62633145c07p-52;
 // ops-inl.h ProdLow's Dekker-split operand bound: on the tiers WITHOUT
 // native FMA (SSE4/SSSE3/SSE2) every dd TwoProd splits its operands via
 // multiplication by 2^27+1, exact only for operands below ~2^996
-// (~6.7e299). The original 2^-8 prescale kept the product under DBL_MAX --
-// sufficient for the FMA tiers, where this was validated -- but left
-// DdMulD's ax operand at up to ~7e305, far past the split bound, producing
-// ~2^63-ULP garbage in i0e/i1e at the SSE4 tier for x ~> 4e302 (G4 sweep
-// catch, 2026-08-11). 2^-32 (even exponent, so the sqrt's scale stays an
-// exact power of two) puts the largest split operand at ~4.2e299 < 2^996
-// with 1.6x headroom; the sqrt of a 2^-32 scale is 2^-16, so the postscale
-// on the RESULT is 2^+16. Small side is safe: live tail lanes have
-// ax >= 8, so the prescaled operand never approaches the subnormal range.
+// (~6.7e299). 2^-32 (even exponent, so the sqrt's scale stays an exact
+// power of two) puts the largest split operand at ~4.2e299 < 2^996 with
+// 1.6x headroom; the sqrt of a 2^-32 scale is 2^-16, so the postscale on
+// the RESULT is 2^+16. Small side is safe: live tail lanes have ax >= 8,
+// so the prescaled operand never approaches the subnormal range.
 inline constexpr double kBesselSqrtPrescale = 0x1.0p-32;
 inline constexpr double kBesselSqrtPostscale = 0x1.0p+16;
 
@@ -120,13 +115,13 @@ inline constexpr int kBesselI1SeriesNDCoef =
     static_cast<int>(sizeof(detail::kBesselI1SeriesDCoef) /
                      sizeof(detail::kBesselI1SeriesDCoef[0]));
 
-// --- outlined exp wrappers [MSVC BUILD-TIME GATE, AGENTS.md] --------------
+// --- outlined exp wrappers -------------------------------------------------
 // Thin wrappers whose only purpose is the HWY_NOINLINE: exp_dd's table
 // gather and polynomial are reached from four call sites in this file (one
 // per unscaled assembly, one per scaled-region exp fold), and cl.exe's
 // optimizer is superlinear in function size -- outlining every heavy
-// callee from day one is the betainv/gammainv/trigamma precedent (AGENTS.md,
-// PLAN.md). Bit-identity is guaranteed by contraction-off.
+// callee from day one is the betainv/gammainv/trigamma precedent
+// (AGENTS.md). Bit-identity is guaranteed by contraction-off.
 template <class D>
 HWY_NOINLINE Dd<D> BesselExpDd(D d, op::V<D> xh, op::V<D> xl) {
   return ExpDd(d, xh, xl);

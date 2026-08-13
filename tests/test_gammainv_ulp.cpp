@@ -10,7 +10,7 @@
 // threshold, S1's Temme-quantile territory, and -- separately, which is the
 // whole point -- the beyond-resolution rows.
 //
-// BEYOND-RESOLUTION MUST NOT BE POOLED WITH ANYTHING (G2 stage record). For a
+// BEYOND-RESOLUTION MUST NOT BE POOLED WITH ANYTHING. For a
 // above ~3e34 one ulp of x already moves a*phi past 800, so the entire
 // P = 0 -> P = 1 transition happens inside a single ulp and the certified
 // answer is x = a for every non-degenerate target. Those rows are correct and
@@ -37,7 +37,7 @@
 
 namespace {
 
-// Gate PINNED to measured, no margin (G4, 2026-08-09). Identical cells on
+// Gate PINNED to measured, no margin. Identical cells on
 // every validated leg -- clang-cl AVX3_ZEN4 native, g++ SSE2-capped, MSVC
 // AVX2, and the capped clang-cl sweep -- including not-CR counts and
 // worst-case points: 1 ULP max in every bucket, with the deep-small

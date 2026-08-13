@@ -44,8 +44,7 @@ inline constexpr double kGammaTwoPiLo = 0x1.1a62633145c07p-52;
 inline constexpr double kGammaInvSqrtPiHi = 0x1.20dd750429b6dp-1;
 inline constexpr double kGammaInvSqrtPiLo = 0x1.1ae3a914fed80p-57;
 
-// Region-map and fixed-length constants (all probe-validated,
-// see PLAN.md "Phase C part 2").
+// Region-map and fixed-length constants (all probe-validated).
 inline constexpr double kGammaAT = 0x1.4000000000000p+4;
 inline constexpr int kGammaSeriesN = 64;
 inline constexpr int kGammaCfN = 44;

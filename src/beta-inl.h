@@ -2,32 +2,31 @@
 // Per-target include guard (Highway -inl.h idiom).
 //
 // Both public functions share one kernel: four region cores, two prefactor
-// paths, and a router. Everything here follows PLAN.md, "Regularized
-// incomplete beta -- detail design" together with its G1a, G1b and G1c
-// corrections (the routing ORDER, the R2 orientation rule, the R3 ratio-band
-// membership and the R4 box are all probe-validated there and are reproduced,
-// not re-derived); the tables and every threshold live in src/beta_data.h,
-// emitted and self-checked by tools/gen_beta_data.py.
+// paths, and a router. The routing ORDER, the R2 orientation rule, the R3
+// ratio-band membership and the R4 box are reproduced from route_final() in
+// tools/gen_beta_data.py (the validated master), not re-derived; the tables
+// and every threshold live in src/beta_data.h, emitted and self-checked by
+// the same generator.
 //
 // THE RULE THE WHOLE DESIGN TURNS ON is gamma's: compute ONE side of the pair
 // directly, in double-double, and get the other as 1 (-) it rounded once. The
 // difference from gamma is that WHICH side is computed is decided by the
 // REGION, not by a single predicate: the router picks an ORIENTATION -- the
 // argument triple (alpha, beta, xi) actually handed to a core -- and the
-// direct/complement handout is a final select. The G1a escalation was exactly
-// the failure to separate those two things.
+// direct/complement handout is a final select. Keeping those two decisions
+// separate is load-bearing; conflating them mis-hands whole regions.
 //
 // ORIENTATION AND ROUTING (route_final() in tools/gen_beta_data.py, verbatim;
 // c = a+b, nu = ab/c, p = a/c, q = b/c, y = 1-x):
 //   0. min(a,b) <= eps_R4, evaluated TINY-FIRST as (tau, B, xi_tau):
 //      if tau*|ln xi_tau| <= ln2 AND xi_tau <= xi1 AND B*xi_tau <= B1 -> R4.
-//      Otherwise fall through (this hoist above R1 is the G1b correction: R1's
-//      box has no alpha floor and would otherwise steal (1e-20, 1, 0.4) and
-//      evaluate a flat 1.0).
+//      Otherwise fall through (the hoist above R1 matters: R1's box has no
+//      alpha floor and would otherwise steal (1e-20, 1, 0.4) and evaluate a
+//      flat 1.0).
 //   1. R1 if EITHER orientation has xi <= xi1 AND beta*xi <= B1.
 //   2. R3 if nu >= T_ridge AND x/p in [1/2, 2] AND y/q in [1/2, 2] -- the
-//      ridge RATIO band (the G1c correction; the earlier "cpsi <= 800 strip"
-//      implied a zeta domain no 32 KiB tensor can fit at dd level).
+//      ridge RATIO band (a cpsi-cap membership rule would imply a zeta
+//      domain no 32 KiB tensor can fit at dd level).
 //      Orientation by the mean predicate, i.e. x/p <= 1.
 //   3. Else R2, orientation by the pinned rule x < (a+1)/(c+2).
 // The evaluated side is <= 1 - 2^-12 for R1/R2/R3 (generator self-check (e)),
@@ -56,11 +55,11 @@
 //       E = 1/2 ln(nu/2pi) (-) cpsi (-) Delta, whose derivation removes the
 //       cancellation on paper.
 //   PA  otherwise: -ln B = LgammaDiffDd(max, min) (-) LgammaPosDd(min), the
-//       analytic lgamma difference. This is the design's P3 form used for P1's
-//       range as well -- see the note on LgammaDiffDd for why, and NOTE that
-//       it means the rounded c is NEVER an lgamma argument anywhere in this
-//       kernel, which is a stronger statement than the design's own P1
-//       (LgammaPosDd(c.hi) plus a c.lo*psi(c.hi) correction) makes.
+//       analytic lgamma difference -- see the note on LgammaDiffDd for why
+//       this form serves the whole range. NOTE that it means the rounded c
+//       is NEVER an lgamma argument anywhere in this kernel (a weaker
+//       alternative would be LgammaPosDd(c.hi) plus a c.lo*psi(c.hi)
+//       correction).
 //
 // SATURATION. e^E underflows below about -745; every region that ends in an
 // exponential clamps at kBetaExpFloor = -800 and reports the clamp
@@ -70,9 +69,8 @@
 // series' terms would carry infinities from perfectly ordinary (if utterly
 // saturated) arguments.
 //
-// ACCURACY. Per-tier gates pinned at G4 (2026-08-05/06) against the
-// harness-certified reference set; docs/ACCURACY.md carries the audited
-// per-region table.
+// ACCURACY. Per-tier gates pinned against the harness-certified reference
+// set; docs/ACCURACY.md carries the audited per-region table.
 #if defined(CORVUS_BETA_INL_H_) == defined(HWY_TARGET_TOGGLE)
 #ifdef CORVUS_BETA_INL_H_
 #undef CORVUS_BETA_INL_H_
@@ -87,12 +85,12 @@
 #include "src/dd_special-inl.h"
 #include "src/erfc_core-inl.h"
 #include "src/exp_dd-inl.h"
-// gamma-inl.h: ONLY for the (C) gamma-limit slice's two template cores
+// gamma-inl.h: ONLY for the gamma-limit slice's two template cores
 // (GammaSeriesSum, GammaCfRecip) -- templates instantiate what is called,
 // so this does not pull gamma's other cores into beta.o. The slice exists
-// because the beta CF is structurally degenerate above kBetaGammaLim
-// (PLAN.md escalation (C)); its dd argument-sensitivity lives entirely in
-// e^-t, which beta's own dd prefactor machinery absorbs.
+// because the beta CF is structurally degenerate above kBetaGammaLim; its
+// dd argument-sensitivity lives entirely in e^-t, which beta's own dd
+// prefactor machinery absorbs.
 #include "src/gamma-inl.h"
 #include "src/lgamma-inl.h"
 #include "src/log_dd-inl.h"
@@ -116,9 +114,9 @@ namespace op = ops;
 // 2^-60 truncation of the sum is a 2^-60 relative error in the result. R4's is
 // not: its Sigma reaches the answer through log1p(tau*Sigma) which then
 // CANCELS against w to ~2^-15 of itself, so a 2^-60 truncation of Sigma
-// arrives amplified by |tau*Sigma|/|y|. Measured at (a, b, x) =
-// (70.17, 7.4438e-6, 0.9), where the amplification is 3e4: the answer came
-// back 16 ULP off, and the freeze was the whole of it. 2^-105 is the dd
+// arrives amplified by |tau*Sigma|/|y| -- the amplification reaches ~3e4
+// inside the domain (e.g. (70.17, 7.4438e-6, 0.9)), turning a 2^-60 freeze
+// into a double-digit-ULP error on its own. 2^-105 is the dd
 // representation's own resolution, so the freeze now only ever skips terms the
 // accumulator could not have held anyway; the cost is that most lanes run the
 // full fixed cap (64 for R1, 48 for R4) instead of stopping early.
@@ -134,12 +132,12 @@ inline constexpr double kBetaZ2Split = 36.0;
 // term is below 2^-450 against a result of order 1/2, so the clamped value and
 // the true one round identically (kGammaTwoPiAClamp, same argument). The clamp
 // must ALSO sit under ops::ProdLow's 2^996 non-FMA Dekker ceiling minus the
-// 2^27 split factor: the original 2^1000 value overflowed the split of nu
-// inside DdMulD(twopi, nu) on SSE tiers -- NaN on the a = b >= 2^998 diagonal,
-// caught by the G4 capped sweep (FMA targets never see it).
+// 2^27 split factor: anything above that overflows the split of nu inside
+// DdMulD(twopi, nu) on non-FMA tiers -- NaN on the a = b >= 2^998 diagonal
+// (FMA targets never see it).
 inline constexpr double kBetaTwoPiNuClamp = 0x1.0p+900;
 
-// R4 subnormal-tau reframing [ELEVENTH correction; see BetaR4Tiny]. All
+// R4 subnormal-tau reframing (see BetaR4Tiny). All
 // five are exact powers of two: the two thresholds partition the hazard
 // (tau below kBetaTauSubn puts tau-scale products at the subnormal
 // boundary, where non-FMA Dekker residuals collapse), kBetaTauUp/Down are
@@ -297,11 +295,9 @@ HWY_INLINE BetaExpArg<D> BetaClampE(D d, op::V<D> eh, op::V<D> el) {
 // prefactor assembly, and the gamma-limit slice. Inlined, each of those
 // becomes its own copy of a table gather plus a polynomial IN EVERY ONE OF
 // THE COMPILED TARGETS, and cl.exe's optimizer is superlinear in function
-// size: this is the same fix that took betainv.cpp (src/betainv-inl.h) from
-// past 45 minutes and 7 GB on one MSVC invocation to 127 s, retro-applied
-// here per PLAN.md's "MSVC build-time headroom" item. Bit-identity is
-// guaranteed by contraction-off and verified by byte-comparing the ULP
-// tables across the change.
+// size -- at this TU's scale the difference is minutes versus the better
+// part of an hour on one MSVC invocation. Bit-identity across the outline
+// is guaranteed by contraction-off.
 template <class D>
 HWY_NOINLINE Dd<D> BetaLog(D d, Dd<D> x) {
   return LogDdAny(d, x);
@@ -319,11 +315,10 @@ HWY_NOINLINE Dd<D> BetaExpDd(D d, op::V<D> xh, op::V<D> xl) {
 // Binet's function phi(z) = lgamma(z) - [(z-1/2)ln z - z + 1/2 ln 2pi], the
 // Stirling tail, as sum_k B_2k/(2k(2k-1) z^(2k-1)) for z >= kBetaZ0 = 10.
 //
-// HOME OF THIS FUNCTION [G3 decision]. The design left it open whether to
-// expose lgamma-inl.h's Stirling tail or write a fresh one. Fresh, here:
-// lgamma's tail is the same series but truncated for ITS OWN X0 = 8 into a
-// nine-entry table, and is welded into LgammaStirling's 2^-200 scaling block;
-// beta_data.h already carries kBetaBinetCoef[16] emitted and self-checked
+// A FRESH TAIL rather than an exposure of lgamma-inl.h's: lgamma's tail is
+// the same series but truncated for ITS OWN X0 = 8 into a nine-entry table,
+// and is welded into LgammaStirling's 2^-200 scaling block;
+// beta_data.h carries kBetaBinetCoef[16] emitted and self-checked
 // (check (g), 2^-74.6) at Z0 = 10 precisely so that this file needs nothing
 // from lgamma's internals. src/lgamma-inl.h is therefore UNTOUCHED and the
 // dd_special-hoist byte-identity protocol does not apply.
@@ -395,19 +390,17 @@ HWY_NOINLINE Dd<D> BinetDiffDd(D d, Dd<D> z, Dd<D> w) {
 // ------------------------------------------------------------------------
 // lgamma(M + m) - lgamma(M) for 0 < m <= M, as a dd, RELATIVE to itself.
 //
-// This is the design's LgammaDiffDd, and it is what lets the prefactor avoid
-// ever handing a rounded c = a+b to an lgamma: -ln B(alpha,beta) is
+// This is what lets the prefactor avoid ever handing a rounded c = a+b to
+// an lgamma: -ln B(alpha,beta) is
 // lgamma(c) - lgamma(alpha) - lgamma(beta) = LgammaDiffDd(M, m) - lgamma(m)
-// with M = max, m = min. The design reserved that spelling for P3 (c > C_lg,
-// small first parameter) and gave P1 three LgammaPosDd calls plus a
-// c.lo*DigammaRough(c.hi) correction; this kernel uses the difference form for
-// P1's range too, for two reasons:
-//   * it removes the rounded lgamma argument outright rather than correcting
-//     for it, which is the design's own exact-c doctrine taken one step
-//     further; and
+// with M = max, m = min. The difference form is used over the WHOLE
+// parameter range -- not only where c is large -- for two reasons:
+//   * it removes the rounded lgamma argument outright rather than
+//     correcting for it with a c.lo*digamma(c.hi) term, which is the
+//     exact-c doctrine taken one step further; and
 //   * beta_data.h's DigammaRough table is fitted and self-checked (check (i))
-//     only on (0, 2*Z0] = (0, 20], while P1's c reaches C_lg = 256, so the
-//     shipped table cannot serve the correction it was emitted for.
+//     only on (0, 2*Z0] = (0, 20], while c reaches C_lg = 256 on the PA
+//     path, so the shipped table cannot serve that correction anyway.
 // kBetaDigammaCoef/kBetaDigammaDeg are consequently unused by this kernel.
 //
 // TWO PIECES.
@@ -432,11 +425,10 @@ HWY_NOINLINE Dd<D> BinetDiffDd(D d, Dd<D> z, Dd<D> w) {
 //      rounding: d/dw of z*log1p(w) is z, but of z*phi(w) is only z*w/(1+w)
 //      ~ m. That matters because w = m/z can land in or near the SUBNORMAL
 //      range (m = 1e-300 over z = 1e8 gives 1e-308), where a dd cannot hold a
-//      low word and w carries only 53 bits. Measured: at
-//      (a, b, x) = (1e-300, 1e8, 8e-8) an explicitly compensated
-//      (z*w - m) - z*phi(w) form -- algebraically identical, and what an
-//      earlier version of this function used -- put the whole z*dw through and
-//      landed 2.8e4 ULP out; the phi form is exact to the last bit there.
+//      low word and w carries only 53 bits. A compensated
+//      (z*w - m) - z*phi(w) form, though algebraically identical, still
+//      passes the whole z*dw through and loses ~1e4-ULP class where w is
+//      subnormal; the phi grouping is exact to the last bit there.
 //      m - 1/2 is an exact TwoSum: m reaches 256 in P1's range and
 //      (m-1/2)*log1p(w) is then ~177, whose last bits are budgeted.
 //
@@ -445,7 +437,7 @@ HWY_NOINLINE Dd<D> BinetDiffDd(D d, Dd<D> z, Dd<D> w) {
 // are computed on an exactly down-scaled pair and scaled back; m is bounded by
 // 256 at every live call site (PA has c <= C_lg or min < Z0; R4 hands
 // tau <= kBetaPrTauMax = 2.5 for its lgdiff term and m <= 3/2 for its
-// lgamma(1+tau) form [NINTH correction]), so no other operand is at risk.
+// lgamma(1+tau) form), so no other operand is at risk.
 // That audit is the AGENTS.md 2^996 rule discharged for this function.
 template <class D>
 HWY_NOINLINE Dd<D> LgammaDiffDd(D d, op::V<D> bigm, op::V<D> smallm) {
@@ -525,8 +517,8 @@ HWY_NOINLINE Dd<D> LgammaDiffDd(D d, op::V<D> bigm, op::V<D> smallm) {
 // alpha itself can exceed ops::ProdLow's 2^996 non-FMA Dekker ceiling. Both
 // are fixed by one exact power of two: u, v, p, q and zeta are 0-homogeneous
 // in (alpha, beta) so they are unchanged, while cpsi and nu are 1-homogeneous
-// and come back with a single exact multiply. This is the design's c-overflow
-// guard, sited here [G3 decision]. It is safe because BOTH consumers of this
+// and come back with a single exact multiply. This prescale is the
+// c-overflow guard. It is safe because BOTH consumers of this
 // function have min(alpha,beta) >= Z0 = 10 (R3 needs nu >= T_ridge = 32 <= min,
 // PB needs min >= Z0), so the down-scaled small parameter cannot underflow.
 template <class D>
@@ -567,18 +559,15 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   const auto u = DdMul(d, DdNeg(d, lam), DdRecip(d, as));
   const auto v = DdMul(d, lam, DdRecip(d, bs));
 
-  // 1 + u AND 1 + v BY CLOSED FORM ON THE CORNER LANES [u -> -1 fix,
-  // 2026-08-12; the shipped-since-v0.1.0 beta_p/beta_q defect pair]. The
-  // identities
+  // 1 + u AND 1 + v BY CLOSED FORM ON THE CORNER LANES. The identities
   //     1 + u = (alpha - lambda)/alpha = c*xi/alpha,
   //     1 + v = (beta + lambda)/beta  = c*y/beta
   // have NO subtraction anywhere, so the corner w they produce is
   // dd-relative at every size, where the generic spelling inside 1-arg
   // Log1pmxDd (TwoSum(1, u.hi) + u.lo) degenerates for u near -1: at
   // 1 + u < 2^-53, u.hi rounds to exactly -1 and LogDdAny receives a
-  // zero-high pair (NaN -> the exact-0 return at (19, 1e5, 5.2e-21)); at
-  // 1 + u merely small, the folded u.lo rivals the high word and LogDdAny
-  // drops the cubic in lo/hi (the 1.4e-4 E error at (19, 1e5, 1.73e-19)).
+  // zero-high pair (NaN); at 1 + u merely small, the folded u.lo rivals
+  // the high word and LogDdAny drops the cubic in lo/hi.
   //
   // Corner select at u.hi < -1/2 (v mirrored; betainv's fixed-frame call
   // reaches the v corner even though beta's routed frame cannot):
@@ -636,8 +625,7 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   // generated default constructor is instantiated OUTSIDE the per-target
   // attribute region on Apple Clang, and the NEON_BF16 slice of a newer
   // system Highway then refuses to inline the vector members'
-  // always_inline ctors into it (caught by the first macOS CI run of
-  // this TU; gamma/erf never default-construct and were unaffected).
+  // always_inline ctors into it.
   const BetaPsi<D> out{Dd<D>{op::Mul(cs.hi, up), op::Mul(cs.lo, up)},
                        Dd<D>{op::Mul(nus.hi, up), op::Mul(nus.lo, up)},
                        op::CopySign(DdSqrt(d, z2).hi, lam.hi),
@@ -689,15 +677,13 @@ HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
   const auto half = op::Set(d, 0.5);
   const auto eps = op::Set(d, kBetaFreezeEps);
 
-  // HUGE-beta EXACT PRESCALE [2026-08-12, third defect found by the u -> -1
-  // corner reference rows; never sampled before -- R1 with beta within
-  // ~100x of DBL_MAX needs beta*xi <= B1, i.e. xi ~ 8e-307-class]. Two
-  // independent hazards, one cure:
+  // HUGE-beta EXACT PRESCALE (reachable only with xi ~ 8e-307-class: R1
+  // membership with beta within ~100x of DBL_MAX still needs
+  // beta*xi <= B1). Two independent hazards, one cure:
   //  * The recurrence's grouping t (x) ((n-beta)/n) peaks at |t|*beta/n
-  //    BEFORE xi rescales it -- overflow at (19, 1e307, 7.6e-307), where
-  //    |t_3|*beta/4 = 1.83e308 > DBL_MAX (witness: NaN out of a healthy
-  //    3.55e-4 row). The grouping itself is load-bearing elsewhere and is
-  //    NOT changed.
+  //    BEFORE xi rescales it -- overflow at e.g. (19, 1e307, 7.6e-307),
+  //    where |t_3|*beta/4 = 1.83e308 > DBL_MAX. The grouping itself is
+  //    load-bearing elsewhere and is NOT changed.
   //  * beta > 2^996 breaks ops::ProdLow's non-FMA Dekker split
   //    (docs/NUMERICAL-DOCTRINE.md) inside the same DdMul.
   // Scaling beta down and xi up by the same exact power of two fixes both:
@@ -742,10 +728,8 @@ HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
 //     d_{2m+1} = -(alpha+m)(c+m)xi / ((alpha+2m)(alpha+2m+1)).
 // Fixed depth kBetaN2 with NO convergence test (gamma's GammaCfRecip lesson).
 //
-// THE RECURRENCE AND EVERY d ARE DOUBLE-DOUBLE, which gamma's are not
-// [G3 deviation, and the review checklist's "d-term order of operations" item
-// is discharged here rather than by a cheaper spelling]. Two independent
-// reasons, both measured:
+// THE RECURRENCE AND EVERY d ARE DOUBLE-DOUBLE, which gamma's are not.
+// Two independent reasons, both measured:
 //
 //  1. CONDITIONING. A relative perturbation eps in d_1 moves the returned F by
 //     (F - 1)*eps -- the recurrence's last step is f_1 = 1 + d_1/f_2 and F is
@@ -764,14 +748,12 @@ HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
 //     membership forces xi <= 0.45, hence x >= 0.55 in the swapped case,
 //     hence a Sterbenz-exact 1 - x.)
 //
-// ORDER OF OPERATIONS AND OVERFLOW, the design's own rule and it is load
+// ORDER OF OPERATIONS AND OVERFLOW -- the rule is load
 // bearing: each d is TWO factors, a ratio bounded by ~1 times a bounded
 // quotient, and never the raw (alpha+m)(c+m) product. alpha is NOT bounded on
 // unsaturated lanes -- xi is carried as a dd, so xi can sit 1 - 5e-249 below
 // one and alpha*ln xi stays finite for alpha ~ 1e250, at which point
-// (alpha+m)*(c+m) is 1e500. (An earlier form here folded the two ratios into a
-// single division for speed and produced -nan at (1e-6, 7.7e249, 5.1e-249);
-// the reference set's huge-parameter rows caught it.) The two bounded pieces
+// (alpha+m)*(c+m) is 1e500. The two bounded pieces
 // are (c+m)*xi <= alpha + 33 -- which is exactly what the orientation rule
 // buys -- and (beta-m)*xi, capped near 800 by saturation.
 //
@@ -869,9 +851,9 @@ HWY_NOINLINE Dd<D> BetaR2Cf(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi) {
 // the router's own orientation at the call site. Gamma's GammaTemme reports
 // is_p for the same reason; the difference is only that gamma's predicate and
 // its sign come from the same subtraction, so the two can never disagree
-// there. Without this the crest points come out as the OTHER member of the
-// pair -- 71.111, 640, 0.1 (where xi/p rounds to exactly 1.0 while lambda is
-// negative) returned 0.4867 for a true P of 0.5133.
+// there. Without this a crest point comes out as the OTHER member of the
+// pair -- e.g. at (71.111, 640, 0.1), xi/p rounds to exactly 1.0 while
+// lambda is negative.
 template <class D>
 struct BetaR3Out {
   BetaVal<D> val;
@@ -939,7 +921,7 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
     sum = op::MulAdd(sum, r, op::Mul(tsign, row));
   }
 
-  // [(C) slice DEPTH EXTENSION]: gamma-limit ridge lanes add the p->0-edge
+  // GAMMA-LIMIT DEPTH EXTENSION: gamma-limit ridge lanes add the p->0-edge
   // rows k = 10..12 (kBetaR3GlExt, 1D Chebyshev in the same t) -- the main
   // K=10 truncation alone is 2^-50-class at nu = kBetaGlRidgeMin, 2^-60
   // with these (generator check (c)'s extension lattice). The rows are
@@ -1014,15 +996,15 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
 //   w      = tau*ln xi_tau + [lgamma(B+tau) - lgamma(B)] - lgamma(1+tau),
 //   Sigma  = sum_{n>=1} t_n/(tau+n),   t_n = t_{n-1}(n-B)xi_tau/n.
 //
-// This is the design's "gamma-R4 verbatim in beta clothing" requirement met in
-// LOG SPACE, which is strictly stronger than expanding products of (1+E_i):
+// This is gamma's R4 pattern in beta clothing, met in LOG SPACE, which is
+// strictly stronger than expanding products of (1+E_i):
 // I_{xi_tau}(tau,B) tends to 1 as tau -> 0, and nothing here ever forms it.
 // Every piece of w is individually O(tau) and individually relative-accurate:
 //   * the lgamma difference is analytic (LgammaDiffDd) -- lgamma(B+tau) and
 //     lgamma(B) are equal to the last bit once tau is small, so their
 //     difference cannot be taken numerically;
-//   * lgamma(1+tau) is the analytic difference LgammaDiffDd(1, tau) [NINTH
-//     correction; see the block comment at its call below], never
+//   * lgamma(1+tau) is the analytic difference LgammaDiffDd(1, tau)
+//     (see the block comment at its call below), never
 //     LgammaPosDd(1+tau) -- fl(1+tau) rounds to exactly 1 below 2^-53 and
 //     would return a flat zero, losing the -gamma*tau that is the whole
 //     signal (the GammaSmallQ mechanism);
@@ -1032,8 +1014,7 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
 // continued fraction on their overlap band.
 //
 // tau*|ln xi_tau| <= ln 2 on R4's own box, so |w| stays below ~1 there.
-// POST-ROUTED lanes [SEVENTH correction; EIGHTH widens the gate] have no
-// ln-2 cap and tau up to
+// POST-ROUTED lanes have no ln-2 cap and tau up to
 // kBetaPrTauMax = 2.5, but their defining property (R1 value > kBetaNearOne)
 // means w and log1p(tau*Sigma) CANCEL to below ~2^-10 -- the dd addition
 // carries that cancellation at ~2^-105 absolute, so the relative error of
@@ -1050,13 +1031,12 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
   const auto half = op::Set(d, 0.5);
   const auto eps = op::Set(d, kBetaFreezeEps);
 
-  // --- subnormal-tau guard [ELEVENTH correction] --------------------------
+  // --- subnormal-tau guard ------------------------------------------------
   // For tau < 2^-950 every term of w is tau-scale and the intermediate
   // PRODUCTS land at or below the subnormal boundary, where the non-FMA
   // Dekker residual in ops::ProdLow collapses (sub-products round at
-  // 2^-1074 granularity): measured 2709 ULP at
-  // (1.57e-311, 4.6e-210, 0.44) on the SSE4 capped sweep, clean on FMA
-  // targets. Two exact power-of-two reframings, selected per lane:
+  // 2^-1074 granularity) -- thousands of ULP on non-FMA tiers, invisible
+  // on FMA targets. Two exact power-of-two reframings, selected per lane:
   //  * tau < 2^-950, bb > 2^-140: the assembly is linear in tau to
   //    relative O(tau_w/bb) <= 2^-110, so run it ENTIRELY at
   //    tau_w = tau * 2^700 (in [2^-374, 2^-250]: every product normal)
@@ -1094,7 +1074,7 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
   }
 
   // lgamma(1+tau) via the SAME analytic difference machinery as the
-  // lgamma(B+tau) - lgamma(B) term below [NINTH correction]:
+  // lgamma(B+tau) - lgamma(B) term below:
   //   lgamma(1+tau) = LgammaDiffDd(1, tau)      (tau <= 1)
   //                 = LgammaDiffDd(2, tau - 1)  (1 < tau <= kBetaPrTauMax)
   // exact identities, since lgamma(1) = lgamma(2) = 0 and tau - 1 is an
@@ -1103,18 +1083,13 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
   // LgammaDiffDd's precondition, its walk range (M < Z0 fires <= 7 of
   // the 10 unit steps), and its already-exercised Log1pmxDd argument
   // range (the PA call sites reach comparable s).
-  // WHY NOT the previous three-zone ZoneBracket form: that reused
-  // lgamma's zone polynomial, whose replayed-evaluation budget
+  // WHY NOT a zone-polynomial form reusing lgamma's fit: that budget
   // (ZONE_TARGET = 3e-17, floored by the tail Horner's own DOUBLE
   // rounding) is relative to lg1 ITSELF. Post-routed lanes cancel w
   // down to Qtilde ~ 2^-11..2^-17, amplifying that budget by
-  // |lg1|/Qtilde ~ 2^13..2^17: measured 55/209 ULP against the
-  // certified reference set, implied dw = (1..3)e-18 x lg1 -- squarely
-  // the polynomial's class, twenty orders above the dd class of every
-  // other component in w. Same disease shape as the reference oracle's
-  // round-6 lg_diff defect: a truncation/rounding budget proven
-  // relative to a component's own scale is void once the assembly
-  // cancels below it. Original R4 lanes (tau <= eps_R4) were immune --
+  // |lg1|/Qtilde ~ 2^13..2^17 -- a truncation/rounding budget proven
+  // relative to a component's own scale is VOID once the assembly
+  // cancels below it. Original R4 lanes (tau <= eps_R4) are immune --
   // there |lg1| ~ gamma*tau and Qtilde ~ tau*O(10), no amplification --
   // but take the analytic form too: one code path, and the walk is
   // cheap next to the N=48 series above.
@@ -1129,7 +1104,7 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
   w = DdAdd(d, w, Log1pDdWide(d, DdMulD(d, s, tau)));
   auto q = DdNeg(d, Expm1Dd(d, w));
 
-  // [ELEVENTH correction] unscale the tau_w lanes (exact except the one
+  // Unscale the tau_w lanes (exact except the one
   // allowed final subnormal rounding), then override the both-tiny lanes
   // with the r/(1+r) closed form. Dead-lane execution of the shortcut can
   // produce inf/NaN from the 2^900 up-scale of a large bb; those lanes are
@@ -1215,21 +1190,17 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // R2's orientation threshold, evaluated in the TINY-FIRST frame.
   const auto thr_t = op::Div(
       one, op::Add(one, op::Div(op::Add(bmax, one), op::Add(tau, one))));
-  // R4's xi cap, WIDENED [G3 correction, fourth routing fix -- see the report
-  // and the escalation note below]. The design's box caps xi_tau at xi1 = 0.45
-  // and asserts that everything failing the box "lands correctly in R1/R2
-  // below". That is true of the other two caps but NOT of this one: for
-  // xi_tau in (xi1, thr_t) neither R1 orientation fires (both xi_tau and
-  // 1 - xi_tau exceed xi1) and R2 then evaluates the TINY-FIRST side, which
-  // for tau <= eps_R4 is 1 - O(tau) -- the near-one member of the pair, so the
-  // complement it hands back is pure noise. Witness from the shipped reference
-  // set: (a, b, x) = (1.7614e-86, 5.8567e-3, 0.45744) wants Q = 3.0105e-84 and
-  // got 2.0143e-23. The window is narrow -- thr_t = (tau+1)/(tau+B+2) exceeds
+  // R4's xi cap, WIDENED past the box's xi1: for xi_tau in (xi1, thr_t)
+  // neither R1 orientation fires (both xi_tau and 1 - xi_tau exceed xi1)
+  // and R2 would then evaluate the TINY-FIRST side, which for
+  // tau <= eps_R4 is 1 - O(tau) -- the near-one member of the pair, so the
+  // complement it hands back is pure noise.
+  // The window is narrow -- thr_t = (tau+1)/(tau+B+2) exceeds
   // xi1 only for B < ~0.24, and is always below 1/2 -- and inside it the
-  // series is untroubled: measured worst N = 48 truncation over the whole
-  // extension is 2^-57.3 (against 2^-71.9 inside the design's own box and a
-  // generator target of 2^-58), because B < 0.24 keeps every term ratio below
-  // xi_tau. The other two caps are unchanged.
+  // series is untroubled: worst N = 48 truncation over the whole
+  // extension is 2^-57.3 (2^-71.9 inside the unwidened box, generator
+  // target 2^-58), because B < 0.24 keeps every term ratio below
+  // xi_tau. The other two caps are the box's own.
   auto i_r4 = op::Mul(
       BetaInd(d, op::Ge(op::Set(d, detail::kBetaEpsR4), tau)),
       op::Mul(BetaInd(d, op::Ge(op::Set(d, detail::kBetaLn2),
@@ -1252,7 +1223,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   const auto band = op::Mul(
       op::Mul(BetaInd(d, op::Ge(rat1, lo_r)), BetaInd(d, op::Ge(hi_r, rat1))),
       op::Mul(BetaInd(d, op::Ge(rat2, lo_r)), BetaInd(d, op::Ge(hi_r, rat2))));
-  // [(C) gamma-limit slice, ridge part]: above kBetaGammaLim the CF is
+  // GAMMA-LIMIT slice, ridge part: above kBetaGammaLim the CF is
   // structurally degenerate, so the in-band ridge floor drops from T_ridge
   // to kBetaGlRidgeMin = 20 -- exactly gamma's own kGammaAT, and exactly
   // the p -> 0 edge where this table's e_k are anchored to gamma's
@@ -1333,7 +1304,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
 
   if (!op::AllFalse(d, m_r1) || !op::AllFalse(d, m_r2)) {
     // HUGE-parameter EXACT PRESCALE for the two DdMulD multiplicands
-    // [2026-08-12, with BetaR1Series' huge-beta fix]: alpha or beta above
+    // (companion to BetaR1Series' huge-beta prescale): alpha or beta above
     // ops::ProdLow's 2^996 non-FMA Dekker ceiling breaks the split inside
     // DdMulD (a NaN, not a rounding -- and a NaN e defeats the saturation
     // clamp's comparison, so it REACHES the output). beta = 1e307 lanes
@@ -1357,24 +1328,22 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
 
     // PA: -ln B = LgammaDiffDd(max, min) - lgamma(min). Scrubbed to (3, 2).
     //
-    // lgamma(min) [TENTH correction]: for min <= kBetaPrTauMax it is the
+    // lgamma(min): for min <= kBetaPrTauMax it is the
     // analytic identity lgamma(min) = lgamma(1+min) - ln(min), with
-    // lgamma(1+min) via the NINTH correction's LgammaDiffDd forms -- every
+    // lgamma(1+min) via the LgammaDiffDd forms -- every
     // piece dd-relative, so the assembled lgamma(min) is dd-ABSOLUTE
     // (~2^-100; the cancellation at lgamma's zeros min = 1, 2 only ever
     // cancels to an absolute level dd carries). WHY: LgammaPosDd's
     // zone/Stirling budgets (3e-17 / 1e-18) are relative to lgamma
     // ITSELF with a double-class Horner floor, and a near-one R1 lane
-    // hands its CMP side out at ulp(complement) ~ 2^-62..2^-64 --
-    // measured 13 ULP at (a, b, x) = (0.5, 100, 0.05), implied
-    // prefactor error 5e-18 = 5.1e-18 * |lgamma(0.5)|, squarely the
-    // polynomial class (the R4-postroute/NINTH mechanism at its second
-    // site). Near-one values require tau <= kBetaPrTauMax (the eighth-
-    // correction pocket: above it the box-corner complement clears the
-    // doctrine bound with margin), so min > 2.5 keeps LgammaPosDd; if
-    // the G4 seam sweep exposes the tau > 2.5 corner, extend via
+    // hands its CMP side out at ulp(complement) ~ 2^-62..2^-64 -- the
+    // same component-relative-budget-voided-by-cancellation mechanism
+    // as R4's lg1. Near-one values require tau <= kBetaPrTauMax
+    // (above it the box-corner complement clears the
+    // doctrine bound with ~3x margin), so min > 2.5 keeps LgammaPosDd; if
+    // a seam sweep ever exposes a tau > 2.5 corner, extend via a
     // lgamma(min) = LgammaDiffDd(floor(min), frac) + ln((floor-1)!)
-    // table (PLAN.md).
+    // table.
     Dd<D> epa{zero, zero};
     if (!op::AllFalse(d, m_pa)) {
       const auto mn = op::IfThenElse(m_pa, op::Min(alpha, beta), safe_a);
@@ -1433,7 +1402,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       const auto ea = BetaClampE(d, e2.hi, e2.lo);
       const auto as = op::IfThenElse(ea.sat, safe_a, alpha);
       const auto bs = op::IfThenElse(ea.sat, safe_b, beta);
-      // c as the EXACT dd pair, per the design's exact-c rule: the CF's
+      // c as the EXACT dd pair, per the exact-c rule: the CF's
       // (c+m) term is the one place c enters a product, and fl(a+b) alone
       // would put c*2^-53 into every odd d.
       const auto cd = TwoSum(d, alpha, beta);
@@ -1453,7 +1422,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     }
   }
 
-  // --- SEVENTH ROUTING CORRECTION: near-one post-route ---------------------
+  // --- near-one post-route -------------------------------------------------
   // An R1 lane whose evaluated dd value exceeds kBetaNearOne (1 - 2^-11)
   // would hand back a complement made of dd rounding noise (the
   // complement-slack doctrine's 1 - 2^-12 bound, with one bit of margin
@@ -1463,19 +1432,17 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // zone -- so they fold into the R4 core's lane set below, SAME
   // orientation (alpha = min there: near-one requires the mean below
   // xi <= xi1, i.e. beta > alpha*(1-xi1)/xi1 > alpha -- holds at any
-  // gate). The tau ceiling kBetaPrTauMax = 2.5 [EIGHTH correction; was
-  // 1.5] is one lgamma recurrence step past the centre-2 edge (see
-  // BetaR4Tiny's three-zone lgamma(1+tau)): check (e)'s extended pocket
-  // found stay-R1 lanes at tau = 1.6 (b = 20, x = 0.4) whose complement
-  // dips BELOW the 2^-12 doctrine bound -- the earlier "safe band"
-  // claim was gamma-limit reasoning, wrong at moderate beta. With the
-  // gate at 2.5, any doctrine-violating lane also exceeds the
+  // gate). The tau ceiling kBetaPrTauMax = 2.5 is one lgamma recurrence
+  // step past the centre-2 edge (see BetaR4Tiny's lgamma(1+tau)):
+  // check (e)'s extended pocket shows stay-R1 lanes near tau = 1.6 at
+  // moderate beta whose complement dips BELOW the 2^-12 doctrine bound
+  // (a "safe band" argument that holds in the gamma limit fails there).
+  // With the gate at 2.5, any doctrine-violating lane also exceeds the
   // kBetaNearOne bar (1 - 2^-11 < 1 - 2^-12) and therefore post-routes;
   // above 2.5 the pocket shows the box-corner complement clears 2^-12
-  // with ~3x margin. This replaces the sixth correction's
-  // opposite-orientation CF destination, which stalled at 2^-55.5 on
-  // the CF's small-second-parameter weakness (generator check
-  // (b)(viii), witness (0.0234, 1e6, 4e-6)).
+  // with ~3x margin. An opposite-orientation CF destination is NOT a
+  // viable alternative: it stalls at 2^-55.5 on the CF's
+  // small-second-parameter weakness (generator check (b)(viii)).
   const auto i_pr = op::Mul(
       i_r1, op::Mul(BetaInd(d, op::Gt(val.dd.hi,
                                       op::Set(d, detail::kBetaNearOne))),
@@ -1510,7 +1477,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     // R4's scrub point is its OWN interior (tau <= eps_R4), not the shared
     // (2, 3, 1/4): tau = 2 is outside this core's zones and would take
     // lgamma(1+tau) past the centre-2 edge. The mask is the EXTENDED set
-    // m_r4x [SEVENTH correction]: routed R4 lanes plus near-one post-routed
+    // m_r4x: routed R4 lanes plus near-one post-routed
     // R1 lanes -- for the latter, alpha/beta/xi ARE the fired orientation
     // and coincide with the tiny-first frame (alpha = min on every lane the
     // near-one bar can fire on), so lxt is the right log for both kinds.
@@ -1536,13 +1503,13 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // (In-band traffic above B_GL went to R3 via the lowered ridge floor
   // kBetaGlRidgeMin.) One routed parameter is >= kBetaGammaLim = 2^59; the
   // beta CF is structurally degenerate there (d1 -> -(1 - tiny); mpmath's
-  // own CF divides by zero at working precision -- G3 escalation (C)), so
+  // own CF divides by zero at working precision), so
   // the lane goes through the gamma limit: with s = the small routed
   // parameter and t = -(huge)*(ln of the huge side's own x-argument), dd:
   //   huge SECOND: I_xi(s, huge) ~ P_gamma(s, t),      t = -(huge)ln(1-xi)
   //   huge FIRST : I_xi(huge, s) ~ 1 - P_gamma(s, t),  t = -(huge)ln(xi)
   // relative correction O(1/huge), 2^-49-class at the B_GL pin (generator
-  // overlap probe; gated at G4 as its own ULP row -- gammalim).
+  // overlap probe; gated as its own ULP row -- gammalim).
   // The sub-map mirrors gamma-inl.h's own routing verbatim (series for
   // s < kGammaAT and t <= s+1, or s >= kGammaAT and s >= 2t; CF otherwise;
   // gamma's in-band Temme case cannot occur here, those lanes are R3's).
@@ -1550,11 +1517,11 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // Q_gamma) -- never a dd complement round-trip, which would hand a small
   // side back as absolute noise -- and is_p records which side of the
   // ORIGINAL pair that is.
-  // BOTH-HUGE EXCLUSION (found by the first fresh-reference ULP run): the
+  // BOTH-HUGE EXCLUSION: the
   // slice's small/huge mapping is meaningless when BOTH parameters are
   // >= kBetaGammaLim -- s would itself be huge and the "shape" identity
-  // breaks (witness (1.02e100, 5e101, 0.01), a band-edge float-fuzz
-  // escapee of R3, which came back P = 1 for a true P ~ 0). Such lanes
+  // breaks; band-edge escapees of R3 (e.g. (1.02e100, 5e101, 0.01)) do
+  // reach here. Such lanes
   // stay in ordinary R2: off-band with nu >= 2^58 their cpsi exceeds the
   // saturation floor astronomically, so the PB prefactor's E-clamp
   // saturates them to the correct side by orientation alone.
@@ -1630,7 +1597,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   auto res = kP ? op::IfThenElse(m_p, val.v, comp)
                 : op::IfThenElse(m_p, comp, val.v);
 
-  // --- specials (PLAN.md's pinned table) ----------------------------------
+  // --- specials ------------------------------------------------------------
   // Applied last, in increasing priority. The doctrine is gamma's: one
   // degenerate parameter gets its limit; two degeneracies, or a degenerate
   // parameter meeting the x-boundary its mass sits on, give NaN.
@@ -1689,7 +1656,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
 // TWO BANDS on m (one masked path, both computed, selected):
 //  * m <= 2^990: the assembly above. This extends LgammaDiffDd's discharged
 //    call-site bound (m <= 256) to 2^990 on the strength of the mechanism
-//    audit, re-run for this caller [lbeta design, PLAN.md]: every
+//    audit, re-run for this caller: every
 //    m-carrying TwoProd operand (m*ln z, (m-1/2)*log1p(w), the DdDivDd
 //    numerator) stays below ops::ProdLow's 2^996 non-FMA Dekker ceiling up
 //    to m = 2^990 with 64x headroom; the up-walk never fires (M >= m > Z0
@@ -1711,7 +1678,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
 //    <= ~710) is likewise ~2^-990 relative but is kept -- it is one cheap
 //    log. A result below -DBL_MAX saturates to -inf through the exact
 //    final power-of-two scale-back's IEEE rounding, which is the correct
-//    value-driven boundary (verified by bit-stepped reference rows).
+//    value-driven boundary.
 inline constexpr double kLbetaBigMin = 0x1.0p+990;
 inline constexpr double kLbetaScaleDown = 0x1.0p-64;
 inline constexpr double kLbetaScaleUp = 0x1.0p+64;
@@ -1744,8 +1711,7 @@ HWY_NOINLINE op::V<D> LbetaVec(D d, op::V<D> a, op::V<D> b) {
   // benign through this dead computation, and m <= 2^990 alone already
   // guarantees that (every m-carrying operand stays in range; see the
   // audit above). M is legitimate at ANY magnitude in the main band --
-  // clamping it too corrupted every live lane with max > 2^990 (caught by
-  // the reference gate's grid rows, 2026-08-11).
+  // clamping it too would corrupt every live lane with max > 2^990.
   const auto m1 = op::Min(m_raw, op::Set(d, kLbetaBigMin));
   const auto lgm = LgammaPosDd(d, m1);
   const auto dlg = LgammaDiffDd(d, mm_raw, m1);

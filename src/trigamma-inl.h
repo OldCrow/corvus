@@ -111,8 +111,8 @@ constexpr double kTrigammaTinyScale = 0x1p512;
 // that misses budget.
 //
 // This and TrigammaLeadTailScalar below duplicate digamma's two evaluators
-// rather than sharing them. That is the same call PLAN.md's design already
-// made for the reflection constants: hoisting a helper out of a SHIPPED family
+// rather than sharing them -- the same call made for the reflection
+// constants: hoisting a helper out of a SHIPPED family
 // invokes the byte-identity protocol on digamma's whole gate set, and ~30
 // duplicated lines are cheaper than a revalidation pass. If a third consumer
 // appears, hoist all of it at once.
@@ -175,8 +175,8 @@ HWY_INLINE Dd<D> TrigammaRecipSqDd(D d, op::V<D> a) {
 // zone there is no factored-out root, because psi_1 has no zero to reproduce.
 // Outlined like every other region core here -- fully inlined, the single
 // export becomes one enormous function per target and MSVC's optimizer is
-// superlinear in function size (AGENTS.md; the 2026-07-29 CI timeouts).
-// Contraction is off, so outlining cannot change FP semantics.
+// superlinear in function size (AGENTS.md). Contraction is off, so outlining
+// cannot change FP semantics.
 template <class D>
 HWY_NOINLINE Dd<D> TrigammaZoneDd(D d, Dd<D> t) {
   return TrigammaLeadTailDd(d, t, detail::kTrigammaZoneLeadHi,
@@ -204,9 +204,8 @@ HWY_NOINLINE Dd<D> TrigammaZoneDd(D d, Dd<D> t) {
 // monotonically from psi_1(2) = 0.645 to psi_1(8) = 0.133 as the walk
 // deepens, while the landing value can be as large as psi_1(1) = 1.645. The
 // same absolute error against a smaller output is a larger relative one, by up
-// to psi_1(1)/psi_1(8) = 12.36x -- the SECOND CORRECTION recorded in
-// tools/gen_trigamma_data.py, whose predicted worst point (x just above 7,
-// landing nearest 1) is where the generator's replay actually finds it.
+// to psi_1(1)/psi_1(8) = 12.36x; the worst point is x just above 7, landing
+// nearest 1 (see tools/gen_trigamma_data.py).
 //
 // DOMAIN CLAMPS. This core also runs on the lanes routed to the asymptotic
 // branch, so x is clamped to X0 on entry, and clamped from BELOW at the

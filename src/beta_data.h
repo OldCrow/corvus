@@ -6,9 +6,8 @@
 
 namespace corvus::detail {
 
-// Region-map and fixed-length constants (PLAN.md "Regularized
-// incomplete beta -- detail design", G1a/G1b probe-pinned; R4_NMAX
-// and the R3 table below are this generator's own [G1c] pins).
+// Region-map and fixed-length constants (probe-pinned; R4_NMAX
+// and the R3 table below are this generator's own pins).
 inline constexpr double kBetaB1 = 0x1.0000000000000p+3;
 inline constexpr double kBetaXi1 = 0x1.ccccccccccccdp-2;
 inline constexpr double kBetaEpsR4 = 0x1.0000000000000p-6;
@@ -18,13 +17,13 @@ inline constexpr double kBetaClg = 0x1.0000000000000p+8;
 inline constexpr double kBetaExpFloor = -0x1.9000000000000p+9;
 inline constexpr double kBetaLn2 = 0x1.62e42fefa39efp-1;
 inline constexpr double kBetaZetaMax = 0x1.0508e55795f63p+0;
-// kBetaGammaLim (B_GL) [G3 escalation (C), 'gamma-limit slice']:
+// kBetaGammaLim (B_GL), 'gamma-limit slice':
 // max(alpha,beta) >= this, on the CF-oriented triple, routes R2 to
 // the gamma-limit path instead of the backward CF (which is
 // structurally degenerate up there -- see the derivation/deviation
 // comment at _derive_gamma_lim in this generator).
 inline constexpr double kBetaGammaLim = 0x1.0000000000000p+59;
-// kBetaNearOne [SEVENTH routing correction]: after the R1 pass,
+// kBetaNearOne (near-one post-route bar): after the R1 pass,
 // any lane whose R1 dd value EXCEEDS this folds into the R4
 // core's lane set in the SAME orientation (R4's analytic
 // small-side assembly; R1's box already supplies R4's
@@ -34,15 +33,15 @@ inline constexpr double kBetaGammaLim = 0x1.0000000000000p+59;
 // being on the dd value. Generator-proved: check (f)'s
 // post-route-domain truncation lattice.
 inline constexpr double kBetaNearOne = 0x1.ffc0000000000p-1;
-// Post-route tau ceiling [EIGHTH correction: 1.5 -> 2.5]: one
+// Post-route tau ceiling: one
 // lgamma recurrence step past the centre-2 zone edge (BetaR4Tiny's
-// three-zone lgamma(1+tau)). The bar above sits BELOW the 1-2^-12
+// lgamma(1+tau)). The bar above sits BELOW the 1-2^-12
 // doctrine bound, so every doctrine-violating tau <= 2.5 lane
 // post-routes by construction; check (e)'s pocket proves the
-// tau > 2.5 remainder clears the bound on its own (the 1.5 gate
-// failed exactly there: (1.6, 20, 0.4), Q = 1.52e-4 < 2^-12).
+// tau > 2.5 remainder clears the bound on its own (a lower gate
+// fails inside the pocket: (1.6, 20, 0.4), Q = 1.52e-4 < 2^-12).
 inline constexpr double kBetaPrTauMax = 0x1.4000000000000p+1;
-// Gamma-limit slice ridge floor [(C) resolution]: in-band lanes
+// Gamma-limit slice ridge floor: in-band lanes
 // with max(alpha,beta) >= kBetaGammaLim use R3 down to nu = 20
 // (gamma's own kGammaAT; the CF is degenerate up there). The 1/nu
 // extrapolation below the extraction ladder is proved by check
@@ -73,18 +72,16 @@ inline constexpr double kBetaRecipNLo[64] = {
 // kBetaR3Cheb[k][n][m] the coefficient of
 // T_n(zeta/kBetaZetaMax) * T_m((p-kBetaR3PMid)/kBetaR3PHalf).
 //
-// R3 MEMBERSHIP [third correction, PLAN.md "G1c generator results
-// and third correction"]: nu>=kBetaTRidge AND xi/p in
+// R3 MEMBERSHIP: nu>=kBetaTRidge AND xi/p in
 // [kBetaXiRatioLo,kBetaXiRatioHi] AND (1-xi)/q in [same] -- the
 // ridge RATIO band, mirroring gamma's shipped Temme table exactly
 // (gen_gamma_data.py's ETA_LO/ETA_HI span lambda in [1/2,2], not a
-// wide cpsi strip). An EARLIER version of this generator used
-// membership 'nu>=T_ridge AND cpsi<=800' -- a design error: the
+// wide cpsi strip). A membership of the shape
+// 'nu>=T_ridge AND cpsi<=800' is NOT viable: the
 // implied zeta in [-5,5] fit domain cannot reach dd-level accuracy
-// in 32 KiB (measured 2^-16-class residual, confirmed inherent to
-// the domain width by cross-check against gamma's own c_0(eta) over
-// an equally wide synthetic range, not a beta-specific bug) --
-// caught and corrected before this table was ever shipped.
+// in 32 KiB (2^-16-class residual, inherent to
+// the domain width -- cross-checked against gamma's own c_0(eta)
+// over an equally wide synthetic range).
 //
 // kBetaZetaMax = sqrt(3*ln2/2) ~ 1.0196669902, the EXACT sup of
 // |zeta| over the ratio band (derived, not assumed -- see

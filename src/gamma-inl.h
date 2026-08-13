@@ -3,9 +3,9 @@
 //
 // Both public functions share one kernel: four region cores plus a router
 // that differs between them in exactly two places -- which core owns the
-// R1/R4 overlap, and which side of the pair gets complemented. Everything
-// here follows PLAN.md, "Phase C part 2 -- regularized incomplete gamma P/Q
-// detail design", whose region map and fixed lengths are probe-validated;
+// R1/R4 overlap, and which side of the pair gets complemented. The region
+// map and the fixed series/CF lengths are probe-validated and reproduced
+// here, not re-derived;
 // the tables and every threshold live in src/gamma_data.h.
 //
 // THE ONE RULE THE WHOLE DESIGN TURNS ON: always compute the SMALLER of the
@@ -116,10 +116,9 @@ inline constexpr double kGammaTemmeZ2Split = 36.0;
 // whole S/sqrt(2*pi*a) term is below 2^-450 against a result of 1/2 -- so
 // the clamped value and the true one round identically. Must also sit under
 // ops::ProdLow's 2^996 non-FMA Dekker ceiling minus the 2^27 split factor:
-// at the original 2^1000 the split of the clamped a overflowed on SSE tiers
-// (found via beta's identical kBetaTwoPiNuClamp in the G4 capped sweep;
-// gamma's reference set does not yet sample a >= 2^998 on the Temme path,
-// so this was latent here).
+// anything above that overflows the Dekker split of the clamped a on
+// non-FMA tiers (NaN on the a >= 2^998 Temme path; gamma's reference set
+// does not yet sample that band -- see PLAN's Temme-witness item).
 inline constexpr double kGammaTwoPiAClamp = 0x1.0p+900;
 
 // --- indicator helpers ---------------------------------------------------
@@ -217,11 +216,11 @@ HWY_INLINE GammaExpArg<D> GammaClampE(D d, op::V<D> eh, op::V<D> el) {
 // this core is also evaluated on (an x of 1e300 from an R2 lane would
 // otherwise run the terms up to inf and, worse, never freeze).
 //
-// All four region cores are HWY_NOINLINE (2026-07-28): fully inlined, the
-// two exports each became one enormous function per target and MSVC's
-// optimizer is superlinear in function size -- the CI Windows job hit its
-// 25-minute timeout inside code generation (erfinv's TU had already grown
-// it to 16 min; this TU is heavier). Outlining the cores caps the largest
+// All four region cores are HWY_NOINLINE: fully inlined, the
+// two exports each become one enormous function per target and MSVC's
+// optimizer is superlinear in function size -- large enough to run a CI
+// job past its timeout inside code generation.
+// Outlining the cores caps the largest
 // function the optimizer sees. Results are bit-identical (contraction is
 // off, so inlining cannot change FP semantics) and the call cost is a few
 // cycles per vector against the cores' hundreds of flops.

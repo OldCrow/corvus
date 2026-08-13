@@ -11,13 +11,12 @@
 // infinite reference (OrderedBits(inf) is a specific finite int64, so a
 // naive UlpDiff would silently produce a huge-but-bounded number instead of
 // flagging the comparison as ill-posed); those rows are instead held to an
-// EXACT bit match (value and sign), separate from every other bucket, per
-// PLAN.md's design and the G3 brief.
+// EXACT bit match (value and sign), separate from every other bucket.
 //
 // SUSPICIOUSLY-SMALL THRESHOLD. House ULP tests hard-code `size < 10000` as
 // a sanity check against a truncated or empty reference file; the Bessel
-// references are deliberately 2351-2515 rows (G2 stage record), so this
-// file uses 2000 instead (G2's own flag for G3).
+// references are deliberately 2351-2515 rows, so this file uses 2000
+// instead.
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -34,8 +33,7 @@ namespace {
 
 using Fn = void (*)(std::span<const double>, std::span<double>);
 
-// Gate PINNED to measured, no margin (G3, 2026-08-11). See the final report
-// for the measured worst-case table; both regimes landed at the design's
+// Gate PINNED to measured, no margin. Both regimes land at the design's
 // expected 1 ULP ceiling on every validated tier.
 constexpr uint64_t kMaxUlp = 1;
 

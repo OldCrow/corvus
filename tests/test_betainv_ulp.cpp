@@ -18,8 +18,8 @@
 //      the kernel is held to the same standard -- within one ulp of the
 //      stored value, which is all that statement can support.
 //
-// HUGE-NU IS BUCKETED BY FORMULA, NOT BY MARKER [G2 RULING 2, binding]. The
-// marker column carries CERTIFICATION history only. Rows in the collapse-onset
+// HUGE-NU IS BUCKETED BY FORMULA, NOT BY MARKER. The marker column carries
+// CERTIFICATION history only. Rows in the collapse-onset
 // band (nu ~ 1e31 upward, where the achievable y-transition has begun to
 // narrow) pass ordinary bracket certification and are marked N, but they are
 // trivially satisfiable by nearly any answer in the neighbourhood -- exactly
@@ -50,9 +50,9 @@
 
 namespace {
 
-// Gates: PINNED to measured, no margin (G4, 2026-08-10), gammainv
-// precedent. Measured identically on clang-cl AVX3_ZEN4 native and g++
-// SSE2-capped: 1 ULP in every y-gated bucket on both sides, 2 ULP on the
+// Gates: PINNED to measured, no margin, gammainv precedent. Measured
+// identically on clang-cl AVX3_ZEN4 native and g++ SSE2-capped: 1 ULP in
+// every y-gated bucket on both sides, 2 ULP on the
 // B rows, 0.000 ulp(sigma) displayed backward error on both the P rows and
 // the kappa bucket. The backward gate is 1.0 ulp(sigma) -- the smallest
 // robust bound above the (display-rounded) measured maximum; the design
@@ -68,19 +68,18 @@ constexpr uint64_t kMaxUlpBeyond = 2;    // B rows, vs the stored yd
 // can be trivially satisfiable, so it is the honest place to stop pooling.
 constexpr double kHugeNu = 1e31;
 
-// CONDITIONING-LIMITED BAND [G3 measurement; ESCALATION, see the final
-// report]. PLAN's adjudication puts the y-ULP / backward-error split at
-// kappa = 2^52, on the reasoning that a dd forward (2^-105) resolves y to one
-// ulp below that. The shipped forward is NOT dd-accurate near the median: the
-// logit's second limb needs ln(1 - u), which needs the VALUE u, which comes
-// from exp_dd -- whose own documented budget is ~2^-70 (src/exp_dd-inl.h,
-// polynomial truncation 2^-72 plus the dropped r.lo at 2^-70.5). The inverse
-// multiplies that by kappa, so the achievable relative error in y is
-// kappa * 2^-70 and the y-ULP contract survives only to kappa ~ 2^18, not
-// 2^52. Rows above it are bucketed separately and reported against the
-// BACKWARD-error contract, which they meet; the deep tails are unaffected
-// because ln u there comes straight from the log-space assembly and never
-// passes through an exponential.
+// CONDITIONING-LIMITED BAND. Conditioning analysis puts the y-ULP /
+// backward-error split at kappa = 2^52, on the reasoning that a dd forward
+// (2^-105) resolves y to one ulp below that. The shipped forward is NOT
+// dd-accurate near the median: the logit's second limb needs ln(1 - u),
+// which needs the VALUE u, which comes from exp_dd -- whose own documented
+// budget is ~2^-70 (src/exp_dd-inl.h, polynomial truncation 2^-72 plus the
+// dropped r.lo at 2^-70.5). The inverse multiplies that by kappa, so the
+// achievable relative error in y is kappa * 2^-70 and the y-ULP contract
+// survives only to kappa ~ 2^18, not 2^52. Rows above it are bucketed
+// separately and reported against the BACKWARD-error contract, which they
+// meet; the deep tails are unaffected because ln u there comes straight
+// from the log-space assembly and never passes through an exponential.
 constexpr double kKappaCut = 0x1.0p+18;
 constexpr double kKappaMaxPar = 1e12;
 
@@ -198,8 +197,8 @@ double LogKappa(double a, double b, double y, double s) {
 // The kernel's internal frame, re-derived here from the same rule the driver
 // applies: sigma = min(s, 1-s) and the orientation swap is the same bit as
 // "sigma is the Q of (a, b)". The deep-small cut is only meaningful in that
-// frame -- stating it on the caller's (a, b, x) is exactly the b-independent
-// mistake PLAN's THIRD correction was about.
+// frame -- stating it on the caller's (a, b, x) would be exactly that
+// b-independent mistake.
 int Bucketize(const Row& r, bool want_q) {
   const bool flip = r.s > 0.5;
   const bool swap = want_q ? !flip : flip;

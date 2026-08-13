@@ -21,7 +21,7 @@
 
 namespace {
 
-// Gates, set from measured values (see PLAN.md / docs/ACCURACY.md) with no
+// Gates, set from measured values (see docs/ACCURACY.md) with no
 // margin: regressions should trip them. Measured identical on AVX3_ZEN4,
 // AVX2, SSE4, SSSE3 and SSE2.
 constexpr uint64_t kMaxUlpSmall = 1;   // 0 < x < 1/2   (shift by one log)

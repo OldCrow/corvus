@@ -11,11 +11,10 @@ namespace corvus::detail {
 inline constexpr double kPhiCoef[18] = {
     0x1.0000000000000p-1, -0x1.5555555555555p-2, 0x1.0000000000000p-2, -0x1.999999999999ap-3, 0x1.5555555555555p-3, -0x1.2492492492492p-3, 0x1.0000000000000p-3, -0x1.c71c71c71c71cp-4, 0x1.999999999999ap-4, -0x1.745d1745d1746p-4, 0x1.5555555555555p-4, -0x1.3b13b13b13b14p-4, 0x1.2492492492492p-4, -0x1.1111111111111p-4, 0x1.0000000000000p-4, -0x1.e1e1e1e1e1e1ep-5, 0x1.c71c71c71c71cp-5, -0x1.af286bca1af28p-5,
 };
-// The k=0..5 leads carry a dd low word too [added post-kernel-
-// review]: rounding 1/3 alone is 2^-55.9 absolute, which enters
-// phi at 2^-58.5 relative at the |u|=1/16 cut, and a*phi ~ 740
-// amplifies that to ~12 ULP through e^{-a*phi} in the deep Temme
-// tail (measured at a=3.79e5, lambda=1.062 before this fix).
+// The k=0..5 leads carry a dd low word too: rounding 1/3 alone
+// is 2^-55.9 absolute, which enters phi at 2^-58.5 relative at
+// the |u|=1/16 cut, and a*phi ~ 740 amplifies that to ~12 ULP
+// through e^{-a*phi} in the deep Temme tail.
 // Exact-in-double entries (k=0: 1/2, k=2: 1/4) get lo=0.
 inline constexpr double kPhiCoefLo[6] = {
     0x0.0p+0, -0x1.5555555555555p-56, 0x0.0p+0, 0x1.999999999999ap-57, 0x1.5555555555555p-57, -0x1.2492492492492p-57,

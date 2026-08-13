@@ -1,19 +1,18 @@
 // Inverse regularized incomplete beta: beta_p_inv(a, b, p) and
 // beta_q_inv(a, b, q). Per-target include guard (Highway -inl.h idiom).
 //
-// Both public functions are ONE pipeline with one bit of orientation, per
-// PLAN.md "P1 inverse incomplete beta -- detail design" (BINDING) and the
-// parameters replay-pinned in src/betainv_data.h. The forward region cores
+// Both public functions are ONE pipeline with one bit of orientation, with
+// the parameters replay-pinned in src/betainv_data.h. The forward region cores
 // (src/beta-inl.h) are consumed, never re-derived, and so is the gamma
 // inverse's seed machinery (src/gammainv-inl.h) for the beta -> gamma limit;
 // this file adds the frame, the seed stage, the log-space forward and the
 // safeguarded step loop.
 //
-// THE TRANSFER-BUG RULE (PLAN.md's stage theme for this family). Every
+// THE TRANSFER-BUG RULE. Every
 // formula that LOOKS like gammainv's has been re-derived for beta at its
-// definition site, because beta's second parameter changes the math and the
-// generator stage caught five separate instances of a gamma formula carried
-// over unchanged. The three re-derivations that live in THIS file are marked
+// definition site: beta's second parameter changes the math, and a gamma
+// formula carried over unchanged is wrong more often than
+// right. The three re-derivations that live in THIS file are marked
 // [TRANSFER SITE] and each carries its derivation; the load-bearing one is
 // the Newton slope, which acquires a factor (1 - y) that gamma has no
 // analogue for.
@@ -32,15 +31,15 @@
 //      subtraction. It solves for whichever of the two is the SMALL one, and
 //      returns 1 (-) y when that was 1 - x.
 //
-// [SELF-CAUGHT, G3] THE SWAP IS NOT DECIDED BY WHICH SIDE sigma IS. The
+// THE SWAP IS NOT DECIDED BY WHICH SIDE sigma IS. The
 // obvious frame -- always solve the variable whose probability is sigma <= 1/2
 // -- is WRONG, and it is wrong in a way that looks right on paper: sigma = P
 // puts y below the MEDIAN, and the median is near 1 whenever beta << alpha.
-// The first reference run found it immediately: at (a, b, p) =
+// Both failure shapes are reachable: at (a, b, p) =
 // (5.6e-4, 0.813, 0.658) the true x is SUBNORMAL while that frame solves for
 // 1 - x = 1.0 and hands back an exact 0; at (1.4e39, 2.3e45, 1/2 + 1 ulp) it
-// solves the near-one variable and the final subtraction costs 1.6e-10
-// relative, 4.6e5 ULP. The frame must ask which END x is near, and that is a
+// solves the near-one variable and the final subtraction costs
+// hundreds of thousands of ULP. The frame must ask which END x is near, and that is a
 // question about the DISTRIBUTION, not about the probability side.
 //
 // THE PROBE IS DEFINITIVE, NOT HEURISTIC: x > 1/2 exactly when
@@ -67,8 +66,8 @@
 //     y = 1 - exp((ln sigma + ln b + lnB(b,a))/b) IS this file's form after
 //     the relabelling (alpha = b), including its cut -- the generator's
 //     |1-a|*(1-y)/(1+b)*corr(1-y) is literally |1-beta|*y/(1+alpha)*corr(y)
-//     here. The THIRD-correction disease (a q-side branch that no self-check
-//     ever swept) cannot recur in a kernel that has no q-side branch.
+//     here. A q-side branch that no self-check ever sweeps cannot exist in
+//     a kernel that has no q-side branch.
 //   * No complement of a rounded near-one value is ever formed. That is the
 //     whole advantage of an inverse over the forward pair, whose complement
 //     rounding is on the OUTPUT and cannot be undone.
@@ -95,8 +94,7 @@
 //     w = exp(ln u - E) * (1 - u) * (1 - y),   u = min(P, Q).
 // GAMMA'S w HAS NO (1 - y) FACTOR: there x g(x) = x^a e^-x / Gamma(a) = e^E
 // exactly, with no leftover. Carrying gamma's spelling over would under-step
-// by (1 - y) at every iteration -- the same class of error the generator
-// caught in its own m_and_w_mp (a missing 1/y factor there). Checked against
+// by (1 - y) at every iteration. Checked against
 // the uniform case alpha = beta = 1, where m = ln y - ln(1-y) gives
 // w = 1 - y exactly and the formula reproduces it.
 //
@@ -126,15 +124,16 @@
 // with Picard corrections), S3 (gamma-limit transfer, seeded by gammainv's
 // OWN S1/S2/S3), S4 (exact-B leading-order closed form, either branch by
 // sigma vs beta/(alpha+beta)) and S5 (logit-normal from exact digamma /
-// trigamma moments). PLAN's FIRST correction is why all five are global:
-// gating S4 on t_jt was the deviation that opened the moderate-tiny gap band.
+// trigamma moments). All five are GLOBAL because a domain gate on any
+// candidate opens a gap band somewhere; a candidate that loses the residual
+// comparison costs nothing but its evaluation.
 //
 // DEEP-SMALL CLOSED FORM. Where the dropped series factor S' is below the
 // resolution of a double the equation collapses to
 //     y = exp((ln sigma + ln alpha + lnB)/alpha),
 // evaluated through ExpDdFrac's mantissa/exponent split so the power-of-two
 // scaling is the LAST operation and a subnormal (or zero) answer carries
-// exactly one rounding. The cut is the THIRD correction's, NOT any
+// exactly one rounding. The cut is NOT any
 // parameter*y form: what is dropped is |ln S'|/alpha whose leading term is
 // |1-beta| y/(1+alpha) -- the OTHER side's parameter is the coefficient --
 // times the exact closed-form multiplier corr(y) = -ln(1-y)/y that makes the
@@ -143,7 +142,7 @@
 // ln sigma AND ln(1 - sigma), NEVER log of 1 (-) tiny. 1 - sigma is formed as
 // an EXACT dd (TwoSum) and LogDdAny takes the pair: below sigma ~ 2^-53 the
 // low word is the entire signal, and a native-float 1 - sigma would collapse
-// to exactly 1.0 (the G2 completion round's own witness).
+// to exactly 1.0.
 #if defined(CORVUS_BETAINV_INL_H_) == defined(HWY_TARGET_TOGGLE)
 #ifdef CORVUS_BETAINV_INL_H_
 #undef CORVUS_BETAINV_INL_H_
@@ -193,13 +192,12 @@ inline constexpr double kBetaInvSafeY = 0.25;
 // Newton iterations for the zeta -> lambda inversion inside S1, and the
 // relative inset that keeps lambda strictly inside its bracket (-beta, alpha).
 //
-// [G3 LATITUDE TAKEN, PLAN's own flag] The generator needed niter = 100 and
-// recorded that as a wart for this stage. The cause is not the arithmetic, it
-// is the FORMULATION: it ran Newton on cpsi(lambda) - target, and cpsi has a
+// WHY 8 STEPS SUFFICE where the generator's reference implementation needs
+// niter = 100: the cause is not the arithmetic, it
+// is the FORMULATION. Newton on cpsi(lambda) - target meets cpsi's
 // QUADRATIC TANGENCY at lambda = 0 (cpsi ~ lambda^2/(2 nu), d cpsi/d lambda
-// -> 0), so Newton there is not quadratic at all -- it halves the error per
-// step, which is exactly the "99.99 -> 66.40 -> 88.53 -> converged" crawl the
-// generator observed. Running the SAME Newton on
+// -> 0), so Newton there is not quadratic at all -- it merely halves the
+// error per step. Running the SAME Newton on
 //     F(lambda) = sign(lambda) sqrt(cpsi(lambda)/nu)
 // removes the tangency on paper (F ~ lambda/(nu sqrt 2) near zero, slope
 // bounded away from zero) and restores quadratic convergence; eight steps from
@@ -274,7 +272,7 @@ inline constexpr double kBetaInvPsiTMin = 0x1.0p-30;
 // before the swap is worth taking. Inside it BOTH orientations give a value
 // within 2^-10 of 1/2, where 1 (-) y is exact by Sterbenz -- so the tie goes
 // to the cheaper orientation rather than to the forward's last bits. See the
-// probe in BetaInvVec for the witness that made this necessary.
+// probe in BetaInvVec for why ties must go to "no swap".
 inline constexpr double kBetaInvSwapBand = 0x1.0p-10;
 
 // ------------------------------------------------------------------------
@@ -344,7 +342,7 @@ HWY_INLINE op::V<D> BetaInvPhiOverSq(D d, op::V<D> w) {
 }
 
 // lgamma(1 + m) for m > 0, as a dd. Below kBetaPrTauMax this is beta's own
-// NINTH-correction identity (LgammaDiffDd(1, m) or LgammaDiffDd(2, m-1),
+// analytic-difference identity (LgammaDiffDd(1, m) or LgammaDiffDd(2, m-1),
 // exact because lgamma(1) = lgamma(2) = 0), which stays relative-accurate as
 // m -> 0 where fl(1 + m) rounds to exactly 1 and LgammaPosDd would return a
 // flat zero. Above it lgamma(m) and ln m are both positive and neither is
@@ -372,7 +370,7 @@ HWY_NOINLINE Dd<D> BetaInvLgamma1p(D d, op::V<D> m) {
 // (AGENTS.md): an implicitly generated default constructor for a struct with
 // vector members is instantiated OUTSIDE the per-target attribute region, and
 // the NEON_BF16 slice then refuses to inline Vec128's always_inline
-// constructors into it -- the macOS CI break of 2026-08-06, twice.
+// constructors into it.
 template <class D>
 struct BetaInvCtx {
   op::V<D> alpha;
@@ -629,8 +627,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   const auto e_pa =
       DdAdd(d, DdAdd(d, DdMulD(d, lrxi, ra), DdMulD(d, lryv, rb)), cx.mlnb);
   const auto e_pb = DdSub(d, cx.pbk, ps.cpsi);
-  // PB IS USED ONLY WHERE PA CANNOT COPE [SELF-CAUGHT, G3 -- and the same
-  // measurement is a defect in the SHIPPED FORWARD; see the final report].
+  // PB IS USED ONLY WHERE PA CANNOT COPE.
   //
   // PA is the exact form: E = alpha ln y + beta ln(1-y) (-) ln B, every term
   // dd, and its only weakness is that those terms grow with the parameters
@@ -642,17 +639,15 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   //
   // THAT IS TOO SOON, because PB's cpsi goes through Log1pmxDd at u = -lambda
   // /alpha, and u -> -1 whenever the iterate is deep in a tail (1 + u is
-  // exactly c*y/alpha). Two failures follow, both measured:
+  // exactly c*y/alpha). Two failure modes follow:
   //   * 1 + u < 2^-53: u.hi rounds to EXACTLY -1, Log1pmxDd's large branch
   //     hands LogDdAny a pair whose high word is zero, and cpsi comes back
-  //     NaN. Witness (19, 1e5, 5.2e-21): true I = 3.4e-308, shipped beta_p
-  //     returns exactly 0, and the boundary sits at y ~ 2.1e-20.
+  //     NaN.
   //   * 1 + u merely small: Log1pmxDd adds u.lo into the low word of an
   //     EXACT TwoSum, producing a pair whose ratio lo/hi is nowhere near the
   //     2^-53 that LogDd(Dd) assumes -- its correction keeps only log1p's
-  //     quadratic term, so the cubic t^3/3 survives. At (19, 1e5, 1.73e-19),
-  //     t = 0.028 and t^3/3 = 7.5e-6, which alpha multiplies to 1.4e-4 in E.
-  //     The reference row is right and the shipped beta_p is 1.4e-4 out.
+  //     quadratic term, so the cubic t^3/3 survives and enters E scaled by
+  //     alpha (t = 0.028 already costs 1.4e-4 in E at alpha = 19).
   // So: PB only above the scale where PA runs out of digits, only where its
   // own cpsi is finite, and only where neither u nor v has collapsed onto -1.
   const auto pa_scale = op::Max(op::Max(op::Abs(e_pa.hi), op::Abs(cx.mlnb.hi)),
@@ -705,15 +700,14 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   if (!op::AllFalse(d, m_r3)) {
     auto t3 = BetaR3Temme(
         d, ps, BetaInd(d, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim))));
-    // THE TAIL BRANCH IS TAKEN IN LOG SPACE, NOT AS log(value) [MEASURED, G3].
+    // THE TAIL BRANCH IS TAKEN IN LOG SPACE, NOT AS log(value).
     // Above cpsi = 36 the R3 value is e^-cpsi times a bracket, so its log is
     // -cpsi (+) ln(bracket) exactly. Taking the log of the ASSEMBLED value
     // instead loses the whole point of a log-space forward: past cpsi ~ 708
     // the value is subnormal, its mantissa is down to a few bits, and its log
     // is QUANTIZED -- two iterates 1e-8 apart return bit-identical logits and
-    // the residual has a flat spot the Newton step cannot see across.
-    // Witness: (a, b, sigma) = (2.9e5, 4.0e6, 2.0e-323), where the seed is
-    // already correct to 1e-8 and no step can improve it. gamma's inverse
+    // the residual has a flat spot the Newton step cannot see across
+    // (reachable: (a, b, sigma) = (2.9e5, 4.0e6, 2.0e-323)). gamma's inverse
     // takes log(value) with a -a*phi fallback and gets away with it because
     // its own targets bottom out sooner; beta's do not. The core branch
     // (cpsi <= 36) keeps log(value): the value is >= ~1e-17 there, normal by
@@ -731,7 +725,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
     is_p = op::IfThenElse(m_r3, t3.lam_pos, is_p);
   }
 
-  // --- SEVENTH ROUTING CORRECTION: near-one post-route ----------------------
+  // --- near-one post-route --------------------------------------------------
   // An R1 lane whose value exceeds kBetaNearOne would hand its complement back
   // as dd rounding noise. Such lanes are R4-SHAPED by construction, and R4
   // returns the SMALL side directly -- which for a logit is strictly better
@@ -851,7 +845,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   auto w = op::Mul(op::Mul(BetaInvExp(d, wl), cmpl.hi), yc.hi);
 
   // THE RESIDUAL'S OWN UNCERTAINTY, and the kernel needs it because the
-  // forward is NOT dd-accurate near the median [MEASURED, G3].
+  // forward is NOT dd-accurate near the median.
   //   * ln u is taken straight from the log-space assembly, so its error is
   //     the dd's own, ~2^-100 relative to |m|.
   //   * ln(1 - u) is NOT: it needs the VALUE u, which comes from exp_dd, whose
@@ -864,8 +858,8 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   // matters because the inverse multiplies it by w, the condition number:
   // once w exceeds ~2^17 the step the residual asks for is pure noise, and
   // without this the step loop random-walks the answer AWAY from a good seed
-  // (measured: a joint-tiny lane went from 1.3e-9 to 1.4e-7 relative over its
-  // four steps, the trust bypass accepting every one). Reported by the
+  // (a joint-tiny lane can lose two orders of relative accuracy over four
+  // steps, the trust bypass accepting every one). Reported by the
   // forward, consumed by the step loop's freeze.
   const auto unc = op::MulAdd(op::Set(d, 0x1.0p-68), op::Abs(u.hi),
                               op::Mul(op::Set(d, 0x1.0p-98), op::Abs(m.hi)));
@@ -929,15 +923,13 @@ HWY_NOINLINE op::V<D> BetaInvLamOfZeta(D d, op::V<D> zeta, op::V<D> as,
   auto lo = op::IfThenElse(pos, zero, op::Neg(op::Mul(bs, inset)));
   auto hi = op::IfThenElse(pos, op::Mul(as, inset), zero);
   // Leading order: cpsi ~ lambda^2/(2 nu), hence zeta ~ lambda/(nu sqrt 2).
-  // OUT OF BRACKET -> MIDPOINT, never a clamp to the endpoint [SELF-CAUGHT,
-  // G3]. The leading-order guess overshoots for any zeta the ridge expansion
+  // OUT OF BRACKET -> MIDPOINT, never a clamp to the endpoint.
+  // The leading-order guess overshoots for any zeta the ridge expansion
   // is not small at (sqrt2*nu*zeta exceeds alpha once zeta > p*sqrt(2 c/beta)
   // -- at nu = 228, zeta = 0.78 it is 250 against an alpha of 232), and
   // clamping lands the iteration exactly where its own derivative vanishes:
   // dlambda/dF carries a factor (alpha - lambda), so a start at the edge
-  // crawls and eight steps do not recover. Measured at
-  // (231.7, 14752.5, 4.7e-62): the clamped start returned 4.7e-4 for a true
-  // 4.1e-3 and lost the residual comparison to a much weaker seed.
+  // crawls and eight steps do not recover.
   const auto lam0 = op::Mul(op::Mul(op::Set(d, kBetaInvSqrt2), nus), zeta);
   const auto in0 = op::Mul(BetaInd(d, op::Gt(lam0, lo)),
                            BetaInd(d, op::Lt(lam0, hi)));
@@ -961,14 +953,12 @@ HWY_NOINLINE op::V<D> BetaInvLamOfZeta(D d, op::V<D> zeta, op::V<D> as,
         op::Mul(op::Add(one, one), op::Sqrt(op::Mul(nus, h))),
         op::Mul(op::Div(op::Sub(as, lam), cs), op::Add(bs, lam)));
     auto cand = op::Sub(lam, op::Mul(op::Sub(f, zeta), mult));
-    // INCLUSIVE bounds, and the reason is not fussiness [SELF-CAUGHT, G3]: the
+    // INCLUSIVE bounds, and the reason is not fussiness: the
     // bracket was just tightened ONTO lambda itself, so a CONVERGED Newton
     // step -- which returns lambda unchanged -- sits exactly on an endpoint. A
     // strict test rejects it and substitutes the midpoint of a bracket whose
     // other end is still the initial 0 or -beta, throwing a converged iterate
-    // halfway across the domain. Measured before the fix: at (a, b) =
-    // (1.9e39, 1.0e42) the seed came back 0.00575 for a true 0.001848, and at
-    // (19, 1e5) it walked to the bracket edge and stayed there. Every other
+    // halfway across the domain. Every other
     // safeguard in this file has the same shape and the same reason.
     const auto inb = op::Mul(BetaInd(d, op::Ge(cand, lo)),
                              BetaInd(d, op::Ge(hi, cand)));
@@ -1015,15 +1005,15 @@ HWY_INLINE op::V<D> BetaInvS1Ck(D d, int k, op::V<D> t, op::V<D> t2,
 }
 
 // S1 proper. zeta0 = z/sqrt(nu) with z = erfcinv(2 tau) -- NO factor of two,
-// because beta's cpsi IS zeta^2 nu directly while gamma's is a eta^2/2 (the
-// generator's own first transfer bug). z arrives already signed from the
+// because beta's cpsi IS zeta^2 nu directly while gamma's is a eta^2/2 (a
+// transfer trap). z arrives already signed from the
 // driver, which forms it as +-erfcinv(2 sigma): erfcinv(2(1-sigma)) =
 // -erfcinv(2 sigma) exactly, so a target on the large side costs a sign and
 // not an evaluation. The correction is one perturbative Newton step in zeta,
 //     zeta <- zeta - sign(zeta) S(zeta, p)/(nu sqrt 2),  S = sum c_k/nu^k,
 // gated to the table's own fitted domain |zeta| <= kBetaInvS1ZetaMax AND to
 // nu >= kBetaInvS1NuMin (the 1/nu series is asymptotic; below nu ~ 2 the
-// applied correction is unbounded -- measured).
+// applied correction is unbounded).
 template <class D>
 HWY_NOINLINE op::V<D> BetaInvSeedS1(D d, const BetaInvCtx<D>& cx, op::V<D> z,
                                     op::V<D> as, op::V<D> bs, op::V<D> cs,
@@ -1072,9 +1062,9 @@ HWY_NOINLINE op::V<D> BetaInvSeedS1(D d, const BetaInvCtx<D>& cx, op::V<D> z,
 // R1's own value is P = y^alpha/B * sum_{n>=0} t_n/(alpha+n), whose n = 0 term
 // is 1/alpha -- so P ~ y^alpha/(alpha B) as y -> 0 and the zeroth iterate is
 //     y0 = exp((ln sigma + ln alpha + lnB)/alpha) = exp((ln sigma + LB)/alpha),
-// with LB = ln alpha (+) ln B taken from the context, which is where the
-// generator's "+ln alpha" bug (catastrophic at tiny alpha, and the same bug
-// again in its deep-small twin) cannot recur: the term is never dropped
+// with LB = ln alpha (+) ln B taken from the context, which is where a
+// dropped "+ln alpha" term (catastrophic at tiny alpha)
+// cannot recur: the term is never dropped
 // because it is never separable -- LB IS lgamma(1+alpha)+lgamma(beta)-lgamma(c).
 // The Picard correction is the EXACT fixed point of the defining equation,
 //     ln y = (ln sigma + ln B - ln S)/alpha,  S = sum t_n/(alpha+n),
@@ -1288,7 +1278,7 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
   // y = exp((ln sigma + ln alpha + lnB)/alpha), with the power-of-two scaling
   // applied LAST so a subnormal or zero answer carries exactly one rounding.
   //
-  // THE CUT IS THE THIRD CORRECTION'S (src/betainv_data.h), and it is NOT any
+  // THE CUT (src/betainv_data.h) IS NOT any
   // parameter*y form. What the closed form drops is the series factor S',
   // whose log divided by alpha has leading term |1-beta| y/(1+alpha): the
   // OTHER side's parameter supplies the coefficient (beta is the n = 1 series
@@ -1339,20 +1329,18 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
         best_y, half);
     auto best_r = inf;
     // AGGREGATE-init, never default-construction (AGENTS.md; the NEON_BF16
-    // implicit-ctor break of 2026-08-06).
+    // implicit-ctor hazard).
     BetaInvFwdOut<D> best_f{Dd<D>{zero, zero}, zero, zero};
 
-    // S1: beta-Temme, offered GLOBALLY [measured deviation, G3]. The
-    // generator gates S1's whole candidacy on nu >= kBetaInvS1NuMin, but its
-    // own stated reason is about the CORRECTION -- S(zeta,p)/nu is unbounded
+    // S1: beta-Temme, offered GLOBALLY. The
+    // generator gates S1's whole candidacy on nu >= kBetaInvS1NuMin, but the
+    // stated reason is about the CORRECTION -- S(zeta,p)/nu is unbounded
     // as nu -> 0 -- and that correction is separately gated inside
     // BetaInvSeedS1, where the reason applies. The UNCORRECTED leading Temme
     // term is an ordinary seed at any nu, and offering it can only help,
     // because a seed that loses the residual comparison costs nothing but the
-    // evaluation. Measured: at (20.000015, 2.1492, 4.9e-5), nu = 1.941 sits
-    // just under the pinned 2 and S1 scores 0.49 where the best of the other
-    // four scores 7.6 -- a factor of fifteen thrown away by a gate that was
-    // never about candidacy.
+    // evaluation; just under nu = 2 it can outscore the best other
+    // candidate by an order of magnitude.
     BetaInvConsider(d, cx, BetaInvSeedS1(d, cx, zq, as, bs, cs, nus), one, mt,
                     &best_y, &best_r, &best_f);
 
@@ -1361,9 +1349,9 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
                     &best_y, &best_r, &best_f);
 
     // S4: the exact-B leading-order closed form, branch by sigma vs
-    // s* = beta/(alpha+beta) (PLAN's FIRST correction: the exp form, exact in
-    // the logit of any sign and magnitude, with c(alpha,beta) DROPPED -- it
-    // actively hurt once B is exact). The sigma <= s* branch is S2's own
+    // s* = beta/(alpha+beta) (the exp form, exact in
+    // the logit of any sign and magnitude, with the c(alpha,beta) term
+    // DROPPED -- it actively hurts once B is exact). The sigma <= s* branch is S2's own
     // zeroth iterate, i.e. exactly the deep-small quotient already in hand;
     // the other branch is its mirror through 1 - sigma and beta.
     {
@@ -1454,9 +1442,9 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
     }
 
     // --- safeguarded logit-Newton, kBetaInvStepsN steps ---------------------
-    // The gammainv G3 package carried whole, and the step count is PLAN's
-    // SECOND correction (StepsN = 4): a bounded interior sub-band
-    // (min(alpha,beta) ~ 0.02-0.5, skew 3-10x, y in 0.1-0.3) is short of the
+    // The gammainv safeguard package carried whole; the step count
+    // StepsN = 4 is sized by a bounded interior sub-band
+    // (min(alpha,beta) ~ 0.02-0.5, skew 3-10x, y in 0.1-0.3) that is short of the
     // gate after all five seed families, whose best there is 2-5 bits; the
     // convergence from that band's worst seed is cleanly quadratic
     // (2.12 -> 6.66 -> 16.48 -> 36.16 -> 75.51 bits) and step 4 clears the

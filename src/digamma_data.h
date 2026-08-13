@@ -90,8 +90,8 @@ inline constexpr double kDigammaCosCoef[7] = {
 // double, ~2^-40 relative): ONLY for the y.lo * trigamma(y.hi)
 // correction on the reflection path's dd argument. NOT
 // src/beta_data.h's DigammaRough (different function, different budget,
-// not reusable -- see PLAN.md). Replay-measured worst 3.468e-13.
-// WALK FORM (G3: mirror this in the kernel): while (y <
+// not reusable). Replay-measured worst 3.468e-13.
+// WALK FORM (the kernel MUST mirror this): while (y <
 // kDigammaRoughTrigammaFloor) { s += 1/(y*y); y += 1; } then
 // trigamma(y) ~= 1/y + w/2 + w*Horner(coef, w)/y, w = 1/(y*y),
 // return s + that. y=2 alone measured ~2.4e-5 best-case (nowhere

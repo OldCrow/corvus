@@ -46,8 +46,7 @@ inline constexpr int kGammaInvS2NCorr = 6;
 // side='q': try S3 first, gated by its OWN
 // L=-ln(q*Gamma(a)) > kGammaInvS3StabilityMargin*|a-1| guard (the
 // fixed-point map's local contraction factor is (a-1)/x -- L>0
-// ALONE is insufficient, and neither is a fixed q threshold: both
-// were tried and found wrong, see final report ledger); S2 applied
+// ALONE is insufficient, and neither is a fixed q threshold); S2 applied
 // to p=1-q is the fallback whenever S3 declines.
 inline constexpr double kGammaInvS3StabilityMargin = 0x1.8000000000000p+1;
 inline constexpr int kGammaInvS3NIter = 3;

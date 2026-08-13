@@ -77,7 +77,7 @@ void Specials() {
   struct Case {
     double a, x, p, q;
   };
-  // The table from PLAN.md "Phase C part 2" (SciPy limits).
+  // Specials table (SciPy limits).
   const Case cases[] = {
       {1.0, 0.0, 0.0, 1.0},     // no mass yet
       {0.5, 0.0, 0.0, 1.0},

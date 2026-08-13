@@ -8,9 +8,9 @@
 // x0 ~ 1.4616 is. Near them a fixed absolute error is an unbounded relative
 // one, so the |psi| < 1 band is gated on ABSOLUTE error (reported in units of
 // 2^-53) and the rest on ULP. That is lgamma's convention verbatim, and it is
-// the dual metric PLAN.md's FIRST DESIGN CORRECTION settled on: relative
-// where |psi| >= 1, 2^-53-class absolute inside the zero bands. Reporting one
-// blended number would hide which of the two is actually moving.
+// the family's dual metric: relative where |psi| >= 1, 2^-53-class
+// absolute inside the zero bands. Reporting one blended number would hide
+// which of the two is actually moving.
 //
 // The positive-axis buckets follow the kernel's own region split, so a
 // regression names the branch that moved.
@@ -27,7 +27,7 @@
 
 namespace {
 
-// Gates PINNED to measured, no margin (G4, 2026-08-08). Identical cells on
+// Gates PINNED to measured, no margin. Identical cells on
 // every validated leg: AVX3_ZEN4 native, AVX2/SSE4/SSSE3/SSE2 capped
 // (Ryzen), Linux CI sweep, NEON (CI), Windows MSVC — 1 ULP max in all five
 // relative buckets, 1.00 x 2^-53 absolute in the negative zero bands (NEON

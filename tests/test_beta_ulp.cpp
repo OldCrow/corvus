@@ -35,29 +35,25 @@
 
 namespace {
 
-// PINNED GATES [G4, 2026-08-05]: every cell is the value measured on
-// AVX3_ZEN4/clang-cl against the round-6 certified reference set (max over
-// the beta_p and beta_q runs), pinned with NO margin (the house rule). The
-// G3-era 55/209-ULP R1-cmp and R4-postroute cells were the NINTH and TENTH
-// corrections (double-class lgamma components amplified by cancellation);
-// see PLAN.md. A tier that measures above any cell is an escalation, not a
-// gate bump.
+// PINNED GATES: every cell is the value measured on AVX3_ZEN4/clang-cl
+// against the certified reference set (max over the beta_p and beta_q
+// runs), pinned with NO margin (the house rule). The R1-cmp and
+// R4-postroute cells are wider because their double-class lgamma
+// components are amplified by cancellation (src/beta-inl.h derives both
+// sites). A tier that
+// measures above any cell is an escalation, not a gate bump.
 //
-// [2026-08-12, u -> -1 corner arc] GlDir re-pinned 0 -> 1: the pb-corner
-// reference rows are the first to stress the gammalim slice's E_g at
+// The pb-corner reference rows stress the gammalim slice's E_g at
 // b ~ 1e307 with t ~ w*m in the deep tail; 6 of 430 rows measure exactly
-// 1 ULP there (worst (40, 1e307, 1.6e-306), row re-verified against
-// mpmath betainc at dps 380 -- reference correct, kernel one ulp off).
-// Every other cell is unchanged by the corner arc.
+// 1 ULP there (worst at (40, 1e307, 1.6e-306), verified against mpmath
+// betainc at dps 380 -- the kernel is one ulp off there). Every other cell
+// is unaffected.
 constexpr uint64_t kGateR1Dir = 1, kGateR1Cmp = 1;
 constexpr uint64_t kGateR2Dir = 0, kGateR2Cmp = 0;
 constexpr uint64_t kGateR3Dir = 3, kGateR3Cmp = 1;
 constexpr uint64_t kGateR4Dir = 2, kGateR4Cmp = 0;
 constexpr uint64_t kGatePrDir = 1, kGatePrCmp = 0;
 constexpr uint64_t kGateGlDir = 1, kGateGlCmp = 1;
-
-// (The G3-era kRefDefectCutoff escape hatch is DELETED: the reference set was
-// regenerated with the small-tau oracle fixed, per its own commit record.)
 
 int64_t OrderedBits(double x) {
   int64_t b;
@@ -87,8 +83,8 @@ struct Region {
 
 enum : int { kR1 = 0, kR2 = 1, kR3 = 2, kR4 = 3, kSp = 4, kPr = 5, kGl = 6 };
 
-// Re-derivation of BetaVec's router (route_final, through the SEVENTH
-// correction and the (C) gamma-limit slice). `direct_is_p` reports which
+// Re-derivation of BetaVec's router (route_final, including the (C)
+// gamma-limit slice). `direct_is_p` reports which
 // side of the pair the chosen region computes directly at this (a, b, x).
 // pref/qref are the REFERENCE values -- the post-route decision in the
 // kernel is on its own dd R1 value, and the reference is the same number
@@ -125,8 +121,8 @@ int Route(double a, double b, double x, double pref, double qref,
     *direct_is_p = sw4;  // R4 computes the COMPLEMENT of its own triple
     return kR4;
   }
-  // 1. power series, either orientation -- with the SEVENTH-correction
-  // near-one post-route: a fired R1 orientation whose evaluated value
+  // 1. power series, either orientation -- with a near-one post-route: a
+  // fired R1 orientation whose evaluated value
   // exceeds kBetaNearOne folds into R4's analytic assembly (same
   // orientation) instead, provided the fired first parameter is at or
   // below the kBetaPrTauMax zone ceiling.
@@ -294,7 +290,7 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
   return ReportRegions(label, reg, 14);
 }
 
-// ---- G4 post-pass (i): monotonicity in x over the reference set ----------
+// ---- Post-pass (i): monotonicity in x over the reference set -------------
 // P(a, b, x) is strictly increasing in x. The REFERENCE values must be
 // non-decreasing with NO slack (the independent harness certified exact
 // monotonicity over every (a, b) group; any violation here is a regen
@@ -358,7 +354,7 @@ int MonoPostPass(const std::vector<double>& a, const std::vector<double>& b,
   return (ref_bad || ker_bad) ? 1 : 0;
 }
 
-// ---- G4 post-pass (ii): dense seam-crossing sweeps -----------------------
+// ---- Post-pass (ii): dense seam-crossing sweeps ---------------------------
 // One dense line per routing boundary, crossing the seam at fixed
 // representative parameters. Monotonicity of the KERNEL output along the
 // line (increasing in x and b, decreasing in a) is the continuity gate: a

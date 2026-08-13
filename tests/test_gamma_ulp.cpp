@@ -27,7 +27,7 @@
 
 namespace {
 
-// Gates pinned to the values measured 2026-07-28 on AVX2 native plus the
+// Gates pinned to the values measured on AVX2 native plus the
 // SSE4/SSSE3/SSE2 caps (Kaby Lake, AppleClang) -- max ULP was identical in
 // every cell on all four tiers; only two not-CR counts moved by 1. No
 // margin, per house rule. Indexed [region][0 = direct, 1 = complement];

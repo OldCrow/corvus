@@ -77,17 +77,15 @@ namespace HWY_NAMESPACE {
 namespace op = ops;
 
 // ------------------------------------------------------------------------
-// OUTLINED log [MSVC BUILD-TIME GATE, AGENTS.md]. A thin wrapper whose only
-// purpose is the HWY_NOINLINE: log_dd (via LogDdAny) is large, and this file
-// reaches it from three call sites -- the zone/Stirling seam in LgammaLow
-// and both reflection-term logs in LgammaVec. Inlined, each of those becomes
-// its own copy of a table gather plus a polynomial IN EVERY ONE OF THE
-// COMPILED TARGETS, and cl.exe's optimizer is superlinear in function size:
-// this is the same fix that took betainv.cpp (src/betainv-inl.h) from past
-// 45 minutes and 7 GB on one MSVC invocation to 127 s, retro-applied here
-// per PLAN.md's "MSVC build-time headroom" item. Bit-identity is guaranteed
-// by contraction-off and verified by byte-comparing the ULP tables across
-// the change.
+// OUTLINED log. A thin wrapper whose only purpose is the HWY_NOINLINE:
+// log_dd (via LogDdAny) is large, and this file reaches it from three call
+// sites -- the zone/Stirling seam in LgammaLow and both reflection-term logs
+// in LgammaVec. Inlined, each of those becomes its own copy of a table
+// gather plus a polynomial IN EVERY ONE OF THE COMPILED TARGETS, and cl.exe's
+// optimizer is superlinear in function size -- the same fix used in
+// betainv.cpp (src/betainv-inl.h). Bit-identity is guaranteed by
+// contraction-off and verified by byte-comparing the ULP tables across the
+// change.
 template <class D>
 HWY_NOINLINE Dd<D> LgammaLog(D d, Dd<D> x) {
   return LogDdAny(d, x);
@@ -154,8 +152,8 @@ HWY_INLINE Dd<D> LgammaStirling(D d, op::V<D> x) {
   // ops::ProdLow's non-FMA path is Dekker's split, whose intermediate
   // a*(2^27+1) overflows once |a| exceeds 2^996 ~ 6.7e299 -- and this is the
   // one place in corvus where an operand gets that large. Unguarded, SSE2
-  // through SSE4 returned an infinite residual for x above that, while every
-  // FMA target was correct; the tier sweep is what surfaced it.
+  // through SSE4 return an infinite residual for x above that threshold,
+  // while every FMA target is correct.
   //
   // Scaling by a power of two is exact and every step below is linear in x,
   // so the scaled and unscaled computations agree bit for bit -- this is not

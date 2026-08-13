@@ -32,13 +32,12 @@
 
 namespace {
 
-// Gate PINNED to measured, no margin (G4, 2026-08-08). Identical cells on
-// every validated leg — AVX3_ZEN4 native, AVX2/SSE4/SSSE3/SSE2 capped
-// (Ryzen), Linux CI sweep, NEON (CI, identical to native including not-CR
-// counts), Windows MSVC: (0,1) correctly rounded, all other buckets 1 ULP
-// max. The down-walk's predicted 12.36x amplification cost (SECOND
-// CORRECTION in tools/gen_trigamma_data.py) did not consume a bit on this
-// reference set — it shows as the walk bucket's elevated not-CR rate
+// Gate PINNED to measured, no margin. Identical cells on every validated
+// leg — AVX3_ZEN4 native, AVX2/SSE4/SSSE3/SSE2 capped (Ryzen), Linux CI
+// sweep, NEON (CI, identical to native including not-CR counts), Windows
+// MSVC: (0,1) correctly rounded, all other buckets 1 ULP max. The
+// down-walk's predicted 12.36x amplification cost did not consume a bit on
+// this reference set — it shows as the walk bucket's elevated not-CR rate
 // (2.97% FMA / 4.44% non-FMA) instead.
 constexpr uint64_t kMaxUlp = 1;
 

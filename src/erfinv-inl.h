@@ -2,7 +2,7 @@
 // (Highway -inl.h idiom).
 //
 // Both public functions route onto two shared cores, every routed argument
-// exact by Sterbenz (PLAN.md, "Phase C part 1 -- erfinv/erfcinv design"):
+// exact by Sterbenz:
 //   erfinv:  |y| <= 1/2       -> C(y)
 //            1/2 < |y| < 1    -> sign(y)*T(1 - |y|)
 //   erfcinv: z in [1/2, 3/2]  -> C(1 - z)
@@ -120,22 +120,19 @@ HWY_INLINE Dd<D> ErfinvCentralDd(D d, op::V<D> v) {
   return acc;
 }
 
-// ErfcInvCore and the two drivers are HWY_NOINLINE (2026-07-29), the same
-// treatment gamma-inl.h got in 03e80c9/7b52ed1 and for the same reason:
-// fully inlined, each export became one enormous function per target (the
-// drivers are even inlined TWICE per export -- full-vector and masked-tail
-// call sites), and MSVC's optimizer is superlinear in function size --
-// this TU was the long pole that had already pushed the CI Windows job to
-// 16 min before gamma tipped it over its 25-minute timeout. Outlining
-// caps the largest function the optimizer sees and deduplicates
-// ErfcInvCore across the two drivers within each target. Results are
-// bit-identical (contraction is off, so the call boundary cannot change
-// FP semantics). ErfinvCentral deliberately stays HWY_INLINE: it is one
-// Horner pass plus three dd terms -- negligible codegen weight -- and
-// outlining it was measured to cost 0.5-0.7 ns/el on the all-central fast
-// path (3.2 -> 3.9 ns/el at 8 lanes, a second call layer on the cheapest
-// and most-travelled region), where the heavy cores' call cost stays
-// invisible against their hundreds of flops.
+// ErfcInvCore and the two drivers are HWY_NOINLINE, the same treatment
+// gamma-inl.h uses and for the same reason: fully inlined, each export
+// becomes one enormous function per target (the drivers are even inlined
+// TWICE per export -- full-vector and masked-tail call sites), and MSVC's
+// optimizer is superlinear in function size. Outlining caps the largest
+// function the optimizer sees and deduplicates ErfcInvCore across the two
+// drivers within each target. Results are bit-identical (contraction is off,
+// so the call boundary cannot change FP semantics). ErfinvCentral
+// deliberately stays HWY_INLINE: it is one Horner pass plus three dd terms
+// -- negligible codegen weight -- and outlining it costs 0.5-0.7 ns/el on
+// the all-central fast path (3.2 -> 3.9 ns/el at 8 lanes, a second call
+// layer on the cheapest and most-travelled region), where the heavy cores'
+// call cost stays invisible against their hundreds of flops.
 //
 // x = y*Pc(y^2), rounded once. The explicit CopySign is load-bearing, not
 // decorative: erfinv is odd on this whole domain so sign(result) == sign(y)

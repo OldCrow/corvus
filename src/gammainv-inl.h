@@ -1,9 +1,8 @@
 // Inverse regularized incomplete gamma: gamma_p_inv(a, p) and
 // gamma_q_inv(a, q). Per-target include guard (Highway -inl.h idiom).
 //
-// Both public functions are ONE pipeline with one bit of orientation, per
-// PLAN.md "P1 inverse incomplete gamma -- detail design" (BINDING) and the
-// parameters replay-pinned in src/gammainv_data.h. The forward region cores
+// Both public functions are ONE pipeline with one bit of orientation, with
+// the parameters replay-pinned in src/gammainv_data.h. The forward region cores
 // (src/gamma-inl.h) are consumed, never re-derived; this file adds the seed
 // stage, the residual stage and the routing that mirrors the forward's own
 // region map.
@@ -38,7 +37,7 @@
 //     E = log(x^a e^-x / Gamma(a)),
 // because dm/d(log x) = x*g/(P*Q) and P*Q = u*(1-u). Note w is the inverse's
 // own condition number |d log x / d log s| up to the O(1) factor (1-u);
-// PLAN's conditioning adjudication bounds it by ~2^10 for every input whose
+// conditioning analysis bounds it by ~2^10 for every input whose
 // true x is a normal double, and it goes to ZERO in the huge-a
 // beyond-resolution regime -- which is exactly why no huge-a branch exists.
 //
@@ -55,8 +54,8 @@
 // inf for a above ~2.5e305 and its residual to NaN, while the Stirling form
 // at x = a gives phi = 0 and E = 1/2*log(a/2pi) exactly.
 //
-// SEEDS: THREE CANDIDATES, ONE RESIDUAL COMPARISON (PLAN.md FIRST
-// CORRECTION -- the partition is by (side, lambda-regime) at ALL a, not by a
+// SEEDS: THREE CANDIDATES, ONE RESIDUAL COMPARISON
+// (the partition is by (side, lambda-regime) at ALL a, never by a
 // alone). S1 is Temme's normal-quantile seed (erfcinv -> eta -> lambda(eta),
 // plus the two pinned eps_k/a corrections); S2 is the p-form small-x seed
 // exp((ln p + lgamma(1+a))/a) with kGammaInvS2NCorr Picard corrections, whose
@@ -116,11 +115,10 @@ namespace op = ops;
 // both S2 Picard loops, S3's fixed point, the forward's E/region assembly
 // and the logit swap. Inlined, each of those becomes its own copy of a
 // table gather plus a polynomial IN EVERY ONE OF THE COMPILED TARGETS, and
-// cl.exe's optimizer is superlinear in function size: this is the same fix
-// that took betainv.cpp (src/betainv-inl.h) from past 45 minutes and 7 GB
-// on one MSVC invocation to 127 s, retro-applied here per PLAN.md's "MSVC
-// build-time headroom" item. Bit-identity is guaranteed by contraction-off
-// and verified by byte-comparing the ULP tables across the change.
+// cl.exe's optimizer is superlinear in function size -- at this TU's scale
+// the difference is minutes versus the better part of an hour on one MSVC
+// invocation. Bit-identity across the outline is guaranteed by
+// contraction-off.
 template <class D>
 HWY_NOINLINE Dd<D> GammaInvLog(D d, Dd<D> x) {
   return LogDdAny(d, x);
@@ -330,7 +328,7 @@ HWY_INLINE op::V<D> GammaInvSeedSum(D d, op::V<D> a, op::V<D> x) {
 // approximation being iterated, which is why this seed alone closes the
 // tiny-a corner where the bare closed form is off by its whole dropped
 // factor. lsum is (ln p + lgamma(1+a)) rounded once; the loop is double
-// throughout, as measured.
+// throughout.
 template <class D>
 HWY_NOINLINE op::V<D> GammaInvSeedS2(D d, op::V<D> a, op::V<D> lsum) {
   const auto zero = op::Zero(d);
@@ -393,14 +391,13 @@ HWY_NOINLINE op::V<D> GammaInvSeedS3(D d, op::V<D> a, op::V<D> lnq,
 //     |log F_solve - log t| instead LOOKS equivalent and is not -- the solved
 //     side tends to 1 over the wrong half of the domain, so its log tends to
 //     0 and every point out there scores the same |log t|. That is not a
-//     corner case: it is what ranked a candidate at 0.79*a ahead of a correct
-//     one at a + 1 ulp (a = 1.9e34, q = 7.7e-53; measured 2e18 ULP), because
+//     corner case: at (a, q) = (1.9e34, 7.7e-53) it ranks a candidate at
+//     0.79*a ahead of a correct one at a + 1 ulp, because
 //     the solved Q at 0.79*a really is 1 to the last bit while log P there is
 //     -4.8e32 and says exactly how wrong the point is.
 //   * CONTINUOUS at the median, which |log min(P,Q)| with a sign is not: that
 //     one jumps by 2*log 2 exactly where P = Q, i.e. exactly where a target
-//     of 1/2 puts its root, and Newton then oscillates across the jump
-//     (measured 5e14 ULP at s = 1/2 before the logit).
+//     of 1/2 puts its root, and Newton then oscillates across the jump.
 //   * Its two limbs are the two sides' own logs, so it degrades gracefully to
 //     log t at either extreme and costs no accuracy at the median, where
 //     m -> 0 while both limbs are -log 2 and the dd subtraction is exact.
@@ -692,7 +689,7 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   // not cover. Below x0*(1+a) < cut the dropped factor is under cut/(1+a)^2
   // for every a; above it the S2 seed's Picard iteration, which IS the exact
   // fixed point of the dropped factor, supplies the same answer to full
-  // precision. See the final-report deviation note.
+  // precision.
   const auto s0 = DdAdd(d, lnp, lg1a);
   const auto uds = GammaInvDivD(d, s0, a);
   const auto eds = ExpDdFrac(d, uds.hi, uds.lo);
@@ -731,10 +728,8 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
     auto best_r = inf;
     // AGGREGATE-init, never default-construction: `GammaInvFwdOut<D> f;`
     // instantiates the struct's implicit ctor as a separate, UNATTRIBUTED
-    // function, and the NEON_BF16 target then inlines Vec128's always_inline
-    // ctor into it -- the exact macOS-CI break of 2026-08-06 (PLAN.md, beta
-    // bf16 lesson). Brace-init has no such function; it is the fix, not the
-    // hazard.
+    // function, which the NEON_BF16 target cannot inline Vec128's
+    // always_inline ctor into. Brace-init has no such function.
     GammaInvFwdOut<D> best_f{Dd<D>{zero, zero}, zero};
     GammaInvConsider(d, a, x1, i_ok1, i_wp, lga, lna, mt, &best_x, &best_r,
                      &best_f);
@@ -759,18 +754,17 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
     // EVERY STEP IS SAFEGUARDED: it is accepted only if it does not increase
     // |ln F (-) ln t|, and a rejected step is retried from the same point at
     // a shrunken length. This is not defensive dressing, it is what makes the
-    // collapse zone right, and the ULP gate is what found it. For a above
+    // collapse zone right. For a above
     // ~2^105/|ln t| the whole P = 0 -> P = 1 transition happens inside one ulp
     // of x, so ln F is locally QUADRATIC in x - a (ln F ~ -(x-a)^2/(2a)) and
     // the iterate sits at its stationary point: Newton's linear model then
     // predicts a step twenty times too long, lands where the forward has
     // underflowed, and the next step -- reading a residual of 1e5 instead of
-    // 1e3 -- throws the answer thousands of ulps to the far side. Measured
-    // before the safeguard: 6626 ULP at a = 4.6e35, and 2e18 on the q side.
-    // With it, the overshoot is simply not taken and the answer is the seed,
-    // which is what PLAN's conditioning adjudication says it should be. The
-    // test is inert wherever Newton behaves, i.e. everywhere the replay
-    // measured, and it costs no extra work: the evaluation that scores step k
+    // 1e3 -- throws the answer thousands of ulps to the far side.
+    // With the safeguard the overshoot is simply not taken and the answer is
+    // the seed, which is the right one in the beyond-resolution regime. The
+    // test is inert wherever Newton behaves,
+    // and it costs no extra work: the evaluation that scores step k
     // is the one step k+1 would have made anyway.
     //
     // Freeze by SELECT throughout, never by adding a zero step: a lane whose
@@ -800,7 +794,7 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
       // form the replay pinned three steps against, and it is the right one:
       // in the exponential far tail (Q ~ e^-x, so Q/g -> 1 and w -> 1/x) the
       // additive step lands on the root in ONE iteration, while the same
-      // Newton written in log x converges merely quadratically -- measured
+      // Newton written in log x converges merely quadratically --
       // 49 bits after three steps against the additive form's 54 at
       // a = 1/2, q = 1/100, which is the difference between 12 ULP and
       // correctly rounded.
@@ -819,7 +813,7 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
       // kGammaInvTrustResid of the solution Newton is taken on trust: there
       // the two residuals differ by the forward's own noise rather than by
       // anything about the step, and letting noise veto the final refinement
-      // measured 99 ULP in the small-a mid band -- a bucket that is otherwise
+      // costs ~100 ULP in the small-a mid band -- a bucket that is otherwise
       // correctly rounded.
       const auto trust = Ind(d, op::Gt(op::Set(d, kGammaInvTrustResid), rbest));
       const auto acc = IndMask(

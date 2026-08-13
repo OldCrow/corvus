@@ -134,8 +134,8 @@ void SampleR1Tiny(std::mt19937_64& rng, std::vector<double>& a,
 
 void SampleModerate(std::mt19937_64& rng, std::vector<double>& a,
                     std::vector<double>& b, std::vector<double>& s) {
-  // The weak-seed middle band PLAN's SECOND correction is about: no candidate
-  // exceeds a few bits, so every seed is computed and all four steps run.
+  // The weak-seed middle band: no candidate exceeds a few bits, so every
+  // seed is computed and all four steps run.
   std::uniform_real_distribution<double> us(0.05, 0.5);
   for (size_t i = 0; i < a.size(); ++i) {
     a[i] = LogU(rng, 0.02, 0.5);

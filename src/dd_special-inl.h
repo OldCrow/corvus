@@ -5,10 +5,10 @@
 // These sit one layer above the dd cores (they consume LogDdAny and ExpDd)
 // and one layer below the function families: the incomplete gamma's Temme
 // ridge rests on Log1pmxDd, its R4 corner on Expm1Dd, and the incomplete
-// beta reuses both -- which is why they live here rather than in
-// src/gamma-inl.h, where they were first written (hoisted 2026-07-29 ahead
-// of the beta work; the byte-identity of the gamma ULP tables across the
-// hoist is the regression guard). Tables: src/dd_special_data.h
+// beta reuses both -- which is why they live here rather than in any one
+// family's TU. Byte-identity of every consumer's ULP tables across a hoist
+// into this file is the regression guard for such moves.
+// Tables: src/dd_special_data.h
 // (tools/gen_dd_special_data.py). Accuracy gate: tests/test_dd_special.cpp.
 #if defined(CORVUS_DD_SPECIAL_INL_H_) == defined(HWY_TARGET_TOGGLE)
 #ifdef CORVUS_DD_SPECIAL_INL_H_
@@ -47,8 +47,8 @@ inline constexpr int kPhiLead = 6;
 // 2^-58.5 RELATIVE on phi at the cut -- fine for phi, not for a*phi, the
 // argument of an exponential (a relative eps on phi is an a*phi*eps
 // relative error on the result, and a*phi reaches ~740 with |u| still at
-// the cut when a ~ 4e5; the plain-double table measured 12 ULP at
-// a = 3.8e5, lambda = 1.062). The dd leads put the coefficient
+// the cut when a ~ 4e5, where an all-double table costs double-digit
+// ULP). The dd leads put the coefficient
 // contribution at 2^-79, leaving the 2^-75 truncation dominant -- the same
 // lead/tail split as lgamma's zone polynomials, for the same reason. The
 // generator self-checks each pair against the exact rational.
@@ -90,7 +90,7 @@ inline constexpr int kPhiLead = 6;
 // low word -- which is exact as an unevaluated sum, BUT NOT a normalized dd
 // when u is near -1: for 1 + u ~ 2^-53 the folded u.lo is comparable to (or
 // larger than) the high word, and LogDdAny's expansion in lo/hi drops the
-// cubic (measured 1.4e-4 in beta's E at u.lo/w.hi ~ 1); at u.hi == -1
+// cubic (~1e-4-class error in a consumer's E at u.lo/w.hi ~ 1); at u.hi == -1
 // exactly the high word is zero and LogDdAny has no valid path at all.
 // HAZARD RULE: a caller whose u can approach -1 closer than ~2^-8 must use
 // the 2-arg overload with an independently computed w. Every 1-arg call

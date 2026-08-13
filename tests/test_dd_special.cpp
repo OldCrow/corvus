@@ -1,8 +1,6 @@
 // Accuracy gate for Log1pmxDd (src/dd_special-inl.h), the shared primitive
 // phi(u) = u - log1p(u) that the incomplete gamma's Temme region -- and
-// later the incomplete beta -- rests on. (This gate and its reference file
-// were named gamma_util until the 2026-07-29 hoist of the shared dd
-// primitives out of the gamma kernel.)
+// later the incomplete beta -- rests on.
 //
 // phi is not a public function, so this test compiles the kernel header
 // itself through foreach_target and drives it directly (the test_exp_dd /
@@ -80,7 +78,7 @@ const char* UtilTargetName() {
 
 namespace {
 
-// Gates from the design budget (PLAN.md, "Phase C part 2"), not from a
+// Gates from the design budget, not from a
 // measurement: the series truncates at 2^-75 and the log branch at the cut
 // amplifies log_dd by 2/u. PROVISIONAL until the tier sweep pins them.
 constexpr double kMinRelExp = 63.0;   // |u| >= 2^-40, relative

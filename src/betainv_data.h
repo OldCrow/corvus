@@ -20,7 +20,7 @@ namespace corvus::detail {
 // [-kBetaInvS1ZetaMax,kBetaInvS1ZetaMax], p in (0,0.5], symmetry
 // c_k(zeta,p)=-c_k(-zeta,1-p)], gated to its own fitted domain AND
 // nu>=kBetaInvS1NuMin (the 1/nu series is asymptotic; extrapolating
-// below nu~2 was measured to diverge -- see final report).
+// below nu~2 diverges).
 inline constexpr int kBetaInvS1NCorr = 2;
 inline constexpr int kBetaInvS1NZ = 15;
 inline constexpr int kBetaInvS1NP = 9;
@@ -69,11 +69,11 @@ inline constexpr double kBetaInvS1Cheb[2][15][9] = {
 // complement) Picard correction count.
 inline constexpr int kBetaInvS2NCorr = 6;
 
-// S4 (ORCHESTRATOR FIRST CORRECTION, 2026-08-09): exact-B leading-
+// S4: exact-B leading-
 // order closed form, exact in logit(y) of any sign/magnitude (not a
-// linearization near the plateau center -- the original linear form
-// (s-s*)/w+c(alpha,beta) diverged for |logit y|>>1; c(alpha,beta) is
-// DROPPED here, not merely zero -- it actively hurt once B is exact):
+// linearization near the plateau center -- a linear form
+// (s-s*)/w+c(alpha,beta) diverges for |logit y|>>1; c(alpha,beta) is
+// DROPPED here, not merely zero -- it actively hurts once B is exact):
 //   s*=beta/(alpha+beta); s=sigma if side==p else 1-sigma
 //   s<=s*: v=(ln s+ln alpha+lnB(alpha,beta))/alpha
 //   s>s* : v=-(ln(1-s)+ln beta+lnB(alpha,beta))/beta
@@ -82,15 +82,14 @@ inline constexpr int kBetaInvS2NCorr = 6;
 // by which branch applies) -- S4 and S2 share one mechanism at
 // leading order. Offered as a GLOBAL seed candidate at every (a,b,s)
 // (selected by cheap-residual comparison like the other four);
-// kBetaInvTJt is NOT a candidacy gate (the original design pinned it
-// as one -- contract clarification, orchestrator ruling: t_jt gates
+// kBetaInvTJt is NOT a candidacy gate: t_jt gates
 // only where the closed form could ship WITHOUT Newton refinement
-// under the plateau backward-error contract, a G3/G4 kernel
-// decision this generator does not make). Kept, PROVISIONAL, at its
+// under the plateau backward-error contract, a kernel
+// decision this generator does not make. Kept, PROVISIONAL, at its
 // original measured value pending that decision.
 inline constexpr double kBetaInvTJt = 0x1.0000000000000p-8;
 
-// S5 (fix-hierarchy level (d), orchestrator-ratified last resort):
+// S5 (last-resort family):
 // logit-normal via EXACT digamma/trigamma moments of logit(Y) =
 // ln(Gamma(alpha)-variate) - ln(Gamma(beta)-variate) [standard
 // Gamma-ratio construction of Y~Beta(alpha,beta), clean-room]:
@@ -104,33 +103,32 @@ inline constexpr double kBetaInvTJt = 0x1.0000000000000p-8;
 // comparison.
 
 // STEPS: safeguarded logit-Newton (m=lnP-lnQ, w=1/(y*dm/dy)),
-// shared step count, gammainv G3 safeguard package (reject
+// shared step count, gammainv safeguard package (reject
 // residual-increasing, 1/8 backtrack, bypass |resid|<TrustResid,
 // multiplicative-in-y step y*(1+ls), floor ls>=-0.9).
-// StepsN=4 [ORCHESTRATOR RULING, design amendment, 2026-08-09,
-// gap-band escalation chain depth 2 -- see PLAN.md]: the original
-// 3-step pin left a bounded interior sub-band (min(alpha,beta)
+// StepsN=4: a 3-step count leaves
+// a bounded interior sub-band (min(alpha,beta)
 // approx 0.02-0.5, skew 3-10x, y interior 0.1-0.3) short of the
-// gate after FIVE closed-form seed families were exhausted there
+// gate after all FIVE closed-form seed families are exhausted there
 // (none exceeds ~2-5 bits; not a selection or noise-floor
-// artifact, measured). Convergence from that band's worst
-// measured seed is clean quadratic (2.12->6.66->16.48->36.16->
+// artifact). Convergence from that band's worst
+// seed is clean quadratic (2.12->6.66->16.48->36.16->
 // 75.51 bits over steps 1-5); step 4 clears the gate by 20+ bits
 // margin band-wide -- restores full margin, shaves nothing. The
 // safeguard package makes step 4 IDEMPOTENT for lanes already
 // converged after step 3 (freeze-by-select), so its cost is one
 // bounded extra forward evaluation there, not a global slowdown.
-// G3 LATITUDE: a whole-vector all-lanes-converged skip after step
+// LATITUDE: a whole-vector all-lanes-converged skip after step
 // 3 is an ALLOWED bench optimization (gammainv's own "1 Halley
 // vs 2 Newton" precedent) -- accuracy gates must hold either way;
 // this is a throughput decision only, not an accuracy one.
 inline constexpr int kBetaInvStepsN = 4;
 inline constexpr double kBetaInvTrustResid = 0x1.0000000000000p-1;
 
-// Deep-small closed-form cut, BOTH orientations [ORCHESTRATOR
-// THIRD CORRECTION, 2026-08-09 -- re-derived, not the naive
+// Deep-small closed-form cut, BOTH orientations (re-derived for
+// beta -- NOT the naive
 // (own side)*y form, which has no dependence on the OTHER side's
-// parameter and is wrong]. y0 = exp((ln sigma + ln alpha + lnB)/
+// parameter and is wrong). y0 = exp((ln sigma + ln alpha + lnB)/
 // alpha) [P] or 1 - exp((ln sigma + ln beta + lnB)/beta) [Q] drops
 // the series correction S' (S'->1 as y->0; S' = alpha*sum_n t_n/
 // (alpha+n), t_0=1, t_n=t_{n-1}*(n-beta)*y/n). The dropped
@@ -139,7 +137,7 @@ inline constexpr double kBetaInvTrustResid = 0x1.0000000000000p-1;
 // (beta), not alpha (beta supplies the leading nonconstant series
 // coefficient, n-beta at n=1; alpha enters only via the 1+alpha
 // denominator) -- but the leading term ALONE under-predicts badly
-// at the widened gamma-limit corner (measured true/bound ratio up
+// at the widened gamma-limit corner (true/bound ratio up
 // to 13.8 uncorrected). CORRECTED with an EXACT closed-form
 // multiplier corr(y')=-ln(1-y')/y' (y'=y [P] or 1-y [Q], the OWN
 // side's small variable) -- exact in the huge-OTHER-side-exponent

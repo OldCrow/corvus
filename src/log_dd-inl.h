@@ -126,7 +126,7 @@ HWY_INLINE Dd<D> LogDd(D d, op::V<D> x) {
   // |p-1| is ~2^-8 while |p_lo| reaches 2^-53, far above ulp(p-1)/2. Left
   // that way, every term in Log1pDd computed from r.hi alone silently drops
   // its share of r.lo; the r^3 term's share is r^2*r.lo ~ 2^-69, which
-  // measured as a 2^-63 relative error near x = 1. TwoSum rather than
+  // costs ~2^-63 relative near x = 1. TwoSum rather than
   // Fast2Sum because r passes through zero inside each slot, so no ordering
   // between the two halves can be assumed.
   const auto p = op::Mul(rj, m);

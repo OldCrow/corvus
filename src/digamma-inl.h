@@ -55,7 +55,7 @@
 //     multiplies anything here, and the 1/u pole -- which is exactly the
 //     term that should diverge at a pole -- appears explicitly instead of as
 //     an overflow of pi/sin(pi x).
-//   ACCURACY DOCTRINE (lgamma analog, PLAN.md "FIRST DESIGN CORRECTION"):
+//   ACCURACY DOCTRINE (lgamma analog):
 //   psi has zeros at 20+ points on the negative axis with no closed form, so
 //   near them a fixed absolute error is an unbounded relative one. The bound
 //   is relative where |psi| >= 1 and absolute (2^-53 class) inside the zero
@@ -171,8 +171,7 @@ HWY_INLINE Dd<D> LeadTailScalar(D d, op::V<D> t, const double* lead_hi,
 // psi on [1, 2) as t (*) P(t), t = x - x0 in dd. Outlined like every other
 // region core here: fully inlined, the single export becomes one enormous
 // function per target and MSVC's optimizer is superlinear in function size
-// (AGENTS.md; the 2026-07-29 CI timeouts). Contraction is off, so outlining
-// cannot change FP semantics.
+// (AGENTS.md). Contraction is off, so outlining cannot change FP semantics.
 template <class D>
 HWY_NOINLINE Dd<D> DigammaZoneDd(D d, Dd<D> t) {
   return DdMul(d, t,

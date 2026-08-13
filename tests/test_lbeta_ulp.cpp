@@ -1,6 +1,6 @@
 // Measures corvus::lbeta against the mpmath-generated correctly-rounded
 // reference (tests/data/lbeta_reference.txt, rows "a b lbeta(a,b)" in hex),
-// bucketed BY FORMULA per the binding design (PLAN.md):
+// bucketed BY FORMULA:
 //   * relative rows, |ln B| >= 1: ULP metric, gate pinned to measured;
 //   * the zero-manifold band, |ln B| < 1: ln B has a zero curve through
 //     (1,1) where the result is inherently relative-ill-conditioned (the
@@ -24,11 +24,11 @@
 
 namespace {
 
-// Gates PINNED to measured (G3-inline, 2026-08-11), no margin: lbeta
+// Gates PINNED to measured, no margin: lbeta
 // measured CORRECTLY ROUNDED on every row of every band -- relative and
 // big-band max 0 ULP (4569 + 165 rows), absolute band max 0.500 x 2^-53
-// (the final rounding itself), -inf boundary 44/44 exact. See PLAN.md's
-// lbeta record.
+// (the final rounding itself), -inf boundary 44/44 exact (see
+// docs/ACCURACY.md).
 constexpr uint64_t kMaxUlp = 0;         // relative rows and big-band rows
 constexpr double kMaxAbs53 = 0.5;       // |lnB| < 1 band, units of 2^-53
 

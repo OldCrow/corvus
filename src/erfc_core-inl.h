@@ -1,7 +1,7 @@
 // Shared erfc assembly, hoisted out of erfc.cpp so erfinv's tail core can
 // consume it without either re-deriving it or going through the ROUNDED
-// public corvus::erfc/erf (which would floor a Newton/Halley step -- see
-// PLAN.md's Phase C erfinv/erfcinv design). Per-target include guard
+// public corvus::erfc/erf (a rounded erfc floors a Newton/Halley step at
+// the very accuracy the step is meant to recover). Per-target include guard
 // (Highway -inl.h idiom).
 //
 // Two pieces are exposed, both pure refactors of erfc.cpp with NO change to

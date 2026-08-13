@@ -14,10 +14,10 @@
 
 namespace {
 
-// Gates, set from measured values (see PLAN.md erfc section) with no margin:
-// regressions should trip them. The tail-normal bound was 5 while the region
-// went through the backend Exp; corvus's own exp_dd took it to 2, and what
-// remains is the tail polynomial G, not the exponential (see PLAN.md).
+// Gates, set from measured values with no margin:
+// regressions should trip them. The tail-normal 2-ULP bound is fit-limited:
+// what remains is the tail polynomial G, not the exponential (a dd Horner
+// would buy 2 -> 1 at a poor speed trade -- documented, accepted).
 constexpr uint64_t kMaxUlpCore = 1;          // |x| <= 6
 constexpr uint64_t kMaxUlpTailNormal = 2;    // |x| > 6, normal results
 constexpr uint64_t kMaxUlpTailSubnormal = 1; // |x| > 6, subnormal results

@@ -62,7 +62,7 @@ int main() {
   // --- erfcinv round-trip: erfcinv(erfc(x)) ~= x, x >= 0 ---------------
   // Unlike erfinv's round trip, this one does NOT blow up with x: erfc's
   // error is RELATIVE (bounded ULP of erfc(x) itself, however tiny), and
-  // erfcinv's condition number in that relative error is ~2x^2 (PLAN.md,
+  // erfcinv's condition number in that relative error is ~2x^2 (condition
   // "Phase C" condition analysis) -- the whole reason erfcinv was scheduled
   // right after erfc's tail was flagged as a possible open item. Capped at
   // 26 rather than erfc's full domain: past that erfc(x) itself is

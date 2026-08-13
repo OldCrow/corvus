@@ -82,9 +82,9 @@ void Specials() {
     double a, b, x, p, q;
     const char* why;
   };
-  // PLAN.md, "Specials [pinned now; gamma-consistent doctrine: one degenerate
-  // parameter gets its limit, two degeneracies (or a degenerate parameter
-  // meeting the x-boundary its mass sits on) -> NaN]".
+  // Specials doctrine (gamma-consistent): one degenerate
+  // parameter gets its limit; two degeneracies, or a degenerate parameter
+  // meeting the x-boundary its mass sits on, give NaN.
   const Case cases[] = {
       // x at the ends, ordinary parameters.
       {1.0, 1.0, 0.0, 0.0, 1.0, "x = 0"},
