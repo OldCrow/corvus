@@ -67,9 +67,46 @@ on Linux (tier sweep + sanitizers + install contract), macOS arm64
 (NEON), Windows (MSVC). One branch (main).
 
 ## Next Steps
-1. **NEXT SESSION (fresh fork): Bessel I0/I1 + lbeta (P2)** — staged
-   in full below (probe questions, API decision points, effort
-   routing); open at frontier with the staging block. BETA_P_INV /
+1. **NEXT SESSION: pre-v0.5.0 documentation trim [staged 2026-08-12,
+   user-ratified; all four phases].** Goal: code comments free of
+   historical references — every [Nth correction]/[G-pass]/escalation/
+   date tag — and pared to user/maintainer-focused content; reference
+   docs compressed; PLAN compacted to freeze state. ALL archaeology
+   goes, in generators too (the lighter generator standard governs
+   WHAT REMAINS — every enforcement-site/self-check rationale stays,
+   timeless — not whether archaeology is removed).
+   THE ARCHAEOLOGY TEST [policy, ratified]: a comment survives only if
+   it states a constraint, bound, derivation, or hazard the CODE
+   cannot show; who found it, when, in which pass, and what it
+   measured before the fix all go. Rewrite, don't delete: each tagged
+   site keeps its math half ("why this spelling") and drops its
+   history half. When a site's math half is ONLY recorded in PLAN,
+   re-site the constraint into the comment before cutting the pointer.
+   Measured inventory (2026-08-12): src/ ~97 correction mentions +
+   ~50 pass/date tags over 21 files — beta-inl.h (40, 47% comment
+   lines) and betainv-inl.h (20) are half the load; src/*_data.h ~18
+   markers are GENERATED — trim in the generators' emit code and
+   regenerate, numeric sections byte-compared; 30 PLAN.md pointers in
+   src/ need the re-site-or-keep policy applied per site; tools/ ~200
+   markers (gen_beta_data 58, gen_betainv_data 63,
+   gen_beta_reference 47); docs: ACCURACY 1088 → ~800 (every retained
+   number re-checked against pinned gates while editing), PLAN 1774 →
+   ~700 freeze-state compaction (narrative lives in git history),
+   ENVIRONMENT/DOCTRINE/AGENTS/README light ABC pass.
+   Phases and routing: (1) frontier — policy application + hot
+   kernels (beta, betainv, gamma/gammainv, dd_special, the corner-arc
+   comments) + data-header generator emits, ~3–4 h; (2) Sonnet in
+   parallel — small families, tests, ENVIRONMENT/README, brief:
+   comment lines only, never delete a bound/eps/exactness claim,
+   flag-don't-cut when unsure, frontier diff review; (3) frontier —
+   ACCURACY compression + PLAN compaction, ~2–2.5 h; (4) generators
+   under the lighter standard, ~1.5–2 h. Estimated total ~5–6 h.
+   Validation: comment-only ⇒ codegen-identical; one build + full
+   ctest + CI at the end, byte-compare on regenerated data headers;
+   no tier sweep. v0.5.0 tags after this arc (core/generator/test
+   freeze).
+   [Historical item below retained until the PLAN compaction pass:]
+   BETA_P_INV /
    BETA_Q_INV SHIPPED [2026-08-10] (ledger: probe 0 / G1 3 ratified
    corrections incl. one orchestrator-review catch / G2 0 design +
    2 scope continuations + 3 frontier rulings / G3 1 adjudicated
@@ -120,10 +157,9 @@ on Linux (tier sweep + sanitizers + install contract), macOS arm64
    fallback capping VonMises at ~1e-7) is exactly what P2 Bessel
    retires, and libstats #52 (slow Binomial CDF) is beta_p — an
    integration note for libstats, not a corvus gap.
-2. **Quiet-machine bench_beta re-run** [bench SHIPPED 2026-08-06 —
-   numbers below are loaded/indicative]: re-run on an idle Ryzen for
-   publishable numbers, and fold into the Kaby bench pass when that
-   machine leg happens.
+2. **Quiet-machine bench_beta re-run** — DONE 2026-08-12 (full-suite
+   quiet pass, gated at 3.6% ambient; see Resolved log). Kaby fold-in
+   remains with item 3.
 3. **Kaby Lake legs when the machine is available** [OPEN, machine
    access; ruled NON-GATING 2026-08-06, user decision]: beta AVX2-native
    + capped sweep (additional cross-machine check, not a claim gap —
