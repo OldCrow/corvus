@@ -38,8 +38,7 @@ Highway puts every AVX3\* target in `HWY_BROKEN_TARGETS` under MSVC, so an
 MSVC build silently tops out at AVX2 while still looking like a clean pass
 — never make an AVX-512 claim from one. Use Clang (clang-cl), which
 dispatches `AVX3_ZEN4` natively. mingw-w64 GCC also dispatches it but is
-**disqualified for every tier above 128-bit — found at AVX-512
-2026-07-28, confirmed at AVX2 2026-08-10**: GCC 16.1 accesses the
+**disqualified for every tier above 128-bit**: GCC 16.1 accesses the
 ms_abi invisible-reference temporaries for 256- and 512-bit BY-VALUE
 arguments and returns (any `__m256d`/`__m512d` or wrapper struct passed
 to a non-inlined function — exactly what HWY_NOINLINE outlining creates)
@@ -51,20 +50,19 @@ luck (one ABI-legal residue in two is safe at 256-bit, one in four at
 kernel ran clean. Genuine register spills are correctly `vmovupd`, and
 named over-aligned locals/return slots in isolation get an aligned
 scratch pointer — only the argument temporaries are broken. Reproduces
-at every -O level including -O0; no flag rescues it (tested 2026-07-29
-at 512-bit: `-mstackrealign` and `-mpreferred-stack-boundary=6` change
-nothing; `-mstackrealign` re-confirmed useless at 256-bit 2026-08-10).
-clang-cl (and, per its own escape-hatch caveat below, MSVC) is
-unaffected. Filed upstream 2026-08-08 as GCC PR 126741 (512-bit; the
-256-bit extension is queued as a follow-up comment). Minimal repros:
+at every -O level including -O0; no flag rescues it (`-mstackrealign`
+and `-mpreferred-stack-boundary=6` change nothing, at either 256- or
+512-bit). clang-cl (and, per its own escape-hatch caveat below, MSVC) is
+unaffected. Filed upstream as GCC PR 126741 (512-bit; the 256-bit
+extension is queued as a follow-up comment). Minimal repros:
 `C:\Users\gdwol\Development\gcc-zmm-mingw-repro\` (512-bit) and
 `C:\Users\gdwol\Development\gcc-ymm-mingw-repro\` (256-bit,
-independently contributed, verified on this box 2026-08-10). The
-failure mode is a fault, never silent corruption — an aligned store to
-a misaligned address traps — so GCC-built runs that completed produced
-valid numbers; the disqualification is about reliability, not past
-results. (The long-standing mingw test-binary "exit crash" was this
-bug firing in-kernel, diagnosed 2026-08-10 — PLAN.md resolved record.) GCC remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4),
+independently contributed). The failure mode is a fault, never silent
+corruption — an aligned store to a misaligned address traps — so
+GCC-built runs that completed produced valid numbers; the
+disqualification is about reliability, not past results. (The
+long-standing mingw test-binary "exit crash" was this bug firing
+in-kernel.) GCC remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4),
 where the ABI's 16-byte guarantee already covers the temporaries. The
 `tools/sweep_tiers.ps1` `g++` default is therefore qualified only for
 those capped tiers; run the sweep under `-CxxCompiler clang-cl
@@ -111,9 +109,7 @@ Manual alternative (no preset): `cmake -B build -DCMAKE_BUILD_TYPE=Release -G Ni
   deliberately uses the default VS generator, no vcvars).
 - Windows vcvars bootstrap (required for Ninja with cl or clang-cl —
   neither compiler nor link.exe resolves outside a VS dev shell; this
-  is the non-interactive recipe, added 2026-08-11 after an agent
-  correctly fell back to the VS generator because only that path was
-  fully documented):
+  is the non-interactive recipe):
   ```powershell
   $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
   cmd /c "call `"$vs\VC\Auxiliary\Build\vcvars64.bat`" && cmake -B build-msvc-ninja -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl && cmake --build build-msvc-ninja"
@@ -208,11 +204,11 @@ done
 `sweep_tiers.ps1` MUST run under `pwsh` (PowerShell 7+), never Windows
 PowerShell 5.1: 5.1 silently fails to apply the pipe-delimited
 `CORVUS_DISABLED_TARGETS` caps, so every "capped" iteration builds the
-full target set and runs under the native tier's name — the script's
-own `CORVUS_EXPECT_TARGET` assertion is the tripwire that catches it
-(observed 2026-08-10: AVX3_ZEN4 ran under the AVX2 label). The script
-also documents its own single-element-splat gotcha at the top; read it
-before editing the `$gates` array handling.
+full target set and runs under the native tier's name (e.g. AVX3_ZEN4
+silently running under the AVX2 label) — the script's own
+`CORVUS_EXPECT_TARGET` assertion is the tripwire that catches it. The
+script also documents its own single-element-splat gotcha at the top;
+read it before editing the `$gates` array handling.
 
 Benchmarks (`bench_*`, not ctest-registered): Release build, quiet machine
 only; numbers taken on a loaded machine are indicative and must be labeled
@@ -231,8 +227,8 @@ surface lean and justify every runner:
   plus ASan+UBSan Debug build in the same job.
 - macOS arm64 (expensive class): single config — the only runner producing
   new information (native NEON silicon; counts as real-silicon validation).
-- Windows x86-64 / MSVC (added 2026-07-24, when the project first ran on
-  Windows at all): **toolchain coverage, explicitly not tier coverage.** It
+- Windows x86-64 / MSVC: **toolchain coverage, explicitly not tier
+  coverage.** It
   is the only job that sees MSVC-only diagnostics (`/W4 /WX`) and the only
   one using a multi-config generator — a `set_property(CACHE
   CMAKE_BUILD_TYPE)` bug broke the VS generator while Ninja stayed green,
@@ -249,13 +245,9 @@ surface lean and justify every runner:
   direct-push-to-main workflow); caching (build is ~minutes; add only
   if minutes grow). AVX-512 cannot run on hosted runners — Ryzen stays a
   manual validation stop.
-- House-style §5/§6 adopted at the first tagged release (v0.1.0,
-  2026-08-06, closing issue #2): `lint-workflows.yml` carries the fleet
-  actionlint + zizmor pair, and every action in both workflows is
-  SHA-pinned with a `# vX.Y.Z` comment plus `persist-credentials: false`
-  on every checkout. The pre-tag deferral (avoid the weekly Dependabot
-  bump stream while the workflow surface was one rarely-changing file)
-  is recorded in issue #2 for the rationale trail.
+- `lint-workflows.yml` carries the fleet actionlint + zizmor pair, and
+  every action in both workflows is SHA-pinned with a `# vX.Y.Z` comment
+  plus `persist-credentials: false` on every checkout.
 - Workflow security: GITHUB_TOKEN read-only (repo setting + workflow
   `permissions:`), no event-payload interpolation in `run:` blocks,
   Dependabot keeps action versions fresh across all SHA-pinned actions.

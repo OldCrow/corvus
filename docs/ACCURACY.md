@@ -76,88 +76,49 @@ Lake (AVX2+FMA native, AppleClang) is pending machine access and is an
 additional check, not a gap in the claim.
 
 `exp_dd` and `log_dd` are not public API; they are audited here because the
-erfc tail's bound rests on `exp_dd` and lgamma's rests on `log_dd`.
-Their NEON row comes from CI run 30163646136 (Apple Silicon runner,
-AppleClang, brew Highway 1.4.0), which reproduced the x86 numbers
-point-for-point — including `exp_dd`'s worst-case input. Note AppleClang's
-default contraction setting (`on`) differs from both GCC's (`fast`) and
-MSVC's (none), so that agreement is also a check that `-ffp-contract=off`
-is reaching every compiler.
+erfc tail's bound rests on `exp_dd` and lgamma's rests on `log_dd`. Their
+NEON row reproduced the x86 numbers point-for-point — including `exp_dd`'s
+worst-case input — which is also a check that `-ffp-contract=off` reaches
+AppleClang (whose default, `on`, differs from GCC's `fast` and MSVC's
+none).
 
-x86 validation: Kaby Lake i7-7820HQ, AppleClang (AVX2+FMA native; SSE
-tiers via capping, which on this CPU also exercises the no-FMA code
-paths); the same tier sweep also runs in CI on Linux/GCC. NEON validation:
-Apple Silicon GitHub runner (native silicon, native FMA), Highway 1.4.0,
-CI run 2026-07-21 — all ULP gates passed; per-run measured values appear
-in the CI "ULP report" step from that date forward.
-
-AVX-512 validation (2026-07-24): Ryzen 7 7445HS (Zen 4), Windows 11,
-Highway 1.4.0, full tier sweep per the AGENTS.md recipe. "AVX-512" here
+Validation legs: Kaby Lake i7-7820HQ, AppleClang (AVX2+FMA native; SSE
+tiers via capping, which also exercises the no-FMA paths); Linux/GCC CI
+tier sweep; NEON on the Apple Silicon GitHub runner (native silicon,
+native FMA — per-run measured values appear in the CI "ULP report"
+steps); AVX-512 on the Ryzen 7 7445HS (Zen 4, Windows 11). "AVX-512"
 means the three AVX3\* variants this CPU supports — `AVX3_ZEN4` (native
-dispatch), `AVX3_DL`, and `AVX3` (both via capping); all three pass every
-gate with values identical to AVX2. `AVX3_SPR` compiles but is Intel
-Sapphire Rapids only and remains unvalidated; `AVX10_2` is unavailable on
-this CPU. Reproduced independently under two compilers — GCC 16.1
-(mingw-w64/UCRT) and Clang 22.1.8 (clang-cl, MSVC ABI) — which agree
-point-for-point. Hosted CI runners don't provide AVX-512, so this tier
-stays a manual stop on the Ryzen box. Re-run in full on 2026-07-25 (GCC
-16.1) after the erfc tail moved onto `exp_dd`, adding `exp_dd` to the
-sweep; `tools/sweep_tiers.ps1` is the Windows form of the recipe.
+dispatch), `AVX3_DL`, `AVX3` (capping) — all passing every gate with
+values identical to AVX2. `AVX3_SPR` compiles but is Sapphire-Rapids-only
+and unvalidated; `AVX10_2` is unavailable here. Hosted CI runners don't
+provide AVX-512, so this tier stays a manual stop on the Ryzen box;
+`tools/sweep_tiers.ps1` is the Windows form of the recipe.
 
-The gamma_p/gamma_q AVX-512 row (2026-07-28, same machine) was validated
-under clang-cl **only**, and the sweep of the four lower tiers on this box
-ran under clang-cl as well. The reason is a compiler defect found during
-that session (mechanism pinned down 2026-07-29 by a 60-line freestanding
-repro): mingw-w64 GCC 16.1 accesses the ms_abi invisible-reference
-temporaries for 512-bit by-value arguments and returns with the aligned
-`vmovapd` while allocating them at plain `rsp`-relative offsets with no
-realignment — and the Windows x64 ABI guarantees only 16-byte stack
-alignment, so whether any given binary faults depends on the call
-chain's accidental `rsp` residue mod 64 (one legal residue in four is
-safe; `test_gamma_ulp` segfaulted while the smoke test "passed" — same
-kernel, different luck). The `HWY_NOINLINE` outlining is what introduced
-such by-value vector calls. Genuine register spills are correctly
-unaligned `vmovupd`, and named over-aligned locals get an aligned
-scratch pointer, so this is a GCC bug (argument-temporary path only),
-not a corvus or Highway one; it reproduces at -O0 and no flag avoids it.
-clang-cl and MSVC compile the identical pattern correctly. 2026-08-10
-update: an independently contributed minimal repro, verified on this
-machine, shows the identical defect at 256 bits — `__m256d` argument
-temporaries written with aligned `vmovapd` at unrealigned
-`rsp`-relative offsets, one ABI-legal residue in two safe — so the bug
-is not AVX-512-specific. Until it is fixed upstream (filed 2026-08-08
-as GCC PR 126741), mingw GCC is **not** a valid validation compiler for
-any tier above 128-bit; clang-cl is the sole source of Windows AVX2 and
-AVX-512 numbers. The GCC-built AVX2-and-below results already recorded
-in this document remain numerically valid: the failure mode is a fault
-(an aligned store to a misaligned address traps), never silent
-corruption, and those runs agreed point-for-point with clang-cl.
+**Windows validation numbers come from clang-cl only.** mingw-w64 GCC
+16.1 miscompiles by-value vector arguments at 256-bit and above (aligned
+`vmovapd` stores of argument temporaries at unrealigned `rsp`-relative
+offsets; whether a binary faults depends on the call chain's accidental
+stack residue). Filed upstream as GCC PR 126741; mechanism, repro paths
+and scope in docs/ENVIRONMENT.md. Until it is fixed, mingw GCC is a
+valid validation compiler only for the 128-bit tiers; GCC-built
+AVX2-and-below results recorded here remain numerically valid (the
+failure mode is a fault, never silent corruption, and those runs agreed
+point-for-point with clang-cl). Separately, **a default MSVC build does
+not exercise AVX-512 at all** (`HWY_BROKEN_MSVC` silently caps it at
+AVX2), so no AVX-512 claim may be made from one. Overriding the
+blocklist (`CORVUS_MSVC_UNBLOCK_AVX512=ON`, OFF by default) dispatched
+`AVX3_ZEN4` and reproduced every value in this document exactly —
+evidence the blocklist is stale for these kernels, not a validated
+configuration; substantiating it means running Highway's own suite under
+MSVC (see PLAN.md Open Items).
 
-**A default MSVC build does not exercise AVX-512 at all**: Highway marks
-every AVX3\* target broken under MSVC (`HWY_BROKEN_MSVC`), so such a build
-silently tops out at AVX2 — no AVX-512 claim may be made from one. The
-supported bounds above are *not* measured through MSVC. For the record,
-overriding that blocklist (`CORVUS_MSVC_UNBLOCK_AVX512=ON`, OFF by
-default) was tried on 2026-07-24 with MSVC 19.51: it dispatched
-`AVX3_ZEN4` and reproduced every value in this document exactly, at ~1.6x
-the AVX2 throughput. That is evidence the blocklist is stale for these
-kernels, not a validated configuration — upstream does not test the path,
-so it is deliberately excluded from the matrix above. Substantiating it
-properly means running Highway's own test suite under MSVC, which is the
-prerequisite for asking upstream to add a version floor.
-
-**Cross-architecture reproducibility (observed 2026-07-21, extended
-2026-07-24 and 2026-07-28):** every FMA-capable target validated so far
-produces bit-identical results on every point of both reference sets —
-identical not-correctly-rounded counts and identical worst-case inputs.
-That set now covers NEON (Apple Silicon, AppleClang), AVX2 (Linux/GCC and
-Kaby Lake/AppleClang), and AVX3, AVX3_DL, AVX3_ZEN4 (Ryzen Zen 4, GCC and
-clang-cl for the pre-gamma families; clang-cl for gamma_p/gamma_q — see
-the GCC note above). The gamma_p/gamma_q region tables are identical cell
-for cell (max ULP, not-CR counts, and worst-case inputs) on NEON, AVX2
-(Kaby Lake and Linux CI), and all three AVX3\* variants. On FMA-capable
-targets the kernels are, on this evidence, deterministic across ISA,
-compiler, and OS.
+**Cross-architecture reproducibility:** every FMA-capable target
+validated so far produces bit-identical results on every point of every
+reference set — identical not-correctly-rounded counts and identical
+worst-case inputs — across NEON (AppleClang), AVX2 (Linux/GCC, Kaby
+Lake/AppleClang, Ryzen capping), and all three AVX3\* variants (GCC
+pre-gamma, clang-cl throughout). On FMA-capable targets the kernels
+are, on this evidence, deterministic across ISA, compiler, and OS.
 
 `exp_dd` and `log_dd` go further: they are identical on **every** validated
 tier, FMA and no-FMA alike, and under GCC, MSVC and AppleClang — same
@@ -257,27 +218,16 @@ is what holds the subnormal band to a single rounding. Results underflow
 gradually past x ≈ 26.5; erfc(x) = 0 for x ≥ ~27.3. Special values:
 erfc(±0) = 1, erfc(−inf) = 2, erfc(+inf) = 0, NaN propagates with payload.
 
-**Where the residual 2 ULP now lives.** `exp_dd` contributes at most
-2^−68.4 relative (≈ 2^−15 ULP) and the dd assembly around it is exact to
-~2^−104, so none of the 2 ULP is the exponential any more — it is the G
-polynomial. Replaying the tail formula in mpmath with one error source
-added at a time (3875 points in [6, 27.2]) separates two effects that the
-single "2 ULP / 48% not-CR" figure hides:
-
-* the **not-correctly-rounded rate is the fit and its double
-  coefficients**. With the stored coefficients but exact evaluation, exact
-  arguments and an exact exponential, the rate is already 52.9%. No
-  compensated evaluation can improve that; it would take a re-fit carrying
-  double-double coefficients, with the whole path kept in dd.
-* the **max ULP is the evaluation**. That same exact-evaluation model
-  reaches 1 ULP, so a compensated Horner would take the shipped kernel
-  from 2 to 1 while leaving the not-CR rate near 53%.
-
-Neither is attempted: the first is a different project, and the second
-spends throughput on a tail path already 1.7× slower to move a bound that
-is already documented, without moving the quality signal underneath it.
-Tracked in PLAN.md, with erfcinv as the trigger to revisit — that is the
-first function whose own accuracy would be bounded by this one.
+**Where the residual 2 ULP lives.** `exp_dd` contributes at most 2^−68.4
+relative (≈ 2^−15 ULP) and the dd assembly around it is exact to ~2^−104,
+so none of the 2 ULP is the exponential — it is the G polynomial.
+Error-source decomposition (one source at a time, 3875 points in
+[6, 27.2]): the not-CR rate (~53%) is set by the fit's double
+coefficients alone — only a dd-coefficient re-fit could move it; the max
+ULP is the evaluation — a compensated Horner would buy 2 → 1 while
+leaving the rate unchanged. Neither is attempted: the first is a
+different project, the second spends throughput on a tail path already
+1.7× slower to move a bound that is already documented. Accepted.
 
 Negative x mirrors through the compensated core (not 2 − erfc(|x|), which
 would reround) up to |x| = 6; beyond, 2 − tail rounds to exactly 2, which
@@ -365,13 +315,11 @@ build, and both compilers were all green.
 
 **Bound: max 1 ULP everywhere on all five validated x86 tiers and NEON**,
 including the far tail down to the smallest subnormal `erfcinv` result and
-the bit-neighbourhood of `erfcinv`'s zero crossing at z = 1. NEON (Apple
-Silicon CI, run 30180799151) reproduces the x86 FMA-tier numbers
-point-for-point — same not-CR counts, same worst-case inputs — extending
-the cross-architecture determinism claim to both inverses. Not-CR counts are
-in the table above; see PLAN.md's Phase C section for the full design
-rationale (region structure, condition-number analysis, why the tail step
-is a Halley rather than a Newton step).
+the bit-neighbourhood of `erfcinv`'s zero crossing at z = 1. NEON
+reproduces the x86 FMA-tier numbers point-for-point — same not-CR counts,
+same worst-case inputs — extending the cross-architecture determinism
+claim to both inverses. Not-CR counts are in the table above; design
+rationale lives at the definition sites in src/erfinv-inl.h.
 
 Both functions route onto two shared cores, every routed argument exact by
 Sterbenz:
@@ -387,12 +335,6 @@ erfcinv(z): z in [1/2, 3/2]  -> C(1 - z)
 `T(s)` solves erfc(x) = s for s in (0, 1/2) and returns the positive root
 (x in (~0.4769, ~27.217)); `erfinv` never reaches past x ≈ 5.86
 (`erfcinv(2^-53)`), so the far tail is exercised only through `erfcinv`.
-
-2026-07-29: `ErfcInvCore` and both drivers were made `HWY_NOINLINE` (MSVC
-build-time relief; see AGENTS.md). No accuracy impact — the ULP table is
-byte-identical before/after on native AVX3_ZEN4, and the full sweep
-(AVX2→SSE2, AVX3_DL, AVX3, plus MSVC-built AVX2) was re-run green on the
-outlined source that day.
 
 **Core C** (central, |x| ≤ ~0.4769): a single direct polynomial fit,
 x = y·Pc(y²), Pc a degree-16 Chebyshev fit on v = y² ∈ [0, 1/4] with 3 dd
@@ -446,21 +388,17 @@ x ≥ 6):
   `far: delta = -2F/(2F' + F*(2*x0 + F'))`.
   x1 = fl(x0 + delta) is the kernel's one unavoidable rounding.
 
-**A shared clamp needed widening, found by the T-far/T-mid boundary
-reference points.** `ErfcCoreDd`'s table lookup used to clamp its argument
-to exactly 6.0 — safe for erfc.cpp, which never evaluates it on a
-kept (non-discarded) lane above 6 — but erfinv's mid-region seed can
-legitimately land a few 2^-17-ish past 6 when the true root sits right at
-the mid/far seam (seed error ~2^-19 relative, and 6·2^-19 is well past a
-double's ulp there). Clamping silently evaluated erfc at 6.0 instead of the
-true x0, decoupling f from f′ and producing a ~1e-6 error instead of 1 ULP
-at exactly the points the reference set's boundary neighbourhoods were
-built to probe. Fixed by widening the clamp to `kErfcCoreSafeMax` (6 +
-1/1024, over 100x erfinv's worst-case overshoot and still ~500x inside the
-erf table's actual safe extrapolation limit of 6 + 1/512, where the grid
-index would first go out of bounds) — erfc's own results are provably
-unaffected since every lane the wider clamp changes is one erfc.cpp always
-discards via its tail/core select.
+**A shared clamp constraint worth keeping.** `ErfcCoreDd`'s table lookup
+clamps its argument at `kErfcCoreSafeMax` = 6 + 1/1024, NOT at 6.0:
+erfinv's mid-region seed can legitimately land a few 2^-17 past 6 when
+the true root sits at the mid/far seam (seed error ~2^-19 relative, and
+6·2^-19 is well past a double's ulp there), and a clamp at exactly 6.0
+silently evaluates erfc at 6.0 instead of the true x0, decoupling f from
+f′ (~1e-6 error instead of 1 ULP). The widened clamp is over 100x the
+worst-case overshoot and still ~500x inside the erf table's safe
+extrapolation limit of 6 + 1/512; erfc's own results are provably
+unaffected since every lane the wider clamp changes is one erfc.cpp
+always discards via its tail/core select.
 
 **Oracle**: mpmath's `erfinv` directly for `erfinv`'s reference (accurate
 across mpmath's whole domain); for `erfcinv`, root-finding on
@@ -521,7 +459,7 @@ that keeps Q relative-accurate down to a = 1e-300 where Q ~ a·E1(x). The
 prefactor exponent and every assembly are double-double with one rounding;
 the always-compute-the-smaller-side rule plus 1 ⊖ dd complements is what
 makes the relative claim global. Full region map and error budget:
-PLAN.md, "Phase C part 2".
+the derivation blocks in src/gamma-inl.h.
 
 Two hazards worth recording. The φ = u − log1p(u) primitive carries its
 six leading series coefficients as dd pairs because a·φ is an exponential's
@@ -601,7 +539,8 @@ Q̃ = −expm1(τ·lnξ + lgΔ − lg1 + log1p(τΣ)) whose every component is
 individually dd-relative, a near-one post-route folding R1 lanes whose
 value exceeds 1 − 2⁻¹¹ into that assembly, and a gamma-limit slice
 (one parameter ≥ 2⁵⁹) routed through the incomplete-gamma limit. Region
-map, seams and the eleven routing/assembly corrections: PLAN.md G3–G4.
+map and seams: the derivation blocks in src/beta-inl.h; the
+correction-by-correction history is in PLAN.md's git record.
 
 Three hazard classes worth recording, each caught by this family's
 validation machinery and each a lesson with reach beyond beta:
@@ -959,7 +898,7 @@ re-validated at 1 ULP).
 Oracle: mpmath `besseli` at layered dps (40/80, escalation to 150;
 zero disagreements, zero declined rows across 9,732 reference rows),
 independently cross-checked by an own-series/own-asymptotic route
-and a 52-row orchestrator spot-check; overflow boundaries derived
+and an independent 52-row spot-check; overflow boundaries derived
 three times independently (dps 40/50/50), bit-identical.
 
 Consumer notes (von Mises): log I0(κ) composes as
@@ -1013,7 +952,7 @@ cancel ~89 digits, and both tiers can round to an identical exact zero
 that a relative agreement check accepts; that defect was caught by
 review of the generator's own statistics and fixed by scaling dps to a
 cancellation-free term-magnitude probe). Independent cross-check via
-mp.log(mp.beta) at 2.6·10⁻⁴⁴ worst; 18-row orchestrator spot-check
+mp.log(mp.beta) at 2.6·10⁻⁴⁴ worst; independent 18-row spot-check
 including −inf rows re-verified at dps 400.
 
 Consumer note: BetaBinomial log-PMF hot paths use differences of ln B;

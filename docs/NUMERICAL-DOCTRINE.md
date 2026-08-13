@@ -130,6 +130,11 @@ python3 -m venv /tmp/mpv && /tmp/mpv/bin/pip install mpmath
 /tmp/mpv/bin/python tools/gen_trigamma_reference.py > tests/data/trigamma_reference.txt
 /tmp/mpv/bin/python tools/gen_gammainv_data.py    > src/gammainv_data.h
 /tmp/mpv/bin/python tools/gen_gammainv_reference.py
+/tmp/mpv/bin/python tools/gen_betainv_data.py     > src/betainv_data.h
+/tmp/mpv/bin/python tools/gen_betainv_reference.py
+/tmp/mpv/bin/python tools/gen_bessel_data.py      > src/bessel_data.h
+/tmp/mpv/bin/python tools/gen_bessel_reference.py
+/tmp/mpv/bin/python tools/gen_lbeta_reference.py
 ```
 `gen_erfinv_reference.py` writes both `tests/data/erfinv_reference.txt` and
 `tests/data/erfcinv_reference.txt` directly (two output files, so no `>`
@@ -150,9 +155,26 @@ beta reference regeneration MUST end with a clean
 harness is oracle-independent and carries a baked-in negative control
 (known-bad rows that must be rejected, exit 2 otherwise) — the
 oracle-trust doctrine's enforcement point (see PLAN.md Decisions).
-`gen_gammainv_reference.py` writes both inverse-gamma reference files
-directly (checkpointed/resumable) with per-row bracket certification and
-baked-in negative controls — same exit-2 doctrine.
+`gen_gammainv_reference.py` and `gen_betainv_reference.py` write their
+reference files directly (checkpointed/resumable) with per-row bracket
+certification and baked-in negative controls — same exit-2 doctrine.
+`gen_bessel_reference.py` and `gen_lbeta_reference.py` likewise write
+their files directly (layered-dps oracles, no bracket certification —
+both functions have trusted single-argument mpmath baselines).
+
+**Replay self-checks (binding, both rules paid for in shipped defects):**
+- Every generator replay/self-check samples DOMAIN BOUNDARIES with
+  edge-refined, bit-stepped points — uniform or random grids miss worst
+  points that sit within ~1e-10 of an interval edge (coherent Chebyshev
+  coefficient rounding puts them there), and under-pin dd-lead counts.
+- A replay sim must model UNFUSED MulAdd semantics as well as FMA, and
+  must replay EVERY shipped assembly (scaled and unscaled) — non-FMA
+  tiers (SSE4/SSSE3/SSE2) are first-class, and FMA-only validation is
+  the "assert the tier, never assume it" trap in numerical form.
+- A truncation/rounding budget proven relative to a COMPONENT's own
+  scale is void once the consuming assembly cancels below it — required
+  accuracy is set by the result's cancellation depth, not the
+  component's.
 
 Reference files and generated tables are checked in; regenerate only when
 the method or point selection changes, and re-run the ULP tests after.
