@@ -14,10 +14,12 @@ https://github.com/OldCrow/corvus/releases/tag/v0.4.0): the
 beta-forward u → −1 fix arc (three defects, witnesses correctly
 rounded) + the zero-warning static-analysis pass + the
 CORVUS_SANITIZE MSVC guard. QC phase continues toward v0.5.0 —
-remaining: quiet-machine bench pass, consumer-integration notes
-(libstats #47/#51/#52), pre-v1.0.0 doc trim, ARCHITECTURE.md
-referencing decision, betainv huge-parameter Dekker audit. v0.5.0
-freezes core code, generators, and tests [user, 2026-08-12].
+remaining: consumer-integration notes (libstats #47/#51/#52),
+pre-v1.0.0 doc trim, ARCHITECTURE.md referencing decision, betainv
+huge-parameter Dekker audit. Quiet-machine Ryzen bench pass DONE
+(2026-08-12, see Resolved log); the Kaby leg stays a separate
+machine-access item. v0.5.0 freezes core code, generators, and tests
+[user, 2026-08-12].
 
 **Version roadmap [user, 2026-08-12]:** consider a v0.4.0 bump after
 the static-analysis work and any corrections it forces; v0.5.0 once
@@ -1643,6 +1645,22 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-12 quiet-machine Ryzen bench pass DONE (supersedes the
+  loaded/indicative v0.3.0-session table as the publishable Ryzen
+  set). Protocol: detached self-gating runner (build-clangcl/
+  quiet_bench.ps1) refuses to start until ambient < 5% total over two
+  consecutive 10 s samples and logs noise between every target; this
+  pass gated at 3.6% and held 2.6–6.2% avg throughout (floor ~3%).
+  Getting there required killing APSDaemon (~1 core, constant) and
+  temporarily stopping WSearch (0.83 core — indexing the day's file
+  churn) + LightingService (0.13); Performance power plan, clocks
+  105–108% base. Per-family speedups (AVX3_ZEN4; libm-baseline for
+  erf/erfc/lgamma, scalar-walk otherwise): erf 3.7–6.4, erfc 2.8–9.5,
+  lgamma 1.4–5.5, erfinv 5.2–14.9, gamma 8.9–24.0, digamma 7.1–25.2,
+  trigamma 7.6–30.9, beta 7.3–15.1, gammainv 6.2–142.0, betainv
+  4.0–55.4, bessel 5.3–9.2, lbeta 8.0/12.7. Raw per-band logs:
+  quiet_bench_bench_*.txt (local build tree, not checked in; the
+  noise-annotated quiet_bench.log alongside is the evidence chain).
 - 2026-08-12 v0.4.0 released: tag at 96d181d gated on full CI green
   (run 31652276608, per-job verified); ships the beta-forward fix arc
   and the QC sweep below. Version sweep clean — only the two enforced
