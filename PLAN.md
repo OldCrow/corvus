@@ -8,13 +8,16 @@ source, which are the official record for finished work.
 
 ## Status [DERIVED] — 2026-08-12
 
-**Post-v0.3.0 QC phase underway.** First arc COMPLETE: the
-beta-forward u → −1 defect pair (PRIORITY, shipped since v0.1.0) is
-fixed, plus a third latent huge-β defect its reference rows exposed —
-be55662/68deb66/d275bcd, both witnesses correctly rounded, full
-revalidation ladder green (see Resolved log). Remaining phase work:
-static-analysis sweep, quiet-machine bench pass, consumer-integration
-notes, pre-v1.0.0 doc trim.
+**v0.4.0 RELEASED** (tag at 96d181d, CI-gated per-job on run
+31652276608;
+https://github.com/OldCrow/corvus/releases/tag/v0.4.0): the
+beta-forward u → −1 fix arc (three defects, witnesses correctly
+rounded) + the zero-warning static-analysis pass + the
+CORVUS_SANITIZE MSVC guard. QC phase continues toward v0.5.0 —
+remaining: quiet-machine bench pass, consumer-integration notes
+(libstats #47/#51/#52), pre-v1.0.0 doc trim, ARCHITECTURE.md
+referencing decision, betainv huge-parameter Dekker audit. v0.5.0
+freezes core code, generators, and tests [user, 2026-08-12].
 
 **Version roadmap [user, 2026-08-12]:** consider a v0.4.0 bump after
 the static-analysis work and any corrections it forces; v0.5.0 once
@@ -1640,6 +1643,11 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-12 v0.4.0 released: tag at 96d181d gated on full CI green
+  (run 31652276608, per-job verified); ships the beta-forward fix arc
+  and the QC sweep below. Version sweep clean — only the two enforced
+  sites carry the number (README badge is dynamic), configure-time
+  check re-verified on the bumped tree.
 - 2026-08-12 static-analysis sweep COMPLETE (cppcheck 2.21 + clang-tidy
   22.1.3 + lizard 1.22.1, check set pinned in .clang-tidy): 73 raw
   findings triaged to a small hygiene batch — `static` on all
