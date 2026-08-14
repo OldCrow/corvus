@@ -519,6 +519,18 @@ corner rows moved exactly one measured cell: the gamma-limit direct
 slice, 0 → 1 ULP (6 of 430 rows, worst (40, 1e307, 1.6e-306), row
 re-verified against mpmath betainc at dps 380).
 
+**R4 huge-B corner, closed by the follow-up Dekker audit.** The R4
+tiny-min route admits B within a decade of DBL_MAX (τ ≤ ln2/|ln ξ|
+keeps the whole tiny-τ box in-domain at ξ ~ 8e-307), and its series
+recurrence carried both of R1's fixed diseases: the |t|·B/n
+intermediate overflows near the B·ξ = 8 membership cap on every tier,
+and B > 2^996 breaks the non-FMA Dekker split. Both closed by the same
+exact power-of-two prescale R1 uses (bit-identical on every non-huge
+lane, verified by byte-comparing the ULP tables), and permanently gated
+by a 215-row certified R4-huge-B corner family (τ to 1e-8, B
+bit-stepped across 2^900/2^996/1.4e308, B·ξ approaching the cap from
+below, both orientations; independent-harness verified, 0 declines).
+
 The small side is always the directly-computed side (P ≤ ½ invariant via
 the symmetry I_x(a,b) = 1 − I_{1−x}(b,a)), so every bound above is
 relative down to the subnormal band; complements are handed out as
@@ -854,7 +866,28 @@ disagreement), five known-bad negative controls must be rejected on
 every run before anything is written, and rows the certifier cannot
 prove are declined, never guessed (115 of 16,998).
 
-Special values (SciPy parity): p = 0 → +0 and p = 1 → 1, mirrored for
+**Huge-parameter corner, closed by the Dekker audit.** Two distinct
+defects, both fixed and both now gated by a 203-row certified corner
+family (one parameter bit-stepped across 2^900/2^996/1.4e308, the
+other 0.5–100, s from 1e-6 to 0.99, both orders; 86 unprovable rows
+declined, never guessed):
+* the log-space forward's three DdMulD log-times-parameter products
+  (PA's two and the gamma-limit t) broke the non-FMA Dekker split
+  above 2^996 — the audit item that opened this family; fixed by the
+  same exact power-of-two prescales as the forward beta's twin sites,
+  bit-identical on every non-huge lane; and
+* the u = exp(lnf) site fed exp_dd an UNCLAMPED log. For a wildly
+  skewed pair the orientation probe's midpoint log is astronomically
+  negative (ln I_{1/2}(1e100, ½) ~ −7e99), exp_dd walks out of its
+  Cody-Waite domain and returns non-finite, the forward declares
+  itself unusable, and the probe's stays-unswapped fallback — correct
+  only for balanced pairs — strands the solve in the wrong frame:
+  quantiles of Beta(a, b) with a ≳ 1e69-class and moderate b returned
+  the 0.5 no-candidate fallback on every tier. Fixed by clamping the
+  exp ARGUMENT at the underflow floor (exp(−800) is already an exact
+  0, so the clamp is value-identical everywhere it was correct
+  before); gamma's inverse carried the same latent shape at its u
+  site — unreachable on its gates — and received the same clamp.
 q; inputs outside [0, 1] → NaN, as are non-positive or non-finite
 parameters; NaN propagates from any argument.
 

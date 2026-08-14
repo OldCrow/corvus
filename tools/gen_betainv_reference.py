@@ -1846,6 +1846,228 @@ def compute_all(ps):
 
 
 # ============================================================================
+# Part 11b: huge-parameter corner append. Gates the betainv-side half of
+# the Dekker-ceiling audit (src/betainv-inl.h's exact power-of-two
+# prescale on the E prefactor's DdMulD(lrxi, ra) / DdMulD(lryv, rb) sites,
+# the twin of beta forward's BetaR4Tiny fix): rows like
+# beta_p_inv(2, 1e307, 0.5) exercise ra/rb above ops::ProdLow's 2^996
+# non-FMA Dekker ceiling with the b*ln(1-y) product O(1) and load-bearing.
+#
+# min(a,b) here is MODERATE (0.5..100), not huge -- both_huge_balanced's
+# own guard (min(a,b) >= GUARD_MIN_THRESHOLD = 1e10) never fires, so the
+# gamma-corner hang risk Part 1/2's guard exists for does not apply; the
+# standard "full" forward route (gbr.small_side_direct) is safe and fast
+# here, exactly as the task brief anticipated.
+#
+# What DOES bite at this corner: certify_row's DEFAULT root-find path
+# (oracle_y -> guarded_fast_forward -> bid.betainv_forward -> gb.route_final)
+# SILENTLY MISROUTES at this skew -- measured witness: at (a=2, b=1e307),
+# bid.betainv_forward(a, b, y) returns a pure {0.0, 1.0} STEP over
+# y in [2e-307, 1e-306] where the true P rises smoothly 0.594 -> 0.997 ->
+# 0.9995, driving the root-find to converge on a numerically-plausible but
+# WRONG root -- the module docstring's own "SHARED-MACHINERY CAVEAT",
+# also independently documented by oracle_y_audited's own docstring for
+# the gamma-limit-seam stratum (same disease, different witness). FIX:
+# exactly what oracle_y_audited exists for -- bisect directly against
+# full_forward (the audited small_side_direct route), then certify the
+# result through certify_row's own yd_override path (which also calls
+# full_forward, never the buggy cheap router, for the actual bracket
+# check).
+#
+# A SECOND, distinct hazard shows up only with the huge parameter FIRST
+# (a huge, the exponent-on-y side): the true quantile sits within O(1/a)
+# of y = 1, which for a >= 2^900 is hundreds of decimal digits closer to 1
+# than any double distinguishes from 1.0 -- oracle_y_audited's bracket
+# search correctly finds NO sign change (both endpoints are already
+# saturated at working dps) and returns None. This is not a decline: it
+# is the SAME deep-small-boundary collapse certify_row's own yd-in-{0,1}
+# branch exists for, just never reached because the audited bisection
+# never lands on the boundary value it would recognize. FALLBACK:
+# certify_deep_small directly at both dps layers (60, 100) -- the same
+# call certify_row itself would make had oracle_y/oracle_y_audited handed
+# it yd in {0.0, 1.0}. Rows that clear NEITHER route are DECLINED and
+# counted, never guessed (checked empirically: ~34% of the huge-FIRST
+# orientation genuinely needs this fallback and a further fraction still
+# declines -- the quantile there is neither deep-small-provable nor
+# bracket-representable at standard dps, a real DECLINE, not a bug).
+# ============================================================================
+def _nextafter_pos_inf(v):
+    return math.nextafter(v, math.inf)
+
+
+def gen_betainv_huge_corner():
+    """(a, b, sigma, side, tag) attempted points. One parameter log-spaced
+    across [2^900, 1.7e308) bracketing the non-FMA Dekker ceiling 2^996;
+    the other in {0.5, 1, 2, 5, 20, 100} (task spec, verbatim). sigma in
+    {1e-6, 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99}; side by the natural
+    sigma<=0.5 -> p / sigma>0.5 -> q convention (s>1/2 needs no separate
+    complement construction -- unlike beta forward's xi, sigma is used
+    directly as either function's own probability argument, so the s>1/2
+    half of the list already exercises the q-side calls). BOTH parameter
+    orders (huge first and second)."""
+    huge_list = [_nextafter_pos_inf(2.0 ** 900), 2.0 ** 996, 1.4e308]
+    other_list = [0.5, 1.0, 2.0, 5.0, 20.0, 100.0]
+    sigma_list = [1e-6, 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99]
+    pts = []
+    seen = set()
+
+    def add(a, b, sigma, tag):
+        side = "p" if sigma <= 0.5 else "q"
+        key = (a, b, sigma, side)
+        if key in seen:
+            return
+        seen.add(key)
+        pts.append((a, b, sigma, side, tag))
+
+    for hh in huge_list:
+        for oo in other_list:
+            for sigma in sigma_list:
+                add(hh, oo, sigma, "betainv-huge-corner-first")
+                add(oo, hh, sigma, "betainv-huge-corner-second")
+    add(2.0, 1e307, 0.5, "betainv-huge-corner-witness")  # task-example witness
+    return pts
+
+
+def certify_huge_corner_row(a, b, sigma, side, tag):
+    """Three-tier certification (see module comment above): audited
+    bisection + standard bracket (covers the huge-SECOND orientation and
+    most huge-FIRST rows whose quantile is not deep-small); deep-small-
+    direct fallback (the huge-FIRST boundary-collapse corner); DECLINE
+    (counted, never guessed) if neither certifies."""
+    try:
+        seed = bid.seed_S3(a, b, sigma, side)
+    except Exception:
+        seed = None
+    if seed is None or not (math.isfinite(seed) and 0.0 < seed < 1.0):
+        try:
+            seed = bid.seed_for(a, b, sigma, side)
+        except Exception:
+            seed = None
+
+    if seed is not None:
+        yd_aud = oracle_y_audited(a, b, sigma, side, seed, dps=60)
+        if yd_aud is not None:
+            r = certify_row(a, b, sigma, side, tag, yd_override=yd_aud)
+            if r["certified"]:
+                return r
+
+    layer_results = [certify_deep_small(a, b, sigma, side, dps) for dps in (60, 100)]
+    if (layer_results[0]["certified"] and layer_results[1]["certified"]
+            and layer_results[0]["yd"] == layer_results[1]["yd"]):
+        return {"yd": layer_results[1]["yd"], "certified": True,
+                "method": "deep-small-fallback", "marker": "N"}
+
+    return {"yd": None, "certified": False, "method": "declined", "marker": "N"}
+
+
+CKPT_HUGE_CORNER_PATH = os.path.join(
+    tempfile.gettempdir(), f"corvus_betainv_ref_ckpt_hugecorner_{SEED}.tsv")
+HUGE_CORNER_WALL_BUDGET_S = 260.0
+
+
+def compute_huge_corner(pts):
+    total = len(pts)
+    sig = f"v1 SEED={SEED} N={total}"
+    done_map = load_checkpoint(CKPT_HUGE_CORNER_PATH, sig)
+    status(f"huge-corner checkpoint: {len(done_map)}/{total} already computed "
+           f"({CKPT_HUGE_CORNER_PATH})")
+    existing_sig = None
+    if os.path.exists(CKPT_HUGE_CORNER_PATH):
+        with open(CKPT_HUGE_CORNER_PATH, "r") as f0:
+            existing_sig = f0.readline().strip()
+    mode = "a" if existing_sig == sig else "w"
+    t_start = time.time()
+    newly = 0
+    with open(CKPT_HUGE_CORNER_PATH, mode) as fh:
+        if mode == "w":
+            fh.write(sig + "\n")
+            fh.flush()
+        for idx, (a, b, sigma, side, tag) in enumerate(pts):
+            if idx in done_map:
+                continue
+            if time.time() - t_start > HUGE_CORNER_WALL_BUDGET_S:
+                status(f"huge-corner wall-clock budget hit at {idx}/{total} "
+                       f"({newly} this run) -- re-run with --huge-corner-append "
+                       f"to continue.")
+                return None, False
+            try:
+                r = certify_huge_corner_row(a, b, sigma, side, tag)
+            except Exception as e:
+                r = {"yd": None, "certified": False, "method": f"exception:{e}"}
+            if r["yd"] is None or not r["certified"]:
+                append_checkpoint(fh, idx, ["FAILED", r.get("method", "?")])
+            else:
+                append_checkpoint(fh, idx, [hexd(r["yd"]), r["marker"], r["method"]])
+            newly += 1
+    status(f"huge-corner: computed {newly} points this run "
+           f"({time.time() - t_start:.0f}s); all {total} points now checkpointed.")
+
+    done_map = load_checkpoint(CKPT_HUGE_CORNER_PATH, sig)
+    rows_p, rows_q = [], []
+    fail_by_key = {}
+    for idx, (a, b, sigma, side, tag) in enumerate(pts):
+        fields = done_map[idx]
+        if fields[0] == "FAILED":
+            key = (tag, fields[1] if len(fields) > 1 else "?")
+            fail_by_key[key] = fail_by_key.get(key, 0) + 1
+            continue
+        yd = float.fromhex(fields[0])
+        marker = fields[1]
+        (rows_p if side == "p" else rows_q).append((a, b, sigma, yd, marker))
+    status(f"huge-corner certified: {len(rows_p)} p-rows, {len(rows_q)} q-rows "
+           f"(of {total} attempted)")
+    if fail_by_key:
+        status(f"huge-corner declines by (tag, method): {fail_by_key}")
+    return (rows_p, rows_q), True
+
+
+def _splice_huge_corner(rows_p, rows_q):
+    for path, rows in (
+        (os.path.join(REPO, "tests", "data", "betainv_p_reference.txt"), rows_p),
+        (os.path.join(REPO, "tests", "data", "betainv_q_reference.txt"), rows_q)):
+        with open(path) as f:
+            lines = [ln.rstrip("\n") for ln in f if ln.strip()]
+        seen = {tuple(ln.split()[:3]) for ln in lines}
+        added = []
+        for a, b, sigma, yd, marker in rows:
+            key = (hexd(a), hexd(b), hexd(sigma))
+            if key in seen:
+                continue  # PointSet-consistent: an earlier family owns the row
+            seen.add(key)
+            added.append(f"{key[0]} {key[1]} {key[2]} {hexd(yd)} {marker}")
+        with open(path, "w", newline="\n") as f:
+            f.write("\n".join(lines + added) + "\n")
+        status(f"wrote {path}: +{len(added)} huge-corner rows "
+               f"({len(lines) + len(added)} total)")
+
+
+def huge_corner_append():
+    t_all = time.time()
+    if not negative_controls():
+        print("\nFATAL: negative control(s) were ACCEPTED -- the certifier "
+              "is not rejecting known-bad rows. Aborting, nothing written.",
+              file=sys.stderr)
+        return 2
+    status("negative controls: all rejected (correct).")
+
+    pts = gen_betainv_huge_corner()
+    status(f"huge-corner point set: {len(pts)} attempted points")
+
+    result, done = compute_huge_corner(pts)
+    if not done:
+        status("PARTIAL RUN: re-invoke with --huge-corner-append to continue "
+               "(checkpoint saved).")
+        return 3
+    rows_p, rows_q = result
+    if not rows_p and not rows_q:
+        print("\nFAILED: zero rows certified.", file=sys.stderr)
+        return 1
+    _splice_huge_corner(rows_p, rows_q)
+    status(f"huge-corner-append runtime: {time.time() - t_all:.1f}s")
+    return 0
+
+
+# ============================================================================
 # Part 12: write rows. Format (ratified deviation, see module docstring):
 # five hex tokens per row: a b sigma yd marker.
 # ============================================================================
@@ -1903,4 +2125,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--huge-corner-append" in sys.argv[1:]:
+        sys.exit(huge_corner_append())
     sys.exit(main())

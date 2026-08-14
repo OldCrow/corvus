@@ -1657,11 +1657,11 @@ def main():
             # true noise floor under EPS_TIGHT=2^-105 was 53.34b, i.e. an
             # EFFECTIVE kappa~51.7b, already close to the contract's 2^52
             # headline despite the simple formula placing it comfortably
-            # below. Bucketing at 40 (not 52) so points whose
-            # simple-formula kappa already sits within ~12 bits of the
-            # true edge fall into the backward-error contract rather
-            # than being held to the y-ULP gate the simple formula
-            # under-predicts they can meet.
+            # below. Bucketing at 35 (not 52) so points whose
+            # simple-formula kappa sits well inside the ~12-bit
+            # under-prediction band fall into the backward-error
+            # contract rather than being held to the y-ULP gate the
+            # simple formula under-predicts they can meet.
             if kappa_bits > 35.0 and region == "S4":
                 bucket = "S4-plateau"
             region_results.setdefault(bucket, []).append(

@@ -763,6 +763,95 @@ def gen_pb_corner(ps):
 
 
 # ============================================================================
+# R4 huge-B corner family (the huge-parameter Dekker-ceiling audit's second
+# fixed site, BetaR4Tiny's HUGE-B EXACT PRESCALE at kBetaScaleAbove = 2^900).
+# Never covered before: gen_r4's own B_list tops out at B1/XI1 ~ 17.8 (R4's
+# natural wall on B*xi <= B1 = 8 with xi <= XI1 = 0.45), and gen_pb_corner's
+# b_list caps at 1e307 chasing the PB prefactor's u -> -1 hazard, not R4's
+# recurrence -- the huge-B branch of BetaR4Tiny had ZERO reference rows.
+#
+# Two INDEPENDENT entry points into that branch, both exercised here:
+#   (native) true R4 membership: min(a,b) = tau <= eps_R4 = 2^-6, driven
+#     deep inside the box (1e-8..9e-4, two-plus decades below eps_R4) so
+#     the corner sits squarely in R4's own territory, not its outer wall.
+#   (promoted) beta-inl.h's "near-one post-route": an R1 lane whose
+#     evaluated value exceeds kBetaNearOne = 1-2^-11 folds into the SAME
+#     BetaR4Tiny call (i_pr) with alpha up to kBetaPrTauMax = 2.5. Checked
+#     numerically (not assumed) via the b->inf regularized-gamma limit
+#     P(a,t) = lim_{b->inf} I_{t/b}(a,b): only a = 1.0 clears kBetaNearOne
+#     within bx = B*xi <= 8 (P(1,t) = 1-e^-t crosses it at t ~ 7.86; P(1.5,
+#     t), P(2,t), P(2.5,t) never reach it by t = 8), so that is the only
+#     alpha value this corner needs.
+#
+# NO "huge parameter first" companion exists for either entry -- checked,
+# not skipped for convenience. BetaR4Tiny's xi argument must be a genuinely
+# tiny DOUBLE (order bx/B, ~1e-270 at B ~ 2^900) arriving DIRECTLY as x:
+# sw4 = (b < a) fires whenever the tiny parameter is passed SECOND, forcing
+# xi = TwoSum(1, -x) = 1-x (beta-inl.h:1203). TwoSum is exact for any
+# magnitude, but encoding a nonzero low word at all needs x within ~2^-53
+# of 1 -- capping the reachable B at ~8*2^53 ~ 7.2e16, fourteen orders of
+# magnitude short of kBetaScaleAbove = 2^900. A "huge parameter first" row
+# with bx <= 8 and B >= 2^900 is not a double-precision-representable
+# point; both P and Q reference files still gain every row here (they are
+# written identically, see the module docstring), just not via that axis.
+# ============================================================================
+def gen_r4huge_corner(ps):
+    n0 = len(ps.pts)
+    ln2 = float(LN2)
+
+    # --- native R4 membership, tau deep inside eps_R4's box ------------------
+    b_list = sorted(set([
+        NEXT_UP(2.0 ** 900),       # just above the prescale activation gate
+        2.0 ** 950,
+        NEXT_DN(2.0 ** 996), 2.0 ** 996, NEXT_UP(2.0 ** 996),  # the actual
+                                    # non-FMA Dekker ceiling the prescale exists to clear
+        2.0 ** 1020,
+        1.4e308,                   # within a decade of DBL_MAX, B1 <= 8 still holds
+    ]))
+    tau_list = [1e-8, 3.0e-5, 9.0e-4]  # log-spaced across the task's tiny-tau band
+    bx_list = sorted(set([
+        0.25, 1.0, 4.0, 7.5, 7.9, 7.99, NEXT_DN(8.0), 8.0,
+    ]))  # bit-stepped approach to the B1 = 8 membership wall from below
+    for bb in b_list:
+        for bx in bx_list:
+            xi = bx / bb
+            if not (0.0 < xi < 1.0):
+                continue
+            # tau*|ln xi| <= ln2 (R4's own convergence cap): solve for the
+            # tightest admissible tau at this xi and only keep grid taus
+            # under it -- binding only at the largest B (xi tiniest).
+            tau_cap = min(9e-4, ln2 / abs(math.log(xi)))
+            for tau in tau_list:
+                if tau > tau_cap:
+                    continue
+                ps.add(tau, bb, xi, tag="r4huge-corner-native")
+
+    # --- exact-ceiling bracket: bit-step B itself across 2^996 at fixed
+    # tau/bx, isolating the ceiling crossing from the bx/tau grid above.
+    for bb in (NEXT_DN(2.0 ** 996), 2.0 ** 996, NEXT_UP(2.0 ** 996)):
+        for bx in (4.0, 7.99, NEXT_DN(8.0)):
+            xi = bx / bb
+            ps.add(3.0e-5, bb, xi, tag="r4huge-corner-dekker-bracket")
+
+    # --- task-example witness, bit-exact as filed -----------------------------
+    ps.add(1e-4, 1e307, 5e-307, tag="r4huge-corner-witness")
+
+    # --- promoted entry: alpha = 1.0 is the only value that clears
+    # kBetaNearOne within bx <= 8 (see module comment). bx in [7.85, 8.0]
+    # bit-steps the promotion boundary from below; 7.0/7.5 are unpromoted
+    # controls (stay plain R1, confirming the boundary is genuinely crossed
+    # rather than always-on).
+    for bb in (NEXT_UP(2.0 ** 900), 2.0 ** 960, 2.0 ** 996, 2.0 ** 1020, 1.4e308):
+        for bx in (7.85, 7.9, 7.95, 7.99, 7.999,
+                   NEXT_DN(NEXT_DN(8.0)), NEXT_DN(8.0), 8.0):
+            ps.add(1.0, bb, bx / bb, tag="r4huge-corner-promoted")
+        for bx in (7.0, 7.5):
+            ps.add(1.0, bb, bx / bb, tag="r4huge-corner-promoted-control")
+
+    print(f"  r4huge-corner family: {len(ps.pts) - n0} points", file=sys.stderr)
+
+
+# ============================================================================
 # Random seeded fill (own fresh stream, SEED=20260731) to reach the target
 # total point count.
 # ============================================================================
@@ -2357,10 +2446,28 @@ def run_cross_check(rows, n=CROSS_CHECK_N, force_idx=()):
             # dps 50 returns 1.7e-30698 for a true 1.2e-15). Escalate dps
             # so xx stays visible; unreachable points TIMEOUT and are
             # excluded, exactly as before.
+            #
+            # The gap that must survive precision-wise is min(xm, 1-xm) in
+            # EITHER orientation -- in the "P" branch xx = xm directly (tiny
+            # xm IS tiny xx, the original check's own case); in the "Q"
+            # branch xx = 1 - xm, so tiny xm makes xx close to 1, and
+            # float(xx) there is exactly 1.0 (xm below ~2^-53 is
+            # unrepresentable as "1 minus a double"), silently defeating a
+            # check keyed on float(xx) alone. xm is always plain
+            # double-derived (no precision to lose converting it), so key
+            # the check on it directly rather than on xx.
+            # CAUGHT 2026-08-14 by the r4huge-corner family's own witness:
+            # (1e-8, 2^996, x~3.7e-301) reported a 660x mpmath-vs-CF
+            # disagreement here; an independent Laplace-asymptotic
+            # cross-check of Q confirmed the CF value correct to 9 digits
+            # and mpmath's UNESCALATED dps=50 call wrong -- the oracle
+            # disease class (mpmath internally-consistent garbage in an
+            # unescalated corner), not a CF or reference-row defect.
             need_dps = CROSS_CHECK_MPMATH_DPS
-            xf = float(xx)
-            if 0.0 < xf < 1e-20:
-                need_dps = max(need_dps, int(30.0 - math.log10(xf)))
+            xmf = float(xm)
+            gap_f = xmf if xmf <= 0.5 else 1.0 - xmf
+            if 0.0 < gap_f < 1e-20:
+                need_dps = max(need_dps, int(30.0 - math.log10(gap_f)))
             mm_v = gbd._betainc_timeout(aa, bb, xx, need_dps,
                                          timeout=CROSS_CHECK_TIMEOUT)
             if mm_v is None:
@@ -2683,6 +2790,9 @@ def main():
     # fill's stream and stopping point) is byte-identical to the pre-corner
     # runs; --corner-append splices exactly this block's rows.
     gen_pb_corner(ps)
+    # Also last/deterministic, same reason -- --r4huge-append splices
+    # exactly this block's rows.
+    gen_r4huge_corner(ps)
     print(f"  total distinct (a,b,x) points: {len(ps.pts)}", file=sys.stderr)
 
     print("evaluating oracle (CF, dps ladder 40/60/100, resumable) ...",
@@ -2883,7 +2993,91 @@ def corner_append():
     return rc
 
 
+# ============================================================================
+# --r4huge-append: incremental certification of the r4huge-corner family
+# alone, same pattern as --corner-append (see its docstring): own checkpoint
+# file/signature, same small_side_direct protocol and self-checks, splice
+# via the SAME _splice_corner (generic over which family produced the rows;
+# dedup by (a,b,x) key means the two append modes can run in either order
+# with no double-counting). Refuses to run if the existing files' specials
+# tail does not match gen_specials_rows() bit-for-bit.
+# ============================================================================
+CKPT_R4HUGE_PATH = os.path.join(tempfile.gettempdir(),
+                                f"corvus_beta_ref_ckpt_r4huge_{SEED}.tsv")
+
+
+def r4huge_append():
+    t_all = time.time()
+    ps = PointSet()
+    gen_r4huge_corner(ps)
+    print(f"r4huge point set: {len(ps.pts)} distinct points", file=sys.stderr)
+
+    # Point-bits digest signature (NUMERICAL-DOCTRINE.md's binding rule: a
+    # grid edit that preserves N would otherwise replay stale checkpoint
+    # values under new point identities).
+    import hashlib
+    dig = hashlib.sha256()
+    for a, b, x, _, _ in ps.pts:
+        dig.update(struct.pack("<QQQ", as_bits(a), as_bits(b), as_bits(x)))
+    rows, region_hist, done = compute_all(
+        ps, ckpt_path=CKPT_R4HUGE_PATH,
+        sig_ver=f"v1-r4huge-{dig.hexdigest()[:16]}")
+    if not done:
+        print("\nPARTIAL RUN: re-invoke with --r4huge-append to continue "
+              "(checkpoint saved).", file=sys.stderr)
+        return 3
+    print(f"  r4huge region histogram: {region_hist}", file=sys.stderr)
+
+    rc = 0
+    rc |= check_p_plus_q(rows)
+    rc |= check_small_side_direct(rows)
+
+    # The task-example witness must be present as an emitted row, and is
+    # force-included in the cross-check sample below.
+    wit = [(1e-4, 1e307, 5e-307)]
+    wit_idx = []
+    for wa, wb, wx in wit:
+        hits = [i for i, r in enumerate(rows)
+                if as_bits(r[0]) == as_bits(wa) and as_bits(r[1]) == as_bits(wb)
+                and as_bits(r[2]) == as_bits(wx)]
+        if not hits:
+            print(f"  FAILED: witness row ({wa}, {wb}, {wx:.17e}) missing "
+                  f"from the r4huge set.", file=sys.stderr)
+            rc = 1
+        else:
+            wit_idx.append(hits[0])
+            r = rows[hits[0]]
+            print(f"  witness ({wa}, {wb:.0e}, {wx:.17e}): P={r[3]:.17e} "
+                  f"Q={r[4]:.17g}", file=sys.stderr)
+
+    xcheck_ok, xcheck_summary = run_cross_check(rows, n=60,
+                                                force_idx=tuple(wit_idx))
+    if not xcheck_ok:
+        print("\nPARTIAL RUN: cross-check incomplete, re-invoke with "
+              "--r4huge-append to continue (checkpoint saved).",
+              file=sys.stderr)
+        return 3
+    if xcheck_summary is not None and \
+            xcheck_summary["worst"] > float(CROSS_CHECK_TARGET):
+        print(f"  FAILED: cross-check worst disagreement "
+              f"{xcheck_summary['worst']:.3e} exceeds target "
+              f"{float(CROSS_CHECK_TARGET):.0e}.", file=sys.stderr)
+        rc = 1
+
+    if rc:
+        print("\nSelf-checks FAILED -- not touching reference files.",
+              file=sys.stderr)
+        return rc
+
+    rc = _splice_corner(rows)
+    print(f"\nr4huge-append runtime: {time.time() - t_all:.1f}s",
+          file=sys.stderr)
+    return rc
+
+
 if __name__ == "__main__":
     if "--corner-append" in sys.argv[1:]:
         sys.exit(corner_append())
+    if "--r4huge-append" in sys.argv[1:]:
+        sys.exit(r4huge_append())
     sys.exit(main())

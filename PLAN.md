@@ -47,45 +47,26 @@ inventories, von Mises included); v0.4.0 2026-08-12. All tags
 CI-gated, immutable under protect-tags, each with a Release object.
 
 ## Next Steps
-1. **NEXT SESSION: betainv huge-parameter Dekker audit** (the Open
-   Item below): coverage decision on the three DdMulD
-   log-times-parameter sites above the 2^996 non-FMA ceiling,
-   reference rows if reachable unsaturated, exact-prescale fix if
-   needed. Kernel-touching if it fires → full revalidation ladder.
-2. **Then final v0.5.0 review**: sweep the tree/PLAN for anything
-   else that must precede the core/generator/test freeze (the
-   kappa-bucket comment/code inconsistency below resolves here too),
-   then bump version to 0.5.0, tag, and cut the Release
-   [user-ratified 2026-08-13: audit → review → bump/tag/release].
-3. **Consumer-integration notes** for libstats: #47 (A&S Bessel
+1. **Final v0.5.0 review**: Dekker audit COMPLETE (2026-08-14, see
+   Resolved log — three fixes, two new defect finds, corner rows
+   gating). Bump version to 0.5.0, tag, cut the Release
+   [user-ratified: audit → review → bump/tag/release]. v0.5.0
+   freezes core code, generators, and tests.
+2. **Consumer-integration notes** for libstats: #47 (A&S Bessel
    fallback capping VonMises at ~1e-7 — retired by i0/i1/i0e/i1e),
    #51 (von Mises CDF — Miller recurrence recipe documented in the
    bessel design record below), #52 (slow Binomial CDF — beta_p is
    the integration answer, a libstats note, not a corvus gap).
-4. **Kaby Lake legs when the machine is available** [OPEN, machine
+3. **Kaby Lake legs when the machine is available** [OPEN, machine
    access; ruled NON-GATING 2026-08-06, user decision]: beta
    AVX2-native + capped sweep (additional cross-machine check, not a
    claim gap — ACCURACY.md dagger note), and the quiet-machine Kaby
    bench pass (its gamma bench numbers are loaded/indicative only).
 
 ## Open Items
-- [OPEN, low — 2026-08-13, surfaced by the doc-trim review]
-  gen_betainv_data.py's kappa bucketing comment says "Bucketing at 40"
-  while the S4 code tests `kappa_bits > 35.0` — a pre-existing
-  comment/code inconsistency. Resolve which value is intended before the
-  next betainv reference regeneration (shipped references unaffected
-  until then). A few stage-tag strings also remain inside generator
-  stderr banners (runtime diagnostics only, never emitted into
-  headers); clean opportunistically at the next generator touch.
-- [OPEN — 2026-08-12, surfaced by the beta-forward fix arc] betainv's
-  own DdMulD log-times-parameter sites (betainv-inl.h:630/659/683,
-  `DdMulD(lrxi, ra)` / `DdMulD(lryv, rb)`) are unaudited above
-  ops::ProdLow's 2^996 non-FMA Dekker ceiling, and its reference set
-  has no >2^996-parameter rows — the same latent-hazard family the
-  corner arc fixed at beta's three sites (68deb66). Needs: coverage
-  decision (do >2^996 params reach those products unsaturated?),
-  reference rows if so, and the same exact-prescale fix. Not a
-  shipped-defect witness — audit, not emergency.
+- [OPEN, low] A few stage-tag strings remain inside generator stderr
+  banners (runtime diagnostics only, never emitted into headers);
+  clean opportunistically at the next generator touch.
 - [OPEN, enhancement, low priority — 2026-08-10] exp_dd accuracy
   bump (one more polynomial term + keep r.lo through the quadratic)
   would raise betainv's y-ULP κ-horizon from 2¹⁸ toward the design's
@@ -539,6 +520,25 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-14 betainv huge-parameter Dekker audit CLOSED, findings wider
+  than the item: (1) the three named DdMulD sites fixed by exact
+  prescales (reachable unsaturated, e.g. the Beta(2, 1e307) median on
+  non-FMA tiers); (2) NEW — shared BetaR4Tiny carried R1's two huge-B
+  hazards unfixed (intermediate overflow near the B·ξ = 8 cap on every
+  tier + non-FMA Dekker break; affected the shipped beta forward),
+  fixed by R1's twin prescale; (3) NEW — betainv's u = exp(lnf) site
+  fed exp_dd an unclamped log: wildly skewed pairs (first parameter
+  ≳ 1e69-class, moderate second) NaN'd the orientation probe's
+  midpoint forward on every tier and returned the 0.5 fallback; fixed
+  by a value-identical argument clamp at the underflow floor (gammainv
+  got the same defensive clamp at its latent twin site). Permanent
+  gating: 215 R4-huge-B beta rows (harness-verified, 0 declines) +
+  203 betainv huge-corner rows (bracket-certified, 86 unprovable rows
+  declined); two oracle bugs found and fixed in gen_beta_reference's
+  cross-check dps escalation en route. All existing gate cells
+  byte-identical pre/post-fix; kappa-bucket comment/code inconsistency
+  resolved in the code's favor (35, the shipped replay-validated
+  threshold).
 - 2026-08-12 quiet-machine Ryzen bench pass DONE (supersedes the
   loaded/indicative v0.3.0-session table as the publishable Ryzen
   set). Protocol: detached self-gating runner (build-clangcl/

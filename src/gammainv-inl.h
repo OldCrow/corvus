@@ -560,7 +560,14 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
       i_pdir = op::IfThenElse(m_cmp, IndNot(d, i_pdir), i_pdir);
     }
   }
-  const auto u = GammaInvExpDd(d, lnf.hi, lnf.lo);  // u = min(P, Q) <= 1/2
+  // u = min(P, Q) <= 1/2. The argument is clamped at the underflow floor
+  // before exp_dd sees it: exp_dd's Cody-Waite reduction assumes |x| in
+  // the exp over/underflow range, and an astronomically negative log
+  // walks it to NaN (betainv's u-site derives the hazard; exp(-800) is
+  // already an exact 0, so the clamp is value-identical for u).
+  const auto lnf_u = op::Max(lnf.hi, op::Set(d, -800.0));
+  const auto lnf_ul = op::IfThenElse(op::Eq(lnf_u, lnf.hi), lnf.lo, zero);
+  const auto u = GammaInvExpDd(d, lnf_u, lnf_ul);
   const auto c = DdAdd(d, Dd<D>{one, zero}, Dd<D>{op::Neg(u.hi), op::Neg(u.lo)});
   const auto lnc = GammaInvLog(d, c);
   const auto lg = DdAdd(d, lnf, Dd<D>{op::Neg(lnc.hi), op::Neg(lnc.lo)});

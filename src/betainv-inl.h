@@ -624,8 +624,28 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   // both-parameters-large cancellation on paper. No saturation clamp: this is
   // a log, and its whole range is meaningful.
   const auto inf = op::Set(d, std::numeric_limits<double>::infinity());
-  const auto e_pa =
-      DdAdd(d, DdAdd(d, DdMulD(d, lrxi, ra), DdMulD(d, lryv, rb)), cx.mlnb);
+  // HUGE-parameter EXACT PRESCALE for the two DdMulD multiplicands (the
+  // forward's l1/l2 twin): ra or rb above ops::ProdLow's 2^996 non-FMA
+  // Dekker ceiling breaks the split inside DdMulD (a NaN, not a rounding),
+  // and such lanes are live and unsaturated wherever the counterpart log
+  // is O(1/param)-tiny -- rb ~ 1e307 with ln(1-y) ~ -y ~ -2e-307 makes
+  // the product O(1) and load-bearing (e.g. the Beta(2, 1e307) median).
+  // Scale the parameter down by an exact power of two and the product
+  // back; a true scale-back overflow lands on +-inf (both logs are <= 0,
+  // no inf - inf exists) and BetaInvFiniteLog's sentinel owns it, exactly
+  // as the unscaled overflow did. Non-big lanes multiply by 1.0:
+  // bit-identical.
+  const auto pba = op::Gt(ra, op::Set(d, kBetaScaleAbove));
+  const auto pbb = op::Gt(rb, op::Set(d, kBetaScaleAbove));
+  const auto sca = op::IfThenElse(pba, op::Set(d, kBetaScaleDown), one);
+  const auto upa = op::IfThenElse(pba, op::Set(d, kBetaScaleUp), one);
+  const auto scb = op::IfThenElse(pbb, op::Set(d, kBetaScaleDown), one);
+  const auto upb = op::IfThenElse(pbb, op::Set(d, kBetaScaleUp), one);
+  const auto l1s = DdMulD(d, lrxi, op::Mul(ra, sca));
+  const Dd<D> l1{op::Mul(l1s.hi, upa), op::Mul(l1s.lo, upa)};
+  const auto l2s = DdMulD(d, lryv, op::Mul(rb, scb));
+  const Dd<D> l2{op::Mul(l2s.hi, upb), op::Mul(l2s.lo, upb)};
+  const auto e_pa = DdAdd(d, DdAdd(d, l1, l2), cx.mlnb);
   const auto e_pb = DdSub(d, cx.pbk, ps.cpsi);
   // PB IS USED ONLY WHERE PA CANNOT COPE.
   //
@@ -651,7 +671,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   // So: PB only above the scale where PA runs out of digits, only where its
   // own cpsi is finite, and only where neither u nor v has collapsed onto -1.
   const auto pa_scale = op::Max(op::Max(op::Abs(e_pa.hi), op::Abs(cx.mlnb.hi)),
-                                op::Abs(DdMulD(d, lrxi, ra).hi));
+                                op::Abs(l1.hi));
   const auto t_u = op::Div(y, cx.p_mean);
   const auto t_v = op::Div(yc.hi, cx.q_mean);
   const auto small = op::Set(d, kBetaInvPsiTMin);
@@ -674,8 +694,8 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   Dd<D> lnf{zero, zero};
   const Dd<D> lra{op::IfThenElse(m_sw, cx.ln_beta.hi, cx.ln_alpha.hi),
                   op::IfThenElse(m_sw, cx.ln_beta.lo, cx.ln_alpha.lo)};
-  const auto e2 = DdSub(d, efull, lra);                 // R2 folds (-) ln alpha
-  const auto e1 = DdSub(d, e2, DdMulD(d, lryv, rb));    // R1 also drops beta*ln y
+  const auto e2 = DdSub(d, efull, lra);  // R2 folds (-) ln alpha
+  const auto e1 = DdSub(d, e2, l2);      // R1 also drops beta*ln(1-y)
 
   if (!op::AllFalse(d, m_r1)) {
     const auto as = op::IfThenElse(esat, safe_a, ra);
@@ -773,7 +793,14 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
     const auto huge = op::IfThenElse(hf, ra, rb);
     const Dd<D> lx_gl{op::IfThenElse(hf, lrxi.hi, lryv.hi),
                       op::IfThenElse(hf, lrxi.lo, lryv.lo)};
-    const auto t_dd = DdMulD(d, lx_gl, op::Neg(huge));  // t > 0, dd
+    // t > 0, dd. Same huge-parameter exact prescale as l1/l2 above (and
+    // as the forward's own gammalim t): huge exceeds the 2^996 non-FMA
+    // Dekker ceiling on corner lanes; bit-identical below the threshold.
+    const auto gbig = op::Gt(huge, op::Set(d, kBetaScaleAbove));
+    const auto gdn = op::IfThenElse(gbig, op::Set(d, kBetaScaleDown), one);
+    const auto gup = op::IfThenElse(gbig, op::Set(d, kBetaScaleUp), one);
+    const auto tds = DdMulD(d, lx_gl, op::Neg(op::Mul(huge, gdn)));
+    const Dd<D> t_dd{op::Mul(tds.hi, gup), op::Mul(tds.lo, gup)};
     auto e_g = DdMulD(d, BetaInvLog(d, t_dd), ss);
     e_g = DdSub(d, e_g, t_dd);
     e_g = DdSub(d, e_g, LgammaPosDd(d, ss));
@@ -829,7 +856,21 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
       is_p = op::IfThenElse(m_cmp, BetaIndNot(d, is_p), is_p);
     }
   }
-  const auto u = BetaInvExpDd(d, lnf.hi, lnf.lo);  // u = min(P, Q) <= 1/2
+  // u = min(P, Q) <= 1/2. The log is UNCLAMPED (the point of a log-space
+  // forward), but exp_dd's argument domain is not: its Cody-Waite
+  // k = round(x*N/ln2) reduction assumes |x| stays in the exp
+  // over/underflow range, and an astronomically negative lnf -- any
+  // wildly skewed pair's midpoint probe, e.g. ln I_{1/2}(1e100, 0.5)
+  // ~ -7e99 -- drives it to NaN, which the non-finite guard below then
+  // misreads as "forward unusable" (+BigResid, zero slope) and the
+  // orientation probe loses its direction to a fallback that only suits
+  // balanced pairs. exp(kBetaExpFloor) is already an exact 0 in double,
+  // so clamping the ARGUMENT is value-identical for u everywhere and
+  // keeps exp_dd inside its audited domain.
+  const auto lnf_u = op::Max(lnf.hi, op::Set(d, detail::kBetaExpFloor));
+  const auto lnf_ul =
+      op::IfThenElse(op::Eq(lnf_u, lnf.hi), lnf.lo, zero);
+  const auto u = BetaInvExpDd(d, lnf_u, lnf_ul);
   const auto cmpl = DdSub(d, Dd<D>{one, zero}, u);
   const auto lnc = BetaInvLog(d, cmpl);
   const auto lg = DdSub(d, lnf, lnc);

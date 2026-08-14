@@ -1054,15 +1054,35 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
   tau = op::IfThenElse(tsub, op::Mul(tau, op::Set(d, kBetaTauUp)),
                        tau);
 
+  // HUGE-B EXACT PRESCALE, BetaR1Series' twin (R4 membership with B within
+  // ~a decade of DBL_MAX needs xi ~ 8e-307-class to hold B*xi <= B1, and
+  // tau <= ln2/|ln xi| ~ 1e-3 still admits the whole tiny-tau box). The
+  // same two hazards as R1's recurrence, the same cure:
+  //  * the grouping t (x) ((n-B)/n) peaks at |t|*B/n BEFORE xi rescales
+  //    it -- at the B*xi cap, |t| reaches ~4e2 and the intermediate
+  //    overflows DBL_MAX for B ~> 2.5e305 on every tier;
+  //  * B > 2^996 breaks ops::ProdLow's non-FMA Dekker split inside DdMul.
+  // Scaling B down and xi up by the same exact power of two fixes both:
+  // (n - B)*2^-200 is an exact TwoSum of exactly-scaled operands, and the
+  // xi*2^200 factor restores the true term exactly (xi < 1/2 keeps the
+  // upscale finite; subnormal xi upscales exactly). Non-big lanes
+  // multiply by 1.0 -- bit-identical.
+  const auto rbig = op::Gt(bb, op::Set(d, kBetaScaleAbove));
+  const auto rdn = op::IfThenElse(rbig, op::Set(d, kBetaScaleDown), one);
+  const auto rup = op::IfThenElse(rbig, op::Set(d, kBetaScaleUp), one);
+  const auto bsd = op::Mul(bb, rdn);
+  const auto xu = op::Mul(xi, rup);
+
   Dd<D> t{one, zero};
   Dd<D> s{zero, zero};
   auto live = one;
   for (int n = 1; n <= detail::kBetaR4N; ++n) {
     const auto nv = op::Set(d, static_cast<double>(n));
-    const auto nb = TwoSum(d, nv, op::Neg(bb));  // n - B, EXACT
+    // (n - B) * 2^-s, EXACT (both scalings exact powers of two)
+    const auto nb = TwoSum(d, op::Mul(nv, rdn), op::Neg(bsd));
     const Dd<D> rn{op::Set(d, detail::kBetaRecipNHi[n - 1]),
                    op::Set(d, detail::kBetaRecipNLo[n - 1])};
-    t = DdMulD(d, DdMul(d, t, DdMul(d, nb, rn)), xi);
+    t = DdMulD(d, DdMul(d, t, DdMul(d, nb, rn)), xu);
     const auto wgt = DdRecipDd(d, TwoSum(d, tau, nv));
     const auto contrib = DdMul(d, t, wgt);
     const auto lm = op::Gt(live, half);
