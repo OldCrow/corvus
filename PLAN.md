@@ -8,7 +8,16 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-08-13
+## Status [DERIVED] — 2026-08-14
+
+**v0.5.0 RELEASED — CORE/GENERATOR/TEST FREEZE IN EFFECT** (signed
+tag at 73eaee0, CI-gated per-job on runs 31849654346 + 31850384519;
+https://github.com/OldCrow/corvus/releases/tag/v0.5.0): the
+pre-v1.0.0 documentation trim + the huge-parameter Dekker audit
+(three defect classes fixed, corner-row gated — Resolved log).
+Anything after v0.5.0 (user-focused examples and other additions)
+builds on the frozen base; core/generator/test changes now require
+explicit unfreeze.
 
 **v0.4.0 RELEASED** (tag at 96d181d, CI-gated per-job on run
 31652276608;
@@ -47,17 +56,12 @@ inventories, von Mises included); v0.4.0 2026-08-12. All tags
 CI-gated, immutable under protect-tags, each with a Release object.
 
 ## Next Steps
-1. **Final v0.5.0 review**: Dekker audit COMPLETE (2026-08-14, see
-   Resolved log — three fixes, two new defect finds, corner rows
-   gating). Bump version to 0.5.0, tag, cut the Release
-   [user-ratified: audit → review → bump/tag/release]. v0.5.0
-   freezes core code, generators, and tests.
-2. **Consumer-integration notes** for libstats: #47 (A&S Bessel
+1. **Consumer-integration notes** for libstats: #47 (A&S Bessel
    fallback capping VonMises at ~1e-7 — retired by i0/i1/i0e/i1e),
    #51 (von Mises CDF — Miller recurrence recipe documented in the
    bessel design record below), #52 (slow Binomial CDF — beta_p is
    the integration answer, a libstats note, not a corvus gap).
-3. **Kaby Lake legs when the machine is available** [OPEN, machine
+2. **Kaby Lake legs when the machine is available** [OPEN, machine
    access; ruled NON-GATING 2026-08-06, user decision]: beta
    AVX2-native + capped sweep (additional cross-machine check, not a
    claim gap — ACCURACY.md dagger note), and the quiet-machine Kaby
