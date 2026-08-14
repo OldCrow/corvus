@@ -47,18 +47,22 @@ inventories, von Mises included); v0.4.0 2026-08-12. All tags
 CI-gated, immutable under protect-tags, each with a Release object.
 
 ## Next Steps
-1. **Finish the pre-v0.5.0 trim arc**: phase 3 (ACCURACY.md 1088 →
-   ~800 with every retained number re-checked against pinned gates;
-   PLAN compaction — this edit; light ABC pass on
-   ENVIRONMENT/DOCTRINE/AGENTS/README), phase 4 (tools/ generators
-   under the lighter standard), then one build + full ctest +
-   byte-compare + CI. Tag v0.5.0 (core/generator/test freeze).
-2. **Consumer-integration notes** for libstats: #47 (A&S Bessel
+1. **NEXT SESSION: betainv huge-parameter Dekker audit** (the Open
+   Item below): coverage decision on the three DdMulD
+   log-times-parameter sites above the 2^996 non-FMA ceiling,
+   reference rows if reachable unsaturated, exact-prescale fix if
+   needed. Kernel-touching if it fires → full revalidation ladder.
+2. **Then final v0.5.0 review**: sweep the tree/PLAN for anything
+   else that must precede the core/generator/test freeze (the
+   kappa-bucket comment/code inconsistency below resolves here too),
+   then bump version to 0.5.0, tag, and cut the Release
+   [user-ratified 2026-08-13: audit → review → bump/tag/release].
+3. **Consumer-integration notes** for libstats: #47 (A&S Bessel
    fallback capping VonMises at ~1e-7 — retired by i0/i1/i0e/i1e),
    #51 (von Mises CDF — Miller recurrence recipe documented in the
    bessel design record below), #52 (slow Binomial CDF — beta_p is
    the integration answer, a libstats note, not a corvus gap).
-3. **Kaby Lake legs when the machine is available** [OPEN, machine
+4. **Kaby Lake legs when the machine is available** [OPEN, machine
    access; ruled NON-GATING 2026-08-06, user decision]: beta
    AVX2-native + capped sweep (additional cross-machine check, not a
    claim gap — ACCURACY.md dagger note), and the quiet-machine Kaby
