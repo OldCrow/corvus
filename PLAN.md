@@ -40,12 +40,10 @@ the fix all go; rewrite, don't delete — keep each site's math half.
 The lighter generator standard: every enforcement-site/self-check
 rationale stays, timeless.
 
-**v0.5.0 tags after this arc and FREEZES core code, generators, and
-tests [user, 2026-08-12]** — anything after it (user-focused examples
-and other additions) builds on the frozen base. Remaining before
-v1.0.0 QC close-out: consumer-integration notes (libstats
-#47/#51/#52), ARCHITECTURE.md referencing decision, betainv
-huge-parameter Dekker audit, Kaby machine legs (non-gating).
+Remaining before v1.0.0: consumer-integration notes (libstats
+#47/#51/#52), ARCHITECTURE.md referencing decision, Kaby machine
+legs (non-gating), and the user-focused examples phase on the frozen
+base.
 
 Release history: v0.1.0 2026-08-06 (P0: erf/erfc, erfinv/erfcinv,
 lgamma, gamma P/Q, beta P/Q); v0.2.0 2026-08-10 (P1: digamma,
