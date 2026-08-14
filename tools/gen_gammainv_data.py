@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Generate src/gammainv_data.h -- every table gamma_p_inv/gamma_q_inv needs.
 
-Per PLAN.md "P1 inverse incomplete gamma -- detail design" (BINDING). This
-generator pins, BY REPLAY (never by assumption), every free parameter of the
-inverse's seed stage:
+This generator pins, BY REPLAY (never by assumption), every free parameter
+of the inverse's seed stage:
 
   a_T          S1 (Temme normal-quantile seed) vs S2/S3 (small-a series /
                far-tail fixed point) crossover.
@@ -27,10 +26,7 @@ inverse's seed stage:
                (max 3), simulated against the forward evaluated in mpmath
                with injected relative noise at the forward kernel's own
                internal dd budget (2^-56 for R1/R2/R3-class regions,
-               2^-58 for the R4-analogue tiny-a region) -- see
-               PLAN.md and scratchpad probe p3/p4 findings, which this
-               generator's replay supersedes (the probe's own numbers,
-               where reused, are re-measured here, not trusted as-is).
+               2^-58 for the R4-analogue tiny-a region).
   DEEP-SMALL   the a*x0 < 2^-60 closed-form cut (p-side).
 
 mpmath discipline: mp.dps set inside every function that needs it (never a
@@ -41,9 +37,9 @@ every boundary), never grid-only.
 
 Self-checks (mandatory; stderr budget lines; ANY miss -> exit nonzero,
 emit nothing):
-  (a) lambda(eta) series: exact-rational coefficients reproduce PLAN's
-      quoted first three terms (1, 1/3, 1/36) and match a fresh mpmath
-      numerical inversion to the stated per-order tolerance.
+  (a) lambda(eta) series: exact-rational coefficients reproduce the first
+      three terms (1, 1/3, 1/36) and match a fresh mpmath numerical
+      inversion to the stated per-order tolerance.
   (b) lambda(eta) Newton: converges to >= NEWTON_FLOOR_BITS across its
       whole pinned domain, both signs.
   (c) S1 correction: disjoint-sample re-extraction of c_k(eta) agrees to
@@ -84,17 +80,15 @@ SHALLOW_THRESHOLD = 2.0 ** -10  # s >= this: "weak middle band" (S1 may beat
                                   # S2/S3 there for a<a_T); s < this: S2/S3's
                                   # own genuine-tail domain, where they beat
                                   # S1 even for a>=S1_A_MIN -- self-check (f).
-A_MPMATH_SAFE = mp.mpf("1e4")  # self-caught (coordinator-flagged): mpmath's
-# lower-gammainc (hyp1f1) path genuinely hangs/fails to converge for large a
-# near the ridge (gen_gamma_reference.py's own documented finding: measured
-# NoConvergence at a>=1e7 near the ridge, multi-minute hangs even away from
-# it at a~1e250). 1e6 (the probe's original threshold, copied without
-# re-deriving) is NOT a safe margin below that -- caused a 15-minute hang
-# in this generator's own replay at a=1e8,lambda~1 during a diagnostic
-# probing near the ridge. 1e4 matches gen_gamma_reference.py's own A_SWITCH,
-# an established safe margin; above it, small_of_x uses ONLY the
-# Temme-extrapolation path (extract_ck's own sample points top out at
-# 16000, comfortably under even the 1e7 hard limit).
+A_MPMATH_SAFE = mp.mpf("1e4")  # mpmath's lower-gammainc (hyp1f1) path
+# genuinely hangs/fails to converge for large a near the ridge
+# (gen_gamma_reference.py's own documented finding: NoConvergence at
+# a>=1e7 near the ridge, multi-minute hangs even away from it at
+# a~1e250). 1e6 is NOT a safe margin below that. 1e4 matches
+# gen_gamma_reference.py's own A_SWITCH, an established safe margin;
+# above it, small_of_x uses ONLY the Temme-extrapolation path
+# (extract_ck's own sample points top out at 16000, comfortably under
+# even the 1e7 hard limit).
 APHI_SAT = mp.mpf(800)  # a*phi(lambda) beyond this: exact double saturation
 
 
@@ -158,8 +152,8 @@ def lam_of_eta_mp(eta, dps=60):
 # Part 1: lambda(eta) Taylor series near eta=0, derived by exact-rational
 # Lagrange series reversion of 1/2 eta^2 = lambda-1-ln(lambda). Clean-room:
 # derived from the defining equation, verified against mpmath below, never
-# ported from a published table (PLAN.md's own quoted first three terms --
-# 1, 1/3, 1/36 -- are reproduced here as a CHECK, not an input).
+# ported from a published table (the first three terms -- 1, 1/3, 1/36 --
+# are reproduced here as a CHECK, not an input).
 # ============================================================================
 LAM_SERIES_ORDER = 12  # through eta^12; self-check (a) measures the floor.
 
@@ -290,10 +284,9 @@ def lam_of_eta_double(eta):
 #     erfc); model(eta0)-p = -R(eta0); delta = -(-R(eta0))/deriv = +S/a.
 #   BOTH SIDES: eta_new = eta0 + S(eta0)/a -- side-symmetric (the sign
 #   flip in the model's R-term exactly cancels the sign flip in the
-#   erfc-derivative). This is the fix for the probe's own S1 formula,
-#   which used a side-INDEPENDENT derivative expression paired with a
-#   side-dependent residual sign -- see PLAN.md and self-caught-bug ledger
-#   in this generator's final report.
+#   erfc-derivative). A side-INDEPENDENT derivative expression paired
+#   with a side-dependent residual sign is the wrong combination and
+#   silently breaks this symmetry.
 # ============================================================================
 CK_KMAX = 2           # c_0, c_1 extracted (c_2's marginal seed-bit gain measured
                        # negligible at a=a_T and its Vandermonde extraction is
@@ -395,15 +388,14 @@ def cheb_fits_from_cvals(cvals, k_rows=CK_KMAX):
 # ============================================================================
 def erfcinv_double(y):
     """erfc^-1(y), y in (0,2). Single black-box correctly-rounded-ish
-    double via mpmath at DPS SCALED TO y's OWN MAGNITUDE (self-caught bug:
-    a fixed dps=30 silently rounds 1-y to exactly 1.0 whenever y < ~1e-30,
-    which is routine here -- y=2s and s ranges down to ~1e-323 -- and that
-    made erfinv(1)=0 rather than the correct large tail value, corrupting
-    the whole S1 seed for every deep-tail a>=a_T point; caught by self-
-    check (f) blowing up at a=30,lambda=0.02 with a seed near x=a-1/3
-    instead of near x=0.6). Then ONE cast to float -- the same modeling
-    choice as trusting math.log/math.exp/math.lgamma elsewhere in this
-    file (a real kernel calls corvus's own shipped, audited erfcinv)."""
+    double via mpmath at DPS SCALED TO y's OWN MAGNITUDE: a fixed dps=30
+    silently rounds 1-y to exactly 1.0 whenever y < ~1e-30, which is
+    routine here -- y=2s and s ranges down to ~1e-323 -- and that makes
+    erfinv(1)=0 rather than the correct large tail value, corrupting the
+    whole S1 seed for every deep-tail a>=a_T point. Then ONE cast to
+    float -- the same modeling choice as trusting math.log/math.exp/
+    math.lgamma elsewhere in this file (a real kernel calls corvus's own
+    shipped, audited erfcinv)."""
     if y <= 0.0:
         return math.inf
     if y >= 2.0:
@@ -483,18 +475,18 @@ S3_STABILITY_MARGIN = 3.0  # guard: L > MARGIN*|a-1| (see seed_S3 docstring)
 
 
 def seed_S3(a, q, ncorr):
-    """L = -ln(q*Gamma(a)) [PLAN's own formula]. Fixed-point map x_{n+1} =
+    """L = -ln(q*Gamma(a)). Fixed-point map x_{n+1} =
     L + (a-1)ln(x_n); its local contraction factor near the fixed point is
     (a-1)/x, so convergence needs |a-1|/L comfortably < 1 -- L>0 ALONE is
-    NOT sufficient (self-caught, self-check (f): a=0.3,q=0.271 gives
+    NOT sufficient (self-check (f): a=0.3,q=0.271 gives
     L=0.21>0 but the iteration OSCILLATES, 0.21->1.30->0.025->2.80,
     landing a seed 10x off). Guarded here by L > S3_STABILITY_MARGIN*
     |a-1|, which both rejects that point and accepts every point where S3
-    is empirically the better seed (measured, e.g. a=0.5,q~1.6e-3: L=5.88
-    comfortably clears 3*0.5=1.5). Self-caught bug ledger, second entry:
-    an earlier draft seeded x=-ln(q) alone (zeroth iterate), missing
-    -lnGamma(a) -- crashed on log(negative) at a=0.1,q=0.5. Both fixed
-    here; the fixed-point map's OWN formula was always correct."""
+    is empirically the better seed (e.g. a=0.5,q~1.6e-3: L=5.88
+    comfortably clears 3*0.5=1.5). Seeding x=-ln(q) alone (zeroth
+    iterate), without -lnGamma(a), crashes on log(negative) at
+    a=0.1,q=0.5 -- the fixed-point map's OWN formula requires the full L,
+    not just its leading term."""
     lg = math.lgamma(a)
     L = -math.log(q) - lg
     if not (math.isfinite(L) and L > S3_STABILITY_MARGIN * abs(a - 1.0)):
@@ -522,9 +514,9 @@ def bits_of(true_x, approx_x):
 
 # ============================================================================
 # Part 4: forward "truth" evaluator (mpmath), for MEASUREMENT only -- not
-# the certified oracle (that is G2's separate job). dps chosen per call;
-# layered 60/100 checks are done at the self-check call sites, not baked
-# in here.
+# the certified oracle (that is a separate job, done elsewhere). dps
+# chosen per call; layered 60/100 checks are done at the self-check call
+# sites, not baked in here.
 # ============================================================================
 def series_S_mp(a, x, dps=50, nmax=200000):
     with mp.workdps(dps):
@@ -620,14 +612,13 @@ def small_of_x_saturating(a, x, dps=50, kmax=5):
 def small_side_of_x(a, x, dps=50, kmax=5):
     """TRUE small-probability-side evaluator: (min(P,Q), side_of_min),
     side in {'p','q'} -- NOT small_of_x's "direct region" side (x<=a),
-    which is a DIFFERENT criterion (self-caught harness bug: for a=1,
-    x=1, x<=a picks side='p' with P=0.632>1/2 -- the wrong side per the
-    design's own contract, 'solve against small side s<=1/2 (exact flip
-    above)'. A real gamma_p_inv/gamma_q_inv call always flips its INPUT
-    to the <=1/2 side before seeding; a replay that feeds the >1/2 side
-    directly into the seed/step machinery is testing a scenario the
-    kernel never actually encounters, and was silently making two G1
-    escalation corners look harder than they are -- see final report)."""
+    which is a DIFFERENT criterion: for a=1, x=1, x<=a picks side='p'
+    with P=0.632>1/2 -- the wrong side per the design's own contract,
+    'solve against small side s<=1/2 (exact flip above)'. A real
+    gamma_p_inv/gamma_q_inv call always flips its INPUT to the <=1/2
+    side before seeding; a replay that feeds the >1/2 side directly into
+    the seed/step machinery is testing a scenario the kernel never
+    actually encounters."""
     with mp.workdps(dps):
         P, Q = small_of_x_saturating(a, x, dps=dps, kmax=kmax)
         return (P, "p") if P <= Q else (Q, "q")
@@ -635,7 +626,7 @@ def small_side_of_x(a, x, dps=50, kmax=5):
 
 def oracle_x(a, target, side, dps=40, lo=None, hi=None):
     """Root-find TRUE x s.t. P(a,x)=target (side='p') or Q=target
-    (side='q'), bisection in ln(x). MEASUREMENT-grade (not G2's certified
+    (side='q'), bisection in ln(x). MEASUREMENT-grade (not the certified
     oracle): dps as given, monotone bisection, robust across the double
     range."""
     with mp.workdps(dps):
@@ -697,9 +688,7 @@ def g_of_x(a, x, dps=40):
 # 2^-58 R4-analogue tiny-a); worst case over all 4 kept. Newton ARITHMETIC
 # itself (the update, not the forward evaluation) is done at mpmath
 # dps=32 (~106 bits, matching dd's own representation), i.e. treated as
-# exact relative to the injected forward-noise floor -- consistent with
-# PLAN's "k dd steps with the forward evaluated in mpmath with injected
-# relative noise at the forward's internal budget".
+# exact relative to the injected forward-noise floor.
 # ============================================================================
 def step_newton_x(a, x0, target, side, eps, dps=32):
     with mp.workdps(dps):
@@ -756,18 +745,16 @@ def _bits_of_frontier(xs, true_x):
 
 def simulate_steps(a, x0, true_x, target, side, eps, nsteps, variant, dps=32):
     """Worst-case relative-bit result after nsteps. PERFORMANCE
-    SIMPLIFICATION (self-check (f) was timing out at ~10min under the
-    literal PLAN reading of 'inject noise at every step', which branches
-    4-way PER STEP -- 4^nsteps forward evals, exponential and the
-    dominant cost of the whole replay): steps 1..nsteps-1 use a single
+    SIMPLIFICATION: injecting noise at EVERY step branches 4-way PER
+    STEP -- 4^nsteps forward evals, exponential and the dominant cost of
+    the whole replay. Instead, steps 1..nsteps-1 use a single
     DETERMINISTIC (eps=0) trunk value -- Newton's own contraction erases
     earlier steps' noise sensitivity well before the final step, so only
     the LAST step's adversarial +/-eps sign combination (4-way) is what
-    actually determines the final floor; verified against several of the
-    original full-branching measurements (e.g. a=100,lambda=0.3: both
-    methods agree to within noise-floor precision) before adopting.
-    Still 'worst case over noise signs' as PLAN specifies -- at the step
-    that matters."""
+    actually determines the final floor; verified against full-branching
+    measurements (e.g. a=100,lambda=0.3: both methods agree to within
+    noise-floor precision). Still worst case over noise signs -- at the
+    step that matters."""
     step_fn = step_lnnewton_x if variant == "ln" else step_newton_x
     x = mp.mpf(x0)
     for _ in range(nsteps - 1):
@@ -977,8 +964,8 @@ def main():
 
     print("(d) S2 seed-bit floors vs #Picard corrections (ALL a -- FIRST CORRECTION: "
           "S2 is now a global candidate, not just a<a_T):", file=sys.stderr)
-    S2_KMAX_TESTED = 8  # ncorr 0..7; PLAN's FIRST correction expects 3-5,
-    # measured needs more -- see below.
+    S2_KMAX_TESTED = 8  # ncorr 0..7; expected range 3-5, measured needs
+    # more -- see below.
     a_vals_s2 = [1e-8, 1e-4, 0.01, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0,
                  A_T_CANDIDATE - 1.0, math.nextafter(A_T_CANDIDATE, 0.0),
                  A_T_CANDIDATE, 22.0, 30.0, 100.0]
@@ -1007,14 +994,14 @@ def main():
             print(f"    ncorr={k}: min={min(arr):.2f} "
                   f"median={sorted(arr)[len(arr)//2]:.2f} max={max(arr):.2f} n={len(arr)}",
                   file=sys.stderr)
-    # Pin: NOT a min-based diminishing-returns rule (self-caught, this
-    # pass -- the table's own min is dominated by isolated pathological
-    # (a,p) points that stay bad at every ncorr, e.g. tiny a with a
-    # near-1 target; comparing against a min that never improves picks
-    # ncorr=0 trivially, an "improvement" that is really the tail
-    # wagging the dog). Use the MEDIAN trend instead (smallest ncorr
-    # within 0.5b of the best median), which does show real, monotone
-    # diminishing returns here -- and then let self-check (f)'s own
+    # Pin: NOT a min-based diminishing-returns rule -- the table's own
+    # min is dominated by isolated pathological (a,p) points that stay
+    # bad at every ncorr, e.g. tiny a with a near-1 target; comparing
+    # against a min that never improves picks ncorr=0 trivially, an
+    # "improvement" that is really the tail wagging the dog. Use the
+    # MEDIAN trend instead (smallest ncorr within 0.5b of the best
+    # median), which does show real, monotone diminishing returns here
+    # -- and then let self-check (f)'s own
     # end-to-end STEPS gate be the FINAL arbiter regardless (it tests
     # the actual seed_for pipeline, including the via-complement target
     # range this table does not cover point-for-point).
@@ -1065,10 +1052,10 @@ def main():
           f"log(negative) at a=0.1,q=0.5 -- fixed in seed_S3, see its docstring",
           file=sys.stderr)
 
-    # S2/S3 side='q' selection is now part of the GLOBAL tri-candidate in
-    # seed_for (FIRST CORRECTION, PLAN.md 2026-08-08): S3 is one of three
-    # candidates tried at EVERY a, gated by its own L>MARGIN*|a-1| guard
-    # (not a q threshold, not a<a_T) -- see seed_for's docstring.
+    # S2/S3 side='q' selection is part of the GLOBAL tri-candidate in
+    # seed_for: S3 is one of three candidates tried at EVERY a, gated by
+    # its own L>MARGIN*|a-1| guard (not a q threshold, not a<a_T) -- see
+    # seed_for's docstring.
     print(f"(d) S3 (side='q' candidate, all a): own guard L>"
           f"{S3_STABILITY_MARGIN:.0f}*|a-1|; competes with S2(p-form) and "
           f"S1 (when applicable) via cheap-residual comparison in seed_for",
@@ -1089,14 +1076,13 @@ def main():
           file=sys.stderr)
 
     # ------------------------------------------------------------------
-    # Self-check (f): STEPS -- step count + variant, pinned GLOBALLY (see
-    # finding below: log-residual Newton measured to match-or-beat plain
-    # Newton in EVERY region tested, including plain interior points where
-    # the design only mandated it for the far q-tail and ridge band -- so
-    # a single uniform variant, rather than a per-region branch, is both
-    # simpler AND was what the data supported once the seed bugs above
-    # were fixed. Plain Newton is still measured and reported for the
-    # record.)
+    # Self-check (f): STEPS -- step count + variant, pinned GLOBALLY:
+    # log-residual Newton matches-or-beats plain Newton in EVERY region
+    # tested, including plain interior points where the design only
+    # mandated it for the far q-tail and ridge band -- so a single
+    # uniform variant, rather than a per-region branch, is both simpler
+    # and what the data supports. Plain Newton is still measured and
+    # reported for the record.
     # ------------------------------------------------------------------
     print("(f) STEPS: dd-Newton / log-residual-Newton, worst case over forward-"
           "noise sign combos, from the ACTUAL S1/S2/S3(+complement) seeds:",
@@ -1110,18 +1096,16 @@ def main():
     GAMMA_SERIES_N = 64  # kGammaSeriesN, gamma_data.h -- the kernel's FIXED
                           # (unrolled, region-worst-sized) R1 series length.
     _eps_model_log = []  # (a, x, eps, winning_term) for every point that
-                          # used the per-point model -- final report.
+                          # used the per-point model.
 
     def per_point_eps_r1(a, x, side="p", small_val=None, dps=60):
-        """SECOND CORRECTION (PLAN.md 2026-08-08): the uniform R1/R4
-        budget (2^-56/2^-58) is a REGION-WORST series-LENGTH bound that
-        binds near the far boundary x~a+1 (slowest convergence at fixed
-        N=kGammaSeriesN=64); at the shallow small-x points that failed
-        self-check (f) under the uniform model (a~0.1-0.3, x tiny), the
-        series is super-converged in a handful of terms and the TRUE
-        per-point forward error is dominated by the prefactor e^E's own
-        component accuracy, not series truncation. Returns (eps, which).
-        max() of:
+        """The uniform R1/R4 budget (2^-56/2^-58) is a REGION-WORST
+        series-LENGTH bound that binds near the far boundary x~a+1
+        (slowest convergence at fixed N=kGammaSeriesN=64); at shallow
+        small-x points (a~0.1-0.3, x tiny) the series is super-converged
+        in a handful of terms and the TRUE per-point forward error is
+        dominated by the prefactor e^E's own component accuracy, not
+        series truncation. Returns (eps, which). max() of:
           (a) series-tail bound: the ACTUAL truncation remainder of the
               fixed N=64-term series AT THIS (a,x) (tiny for tiny x,
               since term ratio x/(a+n) is small for every n -- this is
@@ -1131,25 +1115,20 @@ def main():
               additions).
           (c) prefactor-component bound: |E(a,x)|*2^-66, E = a*ln(x) - x
               - lnGamma(a+1) -- component accuracies LogDd 2^-67.88,
-              lgamma dd core ~2^-68-class (cited, PLAN.md SECOND
-              correction); relative error in e^E ~= |Delta E|, and
-              |Delta E| scales with |E| times the component relative-
-              error floor.
-          (d) 2^-64 safety floor (deliberate conservatism, PLAN.md
-              binding -- never modeled below this).
-        FRONTIER EXTENSION (takeover, chain depth 3): side='q' at the
-        same (x <= a+1, a < a_T) points is governed by the SAME series/
-        prefactor components -- the kernel gets Q there either from the
-        R4 Q-direct assembly (same S(x) series, same component set,
-        budget 2^-58 pinned at its own far boundary x=4, equally loose
-        at tiny x) or as a dd complement of R1-P. Error converts
-        P-relative -> Q-relative by at most ratio = max(1, P/Q) =
-        max(1, (1-s)/s) with s the point's small-side value; terms
-        (a)-(c) carry the ratio, the 2^-64 floor stays ABSOLUTE (it is
-        the conservatism backstop, not a physical term). The measured
-        54.68-bit aLTaT-shallow floor after the target/basis fix was
-        exactly these q-side twins (kappa ~ 9-10, eps 2^-58) -- same
-        disease, same cure as the SECOND correction's p-side class."""
+              lgamma dd core ~2^-68-class; relative error in e^E ~=
+              |Delta E|, and |Delta E| scales with |E| times the
+              component relative-error floor.
+          (d) 2^-64 safety floor (deliberate conservatism -- never
+              modeled below this).
+        side='q' at the same (x <= a+1, a < a_T) points is governed by
+        the SAME series/prefactor components -- the kernel gets Q there
+        either from the R4 Q-direct assembly (same S(x) series, same
+        component set, budget 2^-58 pinned at its own far boundary x=4,
+        equally loose at tiny x) or as a dd complement of R1-P. Error
+        converts P-relative -> Q-relative by at most ratio = max(1,
+        P/Q) = max(1, (1-s)/s) with s the point's small-side value;
+        terms (a)-(c) carry the ratio, the 2^-64 floor stays ABSOLUTE
+        (it is the conservatism backstop, not a physical term)."""
         with mp.workdps(dps):
             a_m, x_m = mp.mpf(a), mp.mpf(x)
             t = mp.mpf(1)
@@ -1178,17 +1157,16 @@ def main():
         """LOW-PRECISION forward eval -- just a selector, not a precision-
         bearing computation -- of |forward(a,x0)-s|/s, used only to CHOOSE
         between candidate seeds, never as the seed itself. Guarded with a
-        dps RETRY LADDER: self-caught, this pass -- extract_ck's
-        Vandermonde solve goes numerically singular at dps=25 for a
-        near-exact ridge point at huge a (a=1e8,lambda=1: singular at 25,
-        clean at 30), and a single fixed dps that's too low silently
-        drops the S1 candidate from the comparison entirely (returns None
-        -> S1 never competes -> a wildly wrong S2 candidate wins by
-        default -- this is what caused the 15+ minute hang the
-        coordinator caught: the resulting garbage seed sent
-        simulate_steps_multi into pathological-magnitude mpmath
-        arithmetic). A fixed higher dps alone risks the same failure
-        mode at some OTHER point; the ladder is the robust fix."""
+        dps RETRY LADDER: extract_ck's Vandermonde solve goes numerically
+        singular at dps=25 for a near-exact ridge point at huge a
+        (a=1e8,lambda=1: singular at 25, clean at 30), and a single fixed
+        dps that's too low silently drops the S1 candidate from the
+        comparison entirely (returns None -> S1 never competes -> a
+        wildly wrong S2 candidate wins by default -> the resulting
+        garbage seed sends simulate_steps_multi into pathological-
+        magnitude mpmath arithmetic, multi-minute hangs). A fixed higher
+        dps alone risks the same failure mode at some OTHER point; the
+        ladder is the robust fix."""
         if not (math.isfinite(x0) and x0 > 0):
             return None
         v = sd = None
@@ -1207,13 +1185,12 @@ def main():
         return abs(float(v) - s) / s
 
     def seed_for(a, s, side, ncorr1=S1_NCORR, ncorr2=S2_NCORR, niter3=S3_NITER):
-        """GLOBAL tri-candidate seed selection (FIRST CORRECTION, PLAN.md
-        2026-08-08): the partition is by (side, lambda-regime) at ALL a,
-        not by a alone -- a_T governs only the central/ridge band. Two
-        corners survived the original a-gated partition (a<a_T ? S1 :
-        S2/S3) unfixed:
+        """GLOBAL tri-candidate seed selection: the partition is by
+        (side, lambda-regime) at ALL a, not by a alone -- a_T governs
+        only the central/ridge band. A simple a-gated partition (a<a_T ?
+        S1 : S2/S3) leaves two corners uncovered:
           (i)  deep p-tail at a>=a_T (a=20,lambda=0.02: S1's own weak-tail
-               eta~-2.4 seed gave only 47.98b at 3 steps) -- S2's own
+               eta~-2.4 seed gives only 47.98b at 3 steps) -- S2's own
                Picard contraction x/(a+1)~0.02 there seeds ~17b instead.
           (ii) small-a mid band (a=1.0,p=0.63 etc: best seed 4-6b) -- S2's
                p-form seed, evaluated through the EXACT complement when
@@ -1224,13 +1201,13 @@ def main():
         a_T; S2: always, p-form via the exact-complement target when
         side='q'; S3: side='q' only, own L>MARGIN*|a-1| stability gate),
         selected by the SAME cheap low-precision forward-residual
-        comparison as before (one extra forward eval per extra candidate,
+        comparison (one extra forward eval per extra candidate,
         dps=20, selector only -- not precision-bearing)."""
-        # Each candidate computed in its own try/except: self-caught bug
-        # (this pass) -- one candidate's exception (e.g. seed_S2's
-        # math.lgamma(a+1) overflowing for huge a, where S2 was never
-        # going to be competitive anyway) must not discard an ALREADY-
-        # GOOD other candidate by aborting the whole function.
+        # Each candidate computed in its own try/except: one candidate's
+        # exception (e.g. seed_S2's math.lgamma(a+1) overflowing for huge
+        # a, where S2 was never going to be competitive anyway) must not
+        # discard an ALREADY-GOOD other candidate by aborting the whole
+        # function.
         s1_candidate = None
         eta0 = eta0_of(a, s, side)
         if a >= S1_A_MIN and abs(eta0) <= ETA_MAX:
@@ -1317,31 +1294,28 @@ def main():
                        # there (S1 owns huge a); not a fatal error.
         if not (math.isfinite(x0) and x0 > 0):
             continue
-        # THIRD finding (self-caught, this pass, surfaced by the SECOND
-        # correction's own eps reduction): the comparison BASIS matters.
-        # x_true=a*lambda is the PRE-ROUNDING synthetic construction
-        # value; s=float(val) is that value's forward image ROUNDED to a
-        # double. Once eps got small enough to stop dominating, comparing
+        # The comparison BASIS matters: x_true=a*lambda is the
+        # PRE-ROUNDING synthetic construction value; s=float(val) is
+        # that value's forward image ROUNDED to a double. Comparing
         # recovered x against x_true (rather than against the TRUE ROOT
         # of forward(x)=s, the only thing a double-p kernel call can ever
-        # actually target) capped the measured floor at ~51b regardless
-        # of eps -- an artifact of the ROUNDING done to construct s, not
-        # of the seed/steps/eps model. Root-find the real target once
-        # per point (same oracle_x already used for the S1/S2/S3 seed-
-        # bit tables) and compare against THAT.
+        # actually target) caps the measured floor at ~51b regardless of
+        # eps -- an artifact of the ROUNDING done to construct s, not of
+        # the seed/steps/eps model. Root-find the real target once per
+        # point (same oracle_x already used for the S1/S2/S3 seed-bit
+        # tables) and compare against THAT.
         true_root = oracle_x(a, s, side, dps=45)
         if true_root is None:
             continue
         true_root_f = float(true_root)
         if not (math.isfinite(true_root_f) and true_root_f > 0):
             continue
-        # HARNESS SAFETY NET (self-caught, this pass): a seed candidate
-        # that is catastrophically wrong (>1e6x off) sends the dd-Newton
-        # simulator's mpmath arithmetic into pathological magnitudes
-        # (exponents with millions of digits), which is not an infinite
-        # loop but IS multi-minute-per-call slow -- this caused the
-        # coordinator-flagged hang. Known root cause (cheap_residual's
-        # dps ladder, above) is fixed; this is a second, independent
+        # HARNESS SAFETY NET: a seed candidate that is catastrophically
+        # wrong (>1e6x off) sends the dd-Newton simulator's mpmath
+        # arithmetic into pathological magnitudes (exponents with
+        # millions of digits), which is not an infinite loop but IS
+        # multi-minute-per-call slow. cheap_residual's dps ladder (above)
+        # addresses the known root cause; this is a second, independent
         # guard so any FUTURE undiscovered seed-selection edge case
         # degrades to a reported miss, not a hang. Never fires on a
         # correctly-selected seed.
@@ -1353,16 +1327,15 @@ def main():
                 for nsteps in (1, 2, 3):
                     region_results.setdefault((key, variant, nsteps), []).append(-1.0)
             continue
-        # SECOND CORRECTION: per-point analytic eps for R1's own region
-        # (side='p', x<=a+1, a<a_T -- the series-direct core AT MODERATE
-        # a, PLAN's own scoping: "the shallow small-x class, a~0.1-0.3").
-        # Self-caught, this pass: applying it UNGATED on a also broke the
+        # Per-point analytic eps for R1's own region (side='p', x<=a+1,
+        # a<a_T -- the series-direct core at moderate a, the shallow
+        # small-x class a~0.1-0.3). Applying it UNGATED on a breaks the
         # already-passing a>=a_T rows -- for huge a the prefactor's own
-        # E=a*ln(x)-x-lnGamma(a+1) is not "order a few" (PLAN's own
-        # example is |E|~3.5), so |E|*2^-66 stops being a tight bound and
-        # can exceed 1 (nonsense eps). Two guards: scope to a<a_T (where
-        # the uniform bound was ALREADY sufficient at huge a -- nothing
-        # to fix there), and clamp to never exceed the uniform bound (the
+        # E=a*ln(x)-x-lnGamma(a+1) is not "order a few" (e.g. |E|~3.5 at
+        # moderate a), so |E|*2^-66 stops being a tight bound and can
+        # exceed 1 (nonsense eps). Two guards: scope to a<a_T (where the
+        # uniform bound is ALREADY sufficient at huge a -- nothing to fix
+        # there), and clamp to never exceed the uniform bound (the
         # per-point model is a REFINEMENT, never allowed to be looser).
         if true_root_f <= a + 1.0 and a < A_T_CANDIDATE:
             eps, _ = per_point_eps_r1(a, true_root_f, side=side, small_val=s)
@@ -1374,15 +1347,15 @@ def main():
         key = (a_bucket, depth_bucket)
         for variant in ("plain", "ln"):
             try:
-                # FRONTIER FIX (takeover, chain depth 3): the Newton TARGET
-                # must be the exact double s -- the only value a kernel call
-                # can ever receive -- to match the comparison basis
-                # true_root = oracle_x(a, s). Passing the UNROUNDED mpf val
-                # here made the solver converge to root(val) while being
-                # measured against root(s): a kappa*2^-54 mismatch that
-                # floored the shallow bucket at 58-log2(kappa*2)-class bits
-                # (50.95 measured at kappa~2^3.3) and dragged deep to 55.10.
-                # Loop 2 below was already consistent (target mp.mpf(s0)).
+                # The Newton TARGET must be the exact double s -- the
+                # only value a kernel call can ever receive -- to match
+                # the comparison basis true_root = oracle_x(a, s). Passing
+                # the UNROUNDED mpf val here makes the solver converge to
+                # root(val) while being measured against root(s): a
+                # kappa*2^-54 mismatch that floors the shallow bucket at
+                # 58-log2(kappa*2)-class bits (50.95 at kappa~2^3.3) and
+                # drags deep to 55.10. Loop 2 below is already consistent
+                # (target mp.mpf(s0)).
                 multi = simulate_steps_multi(a, x0, true_root, mp.mpf(s), side,
                                               eps, 3, variant, dps=40)
             except (OverflowError, ValueError, ZeroDivisionError):
@@ -1391,8 +1364,8 @@ def main():
                 region_results.setdefault((key, variant, nsteps), []).append(b)
 
     # Edge-refined ladder directly in s-space at s=1/2 (the weak-seed
-    # middle band's own named boundary, PLAN's BINDING sampling rule) --
-    # driven by the oracle in s, not just a lambda grid, for every a<a_T.
+    # middle band's own named boundary) -- driven by the oracle in s, not
+    # just a lambda grid, for every a<a_T.
     for a in (0.1, 0.3, 0.5, 1.0, 3.0, 5.0, 10.0, 19.0,
               math.nextafter(A_T_CANDIDATE, 0.0)):
         s_ladder = [0.5, math.nextafter(0.5, 0.0), math.nextafter(0.5, 1.0),
@@ -1445,16 +1418,11 @@ def main():
 
     TARGET_BITS = 55.0  # >=54 + >=1 bit margin
     # Pin PER DEPTH BUCKET (deep/shallow, merged across the a>=a_T /
-    # a<a_T split). History of this pin, kept because it reversed
-    # twice: an early draft read "ln matches-or-beats plain
-    # everywhere" off unbucketed data; separating buckets then showed
-    # plain ahead in shallow -- but that read was taken under the
-    # val-vs-root(s) comparison-basis mismatch (frontier takeover
-    # fix, chain depth 3). With the basis consistent, ln wins BOTH
-    # buckets outright (plain leaves shallow points in the 20-30b
-    # range that ln carries past the gate). The pin below is purely
-    # measured; both variants stay emitted as separate booleans so a
-    # future re-measure can split them again without a format change.
+    # a<a_T split). With a consistent val-vs-root(s) comparison basis, ln
+    # wins BOTH buckets outright (plain leaves shallow points in the
+    # 20-30b range that ln carries past the gate). The pin below is
+    # purely measured; both variants stay emitted as separate booleans so
+    # a future re-measure can split them again without a format change.
     depth_buckets = sorted(set(k[1] for k, _, _ in region_results))
     STEPS_PIN = {}
     for db in depth_buckets:
@@ -1471,12 +1439,11 @@ def main():
             if pin:
                 break
         if pin is None:
-            # self-caught reporting bug (this pass): must combine ACROSS
-            # a_buckets (aGEaT+aLTaT) for a given variant before
-            # comparing variants, same as the pin-search above -- the
-            # first draft took max() over (a_bucket,variant) pairs
-            # independently, which could report one a_bucket's own good
-            # number as if it summarized the whole depth bucket.
+            # Must combine ACROSS a_buckets (aGEaT+aLTaT) for a given
+            # variant before comparing variants, same as the pin-search
+            # above -- taking max() over (a_bucket,variant) pairs
+            # independently can report one a_bucket's own good number as
+            # if it summarized the whole depth bucket.
             best = max(
                 ((variant, 3, min(
                     (min([b for b in arr if b > -1], default=-1.0)
@@ -1485,9 +1452,8 @@ def main():
                     default=-1.0))
                  for variant in ("plain", "ln")),
                 key=lambda t: t[2])  # by BITS, not by tuple order (variant
-                                       # name alone sorts 'ln' < 'plain' --
-                                       # a second self-caught instance of
-                                       # the same reporting-only bug)
+                                       # name alone sorts 'ln' < 'plain',
+                                       # not by measured quality)
             print(f"    bucket={db}: DID NOT REACH {TARGET_BITS}b within 3 "
                   f"steps (best {best})", file=sys.stderr)
             print(f"    ESCALATION TRIGGER (i): 3 steps insufficient in "
@@ -1512,8 +1478,8 @@ def main():
           f"{STEPS_VARIANT_DEEP}, shallow-bucket variant={STEPS_VARIANT_SHALLOW}",
           file=sys.stderr)
 
-    # SECOND CORRECTION auditability requirement: every replay point that
-    # used the per-point eps model, its computed eps, and which term won.
+    # Auditability: every replay point that used the per-point eps model,
+    # its computed eps, and which term won.
     print(f"    per-point eps model (SECOND CORRECTION): used at "
           f"{len(_eps_model_log)} replay points (side='p', x<=a+1). "
           f"Full list ({len(_eps_model_log)} rows):", file=sys.stderr)
@@ -1535,11 +1501,11 @@ def main():
     # Self-check (g): deep-small closed-form cut a*x0 < 2^-60 (p-side).
     # Verified against REACHABLE (a,p) pairs only (a double p sweep down
     # to the smallest representable double), not a synthetic x=cut/a
-    # construction -- self-caught bug: that construction picks x values
-    # that are mathematically unreachable from any representable p once a
-    # is very small (x^a saturates to ~1 long before x reaches cut/a, so
-    # the "boundary" x it names is on the WRONG side of the domain, near
-    # p~1, not p~0 -- see final report ledger).
+    # construction: that construction picks x values that are
+    # mathematically unreachable from any representable p once a is very
+    # small (x^a saturates to ~1 long before x reaches cut/a, so the
+    # "boundary" x it names is on the WRONG side of the domain, near
+    # p~1, not p~0).
     # ------------------------------------------------------------------
     print("(g) deep-small closed-form cut (a*x0 < 2^-60, p-side), reachable-p sweep:",
           file=sys.stderr)
@@ -1635,8 +1601,7 @@ def main():
     print("// side='q': try S3 first, gated by its OWN")
     print("// L=-ln(q*Gamma(a)) > kGammaInvS3StabilityMargin*|a-1| guard (the")
     print("// fixed-point map's local contraction factor is (a-1)/x -- L>0")
-    print("// ALONE is insufficient, and neither is a fixed q threshold: both")
-    print("// were tried and found wrong, see final report ledger); S2 applied")
+    print("// ALONE is insufficient, and neither is a fixed q threshold); S2 applied")
     print("// to p=1-q is the fallback whenever S3 declines.")
     print(f"inline constexpr double kGammaInvS3StabilityMargin = "
           f"{hexf(S3_STABILITY_MARGIN)};")

@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Generate src/betainv_data.h -- every table beta_p_inv/beta_q_inv needs.
 
-Per PLAN.md "P1 inverse incomplete beta -- detail design" (BINDING). This
-generator pins, BY REPLAY (never by assumption), every free parameter of the
-inverse's seed+step stage:
+This generator pins, BY REPLAY (never by assumption), every free parameter of
+the inverse's seed+step stage:
 
   S1  beta-Temme normal-quantile seed (z=erfcinv(2*sigma), invert the beta
       ridge mapping cpsi(lambda)=alpha*phi(-lambda/alpha)+beta*phi(lambda/beta),
@@ -29,22 +28,21 @@ inverse's seed+step stage:
       space) -- see the derivation comment at s4_c_closed_form. c=0 at
       alpha=beta by the swap-antisymmetry identity (self-check (s4)).
   STEPS  safeguarded logit-Newton (m=lnP-lnQ objective), 3 shared steps,
-      the gammainv G3 safeguard package assumed whole (reject
+      the gammainv safeguard package assumed whole (reject
       residual-increasing steps, 1/8 backtrack, bypass |resid|<1/2,
       additive-y step) -- simulated against the forward evaluated in
       mpmath with injected relative noise at the forward kernel's own
       internal dd budget, per-point analytic eps wherever series
-      super-converge (gammainv SECOND correction, q-side ratio conversion
-      included from day one).
+      super-converge, q-side ratio conversion included from day one.
   DEEP-SMALL  closed form at BOTH ends (y = exp_dd((LogDd(sigma) (+) ln
       alpha (+) lnB_dd)/alpha)), cut on dropped-factor error < 2^-60
-      measured in BOTH orientations from the start (gammainv G3
-      deviation-1 lesson).
+      measured in BOTH orientations from the start (a single-orientation
+      check can miss errors on the untested side).
 
 mpmath discipline: mp.dps set inside every function that needs it; replay
 solves against the root of the ROUNDED double sigma, never the unrounded mpf
-value (the gammainv takeover's basis-mismatch lesson, avoided from day one
-here, not rediscovered).
+value -- solving against the unrounded value would target a different
+equation than the one the double-precision seed/step actually solves.
 
 Self-checks (mandatory; stderr budget lines; ANY miss -> exit nonzero,
 emit nothing) -- lettered to mirror gen_gammainv_data.py's scheme:
@@ -104,9 +102,9 @@ T0 = time.time()
 # or port its Python seed functions -- do not re-derive differently").
 # Instead, parse the ALREADY-SHIPPED src/gammainv_data.h directly: this is
 # the literal table the gammainv KERNEL itself consumes, so wiring it into
-# ginv.seed_S1 here reproduces the shipped seed bit-for-bit (same technique
-# gammainv's own G1 used to cross-check against gamma_data.h's constants by
-# reference, never duplication).
+# ginv.seed_S1 here reproduces the shipped seed bit-for-bit (the same
+# technique gammainv itself uses to cross-check against gamma_data.h's
+# constants by reference, never duplication).
 # ============================================================================
 def _parse_gammainv_data_h():
     path = os.path.join(_HERE, "..", "src", "gammainv_data.h")
@@ -249,16 +247,15 @@ def sigmoid(v):
 
 
 def bits_of(true_x, approx_x):
-    """true_x may be an mpf (KEPT AT FULL PRECISION -- self-caught bug,
-    this pass: an earlier draft cast true_y to a Python float before this
-    comparison in replay_point, which silently capped every measured
-    floor at ~52-53 bits regardless of how good the candidate actually
-    was, since a double-quantized true_x can never show more than ~1 ULP
-    of agreement with anything by construction. gammainv's own
-    _bits_of_frontier keeps its true_x as mpf through this exact
+    """true_x must stay an mpf, KEPT AT FULL PRECISION: casting it to a
+    Python float before this comparison would silently cap every
+    measured floor at ~52-53 bits regardless of how good the candidate
+    actually is, since a double-quantized true_x can never show more
+    than ~1 ULP of agreement with anything by construction. gammainv's
+    own _bits_of_frontier keeps its true_x as mpf through this exact
     comparison for the same reason -- the ROUNDED-DOUBLE-s rule applies
     to the NEWTON TARGET, never to the bits-measurement basis, which
-    must stay at full precision to measure anything past ~53 bits)."""
+    must stay at full precision to measure anything past ~53 bits."""
     if not (math.isfinite(approx_x) and 0.0 < true_x < 1.0):
         return -1.0
     if not (0.0 <= approx_x <= 1.0):
@@ -274,7 +271,7 @@ def bits_of(true_x, approx_x):
 
 # ============================================================================
 # Part 1: forward evaluators (measurement-grade truth, mirroring
-# gen_gammainv_data.py's Part 4 -- NOT G2's certified oracle, which is a
+# gen_gammainv_data.py's Part 4 -- NOT the certified oracle, which is a
 # separate, later stage with its own three binding constructions per
 # PLAN.md). Reuses gen_beta_data.py's R1 series / R2 CF / R3 Temme
 # machinery directly (gb.*) rather than re-deriving it.
@@ -430,9 +427,8 @@ def betainv_forward(a, b, x, dps=50):
 def oracle_y(a, b, target, side, dps=45, lo=None, hi=None):
     """Root-find the TRUE y s.t. betainv_forward's small side equals
     target on the given side, bisecting in LOGIT space (linear-space
-    bisection is unusable once y is anywhere near subnormal -- PLAN's own
-    probe-stage self-caught bug #1). MEASUREMENT-grade (not G2's
-    certified oracle)."""
+    bisection is unusable once y is anywhere near subnormal).
+    MEASUREMENT-grade (not the certified oracle, built separately)."""
     old = mp.mp.dps
     mp.mp.dps = dps
     try:
@@ -440,15 +436,15 @@ def oracle_y(a, b, target, side, dps=45, lo=None, hi=None):
 
         def f(v):
             y = sigmoid(v)
-            # self-caught bug (this pass): a naive "y>=1 -> return 1-target"
-            # shortcut silently assumed the SOLVED side is always P -- wrong
-            # for side='q', where y very close to 1 (dps-limited, sigmoid
-            # rounds to exactly 1.0 at extreme v) must drive got->0, not
-            # 1-target. mpmath's own route_final/forward machinery already
-            # handles y=0/y=1 exactly correctly (I_0=0, I_1=1 for any
-            # a,b>0), so just clamp away from the literal endpoints (log(1-y)
-            # hazards in the swapped CF orientation) rather than special-case
-            # the return value.
+            # A naive "y>=1 -> return 1-target" shortcut would wrongly
+            # assume the SOLVED side is always P -- wrong for side='q',
+            # where y very close to 1 (dps-limited, sigmoid rounds to
+            # exactly 1.0 at extreme v) must drive got->0, not 1-target.
+            # mpmath's own route_final/forward machinery already handles
+            # y=0/y=1 exactly correctly (I_0=0, I_1=1 for any a,b>0), so
+            # just clamp away from the literal endpoints (log(1-y)
+            # hazards in the swapped CF orientation) rather than
+            # special-case the return value.
             if y <= 0:
                 y = mp.mpf(2) ** -1075
             elif y >= 1:
@@ -493,9 +489,9 @@ def oracle_y(a, b, target, side, dps=45, lo=None, hi=None):
 
 def small_side_of_y(a, b, y, dps=45):
     """(min(P,Q), side_of_min) -- the TRUE small-probability side, NOT
-    route_final's own 'native/swap' criterion (which is a different
-    predicate; gammainv's own analogous harness bug, avoided here from
-    day one per the contract's explicit warning)."""
+    route_final's own 'native/swap' criterion (a different predicate;
+    conflating the two is a known harness-bug class, per the contract's
+    explicit warning)."""
     old = mp.mp.dps
     mp.mp.dps = dps
     try:
@@ -539,21 +535,16 @@ def seed_S2(a, b, sigma, ncorr):
     P = y^a/B(a,b) * S(a,b,y) with S's OWN leading term = 1/a (verify:
     s2_series_S_double starts its accumulation at term=t/(a+n), n=0 ->
     1/a, NOT 1 -- so P ~ y^a/(a*B(a,b)) as y->0), so y^a = a*B*P and
-    y0 = exp((ln P + ln a + lnB)/a).
-    SELF-CAUGHT BUG (this pass, gap-band escalation): the zeroth iterate
-    (ncorr=0, or ncorr>0's FIRST guess before any Picard step) was
-    missing the "+ln(a)" term entirely -- the docstring even claimed
-    "S->1 as y->0", contradicting the series' own 1/a leading term. For
-    a not too small this is a modest, Picard-self-healing error (the
-    FIRST Picard iteration's -log(S) implicitly reintroduces +ln(a) since
-    S~1/a), but for tiny a it made y0 catastrophically wrong (e.g.
-    a=0.02, sigma=0.42: missing ln(0.02)/0.02=-195.6/0.02, off by e^195
-    in the exponent) -- overflowing y0 past 1, from which the Picard
-    loop's OWN series (evaluated at a nonsensical y) never recovers.
-    Fixed here; ncorr=0 and ncorr>0 now agree with the docstring. This is
-    a SEED for the SMALL-P-side target sigma -- caller passes 1-sigma
-    when the small side is q (exact complement, no cancellation hazard:
-    sigma is not tiny then)."""
+    y0 = exp((ln P + ln a + lnB)/a). The "+ln(a)" term is load-bearing:
+    dropping it is a modest, Picard-self-healing error for a not too
+    small (the first Picard iteration's -log(S) implicitly reintroduces
+    +ln(a) since S~1/a), but for tiny a it makes y0 catastrophically
+    wrong (e.g. a=0.02, sigma=0.42: missing ln(0.02)/0.02=-195.6/0.02,
+    off by e^195 in the exponent), overflowing y0 past 1, from which the
+    Picard loop's own series (evaluated at a nonsensical y) never
+    recovers. This is a SEED for the SMALL-P-side target sigma -- caller
+    passes 1-sigma when the small side is q (exact complement, no
+    cancellation hazard: sigma is not tiny then)."""
     lnb = lnB_double(a, b)
     lna = math.log(a)
     lx = (math.log(sigma) + lna + lnb) / a
@@ -589,40 +580,23 @@ def dcpsi_dlam_double(lam, a, b, c):
 
 
 def lam_of_zeta_double(zeta, a, b, niter=100):
-    # NOTE (flagged for G3): niter=100 was MEASURED necessary for full
-    # double-precision convergence in the worst replay case (a=b=100,
-    # zeta=1.75: niter=40 left 2e-5 absolute error, niter=80 converged to
-    # 1e-14). The safeguarded direct-lambda Newton oscillates before
-    # settling (99.99->66.40->88.53->converged) -- almost certainly
-    # because bisecting in RAW lambda space near the boundary is a worse-
+    # niter=100 was MEASURED necessary for full double-precision
+    # convergence in the worst replay case (a=b=100, zeta=1.75: niter=40
+    # left 2e-5 absolute error, niter=80 converged to 1e-14). The
+    # safeguarded direct-lambda Newton oscillates before settling
+    # (99.99->66.40->88.53->converged) -- almost certainly because
+    # bisecting in RAW lambda space near the boundary is a worse-
     # conditioned formulation than gammainv's own log-space (u=ln(lambda))
     # Newton, which needed only 6 iterations for gamma's single-parameter
-    # phi. A G3 kernel implementation should very likely redo this in
+    # phi. A kernel implementation should very likely redo this in
     # log-space (or a bounded-domain rational substitution) rather than
     # inherit niter=100 verbatim -- this generator prioritized a CORRECT,
     # simply-derived seed formula within its time budget over an optimally
-    # efficient one; the fix is well-scoped (re-parametrize lambda) and
-    # flagged in the final report as a candidate G3 kernel improvement.
+    # efficient one; the fix is well-scoped (re-parametrize lambda).
     """Safeguarded Newton (bisection fallback) inverting cpsi(lam)=zeta^2*nu
     [nu=a*b/(a+b) -- the defining equation, gb._lambda_of_zeta's own
     "target=zeta*zeta*nu"], lam in (-b,a) open interval, sign(lam)=
-    sign(zeta). zeta=0 -> lam=0 exactly.
-    SELF-CAUGHT BUG (this pass, the costliest one of the whole stage): an
-    early draft used target=zeta*zeta (dropped the *nu factor entirely).
-    The bisection bracket still converged to SOME root -- of the WRONG
-    equation -- so it looked like a working Newton with no exception or
-    NaN anywhere, and the resulting seed was silently ~10x off in lambda
-    (measured: lam=4.04 vs the true 39.98 at nu=100,zeta=0.286). This
-    surfaced as "S1's leading-order accuracy doesn't improve with nu"
-    across an entire nu=40..4000 sweep -- which looked exactly like a
-    genuine Temme-theory-order finding (matching a plausible O(1/sqrt(nu))
-    story on first read) until cross-checking lam_of_zeta_double's OWN
-    output against gb._lambda_of_zeta's exact mpf bisection at a single
-    point exposed the 10x gap directly. Lesson: cross-check a NEW
-    double-precision root-finder against its own mpf ground truth before
-    trusting an aggregate accuracy trend to diagnose it -- an aggregate
-    trend can look like a theory-consistent story that is actually a
-    single silent bug wearing a theory-consistent disguise."""
+    sign(zeta). zeta=0 -> lam=0 exactly."""
     if zeta == 0.0:
         return 0.0
     c = a + b
@@ -670,18 +644,17 @@ def erfcinv_double(y):
 
 
 def zeta0_of(nu, s, side):
-    """self-caught bug (this pass): copied gamma's eta0=z0*sqrt(2/a)
-    verbatim; beta's r3_R_at uses z=sqrt(cpsi)=zeta*sqrt(nu) (NO factor
-    of 2 -- gamma's own z=eta*sqrt(a/2) has one because its cpsi is
-    a*eta^2/2, while beta's cpsi IS zeta^2*nu directly, per
-    _lambda_of_zeta's own target=zeta*zeta*nu). erfc(z0)/2=s defines
-    z0=erfcinv(2s), so zeta0=z0/sqrt(nu) = z0*sqrt(1/nu), not
-    z0*sqrt(2/nu). The extra sqrt(2) silently cost ~1 bit of seed
-    accuracy everywhere AND, worse, made the correction-table's own
-    domain gate (|zeta|<=S1_ZETA_MAX) trip at the wrong points -- caught
-    by a balanced-ridge nu sweep (nu=40..4000) showing S1's seed bits
-    FLAT/WORSENING instead of improving with nu, the smoking gun (a
-    correctly-scaled leading Temme term must improve as O(1/sqrt(nu)))."""
+    """beta's r3_R_at uses z=sqrt(cpsi)=zeta*sqrt(nu) -- NO factor of 2,
+    unlike gamma's z=eta*sqrt(a/2) (gamma's cpsi is a*eta^2/2, while
+    beta's cpsi IS zeta^2*nu directly, per _lambda_of_zeta's own
+    target=zeta*zeta*nu). erfc(z0)/2=s defines z0=erfcinv(2s), so
+    zeta0=z0/sqrt(nu) = z0*sqrt(1/nu), NOT z0*sqrt(2/nu) -- the extra
+    sqrt(2) would cost ~1 bit of seed accuracy everywhere and trip the
+    correction table's own domain gate (|zeta|<=S1_ZETA_MAX) at the
+    wrong points. Diagnostic invariant: a correctly-scaled leading Temme
+    term must improve as O(1/sqrt(nu)) with nu; a flat or worsening
+    trend across a balanced-ridge nu sweep signals this scaling is
+    wrong."""
     sgn = 1.0 if side == "p" else -1.0
     z0 = erfcinv_double(2.0 * s)
     if not math.isfinite(z0):
@@ -707,21 +680,20 @@ def seed_S1(a, b, sigma, side, ncorr=0):
       zeta0<0:  delta = +R_output/(nu*sqrt(2))
     i.e. delta = -sign(zeta0)*S/(nu*sqrt(2)), S=sum c_k(zeta0,p)/nu^k
     (the SAME Horner-in-1/nu series form gammainv uses, just with the
-    corrected prefactor). Self-caught bug ledger (this pass): a first
-    draft copied gammainv's "zeta_new=zeta0+S/nu" verbatim -- wrong
-    prefactor (missing 1/sqrt(2)) AND wrong sign on roughly half the
-    domain (the branch-dependent flip above) -- caught by a balanced-
-    ridge nu-sweep (nu=40..4000) showing the CORRECTED seed's bits
-    improving with nu as the theory demands (O(1/sqrt(nu)) leading
-    error), where the buggy version was flat/regressing."""
+    corrected prefactor). Do NOT copy gammainv's "zeta_new=zeta0+S/nu"
+    verbatim: it uses a different prefactor (missing 1/sqrt(2)) and
+    omits the branch-dependent sign flip above. Diagnostic: as with
+    zeta0_of, a correctly-scaled correction improves with nu
+    (O(1/sqrt(nu)) leading error) across a balanced-ridge nu sweep; a
+    wrong prefactor or sign shows up as flat or regressing bits."""
     c = a + b
     nu = a * b / c
     p = a / c
     zeta = zeta0_of(nu, sigma, side)
-    # self-caught bug (this pass): the Chebyshev-in-zeta correction table
-    # is fit ONLY on [-S1_ZETA_MAX,S1_ZETA_MAX]; evaluating it outside that
-    # (e.g. zeta0=-12.6 at a=0.5,b=5,q~1e-17: |t|=3.6, a Chebyshev series
-    # of degree 14 at |t|=3.6 diverges to ~1e7) silently produced a
+    # The Chebyshev-in-zeta correction table is fit ONLY on
+    # [-S1_ZETA_MAX,S1_ZETA_MAX]; evaluating it outside that (e.g.
+    # zeta0=-12.6 at a=0.5,b=5,q~1e-17: |t|=3.6, a Chebyshev series of
+    # degree 14 at |t|=3.6 diverges to ~1e7) would silently produce a
     # catastrophically WRONG correction instead of the honest ncorr=0
     # fallback -- gate the correction to its own fitted domain, mirroring
     # gammainv's own |eta0|<=ETA_MAX candidate-availability gate.
@@ -756,17 +728,17 @@ S1_KEXT = 3
 S1_NU_LIST = (mp.mpf(30), mp.mpf(60), mp.mpf(120), mp.mpf(240))
 S1_P_MID = mp.mpf("0.25")
 S1_P_HALF = mp.mpf("0.25")
-S1_NU_MIN = 2.0  # self-caught bug (this pass): the 1/nu correction series
-                  # is asymptotic in nu (S(zeta,p) itself is O(1)-bounded,
-                  # measured -0.18..-2.4 over the fitted domain, but the
-                  # APPLIED correction S/nu is unbounded as nu->0 -- at
-                  # nu=5e-9 (a=b=1e-8, joint-tiny) it reached 2e8, sending
-                  # zeta from 0 to a nonsense value). Measured (this probe):
-                  # |S/nu| stays a small fraction (<10%) of S1_ZETA_MAX for
-                  # nu>=2, growing past half of it by nu=0.1 and nonsense
-                  # by nu=0.01 -- gate BOTH the correction and S1's own
-                  # candidacy on nu>=S1_NU_MIN (mirrors gammainv's
-                  # S1_A_MIN, same disease).
+S1_NU_MIN = 2.0  # the 1/nu correction series is asymptotic in nu
+                  # (S(zeta,p) itself is O(1)-bounded, measured -0.18..-2.4
+                  # over the fitted domain, but the APPLIED correction S/nu
+                  # is unbounded as nu->0 -- at nu=5e-9 (a=b=1e-8,
+                  # joint-tiny) it reaches 2e8, sending zeta from 0 to a
+                  # nonsense value). Measured: |S/nu| stays a small
+                  # fraction (<10%) of S1_ZETA_MAX for nu>=2, growing past
+                  # half of it by nu=0.1 and nonsense by nu=0.01 -- gate
+                  # BOTH the correction and S1's own candidacy on
+                  # nu>=S1_NU_MIN (mirrors gammainv's S1_A_MIN, same
+                  # disease).
 _S1_CHEB = None  # [row_k][coef] monomial-in-p? -- see build_s1_correction;
                   # populated as [k][nz][np] 2D-Chebyshev-in-(zeta,p) coefs.
 
@@ -908,41 +880,33 @@ def s4_c_closed_form(a, b):
 
 
 def seed_S4(a, b, sigma, side):
-    """ORCHESTRATOR-RATIFIED FIRST CORRECTION (gap-band escalation,
-    2026-08-09): the ORIGINAL linearized form v=(s-s*)/w+c(a,b) is only
-    valid for v=O(1) (near the plateau center) -- it was derived by
-    Taylor-expanding the leading exponential relation around v=0, and
-    diverges badly for |v| beyond a few units (measured: at C=0.04,
-    |v|=9, linear-form error 0.79 vs the exponential form's 0.032 --
-    25x). STEP 0 diagnosis at the witness (a=b=0.02,y=1e-4, v~-9.2)
-    confirmed mechanism (i): S4 was also never OFFERED there (gated by
-    the OLD max(a,b)<t_jt<<1 misreading of the contract -- t_jt is the
-    CLOSED-FORM-SHIPS-DIRECTLY gate, not a seed-candidacy gate; fixed in
-    seed_for below), and even when offered, the linear form scored only
-    -0.36 bits there (worse than useless).
-    FIX (levels a+b combined, per the orchestrator's hierarchy): use the
-    EXACT (not asymptotic) leading-order relation for EACH branch, which
-    is exact in v of any sign/magnitude as alpha,beta->0 (the min(...)
-    integrand approximation's own leading term, inverted directly rather
-    than Taylor-expanded around v=0):
+    """The linearized form v=(s-s*)/w+c(a,b) (Taylor-expanding the
+    leading exponential relation around v=0) is only valid for v=O(1)
+    (near the plateau center) and diverges badly for |v| beyond a few
+    units (measured: at C=0.04, |v|=9, linear-form error 0.79 vs the
+    exponential form's 0.032 -- 25x). Use instead the EXACT (not
+    asymptotic) leading-order relation for EACH branch, which is exact
+    in v of any sign/magnitude as alpha,beta->0 (the min(...) integrand
+    approximation's own leading term, inverted directly rather than
+    Taylor-expanded around v=0):
       v<0 (s<=s*):  P(y)~y^alpha/(alpha*B(alpha,beta))  => v=(ln s+ln
-                     alpha+lnB)/alpha  [alpha,beta EXACT via lgamma, NOT
-                     the asymptotic B~1/w this route used before]
+                     alpha+lnB)/alpha  [alpha,beta EXACT via lgamma, not
+                     an asymptotic B~1/w approximation]
       v>=0 (s>s*):  Q(y)~z^beta/(beta*B(alpha,beta)), z=1-y  => v=
                      -(ln(1-s)+ln beta+lnB)/beta
     This is IDENTICAL to seed_S2's own ncorr=0 zeroth iterate (in the
     appropriate orientation) -- S4 and S2 share one mechanism at leading
     order; S4's distinct value is picking the CORRECT branch by s vs s*
-    without needing a separate orientation trial. MEASURED (this pass,
-    high-precision v0 sweep): exact-B alone (NO c correction) reaches
-    9.0b at C=0.04 (was 4.97b with the linear+c form), 6.7-6.8b at
-    C=0.2, degrading to ~4b by C=2-4 -- c(alpha,beta) was found to
-    ACTIVELY HURT once B is exact (it was compensating for the
-    asymptotic form's own error; adding it back on top of exact-B
-    measured WORSE at every C tested, e.g. C=2: 3.95b->0.17b) -- DROPPED,
-    not merely left at 0. s4_c_closed_form's derivation stays documented
-    (the paper-math argument and pi^2/12 constant are real and correct
-    for the LINEAR form) but is no longer called."""
+    without needing a separate orientation trial. MEASURED (high-
+    precision v0 sweep): exact-B alone (no c correction) reaches 9.0b at
+    C=0.04 (vs 4.97b with the linear+c form), 6.7-6.8b at C=0.2,
+    degrading to ~4b by C=2-4 -- c(alpha,beta) ACTIVELY HURTS once B is
+    exact (it was compensating for the asymptotic form's own error;
+    adding it back on top of exact-B measures WORSE at every C tested,
+    e.g. C=2: 3.95b->0.17b), so it is DROPPED, not merely left at 0.
+    s4_c_closed_form's derivation stays documented (the paper-math
+    argument and pi^2/12 constant are real and correct for the LINEAR
+    form) but is no longer called."""
     s = sigma if side == "p" else 1.0 - sigma
     c_ab = a + b
     sstar = b / c_ab
@@ -969,12 +933,11 @@ def seed_S4(a, b, sigma, side):
 
 
 # ============================================================================
-# S5: FIX-HIERARCHY LEVEL (d), orchestrator-ratified last resort (gap-band
-# escalation, 2026-08-09) -- levels (a)-(c) were measured to NOT close a
-# residual interior sub-band: moderate-tiny SINGLE shape parameter with the
-# OTHER parameter only moderate (not ridge-large, not gamma-limit-huge,
-# not both-tiny) and a MODERATE target probability on neither extreme --
-# e.g. (a=0.2,b=2,y=0.1): S1's own leading order gives -0.74b even with
+# S5: closed form for the region none of S1-S4 target -- moderate-tiny
+# SINGLE shape parameter with the OTHER parameter only moderate (not
+# ridge-large, not gamma-limit-huge, not both-tiny) and a MODERATE target
+# probability on neither extreme -- e.g. (a=0.2,b=2,y=0.1): S1's own
+# leading order gives -0.74b even with
 # EXACT lambda inversion (nu=0.18 is simply too small for the Temme
 # normal-quantile asymptotic, independent of Newton method), S2/S4's
 # small-y/small-C asymptotics fail outright when neither y nor 1-y is
@@ -991,8 +954,8 @@ def seed_S4(a, b, sigma, side):
 # using these EXACT first two moments (clean-room: standard Gamma-ratio
 # identity plus a Cornish-Fisher-style normal-quantile seed, no ported
 # code) is the natural low-order closed form for the region no other
-# candidate targets -- measured (this pass) to beat S3/S4 specifically
-# in the moderate-shape band (e.g. (0.2,2,0.1): S4 2.66b vs S5 3.47b),
+# candidate targets -- measured to beat S3/S4 specifically in the
+# moderate-shape band (e.g. (0.2,2,0.1): S4 2.66b vs S5 3.47b),
 # and offered as a GLOBAL fifth candidate (cheap-residual selected like
 # the other four), not a gated route -- it does no harm where it isn't
 # competitive (the comparison simply picks something else).
@@ -1026,9 +989,9 @@ def seed_S5(a, b, sigma, side, dps=25):
 
 # ============================================================================
 # Part 3: quad-candidate seed selection (cheap forward-residual global
-# comparison, PLAN's own FIRST-correction-style mechanism from gammainv,
-# now the design's own starting point here -- "no parameter gating except
-# per-candidate availability/stability gates you derive and pin").
+# comparison, the same mechanism gammainv uses, now the design's own
+# starting point here -- "no parameter gating except per-candidate
+# availability/stability gates you derive and pin").
 # ============================================================================
 T_JT = 2.0 ** -8  # [PROVISIONAL -- pinned by self-check (d)] max(alpha,beta)
                     # threshold below which S4 is offered as a candidate;
@@ -1041,8 +1004,7 @@ def cheap_residual_beta(a, b, y0, s, side, dps_list=(20, 30)):
     """LOW-PRECISION forward eval -- selector only, not precision-bearing
     (gammainv's own cheap_residual pattern, dps ladder for the same
     reason: extraction/CF machinery can go numerically singular at very
-    low dps for some points -- self-caught during this generator's own
-    development, see final report)."""
+    low dps for some points)."""
     if not (math.isfinite(y0) and 0.0 < y0 < 1.0):
         return None
     for dps_try in dps_list:
@@ -1080,19 +1042,17 @@ def seed_for(a, b, sigma, side, s1_ncorr=None, s2_ncorr=6, jt_thresh=None):
             s1_candidate = None
 
     try:
-        # SELF-CAUGHT BUG (this pass, gap-band escalation): side='q' was
-        # calling seed_S2(a,b,1-sigma,...) -- unswapped (a,b) with sigma
-        # COMPLEMENTED. That asks S2 (a small-Y-for-small-TARGET formula)
-        # to solve P(a,b,y)=1-sigma for y, but 1-sigma=P is近 1 (large,
-        # NOT small) whenever sigma=Q is the genuinely small side -- the
-        # exact opposite of S2's design domain, and the source of the
-        # garbage/negative-bits results that first exposed the gap-band
-        # escalation's mechanism. The CORRECT swapped-twin construction
-        # (module docstring: "the swapped twin is free", contract's own
-        # phrasing) is the SWAP IDENTITY itself: Q(a,b,y) = P(b,a,1-y),
-        # so solve P(b,a,z)=sigma [swap a<->b, sigma UNCHANGED -- sigma
-        # IS the small target on the swapped side] for the small z=1-y,
-        # then y=1-z.
+        # side='q' must NOT call seed_S2(a,b,1-sigma,...) -- that keeps
+        # (a,b) unswapped with sigma COMPLEMENTED, asking S2 (a
+        # small-Y-for-small-TARGET formula) to solve P(a,b,y)=1-sigma for
+        # y, but 1-sigma=P is near 1 (large, NOT small) whenever sigma=Q
+        # is the genuinely small side -- the exact opposite of S2's
+        # design domain. The correct swapped-twin construction (module
+        # docstring: "the swapped twin is free", contract's own phrasing)
+        # is the SWAP IDENTITY itself: Q(a,b,y) = P(b,a,1-y), so solve
+        # P(b,a,z)=sigma [swap a<->b, sigma UNCHANGED -- sigma IS the
+        # small target on the swapped side] for the small z=1-y, then
+        # y=1-z.
         s2v = seed_S2(a, b, sigma, s2_ncorr) if side == "p" \
             else seed_S2(b, a, sigma, s2_ncorr)
         s2_candidate = s2v if side == "p" else 1.0 - s2v
@@ -1104,43 +1064,39 @@ def seed_for(a, b, sigma, side, s1_ncorr=None, s2_ncorr=6, jt_thresh=None):
     except (OverflowError, ValueError, ZeroDivisionError):
         s3_candidate = None
 
-    # ORCHESTRATOR CONTRACT CLARIFICATION (gap-band escalation,
-    # 2026-08-09): the BINDING design selects seed candidates by residual
-    # comparison at ALL (a,b,s) -- t_jt gates the CLOSED-FORM ROUTE
-    # (where S4's answer ships without iteration under the plateau
-    # contract), NOT candidacy in this quad-candidate seed selection. The
-    # old `if max(a,b)<jt_thresh` gate here was exactly that deviation,
-    # and was the PRIMARY mechanism behind the gap-band escalation (S4
-    # was never even tried at points like a=b=0.02, well above the old
-    # t_jt=2^-8). S4 is now offered unconditionally (guarded only by its
-    # own validity: log(s) and log1p(-s) both finite, i.e. s in (0,1)).
+    # t_jt gates the CLOSED-FORM ROUTE (where S4's answer ships without
+    # iteration under the plateau contract), NOT candidacy in this
+    # quad-candidate seed selection -- gating S4's candidacy on
+    # `max(a,b)<jt_thresh` here would silently exclude it from points
+    # like a=b=0.02 (well above t_jt=2^-8) where it is in fact the best
+    # candidate. S4 is offered unconditionally (guarded only by its own
+    # validity: log(s) and log1p(-s) both finite, i.e. s in (0,1)).
     s4_candidate = None
     try:
         s4_candidate = seed_S4(a, b, sigma, side)
     except (OverflowError, ValueError, ZeroDivisionError):
         s4_candidate = None
 
-    # DEEP-SMALL as a fifth unconditional candidate (self-caught gap,
-    # this pass): a genuinely deep-tail point (sigma astronomically tiny,
-    # e.g. 1e-250) is DEEP-SMALL's own designed territory regardless of
-    # whether (a,b) also happen to be small -- S2's Picard series was
-    # being asked to converge a correction from a badly-scaled zeroth
-    # seed there and failing (measured floor 46.8b, short of the 55b
-    # gate) even though the CLOSED FORM (which is exactly S2's own
-    # zeroth-order term) is trivially available and often near-exact at
-    # that depth. Always tried, cheap, selected only if it wins the
-    # residual comparison -- consistent with the quad-candidate design's
-    # own "compute unconditionally when its own guard passes" doctrine
-    # (deep-small's guard is simply "produces a finite y in (0,1)").
+    # DEEP-SMALL as a fifth unconditional candidate: a genuinely
+    # deep-tail point (sigma astronomically tiny, e.g. 1e-250) is
+    # DEEP-SMALL's own designed territory regardless of whether (a,b)
+    # also happen to be small -- S2's Picard series can be asked to
+    # converge a correction from a badly-scaled zeroth seed there and
+    # fail (measured floor 46.8b, short of the 55b gate) even though the
+    # CLOSED FORM (which is exactly S2's own zeroth-order term) is
+    # trivially available and often near-exact at that depth. Always
+    # tried, cheap, selected only if it wins the residual comparison --
+    # consistent with the quad-candidate design's own "compute
+    # unconditionally when its own guard passes" doctrine (deep-small's
+    # guard is simply "produces a finite y in (0,1)").
     try:
         deep_candidate = deep_small_y(a, b, sigma, side)
     except (OverflowError, ValueError, ZeroDivisionError):
         deep_candidate = None
 
-    # S5 (fix-hierarchy level (d), orchestrator-ratified): logit-normal
-    # via EXACT digamma/trigamma moments, the only candidate that targets
-    # "moderate shape, moderate probability" territory. Always offered,
-    # cheap, selected only if it wins.
+    # S5: logit-normal via EXACT digamma/trigamma moments, the only
+    # candidate that targets "moderate shape, moderate probability"
+    # territory. Always offered, cheap, selected only if it wins.
     try:
         s5_candidate = seed_S5(a, b, sigma, side)
     except (OverflowError, ValueError, ZeroDivisionError):
@@ -1166,7 +1122,7 @@ def seed_for(a, b, sigma, side, s1_ncorr=None, s2_ncorr=6, jt_thresh=None):
 
 
 # ============================================================================
-# Part 4: STEPS -- safeguarded logit-Newton, the gammainv G3 safeguard
+# Part 4: STEPS -- safeguarded logit-Newton, the gammainv safeguard
 # package assumed whole (module docstring): m(y)=ln P(y)-ln Q(y) [=logit(P)],
 # w=P*Q/g(y) [g=beta density, dm/dy=g/(P*Q)], target_m=logit(sigma) (side=p)
 # or -logit(sigma) (side=q). Step: resid=m-target_m; ls=-scale*w*resid,
@@ -1174,35 +1130,33 @@ def seed_for(a, b, sigma, side, s1_ncorr=None, s2_ncorr=6, jt_thresh=None):
 # (|resid_best|<TRUST_RESID OR |resid_new|<=|resid_best|); reject ->
 # scale*=1/8 for the NEXT step, reset to 1 on acceptance.
 #
-# STEPS_N = 4 [ORCHESTRATOR RULING, SECOND CORRECTION, 2026-08-09,
-# design amendment -- gap-band escalation chain depth 2]: the contract's
-# original "3 shared steps" (gammainv's own pin) does not hold band-wide
-# here. Root cause, precisely diagnosed (not assumed): a bounded interior
-# sub-band (min(a,b) approx 0.02-0.5, skew 3-10x, y interior 0.1-0.3) has
-# NO closed-form seed family (five tried: S1 Temme-normal, S2 small-y,
-# S3 gamma-limit, S4 exact-B exponential, S5 logit-normal via exact
-# digamma/trigamma moments) exceeding ~2-5 bits -- confirmed NOT a
-# selection failure (cheap-residual always picks the best available
-# candidate) and NOT an eps/noise-floor artifact (already at EPS_TIGHT).
-# Measured convergence from the worst point in the band (a=0.1,b=1,
-# y=0.3, seed 2.12b): 2.12->6.66->16.48->36.16->75.51->103.78 bits over
-# 6 steps -- clean quadratic (each step envelope-doubles the correct
-# bits), step 4 clears the 55b gate by 20+ bits margin band-wide. The
-# "fix the seed, don't shave margin" precedent (gammainv S3, small-a mid
-# band) does NOT apply symmetrically here: that case had a contract-
-# compliant seed fix AVAILABLE; here the seed side is exhausted (five
-# families, one ratified addition (S5), one correction tested-and-
-# rejected (Cornish-Fisher, measured worse everywhere)) and step 4
-# RESTORES full margin (75+ bits), it does not shave anything. The
-# safeguard package (reject residual-increasing, bypass |resid|<1/2,
-# freeze-by-select) makes the fourth step IDEMPOTENT for lanes already
-# converged after 3 -- cost is bounded at one extra forward evaluation
-# for those lanes, strictly cheaper and simpler than a sixth fitted seed
-# with its own table, residual-compare slot, and seams.
-# G3 LATITUDE (carry forward): the kernel MAY add a whole-vector all-
-# lanes-converged skip after step 3 as a bench optimization (gammainv's
-# "1 Halley vs 2 Newton" precedent -- the accuracy gates must hold
-# either way, this is a throughput decision only).
+# STEPS_N = 4: the contract's original "3 shared steps" (gammainv's own
+# pin) does not hold band-wide here. Root cause, precisely diagnosed (not
+# assumed): a bounded interior sub-band (min(a,b) approx 0.02-0.5, skew
+# 3-10x, y interior 0.1-0.3) has NO closed-form seed family (five tried:
+# S1 Temme-normal, S2 small-y, S3 gamma-limit, S4 exact-B exponential, S5
+# logit-normal via exact digamma/trigamma moments) exceeding ~2-5 bits --
+# confirmed NOT a selection failure (cheap-residual always picks the best
+# available candidate) and NOT an eps/noise-floor artifact (already at
+# EPS_TIGHT). Measured convergence from the worst point in the band
+# (a=0.1,b=1, y=0.3, seed 2.12b): 2.12->6.66->16.48->36.16->75.51->103.78
+# bits over 6 steps -- clean quadratic (each step envelope-doubles the
+# correct bits), step 4 clears the 55b gate by 20+ bits margin band-wide.
+# The "fix the seed, don't shave margin" precedent (gammainv S3, small-a
+# mid band) does NOT apply symmetrically here: that case had a
+# contract-compliant seed fix AVAILABLE; here the seed side is exhausted
+# (five families, one addition (S5), one correction tested-and-rejected
+# (Cornish-Fisher, measured worse everywhere)) and step 4 RESTORES full
+# margin (75+ bits), it does not shave anything. The safeguard package
+# (reject residual-increasing, bypass |resid|<1/2, freeze-by-select)
+# makes the fourth step IDEMPOTENT for lanes already converged after 3 --
+# cost is bounded at one extra forward evaluation for those lanes,
+# strictly cheaper and simpler than a sixth fitted seed with its own
+# table, residual-compare slot, and seams.
+# LATITUDE (carry forward): the kernel MAY add a whole-vector all-lanes-
+# converged skip after step 3 as a bench optimization (gammainv's "1
+# Halley vs 2 Newton" precedent -- the accuracy gates must hold either
+# way, this is a throughput decision only).
 # ============================================================================
 TRUST_RESID = 0.5  # bypass |resid|<1/2 (contract's own number, matches
                     # gammainv's kGammaInvTrustResid intent)
@@ -1220,14 +1174,13 @@ def beta_density_mp(a, b, y, dps):
 def m_and_w_mp(a, b, y, dps):
     """(m, w) = (ln P - ln Q, 1/(y*dm/dy)) at working dps. dm/dy = g/(P*Q)
     (m=logit(P), standard logit-density identity), so 1/dm/dy = P*Q/g;
-    w carries an EXTRA 1/y factor (self-caught bug, this pass: the step
-    is applied MULTIPLICATIVELY, cand=y*(1+ls) -- gammainv's own "w"
-    is 1/(x*dm/dx), not 1/(dm/dx), for exactly this reason, documented
-    in its own step comment ("w -> 1/x in the far tail"); a first draft
-    here copied w=P*Q/g literally and under-stepped by a factor of y at
-    every iteration -- measured 6.94->9.12 bits over 3 "steps" instead of
-    converging, caught by this smoke test before it ever reached
-    self-check (e))."""
+    w carries an EXTRA 1/y factor because the step is applied
+    MULTIPLICATIVELY, cand=y*(1+ls) -- gammainv's own "w" is
+    1/(x*dm/dx), not 1/(dm/dx), for exactly this reason, documented in
+    its own step comment ("w -> 1/x in the far tail"). Omitting the 1/y
+    factor (w=P*Q/g alone) under-steps by a factor of y at every
+    iteration -- measured 6.94->9.12 bits over 3 "steps" instead of
+    converging."""
     old = mp.mp.dps
     mp.mp.dps = dps
     try:
@@ -1357,10 +1310,10 @@ def simulate_steps_beta_multi(a, b, y0, true_y, sigma, side, eps, max_nsteps, dp
 # ln alpha + lnB(alpha,beta))/alpha) -- S2's own leading term with the
 # series correction S' DROPPED entirely (S'->1 as y->0).
 #
-# CUT PREDICATE -- ORCHESTRATOR THIRD CORRECTION (2026-08-09) DEFECT 2,
-# re-derived here and verified by direct measurement (self-check (f)),
-# not trusted blind: sigma = y^a/(a*B(a,b)) * S', S' = a*sum_n t_n/(a+n)
-# = 1 + a*sum_{n>=1} t_n/(a+n), t_0=1, t_n=t_{n-1}*(n-b)*y/n. Dropping
+# CUT PREDICATE, re-derived here and verified by direct measurement
+# (self-check (f)), not trusted blind: sigma = y^a/(a*B(a,b)) * S',
+# S' = a*sum_n t_n/(a+n) = 1 + a*sum_{n>=1} t_n/(a+n), t_0=1,
+# t_n=t_{n-1}*(n-b)*y/n. Dropping
 # S'->1 costs a relative error in ln(y) of |ln S'|/a; for small y this is
 # dominated by the n=1 term, t_1=(1-b)*y:
 #   |ln S'|/a ~= |a*t_1/(a+1)|/a = |t_1|/(a+1) = |1-b|*y/(1+a)
@@ -1374,9 +1327,9 @@ def simulate_steps_beta_multi(a, b, y0, true_y, sigma, side, eps, max_nsteps, dp
 # with roles (a,b,y) -> (b,a,1-y) for side='q':
 #   P-side (side='p'): |1-b|*y/(1+a)         < DEEP_SMALL_CUT
 #   Q-side (side='q'): |1-a|*(1-y)/(1+b)     < DEEP_SMALL_CUT
-# (gammainv G3 deviation-1 lesson: a single-orientation self-check left
-# 90 ULP reachable at small a via the untested orientation -- self-check
-# (f) below sweeps BOTH orientations for real this time, defect 3 fixed.)
+# A single-orientation self-check can leave the untested orientation
+# unbounded (90 ULP reachable at small a, measured) -- self-check (f)
+# below sweeps BOTH orientations.
 # ============================================================================
 DEEP_SMALL_CUT = 2.0 ** -60
 
@@ -1388,22 +1341,20 @@ def deep_small_cut_bound(a, b, y, side):
     in both cases -- side='q' uses (1-y), the genuinely small quantity
     on that branch.
 
-    SELF-CAUGHT BUG (this pass, directed re-measurement after the
-    orchestrator's THIRD CORRECTION) and its RESOLUTION: the bare
-    t1/(1+a-or-b) formula UNDER-PREDICTS at the widened gamma-limit
-    corner (huge OTHER-side parameter, e.g. a=5,b=1e300,side='q',
-    y=1e-6: measured true/bound ratio 13.8; a first guard attempt
-    (reject t1>=0.1) only pushed the worst case to a=0.9,b=1e100,
-    y=1e-6, ratio 6.49 -- t1 was ~0.0999999, just inside a naive
-    threshold). ROOT CAUSE, isolated by direct measurement (not
-    trusted from algebra alone): the true/bound ratio, swept over a
-    wide range of (a-or-b) [the OTHER-side coefficient] at FIXED y'
-    (the own-side small variable, y for p / 1-y for q), is EXACTLY
-    -ln(1-y')/y' and is INDEPENDENT of the other-side coefficient
-    entirely (verified to 5+ significant figures across coefficient
-    values spanning 1e-4 to 5, at fixed y'). This is exact in the
-    huge-OTHER-side-exponent limit (S' -> (1-y')^(other_side-1) there,
-    a clean closed form), and the SAME correction was verified a sound
+    The bare t1/(1+a-or-b) formula UNDER-PREDICTS at the widened
+    gamma-limit corner (huge OTHER-side parameter, e.g. a=5,b=1e300,
+    side='q', y=1e-6: measured true/bound ratio 13.8). A naive guard
+    threshold (e.g. reject t1>=0.1) is not a fix: it only pushes the
+    worst case to a=0.9,b=1e100,y=1e-6 (ratio 6.49, with t1~0.0999999
+    just inside the threshold). ROOT CAUSE, isolated by direct
+    measurement (not trusted from algebra alone): the true/bound ratio,
+    swept over a wide range of (a-or-b) [the OTHER-side coefficient] at
+    FIXED y' (the own-side small variable, y for p / 1-y for q), is
+    EXACTLY -ln(1-y')/y' and is INDEPENDENT of the other-side
+    coefficient entirely (verified to 5+ significant figures across
+    coefficient values spanning 1e-4 to 5, at fixed y'). This is exact
+    in the huge-OTHER-side-exponent limit (S' -> (1-y')^(other_side-1)
+    there, a clean closed form), and the SAME correction is a sound
     (ratio<=1, worst measured 1.0000000004 -- boundary floating-point
     noise) upper predictor for MODERATE other-side parameters too
     (self-check (f) sweeps the full range). corr(y')=-ln(1-y')/y' -> 1
@@ -1422,12 +1373,11 @@ def deep_small_cut_bound(a, b, y, side):
 
 
 def deep_small_y(a, b, sigma, side):
-    """ORCHESTRATOR THIRD CORRECTION (2026-08-09) DEFECT 1: was missing
-    the +ln(a) [resp. +ln(b)] term -- exp((ln sigma + lnB)/a) instead of
-    exp((ln sigma + ln a + lnB)/a), the exact disease seed_S2's own
-    zeroth iterate had (fixed earlier this stage) surviving unfixed in
-    this twin function. Correct leading form (S'->1 as y->0, sigma =
-    y^a/(a*B(a,b))*S'): y0 = exp((ln sigma + ln a + lnB)/a)."""
+    """Must include the +ln(a) [resp. +ln(b)] term -- exp((ln sigma +
+    lnB)/a) alone (without ln a) is the same disease as seed_S2's own
+    zeroth iterate without it (see seed_S2's docstring). Correct leading
+    form (S'->1 as y->0, sigma = y^a/(a*B(a,b))*S'): y0 = exp((ln sigma +
+    ln a + lnB)/a)."""
     if side == "p":
         lnb = lnB_double(a, b)
         return math.exp((math.log(sigma) + math.log(a) + lnb) / a)
@@ -1439,14 +1389,13 @@ def deep_small_y(a, b, sigma, side):
 
 def _deep_small_dropped_rel(a, b, y0, side, dps=60):
     """|ln S'(a,b,y or z)|/a[or b] -- the EXACT quantity DROPPED by the
-    closed form (S2's own series correction, S'->1 assumed).
-    ORCHESTRATOR THIRD CORRECTION DEFECT 3 (last clause): the previous
-    version summed sum_n c_n*y^n WITHOUT the a/(a+n) weight -- that is
-    (1-y)^(b-1) (the OTHER factor entirely), not S'. Conservative at
-    tiny a (where a/(a+n)~a/n->0 makes S' close to 1 regardless), but it
-    was not measuring what its own docstring claimed, and the boundary-
-    tightness numbers it produced were not trustworthy. Fixed: accumulate
-    the TRUE S' = a*sum_n t_n/(a+n) = 1 + a*sum_{n>=1} t_n/(a+n)."""
+    closed form (S2's own series correction, S'->1 assumed). Must
+    accumulate the TRUE S' = a*sum_n t_n/(a+n) = 1 + a*sum_{n>=1}
+    t_n/(a+n), WITH the a/(a+n) weight -- summing sum_n c_n*y^n without
+    it gives (1-y)^(b-1) (the OTHER factor entirely), not S'; that
+    substitution is conservative at tiny a (where a/(a+n)~a/n->0 makes
+    S' close to 1 regardless) but measures the wrong quantity and
+    produces untrustworthy boundary-tightness numbers."""
     with mp.workdps(dps):
         if side == "p":
             aa, bb, yy = mp.mpf(a), mp.mpf(b), mp.mpf(y0)
@@ -1472,51 +1421,46 @@ EPS_TIGHT = 2.0 ** -105    # S4/deep-small closed-form regions: no series
                             # truncation -- the TRUE forward precision
                             # there is dd-class (~2^-105), not the
                             # series/CF/fit-truncation-bound
-                            # EPS_SERIES=2^-56. RATIFIED BY MEASUREMENT
-                            # (self-caught, this pass): a first draft used
-                            # 2^-64 (the contract's own "absolute floor"
-                            # term, picked as a placeholder) and FAILED
+                            # EPS_SERIES=2^-56. Using 2^-64 (a plausible
+                            # "absolute floor" placeholder) instead fails
                             # self-check (b) at kappa~2^40 (a=1e-12): floor
-                            # measured 26.74b, exactly matching
+                            # measures 26.74b, exactly matching
                             # eps_bits-kappa_bits = 64-40 = 24-ish. With
                             # the dd-precision-matched EPS_TIGHT=2^-105,
                             # the SAME kappa~2^40 point predicts floor
                             # 105-40=65b, clearing the 55b gate with
-                            # margin -- and this is EXACTLY what the
-                            # contract's own plateau derivation says: "dd
-                            # (2^-105-class) resolves y to 1 ULP only for
-                            # kappa<=2^52" (105-52=53, ~1 ULP -- the
-                            # contract's own boundary IS this formula).
+                            # margin -- and this matches the plateau
+                            # derivation directly: dd (2^-105-class)
+                            # resolves y to 1 ULP only for kappa<=2^52
+                            # (105-52=53, ~1 ULP -- that boundary IS this
+                            # formula).
 TARGET_BITS = 55.0
 
 
 def eps_for(a, b, region, sigma=None):
-    """SECOND-CORRECTION-class finding (self-caught, this pass, named
-    after gammainv's own precedent since it is literally the same
-    mechanism): EPS_SERIES=2^-56 is a REGION-WORST series-truncation
-    bound; it is the wrong model wherever the forward series/CF has
-    already super-converged, which happens whenever the SOLVED-SIDE
-    probability sigma itself is tiny (a handful of R1 terms, or a
-    shallow CF depth) REGARDLESS of whether (a,b) are the tiny ones --
-    measured directly: a=b=0.5 (NOT tiny), sigma~6.4e-126 (deep p-tail),
-    seed 50.5b degraded to 46.8b under uniform EPS_SERIES injection,
-    while the TRUE per-point forward error there is dd/prefactor-bound
-    (~2^-105-class), not truncation-bound. Uses EPS_TIGHT whenever sigma
-    itself is in the genuinely deep tail (<1e-6, comfortably past where
-    any of R1/R2/R3/gammalim's series/CF have more than a few live
-    terms), matching EPS_TIGHT's own dd-precision justification."""
-    # self-caught bug (this pass, gap-band escalation): the region-NAME
-    # based gate missed the same phenomenon at points labeled "gap" whose
-    # (a,b) are ALSO in the joint-tiny/plateau range (e.g. a=1e-10,
-    # b=3e-10 -- min(a,b) tiny, kappa large) -- eps_for never saw a
-    # region name it recognized, fell through to EPS_SERIES, and the
-    # SAME kappa-amplification mechanism that motivated EPS_TIGHT in the
-    # first place silently regressed an already-good seed (measured:
-    # final floor dropped from 74.38b to 25.38b at this exact point when
-    # the gap-band test grid was widened to include it). Generalized to
-    # min(a,b) directly (the actual physical conditioning driver, not a
-    # region label) so it fires regardless of which bucket a point is
-    # reported under.
+    """EPS_SERIES=2^-56 is a REGION-WORST series-truncation bound; it is
+    the wrong model wherever the forward series/CF has already
+    super-converged, which happens whenever the SOLVED-SIDE probability
+    sigma itself is tiny (a handful of R1 terms, or a shallow CF depth)
+    REGARDLESS of whether (a,b) are the tiny ones -- measured directly:
+    a=b=0.5 (NOT tiny), sigma~6.4e-126 (deep p-tail), seed 50.5b degrades
+    to 46.8b under uniform EPS_SERIES injection, while the TRUE
+    per-point forward error there is dd/prefactor-bound (~2^-105-class),
+    not truncation-bound. Uses EPS_TIGHT whenever sigma itself is in the
+    genuinely deep tail (<1e-6, comfortably past where any of
+    R1/R2/R3/gammalim's series/CF have more than a few live terms),
+    matching EPS_TIGHT's own dd-precision justification."""
+    # A region-NAME based gate alone misses the same phenomenon at
+    # points labeled "gap" whose (a,b) are ALSO in the joint-tiny/
+    # plateau range (e.g. a=1e-10, b=3e-10 -- min(a,b) tiny, kappa
+    # large): eps_for would never see a region name it recognizes, fall
+    # through to EPS_SERIES, and let the SAME kappa-amplification
+    # mechanism that motivated EPS_TIGHT silently regress an
+    # already-good seed (measured: final floor drops from 74.38b to
+    # 25.38b at this exact point when the gap-band test grid is widened
+    # to include it). Gate on min(a,b) directly (the actual physical
+    # conditioning driver, not a region label) so it fires regardless of
+    # which bucket a point is reported under.
     if region in ("S4", "deep", "S2", "gap"):
         return EPS_TIGHT
     if min(a, b) < 1e-3:
@@ -1528,10 +1472,11 @@ def eps_for(a, b, region, sigma=None):
 
 def replay_point(a, b, y_true, region_label, dps_oracle=50, dps_step=55):
     """One replay point: root-find true y at the ROUNDED double sigma
-    (gammainv takeover lesson -- basis MUST be the rounded double, never
-    the unrounded construction value), seed via quad-candidate seed_for,
-    STEPS_N-step (4, per the ruling) safeguarded logit-Newton, return
-    (seed_bits, steps_bits, kappa_bits, sigma, side) or None on failure."""
+    (basis MUST be the rounded double, never the unrounded construction
+    value -- see mpmath discipline in the module docstring), seed via
+    quad-candidate seed_for, STEPS_N-step (4) safeguarded logit-Newton,
+    return (seed_bits, steps_bits, kappa_bits, sigma, side) or None on
+    failure."""
     s, side = small_side_of_y(a, b, y_true, dps=45)
     s = float(s)
     if not (0.0 < s <= 0.5):
@@ -1539,13 +1484,12 @@ def replay_point(a, b, y_true, region_label, dps_oracle=50, dps_step=55):
     true_y = oracle_y(a, b, s, side, dps=dps_oracle)
     if true_y is None:
         return None
-    # self-caught bug (this pass, the costliest measurement-harness bug of
-    # the stage): true_y MUST stay an mpf through every bits comparison
-    # below -- casting to float here (an earlier draft did) silently caps
-    # every measured floor at ~52-53 bits regardless of candidate quality,
-    # since a double-quantized true_y can only ever agree with anything to
-    # ~1 ULP by construction. Only a plain-float FINITENESS/RANGE check is
-    # done here; the mpf value itself is threaded through unchanged.
+    # true_y MUST stay an mpf through every bits comparison below --
+    # casting to float here silently caps every measured floor at ~52-53
+    # bits regardless of candidate quality, since a double-quantized
+    # true_y can only ever agree with anything to ~1 ULP by construction.
+    # Only a plain-float FINITENESS/RANGE check is done here; the mpf
+    # value itself is threaded through unchanged.
     if not (mp.isfinite(true_y) and 0.0 < true_y < 1.0):
         return None
     try:
@@ -1612,20 +1556,20 @@ def main():
     print("(b) seed-bit floors, quad-candidate seed_for, edge-refined grid:",
           file=sys.stderr)
     # Representative point set spanning the named regions (bounded scope
-    # for this stage's replay -- G2's certified reference set is the
-    # exhaustive pass; this replay is design-sanity, per doctrine, same
-    # role as gammainv's own G1 replay).
+    # for this stage's replay -- the exhaustive certified reference set
+    # is a separate, later pass; this replay is design-sanity, per
+    # doctrine, the same role as gammainv's own replay).
     points = []
     # R1-tiny / small-y (S2 territory) -- genuinely small TARGET
-    # PROBABILITY is the point, not merely small y: a SELF-CAUGHT test-
-    # harness bug (this pass, twice) picked (a,y) pairs by y alone, e.g.
-    # (a=0.1,y=1e-4) gives sigma~0.2-0.44 (NOT small: y^a is not small
-    # for a<1 regardless of how small y itself is) -- classified as
-    # "S2" and then reported as an S2 FAILURE when really no candidate
+    # PROBABILITY is the point, not merely small y: picking (a,y) pairs
+    # by y alone can mislabel points, e.g. (a=0.1,y=1e-4) gives
+    # sigma~0.2-0.44 (NOT small: y^a is not small for a<1 regardless of
+    # how small y itself is) -- such a point would be classified "S2"
+    # and then reported as an S2 FAILURE when really no candidate
     # targets that (small-a, moderate-sigma) territory at all (it is the
     # SAME coverage gap the gap-check bucket below tracks explicitly).
-    # Fixed by requiring a>=1 here (S2's genuine small-target domain);
-    # small-a moderate-sigma traffic lives ONLY in gap-check now.
+    # Require a>=1 here (S2's genuine small-target domain); small-a
+    # moderate-sigma traffic lives ONLY in gap-check.
     for a in (1.0, 5.0, 20.0):
         for b in (0.5, 2.0, 5.0, 20.0, 100.0):
             for y in (1e-4, 1e-2, 0.05):
@@ -1634,17 +1578,14 @@ def main():
         for b in (0.5, 2.0, 5.0):
             for pe in (-30, -100, -250):
                 points.append((a, b, 10.0 ** pe, "S2"))
-    # GAP BAND (orchestrator-ratified FIRST CORRECTION, 2026-08-09):
-    # moderate-tiny, near-symmetric (a,b) between the old (mis-applied)
-    # t_jt candidacy gate and S1's nu>=S1_NU_MIN boundary. Root cause was
-    # S4 never being OFFERED there (t_jt misread as a candidacy gate,
-    # fixed in seed_for) plus the linear S4 form's own breakdown at
-    # |logit|>>1 (fixed: exact-B exponential form, seed_S4). Now folded
-    # into the HARD GATE as its own labeled bucket (dense, edge-refined,
-    # bit-stepped at the band's own edges -- t_jt's old value and
-    # S1_NU_MIN's boundary -- per the fix-hierarchy's own instruction),
-    # not a separately-excused one: acceptance requires this bucket to
-    # clear TARGET_BITS like any other.
+    # GAP BAND: moderate-tiny, near-symmetric (a,b) between the t_jt
+    # value and S1's nu>=S1_NU_MIN boundary -- S4 and S1's own linear
+    # form both break down in this range (see seed_S4's and seed_for's
+    # docstrings), so it is tracked as its own labeled bucket (dense,
+    # edge-refined, bit-stepped at the band's own edges -- t_jt's value
+    # and S1_NU_MIN's boundary), not a separately-excused one:
+    # acceptance requires this bucket to clear TARGET_BITS like any
+    # other.
     gap_masses = [0.001, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0,
                   1.5, 2.0, 3.0, 4.0]
     if FULL:
@@ -1653,11 +1594,10 @@ def main():
         for skew in (1.0, 1.5, 3.0, 10.0):
             for yv in (1e-6, 1e-3, 0.1, 0.3, 0.5, 0.7, 0.9, 1 - 1e-3, 1 - 1e-6):
                 points.append((m, m * skew, yv, "gap"))
-    # bit-stepped edge ladder at the two band boundaries (old t_jt value,
+    # bit-stepped edge ladder at the two band boundaries (t_jt's value,
     # and just below/above S1_NU_MIN's own a=b=4 boundary for the
-    # balanced case) -- the sampling-rule precedent (trigamma FIRST
-    # correction) that edge-refined sampling catches what grid-only
-    # sampling misses.
+    # balanced case) -- edge-refined sampling catches what grid-only
+    # sampling misses (same precedent as trigamma's own edge sampling).
     for edge in (2.0 ** -8, 4.0):
         for step in (-3, -2, -1, 0, 1, 2, 3):
             m = edge
@@ -1683,20 +1623,17 @@ def main():
         for skew in (1.0, 3.0, 10.0):
             points.append((m, m * skew, 0.4, "S4"))
             points.append((m, m * skew, 0.6, "S4"))
-    # NOTE (directed audit finding, orchestrator THIRD CORRECTION,
-    # 2026-08-09): a "deep-small (both orientations)" block used to sit
-    # here, appending 5-TUPLES ((a,5.0,None,"deep-p",pe) etc) into this
-    # SAME `points` list -- but the loop below dispatches on `len(pt)==4`
-    # only, so all 20 of those points were silently DROPPED every run,
-    # never scored, never reported, never gating anything, despite the
-    # region labels "deep-p"/"deep-q" reading as if they were live
-    # (disease class (2): a whole branch dead at its own call site,
-    # never reachable). Removed rather than patched: deep-small's real
-    # self-check is (f) below, rebuilt this same pass with the correct
-    # cut derivation, bit-stepped boundary sampling, and BOTH
-    # orientations genuinely exercised -- a second, differently-shaped
-    # pathway through this generic replay harness would be redundant at
-    # best and a second place for the same disease to recur at worst.
+    # NOTE: the loop below dispatches on `len(pt)==4` only, so any
+    # 5-tuple appended to this SAME `points` list (e.g. a would-be
+    # "deep-small (both orientations)" block) is silently DROPPED every
+    # run, never scored, never reported, never gating anything, no
+    # matter how live-looking its region label reads -- a whole branch
+    # dead at its own call site, never reachable. Deep-small's real
+    # self-check is (f) below, with the correct cut derivation,
+    # bit-stepped boundary sampling, and BOTH orientations genuinely
+    # exercised -- a second, differently-shaped pathway through this
+    # generic replay harness would be redundant at best and a second
+    # place for the same silent-drop disease to recur at worst.
 
     region_results = {}
     n_ok, n_fail = 0, 0
@@ -1713,17 +1650,16 @@ def main():
             seed_bits, final_bits, kappa_bits, s, side, true_y = res
             n_ok += 1
             bucket = region
-            # BUCKET THRESHOLD (measured, this pass, tightened from the
-            # contract's own kappa<=2^52 headline number): the SIMPLE
-            # kappa~1/min(a,b) estimate used here for bucketing is a
-            # rough proxy, not the exact amplification factor -- measured
-            # directly at (a,b)=(1e-12,1e-11) [kappa_bits~39.9 by this
-            # formula] the true noise floor under EPS_TIGHT=2^-105 was
-            # 53.34b, i.e. an EFFECTIVE kappa~51.7b, already close to the
-            # contract's 2^52 headline despite the simple formula placing
-            # it comfortably below. Bucketing at 40 (not 52) so points
-            # whose simple-formula kappa already sits within ~12 bits of
-            # the true edge fall into the backward-error contract rather
+            # BUCKET THRESHOLD: the SIMPLE kappa~1/min(a,b) estimate used
+            # here for bucketing is a rough proxy, not the exact
+            # amplification factor -- measured directly at
+            # (a,b)=(1e-12,1e-11) [kappa_bits~39.9 by this formula] the
+            # true noise floor under EPS_TIGHT=2^-105 was 53.34b, i.e. an
+            # EFFECTIVE kappa~51.7b, already close to the contract's 2^52
+            # headline despite the simple formula placing it comfortably
+            # below. Bucketing at 40 (not 52) so points whose
+            # simple-formula kappa already sits within ~12 bits of the
+            # true edge fall into the backward-error contract rather
             # than being held to the y-ULP gate the simple formula
             # under-predicts they can meet.
             if kappa_bits > 35.0 and region == "S4":
@@ -1773,33 +1709,26 @@ def main():
           file=sys.stderr)
 
     # ------------------------------------------------------------------
-    # (f) deep-small cut, both orientations -- REBUILT (orchestrator
-    # THIRD CORRECTION, 2026-08-09, DEFECT 3). The previous version had
-    # three compounding faults, all fixed here together:
-    #   (i)   p-grid (fixed decades of sigma, 1e-320..1e-40) never landed
-    #         a sample AT the cut boundary -- accepted points were always
-    #         deep inside it (dropped~0) or the point was skipped
-    #         entirely. Fixed: solve the boundary y DIRECTLY from the
-    #         analytic bound (deep_small_cut_bound) and bit-step (edge-
-    #         refined rule, binding for every family) around it with
-    #         math.nextafter, both sides of the boundary.
-    #   (ii)  b was fixed at 5.0. Fixed: sweep b across the FULL in-route
-    #         range, including b<1 (where |1-b|<1, DIFFERENT regime --
-    #         at exactly b=1 the bound is identically 0, S' is EXACTLY 1
-    #         for all y, matching gamma's own no-second-parameter case as
-    #         a sanity floor) and the widened gamma-limit corner up to
-    #         b=1e300 (y bounds go subnormal there -- expected, checked
-    #         directly via math.nextafter, which is subnormal-safe).
-    #   (iii) the q-side loop was DEAD CODE: it called deep_small_y with
-    #         PRE-SWAPPED (b,a) args and a HARDCODED side="p" literal
-    #         (ignoring the outer `side` variable entirely), producing a
-    #         small z, then testing aa_role*(1-z) [aa_role=b=5 fixed]
-    #         which is ~b~5, NEVER < 2^-60 -- every q-side point was
-    #         skipped via `continue`, so "both orientations" swept ZERO
-    #         q-side points. Fixed: test the q-side bound/error DIRECTLY
-    #         via deep_small_cut_bound(...,'q') and
-    #         _deep_small_dropped_rel(...,'q') on a real y (not a
-    #         pre-swapped z), no side='p' literal anywhere in this loop.
+    # (f) deep-small cut, both orientations. Design notes for this
+    # self-check:
+    #   - solve the boundary y DIRECTLY from the analytic bound
+    #     (deep_small_cut_bound) and bit-step (edge-refined rule,
+    #     binding for every family) around it with math.nextafter, both
+    #     sides of the boundary -- a fixed decade grid of sigma can miss
+    #     the boundary entirely, landing every accepted point deep
+    #     inside the cut (dropped~0) instead of AT it.
+    #   - sweep b across the FULL in-route range, including b<1 (where
+    #     |1-b|<1, a DIFFERENT regime -- at exactly b=1 the bound is
+    #     identically 0, S' is EXACTLY 1 for all y, matching gamma's own
+    #     no-second-parameter case as a sanity floor) and the widened
+    #     gamma-limit corner up to b=1e300 (y bounds go subnormal there
+    #     -- expected, checked directly via math.nextafter, which is
+    #     subnormal-safe).
+    #   - test the q-side bound/error DIRECTLY via
+    #     deep_small_cut_bound(...,'q') and _deep_small_dropped_rel(...,
+    #     'q') on a real y (not a pre-swapped z, and not a hardcoded
+    #     side='p' literal) -- both orientations must be genuinely
+    #     exercised, not merely labeled as such.
     # ------------------------------------------------------------------
     print("(f) deep-small closed-form cut, both orientations, bit-stepped "
           "at the boundary, full b range:", file=sys.stderr)
@@ -1956,7 +1885,7 @@ def main():
     print("// [-kBetaInvS1ZetaMax,kBetaInvS1ZetaMax], p in (0,0.5], symmetry")
     print("// c_k(zeta,p)=-c_k(-zeta,1-p)], gated to its own fitted domain AND")
     print("// nu>=kBetaInvS1NuMin (the 1/nu series is asymptotic; extrapolating")
-    print("// below nu~2 was measured to diverge -- see final report).")
+    print("// below nu~2 diverges).")
     print(f"inline constexpr int kBetaInvS1NCorr = {S1_NCORR};")
     print(f"inline constexpr int kBetaInvS1NZ = {S1_NZ};")
     print(f"inline constexpr int kBetaInvS1NP = {S1_NP};")
@@ -1976,11 +1905,11 @@ def main():
     print("// complement) Picard correction count.")
     print(f"inline constexpr int kBetaInvS2NCorr = 6;")
     print()
-    print("// S4 (ORCHESTRATOR FIRST CORRECTION, 2026-08-09): exact-B leading-")
+    print("// S4: exact-B leading-")
     print("// order closed form, exact in logit(y) of any sign/magnitude (not a")
-    print("// linearization near the plateau center -- the original linear form")
-    print("// (s-s*)/w+c(alpha,beta) diverged for |logit y|>>1; c(alpha,beta) is")
-    print("// DROPPED here, not merely zero -- it actively hurt once B is exact):")
+    print("// linearization near the plateau center -- a linear form")
+    print("// (s-s*)/w+c(alpha,beta) diverges for |logit y|>>1; c(alpha,beta) is")
+    print("// DROPPED here, not merely zero -- it actively hurts once B is exact):")
     print("//   s*=beta/(alpha+beta); s=sigma if side==p else 1-sigma")
     print("//   s<=s*: v=(ln s+ln alpha+lnB(alpha,beta))/alpha")
     print("//   s>s* : v=-(ln(1-s)+ln beta+lnB(alpha,beta))/beta")
@@ -1989,15 +1918,14 @@ def main():
     print("// by which branch applies) -- S4 and S2 share one mechanism at")
     print("// leading order. Offered as a GLOBAL seed candidate at every (a,b,s)")
     print("// (selected by cheap-residual comparison like the other four);")
-    print("// kBetaInvTJt is NOT a candidacy gate (the original design pinned it")
-    print("// as one -- contract clarification, orchestrator ruling: t_jt gates")
+    print("// kBetaInvTJt is NOT a candidacy gate: t_jt gates")
     print("// only where the closed form could ship WITHOUT Newton refinement")
-    print("// under the plateau backward-error contract, a G3/G4 kernel")
-    print("// decision this generator does not make). Kept, PROVISIONAL, at its")
+    print("// under the plateau backward-error contract, a kernel")
+    print("// decision this generator does not make. Kept, PROVISIONAL, at its")
     print("// original measured value pending that decision.")
     print(f"inline constexpr double kBetaInvTJt = {hexf(T_JT)};")
     print()
-    print("// S5 (fix-hierarchy level (d), orchestrator-ratified last resort):")
+    print("// S5 (last-resort family):")
     print("// logit-normal via EXACT digamma/trigamma moments of logit(Y) =")
     print("// ln(Gamma(alpha)-variate) - ln(Gamma(beta)-variate) [standard")
     print("// Gamma-ratio construction of Y~Beta(alpha,beta), clean-room]:")
@@ -2011,33 +1939,32 @@ def main():
     print("// comparison.")
     print()
     print("// STEPS: safeguarded logit-Newton (m=lnP-lnQ, w=1/(y*dm/dy)),")
-    print("// shared step count, gammainv G3 safeguard package (reject")
+    print("// shared step count, gammainv safeguard package (reject")
     print("// residual-increasing, 1/8 backtrack, bypass |resid|<TrustResid,")
     print("// multiplicative-in-y step y*(1+ls), floor ls>=-0.9).")
-    print("// StepsN=4 [ORCHESTRATOR RULING, design amendment, 2026-08-09,")
-    print("// gap-band escalation chain depth 2 -- see PLAN.md]: the original")
-    print("// 3-step pin left a bounded interior sub-band (min(alpha,beta)")
+    print("// StepsN=4: a 3-step count leaves")
+    print("// a bounded interior sub-band (min(alpha,beta)")
     print("// approx 0.02-0.5, skew 3-10x, y interior 0.1-0.3) short of the")
-    print("// gate after FIVE closed-form seed families were exhausted there")
+    print("// gate after all FIVE closed-form seed families are exhausted there")
     print("// (none exceeds ~2-5 bits; not a selection or noise-floor")
-    print("// artifact, measured). Convergence from that band's worst")
-    print("// measured seed is clean quadratic (2.12->6.66->16.48->36.16->")
+    print("// artifact). Convergence from that band's worst")
+    print("// seed is clean quadratic (2.12->6.66->16.48->36.16->")
     print("// 75.51 bits over steps 1-5); step 4 clears the gate by 20+ bits")
     print("// margin band-wide -- restores full margin, shaves nothing. The")
     print("// safeguard package makes step 4 IDEMPOTENT for lanes already")
     print("// converged after step 3 (freeze-by-select), so its cost is one")
     print("// bounded extra forward evaluation there, not a global slowdown.")
-    print("// G3 LATITUDE: a whole-vector all-lanes-converged skip after step")
+    print("// LATITUDE: a whole-vector all-lanes-converged skip after step")
     print("// 3 is an ALLOWED bench optimization (gammainv's own \"1 Halley")
     print("// vs 2 Newton\" precedent) -- accuracy gates must hold either way;")
     print("// this is a throughput decision only, not an accuracy one.")
     print(f"inline constexpr int kBetaInvStepsN = {STEPS_N};")
     print(f"inline constexpr double kBetaInvTrustResid = {hexf(TRUST_RESID)};")
     print()
-    print("// Deep-small closed-form cut, BOTH orientations [ORCHESTRATOR")
-    print("// THIRD CORRECTION, 2026-08-09 -- re-derived, not the naive")
+    print("// Deep-small closed-form cut, BOTH orientations (re-derived for")
+    print("// beta -- NOT the naive")
     print("// (own side)*y form, which has no dependence on the OTHER side's")
-    print("// parameter and is wrong]. y0 = exp((ln sigma + ln alpha + lnB)/")
+    print("// parameter and is wrong). y0 = exp((ln sigma + ln alpha + lnB)/")
     print("// alpha) [P] or 1 - exp((ln sigma + ln beta + lnB)/beta) [Q] drops")
     print("// the series correction S' (S'->1 as y->0; S' = alpha*sum_n t_n/")
     print("// (alpha+n), t_0=1, t_n=t_{n-1}*(n-beta)*y/n). The dropped")
@@ -2046,7 +1973,7 @@ def main():
     print("// (beta), not alpha (beta supplies the leading nonconstant series")
     print("// coefficient, n-beta at n=1; alpha enters only via the 1+alpha")
     print("// denominator) -- but the leading term ALONE under-predicts badly")
-    print("// at the widened gamma-limit corner (measured true/bound ratio up")
+    print("// at the widened gamma-limit corner (true/bound ratio up")
     print("// to 13.8 uncorrected). CORRECTED with an EXACT closed-form")
     print("// multiplier corr(y')=-ln(1-y')/y' (y'=y [P] or 1-y [Q], the OWN")
     print("// side's small variable) -- exact in the huge-OTHER-side-exponent")

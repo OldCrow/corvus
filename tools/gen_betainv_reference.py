@@ -1,32 +1,26 @@
 #!/usr/bin/env python3
 """Generate tests/data/betainv_{p,q}_reference.txt -- certified reference
-set for corvus::beta_p_inv / corvus::beta_q_inv, per PLAN.md "P1 inverse
-incomplete beta -- detail design" (BINDING), subsection "Oracle (G2;
-frontier-specified -- THREE binding constructions beyond the gammainv
-pattern)" and "Reference strata (G2)", plus the G1 stage record (pinned
-seed/step constants read from the checked-in src/betainv_data.h and the
-G1 generator tools/gen_betainv_data.py -- this generator does NOT re-run
-G1's replay/self-check pipeline, only consumes its module-level machinery
-and pinned constants, per the gammainv G2 precedent).
+set for corvus::beta_p_inv / corvus::beta_q_inv. Reuses the pinned
+seed/step constants and module-level machinery from the checked-in
+src/betainv_data.h and tools/gen_betainv_data.py (this generator does
+NOT re-run that module's own replay/self-check pipeline, only consumes
+its exported machinery and pinned constants).
 
-ORACLE, three binding constructions (decisions already made by the
-frontier design; this generator implements, measures, and reports):
+ORACLE, three binding constructions:
 
   1. FAST-PATH forward evaluator for R1-tiny/joint-tiny certification
      traffic: bid.r1_value_mp -- a plain, self-convergent mpf power
      series at target dps (gen_betainv_data.py's own "measurement-grade
      truth" evaluator, NOT the fixed-N cheap routing proxy), bypassing
-     gen_beta_reference.py's small_side_direct escalation ladder
-     (measured below: small_side_direct ranges 0-5ms on ordinary points
-     but the brief's own 400-524ms figure is real for CF-heavy/ridge
-     traffic -- infeasible at R1-tiny/joint-tiny volume). Validated
+     gen_beta_reference.py's small_side_direct escalation ladder: that
+     ladder ranges 0-5ms on ordinary points but 400-524ms on CF-heavy/
+     ridge traffic -- infeasible at R1-tiny/joint-tiny volume. Validated
      fast-vs-full on a stratum sample (reported), then used for BOTH
      root-finding and bracket certification in the R1-tiny/joint-tiny
      strata specifically.
 
   2. GUARD on the reused gamma-corner route, at the enforcement site
-     (this file, not gen_beta_reference.py/gen_beta_data.py): confirmed
-     directly (see probe log referenced in G2-STATUS.md) that
+     (this file, not gen_beta_reference.py/gen_beta_data.py):
      small_side_direct's own try_eval() calls gamma_corner_value(aa,bb,
      xx,dps) whenever max(aa,bb)>=B_GL, and gamma_corner_value ALWAYS
      feeds min(aa,bb)=min(a,b) to mpmath.gammainc as a shape argument
@@ -34,74 +28,67 @@ frontier design; this generator implements, measures, and reports):
      when BOTH a,b >= B_GL, that shape argument is itself huge (hang
      risk); gen_betainv_data.py's own betainv_forward is ALSO unsafe
      there (its R3 branch calls the raw backward CF unconditionally,
-     confirmed to raise RuntimeError "CF not converged" at
-     a=b=1e18,x=0.5 -- not a hang, but not a value either). GUARD:
-     whenever min(a,b) >= B_GL (kBetaGammaLim) AND the skew ratio
-     max(a,b)/min(a,b) <= SKEW_SAFE_CAP, route through
-     beta_temme_value() below -- a dual-anchored R3-Temme extraction
-     built from gen_beta_data.py's own extract_e_monomial/r3_R_at
-     machinery (the "gamma_ck machinery" the brief names -- gamma_ck
-     itself is that module's GAMMA-side anchor cross-check; the R3
-     extraction apparatus it validates against is what this generator
-     actually calls). This same route is also route-2 (the huge-nu
-     stratum's independent second certification, gammainv G2 pattern).
-     SCOPE NOTE (ratified deviation, reported): the anchor-ladder
-     extraction holds p=a/(a+b) FIXED across anchors at a MODEST nu (so
-     alpha=nu/(1-p), beta=nu/p at each anchor stay CF-safe) -- this is
-     safe exactly when the skew ratio is bounded (extreme skew forces
-     an anchor parameter to blow up even at modest nu). The brief's own
-     language scopes this construction to "both-huge-BALANCED" traffic;
-     SKEW_SAFE_CAP bounds how far from balanced this generator extends
-     it, verified empirically below rather than assumed.
+     which raises RuntimeError "CF not converged" at a=b=1e18,x=0.5 --
+     not a hang, but not a value either). GUARD: whenever min(a,b) >=
+     B_GL (kBetaGammaLim) AND the skew ratio max(a,b)/min(a,b) <=
+     SKEW_SAFE_CAP, route through beta_temme_value() below -- a
+     dual-anchored R3-Temme extraction built from gen_beta_data.py's
+     own extract_e_monomial/r3_R_at machinery (gamma_ck itself is that
+     module's GAMMA-side anchor cross-check; the R3 extraction
+     apparatus it validates against is what this generator actually
+     calls). This same route is also route-2 (the huge-nu stratum's
+     independent second certification).
+     SCOPE: the anchor-ladder extraction holds p=a/(a+b) FIXED across
+     anchors at a MODEST nu (so alpha=nu/(1-p), beta=nu/p at each
+     anchor stay CF-safe) -- this is safe exactly when the skew ratio
+     is bounded (extreme skew forces an anchor parameter to blow up
+     even at modest nu). This construction is scoped to
+     "both-huge-BALANCED" traffic; SKEW_SAFE_CAP bounds how far from
+     balanced this generator extends it, verified empirically (see
+     both_huge_balanced) rather than assumed.
 
   3. Plateau rows: kappa computed per row (kappa = sigma/(y*f(y)), exact
      mpf, f = beta density). kappa <= 2^52 -> normal half-ulp bracket
      certification (the y-ULP gate). kappa > 2^52 -> BACKWARD-ERROR
      certification: forward of the STORED y at dps 100, required within
-     the ~2-ulp-in-sigma contract (PLAN's own phrase) -- no y-bracket
-     exists to certify there (dd precision cannot resolve it). Deep-
-     small rows (both orientations, per G1's THIRD correction): log-
-     space certification against the subnormal/zero boundary midpoints,
-     with G1's own exact dropped-term bound (bid._deep_small_dropped_rel)
-     folded in as certification slack (gammainv pattern).
+     a ~2-ulp-in-sigma contract -- no y-bracket exists to certify there
+     (dd precision cannot resolve it). Deep-small rows (both
+     orientations): log-space certification against the subnormal/zero
+     boundary midpoints, with an exact dropped-term bound
+     (bid._deep_small_dropped_rel) folded in as certification slack.
 
-Everything else follows the gammainv G2 CERTIFICATION CORE: root-find y*
-seeded by G1's own bid.seed_for, round to double yd, certify
-sign(value-target) flips across the two half-ulp midpoints of yd as
-exact mpf, layered dps 60 -> 100 (never lower). Rows the certifier cannot
-prove: DECLINED and counted, not guessed. NEGATIVE CONTROLS (>=4,
-1-ULP-perturbed known-good rows) must be REJECTED on every invocation,
-checked FIRST, exit 2 otherwise.
+Everything else follows the same CERTIFICATION CORE as the gammainv
+reference generator: root-find y* seeded by bid.seed_for, round to
+double yd, certify sign(value-target) flips across the two half-ulp
+midpoints of yd as exact mpf, layered dps 60 -> 100 (never lower). Rows
+the certifier cannot prove: DECLINED and counted, not guessed. NEGATIVE
+CONTROLS (>=4, 1-ULP-perturbed known-good rows) must be REJECTED on
+every invocation, checked FIRST, exit 2 otherwise.
 
-File format (ratified deviation, reported -- house pattern extended):
-five hex tokens per row: a b sigma yd marker. marker in {N, P, B}
-(Normal bracket-gate row / Plateau backward-error row / Beyond-resolution
-row) -- the existing 13 reference files carry no marker column because no
-prior family needed one; this is the first PLAN-mandated per-row bucket
-split (plateau contract, beyond-resolution dilution lesson), so a marker
-token is added rather than three separate files (keeps the swap-identity
-orientation bookkeeping in one place per side).
+File format: five hex tokens per row: a b sigma yd marker. marker in
+{N, P, B} (Normal bracket-gate row / Plateau backward-error row /
+Beyond-resolution row) -- a marker token is used instead of separate
+per-bucket files so the swap-identity orientation bookkeeping stays in
+one place per side.
 
-RULING 2 [orchestrator, G2-completion round -- BINDING for G4/G5 test
-authors]: the marker column carries CERTIFICATION semantics ONLY (which
-construction/contract proved the row -- bracket / backward-error /
-beyond-resolution). It is NOT a routing or dilution-avoidance label. The
-G4 ULP test MUST bucket huge-nu statistics BY FORMULA computed from
-(a, b) alone (the same predicate the kernel itself will use to select
-its huge-nu path), independent of which marker a row happens to carry --
-mirroring the gammainv G2 dilution lesson. In particular: rows in the
-huge-nu collapse-ONSET band (nu ~ 1e32-1e35, where the achievable
-y-transition has begun to narrow but has not yet collapsed to <=1 ULP)
-are marked N (they pass ordinary bracket certification) but are
-TRIVIALLY SATISFIABLE by nearly any kernel answer in that neighbourhood
--- diluting a same-bucket-as-N-elsewhere ULP statistic exactly the way
-gammainv's beyond-resolution rows would have diluted an unbucketed
-gamma_inv ULP test. Existing N-marked rows in that band are NOT
-relabeled (RULING 1's own scope: markers are certification history, not
-test routing) -- G4/G5 must derive their own bucket boundary from (a,b)
-directly, using the huge_nu_beyond_resolution() criterion below (or the
-kernel's own equivalent routing predicate) rather than trusting the
-marker column to do that job.
+BINDING for any future ULP test consuming these files: the marker
+column carries CERTIFICATION semantics ONLY (which construction/
+contract proved the row -- bracket / backward-error / beyond-
+resolution). It is NOT a routing or dilution-avoidance label. A ULP
+test MUST bucket huge-nu statistics BY FORMULA computed from (a, b)
+alone (the same predicate the kernel itself uses to select its huge-nu
+path), independent of which marker a row happens to carry. In
+particular: rows in the huge-nu collapse-ONSET band (nu ~ 1e32-1e35,
+where the achievable y-transition has begun to narrow but has not yet
+collapsed to <=1 ULP) are marked N (they pass ordinary bracket
+certification) but are TRIVIALLY SATISFIABLE by nearly any kernel
+answer in that neighbourhood -- diluting a same-bucket-as-N-elsewhere
+ULP statistic the same way unbucketed beyond-resolution rows would
+dilute an unbucketed gamma_inv ULP test. Existing N-marked rows in that
+band are not relabeled -- a consuming test must derive its own bucket
+boundary from (a,b) directly, using the huge_nu_beyond_resolution()
+criterion below (or the kernel's own equivalent routing predicate)
+rather than trusting the marker column to do that job.
 
 Usage:
     python3 tools/gen_betainv_reference.py     # resumable; re-run until
@@ -123,10 +110,10 @@ import gen_beta_data as gb          # noqa: E402  region cores, B_GL, T_RIDGE, Z
 import gen_beta_reference as gbr    # noqa: E402  small_side_direct (audited oracle)
 import gen_betainv_data as bid      # noqa: E402  seed_for, betainv_forward, r1_value_mp, ...
 
-SEED = 20260810  # bumped for the G2-COMPLETION round (fresh point set: new
-                  # strata sizes + RULING-3 direct q-side strata + the seam
-                  # fix change the RNG draw sequence, so this is a genuine
-                  # full regeneration, not a resume of the prior SEED's set)
+SEED = 20260810  # fixed seed for reproducible point-set generation --
+                  # changing it changes the RNG draw sequence, which
+                  # invalidates any existing checkpoint (see CKPT_PATH,
+                  # keyed off SEED) and forces a full regeneration
 
 STATUS_PATH = os.path.join(
     r"C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus"
@@ -149,26 +136,21 @@ def status(line):
 # gb module's own (already-derived-at-import) values -- not re-derived.
 # ============================================================================
 B_GL = float(gb.B_GL)                    # kBetaGammaLim, ~2^59
-SKEW_SAFE_CAP = 2.0e6                    # construction #2 scope bound, ORCHESTRATOR
-                                          # WIDENED (this pass) to cover the beyond-
-                                          # resolution stratum's own skewed corner
-                                          # ("mean 1e-6" in the probe's B-P1c table,
-                                          # i.e. p~1e-6, skew~1e6) -- validated by
-                                          # direct route1-vs-route2 agreement at
-                                          # skew=1e6/nu=1e20 (~30 decimal digits,
-                                          # ample for double-precision certification;
-                                          # see G2-STATUS.md), not assumed from the
-                                          # original 1e4 pin.
+SKEW_SAFE_CAP = 2.0e6                    # construction #2 scope bound -- covers
+                                          # the beyond-resolution stratum's own
+                                          # skewed corner (p~1e-6, skew~1e6);
+                                          # validated by direct route1-vs-route2
+                                          # agreement at skew=1e6/nu=1e20 (~30
+                                          # decimal digits, ample for double-
+                                          # precision certification).
 HUGE_NU_THRESHOLD = 1.0e16               # route-2 dual-certification trigger (gammainv's own)
-BEYOND_RESOLUTION_THRESHOLD = 3.0e34     # measured below, matches PLAN's own 1e33-7e34 note
-PLATEAU_KAPPA_CUT = 2.0 ** 52            # PLAN's own contract split
-DEEP_SMALL_CUT = bid.DEEP_SMALL_CUT      # 2^-60, both orientations (G1 THIRD correction)
+BEYOND_RESOLUTION_THRESHOLD = 3.0e34     # measured empirically (see huge_nu_beyond_resolution below)
+PLATEAU_KAPPA_CUT = 2.0 ** 52            # contract split between bracket and backward-error certification
+DEEP_SMALL_CUT = bid.DEEP_SMALL_CUT      # 2^-60, both orientations
 
 
-GUARD_MIN_THRESHOLD = 1.0e10   # WIDENED (orchestrator continuation round,
-                                # self-caught defect): min(a,b)>=B_GL alone
-                                # is NOT a sufficient guard boundary --
-                                # confirmed directly, small_side_direct's
+GUARD_MIN_THRESHOLD = 1.0e10   # min(a,b)>=B_GL alone is NOT a sufficient
+                                # guard boundary: small_side_direct's
                                 # gamma_corner_value -> mp.gammainc can hang
                                 # (no NoConvergence raised, no return within
                                 # 90s under a hard-timeout probe) for a
@@ -188,12 +170,12 @@ GUARD_MIN_THRESHOLD = 1.0e10   # WIDENED (orchestrator continuation round,
 
 
 def both_huge_balanced(a, b):
-    """GUARD predicate (construction #2's enforcement condition, WIDENED
-    per GUARD_MIN_THRESHOLD's own docstring): fires whenever the LARGER
-    of (a,b) is >= B_GL (small_side_direct's own gamma_corner_value
-    trigger) AND the smaller is >= GUARD_MIN_THRESHOLD (empirically far
-    below where mp.gammainc's own ridge-proximity hazard was observed to
-    hang) AND skew stays within the validated extraction range."""
+    """GUARD predicate (construction #2's enforcement condition): fires
+    whenever the LARGER of (a,b) is >= B_GL (small_side_direct's own
+    gamma_corner_value trigger) AND the smaller is >= GUARD_MIN_THRESHOLD
+    (empirically far below where mp.gammainc's own ridge-proximity hazard
+    was observed to hang) AND skew stays within the validated extraction
+    range."""
     lo, hi = (a, b) if a <= b else (b, a)
     if hi < B_GL or lo < GUARD_MIN_THRESHOLD:
         return False
@@ -216,8 +198,10 @@ def _ladder(route, n_anchor=None):
         return [float(gb.T_RIDGE) * 2.0 ** (j / 3.0) for j in range(n)]
     else:
         # INDEPENDENT second derivation: different base, different
-        # spacing/growth, different count -- gammainv G2 route-2's own
-        # "different node count/anchor spacing" precedent.
+        # spacing/growth, different count -- deliberately distinct from
+        # route 1 so route1-vs-route2 agreement is a genuine cross-check,
+        # not a repeated computation (the gammainv reference generator's
+        # own route-2 precedent).
         n = n_anchor or 22
         return [45.0 * (1.6 ** j) for j in range(n)]
 
@@ -286,15 +270,14 @@ def guarded_temme_pq(a, b, x, dps, route=1):
 def leading_only_pq(a, b, x, dps):
     """CHEAP guard-route approximation for BISECTION only: the erfc
     LEADING term alone (no R correction), a single mp.erfc call -- no
-    ladder extraction. SELF-CAUGHT BUG (this pass): the first draft used
-    the FULL beta_temme_value (extract_e_monomial + QR solve, ~400-800ms
-    per call near the ridge) inside bisection's ~150-200-iteration inner
-    loop -- ~90s per row, hanging past this file's own smoke test. The R
-    correction is a RELATIVE O(1/sqrt(nu)) effect (~1e-9 at nu~1e18);
-    for root-finding purposes (not the final certified value) the
-    leading term alone lands within a handful of ULPs of the true root,
-    and certify_row's own local-nudge refinement (using the FULL
-    evaluator, a bounded few calls) closes the gap before certifying."""
+    ladder extraction. The FULL beta_temme_value (extract_e_monomial +
+    QR solve, ~400-800ms per call near the ridge) is too expensive
+    inside bisection's ~150-200-iteration inner loop. The R correction
+    is a RELATIVE O(1/sqrt(nu)) effect (~1e-9 at nu~1e18); for
+    root-finding purposes (not the final certified value) the leading
+    term alone lands within a handful of ULPs of the true root, and
+    certify_row's own local-nudge refinement (using the FULL evaluator,
+    a bounded few calls) closes the gap before certifying."""
     with mp.workdps(dps):
         a_m, b_m, x_m = mp.mpf(a), mp.mpf(b), mp.mpf(x)
         c = a_m + b_m
@@ -339,26 +322,23 @@ def full_forward(a, b, x):
     unconditionally here is cheap for the common saturated case and only
     expensive on the already-rare near-transition rows).
 
-    RESCUE WRAPPER (self-caught DEFECT this pass, huge-nu scaling --
-    escalated per the brief's own instruction: 'if you find a defect
-    [in the reused machinery] that cannot be guarded externally,
-    ESCALATE instead of editing'): small_side_direct's own try_eval
+    RESCUE WRAPPER (huge-nu scaling): small_side_direct's own try_eval
     calls gamma_corner_value -> mp.gammainc UNGUARDED against
     mp.libmp.libhyper.NoConvergence (it only catches RuntimeError/
-    ZeroDivisionError/ValueError) -- confirmed directly, a shape
-    argument as 'low' as ~1e17 (well UNDER kBetaGammaLim=2^59~5.76e17,
-    outside this generator's own both_huge_balanced guard scope) can
-    still make mpmath's hyp1f1 series give up with NoConvergence,
-    propagating as an UNCAUGHT exception out of small_side_direct
-    itself. This is a robustness gap in the shipped, audited oracle
-    that this generator cannot fix by editing gen_beta_reference.py
-    (out of scope per the brief) -- guarded here EXTERNALLY: on
-    NoConvergence (or any other exception small_side_direct doesn't
-    itself catch), fall back to this generator's OWN dual-anchored
-    extraction (construction #2's route) regardless of whether
-    both_huge_balanced's own narrower threshold applies -- the
-    extraction is mathematically valid at any nu, just more expensive,
-    so this is a safe general rescue, not a correctness compromise."""
+    ZeroDivisionError/ValueError) -- a shape argument as 'low' as ~1e17
+    (well UNDER kBetaGammaLim=2^59~5.76e17, outside this generator's own
+    both_huge_balanced guard scope) can still make mpmath's hyp1f1
+    series give up with NoConvergence, propagating as an UNCAUGHT
+    exception out of small_side_direct itself. This is a robustness gap
+    in the shipped, audited oracle that this generator cannot fix by
+    editing gen_beta_reference.py (out of scope here) -- guarded
+    EXTERNALLY instead: on NoConvergence (or any other exception
+    small_side_direct doesn't itself catch), fall back to this
+    generator's OWN dual-anchored extraction (construction #2's route)
+    regardless of whether both_huge_balanced's own narrower threshold
+    applies -- the extraction is mathematically valid at any nu, just
+    more expensive, so this is a safe general rescue, not a correctness
+    compromise."""
     if both_huge_balanced(a, b):
         P, Q = guarded_temme_pq(a, b, x, dps=100, route=1)
         which = "P" if P <= Q else "Q"
@@ -390,19 +370,16 @@ def fast_series_forward(a, b, x, dps, side):
 def fast_series_value(a, b, y, dps):
     """(value, which) -- R1 series evaluated at whichever orientation has
     the SMALL 3rd argument (fast, reliable convergence): native (a,b,y)
-    if y<=0.5 (value=P), swapped (b,a,1-y) if y>0.5 (value=Q).
-    ORCHESTRATOR FIX (this pass, cost/correctness escalation): every
-    root-finding call site previously fixed the series orientation by
-    which of P/Q the CALLER wanted (the requested 'side'), not by which
-    argument was actually small -- for joint-tiny rows whose true y sits
-    on the far side (e.g. solving P(a,b,y)=sigma with the true y near 1),
-    that forces bid.r1_value_mp to converge a series in x close to 1,
-    which is slow (multi-second) and for some points never converges
-    within the 4000-term cap at all (silently missing the sign flip,
-    manifesting as a spurious root-find-failed decline -- not merely a
-    speed problem, a coverage gap). This is the real fix; an earlier
-    root_dps-decoupling pass (still valid, kept) only reduced the cost
-    of the ALREADY-wrong-orientation calls without fixing convergence."""
+    if y<=0.5 (value=P), swapped (b,a,1-y) if y>0.5 (value=Q). This
+    orientation must be chosen DYNAMICALLY by which argument is actually
+    small, not by which of P/Q the caller wants: for joint-tiny rows
+    whose true y sits on the far side (e.g. solving P(a,b,y)=sigma with
+    the true y near 1), a fixed-by-side orientation forces
+    bid.r1_value_mp to converge a series in x close to 1, which is slow
+    (multi-second) and for some points never converges within the
+    4000-term cap at all -- silently missing the sign flip, which
+    manifests as a spurious root-find-failed decline rather than merely
+    a speed problem."""
     if y <= 0.5:
         return bid.r1_value_mp(a, b, y, dps), "p"
     return bid.r1_value_mp(b, a, 1 - y, dps), "q"
@@ -422,8 +399,8 @@ def fast_series_pq(a, b, y, dps):
 
 
 def fast_vs_full_validate(rng, n=40):
-    """Construction #1's own mandate: 'Validate fast-vs-full agreement on
-    a stratum sample (report the sample size and worst disagreement)'.
+    """Validates fast-vs-full agreement on a stratum sample (reports the
+    sample size and worst disagreement) per construction #1's mandate.
     Samples R1-tiny/joint-tiny-shaped points, compares
     bid.r1_value_mp (fast) against gbr.small_side_direct (full, audited)
     at dps=80, reports worst relative disagreement."""
@@ -463,46 +440,43 @@ def fast_vs_full_validate(rng, n=40):
 
 # ============================================================================
 # Part 3: root-finder -- bisection in logit(y) space (linear-space
-# bisection is unusable near y=0/1, gen_betainv_data's own probe-caught
-# bug #1, avoided from day one here per that precedent), seeded via
-# bid.seed_for for speed only (never for correctness -- falls back to the
-# full default bracket whenever the seeded one fails to bracket).
+# bisection is unusable near y=0/1 -- gen_betainv_data hit this same
+# hazard; avoided here from the start), seeded via bid.seed_for for
+# speed only (never for correctness -- falls back to the full default
+# bracket whenever the seeded one fails to bracket).
 # ============================================================================
 def oracle_y(a, b, target, side, dps, use_fast_series=False, seed_hint=None,
              root_dps=None, bracket_halfwidth=80.0, seed_only=False):
     """bracket_halfwidth/seed_only: generic bisection-hardening params --
-    the logit-space half-width around seed_hint (default 80, the
-    original value) and, when seed_only=True, a HARD REFUSAL to fall
-    back to the wide/expanding ((-2000,2000), then +-200-per-try)
-    global search when the seeded bracket doesn't contain a sign
-    change (an honest decline instead of letting bisection wander to a
-    numerically-plausible-but-WRONG point far from the seed). Added
-    investigating WORK ITEM 4 (orchestrator G2-completion round --
-    gamma-limit-seam yield fix); that stratum's ACTUAL fix turned out
-    to need more than a tighter bracket around this function's own
-    (cheap, misrouting-prone at extreme skew) evaluator -- see
-    oracle_y_audited below, which is what certify_row's gamma-limit-seam
-    branch calls. These params stay as general-purpose bisection
-    hardening for any future caller that only needs a tighter/
-    non-wandering search against THIS function's cheap evaluator.
+    the logit-space half-width around seed_hint (default 80) and, when
+    seed_only=True, a HARD REFUSAL to fall back to the wide/expanding
+    ((-2000,2000), then +-200-per-try) global search when the seeded
+    bracket doesn't contain a sign change (an honest decline instead of
+    letting bisection wander to a numerically-plausible-but-WRONG point
+    far from the seed). For the gamma-limit-seam stratum, a tighter
+    bracket around this function's own (cheap, misrouting-prone at
+    extreme skew) evaluator is not enough -- see oracle_y_audited below,
+    which is what certify_row's gamma-limit-seam branch calls instead.
+    These params stay as general-purpose bisection hardening for any
+    future caller that only needs a tighter/non-wandering search against
+    THIS function's cheap evaluator.
 
-    root_dps (ORCHESTRATOR fix, prior pass): root-FINDING precision,
-    decoupled from dps (the CALLER's certification precision). SELF-
-    CAUGHT COST BUG: the first draft ran root-finding's ~150-190-
-    iteration bisection loop AT THE FULL CERTIFICATION dps (60) -- for
-    fast_series (bid.r1_value_mp), series truncation eps scales with
-    dps (eps=10^-(dps-8)), so EVERY one of those ~180 series
-    evaluations paid dps=60's full term count, including the many
-    iterations that land far from the true root (interior y, not
-    small x -- where the series is genuinely slow, needing up to its
-    4000-term cap). Measured outlier: 9.1s/row. FIX: root-find at a
-    much lower dps (default 28, ~1e-20-class eps -- ample to land
-    within a handful of ULPs of the true double, since bisection's own
-    stopping tolerance is dps-scaled too), THEN certify at the caller's
-    real dps_layers (60->100, a handful of calls, not ~180) -- exactly
-    the guarded_fast_forward/full_forward cheap-root-find-vs-expensive-
-    certify split already used elsewhere in this generator, now applied
-    to fast_series too."""
+    root_dps: root-FINDING precision, decoupled from dps (the CALLER's
+    certification precision). Running root-finding's ~150-190-iteration
+    bisection loop AT THE FULL CERTIFICATION dps is expensive: for
+    fast_series (bid.r1_value_mp), series truncation eps scales with dps
+    (eps=10^-(dps-8)), so every one of those ~180 series evaluations
+    would pay dps=60's full term count, including the many iterations
+    that land far from the true root (interior y, not small x -- where
+    the series is genuinely slow, needing up to its 4000-term cap;
+    measured outlier 9.1s/row at dps=60). Root-find instead at a much
+    lower dps (default 28, ~1e-20-class eps -- ample to land within a
+    handful of ULPs of the true double, since bisection's own stopping
+    tolerance is dps-scaled too), THEN certify at the caller's real
+    dps_layers (60->100, a handful of calls, not ~180) -- the same
+    guarded_fast_forward/full_forward cheap-root-find-vs-expensive-
+    certify split used elsewhere in this generator, applied to
+    fast_series too."""
     if root_dps is None:
         root_dps = dps
     a_m, b_m = mp.mpf(a), mp.mpf(b)
@@ -573,27 +547,25 @@ def oracle_y(a, b, target, side, dps, use_fast_series=False, seed_hint=None,
 
 # ============================================================================
 # Part 4: deep-small closed-form certification (construction #3, both
-# orientations -- G1's THIRD correction's own re-derived cut, reused
-# verbatim: bid.deep_small_cut_bound (routing decision, native double),
-# bid.deep_small_y (candidate y0, native double), bid._deep_small_dropped_rel
-# (EXACT mpf dropped-term bound, folded in as certification slack, the
-# gammainv pattern).
+# orientations), reusing: bid.deep_small_cut_bound (routing decision,
+# native double), bid.deep_small_y (candidate y0, native double),
+# bid._deep_small_dropped_rel (EXACT mpf dropped-term bound, folded in
+# as certification slack, the gammainv pattern).
 # ============================================================================
 def deep_small_ly0(a, b, sigma, side, dps):
     """log-space target + exact bound, either orientation. Returns
     (ln_target, yd_mpf_rounded, bound_mpf) where ln_target is ln(y) [p]
     or ln(1-y) [q] at the closed-form leading order, and
     yd_mpf_rounded is the double CORRECTLY ROUNDED from ln_target at
-    full working dps (SELF-CAUGHT BUG, this pass: an earlier draft used
-    bid.deep_small_y's own NATIVE-DOUBLE seed formula here directly --
-    that function is a fast SEED candidate for the kernel's own root
-    search, built from several chained double-precision log/exp calls,
-    and its compounded rounding error is enough to land OUTSIDE the
-    half-ulp bracket around the true high-precision value, causing
-    every deep-small row to spuriously fail certification. The oracle's
-    own yd must come from rounding the HIGH-PRECISION ln_t, exactly the
-    gammainv deep_small_lx0 pattern -- native-double formulas are seeds,
-    never the certified value)."""
+    full working dps. bid.deep_small_y's own NATIVE-DOUBLE seed formula
+    must NOT be used here directly: that function is a fast SEED
+    candidate for the kernel's own root search, built from several
+    chained double-precision log/exp calls, and its compounded rounding
+    error is enough to land OUTSIDE the half-ulp bracket around the true
+    high-precision value, causing every deep-small row to spuriously
+    fail certification. The oracle's own yd must come from rounding the
+    HIGH-PRECISION ln_t, exactly the gammainv deep_small_lx0 pattern --
+    native-double formulas are seeds, never the certified value."""
     with mp.workdps(dps):
         a_m, b_m, sigma_m = mp.mpf(a), mp.mpf(b), mp.mpf(sigma)
         if side == "p":
@@ -617,9 +589,8 @@ MIN_SUBNORMAL = math.ldexp(1.0, -1074)
 def certify_deep_small(a, b, sigma, side, dps, yd_override=None):
     """Certify a SPECIFIC double yd against the closed-form log-space
     target, at half-ulp midpoints, bound folded in as slack (gammainv
-    pattern -- and its OWN documented self-caught bug: this generator's
-    yd_override must be actually threaded through, or negative controls
-    on deep-small rows are silently never checked)."""
+    pattern). yd_override must be actually threaded through here, or
+    negative controls on deep-small rows are silently never checked."""
     ln_t, yd_from_ln, bound = deep_small_ly0(a, b, sigma, side, dps)
     yd = yd_override if yd_override is not None else yd_from_ln
     if not math.isfinite(yd):
@@ -629,12 +600,9 @@ def certify_deep_small(a, b, sigma, side, dps, yd_override=None):
         if yp <= 0.0:
             # p-side: yd rounds to 0.0 (round-to-zero boundary, compare
             # against MIN_SUBNORMAL/2). q-side: yd rounds to 1.0 (the
-            # SMALL quantity z=1-y rounds below ulp(1.0)/2=2^-53 --
-            # SELF-CAUGHT BUG, this pass: an earlier draft reused the
-            # p-side MIN_SUBNORMAL/2 boundary here unconditionally,
-            # which is the wrong threshold by ~700 decades and
-            # spuriously rejected every legitimate q-side round-to-one
-            # deep-small row).
+            # SMALL quantity z=1-y rounds below ulp(1.0)/2=2^-53) -- the
+            # q-side boundary differs from the p-side one by ~700
+            # decades, so the two must NOT be conflated.
             boundary = (mp.mpf(MIN_SUBNORMAL) / 2 if side == "p"
                         else mp.mpf(2) ** -53)
             certified = (ln_t + bound) < mp.log(boundary)
@@ -710,7 +678,7 @@ def certify_bracket(a, b, target, side, yd, dps_layers, fwd_kind):
 # ============================================================================
 # Part 6: plateau backward-error certification (construction #3, kappa >
 # 2^52 branch) -- forward of the STORED yd at dps=100 must land within
-# the ~2-ulp-in-sigma contract (PLAN's own phrase): |forward(yd) - sigma|
+# a ~2-ulp-in-sigma contract: |forward(yd) - sigma|
 # <= 2 * ulp(sigma) in the solved side's own probability space.
 # ============================================================================
 def ulp_of(v):
@@ -730,21 +698,21 @@ def certify_plateau(a, b, sigma, side, yd, dps=100):
 
 
 def compute_kappa(a, b, yd, sigma, dps=60):
-    """kappa = sigma/(y*f(y)), exact mpf (PLAN's own plateau formula).
-    SELF-CAUGHT BUG (this pass, huge-nu escalation): beta_density_mp's
-    log-space assembly lg=(a-1)*ln(y)+(b-1)*ln(1-y)-lnB(a,b) is a
-    CANCELLATION of terms scaling with a,b themselves (~1e35 at the
-    huge-nu stratum's own scale) down to an O(1)-ish true log-density --
-    at dps=60 (60 significant decimal digits) that cancellation loses
-    ALL its resolving digits once a,b exceed ~1e40ish, and the
-    naive symptom is f rounding to EXACTLY 0, kappa->inf, and a
-    huge-nu row (which should have kappa NEAR ZERO -- density is
-    enormous, not tiny, at that scale) spuriously misrouted into the
-    plateau-backward branch (wrong contract; the row is really either
-    an ordinary bracket certification or a genuine beyond-resolution
-    one). FIX: scale dps with max(a,b)'s own decimal magnitude so the
-    cancellation always has working digits left over, independent of
-    the caller's certification-layer dps."""
+    """kappa = sigma/(y*f(y)), exact mpf (the plateau formula).
+    beta_density_mp's log-space assembly
+    lg=(a-1)*ln(y)+(b-1)*ln(1-y)-lnB(a,b) is a CANCELLATION of terms
+    scaling with a,b themselves (~1e35 at the huge-nu stratum's own
+    scale) down to an O(1)-ish true log-density -- at dps=60 (60
+    significant decimal digits) that cancellation loses ALL its
+    resolving digits once a,b exceed ~1e40ish, and the naive symptom is
+    f rounding to EXACTLY 0, kappa->inf, misrouting a huge-nu row
+    (which should have kappa NEAR ZERO -- density is enormous, not
+    tiny, at that scale) into the plateau-backward branch (wrong
+    contract; the row is really either an ordinary bracket
+    certification or a genuine beyond-resolution one). FIX: scale dps
+    with max(a,b)'s own decimal magnitude so the cancellation always
+    has working digits left over, independent of the caller's
+    certification-layer dps."""
     scale_dps = 60 + int(math.log10(max(float(a), float(b), 10.0))) + 20
     use_dps = max(dps, scale_dps)
     with mp.workdps(use_dps):
@@ -756,8 +724,8 @@ def compute_kappa(a, b, yd, sigma, dps=60):
 
 # ============================================================================
 # Part 7: beyond-resolution certification (nearest-neighbor, escalated
-# dps) -- gammainv G2's own construction, reused for the huge-nu stratum
-# where the transition collapses below 1 ULP of y.
+# dps) -- the gammainv reference generator's own construction, reused
+# for the huge-nu stratum where the transition collapses below 1 ULP of y.
 # ============================================================================
 def certify_beyond_resolution(a, b, target, side, yd, dps, fwd_kind):
     lo_d = math.nextafter(yd, -math.inf)
@@ -803,8 +771,8 @@ def refine_guard_root(a, b, target, side, yd, dps=60, max_nudge=12):
     relative in P, and at nu>=B_GL~5.76e17 that maps to a Y-space error
     orders of magnitude BELOW 1 ULP (density there scales ~sqrt(nu), so
     Delta-y ~ Delta-P/sqrt(nu) ~ nu^-1 relative to ulp(y)~2^-53 --
-    verified empirically, see G2-STATUS.md), so this search is a
-    defensive bound, not the expected common path."""
+    verified empirically), so this search is a defensive bound, not the
+    expected common path."""
     with mp.workdps(dps):
         t = mp.mpf(target)
 
@@ -834,14 +802,13 @@ def refine_guard_root(a, b, target, side, yd, dps=60, max_nudge=12):
 
 def oracle_y_audited(a, b, target, side, seed_hint, dps=60,
                       bracket_halfwidth=60.0, max_expand=6, n_iters=90):
-    """WORK ITEM 4's REAL fix (orchestrator, G2-completion round --
-    seam yield fix), replacing an insufficient first attempt (tight
-    bracket around the CHEAP evaluator, kept briefly as oracle_y's
-    seed_only/bracket_halfwidth params -- those are still useful
-    generic machinery, just not sufficient here alone).
+    """Certifies the gamma-limit-seam stratum by bisecting directly
+    against the AUDITED evaluator, replacing an insufficient earlier
+    approach (a tight bracket around the CHEAP evaluator, kept as
+    oracle_y's seed_only/bracket_halfwidth params -- still useful
+    generic machinery, just not sufficient for this stratum alone).
 
-    ROOT CAUSE, found by direct instrumentation (hex witnesses,
-    G2B-STATUS.md): the CHEAP evaluator oracle_y bisects against
+    ROOT CAUSE: the CHEAP evaluator oracle_y bisects against
     (guarded_fast_forward -> bid.betainv_forward -> gb.route_final)
     silently MISROUTES a neighbourhood just past the true root into
     gb.route_final's 'R3-native' tag, whose evaluator
@@ -852,27 +819,24 @@ def oracle_y_audited(a, b, target, side, seed_hint, dps=60,
     route) small_val_via_cf-chain gives P=3.470392478062253e-13,
     matching sigma=3.4751741894519584e-13 to ~1e-3 relative; at
     y=2.4425909667268353e-110 (only ~1.38 logit-units away -- INSIDE
-    any bracket tolerant of S3's own honest seed uncertainty) tag
+    any bracket tolerant of the seed's own honest uncertainty) tag
     flips to R3-native and the same call chain returns
     1.0045e-4541 against a TRUE audited value of 0.5207
     (gbr.small_side_direct) -- catastrophically, silently wrong. A
     tight bracket around a good seed cannot fix this: the false
     crossing sits INSIDE any bracket wide enough to tolerate the
-    seed's own uncertainty (S3 measured 15-52 bits by G1 -- NOT
-    ULP-accurate, a real bisection is still required, just not against
-    a function that lies).
+    seed's own uncertainty (the seed is measured 15-52 bits accurate,
+    NOT ULP-accurate -- a real bisection is still required, just not
+    against a function that lies).
 
     FIX: bisect directly against the AUDITED evaluator (full_forward,
     the SAME one certify_bracket checks against below) rather than the
     cheap misrouting one -- no second untrustworthy function is ever
-    consulted. Bracket widens in BOUNDED doublings around the S3 seed
+    consulted. Bracket widens in BOUNDED doublings around the seed
     (never unbounded -- a genuinely unprovable point should DECLINE,
     not wander); gamma-limit-seam's single-huge-parameter shape keeps
     full_forward itself cheap here (this is the intended fast native
-    path for small_side_direct, not its CF-heavy/ridge cost class).
-    MEASURED (300-point mini-test, seed 999, 1e100-1e250 range):
-    90/91 constructed rows certified clean (99% -- the prior scheme's
-    0%), the one decline a genuine bracket-doubling exhaustion."""
+    path for small_side_direct, not its CF-heavy/ridge cost class)."""
     if seed_hint is None or not (math.isfinite(seed_hint) and 0.0 < seed_hint < 1.0):
         return None
     with mp.workdps(dps):
@@ -924,8 +888,8 @@ def certify_row(a, b, sigma, side, tag, dps_layers=(60, 100), yd_override=None):
     huge_bal = both_huge_balanced(a, b)
     fwd_kind = "fast_series" if is_r1tiny else ("guard" if huge_bal else "full")
 
-    # --- deep-small routing decision (BOTH orientations, per THIRD
-    # correction) -- cheap native-double check first. yd_override (negative
+    # --- deep-small routing decision (BOTH orientations) -- cheap
+    # native-double check first. yd_override (negative
     # controls) bypasses the routing decision -- the override IS the
     # hand-perturbed candidate to certify/reject regardless of which
     # bucket it would naturally fall in.
@@ -950,15 +914,13 @@ def certify_row(a, b, sigma, side, tag, dps_layers=(60, 100), yd_override=None):
     if yd_override is not None:
         y_star = mp.mpf(yd_override)
     elif tag == "gamma-limit-seam":
-        # --- WORK ITEM 4 (orchestrator, G2-completion round -- seam
-        # yield fix): seed with S3 (gamma-transfer -- it OWNS this
-        # territory per G1's own measurements) and root-find via
-        # oracle_y_audited -- see that function's own docstring for the
-        # measured root cause (the cheap evaluator's routing silently
-        # returns garbage near this stratum's own seeds) and the fix
-        # (bisect directly against the SAME audited evaluator
-        # certification checks against, bounded bracket doubling
-        # around S3, never an unbounded search).
+        # Seed with seed_S3 (gamma-transfer -- it owns this territory)
+        # and root-find via oracle_y_audited -- see that function's own
+        # docstring for the root cause (the cheap evaluator's routing
+        # silently returns garbage near this stratum's own seeds) and
+        # the fix (bisect directly against the SAME audited evaluator
+        # certification checks against, bounded bracket doubling around
+        # the seed, never an unbounded search).
         try:
             seed = bid.seed_S3(a, b, sigma, side)
         except Exception:
@@ -1055,8 +1017,9 @@ def certify_row(a, b, sigma, side, tag, dps_layers=(60, 100), yd_override=None):
 def s_from_y(a, b, y, side, dps=80, tag="moderate"):
     """Construct a well-posed sigma = forward(a,b,y) rounded to double
     (gammainv's own s_from_x pattern) -- guarantees the (a,b,sigma,side)
-    triple is REACHABLE, sidestepping the ill-posed-guess pathologies
-    this generator's own smoke test hit (see G2-STATUS.md)."""
+    triple is REACHABLE, sidestepping the ill-posed-guess pathologies a
+    blind log-uniform sigma draw hits (an unreachable (a,b,sigma) triple
+    silently fails root-finding)."""
     try:
         if tag in ("r1-tiny", "joint-tiny", "r1-tiny-seam"):
             P, Q = fast_series_pq(a, b, y, dps)
@@ -1131,10 +1094,9 @@ def negative_controls():
 # Part 10: strata generation. Every point is (a, b, sigma, side, tag).
 # sigma is constructed FROM a chosen y via forward evaluation wherever the
 # region is hard (R1-tiny/joint-tiny/ridge/gammalim/huge-nu/seams) --
-# gammainv's own s_from_x pattern, adopted here after this generator's own
-# smoke test hit ill-posed-guess pathologies with log-uniform sigma
-# sampling in these regions (see G2-STATUS.md self-caught bugs). The
-# swap identity halves orientation coverage (one of (a,b)/(b,a) per
+# gammainv's own s_from_x pattern, adopted here after log-uniform sigma
+# sampling in these regions was found to hit ill-posed-guess pathologies.
+# The swap identity halves orientation coverage (one of (a,b)/(b,a) per
 # logical point) EXCEPT near-diagonal/plateau rows, where both are kept.
 # ============================================================================
 NEXT_UP = lambda v: math.nextafter(v, math.inf)
@@ -1164,17 +1126,16 @@ class PointSet:
             self.add(a, b, s, side, tag)
 
     def add_from_y_smallside(self, a, b, y, tag, dps=60, both=False):
-        """ORCHESTRATOR FIX (this pass): construct sigma from y, but
-        choose the SIDE by which of P/Q is actually <=0.5 (PLAN's own
-        'solve against s=min(p,1-p)' input contract) rather than a
-        random coin flip -- a random side with y not already known to
-        be on that side's small end can construct an out-of-contract
-        row (sigma>0.5 for the requested side), which the certifier's
-        deep-small/boundary machinery is not designed to handle (it
-        assumes the REQUESTED side's sigma is the one approaching 0,
-        not 1) and which manifested as spurious declines (see
-        G2-STATUS.md). both=True (near-diagonal/plateau strata, PLAN's
-        own swap-maps-s<->1-s rule) adds BOTH orientations regardless."""
+        """Constructs sigma from y, choosing the SIDE by which of P/Q is
+        actually <=0.5 (the 'solve against s=min(p,1-p)' input contract)
+        rather than a random coin flip -- a random side with y not
+        already known to be on that side's small end can construct an
+        out-of-contract row (sigma>0.5 for the requested side), which
+        the certifier's deep-small/boundary machinery is not designed to
+        handle (it assumes the REQUESTED side's sigma is the one
+        approaching 0, not 1) and which manifests as spurious declines.
+        both=True (near-diagonal/plateau strata, the swap-maps-s<->1-s
+        rule) adds BOTH orientations regardless."""
         is_r1 = tag in ("r1-tiny", "joint-tiny", "r1-tiny-seam")
         try:
             if is_r1:
@@ -1220,15 +1181,12 @@ def gen_r1_tiny(ps, rng, n=800):
 
 
 def gen_r1_tiny_qside(ps, rng, n=3000):
-    """RULING 3 [orchestrator, G2-completion round]: gen_r1_tiny's own
-    p/q imbalance (measured 17:1, 1872:110 in the shipped rows) is
-    STRUCTURALLY EXPECTED per the design's own y_med argument (tiny a
-    puts the P<=1/2 crossover at y_med ~ exp(-ln2/a), so log-uniform y
-    sampling over a WIDE decade range lands almost entirely on the
-    p-side of that crossover) -- but is ALSO compounded by a genuine,
-    independently-verifiable defect, SELF-CAUGHT this pass (reported,
-    not silently folded into the ruling's framing -- 'ESCALATE if a
-    ruling's implementation contradicts measurement'): gen_r1_tiny's
+    """gen_r1_tiny's own p/q imbalance (measured 17:1, 1872:110 in the
+    shipped rows) is STRUCTURALLY EXPECTED per the design's own y_med
+    argument (tiny a puts the P<=1/2 crossover at y_med ~ exp(-ln2/a),
+    so log-uniform y sampling over a WIDE decade range lands almost
+    entirely on the p-side of that crossover) -- but is ALSO compounded
+    by a genuine, independently-verifiable defect: gen_r1_tiny's
     q-branch forms the near-1 y argument as NATIVE-FLOAT '1.0 - y' with
     y log-uniform over 10**[-300,-3] -- for y below ~2^-53 (measured:
     1930/2000 = 96.5% of that draw range) this collapses EXACTLY to 1.0
@@ -1236,17 +1194,16 @@ def gen_r1_tiny_qside(ps, rng, n=3000):
     0x1.0000000000000p+0), so s_from_y then computes Q(a,b,1.0)=0.0
     EXACTLY and add()'s own 0.0<sigma<1.0 check silently drops the row
     -- nearly every q-side draw was rejected before certification ever
-    saw it, independent of the y_med argument. NOT re-litigated by
-    rewriting gen_r1_tiny itself (out of this ruling's scope) -- fixed
-    per the ruling's own mandated construction instead: build q-side
-    rows DIRECTLY, sigma picked log-uniform ON THE Q SIDE (a target
-    probability, never a native-float near-1 y), seeded via
-    bid.seed_for and certified through the SAME inversion-first
-    machinery (certify_row's fast_series/oracle_y path, tag='r1-tiny')
-    every other direct-sigma stratum in this file already uses (the
-    huge-nu beyond-resolution branch is the precedent). (a,b) drawn
-    from the SAME distribution as gen_r1_tiny's own p-side for a
-    genuinely comparable population."""
+    saw it, independent of the y_med argument. NOT fixed by rewriting
+    gen_r1_tiny itself (out of scope here) -- fixed via a direct
+    construction instead: build q-side rows DIRECTLY, sigma picked
+    log-uniform ON THE Q SIDE (a target probability, never a
+    native-float near-1 y), seeded via bid.seed_for and certified
+    through the SAME inversion-first machinery (certify_row's
+    fast_series/oracle_y path, tag='r1-tiny') every other direct-sigma
+    stratum in this file already uses (the huge-nu beyond-resolution
+    branch is the precedent). (a,b) drawn from the SAME distribution as
+    gen_r1_tiny's own p-side for a genuinely comparable population."""
     n0 = len(ps.pts)
     for _ in range(n):
         a = 10.0 ** rng.uniform(-2, 2)
@@ -1289,9 +1246,9 @@ def gen_ridge(ps, rng, n=600):
         delta = rng.uniform(-6, 6) / math.sqrt(nu)
         y = max(min(a / c + delta, 1 - 1e-15), 1e-15)
         # near-diagonal (balanced, skew close to 1) needs BOTH
-        # orientations per PLAN's swap-maps-s<->1-s rule; skewed
-        # sub-bands get the single small-side orientation (swap
-        # identity halves coverage there).
+        # orientations per the swap-maps-s<->1-s rule; skewed sub-bands
+        # get the single small-side orientation (swap identity halves
+        # coverage there).
         near_diag = 0.5 <= skew <= 2.0
         ps.add_from_y_smallside(a, b, y, "ridge", both=near_diag)
     status(f"  ridge: {len(ps.pts) - n0} points")
@@ -1303,9 +1260,8 @@ def gen_gammalim_seam(ps, rng, n=400):
     small_side_direct's own guarded gamma_corner_value path). y
     constructed from the ACTUAL gamma-corner transition mapping (t ~
     shape-param scale, gen_beta_data.py's own gamma_corner_value
-    identity inverted) -- SELF-CAUGHT BUG (this pass): an earlier draft
-    picked y from a handful of O(1) constants nudged by a bare
-    small/huge ratio, which lands in the saturated regime for all but
+    identity inverted): a handful of O(1) constants nudged by a bare
+    small/huge ratio would land in the saturated regime for all but
     1/400 draws once huge_param reaches 1e100+ (t=shape*O(1) requires
     y within ~shape/huge of the 0/1 boundary, astronomically narrower
     than an O(1)-scale guess for huge_param this large)."""
@@ -1360,7 +1316,7 @@ def gen_underflow(ps, rng, n=300):
 
 
 def gen_underflow_qside(ps, rng, n=300):
-    """RULING 3: q-side direct construction, underflow-threshold
+    """q-side direct construction, underflow-threshold
     (single-sided by original construction -- gen_underflow only ever
     built p rows, no q-branch existed at all). Uses the swap identity
     Q(a,b,y) = P(b,a,1-y) AT THE SIGMA LEVEL -- sigma_q = P(b,a, yb)
@@ -1418,16 +1374,16 @@ def gen_subnormal_y(ps, rng, n=200):
 
 
 def gen_subnormal_y_qside(ps, rng, n=400):
-    """RULING 3: q-side direct construction, subnormal-y. gen_subnormal_y's
+    """q-side direct construction, subnormal-y. gen_subnormal_y's
     own q-branch forms '1.0 - y_subnormal' in native float, which is
     EXACTLY 1.0 for EVERY subnormal y (100% collapse -- worse than
     r1-tiny's partial collapse, since y here is always << 2^-1022, hex
     witness 1.0 - 5e-324 == 1.0 -> 0x1.0000000000000p+0), so that
     branch constructed ZERO valid q rows despite a 50/50 coin flip in
-    the source (see decline audit: 'subnormal-y 170/0'). Fixed the same
-    way as underflow-threshold's q-side: sigma_q = P(b,a, y_sub)
-    computed directly (swap identity at the SIGMA level, no near-1 y
-    ever formed), shipped as (a, b, sigma_q, 'q', 'subnormal-y')."""
+    the source. Fixed the same way as underflow-threshold's q-side:
+    sigma_q = P(b,a, y_sub) computed directly (swap identity at the
+    SIGMA level, no near-1 y ever formed), shipped as
+    (a, b, sigma_q, 'q', 'subnormal-y')."""
     n0 = len(ps.pts)
     for _ in range(n):
         a = 10.0 ** rng.uniform(-4, 2)
@@ -1440,23 +1396,19 @@ def gen_subnormal_y_qside(ps, rng, n=400):
 
 
 # ============================================================================
-# RULING 1 [orchestrator, G2-completion round]: the prior round's dbg19/
-# dbg23 calibration probes (scratchpad betainv_g2/dbg19_calibrate.py,
-# dbg23_calib3.py) were WRONG, root-caused here.
+# huge_nu_beyond_resolution's derivation.
 #
-# ROOT CAUSE: "resolvable" was tested by evaluating the FORWARD
-# probability at a SINGLE z-probe point (z=1 or z=3) and checking whether
-# it was exactly 0.0/1.0 in double -- that is saturation of P/Q in
-# SIGMA-space, not collapse of the SOLVED y in Y-space, and the two are
+# TRAP AVOIDED: testing "resolvable" by evaluating the FORWARD
+# probability at a SINGLE z-probe point (z=1 or z=3) and checking
+# whether it is exactly 0.0/1.0 in double tests saturation of P/Q in
+# SIGMA-space, not collapse of the SOLVED y in Y-space -- the two are
 # unrelated at the balanced point: for skew=1 (a=b), any z=O(1) probe
 # sits near the MEAN, where P=Q=0.5 by symmetry -- erfc(z)/2 for z=O(1)
-# is never within orders of magnitude of 0 or 1 at ANY nu, so the probe
-# reported "resolvable" up to its 1e60 search cap regardless of nu (the
-# balanced case degenerates entirely: there is no nu at which a bounded-z
-# probe ever saturates, because the probe point never leaves the O(1)
-# neighbourhood of the mean). CONFIRMED directly by re-running both
-# dbg19/dbg23's own resolvable_at()/resolvable() against this file's
-# _huge_nu_y_mpf -- skew=1 stays "resolvable" to the full 1e60 cap.
+# is never within orders of magnitude of 0 or 1 at ANY nu, so a
+# single-probe test reports "resolvable" regardless of nu (the balanced
+# case degenerates entirely: there is no nu at which a bounded-z probe
+# ever saturates, because the probe point never leaves the O(1)
+# neighbourhood of the mean).
 #
 # CORRECT CRITERION: what the kernel's contract actually needs is
 # whether the ENTIRE achievable P/Q transition -- from the leftmost
@@ -1468,9 +1420,8 @@ def gen_subnormal_y_qside(ps, rng, n=400):
 # sigma in (0,1) can ever select a MORE extreme point, so z=+-Z_MAX are
 # the outermost distinguishable probe points. Derived by mpf bisection
 # (dps=60, 200 iterations): erfc(Z_MAX)/2 = 2^-1074 at
-# Z_MAX = 27.2005633665362563777... (the "38.5-class" figure elsewhere
-# in the PLAN/orchestrator prose is the SAME point in the OTHER
-# (sqrt(2)-scaled, Phi-quantile) convention: 27.2006*sqrt(2) = 38.465).
+# Z_MAX = 27.2005633665362563777... (the same point in the OTHER,
+# sqrt(2)-scaled Phi-quantile convention: 27.2006*sqrt(2) = 38.465).
 #
 # BEYOND-RESOLUTION(a,b) iff y(z=+Z_MAX) and y(z=-Z_MAX), each
 # independently constructed at mpf precision then double-rounded ONCE
@@ -1479,24 +1430,18 @@ def gen_subnormal_y_qside(ps, rng, n=400):
 # so no sigma in (0,1) can ever select more than one double for this
 # (a,b) pair.
 #
-# SANITY ANCHORS reproduced against the orchestrator's own direct
-# measurement (order-of-magnitude verification -- their numbers came
-# from a hand probe, not this code, so an exact digit match isn't
-# expected): balanced CENTRAL-band collapse (sigma=0.3 rounding onto the
-# exact double mean) measured HERE between nu=1e31 (False) and nu=1e32
-# (True) -- EXACT match to the stated interval. Balanced FULL collapse
-# (this criterion) measured HERE at nu* ~ 6.0e34 (skew=1); skewed
+# SANITY ANCHORS (order-of-magnitude cross-checks): balanced
+# CENTRAL-band collapse (sigma=0.3 rounding onto the exact double mean)
+# measured between nu=1e31 (False) and nu=1e32 (True). Balanced FULL
+# collapse (this criterion) measured at nu* ~ 6.0e34 (skew=1); skewed
 # sub-bands (skew 1e2/1e4/1e6) at nu* ~ 1.1e35/1.3e35/4.7e34 -- all in
-# the same mid-10^34-to-10^35 decade the "~5e35-class" estimate names
-# (same order of magnitude; their figure was a hand estimate, not a
-# computed threshold, so it is not treated as a second ground truth).
+# the same mid-10^34-to-10^35 decade.
 #
 # USE: per-(a,b), NOT a nu* lookup table (nu* depends on skew, as
 # measured above) -- huge_nu_beyond_resolution() below is called
 # directly wherever this generator needs to classify a candidate (a,b)
 # pair for the huge-nu strata. Existing shipped B rows (nu>=1e35) are
-# UNCHANGED (RULING 1's own scope: reviewed and accepted, not
-# relabeled) -- this criterion governs NEW row construction only.
+# unchanged by this criterion -- it governs NEW row construction only.
 # ============================================================================
 _ZMAX_STR = ("27.2005633665362563777429614681942258114152388192067686497169"
              "338076019593011258022472543490099964173")
@@ -1512,9 +1457,9 @@ def _ulp_distance_pos(x, y):
 
 
 def huge_nu_beyond_resolution(a, b, dps=80):
-    """RULING 1's correct per-(a,b) criterion: True iff the entire
-    achievable y-transition (probed at the two outermost distinguishable
-    z, +-Z_MAX) collapses inside <=1 ULP of y."""
+    """The correct per-(a,b) criterion: True iff the entire achievable
+    y-transition (probed at the two outermost distinguishable z,
+    +-Z_MAX) collapses inside <=1 ULP of y."""
     zmax = mp.mpf(_ZMAX_STR)
     y_pos = _huge_nu_y_mpf(a, b, zmax, dps=dps)
     y_neg = _huge_nu_y_mpf(a, b, -zmax, dps=dps)
@@ -1524,7 +1469,7 @@ def huge_nu_beyond_resolution(a, b, dps=80):
 def _huge_nu_y_mpf(a, b, target_z, dps=80):
     """Construct y at mpf precision so that cpsi = target_z^2 EXACTLY
     (to mpf precision) at the point BEFORE double-rounding, THEN round
-    to double. TWO self-caught bugs this pass:
+    to double. TWO hazards to avoid:
     (1) building y = a/c + delta in NATIVE PYTHON FLOAT arithmetic: its
         ~1e-16 relative rounding error in the 'mean' translates (via
         lam = a - c*y) to an ABSOLUTE error in lam of order c*1e-16 --
@@ -1534,12 +1479,11 @@ def _huge_nu_y_mpf(a, b, target_z, dps=80):
         r3_setup's docstring/_lambda_of_zeta target is
         cpsi = zeta^2 * nu (the RIDGE-normalized deviation, zeta =
         z/sqrt(nu)), not cpsi = zeta^2. Passing target_z straight through
-        as zeta silently requested cpsi = target_z^2 * nu ~ nu itself
-        (confirmed directly: 'target_z=1.0' at nu=1e15 produced
-        cpsi=999999999999999.9, not 1) -- deep in saturation regardless
-        of target_z, which is why the first calibration pass found
-        collapse at EVERY nu tested. FIX: zeta = target_z / sqrt(nu),
-        so cpsi = zeta^2*nu = target_z^2 exactly, as intended."""
+        as zeta silently requests cpsi = target_z^2 * nu ~ nu itself
+        (e.g. target_z=1.0 at nu=1e15 produces cpsi=999999999999999.9,
+        not 1) -- deep in saturation regardless of target_z. FIX:
+        zeta = target_z / sqrt(nu), so cpsi = zeta^2*nu = target_z^2
+        exactly, as intended."""
     with mp.workdps(dps):
         a_m, b_m = mp.mpf(a), mp.mpf(b)
         c = a_m + b_m
@@ -1571,17 +1515,15 @@ def _huge_nu_mean_ulp(a, b, k, dps=80):
 
 
 def gen_huge_nu(ps, rng, n=70, n_beyond=90):
-    """Huge-nu: TWO regimes, CLASSIFIED BY RULING 1's per-(a,b) criterion
-    (huge_nu_beyond_resolution), not a nu* lookup table -- the prior
-    round's fixed nu-range split (guard <=1e34, beyond 1e35-1e42) came
-    from an ESCALATED, unreproduced calibration; this round replaces it.
+    """Huge-nu: TWO regimes, CLASSIFIED BY the per-(a,b) criterion
+    (huge_nu_beyond_resolution) rather than a nu* lookup table (nu*
+    depends on skew, see that function's own derivation).
     (a) resolvable GUARD territory (construction #2's own route -- z=O(1)
     points land on distinguishable doubles) via _huge_nu_y_mpf, a
     mpf-precision z-targeted construction (validated: r1-vs-r2 agreement
-    to ~30+ decimal digits even at skew=1e6/nu=1e20, see G2-STATUS.md).
-    Candidates are DRAWN from a range comfortably below the measured
-    threshold band (~6e34-1.3e35 across skew 1..1e6, see RULING 1's own
-    comment block above) and VERIFIED per-pair via
+    to ~30+ decimal digits even at skew=1e6/nu=1e20). Candidates are
+    DRAWN from a range comfortably below the measured threshold band
+    (~6e34-1.3e35 across skew 1..1e6) and VERIFIED per-pair via
     huge_nu_beyond_resolution -- any draw that turns out to already be
     beyond-resolution is redrawn (rejection sampling), so this bucket is
     a genuine ordinary-bracket-certifiable population, not an
@@ -1591,22 +1533,20 @@ def gen_huge_nu(ps, rng, n=70, n_beyond=90):
     _huge_nu_mean_ulp (mpf-precision mean, THEN double-rounded, THEN
     ULP-stepped -- the z-targeted construction is NOT usable here since
     at this nu ANY z=O(1..10) point rounds back to one of the SAME
-    3-5 doubles nearest the mean, self-caught during the prior round's
-    calibration, see G2-STATUS.md), with sigma picked to deliberately
+    3-5 doubles nearest the mean), with sigma picked to deliberately
     NOT be exactly the trivial 0.5 (mid-ulp) so the certifier's
     nearest-neighbor contract is genuinely exercised rather than the
     trivial straddle case gammainv's own 'dilution lesson' warns about.
     Candidates are drawn from a range comfortably ABOVE the measured
     threshold band and VERIFIED per-pair via huge_nu_beyond_resolution
-    (redrawn if not yet collapsed) -- this is RULING 1's explicit
-    instruction ('use the per-(a,b) criterion... to classify new B
-    rows'), replacing the old fixed nu=1e35-1e42 range's implicit trust
-    that every draw in that interval was already collapsed."""
+    (redrawn if not yet collapsed) -- classifying candidates per-(a,b)
+    this way, rather than trusting a fixed nu range, is what makes both
+    buckets genuinely reliable populations."""
     n0 = len(ps.pts)
     zmax = mp.mpf(_ZMAX_STR)
 
     # (a) resolvable guard territory -- rejection-sampled against the
-    # RULING 1 criterion.
+    # huge_nu_beyond_resolution criterion.
     n_ok = 0
     tries = 0
     while n_ok < n and tries < n * 6:
@@ -1628,17 +1568,16 @@ def gen_huge_nu(ps, rng, n=70, n_beyond=90):
         if len(ps.pts) > before:
             n_ok += 1
 
-    # (b) genuine beyond-resolution: sigma picked DIRECTLY (gammainv G2's
-    # own huge-a-beyond-resolution-target pattern, PLAN.md precedent --
-    # NOT forward-constructed from y here, SELF-CAUGHT BUG the prior
-    # round: forward(mean +/- k ulps) is ITSELF already saturated to
-    # exactly {0,0.5,1} at this collapse depth, so s_from_y's
-    # well-posedness filter rejected essentially every attempt -- there
-    # is no 'intermediate' reachable sigma to construct from y at true
-    # collapse depth; the well-posed INPUT contract here is simply sigma
-    # in (0,1), the same as any kernel call, and certify_row's own
-    # nearest-of-{neighbors} contract is what proves the answer, not a
-    # forward round-trip).
+    # (b) genuine beyond-resolution: sigma picked DIRECTLY (the
+    # gammainv reference generator's own huge-a-beyond-resolution-target
+    # pattern) -- NOT forward-constructed from y here: forward(mean +/-
+    # k ulps) is ITSELF already saturated to exactly {0,0.5,1} at this
+    # collapse depth, so s_from_y's well-posedness filter would reject
+    # essentially every attempt -- there is no 'intermediate' reachable
+    # sigma to construct from y at true collapse depth; the well-posed
+    # INPUT contract here is simply sigma in (0,1), the same as any
+    # kernel call, and certify_row's own nearest-of-{neighbors} contract
+    # is what proves the answer, not a forward round-trip.
     beyond_sigmas = (0.5, NEXT_UP(0.5), NEXT_DN(0.5), 0.3, 0.7, 0.1, 0.9,
                      1e-3, 1.0 - 1e-3)
     n_beyond_ok = 0
@@ -1667,8 +1606,7 @@ def gen_huge_nu(ps, rng, n=70, n_beyond=90):
 
 
 def gen_seam_bracket(ps, rng, n=150):
-    """a_T-seam bit-stepped bracket (S1/S3 seed seam near kGammaAT=20,
-    per PLAN's stratum list)."""
+    """a_T-seam bit-stepped bracket (S1/S3 seed seam near kGammaAT=20)."""
     n0 = len(ps.pts)
     a_seam = 20.0
     a_vals = [a_seam]
@@ -1695,26 +1633,25 @@ def gen_seam_bracket(ps, rng, n=150):
 
 def find_y_cut(a, b, side):
     """Bisect (in log-y) for the y where bid.deep_small_cut_bound(a,b,y,
-    side) crosses DEEP_SMALL_CUT -- ORCHESTRATOR FIX (item 1, this
-    round): the ORIGINAL gen_deep_small_both picked sigma from a blind
-    log-uniform grid (10^pe, pe in -320..-1) with NO regard for whether
-    that sigma's corresponding y was anywhere near the actual cut for
-    the (a,b) pair drawn -- for a near a_T=19 the cut sits at
-    y~2^-60/19~4.6e-20, so almost the ENTIRE pe range constructed a
-    sigma whose true y was nowhere near deep-small territory, correctly
-    falling through to ordinary root-finding, which then legitimately
-    failed for many of those ill-matched (a,b,sigma) combinations --
-    measured 415/540 (77%) drop rate, a GENERATOR-QUALITY gap, not a
-    certifier defect. FIX (inversion-first, matching gen_gammalim_seam's
-    own fix): locate y_cut precisely per (a,b,side) via bisection on the
-    ACTUAL routing predicate (not a re-derived approximation of it),
-    then sample y at chosen MULTIPLES of y_cut (both inside and outside
-    the deep-small regime -- boundary coverage is itself valuable, per
-    the design's own 'deep-small-cut-bracket' precedent in gammainv),
-    and construct sigma = forward(y) (in-band, reachable BY
-    CONSTRUCTION). Returns z_cut, the SMALL variable's cut location (z=y
-    for side='p', z=1-y for side='q' -- bid.deep_small_cut_bound's own
-    yp convention) -- caller converts to y."""
+    side) crosses DEEP_SMALL_CUT. A blind log-uniform sigma grid (10^pe,
+    pe in -320..-1) has NO regard for whether that sigma's corresponding
+    y is anywhere near the actual cut for the (a,b) pair drawn -- for a
+    near a_T=19 the cut sits at y~2^-60/19~4.6e-20, so almost the ENTIRE
+    pe range constructs a sigma whose true y is nowhere near deep-small
+    territory, correctly falling through to ordinary root-finding, which
+    then legitimately fails for many of those ill-matched (a,b,sigma)
+    combinations (measured 415/540, 77%, drop rate) -- a
+    GENERATOR-QUALITY gap, not a certifier defect. FIX (inversion-first,
+    matching gen_gammalim_seam's own fix): locate y_cut precisely per
+    (a,b,side) via bisection on the ACTUAL routing predicate (not a
+    re-derived approximation of it), then sample y at chosen MULTIPLES
+    of y_cut (both inside and outside the deep-small regime -- boundary
+    coverage is itself valuable, per the design's own
+    'deep-small-cut-bracket' precedent in gammainv), and construct
+    sigma = forward(y) (in-band, reachable BY CONSTRUCTION). Returns
+    z_cut, the SMALL variable's cut location (z=y for side='p', z=1-y
+    for side='q' -- bid.deep_small_cut_bound's own yp convention) --
+    caller converts to y."""
     def bound_at_z(z):
         y = z if side == "p" else (1.0 - z)
         return bid.deep_small_cut_bound(a, b, y, side)
@@ -1736,9 +1673,8 @@ def find_y_cut(a, b, side):
 
 def gen_deep_small_both(ps, rng, n=300):
     """Deep-small closed-form territory, BOTH orientations from the
-    start (G1 THIRD correction's own lesson) -- y constructed from the
-    (a,b,side)-SPECIFIC cut location (find_y_cut), sigma=forward(y) (
-    in-band by construction, ORCHESTRATOR fix)."""
+    start -- y constructed from the (a,b,side)-SPECIFIC cut location
+    (find_y_cut), sigma=forward(y) (in-band by construction)."""
     n0 = len(ps.pts)
     a_list = (1e-300, 1e-30, 1e-4, 0.1, 1.0, 19.0)
     b_list = (0.5, 3.0, 1e5, 1e300)
@@ -1774,54 +1710,35 @@ def gen_deep_small_both(ps, rng, n=300):
 
 def build_point_set(rng):
     ps = PointSet()
-    # SIZED DOWN [orchestrator cost-discipline pass, this session]: the
-    # first sizing (r1-tiny 2400/joint-tiny 1200/ridge 1200/gammalim 800/
-    # huge-nu 180) measured real per-row cost far above the initial
-    # projection for a MINORITY of joint-tiny rows (sigma within a few
-    # ULPs of 0 or 1 drives bisection into many extra iterations of
-    # bid.r1_value_mp's own up-to-4000-term series -- one measured
-    # outlier cost 9.1s vs a ~150-300ms typical row) -- see
-    # G2-STATUS.md. Re-sized to a total that completes within this
-    # session's realistic remaining budget rather than leave an
-    # open-ended partial checkpoint; reported honestly as smaller than
-    # the design's 14-21k range in the final report.
-    # G2-COMPLETION ROUND [orchestrator]: scaled toward the design's
-    # 14-21k target with per-stratum n tuned against MEASURED yields
-    # from the prior two rounds (G2-STATUS.md) plus RULING 3's new
-    # direct q-side strata (which sidestep the native-float 1-y
-    # collapse bug entirely, so their yield is close to 100% -- see
-    # each gen_*_qside docstring). Per-stratum cost projection recorded
-    # in G2B-STATUS.md BEFORE the compute pass runs (process rule).
-    # Design targets (both sides combined, from PLAN's strata table):
-    # r1-tiny 4-6k, ridge 3-4k, gammalim 2-3k, joint-tiny 1.5-2.5k
-    # SEPARATE, underflow 1-1.5k, subnormal-y 0.8-1.2k, huge-nu-B
-    # 1-1.5k SEPARATE, a_T-seam 0.5-0.8k.
+    # Per-stratum n values below are sized against measured per-row
+    # cost, not just a target row count: a MINORITY of joint-tiny rows
+    # (sigma within a few ULPs of 0 or 1) drive bisection into many
+    # extra iterations of bid.r1_value_mp's own up-to-4000-term series
+    # (measured outlier cost 9.1s vs a ~150-300ms typical row), so
+    # bumping joint-tiny's n has an outsized effect on total runtime.
+    # The direct q-side strata (gen_r1_tiny_qside, gen_underflow_qside,
+    # gen_subnormal_y_qside) sidestep the native-float 1-y collapse bug
+    # entirely, so their yield is close to 100% (see each gen_*_qside
+    # docstring) and need less oversampling than the y-constructed
+    # strata to hit their target count.
+    # Design targets (both sides combined): r1-tiny 4-6k, ridge 3-4k,
+    # gammalim 2-3k, joint-tiny 1.5-2.5k SEPARATE, underflow 1-1.5k,
+    # subnormal-y 0.8-1.2k, huge-nu-B 1-1.5k SEPARATE, a_T-seam
+    # 0.5-0.8k.
     gen_r1_tiny(ps, rng, n=6000)
-    gen_r1_tiny_qside(ps, rng, n=3000)          # RULING 3
-    gen_joint_tiny(ps, rng, n=1000)             # both=True -> ~2k; was
-                                                 # 2000->4000, OVER the
-                                                 # 1.5-2.5k design band
-    gen_ridge(ps, rng, n=5500)                  # was 2000->1170 (58%
-                                                 # yield); toward 3-4k
-    gen_gammalim_seam(ps, rng, n=9000)          # was 2000->553 (28%
-                                                 # construction yield,
-                                                 # separate from the
-                                                 # WORK-ITEM-4 CERTIFY
-                                                 # fix); toward 2-3k
+    gen_r1_tiny_qside(ps, rng, n=3000)          # direct q-side construction (near-100% yield)
+    gen_joint_tiny(ps, rng, n=1000)             # both=True -> ~2k, within the 1.5-2.5k design band
+    gen_ridge(ps, rng, n=5500)                  # yield ~58%; sized toward the 3-4k target
+    gen_gammalim_seam(ps, rng, n=9000)          # construction yield ~28%; sized toward the 2-3k target
     gen_underflow(ps, rng, n=600)
-    gen_underflow_qside(ps, rng, n=600)         # RULING 3
-    gen_subnormal_y(ps, rng, n=1300)            # bumped for p/q balance vs
-                                                 # the qside's much higher
-                                                 # yield (dry-run: 163 vs
-                                                 # 560 at n=500/800)
-    gen_subnormal_y_qside(ps, rng, n=800)       # RULING 3
-    gen_huge_nu(ps, rng, n=300, n_beyond=1400)  # n_beyond up sharply:
-                                                 # was 400->174 B-marked
-                                                 # rows (~44% conversion,
-                                                 # RULING-1-uncorrected);
-                                                 # criterion-verified now,
-                                                 # toward 1-1.5k SEPARATE
-    gen_seam_bracket(ps, rng, n=600)            # already in 0.5-0.8k
+    gen_underflow_qside(ps, rng, n=600)         # direct q-side construction (near-100% yield)
+    gen_subnormal_y(ps, rng, n=1300)            # bumped for p/q balance against the qside stratum's much higher yield
+    gen_subnormal_y_qside(ps, rng, n=800)       # direct q-side construction (near-100% yield)
+    gen_huge_nu(ps, rng, n=300, n_beyond=1400)  # n_beyond sized up: B-marked-row
+                                                 # conversion is well under 50%;
+                                                 # criterion-verified, sized
+                                                 # toward the 1-1.5k SEPARATE target
+    gen_seam_bracket(ps, rng, n=600)            # within the 0.5-0.8k target
     gen_deep_small_both(ps, rng, n=400)
     status(f"total distinct (a,b,sigma,side) points: {len(ps.pts)}")
     for tag, n in sorted(ps.strata_counts.items()):

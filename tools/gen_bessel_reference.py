@@ -5,14 +5,14 @@ Bessel I0/I1 oracle, unscaled (i0, i1) and exponentially-scaled (i0e, i1e).
 Each line: <input-hex-double> <output-hex-double>, output = round-to-nearest
 of the mathematical value at high mpmath dps. Format matches the erf/erfc/
 digamma/trigamma house convention (bare two-hex-double rows, no dd pair --
-these functions are working-precision-only per PLAN.md's binding design, no
-kernel keeps more than double precision past the final rounding). Specials
+these functions are working-precision-only -- no kernel keeps more than
+double precision past the final rounding). Specials
 (x=0, +-inf, NaN) are covered by the smoke test, not this file -- same
 convention as every other reference generator in this repo. -0.0 is likewise
 left to the smoke test (i1(-0)=-0 exact is a one-line assertion there, not a
 sampled-oracle concern).
 
-Definitions used here (matching PLAN.md "P2 Bessel I0/I1 -- BINDING DESIGN"):
+Definitions used here:
   i0(x)  = I_0(x)                         i1(x)  = I_1(x)
   i0e(x) = exp(-|x|) * I_0(x)             i1e(x) = exp(-|x|) * I_1(x)
 mpmath's besseli(nu, x) for negative real x and integer nu already applies
@@ -21,24 +21,24 @@ so negative-axis rows call the oracle directly at the negative point rather
 than hand-mirroring a positive-axis result -- a genuine oracle evaluation,
 not an assumption of the symmetry the kernel itself will exploit.
 
-Oracle doctrine (this is erf-difficulty class per the binding design -- NO
-bracket certification; PLAN.md/NUMERICAL-DOCTRINE.md's oracle-trust doctrine
-applies only to families WITHOUT a trusted library baseline, which does not
-describe mpmath.besseli):
+Oracle doctrine (this is erf-difficulty class -- NO bracket certification;
+PLAN.md/NUMERICAL-DOCTRINE.md's oracle-trust doctrine applies only to
+families WITHOUT a trusted library baseline, which does not describe
+mpmath.besseli):
   - every row: layered-dps agreement (dps 40 vs 80); on disagreement beyond
     AGREE_REL_TOL, escalate to dps 150; if that still disagrees, DECLINE the
     row (skip + record), never guess
   - independent cross-check on a sampled subset: OWN high-dps series-sum
     (x <~ 25) or OWN high-dps asymptotic expansion (x >~ 25) vs mp.besseli,
-    reusing gen_bessel_data.py's G1 route structurally (own math, not a
-    second call into mpmath's besseli internals)
+    reusing gen_bessel_data.py's own series-sum route structurally (own
+    math, not a second call into mpmath's besseli internals)
   - negative control: corrupt one stored row's expected value, confirm the
     fresh-oracle-vs-stored re-verification pass catches it; exit nonzero if
     it is NOT caught (proves the verification pass is load-bearing)
   - overflow-boundary re-derivation: independently bisect (dps 50) the
     round-to-inf threshold 2^1024*(1-2^-54) for both nu, assert bit-identical
     to src/bessel_data.h's kBesselI0OverflowX/kBesselI1OverflowX (the
-    authority -- already derived twice independently per G1); mismatch is an
+    authority -- already independently derived twice); mismatch is an
     ESCALATE condition, not something this generator resolves on its own
 
 Coverage per file (edge-refined, bit-stepped where it matters -- the
@@ -177,11 +177,9 @@ def own_asymptotic_ive(nu, x, dps, K=20):
     """OWN high-dps Poincare/Hankel asymptotic expansion of exp(-x)*I_nu(x)
     for large x (textbook classical asymptotic series, A&S 9.7.1 -- public-
     domain mathematics, not ported code; this is a test-oracle cross-check
-    helper, never shipped in the kernel, same status as G1's own hand-
-    written series route). Verified directly (see G2-STATUS.md) against
-    mp.besseli at x=50..1.7e308: worst relative error ~1e-24, i.e. this is
-    not a marginal check. term_k/term_{k-1} = ((2k-1)^2 - mu) / (8*k*x),
-    mu = 4*nu^2."""
+    helper, never shipped in the kernel). Verified against mp.besseli at
+    x=50..1.7e308: worst relative error ~1e-24, i.e. this is not a marginal
+    check. term_k/term_{k-1} = ((2k-1)^2 - mu) / (8*k*x), mu = 4*nu^2."""
     old = mp.mp.dps
     mp.mp.dps = dps
     try:
@@ -255,8 +253,8 @@ def domain_ceiling_bracket(mode, nu):
     if mode == "unscaled":
         b = I0_OVERFLOW_X if nu == 0 else I1_OVERFLOW_X
         # Both sides: negative offsets are the last finite doubles, +1 and
-        # beyond must read back as +inf -- exactly the boundary behaviour
-        # the binding design pins.
+        # beyond must read back as +inf -- the boundary behaviour this
+        # format pins.
         return neighbourhood(b, 80, lo_off=-80, hi_off=80)
     # scaled: never overflows: bracket the domain ceiling itself (DBL_MAX);
     # offsets above 0 would be +inf, which is a special (excluded).

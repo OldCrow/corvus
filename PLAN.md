@@ -65,6 +65,14 @@ CI-gated, immutable under protect-tags, each with a Release object.
    bench pass (its gamma bench numbers are loaded/indicative only).
 
 ## Open Items
+- [OPEN, low — 2026-08-13, surfaced by the doc-trim review]
+  gen_betainv_data.py's kappa bucketing comment says "Bucketing at 40"
+  while the S4 code tests `kappa_bits > 35.0` — a pre-existing
+  comment/code inconsistency. Resolve which value is intended before the
+  next betainv reference regeneration (shipped references unaffected
+  until then). A few stage-tag strings also remain inside generator
+  stderr banners (runtime diagnostics only, never emitted into
+  headers); clean opportunistically at the next generator touch.
 - [OPEN — 2026-08-12, surfaced by the beta-forward fix arc] betainv's
   own DdMulD log-times-parameter sites (betainv-inl.h:630/659/683,
   `DdMulD(lrxi, ra)` / `DdMulD(lryv, rb)`) are unaudited above

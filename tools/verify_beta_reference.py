@@ -1,10 +1,7 @@
 """INDEPENDENT verification harness for tests/data/beta_{p,q}_reference.txt.
 
 Shares NO code with gen_beta_reference's assemblies (no import of the
-oracle module). Methods (v2 -- the v1 quadrature evaluator was itself
-adjudicated wrong on 139/154 negative-control rows [two-of-three vs
-betainc-layered thirds + hand-derived asymptotics]; see PLAN.md; it is
-replaced wholesale):
+oracle module). Methods:
   series     -- DLMF 8.17.8 in the small-side left-tail frame:
                   small = x'^a'(1-x')^b'/(a' B) * sum_k (a'+b')_k/(a'+1)_k x'^k
                 ALL terms positive -- no cancellation is possible, so
@@ -40,9 +37,8 @@ assembly; what this harness exists to catch is assembly/complement/
 truncation defects, guarded here by brute precision + layering, not by
 algorithmic novelty. Cross-method anchors: betainc300 self-cert on the
 normal sample, and a NEGATIVE CONTROL run on every invocation -- four
-adjudicated-bad round-5 rows (fixed in round 6) must FAIL against their
-old values and PASS against their corrected ones, else the harness
-refuses to certify anything.
+known-bad rows must FAIL against their old values and PASS against
+their corrected ones, else the harness refuses to certify anything.
 
 Stage B invariants over the full file: P+Q=1 (<=1 ulp), monotonicity of
 P in x within every (a,b) group.
@@ -60,10 +56,9 @@ MIN_SUBN_HALF = mp.mpf(2) ** -1075
 REL_TOL = mp.mpf("1e-22")    # indep-vs-stored mpf tolerance (pre-rounding)
 SELF_TOL = mp.mpf("1e-25")   # indep-vs-betainc self-certification
 
-# Negative control: four adjudicated round-5 oracle defects (fixed in
-# round 6; two-of-three verdicts, betainc-layered thirds, 2026-08-05).
-# Every invocation must REJECT the bad value and ACCEPT the good one,
-# or the harness refuses to certify anything.
+# Negative control: four known-bad oracle values paired with their
+# corrected values. Every invocation must REJECT the bad value and
+# ACCEPT the good one, or the harness refuses to certify anything.
 NEG_CONTROL = [
     (20.0, float.fromhex("0x1.0efe7e62615a0p-24"),
      float.fromhex("0x1.9999999999994p-2"),
@@ -104,8 +99,8 @@ def small_frame(a, b, x, P, Q):
     left tail int_0^{x'} t^{a'-1}(1-t)^{b'-1} dt. d' = 1-x' is CARRIED,
     never recomputed downstream: recovering it from x' via subtraction
     re-rounds x' to working precision first (mp.mpf() on an mpf rounds
-    to ambient dps), which collapsed d' to 0 for x' = 1-2e-216 at dps
-    200 -- the same complement-collapse class as oracle rounds 5/6."""
+    to ambient dps), which collapses d' to 0 for x' = 1-2e-216 at dps
+    200 -- a complement-collapse hazard."""
     if P <= Q:
         return mp.mpf(a), mp.mpf(b), mp.mpf(x), one_minus_exact(x), P
     return mp.mpf(b), mp.mpf(a), one_minus_exact(x), mp.mpf(x), Q
@@ -118,22 +113,22 @@ def series_regularized(ap, bp, xp, dps):
     """I_x'(a',b') via the all-positive-terms series (DLMF 8.17.8):
       x'^a'(1-x')^b' / (a' B(a',b')) * sum_k (a'+b')_k/(a'+1)_k x'^k
     Raises if the cap is hit before convergence -- never a silent
-    partial sum (the lesson of round 6's truncation defect)."""
+    partial sum, which would silently understate the tail probability."""
     with mpmath.workdps(dps):
         am, bm, xm = mp.mpf(ap), mp.mpf(bp), mp.mpf(xp)
         # (1-x)^b in log form via log1p, NEVER via a formed complement:
-        # the previous spelling (omx = 1 - xm at dps+40) truncated to
+        # forming the complement (omx = 1 - xm at dps+40) truncates to
         # exactly 1 for x below 10^-(dps+40), silently DROPPING the whole
-        # b*ln(1-x) term -- caught 2026-08-12 by the pb-corner rows, where
-        # b*x reaches 400 with x ~ 4e-305: the "independent" value came
-        # back e^400 too large (an impossible P = 4.75e34), and the same
-        # truncation at the 160-layer's 10^-200 horizon produced pure
-        # layer disagreements at b = 1e200. log1p consumes xm directly:
-        # an original double is exact at any dps >= 25, and the exact
-        # carried complement only reaches this branch when <= 3/4, where
-        # log1p is cancellation-free and its argument truncation is a
-        # relative 10^-dps. (This is the harness's own small_frame
-        # discipline, applied to the one spelling that had escaped it.)
+        # b*ln(1-x) term. When b*x reaches ~400 with x ~ 4e-305, this
+        # makes the "independent" value come back e^400 too large (an
+        # impossible P = 4.75e34), and the same truncation at the
+        # 160-layer's 10^-200 horizon produces pure layer disagreements
+        # at b = 1e200. log1p consumes xm directly: an original double
+        # is exact at any dps >= 25, and the exact carried complement
+        # only reaches this branch when <= 3/4, where log1p is
+        # cancellation-free and its argument truncation is a relative
+        # 10^-dps. (This follows the harness's own small_frame
+        # discipline.)
         lnpre = (am * mp.log(xm) + bm * mp.log1p(-xm)
                  - mp.log(am) - ln_beta(am, bm))
         s = mp.mpf(1)
@@ -182,8 +177,8 @@ def tail_piece_logquad(ap, bp, d, dps):
         pts.append(vhi)
         pts = sorted(set(pts))
         # mp.quad's convergence logic degrades when the integral's
-        # magnitude sits far below working epsilon (adjudicated: 1e-241
-        # at dps 160 came back as sqrt(eps)-scale noise). Normalize to
+        # magnitude sits far below working epsilon (e.g. 1e-241 at
+        # dps 160 comes back as sqrt(eps)-scale noise). Normalize to
         # O(1) via the peak log-magnitude over the split points, then
         # scale back -- the split points bracket every localization the
         # integrand can have (endpoint at ln d, ridge at -ln a').
@@ -252,7 +247,7 @@ def log_bound_small(ap, bp, xp, d):
 
 def negative_control():
     """Detector validation: the evaluator must separate the four known-
-    bad round-5 values from their corrected round-6 values."""
+    bad values from their corrected values."""
     tol = mp.mpf(2) ** -51 + REL_TOL
     ok = True
     for a, b, x, bad, good in NEG_CONTROL:
@@ -429,7 +424,7 @@ def main():
               f"inconclusive, evaluator failed)", file=sys.stderr)
 
     # near-diagonal: NAMED as covered by its own quad validation at
-    # creation (round 3); not re-derivable by this harness's quad.
+    # creation; not re-derivable by this harness's quad.
     nd = len(strata.get("near-diagonal", []))
     print(f"  near-diagonal: {nd} rows NOT covered here (spike width "
           f"~1/sqrt(a) below quad node resolution; certified separately "

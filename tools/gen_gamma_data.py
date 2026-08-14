@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Generate src/gamma_data.h -- every table the gamma_p/gamma_q kernel needs.
 
-Three independent pieces, per PLAN.md "Phase C part 2 -- regularized
-incomplete gamma P/Q detail design":
+Three independent pieces:
 
   Temme table   c_0..c_10 (K=11), each a Chebyshev fit in eta over the band
                 eta in [-sqrt(2*phi(1/2)), +sqrt(2*phi(2))], phi(l)=l-1-log(l).
@@ -14,8 +13,7 @@ incomplete gamma P/Q detail design":
                 TRAP (see R_exact docstring): for eta<0 this MUST be
                 extracted via the P-side identity, never the Q-side -- the
                 Q-side is a 1-minus-tiny cancellation that silently returns
-                garbage (this is not hypothetical; it killed the first
-                extraction attempt outright, hence the assertion in code).
+                garbage.
                 Kernel evaluates each row by Clenshaw in eta, then Horner in
                 r=1/a across the 11 rows -- so coefficients stay in
                 CHEBYSHEV form (unlike lgamma_data.h's monomial tables).
@@ -25,22 +23,22 @@ incomplete gamma P/Q detail design":
   dd constants  2*pi and 1/sqrt(pi), for Temme's sqrt(2*pi*a) and the z.lo
                 erfc correction.
 
-(The phi series for Log1pmxDd lived here until the 2026-07-29 hoist of the
-shared dd primitives into src/dd_special-inl.h; it is now emitted by
-tools/gen_dd_special_data.py, self-checks included.)
+(The phi series for Log1pmxDd moved with the shared dd primitives to
+src/dd_special-inl.h; it is emitted by tools/gen_dd_special_data.py,
+self-checks included.)
 
 Self-checks (mandatory, budget lines to stderr; ANY miss -> exit nonzero,
 emit nothing):
   (a) disjoint-sample re-extraction (a_j=768*2^j) agrees with the primary
       extraction (a_j=512*2^j) to the stated per-coefficient tolerance.
-  (b) cross-check against last session's probe JSON, when present.
+  (b) cross-check against a saved probe JSON, when present.
   (c) end-to-end replay: EMITTED (float64, truncated+padded) coefficients,
       otherwise exact mpf arithmetic, vs the small-side oracle.
   (d) series length N<=64 (worst-case exact-arithmetic tail bound).
   (e) backward-CF depth N=kGammaCfN (worst-case boundary region; includes a
-      permanent fine sweep over (1.5, 2.5] at x=a+1 -- this is where the
-      first pass at N=40 actually missed budget, a blind spot in last
-      session's own probe1_lengths.py grid, which skipped a in (1,2)).
+      permanent fine sweep over (1.5, 2.5] at x=a+1 -- a coarse discrete
+      a-grid can miss this boundary's true supremum entirely, since it
+      sits at a->1.5+ rather than at any conveniently round sample point).
   (f) R4 alternating-series length N=kGammaR4N.
   (Former checks (g)/(h) covered the phi series and moved with it to
   gen_dd_special_data.py as its checks (a)/(b).)
@@ -66,14 +64,13 @@ TAIL_CUT = mp.mpf(2) ** -60
 
 SERIES_NMAX = 64
 SERIES_TARGET = mp.mpf(2) ** -58
-# CF_N=40 measured 2^-54.71 at the a->1.5+, x=a+1 boundary (self-check (e)
-# found this; probe1_lengths.py's own a-grid skipped (1,2) and missed it).
+# CF_N=40 measured 2^-54.71 at the a->1.5+, x=a+1 boundary (self-check (e)).
 # 44 gives ~2^-57-class margin there; four extra backward-CF divisions are
-# cheap. [orchestrator decision 2026-07-27]
+# cheap.
 CF_N = 44
 CF_TARGET = mp.mpf(2) ** -56
 # R4_NMAX=30 measured 2^-47.7 at x=4 (minimum needed is ~34); 36 = 34 + 2
-# margin. [orchestrator decision 2026-07-27]
+# margin.
 R4_NMAX = 36
 R4_TARGET = mp.mpf(2) ** -58
 REPLAY_TARGET = mp.mpf(2) ** -56
@@ -122,8 +119,8 @@ def R_exact(a, eta, lam):
     same-scale tinies, so the difference is a safe relative cancellation.
     For eta < 0 (lambda < 1), that same difference computed from the Q side
     is ONE MINUS TWO TINIES -- it needs ~a*phi*log10(e) extra decimal
-    digits to survive and silently returns garbage/inf otherwise (this
-    killed the first extraction attempt). The fix is the P-side identity:
+    digits to survive and silently returns garbage/inf otherwise. The fix
+    is the P-side identity:
     R = (1/2*erfc(-eta*sqrt(a/2)) - P) * sqrt(2*pi*a) * exp(a*phi), with P
     the regularized LOWER incomplete gamma computed directly -- never
     derived as 1 - Q.
@@ -444,10 +441,11 @@ def main():
         x0 = a + 1.0
         for x in (x0, math.nextafter(x0, math.inf), math.nextafter(x0, -math.inf)):
             cf_check(a, x)
-    # Permanent fine sweep over (1.5, 2.5] at x=a+1: probe1_lengths.py's own
-    # a-grid skipped (1,2) entirely and missed this as the true supremum of
-    # the {a in (3/2,20], x=a+1} case (found the hard way, at N=40: 2^-54.71
-    # at a->1.5+, worse than the discrete list's a=1.6 sample suggested).
+    # Permanent fine sweep over (1.5, 2.5] at x=a+1: the true supremum of
+    # the {a in (3/2,20], x=a+1} case sits at a->1.5+, not at any of the
+    # discrete a values in the list above (at N=40 it measures 2^-54.71
+    # there, worse than the discrete list's a=1.6 sample suggests), so a
+    # coarse discrete grid alone cannot be trusted to find it.
     for i in range(1, 201):
         a = 1.5 + i * (2.5 - 1.5) / 200.0
         x0 = a + 1.0
@@ -524,8 +522,7 @@ def main():
     print(f"inline constexpr double kGammaInvSqrtPiHi = {hexf(inv_sqrt_pi[0])};")
     print(f"inline constexpr double kGammaInvSqrtPiLo = {hexf(inv_sqrt_pi[1])};")
     print()
-    print("// Region-map and fixed-length constants (all probe-validated,")
-    print("// see PLAN.md \"Phase C part 2\").")
+    print("// Region-map and fixed-length constants (all probe-validated).")
     print(f"inline constexpr double kGammaAT = {hexf(20.0)};")
     print(f"inline constexpr int kGammaSeriesN = {SERIES_NMAX};")
     print(f"inline constexpr int kGammaCfN = {CF_N};")

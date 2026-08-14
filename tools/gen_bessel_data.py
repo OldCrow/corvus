@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Generate src/bessel_data.h -- every table corvus::i0/i1/i0e/i1e need.
 
-Per PLAN.md "P2 Bessel I0/I1 -- BINDING DESIGN" and the frontier probe
-(PROBE-RECORD.md). Two regimes, split at kBesselSplit, for BOTH nu=0 and
-nu=1:
+Two regimes, split at kBesselSplit, for BOTH nu=0 and nu=1, per the
+frontier probe (PROBE-RECORD.md):
 
   SERIES  x in [0, kBesselSplit]: truncated power series in q = x^2/4,
       I0: sum q^k/(k!)^2 ; I1: (x/2) * sum q^k/(k!(k+1)!). All-positive,
@@ -26,7 +25,7 @@ nu=1:
       ErfinvCentralDd uses (L0+v*(L1+v*(L2+v*S(v))), leading terms dd,
       remainder one plain-double Horner pass) -- this generator pins the
       minimal depth (smallest that reaches the measured floor; beyond it
-      MORE dd depth was measured to buy nothing further, see G1 report).
+      more dd depth was measured to buy nothing further).
 
   TAIL  x >= kBesselSplit: clean-room Chebyshev refit (own nodes, own
       budget -- A&S/Cephes coefficients NOT consulted) of
@@ -43,9 +42,10 @@ nu=1:
 
   OVERFLOW BOUNDARIES: last-finite doubles for unscaled i0/i1, bisected
       independently against the round-to-inf threshold 2^1024*(1-2^-54)
-      at dps=50 -- CONFIRMED bit-identical to PROBE-RECORD.md's dps=40
-      derivation (0x1.64fe5304e83e4p+9 / 0x1.64fe69ff9fec7p+9); no
-      disagreement to escalate.
+      at dps=50; cross-checked bit-identical against PROBE-RECORD.md's
+      independent dps=40 derivation (0x1.64fe5304e83e4p+9 /
+      0x1.64fe69ff9fec7p+9) -- any future disagreement here is an
+      ESCALATE, not something to resolve by picking one side.
 
 Self-checks (mandatory; stderr budget lines; ANY miss -> exit nonzero,
 emit nothing):
@@ -64,8 +64,8 @@ emit nothing):
       (magnitude ULP distance against the correctly-rounded mpmath
       truth; NOT relative-error bits, which artificially blow up near
       the subnormal floor even when the double result IS the correctly
-      rounded nearest value -- see the tiny-x i1e finding in the G1
-      report). Series target 1 ULP, tail target 2 ULP (erfc precedent;
+      rounded nearest value, which relative error would wrongly flag near
+      the subnormal floor). Series target 1 ULP, tail target 2 ULP (erfc precedent;
       measured tighter here at 1 ULP, gate pinned to what's measured
       per doctrine, not forced).
   (d) negative control: corrupt one dd-lead coefficient's lo word and
@@ -98,21 +98,21 @@ mp.mp.dps = 60
 X_S = 8.0                    # kBesselSplit
 FIT_TOL = mpf(2) ** -60      # both regimes' truncation target (design's stated budget)
 ULP_TARGET_SERIES = 1.0
-ULP_TARGET_TAIL = 2.0        # doctrine allowance; measured floor is tighter (see report)
+ULP_TARGET_TAIL = 2.0        # doctrine allowance; measured floor is tighter
 TAIL_FIT_REL_TARGET = 2.5e-16  # dense-verification gate for the RAW fitted
 # polynomial's double-precision evaluation (erfc_tail's own REL_TARGET,
 # gen_erfc_tail_poly.py's exact choice, reused): this is a ~1.5 ULP
 # evaluation-rounding floor, NOT the mpmath-side truncation cut (FIT_TOL,
 # checked separately at full precision before any double rounding enters).
-KLEAD = {}                   # DERIVED during the replay self-check [SECOND
-                             # correction 2026-08-11]: smallest dd depth whose
-                             # worst replay ULP over BOTH assemblies (unscaled
-                             # bare hi+lo AND scaled i_nu_e) and BOTH MulAdd
-                             # semantics (fused / unfused -- SSE4/SSSE3/SSE2
-                             # ship without FMA) meets ULP_TARGET_SERIES. The
-                             # original static pin {0:3, 1:2} was swept against
-                             # an FMA-only, scaled-only, partially idealized
-                             # sim and let 2-ULP unscaled rows through at SSE4.
+KLEAD = {}                   # DERIVED during the replay self-check:
+                             # smallest dd depth whose worst replay ULP over
+                             # BOTH assemblies (unscaled bare hi+lo AND
+                             # scaled i_nu_e) and BOTH MulAdd semantics
+                             # (fused / unfused -- SSE4/SSSE3/SSE2 ship
+                             # without FMA) meets ULP_TARGET_SERIES. An
+                             # idealized sweep restricted to FMA-only,
+                             # scaled-only assembly can hide a real ULP
+                             # miss on the non-FMA, unscaled tiers.
 TAIL_NODES = 50
 
 T0 = time.time()
@@ -168,17 +168,16 @@ def horner_plain(coeffs_desc, x):
     return acc
 
 
-# ---- faithful dd/float-semantics primitives [SECOND correction 2026-08-11] --
+# ---- faithful dd/float-semantics primitives ----
 # The primitives above model correctly-rounded FMA arithmetic -- true on the
 # FMA-capable tiers (AVX2 and up) ONLY. SSE4/SSSE3/SSE2 are SHIPPING tiers
 # without FMA: there op::MulAdd is an unfused mul-then-add (two roundings)
 # and the dd layer's TwoProd takes ops-inl.h's Dekker path (exact in range,
 # so two_prod above validly models BOTH). The kernel assemblies must
 # therefore be replayed under BOTH semantics, with the dd algorithms
-# mirrored from dd-inl.h op-for-op (TwoSum/Fast2Sum chains) rather than the
-# idealized exact-dd folds the original sim used. Python float arithmetic IS
-# IEEE double round-to-nearest, so plain expressions give unfused semantics
-# directly.
+# mirrored from dd-inl.h op-for-op (TwoSum/Fast2Sum chains) rather than
+# idealized exact-dd folds. Python float arithmetic IS IEEE double
+# round-to-nearest, so plain expressions give unfused semantics directly.
 def _mafold(a, b, c, fused):
     return fma_d(a, b, c) if fused else (a * b) + c
 
@@ -306,8 +305,7 @@ def find_overflow_boundary(nu, dps=50):
 # than economized/refit: all-positive, exactly the mathematical series (no
 # fit-generation risk), and the term count (~22) is already compact -- an
 # economized Chebyshev-in-q refit was not pursued given the raw series
-# already meets budget with a clean, trivially-verified construction (see
-# module docstring/report for the explicit choice discussion).
+# already meets budget with a clean, trivially-verified construction.
 # ============================================================================
 def series_coeffs_raw(nu, kmax=60, dps=60):
     old = mp.mp.dps
@@ -419,15 +417,12 @@ def build_tail_fit(nu, x_s, tol, n_nodes=TAIL_NODES):
 # ============================================================================
 def series_assemble_sim(nu, coeffs_hi, coeffs_lo, dcoef_desc, klead, x,
                         exp_sign, fused):
-    """Faithful replay of src/bessel-inl.h's series branch [SECOND
-    correction 2026-08-11]: BOTH assemblies (unscaled i_nu = bare hi+lo /
-    (x/2)-scaled hi+lo; scaled i_nu_e via a faithful DdMul against the
-    exp_dd pair) under fused OR unfused MulAdd semantics, with the dd
-    algorithms mirrored from dd-inl.h op-for-op. The original sim modeled
-    FMA-capable targets only, replayed only the scaled assembly, and
-    idealized the correction/product folds in exact arithmetic -- it let
-    2-ULP unscaled-series rows through at the SSE4 tier (caught by the G4
-    tier sweep against the G2 reference seam bracket).
+    """Faithful replay of src/bessel-inl.h's series branch: BOTH assemblies
+    (unscaled i_nu = bare hi+lo / (x/2)-scaled hi+lo; scaled i_nu_e via a
+    faithful DdMul against the exp_dd pair) under fused OR unfused MulAdd
+    semantics, with the dd algorithms mirrored from dd-inl.h op-for-op.
+    Replaying only the scaled assembly under FMA-only, exact-arithmetic
+    folds can hide a real ULP miss on the unscaled path at non-FMA tiers.
     Returns (unscaled, scaled)."""
     ssq, sl = two_prod(x, x)             # SquareLow: exact on BOTH paths
     q_hi, q_lo = ssq * 0.25, sl * 0.25   # exact power-of-two scales
@@ -502,7 +497,7 @@ def series_sample_points(x_s, n=300):
         t = (i + 0.5) / n
         pts.append(x_s * math.exp(-10 * (1 - t)))
     b = struct_bits(float(x_s))
-    for k in range(-200, 1):   # widened bracket [SECOND correction]: the
+    for k in range(-200, 1):   # wide bracket: the
         pts.append(bits_to_float(b + k))   # unfused-noise worst sits ~13
         # ulps below the split; 200 gives deep margin either side of it
     pts += [1e-300, 1e-150, 1e-30, 1e-10, 1e-5, 5e-324, 2.0 ** -1074,
@@ -778,9 +773,7 @@ def main():
 
     print("// Auto-generated by tools/gen_bessel_data.py. DO NOT EDIT.")
     print("// Fits and their error budgets are documented in the generator;")
-    print("// the kernel that consumes them is src/bessel-inl.h. See")
-    print("// PLAN.md's P2 Bessel I0/I1 binding design and the G1 replay")
-    print("// report for the split/klead/boundary derivations.")
+    print("// the kernel that consumes them is src/bessel-inl.h.")
     print("//")
     print("// All fits below are functions of q=x*x/4 or t=1/|x| -- both EVEN")
     print("// in x -- so a single table serves both signs: the kernel takes")
@@ -794,19 +787,18 @@ def main():
     print()
     print("namespace corvus::detail {")
     print()
-    print("// Series/tail regime split, pinned by G1 replay (probe range [8,12]):")
+    print("// Series/tail regime split, pinned by replay (probe range [8,12]):")
     print("// x_s=8 is the ONLY candidate in range that reaches the 1 ULP series")
     print("// target without deep dd promotion -- x_s=10/12 were measured to")
     print("// plateau at 2-7 ULP regardless of dd-lead depth (larger x_s widens")
     print("// the series' own hump-shaped term profile near the domain edge,")
     print("// worsening Horner conditioning there faster than it shortens the")
-    print("// tail fit). See the G1 report for the full split comparison.")
+    print("// tail fit).")
     print(f"inline constexpr double kBesselSplit = {hexf(X_S)};")
     print()
     print("// Overflow boundaries (unscaled i0/i1): last-finite double x,")
     print("// independently re-derived (bisected against the round-to-inf")
-    print("// threshold 2^1024*(1-2^-54) at dps=50) and CONFIRMED bit-identical")
-    print("// to the frontier probe's dps=40 derivation.")
+    print("// threshold 2^1024*(1-2^-54) at dps=50).")
     print(f"inline constexpr double kBesselI0OverflowX = {hexf(i0_bound)};")
     print(f"inline constexpr double kBesselI1OverflowX = {hexf(i1_bound)};")
     print()

@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Generate src/erfinv_data.h -- every table the erfinv/erfcinv kernel needs.
 
-Both public functions route onto two shared cores (PLAN.md, "Phase C part 1 --
-erfinv/erfcinv design"):
+Both public functions route onto two shared cores:
 
   Core C (central, |x| <= ~0.4769): x = y*Pc(y^2), a direct polynomial fit,
   NO Newton/Halley step -- the central condition number is ~1, so refining
@@ -55,8 +54,7 @@ Two documented mpmath traps, both from gen_lgamma_data.py, apply again:
 fsum needs a LIST (a generator silently mis-sums), and the Chebyshev node
 count must be EVEN (an odd count puts a node at the domain's exact center,
 which is fine here since none of these fits are centered on a singularity,
-but the node count is kept even anyway for consistency and because the cost
-of getting it wrong once was a full afternoon on lgamma).
+but the node count is kept even anyway for consistency).
 
 Usage:
     python3 tools/gen_erfinv_data.py > src/erfinv_data.h

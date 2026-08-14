@@ -1,22 +1,16 @@
 #!/usr/bin/env python3
 """Generate src/dd_special_data.h -- tables for the shared dd special
 primitives in src/dd_special-inl.h (Log1pmxDd, Expm1Dd), consumed by the
-incomplete gamma and (from Phase C part 3) the incomplete beta kernels.
+incomplete gamma and incomplete beta kernels.
 
 One piece:
 
   phi series    18 double coefficients (-1)^k/(k+2), k=0..17: the small-|u|
                 branch of Log1pmxDd, phi(u) = u - log1p(u) = u^2*T(u). The
-                k=0..5 leads also get a dd low word (kPhiCoefLo) [added
-                post-kernel-review during gamma P/Q]: plain-double rounding
-                of 1/3 alone amplifies to ~12 ULP in the deep Temme tail
-                (a*phi ~ 740) through e^{-a*phi} -- see self-check (b).
-
-History: this table lived in src/gamma_data.h (emitted by gen_gamma_data.py,
-its self-checks (g)/(h)) until the primitives were hoisted out of
-src/gamma-inl.h ahead of the incomplete beta work. Values are unchanged by
-the move; the byte-identity of the gamma ULP tables across the hoist is the
-regression guard.
+                k=0..5 leads also get a dd low word (kPhiCoefLo): plain-
+                double rounding of 1/3 alone amplifies to ~12 ULP in the
+                deep Temme tail (a*phi ~ 740) through e^{-a*phi} -- see
+                self-check (b).
 
 Self-checks (mandatory, budget lines to stderr; ANY miss -> exit nonzero,
 emit nothing):
@@ -81,12 +75,10 @@ def main():
         rc = 1
 
     # --- self-check (b): phi-series leading coefficients as dd pairs ----------
-    # [added post-kernel-review during gamma P/Q]: rounding 1/3 alone is
-    # 2^-55.9 absolute, which enters phi at 2^-58.5 relative at the |u|=1/16
-    # cut, and a*phi ~ 740 amplifies that to ~12 ULP through the exponential
-    # (measured at a=3.79e5, lambda=1.062 before this fix) -- the deep-Temme-
-    # tail band is exactly where a small-u phi error gets blown up by
-    # e^{-a*phi}.
+    # Rounding 1/3 alone is 2^-55.9 absolute, which enters phi at 2^-58.5
+    # relative at the |u|=1/16 cut, and a*phi ~ 740 amplifies that to ~12 ULP
+    # through the exponential -- the deep-Temme-tail band is exactly where a
+    # small-u phi error gets blown up by e^{-a*phi}.
     print("(b) phi-series leading coefficients as dd pairs (k=0..5):",
           file=sys.stderr)
     phi_lead_dd = [dd_split(phi_coefs[k]) for k in range(PHI_LEAD)]
@@ -124,11 +116,10 @@ def main():
     print("// Log1pmxDd small-|u| branch: phi(u) = u - log1p(u) = u^2 * T(u),")
     print("// T(u) = sum_{k=0}^{17} (-1)^k/(k+2) * u^k, Horner in u.hi.")
     emit_hex_array_1d("kPhiCoef", [rd(c) for c in phi_coefs])
-    print("// The k=0..5 leads carry a dd low word too [added post-kernel-")
-    print("// review]: rounding 1/3 alone is 2^-55.9 absolute, which enters")
-    print("// phi at 2^-58.5 relative at the |u|=1/16 cut, and a*phi ~ 740")
-    print("// amplifies that to ~12 ULP through e^{-a*phi} in the deep Temme")
-    print("// tail (measured at a=3.79e5, lambda=1.062 before this fix).")
+    print("// The k=0..5 leads carry a dd low word too: rounding 1/3 alone")
+    print("// is 2^-55.9 absolute, which enters phi at 2^-58.5 relative at")
+    print("// the |u|=1/16 cut, and a*phi ~ 740 amplifies that to ~12 ULP")
+    print("// through e^{-a*phi} in the deep Temme tail.")
     print("// Exact-in-double entries (k=0: 1/2, k=2: 1/4) get lo=0.")
     emit_hex_array_1d("kPhiCoefLo", [p[1] for p in phi_lead_dd])
     print()

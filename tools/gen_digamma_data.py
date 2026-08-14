@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""Generate src/digamma_data.h -- every table the digamma kernel needs, per
-PLAN.md "P1 digamma -- detail design" (BINDING; this generator pins the
-numeric constants that section leaves open: zone degree/dd-lead count,
-asymptotic K/dd-head count, reflection sinc-pair fits, rough-trigamma
-degree -- it does not re-derive the region map, the product-form choice,
-or the reflection formula, all of which are read from that section
-verbatim).
+"""Generate src/digamma_data.h -- every table the digamma kernel needs. This
+generator pins the numeric constants the design leaves open: zone
+degree/dd-lead count, asymptotic K/dd-head count, reflection sinc-pair
+fits, rough-trigamma degree -- it does not re-derive the region map, the
+product-form choice, or the reflection formula, which are taken as given.
 
 Six pieces:
 
@@ -44,7 +42,7 @@ Six pieces:
                  (asymptotic-form, one recurrence step below y=2) used
                  ONLY for the y.lo * trigamma(y.hi) correction on the
                  reflection path's dd argument -- NOT src/beta_data.h's
-                 DigammaRough (PLAN.md: "NOT reusable").
+                 DigammaRough; a separate fit, not shared with it.
 
   region/threshold constants: kDigammaX0 = 8 (asymptotic threshold --
                  distinct from the ROOT x0, named kDigammaRoot* below to
@@ -54,25 +52,24 @@ Six pieces:
                  cos(pi u)/(u*sincfit(u)) already equals pi*cot(pi x) by
                  construction (the pi in sincfit's own denominator cancels
                  it out), so pi never appears explicitly in the assembly
-                 -- confirmed the hard way: an earlier draft multiplied by
-                 pi again here, which self-check (c) caught immediately
-                 (a -50-bit "retained accuracy", i.e. no accuracy at all).
+                 -- double-counting it (multiplying by pi again here) would
+                 show up immediately in self-check (c) as a -50-bit
+                 "retained accuracy", i.e. no accuracy at all.
 
 SELF-CHECKS (mandatory, budget lines to stderr; ANY miss -> exit nonzero):
   (a) zone replay <= 2^-55 relative, dense [1,2) grid + x0 neighborhoods.
   (b) asymptotic truncation+replay sup at x=X0 and sampled x in
       [X0, 1e300].
-  (c) REFLECTION, the accuracy doctrine's OWN dual metric [FIRST DESIGN
-      CORRECTION, PLAN.md, ratified after escalation -- near-relative
+  (c) REFLECTION, the accuracy doctrine's own dual metric -- near-relative
       accuracy AT the adversarial zeros needs 2^-104-class term1/term2
       inputs (measured: zone needs degree~40 away from x0's own
       precision floor, asymptotic plateaus ~65 bits regardless of K at
-      X0=8 -- an asymptotic, not convergent, series) and is REJECTED on
-      cost; lgamma's negative axis does not offer that contract either]:
+      X0=8 -- an asymptotic, not convergent, series) and is rejected on
+      cost; lgamma's negative axis does not offer that contract either:
         (c1) ABSOLUTE error <= 2^-56 at each of the 20 adversarial
-             nearest-double points (bug-fixed measurement: 2.42e-18 ~
-             2^-58.5 worst -- this bar carries margin; exceeding it here
-             is STILL an escalate, not a target to loosen).
+             nearest-double points (measured worst 2.42e-18 ~ 2^-58.5 --
+             this bar carries margin; exceeding it here is still an
+             escalate, not a target to loosen).
         (c2) RELATIVE error <= 2^-52 at dense negative-axis samples
              where |psi(x)| >= 1: each interval (-n-1,-n) for n=1..20,
              excluding the per-zero band W ~ 1/|trigamma(z0)| around
@@ -120,9 +117,8 @@ WALK_DEPTH = int(mp.ceil(X0 - ZONE_HI))  # masked down-walk step count = 6
 ZONE_TARGET = mp.mpf(2) ** -55
 ASYM_TARGET = mp.mpf(2) ** -55
 RECURRENCE_TARGET = mp.mpf(2) ** -55
-# (c) FIRST DESIGN CORRECTION [PLAN.md, ratified]: the dual metric replacing
-# the original single "54.5 bits relative" bar (rejected on cost -- see the
-# module docstring).
+# (c) the dual metric replaces a single "54.5 bits relative" bar, rejected
+# on cost (see the module docstring).
 REFLECTION_C1_ABS_TARGET = mp.mpf(2) ** -56
 REFLECTION_C2_REL_TARGET = mp.mpf(2) ** -52
 ROUGH_TRIGAMMA_TARGET = mp.mpf(2) ** -40
@@ -316,8 +312,7 @@ def fit_zone_monomial(x0_mp, degree):
     the conversion cancels ~n bits it never had the dps budget for (measured
     directly: n_nodes=200 truncated to degree 30 floors at ~1.5e-14, while
     a degree-31-node fit at the SAME degree reaches ~3e-18 -- four orders
-    tighter). Matches tools/gen_digamma_data.py's own probe precedent
-    (scratchpad p1_zone.py), which fits per-degree for exactly this reason."""
+    tighter)."""
     lo = ZONE_LO - x0_mp
     hi = ZONE_HI - x0_mp
 
@@ -791,11 +786,10 @@ def reflection_dd(pipe, sinc_lead, sinc_tail, cos_lead, cos_tail,
     cos_val = eval_lead_tail_dd(cos_lead, cos_tail, v_hi, v_ex)
     # denom = u*sincfit(u) = u*sin(pi u)/(pi u) = sin(pi u)/pi, so
     # cos_val/denom = pi*cos(pi u)/sin(pi u) = pi*cot(pi u) = pi*cot(pi x)
-    # ALREADY -- pi cancels analytically (design's own framing), no
-    # separate pi multiplication belongs here. (Bug found by check (c):
-    # an earlier version multiplied by pi_ex again here, giving pi^2*cot
+    # ALREADY -- pi cancels analytically, no separate pi multiplication
+    # belongs here. Multiplying by pi_ex again here would give pi^2*cot
     # and a catastrophically wrong result -- kDigammaPiHi/Lo is unused by
-    # this assembly and dropped from emission below.)
+    # this assembly and dropped from emission below.
     denom = mp.mpf(u) * sinc_val
     ratio = cos_val / denom       # = pi*cot(pi u) = pi*cot(pi x)
     term2 = ratio
@@ -805,9 +799,9 @@ def reflection_dd(pipe, sinc_lead, sinc_tail, cos_lead, cos_tail,
 
 def check_c1_absolute(pipe, sinc_lead, sinc_tail, cos_lead, cos_tail,
                        trig_coefs):
-    """(c1) [FIRST DESIGN CORRECTION]: ABSOLUTE error <= 2^-56 at each of
-    the 20 adversarial nearest-double points -- replaces the original
-    single relative-bits bar, rejected on cost (module docstring)."""
+    """(c1) ABSOLUTE error <= 2^-56 at each of the 20 adversarial
+    nearest-double points -- replaces a single relative-bits bar, rejected
+    on cost (see module docstring)."""
     print("(c1) REFLECTION ADVERSARIAL ABSOLUTE (20 nearest-double negative "
           "zeros, target abs <= 2^-56):", file=sys.stderr)
     zeros = negative_zeros(20, dps=80)
@@ -853,8 +847,8 @@ C2_POLE_MARGIN = mp.mpf("0.01")
 
 def check_c2_relative(pipe, sinc_lead, sinc_tail, cos_lead, cos_tail,
                        trig_coefs):
-    """(c2) [FIRST DESIGN CORRECTION]: RELATIVE error <= 2^-52 at dense
-    negative-axis samples where |psi(x)| >= 1 -- each interval (-n-1,-n)
+    """(c2) RELATIVE error <= 2^-52 at dense negative-axis samples where
+    |psi(x)| >= 1 -- each interval (-n-1,-n)
     for n=1..20 (excluding that interval's zero band W ~ 1/|trigamma(z0)|
     and a pole margin at both ends), plus a few log-spaced spot intervals
     out to n ~ 1e6 (|psi(x)| >= 1 filter alone -- it already excludes the
@@ -1133,9 +1127,9 @@ def main():
     print(f"// correction on the reflection path's dd argument. NOT")
     print(f"// src/beta_data.h's DigammaRough (different function, "
           f"different budget,")
-    print(f"// not reusable -- see PLAN.md). Replay-measured worst "
+    print(f"// not reusable). Replay-measured worst "
           f"{float(trig_err):.3e}.")
-    print(f"// WALK FORM (G3: mirror this in the kernel): while (y <")
+    print(f"// WALK FORM (the kernel MUST mirror this): while (y <")
     print(f"// kDigammaRoughTrigammaFloor) {{ s += 1/(y*y); y += 1; }} then")
     print(f"// trigamma(y) ~= 1/y + w/2 + w*Horner(coef, w)/y, w = 1/(y*y),")
     print(f"// return s + that. y=2 alone measured ~2.4e-5 best-case (nowhere")

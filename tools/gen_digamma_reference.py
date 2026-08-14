@@ -8,17 +8,15 @@ own ULP before being trusted), rounded to nearest double. Specials (poles,
 +-inf, NaN, x = 0) are covered by the smoke test, not this file -- same
 convention as tools/gen_lgamma_reference.py.
 
-Format check against the template (2026-08-06): lgamma's own reference file
-carries NO dd pair -- two hex doubles per line, nothing more -- despite
-lgamma's kernel computing in dd internally. Its own hardest metric (the
-negative-axis |lgamma|<1 absolute band, tests/test_lgamma_ulp.cpp) is
-measured against that same plain rounded double, because a correctly-rounded
-double is already accurate in ABSOLUTE terms in proportion to its own
-magnitude -- exactly what's needed near a zero crossing. digamma's design
-doctrine (PLAN.md P1) is the direct analogue (relative where |psi| >= 1, else
-2^-53-class absolute near the negative-axis zeros), so this generator follows
-the same convention: no dd pair. See PLAN.md's G2 REFERENCE stage note for
-the check that established this before writing the point set below.
+lgamma's own reference file carries NO dd pair -- two hex doubles per line,
+nothing more -- despite lgamma's kernel computing in dd internally. Its own
+hardest metric (the negative-axis |lgamma|<1 absolute band,
+tests/test_lgamma_ulp.cpp) is measured against that same plain rounded
+double, because a correctly-rounded double is already accurate in ABSOLUTE
+terms in proportion to its own magnitude -- exactly what's needed near a
+zero crossing. digamma's design doctrine is the direct analogue (relative
+where |psi| >= 1, else 2^-53-class absolute near the negative-axis zeros),
+so this generator follows the same convention: no dd pair.
 
 Point selection targets what the kernel's region structure (src/digamma_data.h)
 makes fragile, mirroring lgamma's rationale one level up in complexity because
@@ -42,11 +40,11 @@ unbounded pole ladder on the negative axis:
     log-spaced far-negative non-integers out to ~2^52 (see the note at
     far_negative_points() on why [2^52, 2^53) contributes nothing here)
 
-Mechanism notes (see PLAN.md "MECHANISMS", binding): mp.dps is set INSIDE
-every computation function, never at module scope for anything that runs
-during point generation; run is foreground-only and single-shot (point count
-here computes in low tens of seconds, not the ~5-minute chunk ceiling that
-motivated the rule elsewhere in this project).
+Mechanism notes: mp.dps is set INSIDE every computation function, never at
+module scope for anything that runs during point generation; run is
+foreground-only and single-shot (point count here computes in low tens of
+seconds, not the ~5-minute chunk ceiling that motivated the rule elsewhere
+in this project).
 
 Usage:
     python tools/gen_digamma_reference.py > tests/data/digamma_reference.txt
@@ -172,10 +170,10 @@ def hand_digamma(x, dps, shift=40, nterms=15):
     reflection formula psi(x) = psi(1-x) - pi*cot(pi*x) (mp.cot() is again
     an independent primitive) rather than recurring up from x itself --
     walking from x = -1e6 or the far-negative stratum's ~-4.5e15 to
-    `shift` one integer at a time is a million-plus-iteration loop
-    (observed to hang the first version of this script); psi(1-x) starts
-    the walk already past `shift` for any x that negative, so the loop
-    body never executes. Measured agreement against mp.digamma at dps 60
+    `shift` one integer at a time would be a million-plus-iteration loop;
+    psi(1-x) starts the walk already past `shift` for any x that negative,
+    so the loop body never executes. Measured agreement against mp.digamma
+    at dps 60
     across zone/mid/negative/root/small-x samples: worst diff ~2.5e-43,
     i.e. this is not a marginal check.
 
@@ -311,7 +309,7 @@ def strata_negative(rng):
 
     # 4a. First 20 negative-axis zeros, recomputed at dps >= 60 here (never
     # copied). Nearest double + relative offsets bracketing the sign change
-    # on both sides, per PLAN.md's ratified doctrine.
+    # on both sides.
     offsets = (1e-15, 1e-12, 1e-9, 1e-6, 1e-3)
     zero_pts = []
     zeros100 = []
@@ -432,9 +430,9 @@ def spot_check(rows, rng, n=25):
     Rows span magnitudes from ~0 (near the root/zeros) to ~1e274 (near the
     smallest sampled positive x, where psi(x) ~ -1/x), so the gate must be
     relative-or-absolute like the layered-dps check, not a bare absolute
-    diff -- an early version of this check used a fixed 1e-12 absolute
-    threshold and flagged an actually-fine ~1e-17-relative row as a
-    failure because its magnitude was ~1e274.
+    diff -- a fixed absolute threshold would flag an actually-fine
+    ~1e-17-relative row as a failure purely because its magnitude is
+    ~1e274.
     """
     sample = rng.sample(rows, min(n, len(rows)))
     worst_norm = mp.mpf(0)

@@ -12,7 +12,7 @@ mpmath has no erfcinv, and this is also what the design's own tail model is
 checked against (see tools/gen_erfinv_data.py).
 
 Point selection (fixed seed, reproducible), per the design's own list of
-what is fragile (PLAN.md "Phase C part 1"):
+what is fragile:
   - erfinv dense over (-1, 1), including bit-neighbourhoods of the C/T
     routing boundary y = +-0.5, the extremes +-(1 - k*2^-52), subnormal y,
     and +-0

@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-"""Generate src/trigamma_data.h -- every table the trigamma kernel needs, per
-PLAN.md "P1 trigamma -- detail design" (BINDING) plus its FIRST CORRECTION
-(zone pinned to degree 27 / 3 dd-leads, and edge-refined bit-stepped
-sampling mandatory on every replay self-check -- see that correction's own
-note for the root cause: the original "degree 24 / 1 dd-lead" probe number
-was a grid artifact, the true worst points sitting within ~1e-10 of the
-[1,2) domain edges where Chebyshev coefficient rounding adds coherently,
-missed by uniform/random sampling alone).
+"""Generate src/trigamma_data.h -- every table the trigamma kernel needs.
+Zone pinned to degree 27 / 3 dd-leads; edge-refined bit-stepped sampling
+is mandatory on every replay self-check -- the true worst points sit
+within ~1e-10 of the [1,2) domain edges where Chebyshev coefficient
+rounding adds coherently, missed by uniform/random sampling alone.
 
 Digamma-shaped MINUS the hard parts (no root, no product form, no cos
 table): trigamma has no zero anywhere finite (psi_1 = sum of squares, so
@@ -20,9 +17,9 @@ machinery dropped, tetragamma added for the reflection's dd-lo correction):
                  to divide out): psi_1(x) = P(t), t = x - 1.5 (the fit's
                  own centre; 1.5 is exact in double, so t is exact via
                  Sterbenz for x in [1,2) -- no root, no dd centre needed).
-                 PINNED degree=27, 3 dd-leads (FIRST CORRECTION). Confirmed
-                 by replay: python-float dd-head + double-tail Horner
-                 emulation against mpmath, edge-refined bit-stepped grid.
+                 PINNED degree=27, 3 dd-leads. Confirmed by replay:
+                 python-float dd-head + double-tail Horner emulation
+                 against mpmath, edge-refined bit-stepped grid.
 
   (0,1) shift    up-step without forming 1+x: psi_1(x) = P(t1) + 1/x^2,
                  t1 = x - 0.5 = (x+1) - 1.5 -- the SAME zone polynomial,
@@ -37,7 +34,7 @@ machinery dropped, tetragamma added for the reflection's dd-lo correction):
                  digamma's derivative; differentiating psi(x) ~ log x -
                  1/(2x) - sum B_2k/(2k x^2k) term-by-term removes the
                  /(2k) and adds one extra power of 1/x per term). K=11
-                 provisional per PLAN.md; bumped to K+1 (report, not
+                 provisional; bumped to K+1 (report, not
                  escalate) if edge-refined replay at the x=X0 boundary
                  needs it, capped at K<=13.
 
@@ -68,7 +65,7 @@ machinery dropped, tetragamma added for the reflection's dd-lo correction):
                  itself overflows double below that x).
 
 SELF-CHECKS (mandatory, budget lines to stderr; ANY miss -> exit nonzero).
-Per the FIRST CORRECTION, checks (a)-(d) ALL use edge-refined bit-stepped
+Checks (a)-(d) ALL use edge-refined bit-stepped
 sampling at their domain boundaries (see bitstep()) in ADDITION to dense/
 random grids -- a uniform or random grid alone can miss the true worst
 point, which concentrates within a handful of ULPs of a boundary wherever
@@ -118,13 +115,13 @@ mp.mp.dps = 60  # module-level default; every function below sets its OWN
 
 SEED = 20260808
 
-# --- Design constants [PLAN.md P1 trigamma, BINDING + FIRST CORRECTION] ------
+# --- Design constants ----------------------------------------------------------
 ZONE_LO = mp.mpf(1)
 ZONE_HI = mp.mpf(2)
 ZONE_CENTRE = mp.mpf("1.5")   # exact double; fit's own centre, NOT a root.
 ZONE_CENTRE_M1 = mp.mpf("0.5")  # exact double; (0,1) branch shift.
-ZONE_DEGREE = 27              # FIRST CORRECTION pin (was 24).
-ZONE_NLEAD = 3                # FIRST CORRECTION pin (was 1).
+ZONE_DEGREE = 27              # Pinned via edge-refined replay (see module docstring).
+ZONE_NLEAD = 3                # Pinned via edge-refined replay (see module docstring).
 X0 = mp.mpf(8)                 # kTrigammaX0, asymptotic threshold.
 WALK_DEPTH = int(mp.ceil(X0 - ZONE_HI))  # masked down-walk step count = 6
 ASYM_CUT = mp.mpf(2) ** 89     # kTrigammaAsymCut.
@@ -135,8 +132,8 @@ ASYM_K_MAX = 13
 ZONE_TARGET = mp.mpf(2) ** -55
 ASYM_TARGET = mp.mpf(2) ** -55
 ASYM_CUT_DROPPED_TARGET = mp.mpf(2) ** -80
-# NOTE: PLAN.md's "dropped part < 2^-90 relative" describes the DOMINANT
-# component only (1/(2x) at x=kTrigammaAsymCut=2^89 is EXACTLY 2^-90 --
+# NOTE: the design's "dropped part < 2^-90 relative" bound describes the
+# DOMINANT component only (1/(2x) at x=kTrigammaAsymCut=2^89 is EXACTLY 2^-90 --
 # 2^89 is a power of two chosen for precisely that), so the true dropped
 # part (which also includes the positive term3 tail contribution) is
 # mathematically guaranteed to sit fractionally ABOVE 2^-90 there, never
@@ -144,25 +141,23 @@ ASYM_CUT_DROPPED_TARGET = mp.mpf(2) ** -80
 # 2^-80 keeps 25 bits of margin under the 2^-55 accuracy floor (i.e. still
 # utterly negligible) while being an honest, checkable target; see the
 # self-check's own printed ratio for the actual (~2^-90-scale) number.
-# RECURRENCE_TARGET is NOT a fixed a priori constant (SECOND CORRECTION,
-# self-diagnosed): the ORIGINAL brief pins numeric targets for self-checks
-# (a) 2^-55 and (c) 2^-54.5-class explicitly, but leaves (d) unnumbered --
-# an initial 2^-55 mirrored from digamma's own recurrence target does NOT
-# survive edge-refined replay here. Root cause (confirmed by hand-tracing
-# the exact arithmetic, not a coding bug): the [2,8) down-walk computes
-# zone_dd(x_land) - sum_j 1/(x-j)^2, where the subtracted sum is EXACT in
-# this replay's modeled-dd arithmetic, so the walk's absolute error is
-# EXACTLY the zone fit's own absolute error at the landing point -- but the
-# walk's OUTPUT magnitude shrinks monotonically from psi_1(2) down to
-# psi_1(X0) as m grows from 1 to kTrigammaWalkDepth, while the zone's own
-# landing value can be as large as psi_1(1) (at m=kTrigammaWalkDepth,
-# landing nearest x_land=1 -- i.e. x just above X0-1). The same fixed
-# absolute error, expressed relative to a shrinking output, amplifies by up
-# to psi_1(1)/psi_1(X0) (~12.36x) -- confirmed empirically: the worst
-# recurrence point sits at x just above 7 (m=6, landing nearest x_land=1),
-# exactly where this bound predicts it. Derived below from the zone's OWN
-# measured accuracy times this provable bound, x2 safety margin -- see
-# derive_recurrence_target().
+# RECURRENCE_TARGET is NOT a fixed a priori constant: the brief pins
+# numeric targets for self-checks (a) 2^-55 and (c) 2^-54.5-class
+# explicitly, but leaves (d) unnumbered -- an initial 2^-55 mirrored from
+# digamma's own recurrence target does NOT survive edge-refined replay
+# here. Root cause: the [2,8) down-walk computes zone_dd(x_land) -
+# sum_j 1/(x-j)^2, where the subtracted sum is EXACT in this replay's
+# modeled-dd arithmetic, so the walk's absolute error is EXACTLY the zone
+# fit's own absolute error at the landing point -- but the walk's OUTPUT
+# magnitude shrinks monotonically from psi_1(2) down to psi_1(X0) as m
+# grows from 1 to kTrigammaWalkDepth, while the zone's own landing value
+# can be as large as psi_1(1) (at m=kTrigammaWalkDepth, landing nearest
+# x_land=1 -- i.e. x just above X0-1). The same fixed absolute error,
+# expressed relative to a shrinking output, amplifies by up to
+# psi_1(1)/psi_1(X0) (~12.36x): the worst recurrence point sits at x just
+# above 7 (m=6, landing nearest x_land=1), exactly where this bound
+# predicts it. Derived below from the zone's OWN measured accuracy times
+# this provable bound, x2 safety margin -- see derive_recurrence_target().
 REFLECTION_TARGET = mp.mpf(2) ** mp.mpf("-54.5")
 SINC_TARGET = mp.mpf(2) ** -58
 ROUGH_TETRA_TARGET = mp.mpf(2) ** -30
@@ -216,11 +211,10 @@ def bitstep(boundary, n, span, direction):
     correct for both signs: IEEE754 bit patterns order by MAGNITUDE
     independently within each sign, only the leading sign bit flips overall
     value ordering across zero, which direction here never crosses), up to
-    `span` total ULPs. THE mechanism instituted by PLAN.md's FIRST
-    CORRECTION: dense/random grids alone missed the true worst point in the
-    zone fit (it sat within ~1e-10, i.e. a handful of ULPs, of x=1/x=2);
-    every boundary-sensitive replay below calls this in addition to its
-    dense grid."""
+    `span` total ULPs. Dense/random grids alone can miss the true worst
+    point in a fit (e.g. the zone fit's worst point sat within ~1e-10,
+    i.e. a handful of ULPs, of x=1/x=2); every boundary-sensitive replay
+    below calls this in addition to its dense grid."""
     b = as_bits(boundary)
     step = max(1, span // n)
     out = []
@@ -314,7 +308,7 @@ def split_lead_tail(mono, n_lead):
 
 # ==============================================================================
 # (1) Zone [1,2): psi_1(x) = P(t), t = x - 1.5 (VALUE fit, no product form).
-# PINNED degree=27, 3 dd-leads (FIRST CORRECTION).
+# PINNED degree=27, 3 dd-leads.
 # ==============================================================================
 def fit_zone_monomial(degree):
     def f(t):
@@ -331,8 +325,8 @@ def build_zone_grid(seed=SEED):
         pts.append(1.0 + i * (1.0 / 3000))
     for _ in range(3000):
         pts.append(rd(rng.uniform(1.0, 2.0)))
-    # Edge-refined: the FIRST CORRECTION's own lesson -- true worst points
-    # sit within a handful of ULPs of x=1 and x=2.
+    # Edge-refined: true worst points sit within a handful of ULPs of x=1
+    # and x=2.
     pts += [x for x in bitstep(1.0, 3000, 500000, +1) if x < 2.0]
     pts += [x for x in bitstep(2.0, 3000, 500000, -1) if x >= 1.0]
     return pts
@@ -431,7 +425,7 @@ def build_asym_grid(seed=SEED + 1):
     for _ in range(1500):
         pts.append(rd(rng.uniform(x0f, x0f * 1.2)))
     # Edge-refined AT the boundary -- largest w, most rounding stress, same
-    # disease class as the zone edges (FIRST CORRECTION's own generalization).
+    # disease class as the zone edges.
     pts += bitstep(x0f, 2500, 600000, +1)
     n_far = 900
     cut = float(ASYM_CUT)
@@ -611,7 +605,7 @@ def tetragamma_asym_eval(y, coefs):
 
 
 def tetragamma_rough_eval(y, coefs, floor_val):
-    # WALK FORM (G3: mirror this in the kernel): recurrence psi_2(y) =
+    # WALK FORM (mirror this in the kernel): recurrence psi_2(y) =
     # psi_2(y+1) - 2/y^3, so walking UP accumulates -2/y^3 per step.
     s = 0.0
     while y < floor_val:
@@ -818,15 +812,15 @@ def check_recurrence(pipe, seed=SEED):
 
 
 def derive_recurrence_target(zone_err):
-    """SECOND CORRECTION (self-diagnosed, report-and-continue -- see the
-    RECURRENCE_TARGET module comment for the root cause): the down-walk's
-    worst-case cancellation amplification is bounded by psi_1(1)/psi_1(X0),
-    since the walk's absolute error is exactly the zone fit's own absolute
-    error at the landing point (the subtracted sum is exact), and that
-    fixed absolute error gets divided by an output magnitude that shrinks
-    from psi_1(2) down to psi_1(X0) as the walk deepens. Target = zone's
-    own measured worst-case relative error * this bound * a x2 safety
-    margin. mp.dps is set INSIDE this function."""
+    """Derived, not a fixed a priori constant -- see the RECURRENCE_TARGET
+    module comment for the full derivation. The down-walk's worst-case
+    cancellation amplification is bounded by psi_1(1)/psi_1(X0), since the
+    walk's absolute error is exactly the zone fit's own absolute error at
+    the landing point (the subtracted sum is exact), and that fixed
+    absolute error gets divided by an output magnitude that shrinks from
+    psi_1(2) down to psi_1(X0) as the walk deepens. Target = zone's own
+    measured worst-case relative error * this bound * a x2 safety margin.
+    mp.dps is set INSIDE this function."""
     old = mp.mp.dps
     mp.mp.dps = 50
     try:
@@ -877,7 +871,7 @@ def build_reflection_grid(seed):
     pts = []
     for _ in range(4000):
         pts.append(-rd(rng.uniform(1e-6, 50.0)))
-    # Worst-cancellation neighbourhood (PLAN.md: x ~ -0.455, ratio 1.107).
+    # Worst-cancellation neighbourhood: x ~ -0.455, ratio 1.107.
     for _ in range(1500):
         pts.append(-rd(rng.uniform(0.40, 0.50)))
     pts += [-x for x in bitstep(0.455, 1500, 300000, +1)]
@@ -1102,10 +1096,10 @@ def main():
     print(f"// Zone [1,2): psi_1(x) = P(t), t = x - kTrigammaZoneCentre (dd).")
     print(f"// P(t) = L0 + t*(L1 + ... + t*S(t)); L* are the first "
           f"{zone_n_lead} dd-lead")
-    print(f"// coefficients [FIRST CORRECTION: 3, not the probe's 1 -- see")
-    print(f"// PLAN.md; the original '1 dd-lead' number was a grid artifact,")
-    print(f"// missed by uniform/random sampling, that edge-refined bit-")
-    print(f"// stepped replay near x=1/x=2 caught], S the plain-double tail")
+    print(f"// coefficients (pinned by edge-refined bit-stepped replay near")
+    print(f"// x=1/x=2: uniform/random sampling misses the true worst points,")
+    print(f"// which sit within ~1e-10 of the domain edges and need more dd")
+    print(f"// leads than a coarse grid implies), S the plain-double tail")
     print(f"// (degree {zone_degree} total). Replay-measured worst relative")
     print(f"// error {float(zone_err):.3e} (target 2^-55).")
     print(f"inline constexpr int kTrigammaZoneLead = {zone_n_lead};")
@@ -1121,8 +1115,8 @@ def main():
     print(f"// asymptotic coefficients: trigamma is digamma's derivative,")
     print(f"// which removes the /(2k) and adds one power of 1/x per term).")
     print(f"// T the plain-double tail, K={asym_K} terms total"
-          + (f" [bumped from provisional {ASYM_K_PROVISIONAL} by edge-"
-             f"refined replay]" if asym_K != ASYM_K_PROVISIONAL else "")
+          + (" (edge-refined replay pin)"
+             if asym_K != ASYM_K_PROVISIONAL else "")
           + f". Replay-measured worst relative error {float(asym_err):.3e} "
           f"(target 2^-55). Beyond kTrigammaAsymCut, the dropped part "
           f"(1/(2x^2) + tail) is < 2^-90 relative of 1/x (measured "
@@ -1153,7 +1147,7 @@ def main():
     print(f"// overall (psi_1 >= 8.93, the negative-axis global min), so")
     print(f"// 2^-30 is ample margin. Replay-measured worst "
           f"{float(tetra_err):.3e}.")
-    print(f"// WALK FORM (G3: mirror this in the kernel): while (y <")
+    print(f"// WALK FORM (the kernel MUST mirror this): while (y <")
     print(f"// kTrigammaRoughTetraFloor) {{ s -= 2/(y*y*y); y += 1; }} then")
     print(f"// psi_2(y) ~= -(1/y^2 + 1/y^3 + (1/y^2)^2 * Horner(coef, 1/y^2)),")
     print(f"// return s + that (recurrence psi_2(y) = psi_2(y+1) - 2/y^3).")
@@ -1166,13 +1160,13 @@ def main():
     print(f"// term (~pi^2/6 at worst) is < 2^-950 relative of the dd 1/x^2")
     print(f"// term (self-check derivation: e={guard_e} chosen with margin")
     print(f"// over the measured crossover) -- the kernel may return dd(1/x^2)")
-    print(f"// alone there. PROBE WARNING (G3): naive double (1/x)^2 or")
+    print(f"// alone there. WARNING: naive double (1/x)^2 or")
     print(f"// 1/(x*x) is NOT reliably correctly-rounded in this regime")
     print(f"// (measured 24-46% 1-ULP misses) -- the reciprocal-square must")
     print(f"// stay dd end-to-end down to the overflow boundary below; if")
     print(f"// Dekker-split limbs land subnormal in this deep-tiny lane, use")
     print(f"// exact power-of-two rescaling (beta's non-FMA subnormal-tau")
-    print(f"// reframing pattern, PLAN.md correction 11).")
+    print(f"// reframing pattern).")
     print(f"// Overflow boundary (NOTE ONLY, no separate constant): 1/x^2")
     print(f"// itself overflows double below x = 2^-512 = 1/sqrt(DBL_MAX).")
     emit_scalar("kTrigammaDeepTinyGuard", float(mp.mpf(2) ** -guard_e))

@@ -37,8 +37,7 @@ regime that digamma's Laurent term doesn't have):
     brackets at the ~2^-512 overflow boundary (1/x^2 itself overflows
     DBL_MAX there), the ~2^-480 deep-tiny guard (below which the zone term
     stops mattering to double precision), and the ~2^-28 crossover (below
-    which the pi^2/6 Laurent-constant contribution stops mattering at all,
-    per PLAN.md)
+    which the pi^2/6 Laurent-constant contribution stops mattering at all)
   - the zone [1, 2), dense
   - the [2, 8) fixed-step down-walk region, plus brackets at each integer
     step threshold (3..7) -- a lane can take a different walk depth than
@@ -51,13 +50,13 @@ regime that digamma's Laurent term doesn't have):
     neighbourhood x ~ -0.4957 (psi_1's unique negative-axis minimum,
     8.933..., recomputed here, not copied from anywhere); near-pole
     ulp-offset brackets from both sides at n=1..20, 100, 1000, ~1e6; and
-    log-spaced far-negative non-integers out to ~2^52 (see the note at
-    far_negative_points() on why [2^52, 2^53) contributes nothing here,
-    identical reasoning to digamma's own generator)
+    log-spaced far-negative non-integers out to ~2^52 ([2^52, 2^53)
+    contributes nothing: every double there is an integer, i.e. a pole --
+    see strata_negative(); identical reasoning to digamma's generator)
 
-Mechanism notes (PLAN.md "MECHANISMS", binding): mp.dps is set INSIDE
-every computation function, never at module scope for anything that runs
-during point generation; run is foreground-only and single-shot.
+Mechanism rule (binding): mp.dps is set INSIDE every computation
+function, never at module scope for anything that runs during point
+generation; run is foreground-only and single-shot.
 
 Usage:
     python tools/gen_trigamma_reference.py > tests/data/trigamma_reference.txt
@@ -96,18 +95,16 @@ def neighbourhood(x0: float, k: int = 48):
 
 
 # mp.polygamma(1, x) has NO fast path for negative x internally, unlike
-# mp.digamma (order 0) -- discovered mid-run (the un-patched generator hung
-# for 25+ CPU-minutes on the far-negative/pole-at-1e6 strata before being
-# killed). Direct timing: polygamma(1, x) at dps=100 costs ~4.2s at
-# x=-1e6 and scales ~linearly with |x| (an internal naive up-recurrence,
-# not reflection) -- effectively unusable past ~1e6 and a genuine hang by
-# ~1e15, exactly the range this file's far-negative and n=1e6
-# pole-neighbourhood strata need. mp.polygamma(1, POSITIVE x) has no such
-# problem (confirmed <1ms even at x=4.5e15) -- same asymmetry as
-# mp.digamma vs the naive negative recurrence hand_trigamma's own
-# docstring already flags. Fix: route |x|>50 through reflection onto the
-# fast positive branch. Verified exact (diff ~1e-99 at dps=100) against a
-# direct call at a magnitude where both are still fast (x=-1234.5678).
+# mp.digamma (order 0): it costs ~4.2s at x=-1e6 at dps=100 and scales
+# ~linearly with |x| (an internal naive up-recurrence, not reflection) --
+# effectively unusable past ~1e6 and a genuine hang by ~1e15, exactly the
+# range this file's far-negative and n=1e6 pole-neighbourhood strata
+# need. mp.polygamma(1, POSITIVE x) has no such problem (confirmed <1ms
+# even at x=4.5e15) -- same asymmetry as mp.digamma vs the naive negative
+# recurrence hand_trigamma's own docstring already flags. Fix: route
+# |x|>50 through reflection onto the fast positive branch. Verified exact
+# (diff ~1e-99 at dps=100) against a direct call at a magnitude where
+# both are still fast (x=-1234.5678).
 NEGATIVE_FAST_PATH_THRESHOLD = 50.0
 
 

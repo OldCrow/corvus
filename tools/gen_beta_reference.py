@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Generate tests/data/beta_{p,q}_reference.txt -- correctly-rounded oracle
 reference set for corvus::beta_p / corvus::beta_q (regularized incomplete
-beta), per PLAN.md "Regularized incomplete beta -- detail design" (the
-G1a/G1b/G1c probe corrections are binding) and its G2 (references) brief.
+beta), per PLAN.md "Regularized incomplete beta -- detail design".
 
 Oracle machinery REUSED from tools/gen_beta_data.py (imported, not
-re-derived, per the G2 brief): small_val_via_cf (DLMF 8.17.22 backward CF,
-self-convergent, "validated across the whole domain" per G1b), route_final
-(the final G1b-corrected routing order -- used here ONLY to classify points
+re-derived): small_val_via_cf (DLMF 8.17.22 backward CF, self-convergent,
+validated across the whole domain), route_final
+(the final corrected routing order -- used here ONLY to classify points
 into a per-region coverage histogram; the oracle itself evaluates every
 point the same CF way regardless of which region the KERNEL would route it
 to), and the pinned region constants (B1, XI1, EPS_R4, T_RIDGE, Z0, C_LG,
@@ -28,43 +27,38 @@ extra parameter):
   guarantees whichever side computes to <=0.5 is genuinely the smaller
   one, so this single re-check is sufficient, no iteration needed).
 
-  PRIMARY/CROSS-CHECK ORACLE CHOICE [deviation from the literal brief
-  wording, reasoned and flagged here per house style -- see gen_beta_data.py's
-  own "deviation, flagged" precedent at its R3 section]: the G2 brief says
-  "mpmath betainc below its reliability ceiling with a hard per-point
-  timeout; the CF above/on timeout." Measured on this box before writing
-  this generator: a single subprocess-timeout-guarded mpmath.betainc call
-  (gen_beta_data.py's own _betainc_timeout pattern) costs ~2.5s, dominated
-  by Windows process-spawn overhead, not the arithmetic -- confirmed by
-  timing 1 vs 5 calls (2.55s vs 12.4s, i.e. ~2.5s/call throughout, no
-  amortization). small_val_via_cf costs 3-100ms depending on region (100ms
-  only for points deep on a large-parameter ridge; typical points are
-  3-15ms). At this generator's ~40k-point target, an mpmath-primary design
-  is not tractable (2.5s * 40000 ~ 28 hours; even a generous "below
-  ceiling" subset of a few thousand points would run 2+ hours on spawn
-  overhead alone). This generator therefore uses the CF as the PRIMARY
-  value oracle for every emitted row -- fast, safe (bounded N_max,
-  deterministic termination), and per gen_beta_data.py's own G1b finding
-  "the CF oracle is validated across the whole domain" -- and reserves
-  mpmath.betainc (same subprocess-timeout-guarded call, reused) for the
-  CROSS-CHECK oracle on the mandated ~500-point random subsample spanning
-  all regions, which is exactly what the cross-check requirement asks for
-  ("betainc and CF must agree to output precision + 10 digits ... where
-  reachable"). This mirrors the trust-the-CF posture gen_beta_data.py's own
-  R3 extraction and self-check (b)'s ratio-cap sweep already adopted for
-  the identical reason (mpmath hangs/times out across large swaths of this
-  domain -- not just near the ridge, per that file's own "gen1/gen2" oracle
-  notes).
+  PRIMARY/CROSS-CHECK ORACLE CHOICE: nominally, mpmath betainc below its
+  reliability ceiling with a hard per-point timeout is the cross-check
+  oracle, with the CF used above/on timeout. A single subprocess-timeout-
+  guarded mpmath.betainc call (gen_beta_data.py's own _betainc_timeout
+  pattern) costs ~2.5s, dominated by Windows process-spawn overhead, not
+  the arithmetic -- confirmed by timing 1 vs 5 calls (2.55s vs 12.4s, i.e.
+  ~2.5s/call throughout, no amortization). small_val_via_cf costs 3-100ms
+  depending on region (100ms only for points deep on a large-parameter
+  ridge; typical points are 3-15ms). At this generator's ~40k-point
+  target, an mpmath-primary design is not tractable (2.5s * 40000 ~ 28
+  hours; even a generous "below ceiling" subset of a few thousand points
+  would run 2+ hours on spawn overhead alone). This generator therefore
+  uses the CF as the PRIMARY value oracle for every emitted row -- fast,
+  safe (bounded N_max, deterministic termination), and validated across
+  the whole domain -- and reserves mpmath.betainc (same subprocess-
+  timeout-guarded call, reused) for the CROSS-CHECK oracle on a ~500-point
+  random subsample spanning all regions, which is exactly what the
+  cross-check requirement asks for ("betainc and CF must agree to output
+  precision + 10 digits ... where reachable"). This mirrors the
+  trust-the-CF posture gen_beta_data.py's own R3 extraction and self-check
+  (b)'s ratio-cap sweep already adopted for the identical reason (mpmath
+  hangs/times out across large swaths of this domain -- not just near the
+  ridge).
 
-  DPS LADDER (three-layer dps hygiene, per the brief): every point is
-  computed at dps=40, rechecked at dps=60; on relative disagreement
-  greater than 2^-80, escalate to dps=100 and use THAT value (logged).
-  Persistent disagreement between dps=60 and dps=100 beyond 2^-70 is a real
+  DPS LADDER (three-layer dps hygiene): every point is computed at
+  dps=40, rechecked at dps=60; on relative disagreement greater than
+  2^-80, escalate to dps=100 and use THAT value (logged). Persistent
+  disagreement between dps=60 and dps=100 beyond 2^-70 is a real
   ESCALATE, reported at the end with the witness point -- not a threshold
   to loosen. mp.mp.dps is set INSIDE every oracle call (small_val_via_cf
-  already does this; this generator's own helpers do too) -- the G1a/G1b/
-  G1c "stale ambient dps" trap is now thrice-documented in PLAN.md and this
-  generator does not repeat it.
+  already does this; this generator's own helpers do too) to avoid a
+  stale-ambient-dps trap.
 
 Usage:
     python3 tools/gen_beta_reference.py
@@ -75,9 +69,8 @@ rows (`a b x P Q`, gamma's own gamma_p/gamma_q precedent -- one physical
 reference row serves as ground truth for both the beta_p kernel test and the
 beta_q kernel test), computed once and written twice.
 
-Own fresh seed (20260731, today's date at generator authorship) -- shares
-NOTHING with gamma's rng stream (SEED=20260727 in gen_gamma_reference.py,
-frozen); AGENTS.md note on this restated here at the point it matters.
+Own fresh seed -- shares NOTHING with gamma's rng stream (SEED=20260727
+in gen_gamma_reference.py, frozen); see AGENTS.md for the general rule.
 """
 
 import math
@@ -95,8 +88,7 @@ import gen_beta_data as gbd  # noqa: E402  (see module docstring: reused, not re
 
 mp.mp.dps = 100  # module-level default; every function below sets its OWN
                   # dps explicitly on entry (three-layer dps hygiene, see
-                  # module docstring and the G1a/G1b/G1c "stale ambient dps"
-                  # lesson recorded in PLAN.md).
+                  # module docstring) to avoid a stale-ambient-dps trap.
 
 SEED = 20260731
 
@@ -214,13 +206,10 @@ def _r4_xi_bounds(tau, Bp, ln2, xi1, b1):
     floor is tiny/non-binding -- confirmed against gen_beta_data.py's own
     check_f_r4, which uses exactly this exp(-LN2/alpha) as the LOWER sweep
     edge (its `los`), not an upper cap. UPPER bound is min(xi1, B1/Bp) from
-    the other two walls. An earlier version of this generator used the ln2
-    floor as a third argument to min() alongside the two upper walls --
-    wrong direction: for tau<<1 that collapsed the sampled range down to
-    ~0, producing only astronomically-tiny xi_tau and starving the R4
-    lattice (measured 468 raw points instead of thousands) -- caught by
-    this generator's own low first-pass region count during development,
-    not by reasoning about the code."""
+    the other two walls. Note the direction: using the ln2 floor as a
+    third argument to min() alongside the two upper walls is wrong -- for
+    tau<<1 that collapses the sampled range down to ~0, producing only
+    astronomically-tiny xi_tau and starving the R4 lattice."""
     floor = math.exp(-ln2 / tau) if tau > 0 else 0.0
     ceil = min(xi1, b1 / Bp if Bp > 0 else 1.0, 1.0)
     return floor, ceil
@@ -326,9 +315,9 @@ def gen_r3(ps, rng):
 def gen_r2(ps, rng):
     """R2 backward CF: everything else. Lattice at moderate-middle points,
     the gamma-limit line (alpha tiny, beta huge), and the far off-band
-    ridge (nu>=T_ridge but outside the ratio band -- the risk the third
-    correction transferred to R2), covering BOTH orientations of the
-    xi<(a+1)/(c+2) rule."""
+    ridge (nu>=T_ridge but outside the ratio band -- a risk this region
+    must cover since the ridge exclusion transfers it to R2), covering
+    BOTH orientations of the xi<(a+1)/(c+2) rule."""
     n0 = len(ps.pts)
     ab_list = sorted(set(log_grid(1e-8, 1e8, 40) + [
         1e-300, 1e-100, 0.01, 0.5, 1.0, 2.0, 8.0, 20.0, 100.0, 1000.0,
@@ -553,9 +542,8 @@ def gen_diagonal(ps):
     # astronomically small, so a single ULP of x AWAY from 0.5 is already
     # many thousands of standard deviations into the tail (genuinely deep
     # saturation, not a "near-diagonal" probe) -- and the CF is numerically
-    # unstable there (found during this generator's own development:
-    # a=b=1e250 at x=nextafter(0.5) produced persistent dps-ladder
-    # disagreement). That saturated-tail behavior is already covered by
+    # unstable there (a=b=1e250 at x=nextafter(0.5) produces persistent
+    # dps-ladder disagreement). That saturated-tail behavior is already covered by
     # gen_subnormal_band/gen_huge_tiny; this bracket stays at magnitudes
     # where "near-diagonal" is still a meaningful, numerically tractable
     # probe.
@@ -665,18 +653,18 @@ def gen_huge_tiny(ps, rng):
 
 
 # ============================================================================
-# Escalation witnesses (G1a, G1b) and small families around each.
+# Escalation witnesses and small families around each.
 # ============================================================================
 def gen_witnesses(ps):
     n0 = len(ps.pts)
-    # G1a witness: (8, 2^-6, 1-9.5e-7) -- direct value 0.16, R4 territory.
+    # first witness: (8, 2^-6, 1-9.5e-7) -- direct value 0.16, R4 territory.
     a0, b0, x0 = 8.0, 2.0 ** -6, 1.0 - 9.5e-7
     for a in (a0, a0 * 0.5, a0 * 2.0, 4.0, 16.0):
         for b in (b0, NEXT_DN(b0), NEXT_UP(b0), 2.0 ** -7, 2.0 ** -5):
             for x in (x0, NEXT_DN(x0), NEXT_UP(x0), 1.0 - 1e-9, 1.0 - 1e-12, 0.9, 0.9999):
                 ps.add(a, b, x, tag="witness-g1a")
-    # G1b witness: (1e-20, 1, 0.4) -- R1-native fires and evaluates 1.0
-    # before the tiny-min-first correction; family around it.
+    # second witness: (1e-20, 1, 0.4) -- R1-native fires and evaluates 1.0
+    # before the tiny-min-first ordering guard; family around it.
     a1, b1, x1 = 1e-20, 1.0, 0.4
     for a in (a1, 1e-15, 1e-10, 1e-6, a1 * 10, a1 * 0.1):
         for b in (b1, 0.5, 2.0, 8.0):
@@ -686,11 +674,10 @@ def gen_witnesses(ps):
 
 
 # ============================================================================
-# PB-prefactor u -> -1 corner family [2026-08-12 fix arc; PLAN.md's
-# "TWO defects in the SHIPPED beta forward" Open Item]. The corner the
+# PB-prefactor u -> -1 corner family. The corner the
 # original families never sampled: moderate min >= Z0 with huge max and x
 # deep in the tail, where w = c*x/min (the kernel's 1+u) falls to 2^-53
-# and below -- the shipped kernel's TwoSum spelling of 1+u degenerated
+# and below -- the shipped kernel's TwoSum spelling of 1+u degenerates
 # there (u.hi rounding to exactly -1 -> NaN -> a silent exact-0 return;
 # 1+u merely small -> an unnormalized dd into LogDdAny -> 1.4e-4 in E).
 # DETERMINISTIC (no rng draw, so a fresh full run reproduces every earlier
@@ -808,7 +795,7 @@ def gen_random_fill(ps, rng, target_total):
 
 
 # ============================================================================
-# Specials table [PLAN.md "Specials" -- gamma-consistent doctrine: one
+# Specials table -- gamma-consistent doctrine: one
 # degenerate parameter gets its limit, two degeneracies (or a degenerate
 # parameter meeting the x-boundary its own mass sits on) -> NaN]. Direct
 # assignment, no oracle call -- these are exact by the design's own rules.
@@ -913,8 +900,7 @@ def cheap_logE(a, b, xi, dps=25):
 
 
 # ============================================================================
-# EXACT-COMPLEMENT DISCIPLINE [round 5, root cause of BOTH residual ULP
-# defect classes after the deep-ladder fix]. mpf addition/subtraction at
+# EXACT-COMPLEMENT DISCIPLINE. mpf addition/subtraction at
 # ambient dps TRUNCATES operands to working precision first: forming
 # 1 - xm for xm below 10^-dps silently yields exactly 1, and (the dual
 # hazard) mp.log1p(-xx) on a HIGH-precision near-1 complement returns
@@ -989,14 +975,14 @@ N_PREFILTER_SATURATED = [0]
 # this is not merely "saturated in double" but so far past the smallest
 # subnormal (~2^-1074, log ~ -744.4) that its own EXPONENT is astronomically
 # large -- attempting the CF/dps-ladder there is not just wasteful but
-# numerically MEANINGLESS. Found during this generator's own development:
-# an R3-lattice point at nu=1e100 produced dps=40/60/100 values that
-# disagreed in the low digits of a >1400-digit-long EXPONENT (the true
-# value sits around 1e-1.4e99) -- the "disagreement" the escalation/
-# cross-check machinery correctly flagged was real, but pointless: every
-# one of those values rounds to the exact same double (0.0) regardless.
-# Fixed by this pre-filter, mirroring gamma's "a*phi>800 -> exact saturated
-# pair, no further computation" (gen_gamma_reference.py's oracle_pq).
+# numerically MEANINGLESS (e.g. an R3-lattice point at nu=1e100 produces
+# dps=40/60/100 values that disagree in the low digits of a
+# >1400-digit-long EXPONENT -- the true value sits around 1e-1.4e99 --
+# and the "disagreement" the escalation/cross-check machinery would flag
+# is real, but pointless: every one of those values rounds to the exact
+# same double (0.0) regardless). This pre-filter avoids that, mirroring
+# gamma's "a*phi>800 -> exact saturated pair, no further computation"
+# (gen_gamma_reference.py's oracle_pq).
 SATURATION_LOG_THRESHOLD = -900.0
 
 
@@ -1005,27 +991,26 @@ def _cf_small(aa, bb, xx, dps):
 
 
 # ============================================================================
-# GAMMA-CORNER ORACLE [(C), G3 escalation resolution]. For rows whose
+# GAMMA-CORNER ORACLE. For rows whose
 # CF-orientation max parameter >= kBetaGammaLim (B_GL, imported from
 # gen_beta_data -- same constant the kernel's router and this generator's
 # own check_b_r2/(vii) sweep use), the beta CF is structurally degenerate
-# (escalation (C)'s own witness: (0.05,1e100,2e-99), d_1 -> -(1-2e-99),
+# (witness: (0.05,1e100,2e-99), d_1 -> -(1-2e-99),
 # divides by zero at every depth/precision tried) -- this oracle switches to
 # mpmath.gammainc (regularized) at t=-beta*log1p(-xi), exact in mpf, instead.
 #
-# CORRECTNESS NOTE (bug found and fixed by this generator's own gamma-corner
-# self-check, not by reasoning about the code): the asymptotic identity
+# CORRECTNESS NOTE: the asymptotic identity
 # I_xi(shape,scale) -> P(shape,t), t=-scale*log1p(-xi) as scale->infty with
 # shape FIXED, is anchored to a SPECIFIC parameter playing "shape" (bounded)
 # vs "scale" (->infty) -- it is NOT the same swap the backward CF's own
 # xi<(a+1)/(c+2) orientation rule performs (that rule picks whichever
 # ORIENTATION converges the CF fastest, unrelated to which parameter is
-# huge). An earlier version of this function reused the CF's own
-# orientation rule here and got P(a1,t) backwards whenever aa (not bb) was
-# the huge parameter -- caught by check_gamma_corner_oracle measuring
-# relative error in the 1e267 range (gform=1.0 exactly, i.e. total
-# precision loss, vs a true value ~1e-268) before it ever reached a
-# reference row. The one identity this function actually needs: whichever
+# huge). Reusing the CF's own orientation rule here gets P(a1,t)
+# backwards whenever aa (not bb) is the huge parameter -- this is what
+# check_gamma_corner_oracle's self-check guards against (a relative error
+# in the 1e267 range, gform=1.0 exactly, i.e. total precision loss, vs a
+# true value ~1e-268, would otherwise reach a reference row undetected).
+# The one identity this function actually needs: whichever
 # of (aa,bb) is the HUGE one plays "scale"; the OTHER is "shape" and is
 # passed to gammainc UNCHANGED regardless of native/swap-style relabeling.
 #   bb is huge: t=-bb*log1p(-xx); I_xx(aa,bb) ~= P(aa,t) directly.
@@ -1088,13 +1073,13 @@ def gamma_corner_value_signed(aa, bb, xx, dps):
 
 
 # ============================================================================
-# SMALL-TAU ORACLE [coordinator revision, review round 2]. The backward CF
-# was found to fail broadly across the whole tiny-min(a,b) corner (measured
-# from the checkpoint after the first full run: failure RATE actually rises
-# toward the eps_R4=2^-6 boundary itself -- 62% of R4 points at tau~1e-2 vs
-# 2% at tau~1e-6 -- not confined to a narrow sub-threshold), exactly the
+# SMALL-TAU ORACLE. The backward CF
+# fails broadly across the whole tiny-min(a,b) corner (failure RATE
+# actually rises toward the eps_R4=2^-6 boundary itself -- 62% of R4
+# points at tau~1e-2 vs 2% at tau~1e-6 -- not confined to a narrow
+# sub-threshold), exactly the
 # region gen_r4's own box (tau*|ln xi_tau|<=ln2, xi_tau<=xi1, B*xi_tau<=B1)
-# targets and the region two routing flaws (G1a/G1b) made load-bearing.
+# targets and where routing gaps make this fallback load-bearing.
 #
 # This is the APSER-style closed form the design's own R4 kernel will use
 # (PLAN.md "R4 tiny-min ... gamma-R4 verbatim in beta clothing"): derived
@@ -1116,7 +1101,7 @@ def gamma_corner_value_signed(aa, bb, xx, dps):
 # (the a=0 "mass at 0" limit), making Q~ the genuinely SMALL quantity,
 # computed via expm1/log1p so the near-1 cancellation never happens in
 # floating point -- every term (lnGamma difference, log1p(tau*Sigma)) is
-# individually small/benign, matching the coordinator's brief exactly.
+# individually small/benign.
 #
 # Orientation mapping back to the ORIGINAL (a,b) frame (route_final's own
 # tiny-first convention, R4-native/R4-swap):
@@ -1125,7 +1110,7 @@ def gamma_corner_value_signed(aa, bb, xx, dps):
 #                  (since I_{1-x}(b,a)=Q by the standard swap identity, so
 #                  Q~=1-I=1-Q=P here).
 # ============================================================================
-SMALL_TAU_THRESHOLD = mp.mpf(2) ** -4  # empirically re-derived, see report:
+SMALL_TAU_THRESHOLD = mp.mpf(2) ** -4  # empirically derived:
 # eps_R4=2^-6 alone is NOT enough margin -- the failing witness-g1a family
 # reaches b=2^-5 (twice eps_R4), so the threshold is set one more binade up
 # (2^-4) to cover it with room to spare, while staying well clear of R1/R2/
@@ -1133,8 +1118,8 @@ SMALL_TAU_THRESHOLD = mp.mpf(2) ** -4  # empirically re-derived, see report:
 SMALL_TAU_FALLBACK_CEILING = mp.mpf(1)  # rescue net: if the REGULAR CF path
 # fails outright and min(a,b) is at least "small-ish" (<1, generous), retry
 # via this oracle before dropping the point -- catches strays outside the
-# threshold band that still have a tiny-ish parameter (e.g. this run's
-# lone R1-random and any other one-off).
+# threshold band that still have a tiny-ish parameter (e.g. an occasional
+# R1-random point).
 N_SMALL_TAU_RESCUED = [0]
 N_SMALL_TAU_NONCONVERGENT = [0]
 
@@ -1151,8 +1136,8 @@ TAYLOR_BOUND_TOL = mp.mpf("1e-10")
 
 
 def _lngamma_diff_b_tau(tau_m, B_m, dps):
-    """lnGamma(B+tau) - lnGamma(B), the term escalation (A) [G3/G2-revision]
-    fixed: at fixed working dps this difference goes IDENTICALLY to 0 in mpf
+    """lnGamma(B+tau) - lnGamma(B): at fixed working dps this difference
+    goes IDENTICALLY to 0 in mpf
     once tau is far enough below B's own ulp there -- the reference set's
     own defect (witness family (a, 1.4e-300, 1-2^-52), a<->B in this frame
     -- see small_side_direct's tau/B mapping): the emitted P went CONSTANT
@@ -1160,7 +1145,7 @@ def _lngamma_diff_b_tau(tau_m, B_m, dps):
     because at whatever dps this generator used, B+tau rounded to exactly B
     before loggamma ever saw the difference.
 
-    Two regimes, per the resolution:
+    Two regimes:
       tau <= B*1e-8: analytic Taylor tau*psi0(B) + tau^2/2*psi1(B) -- exact
       in the mpf sense that psi0/psi1 are each evaluated at FULL working
       precision (no B+tau addition, hence no cancellation possible) --
@@ -1170,14 +1155,12 @@ def _lngamma_diff_b_tau(tau_m, B_m, dps):
       tau > B*1e-8: the direct difference is fine in PRINCIPLE (no identical
       cancellation to guard against) but needs escalated PRECISION to keep
       it accurate to the caller's own dps once B/tau is not astronomically
-      large -- computed at dps + log10(B/tau) + 20, matching the resolution
-      text exactly, then rounded back to the caller's working dps on return
+      large -- computed at dps + log10(B/tau) + 20, then rounded back to
+      the caller's working dps on return
       (mp.mpf's own value carries however much precision it was computed
       at; the caller's ambient dps governs everything downstream).
 
-    BOUND-CHECK TOLERANCE, reasoned (went through two wrong versions before
-    this one -- both caught by this generator's own full-lattice run, not
-    by reasoning about the code):
+    BOUND-CHECK TOLERANCE, reasoned:
       v1 gated at 10^-dps: WRONG, this is a SERIES TRUNCATION (dropping the
       tau^3 term), not a rounding error -- it does not shrink as the
       caller's dps grows (the same two Taylor terms are exact to the same
@@ -1205,7 +1188,7 @@ def _lngamma_diff_b_tau(tau_m, B_m, dps):
       (tau*psi0(B)) specifically, which is what third_term is actually
       small RELATIVE TO.
     """
-    # v4 [round 6]: the Taylor branch is DELETED. v3's bound was correct
+    # The Taylor branch above is DELETED here. v3's bound was correct
     # about lg_diff's own accuracy and still WRONG about the assembly's:
     # w's terms CANCEL against tau*sigma downstream, and the result y can
     # be 15+ orders below lg_diff's scale, so a truncation that is 1e-18
@@ -1216,9 +1199,7 @@ def _lngamma_diff_b_tau(tau_m, B_m, dps):
     # is set by the RESULT's cancellation depth, unknowable at this site,
     # so no truncated form can be certified here. The exact extra-dps
     # loggamma difference (forming B+tau with digits(B/tau)+20 headroom)
-    # costs ~ms and is exact for every (tau, B). Found by the fresh-
-    # reference ULP run: the kernel matched analytic truth at every
-    # probed point and the ORACLE carried these errors.
+    # costs ~ms and is exact for every (tau, B).
     old = mp.mp.dps
     extra_dps = dps + int(mp.log10(B_m / tau_m)) + 20
     mp.mp.dps = max(dps, extra_dps)
@@ -1234,11 +1215,10 @@ def small_tau_oracle(tau, B, xi_tau, dps, n_max=4000):
     non-convergence (never silently truncate) if n_max is reached without
     the running term dropping below the dps-scaled tolerance.
 
-    CANCELLATION GUARD [found by this generator's own full-lattice run, a
-    pre-existing gap unrelated to the (A)/(C) fixes above]: this series is
+    CANCELLATION GUARD: this series is
     R1's OWN power series in xi_tau (t *= (n-B)*xi_tau/n) -- well-behaved
     when B*xi_tau stays modest (R4's real box caps it at B1=8, widened to
-    ~0.24 by the fourth correction), but SMALL_TAU_THRESHOLD only gates on
+    ~0.24 in the current design), but SMALL_TAU_THRESHOLD only gates on
     min(a,b), not on B or xi_tau. A point with B in the thousands and
     xi_tau near 1 (found via gen_r1's own "swaprole" lattice, e.g.
     (a=3981.07,b=1e-300,x=1.005e-4) -> tau=1e-300,B=3981.07,xi_tau=0.9999)
@@ -1353,7 +1333,7 @@ N_BETAINC_RESCUED = [0]
 BETAINC_RESCUE_TIMEOUT = 5  # seconds, per dps layer -- see call site comment.
 
 # ============================================================================
-# BATCHED betainc rescue [Part 2a, tractability]. The per-point path below
+# BATCHED betainc rescue. The per-point path below
 # (_betainc_rescue, kept as a correctness fallback -- see its own
 # docstring) spawns one subprocess per dps layer per point -- measured at
 # ~2.5s/call, DOMINATED by Windows process-spawn overhead, not the
@@ -1378,14 +1358,14 @@ BETAINC_RESCUE_TIMEOUT = 5  # seconds, per dps layer -- see call site comment.
 # rather than a separate cache (see its own docstring).
 # ============================================================================
 BETAINC_BATCH_SIZE = 500
-BETAINC_BATCH_TIMEOUT = 150  # seconds per batch (not per item) -- measured
-# (this session's own run): a 150-item batch consistently took ~70s (a
-# handful of genuinely slow points, not linear per-item scaling -- see
-# _betainc_batch_eval's own comment), so 500 items budgets room for
-# several more such outliers without an unbounded batch. Sized together
-# with MAX_PREWARM_CANDIDATES so one prewarm invocation (dps=40 + dps=60
-# batch, the two that always run) fits inside an explicit, generous
-# per-call Bash timeout this agent sets on each invocation.
+BETAINC_BATCH_TIMEOUT = 150  # seconds per batch (not per item) -- a
+# 150-item batch consistently takes ~70s (a handful of genuinely slow
+# points, not linear per-item scaling -- see _betainc_batch_eval's own
+# comment), so 500 items budgets room for several more such outliers
+# without an unbounded batch. Sized together with MAX_PREWARM_CANDIDATES
+# so one prewarm invocation (dps=40 + dps=60 batch, the two that always
+# run) fits inside an explicit, generous per-call timeout when invoking
+# this generator.
 
 
 def _betainc_batch_worker(items, dps, q):
@@ -1434,13 +1414,13 @@ def _betainc_batch_eval(oriented, dps):
 
         try:
             p.start()
-            # POLL rather than a single blocking p.join(timeout): measured
-            # (this generator's own run) that the worker process routinely
-            # does NOT exit promptly on its own after finishing its work --
-            # every batch paid the FULL BETAINC_BATCH_TIMEOUT even when
-            # n_got reached the expected count almost immediately (150/150
-            # and 500/500 "returned" but each batch still took exactly the
-            # timeout). Polling lets this loop notice "every result is in"
+            # POLL rather than a single blocking p.join(timeout): the worker
+            # process routinely does NOT exit promptly on its own after
+            # finishing its work -- every batch pays the FULL
+            # BETAINC_BATCH_TIMEOUT even when n_got reaches the expected
+            # count almost immediately (150/150 and 500/500 "returned" but
+            # each batch still took exactly the timeout). Polling lets this
+            # loop notice "every result is in"
             # and terminate the (done-computing, hung-on-shutdown) worker
             # immediately instead of idly waiting out the rest of the
             # budget -- the fix is purely a throughput one, the actual
@@ -1458,14 +1438,12 @@ def _betainc_batch_eval(oriented, dps):
                 p.terminate()
             p.join(5)
         finally:
-            # WINDOWS HANDLE LEAK, found by this generator's own full run:
-            # without explicitly closing the Queue's feeder thread/pipe and
-            # the Process's own handle, the OS handle table fills up after
-            # a few dozen spawn cycles and a LATER spawn fails outright
-            # with PermissionError: [WinError 5] Access is denied inside
-            # multiprocessing's own reduction.duplicate/_winapi.
-            # DuplicateHandle -- reproduced here after 3 clean dps=40
-            # batches, dying 8s into the first dps=60 batch. q.close() +
+            # WINDOWS HANDLE LEAK: without explicitly closing the Queue's
+            # feeder thread/pipe and the Process's own handle, the OS handle
+            # table fills up after a few dozen spawn cycles and a LATER
+            # spawn fails outright with PermissionError: [WinError 5]
+            # Access is denied inside multiprocessing's own
+            # reduction.duplicate/_winapi.DuplicateHandle. q.close() +
             # q.join_thread() releases the pipe; p.close() (Process is no
             # longer alive at this point, guaranteed by the join() calls
             # above) releases the process handle. try/finally so a batch
@@ -1484,7 +1462,7 @@ def _betainc_batch_eval(oriented, dps):
 
 
 def prewarm_betainc_rescue_checkpoint(ps, done_map, fh):
-    """Batched pre-pass [Part 2a], called by compute_all BEFORE its main
+    """Batched pre-pass, called by compute_all BEFORE its main
     per-point loop. Resolves every currently-FAILED point via the SAME
     algorithm as the per-point _betainc_rescue above (small-side-direct,
     dps ladder 40/60/100, same DISAGREE_60_40/100 escalation discipline)
@@ -1499,8 +1477,8 @@ def prewarm_betainc_rescue_checkpoint(ps, done_map, fh):
     that loop -- which runs immediately after this returns -- just skips
     them (non-FAILED checkpoint entry). This IS the resumability
     mechanism: no separate cache file is needed, because a run
-    interrupted mid-prewarm (this generator's own external chunking, per
-    the brief's <=5 min-per-invocation rule) leaves whatever this pass
+    interrupted mid-prewarm (this generator is invoked in short,
+    capped-duration chunks) leaves whatever this pass
     already resolved sitting in the checkpoint, and the next invocation's
     prewarm call simply finds a smaller remaining FAILED set (identical
     in spirit to compute_all's own "retry only FAILED" logic). Points
@@ -1599,13 +1577,13 @@ def prewarm_betainc_rescue_checkpoint(ps, done_map, fh):
 
 
 def _betainc_rescue(a, b, x):
-    """G1/G2 revision cycle 2, Part 2a: betainc-with-timeout rescue for
+    """betainc-with-timeout rescue for
     points small_tau_oracle's own CANCELLATION GUARD declines (the
     tau<=SMALL_TAU_THRESHOLD=2^-4, B in the thousands-plus gap where the
     APSER-style series' running term climbs to a central-binomial-like
     peak before "converging", swamping working dps -- see
-    small_tau_oracle's docstring; this generator's prior run dropped 5,978
-    points there). mpmath.betainc takes a genuinely DIFFERENT code path
+    small_tau_oracle's docstring; typically several thousand points
+    (5,978 in one full run) are dropped there otherwise). mpmath.betainc takes a genuinely DIFFERENT code path
     (its own hypergeometric/CF selection, not this generator's APSER
     assembly), so a point where our series loses precision to cancellation
     is not guaranteed to defeat betainc too -- worth trying before
@@ -1632,7 +1610,7 @@ def _betainc_rescue(a, b, x):
     prewarm pass, e.g. a future re-run with new points) -- correctness
     fallback, not the hot path."""
     am, bm, xm = mp.mpf(a), mp.mpf(b), mp.mpf(x)
-    # GAMMALIM GUARD [round 5]: mpmath.betainc is systematically WRONG in
+    # GAMMALIM GUARD: mpmath.betainc is systematically WRONG in
     # the gamma-limit family, not merely slow -- probed directly:
     # (1, 1e250, 8e-250) returns (P=8e-250, Q=1) against a true
     # P = 1-e^-8, and the two dps layers AGREE on the garbage, so the
@@ -1690,16 +1668,17 @@ N_SMALL_TAU_DEEP = [0]
 
 def _small_tau_deep(a, b, x):
     """Deep-dps re-evaluation for a small-tau ladder result flagged as
-    NOISE [rescue round 4 -- the deep-cancellation live bug]: the
+    NOISE: the
     assembly's w and log1p(tau*Sigma) cancel to the true small side, and
     when that lies below the cancellation noise floor (~assembly scale *
     10^-dps) the 40/60/100 ladder emits noise -- the checkpoint carried
     167 NEGATIVE smalls (impossible values, all esc=1; e.g.
     (100, 1e-100, 0.068) -> -6.6e-105 for a true +1.9e-219), and
     positive noise of wrong magnitude is equally possible and
-    sign-invisible. The 100-vs-60 disagreement was even detected at
-    those rows -- and then APPENDED TO ESCALATIONS AND EMITTED ANYWAY;
-    this helper is where such rows now go instead.
+    sign-invisible. The 100-vs-60 disagreement is even detected at
+    those rows -- but naively accepting it would append to ESCALATIONS
+    and still emit the noisy value; this helper is where such rows go
+    instead.
 
     dps 400 resolves every non-saturated case: a non-saturated small
     side is >= ~1e-324 (anything smaller is the saturation prefilter's
@@ -1734,7 +1713,7 @@ def _saturation_prefilter(am, bm, xm):
     (see SATURATION_LOG_THRESHOLD's comment for the -900 margin argument).
     Returns the standard 5-tuple with an exact saturated pair, or None.
 
-    [G2 rescue round 3, found by drop-population autopsy]: the small-tau
+    The small-tau
     branch was the ONLY oracle branch WITHOUT the prefilter, and its
     failure paths returned FAILED for points whose small side is
     astronomically past the subnormal floor -- e.g. (8.4e-4, 3.9e7, 0.05),
@@ -1768,10 +1747,9 @@ def small_side_direct(a, b, x):
     caller drops the point."""
     # Exact diagonal shortcut: I_1/2(a,a) = 1/2 EXACTLY (one of the design's
     # own "exact/brutal invariants"). The backward CF is numerically
-    # unstable at this PERFECTLY symmetric point (found during this
-    # generator's own development: a=b=1e250, x=0.5 produced 100%
-    # dps40-vs-dps60-vs-dps100 disagreement, and a smaller symmetric probe
-    # earlier in development hit an outright ZeroDivisionError -- some
+    # unstable at this PERFECTLY symmetric point (a=b=1e250, x=0.5
+    # produces 100% dps40-vs-dps60-vs-dps100 disagreement, and a smaller
+    # symmetric probe hits an outright ZeroDivisionError -- some
     # d_coef term legitimately hits an exact 0/0-shaped cancellation at
     # perfect a==b, x==0.5 symmetry). Since the true value is known exactly
     # by construction here, skip the CF entirely rather than fight its
@@ -1781,7 +1759,7 @@ def small_side_direct(a, b, x):
         return half, half, "P", False, False
     am, bm, xm = mp.mpf(a), mp.mpf(b), mp.mpf(x)
 
-    # NEAR-diagonal midpoint shortcut [rescue round 3]: the diagonal-
+    # NEAR-diagonal midpoint shortcut: the diagonal-
     # BRACKET family (a == b, x = 1/2 -+ one ulp, gen_diagonal's crest
     # coverage) sits one ulp from the exact shortcut above, where the CF
     # keeps its documented symmetric instability and mpmath's betainc
@@ -1815,17 +1793,16 @@ def small_side_direct(a, b, x):
                 return small, big, "P", False, False
             return big, small, "Q", False, False
 
-    # SMALL-TAU ORACLE branch [round-2 revision]: primary method whenever
+    # SMALL-TAU ORACLE branch: primary method whenever
     # min(a,b) <= SMALL_TAU_THRESHOLD -- see the derivation/threshold
     # comment at small_tau_oracle. Runs its own dps ladder (identical
     # 40/60/100 discipline) so it is held to the same three-layer hygiene
     # as the CF path, not a special case exempted from it.
     #
-    # EXCLUDES max(a,b)>=B_GL [(C) gamma-corner interaction, found by this
-    # generator's own first end-to-end gamma-corner run]: the APSER-style
+    # EXCLUDES max(a,b)>=B_GL (gamma-corner interaction): the APSER-style
     # series this oracle sums (t *= (n-B)*xi/n) assumes B is of MODEST
-    # magnitude (R4's own box caps it at B1=8, widened to ~0.24 at most by
-    # the fourth correction) -- for B on the order of B_GL (~2^59) the SAME
+    # magnitude (R4's own box caps it at B1=8, widened to ~0.24 at most in
+    # the current design) -- for B on the order of B_GL (~2^59) the SAME
     # series overflows/becomes numerically meaningless within a handful of
     # terms (measured: Q_tilde came back as 8.1e300, then complex, for
     # (tau=0.05, B=2^65, xi=800/B) -- nowhere near a probability). Any point
@@ -1834,11 +1811,10 @@ def small_side_direct(a, b, x):
     # parameter natively, no separate small-tau treatment needed) -- routed
     # to the main path below, whose try_eval already dispatches to
     # gamma_corner_value for max(aa,bb)>=B_GL.
-    # SEVENTH-CORRECTION oracle alignment: R4-postroute points (near-one R1
+    # Oracle alignment: R4-postroute points (near-one R1
     # traffic, min(a,b) in (SMALL_TAU_THRESHOLD, ~9]) are evaluated by the
     # kernel's R4 assembly, so the ORACLE uses the same analytic form --
-    # the CF is exactly what stalls on this traffic (2^-55.5, the sixth
-    # correction's own failure). The tag is only computed for the cheap
+    # the CF stalls on this traffic (near 2^-55.5). The tag is only computed for the cheap
     # candidate band: post-route provably requires mean < xi <= 0.45 and
     # beta*xi <= B1, which bounds min(a,b) <= ~8/(1-8/beta) < 9-ish; the
     # min-first orientation _small_tau_direct derives coincides with the
@@ -1875,7 +1851,7 @@ def small_side_direct(a, b, x):
                     if rel2 > DISAGREE_100_60:
                         ESCALATIONS.append((float(a), float(b), float(x), which_tau,
                                              float(rel), float(rel2)))
-            # NOISE DETECTION [rescue round 4] -- BEFORE the wrong-side
+            # NOISE DETECTION -- BEFORE the wrong-side
             # check below, since a noise value can be <= 1/2 (or
             # negative) and would otherwise be EMITTED. Suspect when:
             # the small side is <= 0 (impossible -> definitely noise);
@@ -1916,14 +1892,14 @@ def small_side_direct(a, b, x):
             # trusted blindly, and dropped (reported) rather than emitted.
             if final_small > mp.mpf("0.5"):
                 # Q~ converged but ISN'T the genuinely small side. Cheap
-                # saturation prefilter FIRST [rescue round 3] -- the true
+                # saturation prefilter FIRST -- the true
                 # small side may be certifiably past the subnormal floor,
                 # in which case the betainc rescue below can only waste
                 # its three timeout layers on it.
                 sat = _saturation_prefilter(am, bm, xm)
                 if sat is not None:
                     return sat
-                # betainc rescue [Part 2a] before dropping: a different
+                # betainc rescue before dropping: a different
                 # code path may still land the correct small side directly.
                 rescue = _betainc_rescue(a, b, x)
                 if rescue is not None:
@@ -1938,14 +1914,14 @@ def small_side_direct(a, b, x):
             else:
                 return 1 - final_small, final_small, "Q", escalated, False
         # Non-convergence in the primary small-tau band [small_tau_oracle's
-        # own cancellation guard declined outright, r40 is None]: BETAINC-
-        # WITH-TIMEOUT RESCUE [G1/G2 revision cycle 2, Part 2a] -- before
-        # this cycle, every point here was dropped unconditionally (5,978
-        # points in the prior run, concentrated in the tau<=SMALL_TAU_
+        # own cancellation guard declined outright, r40 is None]:
+        # BETAINC-WITH-TIMEOUT RESCUE -- without it, every point here
+        # would be dropped unconditionally (5,978 points in one full run,
+        # concentrated in the tau<=SMALL_TAU_
         # THRESHOLD, B~10^3+ gap; see _betainc_rescue's own docstring for
         # why mpmath.betainc's different code path is worth trying here).
         # Only points failing BOTH the guard and this rescue are actually
-        # dropped. Saturation prefilter FIRST [rescue round 3] -- same
+        # dropped. Saturation prefilter FIRST -- same
         # rationale as the near-one site above.
         sat = _saturation_prefilter(am, bm, xm)
         if sat is not None:
@@ -1995,8 +1971,8 @@ def small_side_direct(a, b, x):
         # primary, but if it fails outright and a parameter is at least
         # "small-ish" (< SMALL_TAU_FALLBACK_CEILING), the small-tau oracle
         # is worth trying before dropping -- catches strays the threshold
-        # band doesn't cover (e.g. a lone R1-random point at a~1.8e-29
-        # this run's own drop analysis found). Excludes max(a,b)>=B_GL for
+        # band doesn't cover (e.g. an occasional R1-random point at
+        # a~1.8e-29). Excludes max(a,b)>=B_GL for
         # the same reason the primary branch above does (the APSER series
         # is meaningless there) -- gamma_corner_value essentially never
         # fails outright, so this rescue is not expected to be reached for
@@ -2050,10 +2026,9 @@ import tempfile
 
 CKPT_PATH = os.path.join(tempfile.gettempdir(), f"corvus_beta_ref_ckpt_{SEED}.tsv")
 WALL_CLOCK_BUDGET_S = 260.0  # bounded per invocation; resumable via checkpoint
-# (reduced from 480s during the G1/G2 revision cycle 2 session to fit this
-# agent's own "chunk sweeps to <=~5 minutes" hard rule with headroom for
-# interpreter/import startup -- purely a session-chunking knob, does not
-# change what gets computed, only how much per invocation.)
+# (chosen to fit a "chunk sweeps to <=~5 minutes" invocation rule with
+# headroom for interpreter/import startup -- purely a session-chunking
+# knob, does not change what gets computed, only how much per invocation.)
 MAX_PREWARM_CANDIDATES = int(os.environ.get("CORVUS_BETA_PREWARM_LIMIT", "0")) or None
 # Optional cap on how many currently-FAILED points prewarm_betainc_rescue_
 # checkpoint processes in one call (env-var only, no code-path effect when
@@ -2126,7 +2101,7 @@ def compute_all(ps, ckpt_path=CKPT_PATH, sig_ver="v2"):
             # Skip only genuinely-succeeded points -- a checkpoint entry of
             # "FAILED" from an EARLIER small_side_direct (before the
             # small-tau oracle existed) is deliberately re-attempted here,
-            # since the whole point of this round's revision is to recover
+            # since retrying is meant to recover
             # points the OLD oracle couldn't handle. A later, still-failing
             # retry just re-appends another "FAILED" line for the same idx
             # (load_checkpoint's read loop takes the LAST line per idx, so
@@ -2168,7 +2143,7 @@ def compute_all(ps, ckpt_path=CKPT_PATH, sig_ver="v2"):
     n_failed = 0
     n_pruned_sat = 0
     n_escalated = 0
-    drop_hist = {}  # Part 2a: per-point-set (gen_r*'s own "tag") drop count.
+    drop_hist = {}  # per-point-set (gen_r*'s own "tag") drop count.
     for idx, (a, b, x, keep_sat, tag) in enumerate(ps.pts):
         fields = done_map[idx]
         if fields[0] == "FAILED":
@@ -2226,14 +2201,14 @@ def check_analytic_lines():
             # Both closed forms computed DIRECTLY, never as "1 - the other
             # side" -- the exact same small-side-direct discipline this
             # whole generator enforces on its CF oracle applies equally to
-            # this self-check's own reference values. An earlier version
-            # computed closed_Q = 1 - closed_P uniformly and was WRONG at
-            # (a=1,b=1e6,x=2^-11): closed_P = 1-(1-x)^b computed the true
+            # this self-check's own reference values. Computing
+            # closed_Q = 1 - closed_P uniformly would be WRONG at
+            # (a=1,b=1e6,x=2^-11): closed_P = 1-(1-x)^b computes the true
             # Q~7.8e-213 correctly, but then losslessly-looking "1 -
-            # closed_P" at dps=60 silently rounded straight back to exactly
+            # closed_P" at dps=60 silently rounds straight back to exactly
             # 1, discarding all 213 digits -- the identical "1-near-1"
             # cancellation hazard this generator's own module docstring
-            # warns about, self-inflicted in the checker. Fixed: Q on the
+            # warns about, self-inflicted in the checker. Instead: Q on the
             # 'a-1' line via -expm1(a*ln x) (accurate whether x^a is near 0
             # or near 1); Q on the '1-b' line via the DIRECT (1-x)^b (that
             # IS Q, no subtraction at all); Q on 'half-half' via
@@ -2255,10 +2230,9 @@ def check_analytic_lines():
         # mpf relative diff is meaningless (an exact-0 oracle value from the
         # saturation pre-filter vs. an astronomically-tiny-but-nonzero mpf
         # closed form gives rel=1.0 even though BOTH round to the identical
-        # double -- found on this generator's own first run at
-        # (a=100,b=1,x=1.73e-18): x^100 underflows past 1e-1800, nowhere
-        # near a double, yet the naive relative check flagged it as a
-        # "100% disagreement"). Agreement at the only precision that
+        # double -- e.g. at (a=100,b=1,x=1.73e-18): x^100 underflows past
+        # 1e-1800, nowhere near a double, yet the naive relative check
+        # would flag it as a "100% disagreement"). Agreement at the only precision that
         # matters (the emitted double) is what this self-check is actually
         # for; below MIN_SUBNORMAL that reduces to "both round the same way".
         if float(oracle_v) == 0.0 or float(closed_v) == 0.0 or \
@@ -2283,7 +2257,7 @@ def check_analytic_lines():
 # ============================================================================
 # Self-check: mpmath betainc vs CF cross-check on a random subsample
 # spanning all regions ("where reachable" -- mpmath hangs/times out across
-# large swaths of this domain per gen_beta_data.py's own G1a/G1b findings;
+# large swaths of this domain, per gen_beta_data.py's own findings;
 # a timeout is reported, not a failure). Resumable (see the module-level
 # checkpoint comment) -- mpmath subprocess spawn dominates cost (~2.5s/call
 # measured on this box), not the arithmetic.
@@ -2291,8 +2265,8 @@ def check_analytic_lines():
 CROSS_CHECK_N = 500
 CROSS_CHECK_TIMEOUT = 6
 # "Output precision + 10 digits" would nominally be ~1e-25 (double's own
-# ~16 correct decimal digits + 10 more); in practice this generator's first
-# full cross-check run measured a worst case of 2.79e-23 at 1e-25 -- not an
+# ~16 correct decimal digits + 10 more); in practice a full cross-check
+# run measured a worst case of 2.79e-23 against that 1e-25 target -- not an
 # algorithmic disagreement, just the two independent evaluations (CF at
 # dps=60, mpmath.betainc's own hypergeometric-series path at dps=40) each
 # carrying their OWN internal convergence-detection slop on top of their
@@ -2357,14 +2331,13 @@ def run_cross_check(rows, n=CROSS_CHECK_N, force_idx=()):
             am, bm, xm = mp.mpf(a), mp.mpf(b), mp.mpf(x)
             # Compare the oracle AS USED for the emitted row -- i.e.
             # small_side_direct with its whole routing (gamma-corner,
-            # small-tau, near-diagonal shortcuts), not raw small_val_via_cf.
-            # [corner-arc revision, 2026-08-12: the raw CF is structurally
-            # invalid exactly where the routing replaces it -- the first
-            # pb-corner run's sample drew (100, 1e307, 4e-306), where raw
+            # small-tau, near-diagonal shortcuts), not raw small_val_via_cf:
+            # the raw CF is structurally invalid exactly where the routing
+            # replaces it -- e.g. (100, 1e307, 4e-306), where raw
             # CF returns 2.6e-30542 against a true 1.206e-15; the emitted
-            # row (via gamma_corner_value) was CORRECT, and the old
-            # comparison flagged a defect that was in the CHECK, not the
-            # data. Verified by betainc at dps 500.]
+            # row (via gamma_corner_value) is CORRECT, and comparing
+            # against the raw CF there would flag a defect that is in the
+            # CHECK, not the data (verified by betainc at dps 500).
             try:
                 cf_p, cf_q, which, _esc, cf_failed = small_side_direct(a, b, x)
             except (RuntimeError, ZeroDivisionError, ValueError):
@@ -2428,7 +2401,7 @@ def run_cross_check(rows, n=CROSS_CHECK_N, force_idx=()):
 
 
 # ============================================================================
-# Self-check: small-tau oracle validation [coordinator round-2 requirement].
+# Self-check: small-tau oracle validation.
 # On the overlap band tau in [2^-20, eps_R4] x the xi range where the CF
 # DOES converge (sampled from gen_r4's own box construction, so every
 # sampled point satisfies tau*|ln xi_tau|<=ln2 -- the small-tau oracle's own
@@ -2462,11 +2435,10 @@ def check_small_tau_overlap(rng):
             continue
         logf, logc = math.log(floor), math.log(ceil)
         # Sample the CENTRAL part of the box (0.25-0.75 of the floor-ceil
-        # log-range), not its extreme edges: per the coordinator's own
-        # framing, this overlap band should be "the xi range where the CF
-        # DOES converge" -- and this check's own first attempt (comparing
-        # against the CF on the SWAPPED triple, i.e. (B,tau,1-xi)) found
-        # that call returns exactly 0.0 at the box's most extreme corners
+        # log-range), not its extreme edges: this overlap band should be
+        # "the xi range where the CF DOES converge" -- and comparing
+        # against the CF on the SWAPPED triple, i.e. (B,tau,1-xi),
+        # returns exactly 0.0 at the box's most extreme corners
         # (deep-tiny xi_tau near the floor) even though the CF's NATIVE
         # evaluation (tau,B,xi) converges fine there -- the swapped call is
         # itself unreliable in exactly the sub-corner this generator's
@@ -2525,18 +2497,18 @@ def check_small_tau_overlap(rng):
 
 
 # ============================================================================
-# Self-check: gamma-corner oracle validation [(C), Part 2b]. gamma_corner_
+# Self-check: gamma-corner oracle validation. gamma_corner_
 # value is only ROUTED to for max(a,b)>=B_GL (~2^59), where the beta CF is
 # structurally degenerate and cannot serve as ground truth at all -- so this
 # validates the FORMULA itself (not the routing gate) on synthetic points
-# with beta on the "healthy band" (beta<=2^40, the G1a-validated line the
+# with beta on the "healthy band" (beta<=2^40, the validated line the
 # beta CF is trusted on well below any conditioning concern) against the
 # beta CF directly, mirroring gen_beta_data.py's own B_GL "downward" probe
 # methodology (same asymptotic form, same t=-beta*log1p(-xi)) but as an
 # independent check in THIS file rather than trusting that probe's numbers
 # on faith.
 #
-# TARGET, reconsidered after running (own measurement, not assumed): the
+# TARGET: the
 # asymptotic error decays like 2^(8.57-j) in this generator's own downward
 # probe (see gen_beta_data.py's _probe_gl_downward budget lines) -- so at
 # beta<=2^40 the formula is EXPECTED to sit only around 2^-31, nowhere near
@@ -2544,11 +2516,10 @@ def check_small_tau_overlap(rng):
 # actually used). Holding this healthy-band check to 2^-49 would be
 # penalizing the formula for not yet being in its own intended asymptotic
 # regime -- not a real defect. This check is therefore REPORT-ONLY (a
-# "budget line to stderr" per the brief, not a hard gate) beyond a loose
-# sanity bound that WOULD catch a genuine implementation bug (this check's
-# own first run found exactly such a bug -- a ~2^888 relative error from an
-# inverted orientation -- well before reaching this refined, expected-slack
-# regime).
+# budget line to stderr, not a hard gate) beyond a loose
+# sanity bound that WOULD catch a genuine implementation bug (a ~2^888
+# relative error from an inverted orientation, well before reaching this
+# refined, expected-slack regime).
 GAMMA_CORNER_SANITY_BOUND = mp.mpf(2) ** -2  # catches real bugs; the healthy
                                           # here (<=2^40) sits BELOW B_GL, so
                                           # this is deliberately measuring
@@ -2582,24 +2553,23 @@ def check_gamma_corner_oracle():
                     continue
                 try:
                     gform_small, gform_which = gamma_corner_value_signed(alpha, beta, xi, dps)
-                    # ORIENT before calling the CF -- caught by this check's
-                    # own first run: calling small_val_via_cf(alpha,beta,xi)
-                    # RAW (unoriented) here fed the CF its numerically SLOW/
-                    # ill-conditioned direction (this magnitude regime always
-                    # has xi >= (alpha+1)/(c+2), i.e. the fast direction is
-                    # the SWAP), and its own N/2-vs-N drift gate reported
+                    # ORIENT before calling the CF: calling
+                    # small_val_via_cf(alpha,beta,xi) RAW (unoriented) here
+                    # feeds the CF its numerically SLOW/ill-conditioned
+                    # direction (this magnitude regime always has
+                    # xi >= (alpha+1)/(c+2), i.e. the fast direction is
+                    # the SWAP), and its own N/2-vs-N drift gate can report
                     # "converged" at a value ~1e267 relative away from the
                     # truth (mpmath.betainc cross-checked separately) --
                     # self-convergence in the wrong orientation is not a
                     # correctness guarantee, exactly check_b_r2's own
-                    # "_cf_err_at" precedent this check should have followed
-                    # from the start. And the COMPARISON itself must stay on
-                    # the small side too (gamma_corner_value_signed, not
-                    # gamma_corner_value's plain P) -- an earlier version of
-                    # this check compared near-1 P values directly and the
-                    # 1-near-1 loss made the comparison meaningless whenever
-                    # Q was the genuinely tiny side (P and truth both rounded
-                    # to exactly 1.0 at dps=80, masking a real defect).
+                    # "_cf_err_at" precedent. The COMPARISON itself must
+                    # stay on the small side too (gamma_corner_value_signed,
+                    # not gamma_corner_value's plain P) -- comparing near-1
+                    # P values directly makes the comparison meaningless
+                    # whenever Q is the genuinely tiny side (P and truth
+                    # both round to exactly 1.0 at dps=80, masking a real
+                    # defect).
                     c = alpha + beta
                     thresh = (alpha + 1) / (c + 2)
                     if xi < thresh:
@@ -2850,9 +2820,9 @@ def corner_append():
 
     # Signature carries a digest of the POINT BITS, not just the count: a
     # grid edit that preserves N would otherwise replay stale checkpoint
-    # values under new point identities (caught live when the b-column
-    # swap 1e20 -> 1e30 kept N = 786 and the first re-run served b = 1e20
-    # oracle values as b = 1e30 rows).
+    # values under new point identities -- e.g. a b-column swap from
+    # 1e20 to 1e30 that keeps N = 786 would have a re-run serve stale
+    # b = 1e20 oracle values as b = 1e30 rows.
     import hashlib
     dig = hashlib.sha256()
     for a, b, x, _, _ in ps.pts:

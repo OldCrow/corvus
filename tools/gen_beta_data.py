@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """Generate src/beta_data.h -- every table the beta_p/beta_q (regularized
-incomplete beta) kernel needs, per PLAN.md "Regularized incomplete beta --
-detail design" and its G1a/G1b probe corrections (the region map, the
-routing order, the R2 orientation rule, and the R3 (zeta, p) ansatz with
-the eta = -zeta*sqrt(2) gamma-limit mapping are all binding; this generator
-does not re-derive them, only pins the [OPEN] numeric constants those
-sections left for G1c).
+incomplete beta) kernel needs. The region map, the routing order, the R2
+orientation rule, and the R3 (zeta, p) ansatz with the eta = -zeta*sqrt(2)
+gamma-limit mapping are binding design decisions this generator does not
+re-derive; it only pins the numeric constants those decisions leave open.
 
 Four independent pieces:
 
@@ -28,28 +26,27 @@ Four independent pieces:
                  extraction: R(zeta,p,nu) = (leading -/+ small_val) *
                  sqrt(2*pi*nu)*exp(cpsi) is fit as a MONOMIAL power series
                  in v=1/nu via a well-conditioned Chebyshev-in-v least-
-                 squares solve (G1b Task B3's method: raw monomial
-                 Vandermonde is catastrophically ill-conditioned at this
-                 ladder length/order, but Chebyshev-in-v is not) followed
-                 by an EXACT affine basis-change back to monomial-in-v
-                 coefficients (shifted_chebyshev_monomial) -- this is
-                 algebra on an already-accurate fit, not a second
-                 statistical estimate, so it does not reintroduce the
-                 conditioning problem. small_val is evaluated via the
-                 DLMF 8.17.22 continued fraction (I_via_cf, G1b Task A),
-                 escalating N until self-convergent -- G1b Task B2 found
-                 mpmath's own betainc/quadrature BOTH unreliable for this
-                 extraction's shape (quad needs infeasible dps; betainc
-                 hangs/fails to converge off-ridge), and the CF is the one
-                 oracle validated across this whole domain.
+                 squares solve (raw monomial Vandermonde is catastrophically
+                 ill-conditioned at this ladder length/order, but
+                 Chebyshev-in-v is not) followed by an EXACT affine
+                 basis-change back to monomial-in-v coefficients
+                 (shifted_chebyshev_monomial) -- this is algebra on an
+                 already-accurate fit, not a second statistical estimate,
+                 so it does not reintroduce the conditioning problem.
+                 small_val is evaluated via the DLMF 8.17.22 continued
+                 fraction (I_via_cf), escalating N until self-convergent --
+                 mpmath's own betainc/quadrature are BOTH unreliable for
+                 this extraction's shape (quad needs infeasible dps;
+                 betainc hangs/fails to converge off-ridge), and the CF is
+                 the one oracle validated across this whole domain.
 
   Binet table    K_B Bernoulli-derived coefficients of the Stirling/Binet
                  tail phi(z) ~ sum B_2k/(2k(2k-1)z^(2k-1)), z >= Z0 -- the
                  same series as src/lgamma-inl.h's LgammaStirling but its
-                 OWN table (different Z0/K_B target), per the design's
-                 explicit "fresh coefficients" option; BinetDd's ultimate
-                 kernel home is a G3 decision, this generator only emits
-                 the numbers.
+                 OWN table (different Z0/K_B target), a deliberate "fresh
+                 coefficients" choice; BinetDd's ultimate kernel home is
+                 decided elsewhere -- this generator only emits the
+                 numbers.
 
   DigammaRough   poly(w), w in [Z0, Z0+1), degree chosen by residual decay,
                  fit directly against mpmath's psi (NOT the asymptotic
@@ -60,38 +57,32 @@ Four independent pieces:
                  - sum(1/z_j) accumulated while walking z up by integer
                  steps until z_final in [Z0, Z0+1).
 
-G1a/G1b provenance: the region map, N1=64, N2=64, T_ridge=32, B1=8,
-xi1=0.45, eps_R4=2^-6 (and its box: xi_tau<=xi1 AND B*xi_tau<=B1, the
-missing-cap fix), Z0=10, K_B=16, C_lg=256 (provisional), the R2
-orientation rule xi < (alpha+1)/(c+2), the corrected ROUTING ORDER (0:
-tiny-min-first -> R4; 1: R1; 2: R3; 3: R2) that fixes BOTH escalations
-found in G1a (R4's missing xi cap) and G1b (R1's missing alpha floor,
-stealing points from R4) are all read from PLAN.md and reproduced here
-verbatim in route_final(); they are not re-derived. What IS pinned here
-(G1c's own job, [OPEN] in PLAN.md before this generator ran): R4's series
-depth, the R3 table's K/degrees within the 32 KB budget, the Binet/
+Region map / routing constants (binding, reproduced verbatim in
+route_final(); not re-derived here): the region map, N1=64, N2=64,
+T_ridge=32, B1=8, xi1=0.45, eps_R4=2^-6 (and its box: xi_tau<=xi1 AND
+B*xi_tau<=B1), Z0=10, K_B=16, C_lg=256 (provisional), the R2 orientation
+rule xi < (alpha+1)/(c+2), and the routing order (0: tiny-min-first -> R4;
+1: R1; 2: R3; 3: R2). What this generator itself pins: R4's series depth,
+the R3 table's K/degrees within the 32 KB budget, and the Binet/
 DigammaRough coefficient values.
 
 Self-checks (mandatory, budget lines to stderr; ANY miss -> exit nonzero,
-emit nothing) -- lettered per the brief, (a)-(i):
+emit nothing), (a)-(i):
   (a) R1 series truncation sup at N1=64 over the full membership boundary
       (both boundary edges, alpha down to 1e-300).
-  (b) R2 CF depth sup at N2=64: G1a's lattices plus the G1b beta->1e-300
-      extension, each point tested in the orientation the pinned rule
-      picks.
+  (b) R2 CF depth sup at N2=64: near-ridge/moderate-middle/gamma-limit
+      lattices plus a beta->1e-300 extension, each point tested in the
+      orientation the pinned rule picks.
   (c) R3 total S truncation + 2D fit residual vs the CF oracle, over a
       (zeta, p, nu) lattice, target the FIXED gamma-class 2^-56
-      (R3_REPLAY_TARGET -- never pinned-to-measured). NOTE (deviation,
-      flagged): the design text says "quad oracle for ridge; CF oracle
-      where quad's shape limits bite" -- this generator uses the CF
-      EXCLUSIVELY for R3, per G1b Task B2/B3's own finding that quad is
-      unreliable for R3's extraction shape (needs infeasible dps; CF is
-      the oracle validated across this whole domain). History: the
-      FIRST cut of this generator fit zeta in [-5,5] (the erroneous
-      cpsi<=800 membership) and stalled at 2^-16-class; the third
-      correction's ratio-band membership (see ZETA_MAX's derivation
-      comment) collapsed the domain to |zeta| <= ~1.02 and the same
-      table budget now clears 2^-56 with margin.
+      (R3_REPLAY_TARGET -- never pinned-to-measured). This generator uses
+      the CF EXCLUSIVELY for R3, not mpmath's quadrature: quad needs
+      infeasible dps for this extraction's shape, and the CF is the
+      oracle validated across this whole domain. The ratio-band
+      membership (see ZETA_MAX's derivation comment) keeps the domain to
+      |zeta| <= ~1.02, which is what lets the fixed table budget clear
+      2^-56 with margin -- a wider domain (e.g. cpsi<=800, |zeta| up to 5)
+      cannot reach dd-level accuracy at this budget.
   (d) e_k(zeta, p=2^-50) matches gamma's c_k(eta=-zeta*sqrt(2)) to
       <=1e-15 through k=5 (the mandatory gamma-limit anchor).
   (e) routing safety under the FINAL corrected order: max evaluated side
@@ -100,9 +91,9 @@ emit nothing) -- lettered per the brief, (a)-(i):
   (f) R4 series truncation over the corrected closed box (xi_tau<=xi1,
       B*xi_tau<=B1, tau*|ln xi_tau|<=ln2).
   (g) Binet truncation at Z0=10, K_B=16 vs the dd target.
-  (h) e_k(zeta,p) == -e_k(-zeta, 1-p) (the symmetry identity; SIGN
-      corrected here to "-", not "+" -- see the derivation comment at
-      check_h_symmetry for the algebra).
+  (h) e_k(zeta,p) == -e_k(-zeta, 1-p) (the symmetry identity; sign is
+      "-", not "+" -- see the derivation comment at check_h_symmetry for
+      the algebra).
   (i) DigammaRough <= 2^-40 relative on (0, 2*Z0].
 
 Trust the stderr budget lines over any comment in this file, including
@@ -122,11 +113,11 @@ import mpmath as mp
 
 mp.mp.dps = 100  # module-level default; every self-check/extraction
                   # function below sets its OWN dps explicitly on entry
-                  # and restores it on exit (G1a/G1b hygiene rule -- a
-                  # stale ambient dps at a subprocess or string boundary
-                  # bit three separate G1a/G1b probe layers).
+                  # and restores it on exit -- a stale ambient dps at a
+                  # subprocess or string boundary is a real hazard here,
+                  # not a hypothetical one.
 
-# --- Pinned design constants [PLAN.md, G1a/G1b] -----------------------------
+# --- Pinned design constants -------------------------------------------------
 B1 = mp.mpf(8)
 XI1 = mp.mpf("0.45")
 EPS_R4 = mp.mpf(2) ** -6
@@ -137,17 +128,15 @@ C_LG = mp.mpf(256)
 E_FLOOR = mp.mpf(-800)
 LN2 = mp.log(2)
 
-N1 = 64  # R1 series depth [G1a pinned; self-check (a) reproves it]
-N2 = 64  # R2 CF depth [G1a/G1b pinned; self-check (b) reproves it]
+N1 = 64  # R1 series depth; self-check (a) reproves it
+N2 = 64  # R2 CF depth; self-check (b) reproves it
 
-# ZETA_MAX derivation [THIRD CORRECTION, PLAN.md "G1c generator results and
-# third correction"]: R3's membership is NOT "nu>=T_ridge and cpsi<=800" --
-# that was a design error (confirmed by reading gen_gamma_data.py: gamma's
-# shipped Temme table spans only the ridge RATIO band lambda in [1/2,2],
-# NOT a wide cpsi strip; a 32 KB single tensor cannot span cpsi<=800 at dd
-# precision, which is exactly the wall the first generator pass hit --
-# 2^-16-class residual, unshippable). CORRECTED membership, mirroring
-# gamma exactly: nu>=T_ridge AND xi/p in [1/2,2] AND (1-xi)/q in [1/2,2].
+# ZETA_MAX derivation: R3's membership is nu>=T_ridge AND xi/p in [1/2,2]
+# AND (1-xi)/q in [1/2,2] -- mirroring gamma's own shipped Temme table
+# exactly (gamma's table spans only the ridge RATIO band lambda in
+# [1/2,2], not a wide cpsi strip; a 32 KB single tensor cannot span
+# cpsi<=800 at dd precision -- that wider membership caps out at
+# 2^-16-class residual, unshippable).
 #
 # Derivation of the caps in (u,v): xi = (alpha-lambda)/c, so
 #   xi/p = xi*c/alpha = (alpha-lambda)/alpha = 1 - lambda/alpha = 1+u
@@ -172,9 +161,8 @@ N2 = 64  # R2 CF depth [G1a/G1b pinned; self-check (b) reproves it]
 #   cpsi* = (1/3)*phi(1) + (2/3)*phi(-1/2)
 #         = (1/3)*(1-ln2) + (2/3)*(ln2-1/2) = ln2/3
 #   zeta_max^2 = cpsi*/(p*q) = (ln2/3)/(2/9) = 3*ln2/2
-#   zeta_max = sqrt(3*ln2/2) ~ 1.0197 -- NOT the ~0.76 rough estimate that
-# motivated this correction; that estimate undersold the true sup (this is
-# the point of deriving it exactly rather than trusting the rough number).
+#   zeta_max = sqrt(3*ln2/2) ~ 1.0197 -- derived exactly rather than
+# estimated, since a rough estimate here would undersell the true sup.
 def _phi(w):
     return w - mp.log1p(w)
 
@@ -247,21 +235,17 @@ def _derive_zeta_max(dps=60):
 # from scratch in the child before calling its target -- including any
 # module-level derivation. Guard the two expensive ones (ZETA_MAX, B_GL
 # below) so a spawned worker gets a cheap placeholder instead of re-running
-# a multi-second probe on every single subprocess spawn: this was measured
-# directly on this box (not assumed) -- the FIRST cut of the B_GL probe
-# added here made check_b_r2's existing (pre-G3) betainc-timeout sections
-# balloon from its established ~1-2 min budget to 280s+ without finishing,
-# traced to the B_GL derivation's own stderr banner reappearing inside the
-# log once per subprocess spawn. Neither ZETA_MAX nor B_GL is ever read
-# inside _betainc_worker (it only calls mp2.betainc on the three plain
+# a multi-second probe on every single subprocess spawn: this function is
+# called hundreds of times over a full run, so an unguarded re-derivation
+# would balloon wall time substantially. Neither ZETA_MAX nor B_GL is ever
+# read inside _betainc_worker (it only calls mp2.betainc on the three plain
 # values it was handed), so a placeholder is exactly as correct there as
 # the derived value -- it is simply never consulted.
-# NOTE: mp_proc.parent_process() measured (not assumed) to return None even
-# inside a Windows-spawned child during module import -- current_process()
-# .name is the reliable signal there ("Process-N" in a child vs
-# "MainProcess" at the top); confirmed with a minimal repro before trusting
-# it here, since a wrong guard here silently reintroduces the exact
-# per-subprocess re-derivation cost this guard exists to remove.
+# NOTE: mp_proc.parent_process() returns None even inside a Windows-spawned
+# child during module import -- current_process().name is the reliable
+# signal there ("Process-N" in a child vs "MainProcess" at the top). A
+# wrong guard here silently reintroduces the exact per-subprocess
+# re-derivation cost this guard exists to remove.
 _IS_MP_WORKER = mp_proc.current_process().name != "MainProcess"
 
 if _IS_MP_WORKER:
@@ -277,40 +261,37 @@ BINET_TARGET = mp.mpf(2) ** -70
 DIGAMMA_TARGET = mp.mpf(2) ** -40
 ROUTE_THRESH = 1 - mp.mpf(2) ** -12
 
-# BETA_NEAR_ONE (kBetaNearOne) [SIXTH correction threshold, SEVENTH
-# correction destination]:
-# route_final()'s post-route threshold. R1 fires in EITHER orientation (the
-# fifth correction's lambda>=0 requirement is REVERTED -- it displaced sound
-# traffic, breaking check (b)'s CF-depth witness (0.158,1000,0.00251)); a
-# point that routes to R1 but whose R1-NATIVE value exceeds this bar is
-# re-tagged "R4-postroute" and evaluated by R4's analytic small-side
-# assembly in the SAME orientation [SEVENTH correction -- the sixth's
-# opposite-orientation CF destination stalled at 2^-55.5 and is
-# superseded]. 2^-11 is intentionally one bit inside ROUTE_THRESH's
-# 2^-12 complement-slack doctrine (post-route decides on the CHEAP R1-series
-# oracle at working dps, not the full self-convergent CF check (e) itself
-# uses; the extra bit of margin absorbs that oracle's own slack).
+# BETA_NEAR_ONE (kBetaNearOne): route_final()'s post-route threshold. R1
+# fires in EITHER orientation (native if x<=xi1 and b*x<=B1, swap
+# symmetrically); a point that routes to R1 but whose R1-NATIVE value
+# exceeds this bar is re-tagged "R4-postroute" and evaluated by R4's
+# analytic small-side assembly in the SAME orientation -- the CF in the
+# opposite orientation inherits the CF's own small-second-parameter
+# weakness and cannot reach target there. 2^-11 is intentionally one bit
+# inside ROUTE_THRESH's 2^-12 complement-slack doctrine (post-route
+# decides on the CHEAP R1-series oracle at working dps, not the full
+# self-convergent CF check (e) itself uses; the extra bit of margin
+# absorbs that oracle's own slack).
 BETA_NEAR_ONE = 1 - mp.mpf(2) ** -11
-# Post-route tau ceiling [EIGHTH correction: 1.5 -> 2.5]. The bar above
-# sits BELOW the 1 - 2^-12 complement-slack doctrine bound, so with the
-# gate at 2.5 every doctrine-violating R1 lane with tau <= 2.5 post-routes
-# by construction; check (e)'s pocket proves tau > 2.5 lanes stay clear of
-# the bound on their own. 2.5 is one lgamma recurrence step past the
-# centre-2 zone edge (BetaR4Tiny's three-zone lgamma(1+tau)).
+# Post-route tau ceiling. The bar above sits BELOW the 1 - 2^-12
+# complement-slack doctrine bound, so with the gate at 2.5 every
+# doctrine-violating R1 lane with tau <= 2.5 post-routes by construction;
+# check (e)'s pocket proves tau > 2.5 lanes stay clear of the bound on
+# their own. 2.5 is one lgamma recurrence step past the centre-2 zone edge
+# (BetaR4Tiny's three-zone lgamma(1+tau)).
 BETA_PR_TAU_MAX = mp.mpf("2.5")
-# Gamma-limit slice ridge floor [(C) resolution]: in-band lanes with
-# max(alpha,beta) >= B_GL use R3 down to nu = 20 (gamma's own kGammaAT --
-# the CF is degenerate up there and gamma's series/CF boxes exclude the
-# band). check (c)'s extension lattice proves the 1/nu extrapolation.
+# Gamma-limit slice ridge floor: in-band lanes with max(alpha,beta) >=
+# B_GL use R3 down to nu = 20 (gamma's own kGammaAT -- the CF is
+# degenerate up there and gamma's series/CF boxes exclude the band).
+# check (c)'s extension lattice proves the 1/nu extrapolation.
 GL_RIDGE_MIN = mp.mpf(20)
-# Gamma-limit ridge DEPTH EXTENSION [(C) resolution, second finding]: at
-# nu = GL_RIDGE_MIN the K_REPORT=10 truncation ALONE is 2^-50.3-class
-# (check (c)'s first extension-lattice run failed at 2^-50.27 -- exactly
-# the truncation-only prediction, so the 2D fit residual at the p-edge is
-# subdominant), so slice ridge lanes evaluate K_GL_EXT more orders
-# (k = K_REPORT..K_REPORT+2) from a 1D p->0-edge table e_k(zeta, P_EXT_GL)
-# built by build_r3_gl_ext. K=13 measured 2^-60.1 worst over the extension
-# lattice (all-interpolated, fit error included) -- 4 bits of margin, no
+# Gamma-limit ridge DEPTH EXTENSION: at nu = GL_RIDGE_MIN the K_REPORT=10
+# truncation ALONE is 2^-50.3-class (matching the truncation-only
+# prediction, so the 2D fit residual at the p-edge is subdominant), so
+# slice ridge lanes evaluate K_GL_EXT more orders (k = K_REPORT..
+# K_REPORT+2) from a 1D p->0-edge table e_k(zeta, P_EXT_GL) built by
+# build_r3_gl_ext. K=13 measures 2^-60.1 worst over the extension lattice
+# (all-interpolated, fit error included) -- 4 bits of margin, no
 # asymptotic flattening (each order through k=17 still pays at nu=20).
 #
 # P_EXT_GL = 2^-20, deliberately NOT the anchor's 2^-50: the extraction
@@ -331,15 +312,15 @@ K_GL_EXT = 3  # extension orders k = K_REPORT..K_REPORT+K_GL_EXT-1
 ANCHOR_TARGET = mp.mpf("1e-15")
 SYMMETRY_TARGET = mp.mpf("1e-25")
 
-# R3_REPLAY_TARGET: gamma-class 2^-56 (gen_gamma_data.py's own REPLAY_TARGET),
-# per the third-correction instruction -- NOT pinned-to-measured this time,
-# since the corrected ratio-band domain is expected to reach it (gamma-class
-# node counts over a gamma-class-width domain). If unreachable, that is a
-# real ESCALATE, not a constant to loosen.
+# R3_REPLAY_TARGET: gamma-class 2^-56 (gen_gamma_data.py's own
+# REPLAY_TARGET) -- NOT pinned-to-measured, since the ratio-band domain is
+# expected to reach it (gamma-class node counts over a gamma-class-width
+# domain). If unreachable, that is a real ESCALATE, not a constant to
+# loosen.
 R3_REPLAY_TARGET = mp.mpf(2) ** -56
 
-# R3 ratio-band caps (the third correction): xi/p in [XI_RATIO_LO,XI_RATIO_HI]
-# AND (1-xi)/q in [XI_RATIO_LO,XI_RATIO_HI], equivalently u,v in [-1/2,1].
+# R3 ratio-band caps: xi/p in [XI_RATIO_LO,XI_RATIO_HI] AND
+# (1-xi)/q in [XI_RATIO_LO,XI_RATIO_HI], equivalently u,v in [-1/2,1].
 XI_RATIO_LO = mp.mpf("0.5")
 XI_RATIO_HI = mp.mpf(2)
 
@@ -389,9 +370,8 @@ def emit_hex_array_3d(name, blocks):
 
 
 # ============================================================================
-# R2 continued fraction (DLMF 8.17.22), verbatim from G1b Task A
-# (taskA_orientation.py), independently validated there over 256 zone
-# points plus this generator's own self-check (b).
+# R2 continued fraction (DLMF 8.17.22), independently validated over 256
+# zone points plus this generator's own self-check (b).
 # ============================================================================
 def d_coef(k, alpha, beta, xi, c):
     if k % 2 == 0:
@@ -418,10 +398,9 @@ def I_via_cf(alpha, beta, xi, N):
 
 
 def small_val_via_cf(a, b, x, dps, n_start=128, n_max=4096):
-    """Escalating self-convergence gate (generalizes G1b Task B2/B3's fixed
-    N=128-vs-256 gate, which this generator's wider (zeta,p) grid found
-    insufficient at some interior points -- moderate-zeta, mid-ladder
-    points needing N>256 to self-converge, not just near-ridge ones)."""
+    """Escalating self-convergence gate: a fixed N=128-vs-256 depth check
+    is insufficient at some interior points -- moderate-zeta, mid-ladder
+    points can need N>256 to self-converge, not just near-ridge ones."""
     old = mp.mp.dps
     mp.mp.dps = dps
     try:
@@ -443,31 +422,32 @@ def small_val_via_cf(a, b, x, dps, n_start=128, n_max=4096):
 
 
 # ============================================================================
-# kBetaGammaLim (B_GL) derivation [G3 escalation (C), "gamma-limit slice"].
-# BOTH-SIDES overlap probe per PLAN.md's binding recipe: sweep beta=2^j along
-# the gamma line (alpha tiny fixed, beta huge, beta*xi fixed -- the exact
-# shape of the (0.05, 1e100, 2e-99) witness), evaluated in the CF's OWN
-# orientation (xi < (alpha+1)/(c+2) -> native, else swap -- same rule as
-# check_b_r2/route_final; NOT the raw un-oriented triple, which just measures
-# a meaningless divergent CF branch that route_final would never select).
+# kBetaGammaLim (B_GL) derivation ("gamma-limit slice"): a both-sides
+# overlap probe that sweeps beta=2^j along the gamma line (alpha tiny
+# fixed, beta huge, beta*xi fixed -- the exact shape of the
+# (0.05, 1e100, 2e-99) witness), evaluated in the CF's OWN orientation
+# (xi < (alpha+1)/(c+2) -> native, else swap -- same rule as
+# check_b_r2/route_final; NOT the raw un-oriented triple, which just
+# measures a meaningless divergent CF branch that route_final would never
+# select).
 #
-# UPWARD direction (beta-CF validity ceiling): the design's literal recipe
-# is "fixed-depth N2=64 CF at dps 17 (double proxy) vs dps>=100 truth". Ran
-# literally first (bxi in the design's own {8,20,50,200,800} set): the
-# double-proxy error ALREADY exceeds 2^-60 at the very first grid point
-# (j=40, error ~1.4e-5) and every alpha/bxi combo tested at bxi=8 turns out
-# to be R1's OWN territory (beta*xi=8=B1 exactly -- R1's box condition -- so
-# these points never reach R2/the gamma-limit path in the real kernel;
-# excluded from the "worst case within R2 territory" below). Root cause,
-# confirmed directly (not inferred): the backward CF's own F=1/f (final
-# convergent) grows like beta itself along this line --
-# log2(F) ~= j - 4.3, essentially F ~= beta/20 -- because the swapped-
-# orientation d_1 sits within O(1/beta) of the singular value -1 (same
-# "f_1 near zero" conditioning story BetaR2Cf's own header comment
+# UPWARD direction (beta-CF validity ceiling): the literal recipe is
+# "fixed-depth N2=64 CF at dps 17 (double proxy) vs dps>=100 truth" over
+# bxi in {8,20,50,200,800}. That literal recipe's double-proxy error
+# already exceeds 2^-60 at the very first grid point (j=40, error
+# ~1.4e-5), and every alpha/bxi combo at bxi=8 turns out to be R1's OWN
+# territory (beta*xi=8=B1 exactly -- R1's box condition -- so these
+# points never reach R2/the gamma-limit path in the real kernel; excluded
+# from the "worst case within R2 territory" below). Root cause: the
+# backward CF's own F=1/f (final convergent) grows like beta itself along
+# this line -- log2(F) ~= j - 4.3, essentially F ~= beta/20 -- because the
+# swapped-orientation d_1 sits within O(1/beta) of the singular value -1
+# (same "f_1 near zero" conditioning story BetaR2Cf's own header comment
 # documents: "A double-precision d there is 2^-53*F ... 90 and 5e6 ULP" at
-# ITS example points, F~200 and F~1.25e7 there -- this generator's F reaches
-# those same orders of magnitude by j~23 and stays on the SAME F~beta/20
-# line all the way to j=332, twelve more binades past their examples).
+# ITS example points, F~200 and F~1.25e7 there -- this generator's F
+# reaches those same orders of magnitude by j~23 and stays on the SAME
+# F~beta/20 line all the way to j=332, twelve more binades past those
+# examples).
 #
 # DEVIATION (flagged, per this file's own R3-oracle-choice precedent):
 # BetaR2Cf's own docstring establishes "ULP error ~= F ULPs [of whatever
@@ -480,11 +460,10 @@ def small_val_via_cf(a, b, x, dps, n_start=128, n_max=4096):
 # directly (exact/high-dps, no proxy needed -- F does not depend on the
 # evaluator's own working precision) and rescales by eps_dd=2^-106, rather
 # than trusting the raw dps=17 number, which would peg the "upward
-# frontier" at j~11 (beta~2000) -- clearly not what the escalation's own
-# "probed upward FROM the 2^40 G1a-validated line" framing intends (that
-# 2^40 anchor is G1a's TRUNCATION validation, not a conditioning claim, but
-# a frontier at j~11 would contradict check_b_r2's own existing gamma-limit
-# lattice, which already tests -- and passes -- beta up to 1e12~=2^40).
+# frontier" at j~11 (beta~2000) -- clearly wrong: the 2^40 line is a
+# TRUNCATION validation anchor, not a conditioning claim, but a frontier
+# at j~11 would contradict check_b_r2's own existing gamma-limit lattice,
+# which already tests -- and passes -- beta up to 1e12~=2^40).
 #
 # TARGET DEVIATION (also flagged): at the literal 2^-60 bar, the rescaled
 # upward ceiling (~j=50, see the printed budget line) sits BELOW the
@@ -492,20 +471,18 @@ def small_val_via_cf(a, b, x, dps, n_start=128, n_max=4096):
 # TRUNCATION component (R1/R2/R3/R4's own self-checks all target
 # 2^-56..2^-60 there), but kBetaGammaLim is a ROUTING threshold, not a
 # truncation depth -- the kernel's actual end-to-end accuracy budget is a
-# few ULP of a double (this file's own "Gates and tests" section in
-# PLAN.md: "Direct side <= 3-4 ULP; complements relative ... <= ~6 ULP").
-# Both measured curves are perfectly log-linear in j over their trusted
-# range (confirmed by direct fit, not assumed), which makes the pin
-# location (the midpoint of ceil(target) and floor(target)) INVARIANT to
-# which reasonable target is chosen -- only the MARGIN around it changes.
-# TARGET=2^-49 (~5.7 ULP, matching the "complements relative <= ~6 ULP"
-# gate already in this design almost exactly, rather than an arbitrarily
-# chosen number) gives a comfortable several-binade-wide overlap (see the
-# printed budget line); the tighter 2^-50 (~4 ULP, the direct-side bar)
-# misses the required 2-binade margin by a hair (gap 1.75, not 2). This
-# generator uses 2^-49 for the frontier search; the printed lines report
-# the 2^-60-target numbers too so a reviewer can see exactly where the
-# literal bar falls short.
+# few ULP of a double (direct side <= 3-4 ULP; complements relative
+# <= ~6 ULP). Both measured curves are log-linear in j over their trusted
+# range, which makes the pin location (the midpoint of ceil(target) and
+# floor(target)) INVARIANT to which reasonable target is chosen -- only
+# the MARGIN around it changes. TARGET=2^-49 (~5.7 ULP, matching the
+# "complements relative <= ~6 ULP" bar almost exactly, rather than an
+# arbitrarily chosen number) gives a comfortable several-binade-wide
+# overlap (see the printed budget line); the tighter 2^-50 (~4 ULP, the
+# direct-side bar) misses the required 2-binade margin by a hair (gap
+# 1.75, not 2). This generator uses 2^-49 for the frontier search; the
+# printed lines report the 2^-60-target numbers too so a reviewer can see
+# exactly where the literal bar falls short.
 #
 # DOWNWARD direction (gamma-form adequacy floor): |I_xi(alpha,beta) -
 # P_or_Q_gamma(alpha,t)| / value, t=-beta*log1p(-xi) exact in mpf, where
@@ -673,9 +650,8 @@ def _derive_gamma_lim():
     # The gamma-form approximation's TRUE error is asymptotic in 1/beta and
     # must decrease monotonically with j -- an INCREASE signals the ground
     # truth (this generator's own arbitrary-precision CF) losing its own
-    # accuracy at extreme beta (matching escalation (C)'s "structurally
-    # degenerate" finding: the CF itself, not gamma-form, breaks down out
-    # there), not a real gamma-form regression. Truncate to the maximal
+    # accuracy at extreme beta (the CF itself, not gamma-form, breaks down
+    # out there), not a real gamma-form regression. Truncate to the maximal
     # monotonically-non-increasing prefix before searching for the floor.
     down_js_clean = [GAMMA_LIM_JS[0]]
     for j in GAMMA_LIM_JS[1:]:
@@ -685,7 +661,7 @@ def _derive_gamma_lim():
             print(f"    downward j={j}: ground-truth CF breakdown detected "
                   f"(error rose vs j={down_js_clean[-1]}) -- excluding j>={j} "
                   f"from the floor search (own-CF ground truth unreliable "
-                  f"there, per escalation (C)'s own finding).", file=sys.stderr)
+                  f"there).", file=sys.stderr)
             break
 
     # Rescale F -> dd-arithmetic-equivalent relative error, both target bars.
@@ -718,9 +694,9 @@ def _derive_gamma_lim():
     print(f"    PINNED kBetaGammaLim = 2^{round(j_pin)} (overlap "
           f"[{floor_52:.2f}, {ceil_52:.2f}], margin "
           f"{round(j_pin) - floor_52:.2f}/{ceil_52 - round(j_pin):.2f} binades "
-          f"below/above the pin) -- 2^-49 target deviation frontier-reviewed "
-          f"and RATIFIED 2026-08-09 (PLAN.md Resolved log): routing threshold, "
-          f"not truncation depth -- end-to-end ULP bar applies; pin midpoint "
+          f"below/above the pin) -- 2^-49-class overlap target accepted: "
+          f"this pins a routing threshold, "
+          f"not a truncation depth -- end-to-end ULP bar applies; pin midpoint "
           f"is target-invariant (log-linear frontiers); validated on silicon "
           f"by beta's shipped gammalim gates + seam sweeps.",
           file=sys.stderr)
@@ -761,7 +737,7 @@ def series_partial_sums(alpha, beta, xi, nmax, dps):
 # Self-check (a): R1 series truncation sup at N1=64.
 # Boundary A: beta*xi=B1 (xi from xi1 down to tiny); Boundary B: xi=xi1
 # (beta from tiny up to B1/xi1) -- crossed with an alpha grid including
-# alpha->0 (1e-300). Mirrors probe1_r1_series.py's grid (G1a).
+# alpha->0 (1e-300).
 # ============================================================================
 def check_a_r1():
     print("(a) R1 series truncation sup at N1=64:", file=sys.stderr)
@@ -803,8 +779,8 @@ def check_a_r1():
 
 # ============================================================================
 # Self-check (b): R2 CF depth sup at N2=64, applying the pinned orientation
-# rule xi < (alpha+1)/(c+2). G1a's near-ridge/moderate-middle/gamma-limit
-# lattices plus the G1b beta->1e-300 extension.
+# rule xi < (alpha+1)/(c+2). Covers near-ridge, moderate-middle, and
+# gamma-limit lattices plus a beta->1e-300 extension.
 # ============================================================================
 def _betainc_worker(a_str, b_str, x_str, dps, q):
     import mpmath as mp2
@@ -814,14 +790,12 @@ def _betainc_worker(a_str, b_str, x_str, dps, q):
 
 
 def _betainc_timeout(a, b, x, dps, timeout=2):
-    """G1a probe3's hard-timeout fix: some (a,b,x) magnitude-mismatch
-    shapes (a huge, b tiny or vice versa, x near the tiny side's mass
-    concentration point) hang mp.betainc's hypergeometric-series path
-    INDEFINITELY -- a try/except does not help (it never raises), only a
-    hard multiprocessing timeout does. Caught by this generator's own
-    first run: check_b_r2's beta->1e-300 extension (added per the G1b
-    "extend self-check (b) to beta->1e-300" instruction) hit exactly this
-    hazard and hung with no output for minutes."""
+    """Hard-timeout fix: some (a,b,x) magnitude-mismatch shapes (a huge, b
+    tiny or vice versa, x near the tiny side's mass concentration point)
+    hang mp.betainc's hypergeometric-series path INDEFINITELY -- a
+    try/except does not help (it never raises), only a hard
+    multiprocessing timeout does. check_b_r2's beta->1e-300 extension
+    hits exactly this hazard."""
     q = mp_proc.Queue()
     p = mp_proc.Process(target=_betainc_worker,
                          args=(mp.nstr(a, dps + 15), mp.nstr(b, dps + 15),
@@ -842,17 +816,15 @@ def _betainc_timeout(a, b, x, dps, timeout=2):
             return val
         return None
     finally:
-        # WINDOWS HANDLE LEAK [G1/G2 revision cycle 2, found by the batched
-        # betainc rescue's own full run]: without an explicit q.close() +
-        # q.join_thread() (releases the Queue's pipe/feeder thread) and
-        # p.close() (releases the process handle once it is no longer
-        # alive, guaranteed by the join() calls above), the OS handle
-        # table fills up after a few dozen spawn cycles and a LATER call
-        # fails with PermissionError: [WinError 5] Access is denied inside
-        # multiprocessing's own reduction.duplicate/_winapi.DuplicateHandle
-        # -- this function is called ~500 times by the cross-check step
-        # alone, so the leak is real here too, not just in the new batched
-        # path. try/finally so a call that returns early (timeout, no
+        # WINDOWS HANDLE LEAK: without an explicit q.close() + q.join_thread()
+        # (releases the Queue's pipe/feeder thread) and p.close() (releases
+        # the process handle once it is no longer alive, guaranteed by the
+        # join() calls above), the OS handle table fills up after a few
+        # dozen spawn cycles and a LATER call fails with PermissionError:
+        # [WinError 5] Access is denied inside multiprocessing's own
+        # reduction.duplicate/_winapi.DuplicateHandle -- this function is
+        # called ~500 times by the cross-check step alone, so the leak is
+        # real here. try/finally so a call that returns early (timeout, no
         # queue data) still cleans up.
         q.close()
         q.join_thread()
@@ -863,13 +835,11 @@ def _betainc_timeout(a, b, x, dps, timeout=2):
 
 
 def _cf_err_at(alpha, beta, xi, N, dps):
-    """Error of the CF at FIXED depth N against mp.betainc directly (the
-    original G1a probe2 design). NOTE: an earlier version of this function
-    used the N/2-vs-N self-consistency drift as a proxy for "the error at
-    N" -- WRONG, caught by this generator's own smoke test: at a
-    near-boundary swapped-orientation point ((32,160000,xi~thresh), which
-    the rule swaps to (160000,32,1-xi)), drift(32,64) measured 4.5e-9
-    while the TRUE error at N=64 (vs mp.betainc) was 3.2e-56 -- the drift
+    """Error of the CF at FIXED depth N against mp.betainc directly. The
+    N/2-vs-N self-consistency drift is NOT a valid proxy for "the error at
+    N": at a near-boundary swapped-orientation point ((32,160000,xi~thresh),
+    which the rule swaps to (160000,32,1-xi)), drift(32,64) measures 4.5e-9
+    while the TRUE error at N=64 (vs mp.betainc) is 3.2e-56 -- the drift
     reflects roughly the N/2-depth error, not the N-depth one, since
     error(N) << error(N/2) once genuinely converged."""
     old = mp.mp.dps
@@ -916,7 +886,7 @@ def check_b_r2():
                 xi = bxi / b
                 if 0 < xi < 1:
                     pts.append((a, b, xi, "gamma-limit"))
-    # (iv) G1b extension: second-param band down to beta=1e-300.
+    # (iv) Second-param band extension down to beta=1e-300.
     for beta in (mp.mpf(v) for v in ("1e-300", "1e-100", "1e-30", "1e-6", "1")):
         for alpha in (mp.mpf(v) for v in ("1e-6", "1", "100", "1e6")):
             c = alpha + beta
@@ -925,21 +895,18 @@ def check_b_r2():
                        mp.mpf("0.1"), mp.mpf("0.5"), mp.mpf("0.9")):
                 if 0 < xi < 1:
                     pts.append((alpha, beta, xi, "beta-tiny-ext"))
-    # (v) THIRD-CORRECTION transferred-risk sweep: the CF now owns the R3
-    # ratio-band edge at ALL nu (not just moderate ones) -- probe the
-    # literal boundary xi/p in {1/2,2} and the linked (1-xi)/q in {1/2,2}
-    # (u in {1,-1/2} and v in {1,-1/2} respectively) at nu spanning many
-    # decades. A depth requirement that GROWS with nu at fixed ratio
-    # distance from the cap would need a design change (not a bigger N2)
-    # -- exactly what this sweep exists to catch.
+    # (v) Transferred-risk sweep: the CF now owns the R3 ratio-band edge
+    # at ALL nu (not just moderate ones) -- probe the literal boundary
+    # xi/p in {1/2,2} and the linked (1-xi)/q in {1/2,2} (u in {1,-1/2}
+    # and v in {1,-1/2} respectively) at nu spanning many decades. A depth
+    # requirement that GROWS with nu at fixed ratio distance from the cap
+    # would need a design change (not a bigger N2) -- exactly what this
+    # sweep exists to catch.
     #
-    # ORACLE NOTE: this generator's own first attempt used mp.betainc here
-    # (matching every other check_b_r2 sweep) and found it TIMES OUT AT
-    # EVERY POINT for nu>=1e4 (a,b reach ~1e4-1e17 scale at these ratio-cap
-    # points) -- a NEW mp.betainc limitation this sweep's own magnitude
-    # range exposes (distinct from probe7's near-ridge-only ceiling: these
-    # points are deliberately off-ridge, at the ratio-cap edge, yet still
-    # hang). Fixed by using the CF's OWN self-convergence as ground truth
+    # ORACLE NOTE: mp.betainc TIMES OUT AT EVERY POINT for nu>=1e4 here
+    # (a,b reach ~1e4-1e17 scale at these ratio-cap points) -- these
+    # points are deliberately off-ridge, at the ratio-cap edge, and still
+    # hang. Fixed by using the CF's OWN self-convergence as ground truth
     # here (I_via_cf(N2) vs I_via_cf(N_big), matching the small_val_via_cf
     # pattern already validated broadly in the R3 extraction machinery)
     # instead of mp.betainc -- appropriate since this sweep's whole
@@ -1093,7 +1060,7 @@ def check_b_r2():
 
 
 # ============================================================================
-# R3 setup / R value (G1b Task B2/B3 machinery, verbatim).
+# R3 setup / R value.
 # ============================================================================
 def r3_setup(nu, p, zeta, dps):
     old = mp.mp.dps
@@ -1141,9 +1108,9 @@ def _lambda_of_zeta(zeta, nu, p, alpha, beta):
 def r3_R_at(nu, p, zeta, dps):
     """R = (leading -/+ small_val)*sqrt(2*pi*nu)*exp(cpsi). Branch order:
     zeta's sign is OPPOSITE gamma's eta (zeta carries sign(lambda) =
-    sign(alpha-c*xi); gamma's eta carries sign(x-a)) -- G1b Task B2's
-    resolved sign bug. lam>=0 (zeta>=0) -> small_val=P, R=(leading-P);
-    lam<0 (zeta<0) -> small_val=Q, R=(Q-leading)."""
+    sign(alpha-c*xi); gamma's eta carries sign(x-a)) -- easy to get
+    backwards, so state it explicitly. lam>=0 (zeta>=0) -> small_val=P,
+    R=(leading-P); lam<0 (zeta<0) -> small_val=Q, R=(Q-leading)."""
     old = mp.mp.dps
     mp.mp.dps = dps
     try:
@@ -1226,9 +1193,8 @@ def gamma_ck(eta, kext, a0_list, dps):
 
 # ============================================================================
 # R3 extraction: monomial-in-v=1/nu coefficients via a well-conditioned
-# Chebyshev-in-v LSQ fit (G1b Task B3's method), converted back to
-# monomial form by an EXACT affine basis change (not a new estimation
-# step -- see module docstring).
+# Chebyshev-in-v LSQ fit, converted back to monomial form by an EXACT
+# affine basis change (not a new estimation step -- see module docstring).
 # ============================================================================
 def _poly_add(p, q):
     n = max(len(p), len(q))
@@ -1301,28 +1267,26 @@ def extract_e_monomial(nu_list, p, zeta, korder, dps):
 
 # --- 2D tensor Chebyshev fit over (zeta, p) ---------------------------------
 # Domain: zeta in [-ZETA_MAX, ZETA_MAX] (=[-sqrt(3ln2/2), +sqrt(3ln2/2)],
-# the third-correction ratio-band sup, ~[-1.02,+1.02] -- NOT [-5,5]); p in
-# (0, 0.5] -- the design's symmetry e_k(zeta,p) = -e_k(-zeta,1-p) (see
-# check_h_symmetry's derivation comment for the sign) halves the table by
-# storing only p<=0.5; the kernel negates and swaps arguments for p>0.5.
+# the ratio-band sup, ~[-1.02,+1.02] -- NOT [-5,5]); p in (0, 0.5] -- the
+# design's symmetry e_k(zeta,p) = -e_k(-zeta,1-p) (see check_h_symmetry's
+# derivation comment for the sign) halves the table by storing only
+# p<=0.5; the kernel negates and swaps arguments for p>0.5.
 #
-# NZ/NP/K_EXT/K_REPORT: NOT simply "gamma's own NNODES/K carried over" --
-# this generator's own smoke test found the P-DIRECTION, not zeta, was the
-# real bottleneck (a first attempt at NZ=33,NP=9,K=11 only reached
-# 2^-34-class; bumping NZ alone to 41 changed NOTHING -- ruling out zeta
-# resolution -- while bumping NP alone to 15 fixed it outright, down to
-# 2^-63-class at NZ=33,NP=15, but that configuration is 42.5 KiB, over
-# budget). The final choice below is the smallest grid found that clears
-# BOTH the 2^-56 target and the 32 KiB budget with some margin on each;
-# see check_c_r3's measured output for the achieved value, which is what
-# actually gates this self-check (not these numbers themselves).
+# NZ/NP/K_EXT/K_REPORT: NOT simply gamma's own NNODES/K carried over --
+# the P-DIRECTION, not zeta, is the resolution bottleneck for this fit
+# (zeta resolution alone does not fix an under-resolved fit; NP does).
+# NZ=33,NP=15 reaches 2^-63-class but costs 42.5 KiB, over budget. The
+# choice below is the smallest grid found that clears BOTH the 2^-56
+# target and the 32 KiB budget with some margin on each; see check_c_r3's
+# measured output for the achieved value, which is what actually gates
+# this self-check (not these numbers themselves).
 NZ = 25   # zeta-direction Chebyshev nodes (degree up to NZ-1)
 NP = 15   # p-direction Chebyshev nodes (degree up to NP-1) -- the
-          # binding resolution; a lower NP was the actual first-pass bug.
+          # binding resolution for this fit.
 K_EXT = 15     # orders extracted per (zeta,p) node (buffer against
-               # truncation bias, G1b Task B3's "extract more than report")
+               # truncation bias -- extract more than you report).
 K_REPORT = 10  # orders k=0..K_REPORT-1 (close to gamma's own K=11; K_EXT
-               # bumped to 18 in testing changed nothing, ruling out
+               # beyond 15 does not change the residual, ruling out
                # extraction bias as a factor at this K_REPORT).
 P_MID = mp.mpf("0.25")
 P_HALF = mp.mpf("0.25")
@@ -1374,7 +1338,7 @@ def build_r3_grid(dps):
 
 
 def build_r3_gl_ext(dps):
-    """[(C) slice depth extension] 1D p->0-edge table: e_k(zeta, P_EXT_GL)
+    """Gamma-limit slice depth extension. 1D p->0-edge table: e_k(zeta, P_EXT_GL)
     for k = K_REPORT..K_REPORT+K_GL_EXT-1 on the same NZ zeta Chebyshev
     nodes (same t = zeta/ZETA_MAX mapping the kernel already computes for
     the 2D table), fitted by 1D DCT. Extraction at P_EXT_GL, not the
@@ -1458,23 +1422,22 @@ def check_c_r3(coef2d, gl_ext):
           "(corrected ratio-band domain):", file=sys.stderr)
     dps = 60
     pts = []  # (zeta, p, nu, ext): ext = gl_ext where the kernel applies it
-    # zeta grid spans the corrected (much narrower) band, including near
-    # its edges and the p=1/3,2/3 extremal points where zeta_max itself
-    # is achieved. IMPORTANT (found by this generator's own smoke test):
-    # the REACHABLE |zeta| at a given p is zeta_max_at_p(p) <= ZETA_MAX
-    # (equality only at p=1/3,2/3) -- testing zeta up to the GLOBAL
-    # ZETA_MAX at every p tests points OUTSIDE the true (p-dependent)
-    # membership lens. The extraction machinery (r3_setup's bisection)
-    # still returns SOME lambda there (an analytic continuation, not a
-    # membership-valid point), but that continuation is not what the
-    # kernel will ever query (route_final only reaches R3 for points
-    # actually inside the lens), and this generator's own diagnostic
-    # confirmed the residual it produces (2^-34.5, CONSTANT across nu
-    # from 32 to 1e6 -- a dead giveaway it's a fixed e_0 fit-value issue,
-    # not an S-truncation-in-1/nu issue) traces entirely to testing at
-    # such an unreachable point (zeta=-1.0095 at p=0.4, whose true
-    # zeta_max(p=0.4) is only 0.8945). Fixed by scaling the tested zeta
-    # by zeta_max_at_p(p) (with a 0.97 safety margin to stay inside).
+    # zeta grid spans the (much narrower) ratio-band, including near its
+    # edges and the p=1/3,2/3 extremal points where zeta_max itself is
+    # achieved. IMPORTANT: the REACHABLE |zeta| at a given p is
+    # zeta_max_at_p(p) <= ZETA_MAX (equality only at p=1/3,2/3) -- testing
+    # zeta up to the GLOBAL ZETA_MAX at every p tests points OUTSIDE the
+    # true (p-dependent) membership lens. The extraction machinery
+    # (r3_setup's bisection) still returns SOME lambda there (an analytic
+    # continuation, not a membership-valid point), but that continuation
+    # is not what the kernel will ever query (route_final only reaches R3
+    # for points actually inside the lens): testing at such an unreachable
+    # point (e.g. zeta=-1.0095 at p=0.4, whose true zeta_max(p=0.4) is
+    # only 0.8945) produces a residual that is CONSTANT across nu from 32
+    # to 1e6 -- a dead giveaway of a fixed e_0 fit-value artifact, not a
+    # real S-truncation-in-1/nu issue. Scale the tested zeta by
+    # zeta_max_at_p(p) (with a 0.97 safety margin to stay inside) to avoid
+    # this trap.
     zeta_fracs = (0.05, 0.2, 0.45, 0.7, 0.9, 0.97)
     p_test_vals = ("0.02", "0.1", mp.nstr(mp.mpf(1) / 3, 10), "0.25",
                    "0.4", "0.49")
@@ -1491,17 +1454,16 @@ def check_c_r3(coef2d, gl_ext):
     zm13 = mp.sqrt(_zeta2_at_boundary(p13))
     for nu_f in ("32", "128", "1e6"):
         pts.append((zm13 * mp.mpf("0.97"), p13, mp.mpf(nu_f), None))
-    # GAMMA-LIMIT SLICE ridge extension [(C) resolution, kernel change]:
-    # above kBetaGammaLim the in-band ridge floor drops to
-    # GL_RIDGE_MIN = 20 (gamma's own kGammaAT), so the table is evaluated
-    # at nu in [20, T_RIDGE) at the p -> 0 edge -- a 1/nu EXTRAPOLATION
-    # below the extraction ladder, proved here rather than assumed
-    # (gamma's own table is likewise applied down to a = 20 from a much
-    # higher ladder). p = 2^-50 is the anchor's own p; the slice's real
-    # p is smaller still, and e_k(zeta, p) is anchor-flat below 2^-50.
-    # These points evaluate WITH the gl_ext depth-extension rows (K=13),
-    # as the kernel does on gamma-limit ridge lanes -- K_REPORT alone is
-    # 2^-50-class at nu=20 (this check's own first run caught that). The
+    # GAMMA-LIMIT SLICE ridge extension: above kBetaGammaLim the in-band
+    # ridge floor drops to GL_RIDGE_MIN = 20 (gamma's own kGammaAT), so
+    # the table is evaluated at nu in [20, T_RIDGE) at the p -> 0 edge --
+    # a 1/nu EXTRAPOLATION below the extraction ladder, proved here rather
+    # than assumed (gamma's own table is likewise applied down to a = 20
+    # from a much higher ladder). p = 2^-50 is the anchor's own p; the
+    # slice's real p is smaller still, and e_k(zeta, p) is anchor-flat
+    # below 2^-50. These points evaluate WITH the gl_ext depth-extension
+    # rows (K=13), as the kernel does on gamma-limit ridge lanes --
+    # K_REPORT alone is 2^-50-class at nu=20, hence the extension. The
     # nu = 45/128 rows prove the extension also does no harm at the
     # higher-nu slice lanes it equally applies to (truth-side c = nu/p
     # stays <= 2^57 here, below the CF-ground-truth ceiling).
@@ -1553,10 +1515,10 @@ def check_d_anchor():
     for zeta_f in ("0.1", "-0.1", "0.3", "-0.3", "0.5", "-0.5"):
         zeta = mp.mpf(zeta_f)
         # exact 13x13 solve (K_EXT=13 matches the ladder length here,
-        # mirroring gen_gamma_data.py/Task B2's own recipe) -- deliberately
-        # NOT the LSQ Chebyshev-in-v path (that path is for the wide 2D
-        # grid's conditioning; a 13-point matched ladder is exactly
-        # solvable and does not need it).
+        # mirroring gen_gamma_data.py's own recipe) -- deliberately NOT
+        # the LSQ Chebyshev-in-v path (that path is for the wide 2D grid's
+        # conditioning; a 13-point matched ladder is exactly solvable and
+        # does not need it).
         e = extract_e_monomial(nu_ladder, p_anchor, zeta, 13, dps)[0]
         c = gamma_ck(-zeta * mp.sqrt(2), 13, a0_ladder, dps)
         for k in range(6):
@@ -1607,9 +1569,9 @@ def check_h_symmetry():
 
 # ============================================================================
 # Self-check (f): R4 series truncation over the CORRECTED closed box
-# (xi_tau<=xi1, B*xi_tau<=B1, tau*|ln xi_tau|<=ln2 -- the G1a-added caps).
+# (xi_tau<=xi1, B*xi_tau<=B1, tau*|ln xi_tau|<=ln2).
 # Series: S = sum_{n>=1} (1-beta)_n*xi^n/(n!(alpha+n)) (R1's shape minus
-# n=0, per probe4's reinterpretation matching the shipped gamma R4).
+# n=0, matching the shipped gamma R4).
 # ============================================================================
 def check_f_r4():
     print("(f) R4 series truncation over the corrected box:", file=sys.stderr)
@@ -1618,7 +1580,7 @@ def check_f_r4():
     candidates = [40, 48, 56, 64, 80, 96]
     alpha = EPS_R4
     pts = []
-    # xi capped at xi1=0.45 now (the G1a fix); beta*xi=B1 boundary and the
+    # xi capped at xi1=0.45; beta*xi=B1 boundary and the
     # tau*|ln xi|<=ln2 boundary, both swept.
     xi_floor_ln2 = mp.exp(-LN2 / alpha)
     los = math.log10(float(max(xi_floor_ln2, mp.mpf("1e-30"))))
@@ -1661,9 +1623,8 @@ def check_f_r4():
         return None, 1
     print(f"    pinned R4_NMAX={chosen} (target 2^-58)", file=sys.stderr)
 
-    # --- FOURTH-CORRECTION widened-window budget (own stderr line, own
-    # lattice; per the brief this is a REPORT, not a re-pin -- R4 depth
-    # stays chosen=48, G4 decides any bump from measured kernel ULP) ------
+    # --- Widened-window budget (a REPORT, not a re-pin -- R4 depth stays
+    # chosen=48; any bump is decided from measured kernel ULP) -----------
     # Window: B<0.24 (where thr_t=(tau+1)/(tau+Bp+2) exceeds xi1), xi_tau in
     # (xi1, thr_t]. Sweep tau (the tiny param) across its full range and Bp
     # across (0, 0.24), sampling xi_tau densely inside the widened sliver.
@@ -1671,12 +1632,11 @@ def check_f_r4():
     for Bp_f in (0.001, 0.01, 0.05, 0.1, 0.15, 0.2, 0.239):
         Bp = mp.mpf(Bp_f)
         # tau is R4's OWN tiny-min parameter -- must stay <= eps_R4=2^-6
-        # (the R4 membership predicate's own tau bound); an earlier version
-        # of this lattice swept tau up to 1.0 (10**0 landed in its range),
-        # far outside R4's actual domain, and that single out-of-domain
-        # point dominated the reported sup (2^-32-class) with a physically
-        # meaningless number -- caught by cross-checking the reported
-        # witness against EPS_R4 before trusting the printed sup.
+        # (the R4 membership predicate's own tau bound). A lattice that
+        # sweeps tau outside this domain can dominate the reported sup
+        # with a physically meaningless out-of-domain point -- always
+        # cross-check the reported witness against EPS_R4 before trusting
+        # the printed sup.
         tau_list = sorted(set(
             [mp.mpf(10) ** e for e in range(-300, -5, 30)] +
             [mp.mpf(v) for v in ("1e-10", "1e-3", "1e-2")] +
@@ -1711,19 +1671,18 @@ def check_f_r4():
           f"(tau,Bp,xi_tau)={worst_win_at} -- R4 depth stays {chosen} "
           f"(G4 decides any bump from measured kernel ULP)", file=sys.stderr)
 
-    # --- SEVENTH-CORRECTION post-route domain (GATING, target 2^-58) --------
+    # --- Post-route domain (GATING, target 2^-58) ----------------------------
     # Near-one R1 lanes now enter THIS series in their fired orientation
     # (route_final tag "R4-postroute") instead of the opposite-orientation
-    # CF -- the sixth correction's CF destination stalled at 2^-55.5 on
-    # (0.0234, 1e6, 4e-6) because that CF inherits the small-second-
-    # parameter weakness. Domain swept here: the R1 box with alpha ABOVE
-    # eps_R4 (at or below it, step 0 owns the point), restricted to lanes
-    # the post-route model actually fires on (_r1_native_value >
-    # BETA_NEAR_ONE -- the identical model route_final uses). tau appears
-    # only in the 1/(tau+n) weights and the exact assembly, so truncation
-    # is expected AT OR BELOW the in-box sup; this lattice PROVES it
-    # rather than assuming. Both G3 (B)-witnesses must post-route and be
-    # covered (hard assert).
+    # CF -- that CF destination stalls at 2^-55.5 on (0.0234, 1e6, 4e-6)
+    # because it inherits the small-second-parameter weakness. Domain
+    # swept here: the R1 box with alpha ABOVE eps_R4 (at or below it, step
+    # 0 owns the point), restricted to lanes the post-route model actually
+    # fires on (_r1_native_value > BETA_NEAR_ONE -- the identical model
+    # route_final uses). tau appears only in the 1/(tau+n) weights and the
+    # exact assembly, so truncation is expected AT OR BELOW the in-box
+    # sup; this lattice PROVES it rather than assuming. Both known
+    # witnesses must post-route and be covered (hard assert).
     pr_pts = []
     alpha_pr = sorted(set(
         [EPS_R4 * mp.mpf(m) for m in ("1.01", "1.5", "3")] +
@@ -1742,17 +1701,17 @@ def check_f_r4():
                 if not (0 < xi < 1):
                     continue
                 # Membership via route_final ITSELF (tag test), not a bare
-                # value filter: the first cut filtered on the value alone
-                # and collected tau = 2 points the tau-gate deliberately
-                # KEEPS in R1 (their complement sits in the (2^-12, 2^-11)
-                # band the doctrine still covers -- check (e) polices
-                # them; its pocket lattice extends to tau = 4).
+                # value filter: a value-only filter would also collect
+                # tau = 2 points the tau-gate deliberately KEEPS in R1
+                # (their complement sits in the (2^-12, 2^-11) band the
+                # doctrine still covers -- check (e) polices them; its
+                # pocket lattice extends to tau = 4).
                 if route_final(alpha, beta, xi)[3] == "R4-postroute":
                     pr_pts.append((alpha, beta, xi))
     wit_pr = [(mp.mpf("0.158"), mp.mpf(20), mp.mpf("0.396")),
               (mp.mpf("0.5"), mp.mpf(20), mp.mpf("0.35")),
-              # check (e)'s eighth-correction finding: stayed R1 under the
-              # 1.5 gate with a sub-2^-12 complement; must post-route now.
+              # check (e)'s finding: stays R1 under a 1.5 gate with a
+              # sub-2^-12 complement; must post-route under the 2.5 gate.
               (mp.mpf("1.6"), mp.mpf(20), mp.mpf("0.4"))]
     n_wit_missed = 0
     for w3 in wit_pr:
@@ -1810,19 +1769,17 @@ def _r1_native_value(a, b, x, dps=40):
     is exact enough to place a value against the 2^-11 near-one bar with
     huge margin, at a cost route_final can afford to pay on every R1-box
     lattice point (an escalating CF loop could not, at the sweep sizes
-    checks (b)/(e) run). mp.dps is set INSIDE this layer per the brief's
-    hard rule; series_partial_sums does its own save/restore too, so the
-    nesting is safe."""
+    checks (b)/(e) run). mp.dps is set INSIDE this layer, and
+    series_partial_sums does its own save/restore too, so the nesting is
+    safe."""
     old = mp.mp.dps
     mp.mp.dps = dps
     try:
         s = series_partial_sums(a, b, x, N1, dps)[N1]
-        # PLAN.md "R1 power series": I = [xi^alpha / B(alpha,beta)] * S --
-        # NOT I_via_cf's prefactor (which carries an extra (1-xi)^beta and
-        # 1/alpha specific to the CF's own F normalization; copying it
-        # wholesale here first gave a wrong value, caught by cross-checking
-        # against mp.betainc on a plain (2,3,0.3) sanity point before this
-        # helper was trusted anywhere).
+        # R1 power series: I = [xi^alpha / B(alpha,beta)] * S -- NOT
+        # I_via_cf's prefactor (which carries an extra (1-xi)^beta and
+        # 1/alpha specific to the CF's own F normalization; the two
+        # prefactors are not interchangeable).
         logpref = a * mp.log(x) - (
             mp.loggamma(a) + mp.loggamma(b) - mp.loggamma(a + b))
         return mp.exp(logpref) * s
@@ -1831,42 +1788,34 @@ def _r1_native_value(a, b, x, dps=40):
 
 
 def route_final(a, b, x):
-    """G1b final order (PLAN.md 'second routing correction') with R3's
-    THIRD-CORRECTION membership (ratio band, not the cpsi<=800 strip), the
-    G3 FOURTH correction (R4's widened xi_tau cap), the SIXTH correction
-    (R1 either-orientation + post-route model -- see below), and the (C)
-    gamma-limit slice tag -- all reproduced VERBATIM from PLAN.md "G1/G2
-    revision results -- SIXTH routing correction, B_GL pinned" and
-    src/beta-inl.h's own router (read-only reference; this generator does
-    not re-derive the kernel's thr_t formula, only replicates it exactly
-    for lockstep):
+    """Reproduced VERBATIM from src/beta-inl.h's own router (read-only
+    reference; this generator does not re-derive the kernel's thr_t
+    formula, only replicates it exactly for lockstep):
       0. min(a,b)<=eps_R4 -> tiny-first (tau,Bp,xi_tau); if
          tau*|ln xi_tau|<=ln2 AND xi_tau<=max(xi1,thr_t) AND Bp*xi_tau<=B1
          -> R4, where thr_t=(tau+1)/(tau+Bp+2) is R2's OWN orientation
-         threshold evaluated in the tiny-first frame [FOURTH CORRECTION:
-         the design's box capped xi_tau at xi1 alone, stranding a
-         B<~0.24 window (xi1,thr_t) where NEITHER R1 orientation fires and
-         R2 evaluates the near-one tiny-first side -- see beta-inl.h's own
-         "R4's xi cap, WIDENED" comment for the witness and measured
-         N=48 truncation (2^-57.3) over the widened window]; else fall
-         through.
+         threshold evaluated in the tiny-first frame (capping xi_tau at
+         xi1 alone would strand a B<~0.24 window (xi1,thr_t) where
+         NEITHER R1 orientation fires and R2 evaluates the near-one
+         tiny-first side -- see beta-inl.h's own "R4's xi cap, WIDENED"
+         comment for the witness and measured N=48 truncation (2^-57.3)
+         over the widened window); else fall through.
       1. R1 fires in EITHER orientation whose box holds (x<=xi1 AND
          b*x<=B1 for native; (1-x)<=xi1 AND a*(1-x)<=B1 for swap; native
-         checked first) [SIXTH CORRECTION, REVERTING the fifth: the fifth
-         correction's lambda>=0 requirement was too blunt -- its OWN
-         displaced traffic broke check (b) (witness (0.158,1000,0.00251)
-         needs CF depth ~512, yet R1-native serves it perfectly: evaluated
-         0.994, complement at 2^-58). POST-ROUTE MODEL (replaces the
-         orientation restriction): evaluate the R1-native value at cheap
-         working dps (_r1_native_value, N1=64 -- self-check (a)'s own
-         proven-accurate depth). If it exceeds BETA_NEAR_ONE (kBetaNearOne
-         = 1-2^-11), the point is re-tagged "R4-postroute" and evaluated
-         by R4's analytic small-side assembly in the SAME orientation
-         [SEVENTH correction; the sixth's opposite-orientation CF
-         destination is superseded -- it stalled at 2^-55.5 on the CF's
-         small-second-parameter weakness]. Mirrors the kernel's mask
-         update: near-one R1 lanes fold into the R4 core's lane set.
-         Points at or below the threshold keep R1. Both G3 witnesses
+         checked first) -- a lambda>=0 orientation restriction is too
+         blunt: it displaces sound traffic and breaks check (b) (witness
+         (0.158,1000,0.00251) needs CF depth ~512, yet R1-native serves
+         it perfectly: evaluated 0.994, complement at 2^-58). POST-ROUTE
+         MODEL (replaces any orientation restriction): evaluate the
+         R1-native value at cheap working dps (_r1_native_value, N1=64 --
+         self-check (a)'s own proven-accurate depth). If it exceeds
+         BETA_NEAR_ONE (kBetaNearOne = 1-2^-11), the point is re-tagged
+         "R4-postroute" and evaluated by R4's analytic small-side
+         assembly in the SAME orientation (the opposite-orientation CF
+         destination stalls at 2^-55.5 on the CF's small-second-parameter
+         weakness, so it is not used). Mirrors the kernel's mask update:
+         near-one R1 lanes fold into the R4 core's lane set. Points at or
+         below the threshold keep R1. Both known witnesses
          (0.158,20,0.396) and (0.5,20,0.35) post-route correctly under
          this model (self-check (f)'s post-route lattice reproves it).
       2. R3 if nu=a*b/(a+b)>=T_ridge AND x/p in [1/2,2] AND
@@ -1877,21 +1826,18 @@ def route_final(a, b, x):
          Orientation within R3 stays the mean predicate (native if
          x<=mean else swap) -- R3's own table is built to be exactly
          self-consistent under that swap (self-check (h)).
-      3. R2, orientation by xi < (a+1)/(c+2) -- R2 now also owns
-         everything at nu>=T_ridge that falls OUTSIDE the ratio band
-         (the risk transferred to R2 by the third correction; probed by
-         self-check (b)'s ratio-cap x nu sweep). GAMMA-LIMIT SLICE
-         [(C)]: if the CF-oriented triple's max parameter >= B_GL, the
-         tag gets a "-gammalim" suffix (native/swap preserved) -- this is
-         a TAG only (the oracle below still evaluates via the CF; the
-         reference generator's gamma-corner oracle switches on this tag,
-         and the real kernel switches on the same max(alpha,beta)>=B_GL
-         predicate to route to the gamma-limit path instead). R4-postroute
-         points keep their own tag (PLAN.md's coverage audit lists the
-         post-route traffic as its own histogram line); they never carry
-         -gammalim (R1's box keeps beta*xi <= B1 = 8, far below any
-         B_GL-scale hazard, and their evaluation path is the R4 series,
-         not the CF)."""
+      3. R2, orientation by xi < (a+1)/(c+2) -- R2 also owns everything
+         at nu>=T_ridge that falls OUTSIDE the ratio band (probed by
+         self-check (b)'s ratio-cap x nu sweep). GAMMA-LIMIT SLICE: if
+         the CF-oriented triple's max parameter >= B_GL, the tag gets a
+         "-gammalim" suffix (native/swap preserved) -- this is a TAG only
+         (the oracle below still evaluates via the CF; the reference
+         generator's gamma-corner oracle switches on this tag, and the
+         real kernel switches on the same max(alpha,beta)>=B_GL predicate
+         to route to the gamma-limit path instead). R4-postroute points
+         keep their own tag; they never carry -gammalim (R1's box keeps
+         beta*xi <= B1 = 8, far below any B_GL-scale hazard, and their
+         evaluation path is the R4 series, not the CF)."""
     c = a + b
     tau = min(a, b)
     bmax = max(a, b)
@@ -1915,34 +1861,31 @@ def route_final(a, b, x):
         val = _r1_native_value(aa, bb, xx)
         if val <= BETA_NEAR_ONE:
             return aa, bb, xx, tag
-        # SEVENTH CORRECTION [supersedes the sixth's destination]: the
-        # near-one lane keeps its FIRED orientation and goes to R4's
+        # The near-one lane keeps its FIRED orientation and goes to R4's
         # analytic small-side assembly. Post-routed lanes are R4-shaped by
         # construction: R1's box supplies both of R4's convergence caps
         # (xi <= xi1, beta*xi <= B1), and the near-one condition itself
         # guarantees the Expm1 assembly's argument is < ~2^-10 -- its
         # ideal accuracy zone. eps_R4 was a ROUTING threshold, never a
         # validity bound of the assembly (the series' convergence is
-        # governed by xi and beta*xi, not tau). The sixth correction's
-        # opposite-orientation CF destination stalled at 2^-55.5 on
-        # (0.0234, 1e6, 4e-6) -- check (b)(viii)'s own finding -- because
-        # that CF inherits exactly the small-second-parameter weakness
-        # the fifth correction already hit; sending the lane to R4
-        # removes the CF from this traffic entirely. Gating budget:
-        # check (f)'s post-route-domain lattice.
-        # tau-ceiling kBetaPrTauMax = 2.5 [EIGHTH correction; was 1.5]:
-        # R4's exact-argument lgamma(1+tau) runs on lgamma's centre-1/
-        # centre-2 zones plus ONE recurrence step (lgamma(1+tau) =
-        # lgamma(tau) + ln tau, tau-2 Sterbenz-exact -- see BetaR4Tiny's
-        # three-zone form). The 1.5 gate rested on "the bar cannot fire
-        # above tau ~ 1.35" -- gamma-limit reasoning, WRONG at moderate
-        # beta: check (e)'s extended pocket found (1.6, 20, 0.4) with
-        # value 0.99985, above the bar AND above the 1 - 2^-12 doctrine
-        # bound, which the 1.5 gate forced to stay R1. With the gate at
-        # 2.5, any doctrine-violating lane also exceeds BETA_NEAR_ONE
-        # (the bar sits BELOW the doctrine bound) and therefore
-        # post-routes; above 2.5 the box-corner complement clears 2^-12
-        # with ~3x margin (pocket alphas 2.6/2.8/3/4 police it).
+        # governed by xi and beta*xi, not tau). The opposite-orientation
+        # CF destination stalls at 2^-55.5 on (0.0234, 1e6, 4e-6) -- check
+        # (b)(viii)'s own finding -- because that CF inherits the
+        # small-second-parameter weakness; sending the lane to R4 removes
+        # the CF from this traffic entirely. Gating budget: check (f)'s
+        # post-route-domain lattice.
+        # tau-ceiling kBetaPrTauMax = 2.5: R4's exact-argument
+        # lgamma(1+tau) runs on lgamma's centre-1/centre-2 zones plus ONE
+        # recurrence step (lgamma(1+tau) = lgamma(tau) + ln tau, tau-2
+        # Sterbenz-exact -- see BetaR4Tiny's three-zone form). A gate
+        # derived from "the bar cannot fire above tau ~ 1.35" (gamma-limit
+        # reasoning) is WRONG at moderate beta: check (e)'s extended
+        # pocket finds (1.6, 20, 0.4) with value 0.99985, above that bar
+        # AND above the 1 - 2^-12 doctrine bound. With the gate at 2.5,
+        # any doctrine-violating lane also exceeds BETA_NEAR_ONE (the bar
+        # sits BELOW the doctrine bound) and therefore post-routes; above
+        # 2.5 the box-corner complement clears 2^-12 with ~3x margin
+        # (pocket alphas 2.6/2.8/3/4 police it).
         if aa <= BETA_PR_TAU_MAX:
             return aa, bb, xx, "R4-postroute"
         return aa, bb, xx, tag
@@ -1953,9 +1896,9 @@ def route_final(a, b, x):
                XI_RATIO_LO <= (1 - x) / q_ <= XI_RATIO_HI)
     if in_band and (nu >= T_RIDGE or
                     (bmax >= B_GL and nu >= GL_RIDGE_MIN)):
-        # [(C) slice, ridge part]: above B_GL the CF is structurally
-        # degenerate, so the in-band ridge floor drops to GL_RIDGE_MIN=20
-        # (check (c)'s extension lattice proves the 1/nu extrapolation).
+        # Above B_GL the CF is structurally degenerate, so the in-band
+        # ridge floor drops to GL_RIDGE_MIN=20 (check (c)'s extension
+        # lattice proves the 1/nu extrapolation).
         mean = a / c
         return (a, b, x, "R3-native") if x <= mean else (b, a, 1 - x, "R3-swap")
     thresh = (a + 1) / (c + 2)
@@ -2009,9 +1952,7 @@ def check_e_routing():
     x_grid = sorted(set(x_mid + x_lo + x_hi))
     # DEGEN_FLOOR: both a AND b below this is specials-table territory
     # (the design's own "two degenerate parameters -> NaN" rule), not a
-    # routing case -- G1b Task C's own report dismissed these same lattice
-    # corners for the same reason; excluded here so they don't drown the
-    # genuine signal.
+    # routing case; excluded here so they don't drown the genuine signal.
     degen_floor = mp.mpf("1e-8")
     for a in ab_grid:
         for r in ratio_grid:
@@ -2021,23 +1962,22 @@ def check_e_routing():
             for x in x_grid:
                 if 0 < x < 1:
                     pts.append((a, b, x, "lattice"))
-    # G1a witness zone + family.
+    # Witness zone + family.
     for a in (mp.mpf(4), mp.mpf(8), mp.mpf(16)):
         for b in (mp.mpf(2) ** -7, mp.mpf(2) ** -6, mp.mpf(2) ** -5):
             for xi in (mp.mpf("0.9"), mp.mpf("0.9999"), 1 - mp.mpf("9.5e-7"),
                        1 - mp.mpf("1e-9"), 1 - mp.mpf("1e-12")):
                 pts.append((a, b, xi, "g1a-witness"))
-    # G1b witness (1e-20,1,0.4) + family.
+    # Witness (1e-20,1,0.4) + family.
     for a in (mp.mpf(v) for v in ("1e-20", "1e-15", "1e-10", "1e-6")):
         for b in (mp.mpf(v) for v in ("0.5", "1", "2", "8")):
             for xi in (mp.mpf("0.2"), mp.mpf("0.4"), mp.mpf("0.6"), mp.mpf("0.8")):
                 pts.append((a, b, xi, "g1b-witness"))
-    # G3/(B) FIFTH-CORRECTION witnesses (0.158,20,0.396) and (0.5,20,0.35) +
-    # dense sampling of the pocket the pre-fifth-correction lattice MISSED:
-    # near the beta*xi=B1 edge, alpha in (eps_R4,1) -- the old lattice's
-    # 0.9973 max was a lattice artifact of under-sampling exactly this
-    # pocket, per the escalation text; this dense sub-lattice is what turns
-    # that into a genuine sup measurement.
+    # Witnesses (0.158,20,0.396) and (0.5,20,0.35) + dense sampling of the
+    # pocket near the beta*xi=B1 edge, alpha in (eps_R4,1): a coarse
+    # lattice under-samples exactly this pocket and reports an
+    # artificially low max there; this dense sub-lattice is what turns it
+    # into a genuine sup measurement.
     for a0, b0, x0 in ((mp.mpf("0.158"), mp.mpf(20), mp.mpf("0.396")),
                         (mp.mpf("0.5"), mp.mpf(20), mp.mpf("0.35"))):
         for da in (mp.mpf("0.5"), mp.mpf("0.8"), mp.mpf(1), mp.mpf("1.2"), mp.mpf(2)):
@@ -2050,15 +1990,13 @@ def check_e_routing():
     a_pocket = [mp.mpf(v) for v in
                 ("0.0157", "0.02", "0.05", "0.1", "0.158", "0.2", "0.3",
                  "0.5", "0.7", "0.9", "0.99",
-                 # Tau-gate margin band: THIS lattice is what proves the
-                 # stay-R1 claim rather than an estimate -- and its first
-                 # full run DISPROVED it for the seventh correction's 1.5
-                 # gate: (1.6, 20, 0.4) measured Q = 1.52e-4, BELOW the
-                 # 2^-12 doctrine bar [EIGHTH correction: gate now 2.5,
-                 # so tau <= 2.5 near-one lanes post-route; the alphas
-                 # here at and below 2.5 exercise the post-route tag,
-                 # 2.6/2.8/3/4 police the stay-R1 remainder, whose
-                 # box-corner Q (~7e-4 at 2.6) clears 2^-12 ~3x].
+                 # Tau-gate margin band: this lattice is what proves the
+                 # stay-R1 claim rather than an estimate -- (1.6, 20, 0.4)
+                 # measures Q = 1.52e-4, BELOW the 2^-12 doctrine bar, so
+                 # tau <= 2.5 near-one lanes post-route; the alphas here
+                 # at and below 2.5 exercise the post-route tag, 2.6/2.8/
+                 # 3/4 police the stay-R1 remainder, whose box-corner Q
+                 # (~7e-4 at 2.6) clears 2^-12 ~3x.
                  "1.6", "2.0", "2.5", "2.6", "2.8", "3.0", "4.0")]
     for a in a_pocket:
         for b in (mp.mpf(v) for v in ("8", "16", "20", "40", "100", "1000")):
@@ -2201,12 +2139,9 @@ def digamma_rough_full(coefs, z):
     then the zone polynomial. Two directions: z<Z0 walks UP (psi(z) =
     poly(z_final) - sum 1/z_j accumulated on the way up); z>=Z0+1 walks
     DOWN (psi(z) = poly(z_final) + sum 1/z_j accumulated on the way down)
-    -- the domain is (0, 2*Z0], so z can exceed the zone's upper edge too,
-    a case an earlier version of this function did not handle (it only
-    walked up for z<Z0, silently extrapolating the zone polynomial WAY
-    outside its fitted range for z in [Z0+1, 2*Z0] -- caught by this
-    generator's own self-check (i), which failed at z=2*Z0 with ~1% error
-    instead of the intended 2^-40)."""
+    -- the domain is (0, 2*Z0], so z can exceed the zone's upper edge too;
+    walking up only for z<Z0 would silently extrapolate the zone
+    polynomial WAY outside its fitted range for z in [Z0+1, 2*Z0]."""
     zz = mp.mpf(z)
     s = mp.mpf(0)
     if zz < Z0:
@@ -2254,7 +2189,8 @@ def main():
     t_start = time.time()
     rc = 0
 
-    print(f"ZETA_MAX (derived from cpsi<=800, nu>=T_ridge={float(T_RIDGE)}): "
+    print(f"ZETA_MAX (exact sup over the ratio band, "
+          f"nu>=T_ridge={float(T_RIDGE)}): "
           f"{float(ZETA_MAX)}", file=sys.stderr)
 
     rc |= check_a_r1()
@@ -2284,11 +2220,10 @@ def main():
     gl_ext = build_r3_gl_ext(dps=100)
 
     r3_worst = check_c_r3(coef2d, gl_ext)
-    # R3_REPLAY_TARGET is FIXED at gamma-class 2^-56 (third-correction
-    # instruction) -- not pinned-to-measured this time. A miss here is a
-    # real ESCALATE (the corrected ratio-band domain was expected to reach
-    # it at gamma-class node counts; if it doesn't, that's new information,
-    # not a threshold to relax).
+    # R3_REPLAY_TARGET is FIXED at gamma-class 2^-56 -- not
+    # pinned-to-measured. A miss here is a real ESCALATE (the ratio-band
+    # domain is expected to reach it at gamma-class node counts; if it
+    # doesn't, that's new information, not a threshold to relax).
     if r3_worst > R3_REPLAY_TARGET:
         print(f"    FAILED: R3 residual {float(r3_worst):.3e} exceeds the "
               f"2^-56 target -- ESCALATE.", file=sys.stderr)
@@ -2333,9 +2268,8 @@ def main():
     print()
     print("namespace corvus::detail {")
     print()
-    print("// Region-map and fixed-length constants (PLAN.md \"Regularized")
-    print("// incomplete beta -- detail design\", G1a/G1b probe-pinned; R4_NMAX")
-    print("// and the R3 table below are this generator's own [G1c] pins).")
+    print("// Region-map and fixed-length constants (probe-pinned; R4_NMAX")
+    print("// and the R3 table below are this generator's own pins).")
     print(f"inline constexpr double kBetaB1 = {hexf(B1)};")
     print(f"inline constexpr double kBetaXi1 = {hexf(XI1)};")
     print(f"inline constexpr double kBetaEpsR4 = {hexf(EPS_R4)};")
@@ -2345,13 +2279,13 @@ def main():
     print(f"inline constexpr double kBetaExpFloor = {hexf(E_FLOOR)};")
     print(f"inline constexpr double kBetaLn2 = {hexf(LN2)};")
     print(f"inline constexpr double kBetaZetaMax = {hexf(ZETA_MAX)};")
-    print("// kBetaGammaLim (B_GL) [G3 escalation (C), 'gamma-limit slice']:")
+    print("// kBetaGammaLim (B_GL), 'gamma-limit slice':")
     print("// max(alpha,beta) >= this, on the CF-oriented triple, routes R2 to")
     print("// the gamma-limit path instead of the backward CF (which is")
     print("// structurally degenerate up there -- see the derivation/deviation")
     print("// comment at _derive_gamma_lim in this generator).")
     print(f"inline constexpr double kBetaGammaLim = {hexf(B_GL)};")
-    print("// kBetaNearOne [SEVENTH routing correction]: after the R1 pass,")
+    print("// kBetaNearOne (near-one post-route bar): after the R1 pass,")
     print("// any lane whose R1 dd value EXCEEDS this folds into the R4")
     print("// core's lane set in the SAME orientation (R4's analytic")
     print("// small-side assembly; R1's box already supplies R4's")
@@ -2361,15 +2295,15 @@ def main():
     print("// being on the dd value. Generator-proved: check (f)'s")
     print("// post-route-domain truncation lattice.")
     print(f"inline constexpr double kBetaNearOne = {hexf(BETA_NEAR_ONE)};")
-    print("// Post-route tau ceiling [EIGHTH correction: 1.5 -> 2.5]: one")
+    print("// Post-route tau ceiling: one")
     print("// lgamma recurrence step past the centre-2 zone edge (BetaR4Tiny's")
-    print("// three-zone lgamma(1+tau)). The bar above sits BELOW the 1-2^-12")
+    print("// lgamma(1+tau)). The bar above sits BELOW the 1-2^-12")
     print("// doctrine bound, so every doctrine-violating tau <= 2.5 lane")
     print("// post-routes by construction; check (e)'s pocket proves the")
-    print("// tau > 2.5 remainder clears the bound on its own (the 1.5 gate")
-    print("// failed exactly there: (1.6, 20, 0.4), Q = 1.52e-4 < 2^-12).")
+    print("// tau > 2.5 remainder clears the bound on its own (a lower gate")
+    print("// fails inside the pocket: (1.6, 20, 0.4), Q = 1.52e-4 < 2^-12).")
     print(f"inline constexpr double kBetaPrTauMax = {hexf(BETA_PR_TAU_MAX)};")
-    print("// Gamma-limit slice ridge floor [(C) resolution]: in-band lanes")
+    print("// Gamma-limit slice ridge floor: in-band lanes")
     print("// with max(alpha,beta) >= kBetaGammaLim use R3 down to nu = 20")
     print("// (gamma's own kGammaAT; the CF is degenerate up there). The 1/nu")
     print("// extrapolation below the extraction ladder is proved by check")
@@ -2396,18 +2330,16 @@ def main():
     print(f"// kBetaR3Cheb[k][n][m] the coefficient of")
     print("// T_n(zeta/kBetaZetaMax) * T_m((p-kBetaR3PMid)/kBetaR3PHalf).")
     print("//")
-    print("// R3 MEMBERSHIP [third correction, PLAN.md \"G1c generator results")
-    print("// and third correction\"]: nu>=kBetaTRidge AND xi/p in")
+    print("// R3 MEMBERSHIP: nu>=kBetaTRidge AND xi/p in")
     print("// [kBetaXiRatioLo,kBetaXiRatioHi] AND (1-xi)/q in [same] -- the")
     print("// ridge RATIO band, mirroring gamma's shipped Temme table exactly")
     print("// (gen_gamma_data.py's ETA_LO/ETA_HI span lambda in [1/2,2], not a")
-    print("// wide cpsi strip). An EARLIER version of this generator used")
-    print("// membership 'nu>=T_ridge AND cpsi<=800' -- a design error: the")
+    print("// wide cpsi strip). A membership of the shape")
+    print("// 'nu>=T_ridge AND cpsi<=800' is NOT viable: the")
     print("// implied zeta in [-5,5] fit domain cannot reach dd-level accuracy")
-    print("// in 32 KiB (measured 2^-16-class residual, confirmed inherent to")
-    print("// the domain width by cross-check against gamma's own c_0(eta) over")
-    print("// an equally wide synthetic range, not a beta-specific bug) --")
-    print("// caught and corrected before this table was ever shipped.")
+    print("// in 32 KiB (2^-16-class residual, inherent to")
+    print("// the domain width -- cross-checked against gamma's own c_0(eta)")
+    print("// over an equally wide synthetic range).")
     print("//")
     print(f"// kBetaZetaMax = sqrt(3*ln2/2) ~ {float(ZETA_MAX):.10f}, the EXACT sup of")
     print("// |zeta| over the ratio band (derived, not assumed -- see")

@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Generate tests/data/gammainv_{p,q}_reference.txt -- certified reference
-set for corvus::gamma_p_inv / corvus::gamma_q_inv, per PLAN.md "P1 inverse
-incomplete gamma -- detail design" (BINDING), subsections "Oracle (G2)" and
-"Reference strata (G2)", plus the G1 stage record (pinned constants, read
-directly from the checked-in src/gammainv_data.h -- this generator does
-NOT re-run G1's replay/self-check pipeline).
+set for corvus::gamma_p_inv / corvus::gamma_q_inv. Consumes the pinned
+constants written by tools/gen_gammainv_data.py directly from the
+checked-in src/gammainv_data.h -- this generator does NOT re-run that
+script's replay/self-check pipeline.
 
-ORACLE (frontier-specified, implemented as directed):
+ORACLE:
   1. Root-find x* solving P(a,x)=s (side='p') or Q(a,x)=s (side='q') via
      bisection in ln(x) (monotone, robust across the whole double range --
      p5.py/common.py's probe-validated pattern), forward = ROUTE 1 below.
@@ -40,18 +39,19 @@ own audited oracle_pq: a<=A_SWITCH=1e4 uses mpmath.gammainc directly
 elementary series/CF), a>A_SWITCH uses an exact-Temme Chebyshev fit in eta
 extrapolated in 1/a (validated below to agree with mpmath to 2^-116 on the
 [5e3,1e4] overlap band -- far tighter than gen_gamma_reference.py's own
-2^-60 target, since this generator's g2_self_check runs it at dps=120).
+2^-60 target, since this generator's own oracle-fit validation runs it at
+dps=120).
 A_SWITCH=1e4 matches BOTH gen_gamma_reference.py's A_SWITCH and
 gen_gammainv_data.py's own A_MPMATH_SAFE (that generator's docstring:
 threshold 1e6 caused a 15-minute mpmath hang near the ridge at a=1e8; 1e4
-is the re-confirmed safe margin, reused here per the G2 brief's explicit
-instruction).
+is the safe margin, reused here).
 
-SEEDING: oracle_x's bisection bracket is narrowed around a seed from G1's
-OWN pinned tri-candidate machinery (seed_S1/S2/S3 + seed_for, a thin
-reimplementation calling tools/gen_gammainv_data.py's module-level
-functions with the CHECKED-IN Chebyshev table from src/gammainv_data.h
-hooked in directly -- not G1's expensive self-check replay). Seeding is a
+SEEDING: oracle_x's bisection bracket is narrowed around a seed from
+gen_gammainv_data.py's OWN pinned tri-candidate machinery (seed_S1/S2/S3
++ seed_for, a thin reimplementation calling tools/gen_gammainv_data.py's
+module-level functions with the CHECKED-IN Chebyshev table from
+src/gammainv_data.h hooked in directly -- not that script's expensive
+self-check replay). Seeding is a
 SPEED optimization only: oracle_x falls back to the full default bracket
 whenever the seeded one fails to bracket the root, so correctness never
 depends on the seed being good.
@@ -85,8 +85,8 @@ SEED = 20260809
 
 # ============================================================================
 # Part 0: pinned constants, read from the checked-in headers (NOT re-derived
-# -- G1's replay pipeline is a separate, expensive job; this generator
-# consumes its PINNED OUTPUT exactly as the kernel will).
+# -- gen_gammainv_data.py's replay pipeline is a separate, expensive job;
+# this generator consumes its PINNED OUTPUT exactly as the kernel will).
 # ============================================================================
 def _parse_scalar_hex(txt, name):
     m = re.search(re.escape(name) + r"\s*=\s*([^;]+);", txt)
@@ -130,9 +130,10 @@ A_T = PIN["A_T"]
 
 
 # ============================================================================
-# Part 1: tri-candidate seed (thin re-implementation of G1's own nested
-# seed_for, calling g1data's MODULE-LEVEL helpers fed by the PINNED table
-# above). Speed aid only -- see module docstring.
+# Part 1: tri-candidate seed (thin re-implementation of
+# gen_gammainv_data.py's own nested seed_for, calling g1data's
+# MODULE-LEVEL helpers fed by the PINNED table above). Speed aid only --
+# see module docstring.
 # ============================================================================
 def cheap_residual(a, x0, s, side):
     if not (math.isfinite(x0) and x0 > 0):
@@ -225,8 +226,8 @@ def lam_of_eta_mp(eta, dps):
 
 
 def r_exact(a, eta, lam, dps):
-    """ORACLE TRAP (gen_gamma_data.py's own documented hazard, re-observed
-    here): eta<0 MUST use the P-side identity, never Q=1-tiny."""
+    """ORACLE TRAP (gen_gamma_data.py's own documented hazard): eta<0
+    MUST use the P-side identity, never Q=1-tiny."""
     with mp.workdps(dps):
         a = mp.mpf(a)
         if eta >= 0:
@@ -258,8 +259,8 @@ def clenshaw(coefs, t):
 def extract_temme_fit(dps, kext, k, nnodes, a0, eta_lo, eta_hi, label):
     """One Temme-in-eta Chebyshev fit (Vandermonde-in-1/a solve against
     mpmath.gammainc at nnodes eta values, a0*2^j anchors). Parameterized so
-    a SECOND, independently anchored fit (design point 5, different
-    nnodes/a0/kext) is a different numerical derivation, not a copy."""
+    a SECOND, independently anchored fit (different nnodes/a0/kext) is a
+    different numerical derivation, not a copy."""
     t0 = time.time()
     eta_mid = (eta_hi + eta_lo) / 2
     eta_half = (eta_hi - eta_lo) / 2
@@ -464,10 +465,9 @@ def certify_deep_small(a, p, dps, xd_override=None):
     """xd_override: certify a SPECIFIC double (e.g. a negative-control
     perturbation) against the closed-form target -- without this,
     certify_row's deep-small branch would always re-derive and certify its
-    OWN xd, silently ignoring any externally supplied candidate (self-
-    caught bug, this generator's first draft: every deep-small negative
-    control was trivially 'accepted' because it was never actually being
-    checked -- see the final report's bug ledger)."""
+    OWN xd, silently ignoring any externally supplied candidate: every
+    deep-small negative control would then be trivially 'accepted'
+    because it was never actually being checked."""
     lx0, x0, bound, conv = deep_small_lx0(a, p, dps)
     xd = xd_override if xd_override is not None else (float(x0) if x0 > 0 else 0.0)
     if not math.isfinite(xd):
@@ -492,17 +492,16 @@ def certify_deep_small(a, p, dps, xd_override=None):
 
 # ============================================================================
 # Part 5: certify_row -- bracket certification (layered dps), the huge-a
-# independent second route (design point 5), and the beyond-resolution
-# variant (design point 6): at a >~ 3e34-class, aphi(lambda) already
-# exceeds APHI_SAT one representable double away from x=a (delta(a*phi) ~
-# a*2^-105/2 at 1 ULP) -- forward collapses to a 3-point step function
-# {1,0.5,0} around x=a with NO gradation. In practice this is rarely
-# needed: whenever the target s sits strictly between the saturated
-# neighbor values (the usual case), standard sign-flip bracketing already
-# certifies xd correctly (the neighbors straddle ANY s in (0,1)) --
-# measured 0 rows needed the escalation in the actual generation run (see
-# final report); it is kept as a documented defensive fallback per the
-# brief's explicit requirement, not because it fired.
+# independent second route, and the beyond-resolution variant: at
+# a >~ 3e34-class, aphi(lambda) already exceeds APHI_SAT one
+# representable double away from x=a (delta(a*phi) ~ a*2^-105/2 at 1
+# ULP) -- forward collapses to a 3-point step function {1,0.5,0} around
+# x=a with NO gradation. In practice this is rarely needed: whenever the
+# target s sits strictly between the saturated neighbor values (the
+# usual case), standard sign-flip bracketing already certifies xd
+# correctly (the neighbors straddle ANY s in (0,1)); it is kept as a
+# documented defensive fallback, not because it is expected to fire
+# routinely.
 # ============================================================================
 HUGE_A_THRESHOLD = mp.mpf("1e16")
 N_BEYOND_RESOLUTION = [0]
@@ -650,12 +649,11 @@ def negative_controls(fit1, fit2):
 
 
 # ============================================================================
-# Part 7: strata generation. Points are (a, s, side, tag) tuples; where the
-# brief's stratum is naturally described in x/lambda terms, s is
-# constructed as forward(a,x) rounded to double (well-posed by
-# construction: s is a value the kernel could actually receive, sidesteps
-# the huge-a "arbitrary target unreachable" trap the beyond-resolution
-# investigation above surfaced).
+# Part 7: strata generation. Points are (a, s, side, tag) tuples; where a
+# stratum is naturally described in x/lambda terms, s is constructed as
+# forward(a,x) rounded to double (well-posed by construction: s is a
+# value the kernel could actually receive, sidesteps the huge-a
+# "arbitrary target unreachable" trap noted above).
 # ============================================================================
 NEXT_UP = lambda v: math.nextafter(v, math.inf)
 NEXT_DN = lambda v: math.nextafter(v, -math.inf)
@@ -1007,7 +1005,7 @@ def compute_all(ps, fit1, fit2):
 
 # ============================================================================
 # Part 9: 25-row independent spot cross-check (elementary series/CF for
-# a<=1e4, route2 exact-asymptotic for larger a) -- per the brief.
+# a<=1e4, route2 exact-asymptotic for larger a).
 # ============================================================================
 def cross_check_25(rows_p, rows_q, rng, fit2):
     print("\n25-row independent spot cross-check ...", file=sys.stderr)

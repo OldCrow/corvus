@@ -2,7 +2,7 @@
 """Generate tests/data/gamma_{p,q,util}_reference.txt -- correctly rounded
 oracles for corvus::gamma_p / corvus::gamma_q / the Log1pmxDd micro-gate.
 
-Per PLAN.md "Phase C part 2", region map (lambda = x/a, a_T = 20):
+Region map (lambda = x/a, a_T = 20):
   R1 series-P:    {a<20, 0<x<=a+1} u {a>=20, lambda<=1/2}
   R4 small-a Q:   {0<a<=3/2, 0<x<=4}
   R2 backward-CF: {a<20, x>a+1} u {a>=20, lambda>=2}, minus R4
@@ -414,12 +414,12 @@ def gen_r3(ps, rng):
 
 
 def gen_r3_deep_tail(ps):
-    """Deep-Temme-tail band [added after kernel review]: a*phi ~ 700-800 at
-    moderately large a is exactly where the phi-series coefficient rounding
-    (1/3, 1/5, 1/6, 1/7 not exact in double) gets amplified through
-    e^{-a*phi} -- measured ~12 ULP at a=3.79e5, lambda=1.062 before
-    kGammaPhiCoefLo existed. All these a exceed A_SWITCH, so oracle_pq
-    already routes them through the exact-Temme path unconditionally.
+    """Deep-Temme-tail band: a*phi ~ 700-800 at moderately large a is
+    exactly where the phi-series coefficient rounding (1/3, 1/5, 1/6, 1/7
+    not exact in double) gets amplified through e^{-a*phi} -- this band
+    exists to guard against that amplification. All these a exceed
+    A_SWITCH, so oracle_pq already routes them through the exact-Temme path
+    unconditionally.
     """
     n0 = len(ps.pts)
     a_list = (1e5, 3.79e5, 1e6, 3e6, 1e7)
@@ -481,14 +481,13 @@ def compute_and_write(ps, fits):
 def gen_dd_special_reference(rng):
     """dd_special_reference.txt: u phi_hi phi_lo, dd pairs for Log1pmxDd.
 
-    phi(u) = u - log1p(u), computed at dps=60 per PLAN.md's own spec for
-    this table (independent of the dps=100 used for the Temme oracle above).
+    phi(u) = u - log1p(u), computed at dps=60 (independent of the dps=100
+    used for the Temme oracle above).
 
-    Log1pmxDd itself lives in src/dd_special-inl.h (hoisted out of the gamma
-    kernel 2026-07-29), but its reference generation stays HERE deliberately:
-    it consumes the same seeded rng stream as the P/Q point sets above, so
-    carving it into its own generator would silently change every point in
-    the checked-in file. The file was renamed verbatim in the hoist.
+    Log1pmxDd itself lives in src/dd_special-inl.h, but its reference
+    generation stays HERE deliberately: it consumes the same seeded rng
+    stream as the P/Q point sets above, so carving it into its own
+    generator would silently change every point in the checked-in file.
     """
     with mp.workdps(60):
         pts = set()

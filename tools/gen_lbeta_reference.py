@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Generate tests/data/lbeta_reference.txt -- correctly-rounded mpmath oracle
 reference set for corvus::lbeta (public ln B(a,b) =
-lgamma(a) + lgamma(b) - lgamma(a+b)), per PLAN.md's
-"lbeta -- BINDING DESIGN [2026-08-11, frontier]".
+lgamma(a) + lgamma(b) - lgamma(a+b)).
 
-Domain: a>0, b>0, both finite doubles only -- no NaN/inf/negative rows (per
-the binding design's "positive-domain contract like beta_p/beta_q";
-specials belong to the smoke test, not this file, matching every other
-reference generator in this repo).
+Domain: a>0, b>0, both finite doubles only -- no NaN/inf/negative rows
+(matching beta_p/beta_q's positive-domain contract; specials belong to the
+smoke test, not this file, matching every other reference generator in
+this repo).
 
 Row format: THREE hex-float tokens per line -- `<a> <b> <lnB(a,b)>`,
 strtod round-trip, one extra token beyond the erf/digamma/bessel two-token
@@ -21,18 +20,15 @@ Oracle: mp.loggamma(a) + mp.loggamma(b) - mp.loggamma(a+b) at layered dps
 DECLINE [skip + record] on persistent disagreement). This is erf-difficulty
 oracle work, NOT the no-trusted-baseline oracle-trust doctrine (mpmath's
 loggamma IS a trusted library baseline for this function, unlike beta's
-betainc) -- no bracket certification, matching the binding design's "G1/G2
-collapse to ONE light pass" ruling. An independent cross-check on a subset
-uses mp.log(mp.beta(a,b)) -- a genuinely different mpmath code path (gamma
-RATIO, not a loggamma SUM) -- restricted to a moderate-magnitude window
-(1e-6 <= a,b <= 1e6) "where B doesn't over/underflow" per the brief: B(a,b)
-stays a numerically unremarkable quantity there, matching the brief's
-intent without betting a compute budget on mpmath's arbitrary-exponent mpf
-tolerating astronomically large/small B values gracefully within a
+betainc) -- no bracket certification. An independent cross-check on a
+subset uses mp.log(mp.beta(a,b)) -- a genuinely different mpmath code path
+(gamma RATIO, not a loggamma SUM) -- restricted to a moderate-magnitude
+window (1e-6 <= a,b <= 1e6), where B(a,b) stays a numerically unremarkable
+quantity, without betting a compute budget on mpmath's arbitrary-exponent
+mpf tolerating astronomically large/small B values gracefully within a
 reasonable per-call cost.
 
-CONVENTION RULING [zero-manifold band marker column -- resolves the task's
-open question]: tests/test_digamma_ulp.cpp buckets its own absolute-vs-
+CONVENTION: tests/test_digamma_ulp.cpp buckets its own absolute-vs-
 relative gate purely from the loaded reference VALUE (|psi(x)| < 1, decided
 INSIDE the test), with NO marker column in tests/data/digamma_reference.txt
 -- see that test's own comment, "the lgamma convention: on the negative
@@ -41,28 +37,23 @@ near the ln B = 0 manifold carry no marker; the eventual test_lbeta_ulp.cpp
 will bucket by |stored lnB| < threshold itself, the same pattern. This
 generator's job is DENSE coverage of that band, not annotating it.
 
-RAY-CROSSING FINDING [flagged deviation from the literal brief wording --
-gen_beta_reference.py's own "deviation, flagged" precedent, restated here
-at the point it matters]: of the three named boundary rays in the brief
-(a=b; a=10b; a=1e5*b), only a=b actually reaches ln B magnitude
-~DBL_MAX (rounds to -inf) within representable double range. Large-(a,b)
-asymptotics give ln B(a,b) ~ -(a+b)*H(p), p=a/(a+b), H the binary entropy
-in nats, maximized (H=ln2) at p=1/2. A 10:1 or 1e5:1 skew shrinks H far
-enough that even pinning BOTH parameters at DBL_MAX falls short of the
-~1.7977e308 magnitude needed to round to -inf -- measured directly:
-a=10b maxes out at ln B ~ -6.0e307 (at a=DBL_MAX, b=DBL_MAX/10); a=1e5*b
-maxes out at ln B ~ -2.2e304 (at a=DBL_MAX, b=DBL_MAX/1e5). Both are
-comfortably finite doubles, nowhere near the boundary -- there IS no
-crossing to bit-step on those two rays. The a=b ray's genuine crossing is
-derived (bisected) and bit-stepped below; the other two rays are used as
-near-domain-ceiling STRESS rows instead (their maximum-representable-
-magnitude point, bracketed) -- real "both parameters huge, skewed ratio"
-coverage, honestly reported as NOT hitting a saturation boundary rather
-than fabricating one. See scratchpad STATUS.md and the final report for
-the numeric probe that found this.
+RAY-CROSSING FINDING: of the three named boundary rays (a=b; a=10b;
+a=1e5*b), only a=b actually reaches ln B magnitude ~DBL_MAX (rounds to
+-inf) within representable double range. Large-(a,b) asymptotics give
+ln B(a,b) ~ -(a+b)*H(p), p=a/(a+b), H the binary entropy in nats,
+maximized (H=ln2) at p=1/2. A 10:1 or 1e5:1 skew shrinks H far enough that
+even pinning BOTH parameters at DBL_MAX falls short of the ~1.7977e308
+magnitude needed to round to -inf: a=10b maxes out at ln B ~ -6.0e307
+(at a=DBL_MAX, b=DBL_MAX/10); a=1e5*b maxes out at ln B ~ -2.2e304 (at
+a=DBL_MAX, b=DBL_MAX/1e5). Both are comfortably finite doubles, nowhere
+near the boundary -- there IS no crossing to bit-step on those two rays.
+The a=b ray's genuine crossing is derived (bisected) and bit-stepped
+below; the other two rays are used as near-domain-ceiling STRESS rows
+instead (their maximum-representable-magnitude point, bracketed) -- real
+"both parameters huge, skewed ratio" coverage, honestly reported as NOT
+hitting a saturation boundary rather than fabricating one.
 
-BAND-SEAM ADDITION [orchestrator ruling, post-landing]: the shipped kernel
-(landed while this generator was being written) buckets its own gate by
+BAND-SEAM ADDITION: the shipped kernel buckets its own gate by
 min(a,b) > 2^990 as a distinct big-band region in test_lbeta_ulp.cpp. A
 dedicated stratum straddles that seam log-spaced through [2^985, 2^995]
 plus a fine bit-step cluster at 2^990 itself, crossed with a spread of
@@ -72,7 +63,7 @@ Usage:
     python tools/gen_lbeta_reference.py
 writes tests/data/lbeta_reference.txt directly (single light pass, no
 checkpoint/resume machinery -- point count is small enough to regenerate
-in one shot, per the binding design's "G1/G2 collapse to ONE light pass").
+in one shot).
 """
 import math
 import random
@@ -92,8 +83,7 @@ MIN_NORMAL = float.fromhex("0x1.0000000000000p-1022")
 DPS_LO = 40
 DPS_HI = 80
 DPS_ESCALATE = 150
-# SECOND-TIER escalation [flagged deviation, found during this generator's
-# own development, see STATUS.md]: at extreme a<<b (or b<<a) corners --
+# SECOND-TIER escalation: at extreme a<<b (or b<<a) corners --
 # e.g. a=5e-324 (smallest subnormal), b=1e60 -- lgamma(a+b) rounds to
 # EXACTLY lgamma(b) at ambient dps<~380 (a is absorbed below the
 # representable digit range of b's magnitude), so ln B collapses to the
@@ -158,7 +148,7 @@ def _term_magnitude_digits(a, b, dps_probe=60):
     trustworthy regardless of how badly the SUBTRACTION that follows will
     cancel. Used to decide how much working precision that subtraction
     needs before any agreement between two tiers can be trusted -- see
-    layered_value's ORCHESTRATOR FIX block comment."""
+    layered_value's ORACLE TRAP comment."""
     old = mp.mp.dps
     mp.mp.dps = dps_probe
     try:
@@ -175,9 +165,9 @@ def _term_magnitude_digits(a, b, dps_probe=60):
 def _agree(hi, lo, tol):
     """Relative agreement. hi==lo==0 is accepted as agreement -- but ONLY
     the caller (layered_value) may invoke this at a dps pair it has
-    already confirmed clears the cancellation floor; see the ORCHESTRATOR
-    FIX comment below for why an ungated zero-shortcut was the actual
-    defect, not this shortcut in isolation."""
+    already confirmed clears the cancellation floor; see the ORACLE TRAP
+    comment in layered_value for why an ungated zero-shortcut is a hazard,
+    not this shortcut in isolation."""
     if hi == 0 and lo == 0:
         return True
     denom = abs(hi) if hi != 0 else abs(lo)
@@ -190,22 +180,18 @@ def layered_value(a, b):
     """Layered-dps oracle value with escalation. Returns (value_mpf, ok,
     escalated: bool) -- ok=False means DECLINE (row not emitted).
 
-    ORCHESTRATOR FIX [2026-08-11, post-landing gate catch]: the original
-    ladder ran dps=40 vs dps=80 unconditionally and trusted `_agree`'s
-    hi==0-and-lo==0 shortcut at face value. For a<<b (or b<<a) pairs where
-    BOTH parameters are individually huge -- e.g. a=2^730 (~1.75e219),
-    b~2^1022 (~9e307) -- lgamma(a)+lgamma(b) and lgamma(a+b) are both
-    ~6e310 in magnitude (lgamma(b) dominates, ~b*ln(b)), while the TRUE ln
-    B is ~-1e222: the subtraction cancels ~89 decimal digits. At dps=40
-    (and even dps=80) the entire computed difference is noise -- and
-    mpmath's mpf subtraction of two operands that are IDENTICAL at that
-    working precision returns EXACTLY 0, not "approximately 0". Both
-    tiers independently underflowed to the identical exact zero, which
-    `_agree` read as proof of agreement: 2269 rows stored 0x0.0p+0 for
-    genuinely huge-magnitude ln B (witnessed by the coordinator's gate,
-    not caught by this generator's own self-checks, which is itself the
-    finding -- a coincidental exact-zero match sails through a relative-
-    tolerance check with flying colors).
+    ORACLE TRAP: for a<<b (or b<<a) pairs where BOTH parameters are
+    individually huge -- e.g. a=2^730 (~1.75e219), b~2^1022 (~9e307) --
+    lgamma(a)+lgamma(b) and lgamma(a+b) are both ~6e310 in magnitude
+    (lgamma(b) dominates, ~b*ln(b)), while the TRUE ln B is ~-1e222: the
+    subtraction cancels ~89 decimal digits. At dps=40 (and even dps=80)
+    the entire computed difference is noise -- and mpmath's mpf
+    subtraction of two operands that are IDENTICAL at that working
+    precision returns EXACTLY 0, not "approximately 0". Both tiers can
+    independently underflow to the identical exact zero, which `_agree`'s
+    hi==0-and-lo==0 shortcut reads as proof of agreement: a coincidental
+    exact-zero match sails through a relative-tolerance check with flying
+    colors, silently storing 0x0.0p+0 for a genuinely huge-magnitude ln B.
 
     Fix: `_term_magnitude_digits` gives a cancellation-free estimate of
     how many decimal digits the biggest lgamma term carries; the
@@ -353,12 +339,11 @@ def find_ab_ray_crossing(dps=50):
         # lo + (hi-lo)/2, NOT (lo+hi)/2 -- lo and hi are both ~1e308-class
         # doubles here, and their SUM overflows to +inf before the halving
         # ever happens (measured directly: 1e307+DBL_MAX rounds to +inf).
-        # That fed is_neg_inf(+inf) -> lnbeta_mpf(inf,inf,..) -> NaN (never
-        # +inf), so the "else" branch pinned lo=inf permanently and the
-        # bit-walk below then scanned NaN bit patterns forever. Caught by
-        # this generator's own instrumented probe, not by reasoning about
-        # the code -- classic floating-point bisection-midpoint-overflow
-        # bug, worth naming since it is easy to reintroduce.
+        # That would feed is_neg_inf(+inf) -> lnbeta_mpf(inf,inf,..) -> NaN
+        # (never +inf), so the "else" branch would pin lo=inf permanently
+        # and the bit-walk below would scan NaN bit patterns forever --
+        # classic floating-point bisection-midpoint-overflow bug, worth
+        # naming since it is easy to reintroduce.
         mid = lo + (hi - lo) / 2.0
         if is_neg_inf(mid):
             hi = mid
@@ -405,9 +390,8 @@ def ray_stress_points(ratio, n=25, k=20):
 
 
 # ---------------------------------------------------------------------------
-# kernel band-boundary seam [added post-landing, orchestrator ruling
-# 2026-08-11]: the shipped kernel's test_lbeta_ulp.cpp buckets by
-# min(a,b) > 2^990 (big-band) vs the relative/absolute split below that --
+# kernel band-boundary seam: the shipped kernel's test_lbeta_ulp.cpp buckets
+# by min(a,b) > 2^990 (big-band) vs the relative/absolute split below that --
 # straddle the seam log-spaced through [2^985, 2^995] plus a fine bit-step
 # cluster right at 2^990, crossed with a spread of partner magnitudes so
 # the seam is exercised as real 2D coverage, not a 1D probe. Both
@@ -541,10 +525,9 @@ def negative_control(rows, rng):
     Corruption MUST be magnitude-safe: `y + 1.0` is a silent no-op for any
     row whose |y| is large enough that 1.0 sits below its ULP (this
     generator's huge-boundary/ray-stress rows reach |y| ~ 1e307-1.3e308,
-    where ULP(y) is itself ~1e291 -- +1.0 there rounds straight back to y,
-    which is exactly what made the first run of this generator's own
-    negative control silently pass through uncaught). nextafter is exactly
-    1 ULP away regardless of magnitude, so it is never a no-op."""
+    where ULP(y) is itself ~1e291, so +1.0 there rounds straight back to
+    y). nextafter is exactly 1 ULP away regardless of magnitude, so it is
+    never a no-op."""
     a, b, y = rng.choice(rows)
     if math.isinf(y):
         bad_y = -1.0 if y < 0 else 1.0
