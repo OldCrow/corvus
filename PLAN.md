@@ -16,15 +16,15 @@ https://github.com/OldCrow/corvus/releases/tag/v0.4.0): the
 beta-forward u → −1 fix arc + the zero-warning static-analysis pass +
 the CORVUS_SANITIZE MSVC guard.
 
-**Pre-v0.5.0 documentation trim IN PROGRESS this session
-[2026-08-13]**: phases 1 (frontier hot-kernel comment trim +
-data-header emit trim) and 2 (Sonnet small families/tests/
-ENVIRONMENT/README) COMPLETE; phase 3 (ACCURACY compression + this
-PLAN compaction) in progress; phase 4 (generator comment trim under
-the lighter standard) next. Validation: comment-only ⇒
-codegen-identical; one Release build + full ctest + CI at the end;
-regenerated data headers byte-compared on numeric sections. THE
-ARCHAEOLOGY TEST [policy, ratified]: a comment survives only if it
+**Pre-v0.5.0 documentation trim COMPLETE [2026-08-13]**: all four
+phases (frontier hot kernels + data-header emits; Sonnet small
+families/tests/ENVIRONMENT/README; ACCURACY compression + PLAN
+compaction; generators under the lighter standard) shipped in
+commits 6f050c5/c9d264f/ed7a759. Validation: all 8 data headers
+regenerated from trimmed emit code, numeric sections byte-identical,
+generator self-checks green; full ctest 27/27 on the clang-cl tree;
+CI green per-job on run 31758023543 (SHA-verified). THE ARCHAEOLOGY
+TEST [policy, ratified, applied]: a comment survives only if it
 states a constraint, bound, derivation, or hazard the CODE cannot
 show; who found it, when, in which pass, and what it measured before
 the fix all go; rewrite, don't delete — keep each site's math half.
