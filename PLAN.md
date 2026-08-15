@@ -88,6 +88,32 @@ CI-gated, immutable under protect-tags, each with a Release object.
   tail machinery; speculative consumer found 2026-08-10 —
   TruncatedNormal far-truncation moments/MLE run on the Mills ratio =
   erfcx — but no filed need yet).
+- [OPEN, P3 candidate, FILED CONSUMER NEED 2026-08-15] the von Mises
+  ratio COMPLEMENT, 1 − I₁(x)/I₀(x), formed in dd and rounded once.
+  This is the first candidate where corvus's dd layer is the whole
+  point rather than an implementation detail, so it is worth stating
+  why exactly. A(κ) = i1e/i0e already composes EXACTLY through the
+  public API (scalings cancel — ACCURACY consumer notes), and that is
+  not the problem. The problem is that A → 1 − 1/(2κ), so a consumer
+  forming 1 − A in double loses ~log₂(2κ) bits no matter how good A
+  was: the complement error is ≈ 2κ × (A's error in ULP). Measured in
+  libstats (its #93, closed 2026-08-15 with the residual documented):
+  A from std::cyl_bessel_i is already ~1.3 ULP, so their circular
+  variance still lands at ~110 ULP at its crossover, and even a
+  CORRECTLY ROUNDED A would only reach a floor of ~κ ULP there.
+  **Adopting corvus as it stands does NOT fix this** — the exports
+  return doubles, so the cancelling subtraction still happens on the
+  consumer side and corvus's ~1 ULP A is the same ballpark as what
+  they already have. Only an export that never lets the subtraction
+  reach double precision closes it. Second consumer already in view:
+  #51's von Mises CDF, which leans on the Miller recurrence recipe
+  documented in the bessel record. COST is the honest reason this is
+  P3 and not P2 — a new export is a family, so it needs an explicit
+  unfreeze plus the full G1–G5 pipeline (design, generator, oracle,
+  kernel + tests, gate pinning, docs), and the oracle for a
+  cancellation-limited quantity is frontier work by the oracle-trust
+  doctrine, not a thin mpmath wrapper. Not required: libstats shipped
+  without it.
 - [OPEN, gamma] Add a ≥ 2^998 Temme witness rows at gamma's next
   reference touch — the kGammaTwoPiAClamp Dekker-ceiling defect was
   latent for lack of them (clamp already fixed to 2^900, 2026-08-05).
