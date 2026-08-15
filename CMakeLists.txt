@@ -46,6 +46,7 @@ endif()
 
 # --- Options (all CORVUS_-prefixed) -------------------------------------
 option(CORVUS_BUILD_TESTS "Build corvus tests" ${PROJECT_IS_TOP_LEVEL})
+option(CORVUS_BUILD_EXAMPLES "Build corvus examples" ${PROJECT_IS_TOP_LEVEL})
 option(CORVUS_DEV_WARNINGS "Enable -Wall -Wextra -Wpedantic (dev builds)"
        ${PROJECT_IS_TOP_LEVEL})
 option(CORVUS_WERROR "Treat warnings as errors (CI)" OFF)
@@ -249,6 +250,10 @@ target_compile_definitions(corvus PRIVATE ${CORVUS_HWY_TARGET_DEFS})
 if(CORVUS_BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)
+endif()
+
+if(CORVUS_BUILD_EXAMPLES)
+  add_subdirectory(examples)
 endif()
 
 # Install/export is only supported against a system (find_package) Highway.
