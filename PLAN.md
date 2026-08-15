@@ -40,10 +40,10 @@ the fix all go; rewrite, don't delete — keep each site's math half.
 The lighter generator standard: every enforcement-site/self-check
 rationale stays, timeless.
 
-Remaining before v1.0.0: consumer-integration notes (libstats
-#47/#51/#52), ARCHITECTURE.md referencing decision, Kaby machine
-legs (non-gating), and the user-focused examples phase on the frozen
-base.
+Remaining before v1.0.0: the #51 consumer-integration note (blocked on
+the adoption verdict), Kaby machine legs (non-gating), and the
+user-focused examples phase on the frozen base. #47/#52 notes and the
+ARCHITECTURE.md referencing decision closed 2026-08-15.
 
 Release history: v0.1.0 2026-08-06 (P0: erf/erfc, erfinv/erfcinv,
 lgamma, gamma P/Q, beta P/Q); v0.2.0 2026-08-10 (P1: digamma,
@@ -54,15 +54,16 @@ inventories, von Mises included); v0.4.0 2026-08-12. All tags
 CI-gated, immutable under protect-tags, each with a Release object.
 
 ## Next Steps
-1. **Consumer-integration notes** for libstats: #47 (A&S Bessel
-   fallback capping VonMises at ~1e-7 — retired by i0/i1/i0e/i1e),
-   #51 (von Mises CDF — Miller recurrence recipe documented in the
-   bessel design record below), #52 (slow Binomial CDF — beta_p is
-   the integration answer, a libstats note, not a corvus gap).
-   NOW SOURCED FROM THE ADOPTION SPIKE (Open Items) rather than
-   written cold: #47's note is stage S4's deliverable, #52's rides
-   along as a one-liner, #51's waits on the adoption verdict since
-   the recurrence recipe only pays off inside a real consumer.
+1. **#51's consumer-integration note** (von Mises CDF — Miller
+   recurrence recipe, documented in the bessel design record below).
+   Still deferred: the recipe only pays off inside a real consumer, so
+   it waits on the adoption verdict. #47 and #52 were delivered
+   2026-08-15 as comments on the libstats issues — placed there, not
+   here, because the audience is libstats; this list records only that
+   they exist. #47's note is sourced from the spike and states the
+   negative result as prominently as the positive one: adoption does
+   NOT close libstats #93, because `1 − A(κ)` cancels ~log₂(2κ) bits
+   however accurate A is, and corvus's A is already exact-composing.
 2. **Kaby Lake legs when the machine is available** [OPEN, machine
    access; ruled NON-GATING 2026-08-06, user decision]: beta
    AVX2-native + capped sweep (additional cross-machine check, not a
@@ -79,11 +80,16 @@ CI-gated, immutable under protect-tags, each with a Release object.
   2⁵²; shared-core change, full-fleet revalidation; only worth it if
   a consumer needs y-ULP in the plateau band κ ∈ (2¹⁸, 2⁵²) — those
   rows already meet the backward contract at 0.000 ulp(σ).
-- [OPEN, no rush — user, 2026-08-09] docs/ARCHITECTURE.md (layering
-  diagram, added by user): decide whether README (users/maintainers)
-  and/or AGENTS.md's reading map (agents) should reference it; if the
-  reading map takes it, as a load-on-demand visual-reference entry,
-  not always-read content.
+- [RESOLVED 2026-08-15] docs/ARCHITECTURE.md referencing: BOTH take it.
+  README embeds the band diagram in the Design section, where the
+  swappable-backend bullet makes a claim the picture is the fastest way
+  to substantiate, and links the doc for the layer detail. AGENTS.md's
+  reading map takes it as a load-on-demand entry keyed to "where does
+  this change belong", marked VISUAL REFERENCE ONLY — it restates the
+  always-read Architecture section in picture form and carries no
+  constraint of its own, so an agent that skips it loses nothing
+  binding. The SVG uses explicit fills and no CSS, so it renders
+  identically under GitHub's light and dark themes.
 - [OPEN, P2 candidate, not required] erfcx (nearly free from the erfc
   tail machinery; speculative consumer found 2026-08-10 —
   TruncatedNormal far-truncation moments/MLE run on the Mills ratio =

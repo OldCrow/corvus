@@ -21,6 +21,10 @@ special-function coverage.
   `PLAN.md` (full design texts live in its git history).
 - Audited accuracy claims → `docs/ACCURACY.md`; update it in the same
   change set as any kernel or gate change.
+- Orienting on where a change belongs, or on what the facade contains →
+  `docs/ARCHITECTURE.md` (band diagram + layer-by-layer notes). VISUAL
+  REFERENCE ONLY: it restates the Architecture section below in picture
+  form and adds no constraint the non-negotiables do not already carry.
 
 ## Architecture
 - `include/corvus/corvus.h` — public API: `std::span` in/out, std-only,

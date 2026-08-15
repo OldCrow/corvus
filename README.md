@@ -118,6 +118,14 @@ library.
   native silicon (not emulation).
 - **Clean provenance.** Clean-room implementations only; MIT licensed.
 
+The shape behind those claims — each band resting on the one below it, with
+`hn::` confined to the single facade file that makes the backend swappable:
+
+![corvus internal layering](docs/architecture-layers.svg)
+
+Layer-by-layer detail, and the boundary rules that are actually enforced
+rather than aspirational, are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Build
 
 ```sh
