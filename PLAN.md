@@ -128,15 +128,10 @@ CI-gated, immutable under protect-tags, each with a Release object.
   deliberately not restated here — same rule as the pylibhmm pin: a
   copy here cannot notice when it goes wrong. This entry records the
   VERDICT, which has two INDEPENDENT halves: (a) does clang-cl-built
-  corvus link into an MSVC consumer (the item below — corvus's
-  question, answered either way), (b) does libstats adopt (libstats's
-  question). A "no" on (b) does not invalidate (a), and the #47
-  consumer-integration note is produced either way.
-- [OPEN] If a sibling adopts corvus, verify clang-cl-built corvus links
-  cleanly into an MSVC-built consumer (same-ABI is the design intent,
-  untested). UNDER TEST as the spike's stage S1 Config B; Config A
-  (FetchContent, all-MSVC, AVX2-capped by HWY_BROKEN_MSVC) is the
-  fallback adoption path if B fails to link.
+  corvus link into an MSVC consumer — corvus's question, ANSWERED YES
+  2026-08-15 by stage S1, see the Resolved log; (b) does libstats adopt
+  — libstats's question, still open. A "no" on (b) does not invalidate
+  (a), and the #47 consumer-integration note is produced either way.
 - [OPEN] Upstream path for HWY_BROKEN_MSVC (add a compiler-version
   floor): needs Highway's own suite passing under MSVC with AVX-512;
   two kernels are not sufficient evidence for a PR.
@@ -543,6 +538,36 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-15 clang-cl → MSVC ABI item CLOSED, and the install/export path
+  exercised for the FIRST TIME. Adoption-spike stage S1 (libstats branch
+  `spike/corvus-bessel`): an MSVC 19.51 consumer links the clang-cl-built,
+  INSTALLED corvus and runs it correctly — every i0/i1/i0e/i1e row agrees
+  with the consumer's OWN std::cyl_bessel_i to ≤ 2.3e-16, both regime paths
+  (series below x_s = 8, Chebyshev tail above) exercised. Values were
+  checked, not just the link: an ABI fault links cleanly and returns
+  garbage, so a clean link alone would have been no evidence. Three
+  findings beyond the pass. (1) Install/export had never run before —
+  every build tree to date shows hwy_DIR-NOTFOUND, i.e. fetched Highway,
+  which disables install BY DESIGN; corvus-config/targets/.pc emit and
+  resolve correctly against a clang-cl-built Highway 1.4.0 prefix.
+  (2) The dispatch tier is a function of the COMPILER THAT BUILDS CORVUS's
+  TUs, NOT of the delivery mechanism. Configs A and B had varied compiler
+  and delivery together, so a third de-confounding run was needed:
+  FetchContent + clang-cl → AVX3_ZEN4 in 177 s. Full matrix —
+  FetchContent+MSVC AVX2, FetchContent+clang-cl AVX3_ZEN4,
+  installed-clang-cl + MSVC-consumer AVX3_ZEN4. So the installed path buys
+  DECOUPLING (corvus on clang-cl while the consumer stays pinned to
+  cl.exe), not tier: a consumer willing to build everything with clang-cl
+  gets AVX3 from plain FetchContent with no prefix, and an MSVC-pinned one
+  can alternatively flip CORVUS_MSVC_UNBLOCK_AVX512 (measured working,
+  gates pass, deliberately unsupported upstream). Secondary datum: clang-cl
+  builds corvus 3.9x faster than cl.exe on the same FetchContent config
+  (177 s vs 682 s). (3) The exported
+  cxx_std_20 requirement travels: the consumer sets no standard and
+  std::span still compiles. Config A (all-MSVC FetchContent at the v0.5.0
+  tag) also passes, at AVX2, in 682 s wall. The two configs' probe output
+  is byte-identical EXCEPT the active_target line, so the A-vs-B adoption
+  choice is performance-only, not accuracy.
 - 2026-08-14 betainv huge-parameter Dekker audit CLOSED, findings wider
   than the item: (1) the three named DdMulD sites fixed by exact
   prescales (reachable unsaturated, e.g. the Beta(2, 1e307) median on
