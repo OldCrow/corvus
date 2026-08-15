@@ -40,10 +40,11 @@ the fix all go; rewrite, don't delete — keep each site's math half.
 The lighter generator standard: every enforcement-site/self-check
 rationale stays, timeless.
 
-Remaining before v1.0.0: the #51 consumer-integration note (blocked on
-the adoption verdict), Kaby machine legs (non-gating), and the
-user-focused examples phase on the frozen base. #47/#52 notes and the
-ARCHITECTURE.md referencing decision closed 2026-08-15.
+Remaining before v1.0.0: Kaby machine legs (non-gating) and the
+user-focused examples phase on the frozen base. All three
+consumer-integration notes (#47/#51/#52) and the ARCHITECTURE.md
+referencing decision closed 2026-08-15 — the examples phase is now the
+only substantial unblocked item left.
 
 Release history: v0.1.0 2026-08-06 (P0: erf/erfc, erfinv/erfcinv,
 lgamma, gamma P/Q, beta P/Q); v0.2.0 2026-08-10 (P1: digamma,
@@ -54,16 +55,11 @@ inventories, von Mises included); v0.4.0 2026-08-12. All tags
 CI-gated, immutable under protect-tags, each with a Release object.
 
 ## Next Steps
-1. **#51's consumer-integration note** (von Mises CDF — Miller
-   recurrence recipe, documented in the bessel design record below).
-   Still deferred: the recipe only pays off inside a real consumer, so
-   it waits on the adoption verdict. #47 and #52 were delivered
-   2026-08-15 as comments on the libstats issues — placed there, not
-   here, because the audience is libstats; this list records only that
-   they exist. #47's note is sourced from the spike and states the
-   negative result as prominently as the positive one: adoption does
-   NOT close libstats #93, because `1 − A(κ)` cancels ~log₂(2κ) bits
-   however accurate A is, and corvus's A is already exact-composing.
+1. **User-focused examples phase** on the frozen base — now the largest
+   unblocked v1.0.0 item, and better informed than it would have been
+   before the spike, which showed what a real consumer's integration
+   actually looks like (find_dependency, the compiler-vs-delivery tier
+   distinction, span-of-1 wrappers at scalar call sites).
 2. **Kaby Lake legs when the machine is available** [OPEN, machine
    access; ruled NON-GATING 2026-08-06, user decision]: beta
    AVX2-native + capped sweep (additional cross-machine check, not a
@@ -174,6 +170,29 @@ CI-gated, immutable under protect-tags, each with a Release object.
   still wants the macOS leg, since Tier 2 is where #47's users are.
   Three defects the spike found in libstats are filed there as #92/#93/#94
   and are independent of adoption — corvus owes nothing for them.
+  **(b) SETTLED AS INTENT 2026-08-15 [user]: libstats adopts.** Timing is
+  NOT settled and is not a corvus gate — it turns on machine availability
+  for the outstanding M1/Kaby legs and on whether it must precede v1.0.0.
+  Treat adoption as the planning assumption; do not treat a date as one.
+- [DONE 2026-08-15] Consumer-integration notes, all three delivered as
+  comments on the libstats issues rather than carried here — the audience
+  is libstats, and a copy on this side could not notice when it went
+  stale. This entry records only that they exist:
+  #47 (i0/i1/i0e mapping; the structural win is libstats dropping its
+  compiler-dependent two-tier split, and the note states as prominently
+  that adoption does NOT close libstats #93 — `1 − A(κ)` cancels
+  ~log₂(2κ) bits however accurate A is);
+  #52 (`P(X ≤ k) = I_{1−p}(n−k, k+1)`, a one-liner, independent of
+  adoption since libstats's own incomplete beta serves it equally);
+  #51 (von Mises CDF series + Miller recipe — the only one that needed
+  the adoption question answered first, because its ≤5e-16 bound assumes
+  a ~1 ULP i0e anchor and is simply false on the A&S tier). The #51 note
+  added two things the record did not have: a computed j_max-vs-κ table
+  (11 terms at κ=0.5 up to 246 at κ=1000, conservative closed form
+  `ceil(10 + 8.5·√κ)`), and the finding that libstats exposes vector_cos
+  at every tier but no vector_sin — where `sin(θ) = cos(θ − π/2)` is NOT
+  a safe substitute, the shift's own rounding blowing the 5e-16 target
+  once jt ≳ 4.
 - [OPEN] Upstream path for HWY_BROKEN_MSVC (add a compiler-version
   floor): needs Highway's own suite passing under MSVC with AVX-512;
   two kernels are not sufficient evidence for a PR.
