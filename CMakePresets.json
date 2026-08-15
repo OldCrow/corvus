@@ -42,6 +42,23 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CORVUS_SANITIZE": "address;undefined"
       }
+    },
+    {
+      "name": "windows-clang-cl",
+      "displayName": "Release (Windows, clang-cl)",
+      "description": "Release build pinned to clang-cl — the only Windows toolchain that both reaches AVX-512 and keeps the MSVC ABI. Run from a Developer Command Prompt (or after vcvars64.bat) so clang-cl, rc.exe, INCLUDE and LIB are present. Pins C as well as C++, because Highway enables both languages and leaving C to default hands MSVC-style flags to a GNU-driver clang. Pins the generator too, unlike every other preset here, and must: under the Visual Studio generator CMAKE_CXX_COMPILER is ignored outright (clang-cl is chosen there by toolset, -T ClangCL) and CMAKE_BUILD_TYPE is ignored as well, that generator being multi-config and Debug by default — so without Ninja this preset silently delivers an MSVC Debug build under a name promising clang-cl Release. Verified, not theorised.",
+      "binaryDir": "${sourceDir}/build-clangcl",
+      "generator": "Ninja",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "clang-cl",
+        "CMAKE_CXX_COMPILER": "clang-cl"
+      }
     }
   ]
 }

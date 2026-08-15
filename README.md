@@ -173,11 +173,22 @@ and Windows x86-64 (MSVC). Two Windows-specific points are worth knowing:
   broken list under MSVC, so an MSVC build silently tops out at AVX2. It
   still passes every accuracy gate — the bounds hold on all tiers — but the
   widest vectors go unused. For AVX-512 on Windows, build with `clang-cl`
-  (which keeps the MSVC ABI). mingw-w64 GCC is not currently safe at
+  (which keeps the MSVC ABI), for which there is a preset — run it from a
+  Developer Command Prompt, or any shell where `vcvars64.bat` has been
+  sourced:
+
+  ```sh
+  cmake --preset windows-clang-cl
+  cmake --build build-clangcl
+  ```
+
+  mingw-w64 GCC is not currently safe at
   AVX2 or above: GCC 16.1 miscompiles 256- and 512-bit by-value vector
   arguments on the Windows ABI (misaligned stack temporaries — crashes
   depend on call-chain luck; GCC PR 126741, see docs/ACCURACY.md). It
-  remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4).
+  remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4). Worth knowing
+  that this one bites at *run* time, not build time: the build succeeds
+  and the binary faults, which reads like a bug in your own code.
   `corvus::active_target()` reports the tier runtime dispatch actually
   selected, and is the only reliable way to know.
 
