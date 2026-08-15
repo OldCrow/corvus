@@ -126,6 +126,27 @@ The shape behind those claims — each band resting on the one below it, with
 Layer-by-layer detail, and the boundary rules that are actually enforced
 rather than aspirational, are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+### On performance
+
+Accuracy is the claim here; throughput is not. corvus reaches its bounds by
+carrying double-double intermediates through the hard regions, and that is
+genuine extra work rather than something vectorization makes free. What
+vector width buys is amortization across lanes, so any advantage grows with
+the vector and is close to nothing at two lanes. In lgamma's recurrence
+region corvus is *slower* than a fast vendor scalar libm — by a small
+multiple, not a small percentage — and that cost is forced by the accuracy
+target rather than chosen (the Stirling switchover sits at X0 = 8 because
+accuracy puts it there).
+
+No headline speed figure is published, deliberately. The measured picture is
+per-region and per-libm; an earlier "wins from N lanes up" formulation did
+not survive measurement on a second microarchitecture; and the numbers on
+hand come from loaded machines. Figures will be published when they come
+from quiet-machine release builds across more than one microarchitecture.
+If throughput against your own libm on your own hardware is what decides the
+question, measure it — what corvus documents, and stands behind, is the
+accuracy at vector width.
+
 ## Build
 
 ```sh

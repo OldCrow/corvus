@@ -65,6 +65,12 @@ CI-gated, immutable under protect-tags, each with a Release object.
    AVX2-native + capped sweep (additional cross-machine check, not a
    claim gap — ACCURACY.md dagger note), and the quiet-machine Kaby
    bench pass (its gamma bench numbers are loaded/indicative only).
+   The bench pass now also CARRIES THE TRIGGER for publishing any
+   numeric performance figure at all (see the resolved lgamma
+   positioning item): README deliberately quotes no multiples, and the
+   condition for changing that is quiet-machine data on more than one
+   microarchitecture — which is exactly this leg plus a Zen 4 rerun.
+   Nothing about v1.0.0 depends on it; the positioning stands without.
 
 ## Open Items
 - [OPEN, low] A few stage-tag strings remain inside generator stderr
@@ -198,17 +204,31 @@ CI-gated, immutable under protect-tags, each with a Release object.
   two kernels are not sufficient evidence for a PR.
 - [OPEN, low] Non-gather x86 kernel variant: ~2x upside on gather-weak
   pre-AVX-512 CPUs (Kaby class); Zen 4 scales fine without it.
-- [OPEN] lgamma performance-positioning wording: settle against a
-  same-libm comparison before publishing any claim. Measured picture
-  (loaded, indicative; full data in git history): the dd-heavy 1-ULP
-  design wins by lane count — after the 2026-07-25 all-zone fast path
-  (bit-identical, verified every tier), zone is 5.6–6.5x at 8 lanes,
-  ~1.0x at 2 lanes; recurrence is the floor everywhere (0.2–0.6x vs
-  fast vendor libms) and its cost is genuine work (X0 = 8 is
-  accuracy-forced). "Wins from 4 lanes up" did NOT survive the Kaby
-  4-lane measurement — the honest form is per-region and per-libm.
-  Interval splitting (halve zone again) deferred; trigger = profiling
-  gamma/beta end-to-end shows the zone Horner as a real bottleneck.
+- [RESOLVED 2026-08-15] lgamma performance-positioning wording. The
+  premise turned out to be that corvus published NO performance claim
+  anywhere — no README section, numbers only here and in git history —
+  so this was never a correction, it was deciding what v1.0.0 says.
+  DECIDED: publish positioning, publish no figure. README's Design
+  section now states that accuracy is the claim and throughput is not;
+  that the dd work is real work rather than something vectorization
+  makes free; that any advantage scales with lane count and is near
+  nothing at two lanes; and — the disclosure that matters — that lgamma
+  is SLOWER than a fast vendor scalar libm in the recurrence region, by
+  a small multiple, accuracy-forced. Readers who see "SIMD" and assume
+  "fast" are the failure mode being closed. No multiples are quoted:
+  the data on hand is loaded, single-microarchitecture, and the earlier
+  "wins from 4 lanes up" formulation already died on the Kaby 4-lane
+  measurement. Numeric publication now hangs off the existing Kaby
+  quiet-machine bench item rather than being tracked separately —
+  release the figures when they come from quiet machines on more than
+  one microarchitecture, per-region and per-libm. Measured picture for
+  reference (loaded, indicative, full data in git history): after the
+  2026-07-25 all-zone fast path (bit-identical, verified every tier),
+  zone is 5.6–6.5x at 8 lanes and ~1.0x at 2 lanes; recurrence is the
+  floor everywhere at 0.2–0.6x vs fast vendor libms (X0 = 8 is
+  accuracy-forced). Interval splitting (halve zone again) stays
+  deferred; trigger = profiling gamma/beta end-to-end shows the zone
+  Horner as a real bottleneck.
 - [OPEN] Signed-commits ruleset: confirm the M1 and Ryzen boxes sign
   before enabling.
 - [ILLUSTRATIVE] Possible future consumers: C++ port of multi-agent_sim
