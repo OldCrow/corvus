@@ -59,6 +59,10 @@ CI-gated, immutable under protect-tags, each with a Release object.
    #51 (von Mises CDF — Miller recurrence recipe documented in the
    bessel design record below), #52 (slow Binomial CDF — beta_p is
    the integration answer, a libstats note, not a corvus gap).
+   NOW SOURCED FROM THE ADOPTION SPIKE (Open Items) rather than
+   written cold: #47's note is stage S4's deliverable, #52's rides
+   along as a one-liner, #51's waits on the adoption verdict since
+   the recurrence recipe only pays off inside a real consumer.
 2. **Kaby Lake legs when the machine is available** [OPEN, machine
    access; ruled NON-GATING 2026-08-06, user decision]: beta
    AVX2-native + capped sweep (additional cross-machine check, not a
@@ -112,10 +116,27 @@ CI-gated, immutable under protect-tags, each with a Release object.
   its Apache-2.0 NOTICE; source-only distribution needs nothing (all
   releases so far are source-only). Handle when packaging starts.
 - [OPEN] Decide whether libstats/libhmm adopt corvus as a dependency or
-  keep their internal SIMD (separate project-level decision).
+  keep their internal SIMD (separate project-level decision). SPIKE
+  AUTHORIZED 2026-08-15 — libstats branch `spike/corvus-bessel` wires
+  i0/i1/i0e behind stats::detail::bessel_* (its #47 path: three
+  functions, eight call sites, all scalar, all in von_mises.cpp, none
+  hot — the payoff is retiring its 1.6e-7 A&S tier, NOT throughput).
+  corvus is consumed AT THE v0.5.0 TAG AND NOT EDITED; holding the
+  freeze against a real consumer is part of what the spike tests, so a
+  corvus-side need it surfaces is a FINDING, not a fix. Execution state
+  (stages, next step) lives in libstats/PLAN.md In Progress and is
+  deliberately not restated here — same rule as the pylibhmm pin: a
+  copy here cannot notice when it goes wrong. This entry records the
+  VERDICT, which has two INDEPENDENT halves: (a) does clang-cl-built
+  corvus link into an MSVC consumer (the item below — corvus's
+  question, answered either way), (b) does libstats adopt (libstats's
+  question). A "no" on (b) does not invalidate (a), and the #47
+  consumer-integration note is produced either way.
 - [OPEN] If a sibling adopts corvus, verify clang-cl-built corvus links
   cleanly into an MSVC-built consumer (same-ABI is the design intent,
-  untested).
+  untested). UNDER TEST as the spike's stage S1 Config B; Config A
+  (FetchContent, all-MSVC, AVX2-capped by HWY_BROKEN_MSVC) is the
+  fallback adoption path if B fails to link.
 - [OPEN] Upstream path for HWY_BROKEN_MSVC (add a compiler-version
   floor): needs Highway's own suite passing under MSVC with AVX-512;
   two kernels are not sufficient evidence for a PR.
