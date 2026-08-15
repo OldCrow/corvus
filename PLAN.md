@@ -132,6 +132,16 @@ CI-gated, immutable under protect-tags, each with a Release object.
   2026-08-15 by stage S1, see the Resolved log; (b) does libstats adopt
   — libstats's question, still open. A "no" on (b) does not invalidate
   (a), and the #47 consumer-integration note is produced either way.
+  SPIKE CLOSED 2026-08-15, recommendation ADOPT-BUT-NOT-FOR-BESSEL-ALONE:
+  the mechanism works and corvus beats both of libstats's existing tiers
+  measurably, but eight scalar call sites do not justify a dependency on
+  their own; the justification is the wider surface (#47 retired, #51's
+  Miller recurrence, #52's beta_p, plus erfinv and incomplete gamma/beta).
+  Report: https://claude.ai/code/artifact/ab912f14-d920-4eb2-b60f-5d92222bb33f
+  Rationale and costs in libstats/PLAN.md In Progress; the real decision
+  still wants the macOS leg, since Tier 2 is where #47's users are.
+  Three defects the spike found in libstats are filed there as #92/#93/#94
+  and are independent of adoption — corvus owes nothing for them.
 - [OPEN] Upstream path for HWY_BROKEN_MSVC (add a compiler-version
   floor): needs Highway's own suite passing under MSVC with AVX-512;
   two kernels are not sufficient evidence for a PR.
