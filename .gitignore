@@ -3,3 +3,7 @@ build*/
 compile_commands.json
 .cache/
 CMakeUserPresets.json
+
+# Local benchmark artifacts from tools/quiet_bench.ps1 (run in a build tree).
+quiet_bench.log
+quiet_bench_*.txt

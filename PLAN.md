@@ -87,7 +87,11 @@ CI-gated, immutable under protect-tags, each with a Release object.
    quiet pass records ONE range per family (lgamma 1.4–5.5) and its raw
    per-band logs were never checked in, so the zone-vs-recurrence
    breakdown the positioning paragraph rests on is still only in the
-   loaded/indicative set. Worth noting the quiet family range shows no
+   loaded/indicative set. **(b) is a rerun, not a redesign**:
+   `tests/bench_lgamma.cpp` already runs five labelled bands (zone,
+   recurrence, Stirling, mixed positive, reflection) against a libm
+   baseline, so the instrumentation exists and no unfreeze is needed —
+   only a quiet window on the Ryzen box. Worth noting the quiet family range shows no
    sub-1.0 lgamma figure at all, while the loaded per-region data puts
    recurrence at 0.2–0.6x; those are reconcilable if the quiet bands
    never isolate the recurrence region, but that is an assumption, not
@@ -716,6 +720,22 @@ and docs/ACCURACY.md.
   byte-identical pre/post-fix; kappa-bucket comment/code inconsistency
   resolved in the code's favor (35, the shipped replay-validated
   threshold).
+- 2026-08-15 **quiet_bench.ps1 reconstructed into `tools/`** (checked in
+  this time). The original lived only in `build-clangcl/` and was
+  destroyed with that directory during the windows-clang-cl preset work
+  — along with the 2026-08-12 raw per-band logs, so those numbers now
+  rest on the entry below alone rather than on a recoverable evidence
+  chain. Rebuilt from the protocol recorded there: two consecutive
+  ambient windows under a threshold before starting, noise sampled
+  between every target, per-target raw capture plus a noise-annotated
+  log. Additions the original is not recorded as having: it sets
+  CORVUS_EXPECT_TARGET so numbers cannot be filed under the wrong tier,
+  treats any nonzero bench exit as "do not publish this pass", and
+  prints the top CPU consumers when the gate fails so quieting the box
+  is actionable. It does NOT stop services — that is the user's call on
+  their own machine. Smoke-tested with the gate deliberately opened
+  (ambient 18–25%, i.e. it would correctly have refused a real run).
+  Build-tree artifacts gitignored.
 - 2026-08-12 quiet-machine Ryzen bench pass DONE (supersedes the
   loaded/indicative v0.3.0-session table as the publishable Ryzen
   set). Protocol: detached self-gating runner (build-clangcl/
