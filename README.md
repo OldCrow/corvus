@@ -146,9 +146,11 @@ accuracy puts it there).
 
 No headline speed figure is published, deliberately. The measured picture is
 per-region and per-libm; an earlier "wins from N lanes up" formulation did
-not survive measurement on a second microarchitecture; and the numbers on
-hand come from loaded machines. Figures will be published when they come
-from quiet-machine release builds across more than one microarchitecture.
+not survive measurement on a second microarchitecture; and while quiet-machine
+figures exist for one microarchitecture, the per-region breakdown behind the
+paragraph above does not yet. Figures will be published when the per-region
+picture holds on quiet-machine release builds across more than one
+microarchitecture.
 If throughput against your own libm on your own hardware is what decides the
 question, measure it — what corvus documents, and stands behind, is the
 accuracy at vector width.

@@ -51,8 +51,9 @@ nothing about the claims depends on them. The user has simply chosen to
 wait for them before tagging [2026-08-15], which is a scheduling
 preference and not a requirement: if machine access slips, v1.0.0 can be
 tagged without them and no doc or claim changes. Possibly also waiting on
-quiet bench passes (Kaby and M1), pending the decision on whether a
-performance document ships alongside ACCURACY.md.
+quiet bench passes (Kaby and M1 — Zen 4's was done 2026-08-12), pending
+the decision on whether a performance document ships alongside
+ACCURACY.md.
 
 Release history: v0.1.0 2026-08-06 (P0: erf/erfc, erfinv/erfcinv,
 lgamma, gamma P/Q, beta P/Q); v0.2.0 2026-08-10 (P1: digamma,
@@ -71,14 +72,30 @@ CI-gated, immutable under protect-tags, each with a Release object.
    the quiet-machine Kaby bench pass (its gamma bench numbers are
    loaded/indicative only).
 2. **Quiet bench passes, IF a performance document is wanted** [OPEN,
-   candidate — user 2026-08-15]. Needs THREE quiet runs, not two: Kaby,
-   M1, and **a Zen 4 rerun**, because ACCURACY.md already flags every
-   per-tier number in this file as indicative unless taken on a quiet
-   machine — the Zen 4 figures on record are loaded too. Only the Zen 4
-   leg is available now; the other two wait on the same machine access
-   as everything else. Scope note: the M1 bench pass is NEW work, never
-   previously tracked — M1 owed nothing to corvus before this, its
-   accuracy leg being long done (NEON is Tier 1 audited).
+   candidate — user 2026-08-15]. **Zen 4 is already done** — the
+   2026-08-12 quiet-machine Ryzen pass (413ff3a, Resolved log) is the
+   publishable Ryzen set, self-gated below 5% ambient with noise logged
+   between targets, libm-baselined for erf/erfc/lgamma. So the missing
+   legs are Kaby and M1, both machine-blocked; nothing here is
+   actionable now. (An earlier draft of this entry called for a Zen 4
+   rerun. Wrong — corrected 2026-08-15 after the user queried it. The
+   error was reading ACCURACY.md's conditional "indicative unless taken
+   on a quiet machine" as if it asserted every number were loaded.)
+   TWO GAPS remain even so, and they are not the same gap:
+   (a) a second microarchitecture, which is what the README's
+   publication condition names; and (b) **per-region granularity** — the
+   quiet pass records ONE range per family (lgamma 1.4–5.5) and its raw
+   per-band logs were never checked in, so the zone-vs-recurrence
+   breakdown the positioning paragraph rests on is still only in the
+   loaded/indicative set. Worth noting the quiet family range shows no
+   sub-1.0 lgamma figure at all, while the loaded per-region data puts
+   recurrence at 0.2–0.6x; those are reconcilable if the quiet bands
+   never isolate the recurrence region, but that is an assumption, not
+   a measurement. Any perf doc has to settle it rather than average
+   over it.
+   Scope note: the M1 bench pass is NEW work, never previously
+   tracked — M1 owed nothing to corvus before this, its accuracy leg
+   being long done (NEON is Tier 1 audited).
    This is the same decision as the resolved lgamma positioning item,
    approached from the other side: README deliberately quotes no
    multiples and states that figures will be published when they come
@@ -243,13 +260,16 @@ CI-gated, immutable under protect-tags, each with a Release object.
   nothing at two lanes; and — the disclosure that matters — that lgamma
   is SLOWER than a fast vendor scalar libm in the recurrence region, by
   a small multiple, accuracy-forced. Readers who see "SIMD" and assume
-  "fast" are the failure mode being closed. No multiples are quoted:
-  the data on hand is loaded, single-microarchitecture, and the earlier
-  "wins from 4 lanes up" formulation already died on the Kaby 4-lane
-  measurement. Numeric publication now hangs off the existing Kaby
-  quiet-machine bench item rather than being tracked separately —
-  release the figures when they come from quiet machines on more than
-  one microarchitecture, per-region and per-libm. Measured picture for
+  "fast" are the failure mode being closed. No multiples are quoted,
+  but the REASON needs stating correctly [corrected 2026-08-15, after
+  the user queried it]: it is NOT that all the data is loaded — the
+  2026-08-12 quiet Ryzen pass is publishable and libm-baselined. It is
+  that the quiet set is family-level and single-microarchitecture, while
+  the per-region zone-vs-recurrence claim the README paragraph makes
+  rests on the loaded set; and the earlier "wins from 4 lanes up"
+  formulation already died on the Kaby 4-lane measurement. Publication
+  therefore needs a second microarchitecture AND per-region
+  granularity — see Next Steps item 2. Measured picture for
   reference (loaded, indicative, full data in git history): after the
   2026-07-25 all-zone fast path (bit-identical, verified every tier),
   zone is 5.6–6.5x at 8 lanes and ~1.0x at 2 lanes; recurrence is the
