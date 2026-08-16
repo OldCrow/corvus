@@ -720,6 +720,33 @@ and docs/ACCURACY.md.
   byte-identical pre/post-fix; kappa-bucket comment/code inconsistency
   resolved in the code's favor (35, the shipped replay-validated
   threshold).
+- 2026-08-15 **quiet per-region lgamma pass on Zen 4 — CONTRADICTS the
+  published positioning.** AVX3_ZEN4 under clang-cl, so the baseline is
+  UCRT's `std::lgamma`. Gated at 4.61%, noise held 5.66–6.65% (avg
+  6.16%) — slightly noisier than the 2026-08-12 pass (3.6% / 2.6–6.2%)
+  but the same order. Speedups, n = 1e6: zone (the zeros) 5.47x, mixed
+  positive 4.20x, recurrence 2.84x, Stirling 1.96x, reflection 1.47x.
+  **Every region is above 1.0.**
+  - The README's "slower than a fast vendor scalar libm in the
+    recurrence region, by a small multiple" is NOT SUPPORTED by this
+    measurement, and is wrong twice over: recurrence is 2.8x faster,
+    and it is not even the weakest region — reflection (1.47x) and
+    Stirling (1.96x) are below it.
+  - The loaded/indicative "recurrence is the floor everywhere, 0.2–0.6x
+    vs fast vendor libms" does not reproduce quiet against UCRT. Most
+    likely explanation is the baseline: UCRT's lgamma is slow (27–56
+    ns/el in the zone and mixed bands), and PLAN's phrasing said "fast
+    vendor libmS" plural. Against glibc or Apple's the margin would be
+    smaller and could plausibly invert somewhere. **No quiet
+    measurement against either exists**, so "slower in recurrence" is
+    currently an unreproduced claim, not a measured one.
+  - Resolves the earlier "two gaps" framing, partly by correcting it:
+    the 2026-08-12 family figure `lgamma 1.4–5.5` turns out to have
+    BEEN the per-region envelope all along (today: 1.47–5.47). The
+    quiet data was self-consistent; it is the loaded per-region set
+    that is the outlier.
+  - Raw: `build-clangcl/quiet_bench_bench_lgamma.txt` + `quiet_bench.log`
+    (build tree, gitignored — the numbers above are the durable record).
 - 2026-08-15 **quiet_bench.ps1 reconstructed into `tools/`** (checked in
   this time). The original lived only in `build-clangcl/` and was
   destroyed with that directory during the windows-clang-cl preset work
