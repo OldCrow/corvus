@@ -14,3 +14,4 @@ endfunction()
 
 corvus_example(normal_distribution)
 corvus_example(chi_squared_test)
+corvus_example(gamma_mle_fit)

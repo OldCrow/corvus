@@ -36,8 +36,53 @@ when corvus is consumed via `add_subdirectory`.
 |---|---|---|
 | `normal_distribution` | CDF, quantile, and why the far tail needs the other identity | `erfc`, `erfcinv` |
 | `chi_squared_test` | critical values and p-values, and how subtraction goes wrong quietly before it goes wrong visibly | `gamma_p`, `gamma_q`, `gamma_p_inv` |
+| `gamma_mle_fit` | a batched Newton fit, and an accuracy floor that is arithmetic rather than a defect | `digamma`, `trigamma` |
 
 More are being added; this table grows with them.
+
+## Read this before concluding corvus is inaccurate
+
+Every example above prints a place where the answer is worse than corvus's
+documented bound. That is deliberate, and it is not corvus missing its bound.
+
+**The bounds are on what corvus returns, not on what you do with it.** They do
+not survive an operation that throws the accuracy away, and the operation that
+does so is nearly always a subtraction of two nearly equal numbers.
+
+The rule is quantitative, so you can predict it rather than discover it. If a
+function returns `F` correct to about half an ulp, and you then compute `1 - F`
+where `F` is close to 1, the absolute error stays around `ulp(1)/2 ≈ 1.1e-16`
+while the answer itself shrinks. The relative error of the result is therefore
+roughly
+
+```
+1.1e-16 / (1 - F)
+```
+
+which is to say: you lose about `log2(1 / (1 - F))` bits. At `1 - F = 1e-12`
+that is forty bits — around four surviving digits — and at `1 - F = 1e-16` it
+is all of them. `chi_squared_test` shows exactly this: at x = 50 the two routes
+differ in the fifth significant digit, matching the prediction, while both
+still look perfectly healthy on the page.
+
+**This is why the library ships in pairs.** `erf`/`erfc`, `gamma_p`/`gamma_q`,
+`beta_p`/`beta_q`, `i0`/`i0e` are not conveniences. Each pair exists so that
+whichever side of the distribution you need, you can obtain it *directly*
+instead of by subtracting the other from one. corvus's routing always evaluates
+whichever of P/Q is the smaller and reports it at a relative bound, which is
+what keeps a p-value of 1e-107 as trustworthy as one of 0.05 — but you have to
+call the member of the pair that computes the quantity you actually want.
+
+Sometimes the cancellation is unavoidable, and then the honest move is to know
+where the floor is rather than to iterate below it. `gamma_mle_fit` is that
+case: the MLE condition *is* a difference of two nearly equal quantities, the
+floor works out to a few parts in 1e13 at shape 300, and the example derives
+that number and then stops there rather than reporting digits it does not have.
+
+So the short version, and the thing these examples are really teaching:
+
+> A 1-ULP function does not give you a 1-ULP pipeline. Choose the formulation
+> that computes your quantity directly; where you cannot, work out the floor.
 
 ## What they are trying to teach
 
@@ -51,7 +96,7 @@ actually has to make:
 - **Pick the formulation that computes the small quantity.** `1 - Phi(z)` and
   `0.5*erfc(z/sqrt2)` are the same function on paper and completely different
   in floating point. corvus's bounds are relative, so choosing the right form
-  is what lets you keep them.
+  is what lets you keep them. This is the big one — see the section above.
 - **The bounds are the product.** Where an example asserts something exact —
   `Phi(0) == 0.5`, a tail probability surviving where the naive route
   underflows to zero — that assertion is the point of the example, not
