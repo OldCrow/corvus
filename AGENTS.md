@@ -21,6 +21,11 @@ special-function coverage.
   `PLAN.md` (full design texts live in its git history).
 - Audited accuracy claims → `docs/ACCURACY.md`; update it in the same
   change set as any kernel or gate change.
+- Performance numbers → `docs/PERFORMANCE.md`. PROVISIONAL, and not the
+  same standing as ACCURACY.md: one machine, one libm, two families not
+  yet reproducible. Never quote it as a claim, and never compare its two
+  tables against each other — only erf/erfc/lgamma are timed against a
+  libm; the rest are corvus against corvus called per element.
 - Anything user-facing — examples, API advice, explaining a bound to a
   consumer → `docs/USER-GUIDE.md` (what corvus does/does not provide,
   the returned-vs-composed accuracy rule, pair-selection rules of thumb).

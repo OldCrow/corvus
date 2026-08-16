@@ -149,12 +149,19 @@ work is genuinely harder the margin narrows, and that cost is forced by the
 accuracy target rather than chosen — lgamma's Stirling switchover sits at
 X0 = 8 because accuracy puts it there, not because it was tuned.
 
-No headline speed figure is published, deliberately. An earlier "wins from N
-lanes up" formulation did not survive measurement on a second
+No headline speed figure is published here, deliberately. An earlier "wins from
+N lanes up" formulation did not survive measurement on a second
 microarchitecture, and the per-region picture currently rests on one
-microarchitecture against one libm. Figures will be published when it holds on
-quiet-machine release builds across more than one microarchitecture, and
-against more than one vendor libm — the two turn out to matter about equally.
+microarchitecture against one libm. Figures will appear in this README when it
+holds on quiet-machine release builds across more than one microarchitecture,
+and against more than one vendor libm — the two turn out to matter about
+equally.
+
+The measurements taken so far are written up in
+[docs/PERFORMANCE.md](docs/PERFORMANCE.md), clearly marked provisional: one
+machine, one compiler, one libm, and two families whose numbers do not yet
+reproduce between runs. It is a working record rather than a claim, and the
+tables in it are expected to change.
 If throughput against your own libm on your own hardware is what decides the
 question, measure it — what corvus documents, and stands behind, is the
 accuracy at vector width.
