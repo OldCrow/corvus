@@ -107,13 +107,27 @@ function Get-AmbientLoad {
   return ($values | Measure-Object -Average).Average
 }
 
+# Current RATE, not Get-Process's CPU property -- that is cumulative
+# processor-seconds since the process started, so it ranks whatever has been
+# open longest rather than whatever is burning cycles now. Percentages are of a
+# single core, so a process pinning two cores reads ~200.
 function Show-TopConsumers {
-  Write-Log "  top CPU consumers right now:"
-  Get-Process | Sort-Object -Property CPU -Descending |
-    Select-Object -First 6 -Property ProcessName, CPU, Id |
+  Write-Log "  top CPU consumers right now (% of one core):"
+  $samples = (Get-Counter -Counter '\Process(*)\% Processor Time' `
+                          -SampleInterval 1 -MaxSamples 3 -ErrorAction SilentlyContinue).CounterSamples
+  if (-not $samples) { Write-Log "    (per-process counters unavailable)"; return }
+  $samples |
+    Where-Object { $_.InstanceName -notin @('_total', 'idle') } |
+    Group-Object InstanceName |
     ForEach-Object {
-      Write-Log ("    {0,-24} cpu-sec={1,10:N1}  pid={2}" -f $_.ProcessName, $_.CPU, $_.Id)
-    }
+      [PSCustomObject]@{
+        Name = $_.Name
+        Pct  = ($_.Group | Measure-Object CookedValue -Average).Average
+      }
+    } |
+    Where-Object { $_.Pct -ge 1 } |
+    Sort-Object Pct -Descending | Select-Object -First 8 |
+    ForEach-Object { Write-Log ("    {0,-24} {1,6:N1}%" -f $_.Name, $_.Pct) }
 }
 
 # --- Gate -------------------------------------------------------------------
