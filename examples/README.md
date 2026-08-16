@@ -35,6 +35,7 @@ when corvus is consumed via `add_subdirectory`.
 | example | shows | functions |
 |---|---|---|
 | `normal_distribution` | CDF, quantile, and why the far tail needs the other identity | `erfc`, `erfcinv` |
+| `chi_squared_test` | critical values and p-values, and how subtraction goes wrong quietly before it goes wrong visibly | `gamma_p`, `gamma_q`, `gamma_p_inv` |
 
 More are being added; this table grows with them.
 

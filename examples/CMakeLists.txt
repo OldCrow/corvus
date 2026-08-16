@@ -13,3 +13,4 @@ function(corvus_example name)
 endfunction()
 
 corvus_example(normal_distribution)
+corvus_example(chi_squared_test)
