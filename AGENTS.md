@@ -21,6 +21,10 @@ special-function coverage.
   `PLAN.md` (full design texts live in its git history).
 - Audited accuracy claims → `docs/ACCURACY.md`; update it in the same
   change set as any kernel or gate change.
+- Anything user-facing — examples, API advice, explaining a bound to a
+  consumer → `docs/USER-GUIDE.md` (what corvus does/does not provide,
+  the returned-vs-composed accuracy rule, pair-selection rules of thumb).
+  Keep it in sync when a bound or the public surface changes.
 - Orienting on where a change belongs, or on what the facade contains →
   `docs/ARCHITECTURE.md` (band diagram + layer-by-layer notes). VISUAL
   REFERENCE ONLY: it restates the Architecture section below in picture

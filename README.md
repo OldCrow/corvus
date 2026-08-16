@@ -126,6 +126,12 @@ The shape behind those claims — each band resting on the one below it, with
 Layer-by-layer detail, and the boundary rules that are actually enforced
 rather than aspirational, are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+**New to the library?** [docs/USER-GUIDE.md](docs/USER-GUIDE.md) is the place
+to start: what corvus does and does not provide, how to call it, and — the part
+worth reading before you write anything — why a 1-ULP function does not give
+you a 1-ULP result, and how to pick the right member of each function pair so
+that it does.
+
 ### On performance
 
 Accuracy is the claim here; throughput is not. corvus reaches its bounds by
