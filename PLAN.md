@@ -40,11 +40,19 @@ the fix all go; rewrite, don't delete — keep each site's math half.
 The lighter generator standard: every enforcement-site/self-check
 rationale stays, timeless.
 
-Remaining before v1.0.0: Kaby machine legs (non-gating) and the
-user-focused examples phase on the frozen base. All three
-consumer-integration notes (#47/#51/#52) and the ARCHITECTURE.md
-referencing decision closed 2026-08-15 — the examples phase is now the
-only substantial unblocked item left.
+Remaining before v1.0.0: the Kaby legs, and possibly quiet bench passes
+for a performance document. Everything else is done — six examples with
+the CMake plumbing and a windows-clang-cl preset, all three
+consumer-integration notes, the ARCHITECTURE.md referencing decision,
+the lgamma positioning, and docs/USER-GUIDE.md, all closed 2026-08-15.
+
+The Kaby legs REMAIN NON-GATING — that ruling (2026-08-06) stands, and
+nothing about the claims depends on them. The user has simply chosen to
+wait for them before tagging [2026-08-15], which is a scheduling
+preference and not a requirement: if machine access slips, v1.0.0 can be
+tagged without them and no doc or claim changes. Possibly also waiting on
+quiet bench passes (Kaby and M1), pending the decision on whether a
+performance document ships alongside ACCURACY.md.
 
 Release history: v0.1.0 2026-08-06 (P0: erf/erfc, erfinv/erfcinv,
 lgamma, gamma P/Q, beta P/Q); v0.2.0 2026-08-10 (P1: digamma,
@@ -55,22 +63,29 @@ inventories, von Mises included); v0.4.0 2026-08-12. All tags
 CI-gated, immutable under protect-tags, each with a Release object.
 
 ## Next Steps
-1. **User-focused examples phase** on the frozen base — now the largest
-   unblocked v1.0.0 item, and better informed than it would have been
-   before the spike, which showed what a real consumer's integration
-   actually looks like (find_dependency, the compiler-vs-delivery tier
-   distinction, span-of-1 wrappers at scalar call sites).
-2. **Kaby Lake legs when the machine is available** [OPEN, machine
-   access; ruled NON-GATING 2026-08-06, user decision]: beta
-   AVX2-native + capped sweep (additional cross-machine check, not a
-   claim gap — ACCURACY.md dagger note), and the quiet-machine Kaby
-   bench pass (its gamma bench numbers are loaded/indicative only).
-   The bench pass now also CARRIES THE TRIGGER for publishing any
-   numeric performance figure at all (see the resolved lgamma
-   positioning item): README deliberately quotes no multiples, and the
-   condition for changing that is quiet-machine data on more than one
-   microarchitecture — which is exactly this leg plus a Zen 4 rerun.
-   Nothing about v1.0.0 depends on it; the positioning stands without.
+1. **Kaby Lake legs when the machine is available** [OPEN, machine
+   access; NON-GATING per 2026-08-06, ruling unchanged — the user is
+   choosing to wait for them before tagging, which is preference, not
+   requirement]: beta AVX2-native + capped sweep (additional
+   cross-machine check, not a claim gap — ACCURACY.md dagger note), and
+   the quiet-machine Kaby bench pass (its gamma bench numbers are
+   loaded/indicative only).
+2. **Quiet bench passes, IF a performance document is wanted** [OPEN,
+   candidate — user 2026-08-15]. Needs THREE quiet runs, not two: Kaby,
+   M1, and **a Zen 4 rerun**, because ACCURACY.md already flags every
+   per-tier number in this file as indicative unless taken on a quiet
+   machine — the Zen 4 figures on record are loaded too. Only the Zen 4
+   leg is available now; the other two wait on the same machine access
+   as everything else. Scope note: the M1 bench pass is NEW work, never
+   previously tracked — M1 owed nothing to corvus before this, its
+   accuracy leg being long done (NEON is Tier 1 audited).
+   This is the same decision as the resolved lgamma positioning item,
+   approached from the other side: README deliberately quotes no
+   multiples and states that figures will be published when they come
+   from quiet machines across more than one microarchitecture. A
+   performance document IS that publication, so it inherits that
+   condition rather than setting a new one — and the positioning text
+   needs revisiting in the same change set if it ever ships.
 
 ## Open Items
 - [DONE 2026-08-15] docs/USER-GUIDE.md written. Raised by the user
