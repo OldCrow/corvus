@@ -73,6 +73,21 @@ CI-gated, immutable under protect-tags, each with a Release object.
    Nothing about v1.0.0 depends on it; the positioning stands without.
 
 ## Open Items
+- [OPEN, candidate — raised by user 2026-08-15] A user guide, separate
+  from README and ACCURACY.md. The examples phase surfaced the need:
+  all three examples so far end up teaching the SAME rule, which the
+  docs had nowhere to state. The rule is that corvus's bounds hold on
+  what corvus RETURNS and do not survive the consumer's composition —
+  `1 − F` has relative error ≈ 1.1e-16/(1−F), so it sheds
+  log₂(1/(1−F)) bits — which is exactly why the library ships in pairs
+  (erf/erfc, gamma_p/gamma_q, beta_p/beta_q, i0/i0e) rather than out of
+  convenience. `examples/README.md` now carries it, which is the right
+  place for now but the wrong place long-term: a reader hits it only
+  after deciding to read the examples. Decide during or after the
+  examples phase whether this becomes docs/USER-GUIDE.md, with the
+  composition rule, the pair-selection rule, the batch idiom, and the
+  "where cancellation is unavoidable, find the floor" case. NOT a
+  v1.0.0 gate unless it turns out the examples cannot carry it.
 - [OPEN, low] A few stage-tag strings remain inside generator stderr
   banners (runtime diagnostics only, never emitted into headers);
   clean opportunistically at the next generator touch.
