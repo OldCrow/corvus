@@ -745,10 +745,42 @@ and docs/ACCURACY.md.
     does not explain it. What would settle it is the 2026-08-12 raw
     per-band output — which I destroyed with build-clangcl. This is the
     concrete cost of that deletion, not a hypothetical one.
-  - **Treat this pass as the reference set** going forward: it is the
-    one with a surviving evidence chain (quiet_bench.log plus twelve
-    raw files). The 2026-08-12 entry stays as recorded history but
-    should not be cited in preference to this.
+  - **Treat this pass as the reference set for the TEN that reproduced**
+    — it is the one with a surviving evidence chain (quiet_bench.log
+    plus twelve raw files). For erfinv and bessel see the rerun below,
+    which overturns it.
+- 2026-08-15 **erfinv/bessel rerun — the full sweep was the outlier, and
+  these two families are NOT reproducible run to run.** Ran just the two
+  again on a cleaner machine than the sweep had (gated 4.99%, noise
+  3.02–4.35% avg 3.84%, vs the sweep's 3.06–9.10%). Both landed near the
+  2026-08-12 figures, not near the sweep's:
+  erfcinv central 14.72–14.94x (sweep 36.78–37.56x; Aug 12 max 14.9),
+  bessel i0 in the series band 5.62x (sweep 8.36x; Aug 12 min 5.3).
+  **So Aug 12 was right and this morning's sweep was wrong for these
+  two.** My "reference set" recommendation above is corrected accordingly.
+  - What it is NOT. Inputs are seeded (`mt19937_64(20260725)`), so both
+    runs consumed identical data. `NsPerElement` does a warm-up call and
+    returns the MEDIAN of reps, so neither a cold start nor one stray
+    sample survives. And in the same binary seconds apart, erfinv's own
+    central band reproduced to three digits (3.33 / 28.63 vs 3.33 /
+    28.67) while erfcinv's moved 4x on the SIMD side and 1.6x on the
+    scalar side. Ambient load, clocks and thermals move every band
+    together; these did not. Cause UNDETERMINED — recorded as an open
+    question rather than guessed at.
+  - Methodology consequence for any perf doc: two runs is not enough.
+    Ten families agreed across two independent passes and are credible;
+    these two disagreed across three, and no figure for them should be
+    published without repeated runs establishing the spread. Running
+    twelve targets back to back may itself be part of it — the sweep
+    ordering is the one variable that differed.
+  - **Baseline correction, applies to the whole sweep.** The
+    "scalar-walk" baseline is not a vendor libm: `ScalarErfinv` calls
+    `corvus::erfinv` on spans of ONE. Those ratios measure batching gain
+    against per-call overhead — corvus against itself. Only erf, erfc
+    and lgamma compare against a real libm. A perf doc that tabulates
+    both without saying so would read as if gammainv were twenty times
+    better than lgamma at the same thing, which is not a claim anyone
+    made or could support.
 - 2026-08-15 **quiet per-region lgamma pass on Zen 4 — CONTRADICTS the
   published positioning.** AVX3_ZEN4 under clang-cl, so the baseline is
   UCRT's `std::lgamma`. Gated at 4.61%, noise held 5.66–6.65% (avg
