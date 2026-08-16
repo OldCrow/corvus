@@ -173,7 +173,8 @@ CI-gated, immutable under protect-tags, each with a Release object.
   without it.
 - [OPEN, P3 candidate, CONDITIONAL consumer need — 2026-08-16] Hurwitz
   zeta ζ(s, q) = Σ_{n≥0} (n+q)^−s, which subsumes Riemann as ζ(s, 1).
-  Raised from libstats #62 (Zipf, v2.4.0), and the conditional is the
+  Raised from libstats #62 (Zipf, v2.5.0 — that milestone was v2.4.0 until
+  libstats renumbered on 2026-08-16), and the conditional is the
   point: **as that issue currently specifies Zipf, corvus would add
   nothing.** Its own notes say ζ(a) is "a scalar constant computed at
   construction time; no per-element special function needed for PMF
