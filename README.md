@@ -138,19 +138,23 @@ Accuracy is the claim here; throughput is not. corvus reaches its bounds by
 carrying double-double intermediates through the hard regions, and that is
 genuine extra work rather than something vectorization makes free. What
 vector width buys is amortization across lanes, so any advantage grows with
-the vector and is close to nothing at two lanes. In lgamma's recurrence
-region corvus is *slower* than a fast vendor scalar libm — by a small
-multiple, not a small percentage — and that cost is forced by the accuracy
-target rather than chosen (the Stirling switchover sits at X0 = 8 because
-accuracy puts it there).
+the vector and is close to nothing at two lanes.
 
-No headline speed figure is published, deliberately. The measured picture is
-per-region and per-libm; an earlier "wins from N lanes up" formulation did
-not survive measurement on a second microarchitecture; and while quiet-machine
-figures exist for one microarchitecture, the per-region breakdown behind the
-paragraph above does not yet. Figures will be published when the per-region
-picture holds on quiet-machine release builds across more than one
-microarchitecture.
+Expect the margin to vary a lot — and to depend on which libm you are
+comparing against as much as on which part of the domain you are in. Measured
+per-region on one machine, lgamma's best and worst bands differ by nearly a
+factor of four against the same baseline. A single number for "how much faster
+is it" would be hiding that spread rather than summarising it. Where the
+work is genuinely harder the margin narrows, and that cost is forced by the
+accuracy target rather than chosen — lgamma's Stirling switchover sits at
+X0 = 8 because accuracy puts it there, not because it was tuned.
+
+No headline speed figure is published, deliberately. An earlier "wins from N
+lanes up" formulation did not survive measurement on a second
+microarchitecture, and the per-region picture currently rests on one
+microarchitecture against one libm. Figures will be published when it holds on
+quiet-machine release builds across more than one microarchitecture, and
+against more than one vendor libm — the two turn out to matter about equally.
 If throughput against your own libm on your own hardware is what decides the
 question, measure it — what corvus documents, and stands behind, is the
 accuracy at vector width.

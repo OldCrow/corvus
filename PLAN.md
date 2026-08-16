@@ -728,10 +728,18 @@ and docs/ACCURACY.md.
   positive 4.20x, recurrence 2.84x, Stirling 1.96x, reflection 1.47x.
   **Every region is above 1.0.**
   - The README's "slower than a fast vendor scalar libm in the
-    recurrence region, by a small multiple" is NOT SUPPORTED by this
-    measurement, and is wrong twice over: recurrence is 2.8x faster,
+    recurrence region, by a small multiple" was NOT SUPPORTED by this
+    measurement, and was wrong twice over: recurrence is 2.8x faster,
     and it is not even the weakest region — reflection (1.47x) and
-    Stirling (1.96x) are below it.
+    Stirling (1.96x) are below it. **CORRECTED 2026-08-15 [user chose
+    the wording]**: the section now states the measured shape instead —
+    the margin varies by region and by libm, best-to-worst spans nearly
+    4x on one machine against one baseline, and a single headline number
+    would hide that spread rather than summarise it. Still quotes no
+    multiples, so the publication condition is untouched, though it now
+    names BOTH axes: more than one microarchitecture AND more than one
+    vendor libm, since this pass showed the baseline matters as much as
+    the hardware.
   - The loaded/indicative "recurrence is the floor everywhere, 0.2–0.6x
     vs fast vendor libms" does not reproduce quiet against UCRT. Most
     likely explanation is the baseline: UCRT's lgamma is slow (27–56
