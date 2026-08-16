@@ -39,6 +39,7 @@ when corvus is consumed via `add_subdirectory`.
 | `gamma_mle_fit` | a batched Newton fit, and an accuracy floor that is arithmetic rather than a defect | `digamma`, `trigamma` |
 | `students_t` | p-values and critical values, and significance far past anything a table lists | `beta_p`, `beta_p_inv` |
 | `von_mises_density` | working past the point I₀ overflows, and a ratio whose scalings cancel exactly | `i0`, `i1`, `i0e`, `i1e` |
+| `log_space_counting` | binomial coefficients and Beta normalisers, and a dedicated function beating a correct assembly | `lgamma`, `lbeta` |
 
 More are being added; this table grows with them.
 
@@ -75,11 +76,37 @@ whichever of P/Q is the smaller and reports it at a relative bound, which is
 what keeps a p-value of 1e-107 as trustworthy as one of 0.05 — but you have to
 call the member of the pair that computes the quantity you actually want.
 
+**Sometimes the remedy is a dedicated function rather than a pair.** `lbeta`
+is not `lgamma(a) + lgamma(b) - lgamma(a+b)` evaluated carefully — the `a+b`
+cancellation is removed analytically before any floating point happens, which
+is why it is correctly rounded on every measured row while the assembly of
+three correctly-rounded lgammas is not. `log_space_counting` puts the two side
+by side: at a = 1e15 the assembly is subtracting numbers near 3.35e16, where
+one ulp is 4, to produce an answer near 11.5.
+
 Sometimes the cancellation is unavoidable, and then the honest move is to know
 where the floor is rather than to iterate below it. `gamma_mle_fit` is that
 case: the MLE condition *is* a difference of two nearly equal quantities, the
 floor works out to a few parts in 1e13 at shape 300, and the example derives
 that number and then stops there rather than reporting digits it does not have.
+
+## Relative bounds, and where they stop applying
+
+A related thing to know before reading `docs/ACCURACY.md`: some bounds are
+stated as **absolute** rather than relative, and that is not hedging.
+
+Where a function has a zero, no relative bound is possible — every nonzero
+double is infinitely far from zero in relative terms. So corvus documents an
+absolute bound in those bands and the relative bound elsewhere: `lgamma` on the
+negative axis, `digamma` near its negative-axis zeros, `lbeta` around the zero
+curve of ln B through (1,1). `log_space_counting` shows this directly —
+`lbeta(1,1)` returns −8.1e-23 rather than exactly 0, which is comfortably
+inside the documented `0.5·2⁻⁵³` and would be a meaningless number to hold to a
+relative standard.
+
+Reading a bound of that shape as a weakness gets it backwards. A library
+claiming 1 ULP across a zero would be claiming something that cannot be
+measured, never mind met.
 
 So the short version, and the thing these examples are really teaching:
 
