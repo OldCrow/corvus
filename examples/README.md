@@ -37,6 +37,8 @@ when corvus is consumed via `add_subdirectory`.
 | `normal_distribution` | CDF, quantile, and why the far tail needs the other identity | `erfc`, `erfcinv` |
 | `chi_squared_test` | critical values and p-values, and how subtraction goes wrong quietly before it goes wrong visibly | `gamma_p`, `gamma_q`, `gamma_p_inv` |
 | `gamma_mle_fit` | a batched Newton fit, and an accuracy floor that is arithmetic rather than a defect | `digamma`, `trigamma` |
+| `students_t` | p-values and critical values, and significance far past anything a table lists | `beta_p`, `beta_p_inv` |
+| `von_mises_density` | working past the point I₀ overflows, and a ratio whose scalings cancel exactly | `i0`, `i1`, `i0e`, `i1e` |
 
 More are being added; this table grows with them.
 
