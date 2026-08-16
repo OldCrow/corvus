@@ -720,6 +720,35 @@ and docs/ACCURACY.md.
   byte-identical pre/post-fix; kappa-bucket comment/code inconsistency
   resolved in the code's favor (35, the shipped replay-validated
   threshold).
+- 2026-08-15 **full quiet Zen 4 sweep, all twelve families, per-region.**
+  Completes what the lgamma pass below started. AVX3_ZEN4 asserted via
+  CORVUS_EXPECT_TARGET on every target; gated at 4.45%, noise held
+  3.06–9.10% (avg 5.10%). The 9.10% peak was the FIRST sample, agent
+  activity still decaying; from bench_gamma onward everything ran at
+  4.3–5.4%. erf and erfc drew the noisiest window and still reproduced
+  their prior numbers to two digits, which is some evidence the method
+  tolerates this much noise.
+  Speedups at the largest n (libm baseline for erf/erfc/lgamma,
+  scalar-walk otherwise — the two are NOT comparable to each other):
+  erf 3.71–6.36, erfc 2.87–9.34, erfinv/erfcinv 5.23–37.56,
+  lgamma 1.44–5.47, gamma 8.79–23.89, beta 7.28–15.14,
+  digamma 7.13–25.12, trigamma 7.29–30.93, gammainv 6.21–141.57,
+  betainv 3.89–54.18, bessel 8.32–8.45, lbeta 7.99 / 12.73.
+  - **Ten of twelve reproduce the 2026-08-12 ranges to within noise**,
+    several to three digits (gammainv 141.57 vs 142.0; lbeta 7.99/12.73
+    vs 8.0/12.7). Two do not: **erfinv** (was 5.2–14.9, now peaks at
+    37.56 in the erfcinv central band) and **bessel** (was 5.3–9.2, now
+    a flat 8.32–8.45 with no slow band anywhere).
+  - Cause NOT determined, and cannot be. Neither kernel nor bench source
+    changed between the passes apart from the pre-v0.5.0 comment trim
+    (c85e4de did not touch bessel.cpp or erfinv.cpp), so a code change
+    does not explain it. What would settle it is the 2026-08-12 raw
+    per-band output — which I destroyed with build-clangcl. This is the
+    concrete cost of that deletion, not a hypothetical one.
+  - **Treat this pass as the reference set** going forward: it is the
+    one with a surviving evidence chain (quiet_bench.log plus twelve
+    raw files). The 2026-08-12 entry stays as recorded history but
+    should not be cited in preference to this.
 - 2026-08-15 **quiet per-region lgamma pass on Zen 4 — CONTRADICTS the
   published positioning.** AVX3_ZEN4 under clang-cl, so the baseline is
   UCRT's `std::lgamma`. Gated at 4.61%, noise held 5.66–6.65% (avg
