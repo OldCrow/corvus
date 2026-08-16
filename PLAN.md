@@ -171,6 +171,36 @@ CI-gated, immutable under protect-tags, each with a Release object.
   cancellation-limited quantity is frontier work by the oracle-trust
   doctrine, not a thin mpmath wrapper. Not required: libstats shipped
   without it.
+- [OPEN, P3 candidate, CONDITIONAL consumer need — 2026-08-16] Hurwitz
+  zeta ζ(s, q) = Σ_{n≥0} (n+q)^−s, which subsumes Riemann as ζ(s, 1).
+  Raised from libstats #62 (Zipf, v2.4.0), and the conditional is the
+  point: **as that issue currently specifies Zipf, corvus would add
+  nothing.** Its own notes say ζ(a) is "a scalar constant computed at
+  construction time; no per-element special function needed for PMF
+  evaluation" — one scalar, once, is precisely where a batch library
+  with per-tier ULP bounds is irrelevant. What Zipf needs per element is
+  digamma for its MLE, and corvus already ships that.
+  The real case is the CDF. #62 plans "CDF by PMF summation (no
+  closed-form)", which is only true without a Hurwitz zeta:
+  P(X > k) = Σ_{j>k} j^−s / ζ(s) = ζ(s, k+1)/ζ(s), verified. That is
+  per-element, vectorizable, and computes the small side directly — the
+  same shape as #52's beta_p answer to a summation-bound CDF. So the
+  need is real IF libstats takes the closed-form CDF, and absent if it
+  ships summation. **That is a libstats design decision, not a corvus
+  one, and it should be settled before any work starts here.**
+  Two cost notes, both favourable relative to the dd-complement above.
+  corvus already ships an exact slice of this function: trigamma(x) =
+  ζ(2, x) identically (verified against mpmath at four points), and more
+  generally ψ⁽ⁿ⁾ is ζ(n+1, ·) up to sign and factorial — so the
+  recurrence-plus-asymptotic shape a Hurwitz kernel needs is already in
+  the tree, on one line of it. And the oracle is a thin mpmath wrapper
+  (`mpmath.zeta(s, a)`), not the frontier oracle work a
+  cancellation-limited quantity demands.
+  The scoping trap to avoid: the consumer needs real s > 1 and q ≥ 1,
+  while "Hurwitz zeta" in full is a complex-plane function with
+  analytic continuation. Cut the domain to the filed need or this
+  becomes open-ended. Still P3 — new family, so explicit unfreeze plus
+  the full G1–G5 pipeline.
 - [OPEN, gamma] Add a ≥ 2^998 Temme witness rows at gamma's next
   reference touch — the kGammaTwoPiAClamp Dekker-ceiling defect was
   latent for lack of them (clamp already fixed to 2^900, 2026-08-05).
