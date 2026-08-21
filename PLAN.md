@@ -73,50 +73,41 @@ PDF/CDF/quantile/MLE special-function need in the libhmm/libstats
 inventories, von Mises included); v0.4.0 2026-08-12. All tags
 CI-gated, immutable under protect-tags, each with a Release object.
 
-## Next Steps
-1. **Kaby Lake legs when the machine is available** [OPEN, machine
-   access; NON-GATING per 2026-08-06, ruling unchanged — the user is
-   choosing to wait for them before tagging, which is preference, not
-   requirement]: beta AVX2-native + capped sweep (additional
-   cross-machine check, not a claim gap — ACCURACY.md dagger note), and
-   the quiet-machine Kaby bench pass (its gamma bench numbers are
-   loaded/indicative only).
-2. **Quiet bench passes, IF a performance document is wanted** [OPEN,
-   candidate — user 2026-08-15]. **Zen 4 is already done** — the
-   2026-08-12 quiet-machine Ryzen pass (413ff3a, Resolved log) is the
-   publishable Ryzen set, self-gated below 5% ambient with noise logged
-   between targets, libm-baselined for erf/erfc/lgamma. So the missing
-   legs are Kaby and M1, both machine-blocked; nothing here is
-   actionable now. (An earlier draft of this entry called for a Zen 4
-   rerun. Wrong — corrected 2026-08-15 after the user queried it. The
-   error was reading ACCURACY.md's conditional "indicative unless taken
-   on a quiet machine" as if it asserted every number were loaded.)
-   TWO GAPS remain even so, and they are not the same gap:
-   (a) a second microarchitecture, which is what the README's
-   publication condition names; and (b) **per-region granularity** — the
-   quiet pass records ONE range per family (lgamma 1.4–5.5) and its raw
-   per-band logs were never checked in, so the zone-vs-recurrence
-   breakdown the positioning paragraph rests on is still only in the
-   loaded/indicative set. **(b) is a rerun, not a redesign**:
-   `tests/bench_lgamma.cpp` already runs five labelled bands (zone,
-   recurrence, Stirling, mixed positive, reflection) against a libm
-   baseline, so the instrumentation exists and no unfreeze is needed —
-   only a quiet window on the Ryzen box. Worth noting the quiet family range shows no
-   sub-1.0 lgamma figure at all, while the loaded per-region data puts
-   recurrence at 0.2–0.6x; those are reconcilable if the quiet bands
-   never isolate the recurrence region, but that is an assumption, not
-   a measurement. Any perf doc has to settle it rather than average
-   over it.
-   Scope note: the M1 bench pass is NEW work, never previously
-   tracked — M1 owed nothing to corvus before this, its accuracy leg
-   being long done (NEON is Tier 1 audited).
-   This is the same decision as the resolved lgamma positioning item,
-   approached from the other side: README deliberately quotes no
-   multiples and states that figures will be published when they come
-   from quiet machines across more than one microarchitecture. A
-   performance document IS that publication, so it inherits that
-   condition rather than setting a new one — and the positioning text
-   needs revisiting in the same change set if it ever ships.
+## Next Steps — milestone map v0.5.0 → v1.0.0 [DERIVED, 2026-08-21]
+Every open item is a GitHub issue on one of five milestones; this section
+is the map, the issues carry the detail. Order is deliberate: one
+correctness unfreeze, then bit-identical structure work, then the fleet
+legs, then the release, then new families behind a stable surface.
+1. **v0.6.0 — Correctness unfreeze** (the ONE explicit unfreeze for
+   anything that changes a result or a gate, plus the public-signature
+   changes that must precede 1.0): #12 gamma Dekker ceiling (HIGH),
+   #13 generators, #14 ULP-gate structure, #15 test-harness hygiene,
+   #17 frozen-file hygiene, #16 MSVC floor, #5 API hardening. Exit:
+   every gate green on every tier incl. capped; ACCURACY.md's #12
+   exclusion removed; references regenerated once.
+2. **v0.7.0 — Kernel structure** (bit-identical refactors): #6 shared
+   driver, #7 outlining doctrine, #8 erf/erfc assemblies + active_target
+   placement, #9 wrapper duplication + magic constants, #10 dead facade
+   ops, #11 generator argparse. Exit: ULP tables byte-identical.
+3. **v0.8.0 — Fleet validation & performance**: #23 Kaby legs
+   (NON-GATING, 2026-08-06 ruling stands), #24 performance document
+   (M1 quiet pass + Zen 4 per-region lgamma rerun + README positioning),
+   #25 examples in CI, #29 GCC PR 126741 re-qualification if the fix
+   lands. Exit: ≥ 2 quiet microarchitectures in PERFORMANCE.md or the
+   document explicitly withheld.
+4. **v1.0.0 — Release**: #26 packaging/NOTICE + release checklist, #27
+   signed-commits ruleset, final API review, the libstats v2.5.0
+   handshake (they adopt the frozen surface). Exit: tag cut before
+   libstats v2.5.0 opens.
+5. **v1.1.0 — New families** (full G1–G5 pipeline each): #18 erfcx (P2),
+   #19 von Mises ratio complement in dd (P3, filed need), #20 Hurwitz
+   zeta (P3, conditional on libstats #62), #21 exp_dd bump, #22
+   non-gather x86 variant, #28 Highway HWY_BROKEN_MSVC upstream PR.
+Kept in this file, not on GitHub (decisions with triggers, not work):
+std::simd migration (facade reimplementation when implementations
+mature), LTO/IPO and shared lib (no demand), lgamma zone interval
+splitting (trigger: end-to-end profiling shows the zone Horner as a
+bottleneck), the Ryzen-box stability watch.
 
 ## Open Items
 - [DONE 2026-08-15] docs/USER-GUIDE.md written. Raised by the user
@@ -132,15 +123,10 @@ CI-gated, immutable under protect-tags, each with a Release object.
   subnormal and tier. Linked from README, AGENTS.md's reading map, and
   examples/README.md — the last trimmed to a summary plus pointer so
   the rule has ONE home and cannot drift.
-- [OPEN, low] A few stage-tag strings remain inside generator stderr
-  banners (runtime diagnostics only, never emitted into headers);
-  clean opportunistically at the next generator touch.
-- [OPEN, enhancement, low priority — 2026-08-10] exp_dd accuracy
-  bump (one more polynomial term + keep r.lo through the quadratic)
-  would raise betainv's y-ULP κ-horizon from 2¹⁸ toward the design's
-  2⁵²; shared-core change, full-fleet revalidation; only worth it if
-  a consumer needs y-ULP in the plateau band κ ∈ (2¹⁸, 2⁵²) — those
-  rows already meet the backward contract at 0.000 ulp(σ).
+- [→ #17] Generator stderr stage-tag strings — folded into the frozen-file
+  hygiene batch.
+- [→ #21, v1.1.0] exp_dd accuracy bump (betainv κ-horizon 2¹⁸ → 2⁵²);
+  only on a filed consumer need.
 - [RESOLVED 2026-08-15] docs/ARCHITECTURE.md referencing: BOTH take it.
   README embeds the band diagram in the Design section, where the
   swappable-backend bullet makes a claim the picture is the fastest way
@@ -151,69 +137,16 @@ CI-gated, immutable under protect-tags, each with a Release object.
   constraint of its own, so an agent that skips it loses nothing
   binding. The SVG uses explicit fills and no CSS, so it renders
   identically under GitHub's light and dark themes.
-- [OPEN, P2 candidate, not required] erfcx (nearly free from the erfc
-  tail machinery; speculative consumer found 2026-08-10 —
-  TruncatedNormal far-truncation moments/MLE run on the Mills ratio =
-  erfcx — but no filed need yet).
-- [OPEN, P3 candidate, FILED CONSUMER NEED 2026-08-15] the von Mises
-  ratio COMPLEMENT, 1 − I₁(x)/I₀(x), formed in dd and rounded once.
-  This is the first candidate where corvus's dd layer is the whole
-  point rather than an implementation detail, so it is worth stating
-  why exactly. A(κ) = i1e/i0e already composes EXACTLY through the
-  public API (scalings cancel — ACCURACY consumer notes), and that is
-  not the problem. The problem is that A → 1 − 1/(2κ), so a consumer
-  forming 1 − A in double loses ~log₂(2κ) bits no matter how good A
-  was: the complement error is ≈ 2κ × (A's error in ULP). Measured in
-  libstats (its #93, closed 2026-08-15 with the residual documented):
-  A from std::cyl_bessel_i is already ~1.3 ULP, so their circular
-  variance still lands at ~110 ULP at its crossover, and even a
-  CORRECTLY ROUNDED A would only reach a floor of ~κ ULP there.
-  **Adopting corvus as it stands does NOT fix this** — the exports
-  return doubles, so the cancelling subtraction still happens on the
-  consumer side and corvus's ~1 ULP A is the same ballpark as what
-  they already have. Only an export that never lets the subtraction
-  reach double precision closes it. Second consumer already in view:
-  #51's von Mises CDF, which leans on the Miller recurrence recipe
-  documented in the bessel record. COST is the honest reason this is
-  P3 and not P2 — a new export is a family, so it needs an explicit
-  unfreeze plus the full G1–G5 pipeline (design, generator, oracle,
-  kernel + tests, gate pinning, docs), and the oracle for a
-  cancellation-limited quantity is frontier work by the oracle-trust
-  doctrine, not a thin mpmath wrapper. Not required: libstats shipped
-  without it.
-- [OPEN, P3 candidate, CONDITIONAL consumer need — 2026-08-16] Hurwitz
-  zeta ζ(s, q) = Σ_{n≥0} (n+q)^−s, which subsumes Riemann as ζ(s, 1).
-  Raised from libstats #62 (Zipf, v2.6.0 — that milestone was v2.4.0
-  until libstats renumbered on 2026-08-16, then v2.5.0 until the
-  2026-08-21 renumbering that staged corvus adoption as their v2.5.0),
-  and the conditional is the
-  point: **as that issue currently specifies Zipf, corvus would add
-  nothing.** Its own notes say ζ(a) is "a scalar constant computed at
-  construction time; no per-element special function needed for PMF
-  evaluation" — one scalar, once, is precisely where a batch library
-  with per-tier ULP bounds is irrelevant. What Zipf needs per element is
-  digamma for its MLE, and corvus already ships that.
-  The real case is the CDF. #62 plans "CDF by PMF summation (no
-  closed-form)", which is only true without a Hurwitz zeta:
-  P(X > k) = Σ_{j>k} j^−s / ζ(s) = ζ(s, k+1)/ζ(s), verified. That is
-  per-element, vectorizable, and computes the small side directly — the
-  same shape as #52's beta_p answer to a summation-bound CDF. So the
-  need is real IF libstats takes the closed-form CDF, and absent if it
-  ships summation. **That is a libstats design decision, not a corvus
-  one, and it should be settled before any work starts here.**
-  Two cost notes, both favourable relative to the dd-complement above.
-  corvus already ships an exact slice of this function: trigamma(x) =
-  ζ(2, x) identically (verified against mpmath at four points), and more
-  generally ψ⁽ⁿ⁾ is ζ(n+1, ·) up to sign and factorial — so the
-  recurrence-plus-asymptotic shape a Hurwitz kernel needs is already in
-  the tree, on one line of it. And the oracle is a thin mpmath wrapper
-  (`mpmath.zeta(s, a)`), not the frontier oracle work a
-  cancellation-limited quantity demands.
-  The scoping trap to avoid: the consumer needs real s > 1 and q ≥ 1,
-  while "Hurwitz zeta" in full is a complex-plane function with
-  analytic continuation. Cut the domain to the filed need or this
-  becomes open-ended. Still P3 — new family, so explicit unfreeze plus
-  the full G1–G5 pipeline.
+- [→ #18, v1.1.0] erfcx — P2 candidate, speculative consumer (TruncatedNormal
+  Mills ratio), no filed need.
+- [→ #19, v1.1.0] von Mises ratio complement 1 − I₁/I₀ formed in dd — P3
+  with a FILED consumer need (libstats #93, #51). The full argument (why
+  adopting corvus as it stands does not close it; why the oracle is
+  frontier work) is on the issue and in this file's history.
+- [→ #20, v1.1.0] Hurwitz zeta ζ(s, q), real s > 1, q ≥ 1 — P3, CONDITIONAL
+  on libstats #62 taking the closed-form Zipf CDF (their v2.6.0 planning
+  decision; expect the ask during their v2.5.0). trigamma = ζ(2, ·) is
+  already in the tree; the oracle is a thin mpmath wrapper.
 - [OPEN, gamma, HIGH — #12] The 2026-08-05 kGammaTwoPiAClamp fix (2^900)
   covered √(2πa) only; `DdRecip(a)`/`DdMulD(φ, a)` in GammaTemme
   (gamma-inl.h:400/402) and the same pair in gammainv-inl.h:450-452
@@ -222,14 +155,8 @@ CI-gated, immutable under protect-tags, each with a Release object.
   GammaClampE. Reproduced 2026-08-21 on build-cap-sse2; FMA tiers fine.
   Needs the unfreeze call: prescale/clamp both sites, witness rows
   a ∈ {2^996, 2^997, 2^1000, DBL_MAX} on the diagonal, smoke assert.
-- [OPEN, unfreeze backlog] #5 API hardening (span assert, noexcept,
-  nodiscard), #6 shared driver template, #7 outlining doctrine vs
-  lgamma/erf/erfc, #8 erf/erfc assemblies in the dispatch TU, #9 wrapper
-  duplication + magic constants, #10 dead facade ops, #11 generator
-  argparse, #13 generators (subnormal double rounding, checkpoint
-  digest, self-checks), #14 ULP-gate structure, #15 test-harness hygiene,
-  #17 frozen-file hygiene batch. #16 (MSVC version floor) is CMake-only
-  and not frozen.
+- [→ milestones] The review's unfreeze backlog is mapped in Next Steps:
+  v0.6.0 (#5, #12–#17) and v0.7.0 (#6–#11).
 - [WATCH] Ryzen box stability: two GPU-stack bugchecks 2026-07-29 (0x9F
   power-IRP, 0x10E video memory), root-caused [DERIVED] to a
   half-committed NVIDIA driver install; DDU clean reinstall the same
@@ -238,22 +165,12 @@ CI-gated, immutable under protect-tags, each with a Release object.
   accumulated App state; manual driver-only installs are the fallback).
   Recurrence of either bugcheck on the clean stack flips suspicion to
   VRAM/hardware.
-- [WATCH] mingw GCC 16.1 by-value-vector-argument misalignment bug,
-  AVX2 and above: filed upstream 2026-08-08 as GCC PR 126741
-  (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=126741) against
-  512-bit; an independently contributed repro, verified locally, shows
-  the identical defect at 256-bit. Repros:
-  `C:\Users\gdwol\Development\gcc-zmm-mingw-repro\` (512-bit),
-  `C:\Users\gdwol\Development\gcc-ymm-mingw-repro\` (256-bit). Docs
-  re-scoped 2026-08-10: mingw GCC qualified for 128-bit tiers only;
-  past GCC AVX2 numbers stay valid (fault, never corruption).
-  Re-qualify for AVX2+ only after the fix lands. The mingw test-binary
-  "exit crash" is this same bug at 256-bit (initial-stack-residue
-  trigger — an after-PASS fault is structurally impossible in these
-  tests); technical detail in docs/ENVIRONMENT.md.
-- [OPEN] Pre-release legal: BINARY artifacts linking Highway must carry
-  its Apache-2.0 NOTICE; source-only distribution needs nothing (all
-  releases so far are source-only). Handle when packaging starts.
+- [→ #29, v0.8.0] mingw GCC by-value-vector misalignment at AVX2+ (GCC PR
+  126741, filed 2026-08-08; repros in Development/gcc-{zmm,ymm}-mingw-repro).
+  mingw GCC qualified for 128-bit tiers only until the fix lands; the
+  mingw test-binary "exit crash" is the same bug (detail in ENVIRONMENT.md).
+- [→ #26, v1.0.0] Pre-release packaging: Highway Apache-2.0 NOTICE for
+  binary artifacts; source-only releases need nothing.
 - [OPEN] Decide whether libstats/libhmm adopt corvus as a dependency or
   keep their internal SIMD (separate project-level decision). SPIKE
   AUTHORIZED 2026-08-15 — libstats branch `spike/corvus-bessel` wires
@@ -319,11 +236,10 @@ CI-gated, immutable under protect-tags, each with a Release object.
   at every tier but no vector_sin — where `sin(θ) = cos(θ − π/2)` is NOT
   a safe substitute, the shift's own rounding blowing the 5e-16 target
   once jt ≳ 4.
-- [OPEN] Upstream path for HWY_BROKEN_MSVC (add a compiler-version
-  floor): needs Highway's own suite passing under MSVC with AVX-512;
-  two kernels are not sufficient evidence for a PR.
-- [OPEN, low] Non-gather x86 kernel variant: ~2x upside on gather-weak
-  pre-AVX-512 CPUs (Kaby class); Zen 4 scales fine without it.
+- [→ #28, v1.1.0] Upstream Highway PR for an HWY_BROKEN_MSVC version floor;
+  needs Highway's own suite passing under MSVC/AVX-512 first.
+- [→ #22, v1.1.0] Non-gather x86 kernel variant (~2× on gather-weak Kaby
+  class); size it from the #23 bench pass first.
 - [RESOLVED 2026-08-15] lgamma performance-positioning wording. The
   premise turned out to be that corvus published NO performance claim
   anywhere — no README section, numbers only here and in git history —
@@ -352,8 +268,8 @@ CI-gated, immutable under protect-tags, each with a Release object.
   accuracy-forced). Interval splitting (halve zone again) stays
   deferred; trigger = profiling gamma/beta end-to-end shows the zone
   Horner as a real bottleneck.
-- [OPEN] Signed-commits ruleset: confirm the M1 and Ryzen boxes sign
-  before enabling.
+- [→ #27, v1.0.0] Signed-commits ruleset once M1 and Ryzen are confirmed
+  signing (and the author-email verification gap is settled).
 - [ILLUSTRATIVE] Possible future consumers: C++ port of multi-agent_sim
   (batch distance/trig), zeekhmm training pipelines.
 
