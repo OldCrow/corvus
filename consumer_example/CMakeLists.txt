@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.25)
 project(corvus_consumer_example LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
+# No CMAKE_CXX_STANDARD here on purpose: the C++20 requirement must arrive
+# through corvus::corvus's exported cxx_std_20 (that export is what this
+# project exists to test).
 # Find the installed corvus package
 find_package(corvus REQUIRED)
 

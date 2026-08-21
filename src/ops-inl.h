@@ -48,6 +48,10 @@ template <class V> HWY_INLINE V Sub(V a, V b) { return hn::Sub(a, b); }
 template <class V> HWY_INLINE V Mul(V a, V b) { return hn::Mul(a, b); }
 template <class V> HWY_INLINE V Div(V a, V b) { return hn::Div(a, b); }
 template <class V> HWY_INLINE V MulAdd(V a, V b, V c) { return hn::MulAdd(a, b, c); }
+// MulSub is NOT for exact residuals: on non-FMA targets Highway emulates it
+// as mul-then-sub, which silently zeroes fma(a, b, -fl(a*b)). Exact residuals
+// go through ProdLow/SquareLow below, which are capability-guarded. (No
+// kernel currently uses MulSub; kept for the 1:1 hn:: mirror.)
 template <class V> HWY_INLINE V MulSub(V a, V b, V c) { return hn::MulSub(a, b, c); }
 template <class V> HWY_INLINE V Neg(V a) { return hn::Neg(a); }
 

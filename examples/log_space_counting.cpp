@@ -31,7 +31,7 @@
 /// produce an answer near 135. One ulp at that magnitude is 4. The lbeta route
 /// never goes near 1e16 at all.
 
-#include "corvus/corvus.h"
+#include <corvus/corvus.h>
 
 #include <array>
 #include <cmath>

@@ -38,5 +38,5 @@ time (the exported `corvus-targets.cmake` references `hwy::hwy` via
 - `find_dependency(hwy CONFIG)` inside `corvus-config.cmake` resolves Highway
 - `corvus::corvus` target provides headers and the static library, with the
   transitive `hwy::hwy` link resolving correctly
-- `#include "corvus/corvus.h"` resolves correctly from the install tree
+- `#include <corvus/corvus.h>` resolves correctly from the install tree
 - `corvus::erf` computes correct values on a small span

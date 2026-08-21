@@ -97,16 +97,17 @@ the test before it prints anything.
 ## Build detail
 
 ```sh
-cmake --preset release -G Ninja      # Ninja preferred; presets set no generator
+cmake --preset release -G Ninja      # Ninja preferred; only windows-clang-cl pins one
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 Manual alternative (no preset): `cmake -B build -DCMAKE_BUILD_TYPE=Release -G Ninja`.
 - Generator: Ninja preferred (faster, identical behavior across macOS/
   Linux/Windows-with-vcvars); Unix Makefiles works, nothing depends on it.
-  Presets never pin a generator — pass `-G Ninja` alongside `--preset` (CI
-  does the same, except the Windows CI job — see the CI section: it
-  deliberately uses the default VS generator, no vcvars).
+  Only the `windows-clang-cl` preset pins a generator (Ninja, because
+  clang-cl needs it); for every other preset pass `-G Ninja` alongside
+  `--preset` (CI does the same, except the Windows CI job — see the CI
+  section: it deliberately uses the default VS generator, no vcvars).
 - Windows vcvars bootstrap (required for Ninja with cl or clang-cl —
   neither compiler nor link.exe resolves outside a VS dev shell; this
   is the non-interactive recipe):
@@ -124,8 +125,8 @@ Manual alternative (no preset): `cmake -B build -DCMAKE_BUILD_TYPE=Release -G Ni
   - `Release` — benchmarks, accuracy validation, distribution
   - `RelWithDebInfo` — profiling (symbols for Instruments/perf)
   - `Debug` — debugger sessions; pair with `-DCORVUS_SANITIZE=address;undefined`
-- Options (all `CORVUS_`-prefixed): `CORVUS_BUILD_TESTS` (top-level only
-  by default), `CORVUS_DEV_WARNINGS` (-Wall -Wextra -Wpedantic; top-level
+- Options (all `CORVUS_`-prefixed): `CORVUS_BUILD_TESTS` and
+  `CORVUS_BUILD_EXAMPLES` (top-level only by default), `CORVUS_DEV_WARNINGS` (-Wall -Wextra -Wpedantic; top-level
   only, never exported), `CORVUS_WERROR` (CI), `CORVUS_DISABLED_TARGETS`
   (tier capping), `CORVUS_SANITIZE`, `CORVUS_MSVC_UNBLOCK_AVX512` (OFF;
   see the MSVC/AVX-512 caveat above — configuring with it ON emits a
@@ -176,14 +177,18 @@ section restates rather than deviates. It is self-sufficient for this repo.
   repo's existing minimum): `release` → `build/`, `debug` → `build-debug/`,
   `rel-with-debug` → `build-relwithdebinfo/`, plus the `sanitize` extra →
   `build-san/` (Debug + `CORVUS_SANITIZE=address;undefined`, own binaryDir
-  so it never leaves a sticky cache variable in `build/`). No `generator`
-  field in any preset; pass `-G Ninja` alongside `--preset`.
+  so it never leaves a sticky cache variable in `build/`), and
+  `windows-clang-cl` → `build-clangcl/` (Release, clang-cl, the only preset
+  that pins a generator — Ninja). Every other preset leaves the generator
+  unset; pass `-G Ninja` alongside `--preset`.
 
 ## Per-tier validation recipe
 
 Run on each machine; caps only remove tiers. On Windows use
 `tools/sweep_tiers.ps1`, which does the same thing, runs the gates
-individually, and aborts on the first configure/build/gate failure — a
+individually, and aborts on the first configure/build/gate failure
+(benchmarks are a separate script, `tools/quiet_bench.ps1` — quiet-machine
+bench passes for docs/PERFORMANCE.md, self-gated on ambient load) — a
 build failure otherwise leaves the *previous* tier's binaries in place
 and the next iteration re-measures them under the new tier's name:
 ```sh

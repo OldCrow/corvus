@@ -1,4 +1,4 @@
-# CI design is minute-budget-conscious (see AGENTS.md "CI" section):
+# CI design is minute-budget-conscious (see docs/ENVIRONMENT.md "CI" section):
 # - One Linux job sweeps all x86 tiers sequentially: Highway builds once,
 #   only corvus rebuilds per cap. A matrix would multiply job setup and
 #   Highway builds for the same information.

@@ -44,7 +44,8 @@ backend swap for free.
 (load/store, arithmetic, FMA, compares, masks, a few specials) whose names
 mirror `hn::` 1:1. It is the only file in the project allowed to touch
 `hn::`, which makes it the single swap point: migrating to `std::simd` means
-reimplementing this one file, with kernels and dd primitives untouched.
+reimplementing this one file (plus the `hwy::TargetName` call behind
+`active_target()` in `src/erf.cpp`), with kernels and dd primitives untouched.
 
 **Backend** (Google Highway) — provides per-target code generation and
 runtime CPU dispatch across SSE2 through AVX-512 and NEON. Pulled in via

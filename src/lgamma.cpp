@@ -33,6 +33,11 @@ namespace corvus {
 
 HWY_EXPORT(LgammaImpl);
 
+// The dispatch calls stay INSIDE namespace corvus: with a single compiled
+// target (the SSE2 cap) Highway collapses HWY_DYNAMIC_DISPATCH to
+// N_SSE2::FUNC, and a globally qualified call would then name a namespace
+// that does not exist. It compiles at every other tier, so only the cap
+// sweep catches it.
 void lgamma(std::span<const double> in, std::span<double> out) {
   HWY_DYNAMIC_DISPATCH(LgammaImpl)(in.data(), out.data(), in.size());
 }

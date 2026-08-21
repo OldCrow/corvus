@@ -31,7 +31,7 @@
 /// relative sense — sufficient for log-density work, and the docs say so
 /// rather than claiming a relative bound that does not hold.
 
-#include "corvus/corvus.h"
+#include <corvus/corvus.h>
 
 #include <array>
 #include <cmath>

@@ -23,7 +23,7 @@
 /// does — it evaluates elementwise over parameter arrays, and does not
 /// silently broadcast a scalar.
 
-#include "corvus/corvus.h"
+#include <corvus/corvus.h>
 
 #include <array>
 #include <cmath>

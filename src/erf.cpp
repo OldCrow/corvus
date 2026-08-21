@@ -60,6 +60,11 @@ namespace corvus {
 HWY_EXPORT(ErfImpl);
 HWY_EXPORT(TargetNameImpl);
 
+// The dispatch calls stay INSIDE namespace corvus: with a single compiled
+// target (the SSE2 cap) Highway collapses HWY_DYNAMIC_DISPATCH to
+// N_SSE2::FUNC, and a globally qualified call would then name a namespace
+// that does not exist. It compiles at every other tier, so only the cap
+// sweep catches it.
 void erf(std::span<const double> in, std::span<double> out) {
   HWY_DYNAMIC_DISPATCH(ErfImpl)(in.data(), out.data(), in.size());
 }

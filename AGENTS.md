@@ -38,9 +38,11 @@ special-function coverage.
 ## Architecture
 - `include/corvus/corvus.h` — public API: `std::span` in/out, std-only,
   Doxygen. Highway never appears in public headers.
-- `src/ops-inl.h` — the ~20-op SIMD facade; the ONLY file allowed to touch
-  `hn::`. All kernels are written against `ops::`, which is what keeps the
-  backend swappable (std::simd later = reimplement one file).
+- `src/ops-inl.h` — the ~40-op SIMD facade; the ONLY file allowed to touch
+  `hn::`. All kernels are written against `ops::` (aliased `op::` inside
+  every kernel header), which is what keeps the backend swappable
+  (std::simd later = reimplement this file, plus the one `hwy::TargetName`
+  call behind `active_target()` in `src/erf.cpp`).
 - `src/<fn>.cpp` — one TU per function family; the TU boundary is the
   sharing/dependency boundary (families consuming the same cores share a
   TU with multiple HWY_EXPORTs). Per-target pattern: `HWY_TARGET_INCLUDE`
@@ -56,13 +58,13 @@ special-function coverage.
 
 ## Build & test
 ```sh
-cmake --preset release -G Ninja   # presets pin no generator; pass -G Ninja
+cmake --preset release -G Ninja   # only windows-clang-cl pins a generator; pass -G Ninja otherwise
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 Release for every perf/accuracy number. Options are `CORVUS_`-prefixed
 (`CORVUS_DISABLED_TARGETS` tier capping, `CORVUS_SANITIZE`,
-`CORVUS_DEV_WARNINGS`, …). Highway via `find_package` or pinned
+`CORVUS_DEV_WARNINGS`, `CORVUS_BUILD_TESTS`/`CORVUS_BUILD_EXAMPLES`, …). Highway via `find_package` or pinned
 FetchContent — bump the pin only with a revalidation pass. Presets,
 capping recipes, sweep scripts: `docs/ENVIRONMENT.md`.
 
@@ -75,9 +77,11 @@ capping recipes, sweep scripts: `docs/ENVIRONMENT.md`.
 - Outline region cores AND per-lane drivers (`HWY_NOINLINE`) from day one;
   MSVC codegen time is superlinear in function size.
 - A new function family goes, in dependency position, into all FOUR
-  lists: tests/CMakeLists.txt, the three ULP-report steps in ci.yml, and
-  the `$gates` array in tools/sweep_tiers.ps1. ctest auto-discovers;
-  the other three silently omit.
+  gating lists: tests/CMakeLists.txt, the three ULP-report steps in ci.yml,
+  and the `$gates` array in tools/sweep_tiers.ps1. ctest auto-discovers;
+  the other three silently omit. A fifth, non-gating list — the default
+  `-Targets` array in tools/quiet_bench.ps1 — enumerates the benches the
+  same way and needs the family's `bench_*` too.
 - Assert the tier, never assume it: validate under
   `CORVUS_EXPECT_TARGET=<tier>` and confirm the active target before
   trusting any tier result. Windows validation numbers come from clang-cl
@@ -108,6 +112,10 @@ capping recipes, sweep scripts: `docs/ENVIRONMENT.md`.
   lane-variable names (`d`, `ax`, `ssq`) are the numerical-kernel idiom.
 - Every kernel documents its approximation source and accuracy bound at
   the definition site; provisional work is marked PROVISIONAL.
+- Layout: 2-space indent in `src/` and `tests/` (Highway idiom), 4-space in
+  `examples/` (consumer style); no `.clang-format` is enforced. Test-harness
+  helpers in `tests/` use CamelCase (Highway idiom, grandfathered) — the
+  snake_case rule above applies to the public API and examples.
 
 ## Effort routing (full table: docs/NUMERICAL-DOCTRINE.md)
 Design, error budgets, and oracle construction are frontier work;

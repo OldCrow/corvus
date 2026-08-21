@@ -16,7 +16,7 @@
 /// computes the SMALL quantity directly is what keeps relative accuracy in the
 /// tail, and it costs nothing.
 
-#include "corvus/corvus.h"
+#include <corvus/corvus.h>
 
 #include <array>
 #include <cmath>

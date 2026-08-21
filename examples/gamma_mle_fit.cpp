@@ -33,7 +33,7 @@
 /// scalar work below just uses <cmath>. corvus's scope is the special
 /// functions that gate statistical work.
 
-#include "corvus/corvus.h"
+#include <corvus/corvus.h>
 
 #include <array>
 #include <cmath>

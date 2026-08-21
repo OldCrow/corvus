@@ -27,7 +27,7 @@
 ///
 /// That second one is a genuinely exact target, so it is asserted to 1 ULP.
 
-#include "corvus/corvus.h"
+#include <corvus/corvus.h>
 
 #include <array>
 #include <cmath>

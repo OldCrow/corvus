@@ -15,9 +15,9 @@ namespace HWY_NAMESPACE {
 // boundary is the SHARING boundary: i0/i0e share BesselNu0's series and
 // tail cores, i1/i1e share BesselNu1's -- splitting by export would
 // instantiate each shared core twice per target for nothing. i0/i1 and
-// i0e/i1e likewise share the exp_dd wrappers and the dd primitives. See
-// src/bessel-inl.h's file header for the evaluation scheme and
-// src/bessel-inl.h and src/bessel_data.h document the evaluation scheme.
+// i0e/i1e likewise share the exp_dd wrappers and the dd primitives.
+// src/bessel-inl.h's file header and src/bessel_data.h document the
+// evaluation scheme.
 
 static void I0Impl(const double* in, double* out, size_t n) {
   const op::ScalableTag<double> d;

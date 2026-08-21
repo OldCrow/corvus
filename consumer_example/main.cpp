@@ -4,7 +4,7 @@
 /// Verifies that an installed corvus can be found, linked, and used
 /// by an external project.
 
-#include "corvus/corvus.h"
+#include <corvus/corvus.h>
 
 #include <array>
 #include <cmath>
