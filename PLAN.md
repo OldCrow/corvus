@@ -173,8 +173,10 @@ CI-gated, immutable under protect-tags, each with a Release object.
   without it.
 - [OPEN, P3 candidate, CONDITIONAL consumer need — 2026-08-16] Hurwitz
   zeta ζ(s, q) = Σ_{n≥0} (n+q)^−s, which subsumes Riemann as ζ(s, 1).
-  Raised from libstats #62 (Zipf, v2.5.0 — that milestone was v2.4.0 until
-  libstats renumbered on 2026-08-16), and the conditional is the
+  Raised from libstats #62 (Zipf, v2.6.0 — that milestone was v2.4.0
+  until libstats renumbered on 2026-08-16, then v2.5.0 until the
+  2026-08-21 renumbering that staged corvus adoption as their v2.5.0),
+  and the conditional is the
   point: **as that issue currently specifies Zipf, corvus would add
   nothing.** Its own notes say ζ(a) is "a scalar constant computed at
   construction time; no per-element special function needed for PMF
@@ -256,10 +258,25 @@ CI-gated, immutable under protect-tags, each with a Release object.
   still wants the macOS leg, since Tier 2 is where #47's users are.
   Three defects the spike found in libstats are filed there as #92/#93/#94
   and are independent of adoption — corvus owes nothing for them.
-  **(b) SETTLED AS INTENT 2026-08-15 [user]: libstats adopts.** Timing is
-  NOT settled and is not a corvus gate — it turns on machine availability
-  for the outstanding M1/Kaby legs and on whether it must precede v1.0.0.
-  Treat adoption as the planning assumption; do not treat a date as one.
+  **(b) SETTLED AS INTENT 2026-08-15 [user]: libstats adopts.**
+  **STAGED 2026-08-21 [user]: adoption is libstats milestone v2.5.0**
+  (their milestone #6), between v2.4.0 New Distributions (Foundation)
+  and v2.6.0 New Distributions (Extended, renumbered from v2.5.0).
+  Rationale on their side: Foundation's distributions are
+  adoption-tolerant (delegation wrappers, closed-form exp/erf), while
+  Extended's heavy special-function consumers (Wald erfc CDF,
+  BetaBinomial/Hypergeometric incomplete beta, Zipf) should be built on
+  corvus cores the first time. Still not a calendar date; prerequisites
+  before their v2.5.0 opens: (a) M1 + Kaby Lake native legs — run
+  during their v2.4.0, and these are the SAME machine sessions this
+  repo needs for its per-tier accuracy claims, so plan them jointly;
+  (b) corvus API stable — if v1.0.0 is near, cut it first so libstats
+  adopts a frozen surface (a real consumer landing right behind the
+  freeze is also the best v1.0.0 evidence); (c) the Zipf CDF design
+  decision (summation vs Hurwitz-zeta closed form, libstats #62, their
+  v2.6.0) is due at their v2.6.0 planning — which scopes THIS repo's
+  conditional-P3 Hurwitz entry: expect the ask, if it comes, during
+  libstats v2.5.0.
 - [DONE 2026-08-15] Consumer-integration notes, all three delivered as
   comments on the libstats issues rather than carried here — the audience
   is libstats, and a copy on this side could not notice when it went
