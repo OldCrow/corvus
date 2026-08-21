@@ -160,7 +160,10 @@ int main() {
     std::cout << "\n  Past z = 8.3 or so, Phi(z) rounds to 1.0 and the naive column\n"
                  "  collapses to exactly zero. The direct column is still carrying\n"
                  "  full relative accuracy — Q(20) is around 2.75e-89, and corvus's\n"
-                 "  erfc holds its bound down through the subnormals.\n";
+                 "  erfc holds its bound down through the subnormals -- relative to\n"
+                 "  the rounded argument z/sqrt(2). Rounding that argument itself\n"
+                 "  costs about z^2 * 2^-53 relative (~160 ulp at z = 20): the floor\n"
+                 "  for any composed tail probability (USER-GUIDE, returned vs composed).\n";
 
     // The naive route must actually have failed, or this example is not
     // demonstrating what its text claims.

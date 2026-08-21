@@ -173,7 +173,7 @@ void beta_q(std::span<const double> a, std::span<const double> b,
 /// result itself is ill-conditioned (docs/ACCURACY.md). Symmetric in
 /// (a, b); saturates to -inf
 /// where the true ln B falls below the double range (both parameters
-/// huge); NaN propagates.
+/// huge); NaN propagates as a quiet NaN (the input payload is not preserved).
 void lbeta(std::span<const double> a, std::span<const double> b,
            std::span<double> out);
 

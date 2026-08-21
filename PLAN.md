@@ -19,6 +19,16 @@ Anything after v0.5.0 (user-focused examples and other additions)
 builds on the frozen base; core/generator/test changes now require
 explicit unfreeze.
 
+**Defensive review 2026-08-21 [DERIVED]** — four-lens pass (metrics,
+architecture/design, numerical, type/input safety), every finding
+adversarially verified. Non-frozen hygiene landed in 3a26bab; twelve
+issues filed (#5–#17). ONE HIGH: #12, gamma_p/q(a, a) silent 1/0 on the
+non-FMA tiers for a ≥ 2^997 — the 2026-08-05 clamp fixed one of three
+Dekker-ceiling sites. Kernel fix, so it waits on the unfreeze call;
+ACCURACY.md carries the exclusion meanwhile. Sweep: src/ clean under
+cppcheck 2.21 + clang-tidy 22.1.8 (all 209 unique tidy hits are vendored
+Highway), lizard max CCN 14 / avg 1.8, unchanged since 2026-08-12.
+
 **v0.4.0 RELEASED** (tag at 96d181d, CI-gated per-job on run
 31652276608;
 https://github.com/OldCrow/corvus/releases/tag/v0.4.0): the
@@ -204,9 +214,22 @@ CI-gated, immutable under protect-tags, each with a Release object.
   analytic continuation. Cut the domain to the filed need or this
   becomes open-ended. Still P3 — new family, so explicit unfreeze plus
   the full G1–G5 pipeline.
-- [OPEN, gamma] Add a ≥ 2^998 Temme witness rows at gamma's next
-  reference touch — the kGammaTwoPiAClamp Dekker-ceiling defect was
-  latent for lack of them (clamp already fixed to 2^900, 2026-08-05).
+- [OPEN, gamma, HIGH — #12] The 2026-08-05 kGammaTwoPiAClamp fix (2^900)
+  covered √(2πa) only; `DdRecip(a)`/`DdMulD(φ, a)` in GammaTemme
+  (gamma-inl.h:400/402) and the same pair in gammainv-inl.h:450-452
+  still take the unclamped a, so on SSE2/SSSE3/SSE4 gamma_p(a, a) = 1 /
+  gamma_q = 0 (true ≈ 0.5) for a ≥ 2^997, the NaN laundered by
+  GammaClampE. Reproduced 2026-08-21 on build-cap-sse2; FMA tiers fine.
+  Needs the unfreeze call: prescale/clamp both sites, witness rows
+  a ∈ {2^996, 2^997, 2^1000, DBL_MAX} on the diagonal, smoke assert.
+- [OPEN, unfreeze backlog] #5 API hardening (span assert, noexcept,
+  nodiscard), #6 shared driver template, #7 outlining doctrine vs
+  lgamma/erf/erfc, #8 erf/erfc assemblies in the dispatch TU, #9 wrapper
+  duplication + magic constants, #10 dead facade ops, #11 generator
+  argparse, #13 generators (subnormal double rounding, checkpoint
+  digest, self-checks), #14 ULP-gate structure, #15 test-harness hygiene,
+  #17 frozen-file hygiene batch. #16 (MSVC version floor) is CMake-only
+  and not frozen.
 - [WATCH] Ryzen box stability: two GPU-stack bugchecks 2026-07-29 (0x9F
   power-IRP, 0x10E video memory), root-caused [DERIVED] to a
   half-committed NVIDIA driver install; DDU clean reinstall the same
@@ -719,6 +742,13 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-21 defensive review (between milestones, under the freeze):
+  24 architecture, 9 safety, 16 numerical findings, all verified;
+  non-frozen hygiene in 3a26bab (doc drift since v0.5.0, consumer_example
+  std override, angle includes, guard comments, MulSub warning); doc
+  corrections for the review's numerical findings in the follow-up
+  commit; #5–#17 filed. Refuted: "plain ctest never asserts the tier"
+  (the ENVIRONMENT.md recipe sets CORVUS_EXPECT_TARGET).
 - 2026-08-15 clang-cl → MSVC ABI item CLOSED, and the install/export path
   exercised for the FIRST TIME. Adoption-spike stage S1 (libstats branch
   `spike/corvus-bessel`): an MSVC 19.51 consumer links the clang-cl-built,

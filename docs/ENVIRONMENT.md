@@ -131,6 +131,12 @@ Manual alternative (no preset): `cmake -B build -DCMAKE_BUILD_TYPE=Release -G Ni
   (tier capping), `CORVUS_SANITIZE`, `CORVUS_MSVC_UNBLOCK_AVX512` (OFF;
   see the MSVC/AVX-512 caveat above — configuring with it ON emits a
   deliberate `message(WARNING)`).
+- Contraction flags (`CORVUS_FP_FLAGS`): `-ffp-contract=off` for
+  GCC/Clang/AppleClang/mingw, `/clang:-ffp-contract=off` for clang-cl.
+  Real MSVC relies on cl ≥ 19.30's no-contraction default — no version
+  floor is enforced yet (#16). The `IntelLLVM` branch of the same regex
+  gets `-ffp-contract=off` only and leaves icpx's default `-fp-model=fast`
+  (reassociation, FTZ) in place: unvalidated, unclaimed, a placeholder.
 - Highway: uses system install if `find_package(hwy)` succeeds, else
   FetchContent of a pinned version (network on first configure). The pin
   tracks the version the accuracy audit ran against — bump only with a

@@ -53,8 +53,10 @@ special-function coverage.
   corvus-owned transcendental cores (exp_dd/log_dd, mantissa+exponent
   form so scaling rounds last).
 - `tests/` — ctest gates against checked-in reference sets, registered in
-  dependency order; test lengths non-multiples of lane counts so the
-  masked-tail path is always exercised.
+  dependency order. Smoke tests use lengths that are non-multiples of
+  lane counts so the masked-tail path is exercised; the ULP gates
+  evaluate whole reference sets, several of which are lane multiples
+  (#14 is the fix).
 
 ## Build & test
 ```sh

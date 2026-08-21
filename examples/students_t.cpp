@@ -64,6 +64,10 @@ void t_critical(std::span<const double> alpha, std::span<const double> dof, std:
         a[i] = 0.5 * dof[i];
     }
     corvus::beta_p_inv(a, b, alpha, out);  // out receives x
+    // 1 - x cancels as x -> 1, i.e. for a two-sided alpha near 1 (t near 0).
+    // Every alpha in this example is small, so x stays away from 1; for the
+    // alpha -> 1 regime ask for 1 - x directly via the swap identity,
+    // beta_q_inv(b, a, alpha) (see the corvus.h note on beta_p_inv).
     for (std::size_t i = 0; i < n; ++i) {
         out[i] = std::sqrt(dof[i] * (1.0 - out[i]) / out[i]);
     }

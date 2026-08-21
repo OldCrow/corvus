@@ -77,9 +77,10 @@ family design records see `PLAN.md`.
 
 ## Test doctrine
 
-- ctest executables compare against libm/reference values; test lengths
-  are deliberately non-multiples of lane counts to exercise the
-  masked-tail path.
+- ctest executables compare against libm/reference values. Smoke-test
+  lengths are deliberately non-multiples of lane counts to exercise the
+  masked-tail path; the ULP gates currently evaluate whole reference sets
+  in one call, and five of those sets are multiples of 8 (#14).
 - **Tests are registered in DEPENDENCY order, not development order** (dd
   cores first, then every family after the cores it consumes), so a
   shared-core regression fails under its own name rather than a
