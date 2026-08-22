@@ -17,6 +17,9 @@ special-function coverage.
   machine- or compiler-specific → `docs/ENVIRONMENT.md` (fleet table,
   toolchain caveats, tier capping/sweep recipes, CMake standard, CI
   design).
+- CMake and CI edits also follow the fleet standards repo
+  (https://github.com/OldCrow/standards — CMAKE-HOUSE-STYLE.md,
+  CI-HOUSE-STYLE.md); ENVIRONMENT.md links the relevant sections.
 - Session state, decisions, open items, shipped-family records →
   `PLAN.md` (full design texts live in its git history).
 - Audited accuracy claims → `docs/ACCURACY.md`; update it in the same

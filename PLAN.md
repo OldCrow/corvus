@@ -8,7 +8,7 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-08-14
+## Status [DERIVED] — 2026-08-22
 
 **v0.5.0 RELEASED — CORE/GENERATOR/TEST FREEZE IN EFFECT** (signed
 tag at 73eaee0, CI-gated per-job on runs 31849654346 + 31850384519;
@@ -50,20 +50,21 @@ the fix all go; rewrite, don't delete — keep each site's math half.
 The lighter generator standard: every enforcement-site/self-check
 rationale stays, timeless.
 
-Remaining before v1.0.0: the Kaby legs, and possibly quiet bench passes
-for a performance document. Everything else is done — six examples with
-the CMake plumbing and a windows-clang-cl preset, all three
-consumer-integration notes, the ARCHITECTURE.md referencing decision,
-the lgamma positioning, and docs/USER-GUIDE.md, all closed 2026-08-15.
+Remaining before v1.0.0: the milestone map below — v0.6.0 unfreeze,
+v0.7.0 structure, v0.8.0 fleet legs + performance (#23 Kaby legs, #24
+performance document). The 2026-08-15 session's items are all done:
+six examples with the CMake plumbing and a windows-clang-cl preset,
+all three consumer-integration notes, the ARCHITECTURE.md referencing
+decision, the lgamma positioning, and docs/USER-GUIDE.md.
 
 The Kaby legs REMAIN NON-GATING — that ruling (2026-08-06) stands, and
 nothing about the claims depends on them. The user has simply chosen to
 wait for them before tagging [2026-08-15], which is a scheduling
 preference and not a requirement: if machine access slips, v1.0.0 can be
-tagged without them and no doc or claim changes. Possibly also waiting on
-quiet bench passes (Kaby and M1 — Zen 4's was done 2026-08-12), pending
-the decision on whether a performance document ships alongside
-ACCURACY.md.
+tagged without them and no doc or claim changes. docs/PERFORMANCE.md
+exists (e835a05; PROVISIONAL — Zen 4 only, full twelve-family quiet
+sweep 2026-08-15, Resolved log); whether it ships beyond provisional is
+#24 (M1 quiet pass + Kaby).
 
 Release history: v0.1.0 2026-08-06 (P0: erf/erfc, erfinv/erfcinv,
 lgamma, gamma P/Q, beta P/Q); v0.2.0 2026-08-10 (P1: digamma,
@@ -74,6 +75,7 @@ inventories, von Mises included); v0.4.0 2026-08-12. All tags
 CI-gated, immutable under protect-tags, each with a Release object.
 
 ## Next Steps — milestone map v0.5.0 → v1.0.0 [DERIVED, 2026-08-21]
+Last reconciled against live GitHub state: 2026-08-22.
 Every open item is a GitHub issue on one of five milestones; this section
 is the map, the issues carry the detail. Order is deliberate: one
 correctness unfreeze, then bit-identical structure work, then the fleet
@@ -99,6 +101,7 @@ legs, then the release, then new families behind a stable surface.
    signed-commits ruleset, final API review, the libstats v2.5.0
    handshake (they adopt the frozen surface). Exit: tag cut before
    libstats v2.5.0 opens.
+   [OPEN] final API review has no issue yet — file one before v1.0.0 opens.
 5. **v1.1.0 — New families** (full G1–G5 pipeline each): #18 erfcx (P2),
    #19 von Mises ratio complement in dd (P3, filed need), #20 Hurwitz
    zeta (P3, conditional on libstats #62), #21 exp_dd bump, #22
@@ -147,14 +150,9 @@ bottleneck), the Ryzen-box stability watch.
   on libstats #62 taking the closed-form Zipf CDF (their v2.6.0 planning
   decision; expect the ask during their v2.5.0). trigamma = ζ(2, ·) is
   already in the tree; the oracle is a thin mpmath wrapper.
-- [OPEN, gamma, HIGH — #12] The 2026-08-05 kGammaTwoPiAClamp fix (2^900)
-  covered √(2πa) only; `DdRecip(a)`/`DdMulD(φ, a)` in GammaTemme
-  (gamma-inl.h:400/402) and the same pair in gammainv-inl.h:450-452
-  still take the unclamped a, so on SSE2/SSSE3/SSE4 gamma_p(a, a) = 1 /
-  gamma_q = 0 (true ≈ 0.5) for a ≥ 2^997, the NaN laundered by
-  GammaClampE. Reproduced 2026-08-21 on build-cap-sse2; FMA tiers fine.
-  Needs the unfreeze call: prescale/clamp both sites, witness rows
-  a ∈ {2^996, 2^997, 2^1000, DBL_MAX} on the diagonal, smoke assert.
+- [OPEN, gamma, HIGH — #12] gamma_p/q(a, a) silent 1/0 on the non-FMA
+  tiers for a ≥ 2^997; kernel fix, waits on the v0.6.0 unfreeze. #12 is
+  canonical.
 - [→ milestones] The review's unfreeze backlog is mapped in Next Steps:
   v0.6.0 (#5, #12–#17) and v0.7.0 (#6–#11).
 - [WATCH] Ryzen box stability: two GPU-stack bugchecks 2026-07-29 (0x9F
@@ -171,52 +169,15 @@ bottleneck), the Ryzen-box stability watch.
   mingw test-binary "exit crash" is the same bug (detail in ENVIRONMENT.md).
 - [→ #26, v1.0.0] Pre-release packaging: Highway Apache-2.0 NOTICE for
   binary artifacts; source-only releases need nothing.
-- [OPEN] Decide whether libstats/libhmm adopt corvus as a dependency or
-  keep their internal SIMD (separate project-level decision). SPIKE
-  AUTHORIZED 2026-08-15 — libstats branch `spike/corvus-bessel` wires
-  i0/i1/i0e behind stats::detail::bessel_* (its #47 path: three
-  functions, eight call sites, all scalar, all in von_mises.cpp, none
-  hot — the payoff is retiring its 1.6e-7 A&S tier, NOT throughput).
-  corvus is consumed AT THE v0.5.0 TAG AND NOT EDITED; holding the
-  freeze against a real consumer is part of what the spike tests, so a
-  corvus-side need it surfaces is a FINDING, not a fix. Execution state
-  (stages, next step) lives in libstats/PLAN.md In Progress and is
-  deliberately not restated here — same rule as the pylibhmm pin: a
-  copy here cannot notice when it goes wrong. This entry records the
-  VERDICT, which has two INDEPENDENT halves: (a) does clang-cl-built
-  corvus link into an MSVC consumer — corvus's question, ANSWERED YES
-  2026-08-15 by stage S1, see the Resolved log; (b) does libstats adopt
-  — libstats's question, still open. A "no" on (b) does not invalidate
-  (a), and the #47 consumer-integration note is produced either way.
-  SPIKE CLOSED 2026-08-15, recommendation ADOPT-BUT-NOT-FOR-BESSEL-ALONE:
-  the mechanism works and corvus beats both of libstats's existing tiers
-  measurably, but eight scalar call sites do not justify a dependency on
-  their own; the justification is the wider surface (#47 retired, #51's
-  Miller recurrence, #52's beta_p, plus erfinv and incomplete gamma/beta).
-  Report: https://claude.ai/code/artifact/ab912f14-d920-4eb2-b60f-5d92222bb33f
-  Rationale and costs in libstats/PLAN.md In Progress; the real decision
-  still wants the macOS leg, since Tier 2 is where #47's users are.
-  Three defects the spike found in libstats are filed there as #92/#93/#94
-  and are independent of adoption — corvus owes nothing for them.
-  **(b) SETTLED AS INTENT 2026-08-15 [user]: libstats adopts.**
-  **STAGED 2026-08-21 [user]: adoption is libstats milestone v2.5.0**
-  (their milestone #6), between v2.4.0 New Distributions (Foundation)
-  and v2.6.0 New Distributions (Extended, renumbered from v2.5.0).
-  Rationale on their side: Foundation's distributions are
-  adoption-tolerant (delegation wrappers, closed-form exp/erf), while
-  Extended's heavy special-function consumers (Wald erfc CDF,
-  BetaBinomial/Hypergeometric incomplete beta, Zipf) should be built on
-  corvus cores the first time. Still not a calendar date; prerequisites
-  before their v2.5.0 opens: (a) M1 + Kaby Lake native legs — run
-  during their v2.4.0, and these are the SAME machine sessions this
-  repo needs for its per-tier accuracy claims, so plan them jointly;
-  (b) corvus API stable — if v1.0.0 is near, cut it first so libstats
-  adopts a frozen surface (a real consumer landing right behind the
-  freeze is also the best v1.0.0 evidence); (c) the Zipf CDF design
-  decision (summation vs Hurwitz-zeta closed form, libstats #62, their
-  v2.6.0) is due at their v2.6.0 planning — which scopes THIS repo's
-  conditional-P3 Hurwitz entry: expect the ask, if it comes, during
-  libstats v2.5.0.
+- [RESOLVED 2026-08-21] libstats/libhmm adopting corvus: libstats
+  ADOPTS — settled as intent 2026-08-15, staged 2026-08-21 as their
+  milestone v2.5.0 (between v2.4.0 Foundation and v2.6.0 Extended; not
+  a calendar date). Their prerequisites: M1 + Kaby native legs (the same
+  sessions as #23 — plan jointly), a stable corvus API (cut v1.0.0
+  first), and the Zipf CDF decision (libstats #62) that scopes #20 here.
+  Spike verdict, costs and execution state: libstats/PLAN.md; the
+  clang-cl-into-MSVC link proof is in the Resolved log 2026-08-15.
+  libhmm: not yet decided.
 - [DONE 2026-08-15] Consumer-integration notes, all three delivered as
   comments on the libstats issues rather than carried here — the audience
   is libstats, and a copy on this side could not notice when it went
@@ -240,36 +201,18 @@ bottleneck), the Ryzen-box stability watch.
   needs Highway's own suite passing under MSVC/AVX-512 first.
 - [→ #22, v1.1.0] Non-gather x86 kernel variant (~2× on gather-weak Kaby
   class); size it from the #23 bench pass first.
-- [RESOLVED 2026-08-15] lgamma performance-positioning wording. The
-  premise turned out to be that corvus published NO performance claim
-  anywhere — no README section, numbers only here and in git history —
-  so this was never a correction, it was deciding what v1.0.0 says.
-  DECIDED: publish positioning, publish no figure. README's Design
-  section now states that accuracy is the claim and throughput is not;
-  that the dd work is real work rather than something vectorization
-  makes free; that any advantage scales with lane count and is near
-  nothing at two lanes; and — the disclosure that matters — that lgamma
-  is SLOWER than a fast vendor scalar libm in the recurrence region, by
-  a small multiple, accuracy-forced. Readers who see "SIMD" and assume
-  "fast" are the failure mode being closed. No multiples are quoted,
-  but the REASON needs stating correctly [corrected 2026-08-15, after
-  the user queried it]: it is NOT that all the data is loaded — the
-  2026-08-12 quiet Ryzen pass is publishable and libm-baselined. It is
-  that the quiet set is family-level and single-microarchitecture, while
-  the per-region zone-vs-recurrence claim the README paragraph makes
-  rests on the loaded set; and the earlier "wins from 4 lanes up"
-  formulation already died on the Kaby 4-lane measurement. Publication
-  therefore needs a second microarchitecture AND per-region
-  granularity — see Next Steps item 2. Measured picture for
-  reference (loaded, indicative, full data in git history): after the
-  2026-07-25 all-zone fast path (bit-identical, verified every tier),
-  zone is 5.6–6.5x at 8 lanes and ~1.0x at 2 lanes; recurrence is the
-  floor everywhere at 0.2–0.6x vs fast vendor libms (X0 = 8 is
-  accuracy-forced). Interval splitting (halve zone again) stays
-  deferred; trigger = profiling gamma/beta end-to-end shows the zone
-  Horner as a real bottleneck.
+- [RESOLVED 2026-08-15] lgamma performance-positioning. DECIDED: README
+  publishes positioning, no figures — accuracy is the claim, and the
+  margin varies by region and by libm (quiet Zen 4 vs UCRT: every region
+  above 1.0x, recurrence 2.84x, spread 1.47–5.47x), so no headline
+  number. Figures wait on a second microarchitecture and a second vendor
+  libm — Next Steps item 3 (#24, v0.8.0). The earlier "recurrence slower,
+  0.2–0.6x" claim was retracted: Resolved log, 2026-08-15 quiet
+  per-region pass.
 - [→ #27, v1.0.0] Signed-commits ruleset once M1 and Ryzen are confirmed
   signing (and the author-email verification gap is settled).
+- [OPEN] AGENTS.md is ~7.5 KB vs the ~4 KB core budget set 2026-08-09
+  (Decisions); trim or re-budget.
 - [ILLUSTRATIVE] Possible future consumers: C++ port of multi-agent_sim
   (batch distance/trig), zeekhmm training pipelines.
 
