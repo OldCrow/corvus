@@ -104,23 +104,24 @@ legs, then the release, then new families behind a stable surface.
 3. **v0.8.0 — Fleet validation & performance**: #23 Kaby legs — both done 2026-08-23 (a: ACCURACY.md dagger note; b: docs/PERFORMANCE.md §8 — against Apple's libm, lgamma is slower in every band but the zone, the §6 prediction confirmed; batching gains ≈ half of Zen 4, lane-bound)
    (NON-GATING, 2026-08-06 ruling stands), #24 performance document
    (M1 quiet pass + Zen 4 per-region lgamma rerun + README positioning),
-   #25 examples in CI, #29 GCC PR 126741 re-qualification if the fix
-   lands. Exit: ≥ 2 quiet microarchitectures in PERFORMANCE.md or the
+   #30 lgamma per-band cost profile (two machines, quiet-gated; scopes
+   #31), #25 examples in CI, #29 GCC PR 126741 re-qualification if the
+   fix lands. Exit: ≥ 2 quiet microarchitectures in PERFORMANCE.md or the
    document explicitly withheld.
 4. **v1.0.0 — Release**: #26 packaging/NOTICE + release checklist, #27
    signed-commits ruleset, final API review, the libstats v2.5.0
    handshake (they adopt the frozen surface). Exit: tag cut before
    libstats v2.5.0 opens.
    [OPEN] final API review has no issue yet — file one before v1.0.0 opens.
-5. **v1.1.0 — New families** (full G1–G5 pipeline each): #18 erfcx (P2),
+5. **v1.1.0 — New families & kernel performance** (full G1–G5 pipeline each): #18 erfcx (P2),
    #19 von Mises ratio complement in dd (P3, filed need), #20 Hurwitz
-   zeta (P3, conditional on libstats #62), #21 exp_dd bump, #22
+   zeta (P3, conditional on libstats #62), #21 exp_dd bump, #22, #31 lgamma (5/2, X0) table-driven band + Estrin zone + single reflection log (bit-changing perf work lives here, not in v0.7.0 — ruling 2026-08-23; blocked on #30)
    non-gather x86 variant, #28 Highway HWY_BROKEN_MSVC upstream PR.
 Kept in this file, not on GitHub (decisions with triggers, not work):
 std::simd migration (facade reimplementation when implementations
-mature), LTO/IPO and shared lib (no demand), lgamma zone interval
-splitting (trigger: end-to-end profiling shows the zone Horner as a
-bottleneck), the Ryzen-box stability watch.
+mature), LTO/IPO and shared lib (no demand), the Ryzen-box stability
+watch. (lgamma zone interval splitting moved to GitHub 2026-08-23: its
+profiling trigger is #30 and the work is #31.)
 
 ## Open Items
 - [DONE 2026-08-15] docs/USER-GUIDE.md written. Raised by the user
