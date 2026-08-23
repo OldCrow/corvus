@@ -79,8 +79,15 @@ machine.
 dispatch, clang-cl; AVX2/SSE4/SSSE3/SSE2 via capping on the same silicon)
 plus the Linux/GCC CI sweep — every tier executes natively on real x86
 silicon, so the per-tier claims stand. Cross-machine reproduction on Kaby
-Lake (AVX2+FMA native, AppleClang) is pending machine access and is an
-additional check, not a gap in the claim.
+Lake (i7-7820HQ, AVX2+FMA native, AppleClang, macOS 13) was done
+2026-08-23 (#23a) as an additional check, not a gap in the claim: all 27
+ctest gates green on AVX2 native and on SSE4/SSSE3/SSE2 via capping, with
+`CORVUS_EXPECT_TARGET` asserted on every run. The three no-FMA tiers are
+bit-identical to each other (every max-ULP cell, not-CR count and
+worst-case input). AVX2 differs from them only in the usual FMA/no-FMA
+not-CR spread (32 report lines across the 12 ULP gates) and two max-ULP
+cells that move *within* their gates without FMA: `beta_q` R4 tiny-min
+direct 1 → 2 ULP (gate 2) and trigamma (0, 1) 0 → 1 ULP (gate 1).
 
 `exp_dd` and `log_dd` are not public API; they are audited here because the
 erfc tail's bound rests on `exp_dd` and lgamma's rests on `log_dd`. Their
