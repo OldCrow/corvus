@@ -62,9 +62,19 @@ nothing about the claims depends on them. The user has simply chosen to
 wait for them before tagging [2026-08-15], which is a scheduling
 preference and not a requirement: if machine access slips, v1.0.0 can be
 tagged without them and no doc or claim changes. docs/PERFORMANCE.md
-exists (e835a05; PROVISIONAL — Zen 4 only, full twelve-family quiet
-sweep 2026-08-15, Resolved log); whether it ships beyond provisional is
-#24 (M1 quiet pass + Kaby).
+exists (e835a05; PROVISIONAL — Zen 4 2026-08-15 plus Kaby Lake 2026-08-23
+as §8); whether it ships beyond provisional is #24 (M1 quiet pass).
+
+Remaining fleet legs, all on the Mac Mini M1 (NEON, macOS Tahoe) — none
+gate v1.0.0 [DERIVED 2026-08-23]:
+- corvus #24: the M1 quiet bench pass (`tools/quiet_bench.sh -t NEON`) —
+  the third microarchitecture and the second Apple-libm point, which
+  decides whether §8's lgamma inversion is an Apple-libm fact or a
+  Kaby-lane fact. M1's accuracy leg is already done (CI runner, NEON).
+- #24 also: the Zen 4 per-region lgamma rerun (Ryzen box, not M1).
+- libstats (their PLAN): the v2.3.0 NEON native validation leg and the
+  `accuracy_sweep` → `isa=NEON` block; both are prerequisite (a) of their
+  v2.5.0 corvus-adoption milestone, so they gate that, not this repo.
 
 Release history: v0.1.0 2026-08-06 (P0: erf/erfc, erfinv/erfcinv,
 lgamma, gamma P/Q, beta P/Q); v0.2.0 2026-08-10 (P1: digamma,
