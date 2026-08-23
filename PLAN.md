@@ -70,11 +70,17 @@ gate v1.0.0 [DERIVED 2026-08-23]:
 - corvus #24: the M1 quiet bench pass (`tools/quiet_bench.sh -t NEON`) —
   the third microarchitecture and the second Apple-libm point, which
   decides whether §8's lgamma inversion is an Apple-libm fact or a
-  Kaby-lane fact. M1's accuracy leg is already done (CI runner, NEON).
+  Kaby-lane fact. M1's accuracy leg is now done NATIVELY too (2026-08-23:
+  27/27 tier-asserted; Resolved log). A same-day 10%-gated M1 pass is
+  INDICATIVE-only but points the same way as §8 (recurrence 0.22x); the
+  5% gate needs the box quiet — recipe and constraints in the Resolved
+  log entry.
 - #24 also: the Zen 4 per-region lgamma rerun (Ryzen box, not M1).
-- libstats (their PLAN): the v2.3.0 NEON native validation leg and the
-  `accuracy_sweep` → `isa=NEON` block; both are prerequisite (a) of their
-  v2.5.0 corvus-adoption milestone, so they gate that, not this repo.
+- libstats: DONE 2026-08-23 (same-day M1 session): v2.3.0 NEON native
+  validation 55/55 and the mpmath sweep ran (recorded in their
+  PLAN/AGENTS; the checked-in per-ISA `isa=NEON` doc block is still to
+  be regenerated from that run). Their v2.5.0 prerequisite (a) is now
+  Kaby+M1 complete.
 
 Release history: v0.1.0 2026-08-06 (P0: erf/erfc, erfinv/erfcinv,
 lgamma, gamma P/Q, beta P/Q); v0.2.0 2026-08-10 (P1: digamma,
@@ -221,7 +227,9 @@ profiling trigger is #30 and the work is #31.)
   0.2–0.6x" claim was retracted: Resolved log, 2026-08-15 quiet
   per-region pass.
 - [→ #27, v1.0.0] Signed-commits ruleset once M1 and Ryzen are confirmed
-  signing (and the author-email verification gap is settled).
+  signing (and the author-email verification gap is settled). M1 half
+  CONFIRMED 2026-08-23: `git commit -S` on the Mac Mini produced a Good
+  signature (YubiKey/gpg-agent). Ryzen remains.
 - [OPEN] AGENTS.md is ~7.5 KB vs the ~4 KB core budget set 2026-08-09
   (Decisions); trim or re-budget.
 - [ILLUSTRATIVE] Possible future consumers: C++ port of multi-agent_sim
@@ -612,6 +620,36 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-23 **M1 native NEON session (Mac Mini, macOS Tahoe 26.6, Apple
+  clang 21, Homebrew Highway 1.4.0 via find_package).** Gates: 27/27
+  green, Release, `CORVUS_EXPECT_TARGET=NEON` (negative check verified:
+  expecting AVX2 exits 2). First native-silicon NEON validation outside
+  CI. Harness: the same-day Kaby session's `tools/quiet_bench.sh`
+  (9ed8f7f) is the checked-in runner; this session ran an equivalent
+  scratch port of the same protocol (two-window ambient gate, per-target
+  noise annotation, tier assertion, nonzero-exit = do-not-publish).
+  **#24's M1 quiet pass is NOT achieved**: the 5% gate failed four
+  attempts over ~90 min of windows; ambient floor on this box is
+  ~5.5–7% (kernel_task + top sampling + WindowServer) even with the big
+  consumers stopped, and Photos' first-run `mediaanalysisd` (~85% of a
+  core, relaunched on demand by SIP-protected photoanalysisd despite a
+  launchd disable) kept ambient at 7–43%. A 10%-gated pass ran all 12
+  targets (gated 8.66%, noise held 6.7–43.1% avg 21.4%) — **loaded,
+  INDICATIVE ONLY, not publishable**; raw output in the session
+  scratchpad, headline shapes recorded here as the durable record:
+  erf ~5.9x vs Apple libm at n ≥ 1e4; bessel ~2x SIMD-vs-scalar upper
+  bound in all three bands; **lgamma INVERTS against Apple's libm** —
+  zone 0.95x/0.61x (1e4/1e6), recurrence 0.22x, Stirling 0.39x, mixed
+  0.33x, reflection ~0.40x (Apple lgamma runs 8.5–12 ns/el where UCRT
+  took 27–56). This CORROBORATES the same-day quiet Kaby pass (#23b,
+  PERFORMANCE.md §8: recurrence 0.28x on AVX2/Apple libm) on a second
+  Apple-libm microarchitecture — loaded-machine caveat and all; the M1's
+  publishable confirmation still needs a quiet pass. Machine-quieting recipe recorded: pause Backblaze
+  (bztransmit), add ~/Development to Spotlight privacy, and either let
+  Photos analysis finish or accept the documented-deviation gate; a 5%
+  gate is structurally unreachable on this box while a desktop session
+  is up — decide whether the macOS gate should be 10% with the deviation
+  recorded, or wait for first-run indexing to complete.
 - 2026-08-21 defensive review (between milestones, under the freeze):
   24 architecture, 9 safety, 16 numerical findings, all verified;
   non-frozen hygiene in 3a26bab (doc drift since v0.5.0, consumer_example
