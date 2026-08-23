@@ -193,7 +193,8 @@ section restates rather than deviates. It is self-sufficient for this repo.
 Run on each machine; caps only remove tiers. On Windows use
 `tools/sweep_tiers.ps1`, which does the same thing, runs the gates
 individually, and aborts on the first configure/build/gate failure
-(benchmarks are a separate script, `tools/quiet_bench.ps1` — quiet-machine
+(benchmarks are a separate script, `tools/quiet_bench.ps1` on Windows /
+`tools/quiet_bench.sh` on macOS+Linux — quiet-machine
 bench passes for docs/PERFORMANCE.md, self-gated on ambient load) — a
 build failure otherwise leaves the *previous* tier's binaries in place
 and the next iteration re-measures them under the new tier's name:

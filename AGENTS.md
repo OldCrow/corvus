@@ -85,7 +85,8 @@ capping recipes, sweep scripts: `docs/ENVIRONMENT.md`.
   gating lists: tests/CMakeLists.txt, the three ULP-report steps in ci.yml,
   and the `$gates` array in tools/sweep_tiers.ps1. ctest auto-discovers;
   the other three silently omit. A fifth, non-gating list — the default
-  `-Targets` array in tools/quiet_bench.ps1 — enumerates the benches the
+  `-Targets` array in tools/quiet_bench.ps1 and the TARGETS default in
+  tools/quiet_bench.sh — enumerate the benches the
   same way and needs the family's `bench_*` too.
 - Assert the tier, never assume it: validate under
   `CORVUS_EXPECT_TARGET=<tier>` and confirm the active target before
