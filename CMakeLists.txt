@@ -285,6 +285,11 @@ if(CORVUS_HWY_PROVIDER STREQUAL "system")
   # pkg-config file. Requires.private: libhwy matches the module name
   # Highway's own install() emits (lib/pkgconfig/libhwy.pc) — verified by
   # building Highway 1.4.0 locally and inspecting its installed .pc file.
+  # Path from <prefix>/<libdir>/pkgconfig back to <prefix> (usually ../..;
+  # handles multiarch libdirs too). Consumed by cmake/corvus.pc.in.
+  file(RELATIVE_PATH CORVUS_PC_PREFIX_REL
+       "${CMAKE_INSTALL_FULL_LIBDIR}/pkgconfig" "${CMAKE_INSTALL_PREFIX}")
+  string(REGEX REPLACE "/$" "" CORVUS_PC_PREFIX_REL "${CORVUS_PC_PREFIX_REL}")
   configure_file(
     cmake/corvus.pc.in
     ${CMAKE_CURRENT_BINARY_DIR}/corvus.pc
