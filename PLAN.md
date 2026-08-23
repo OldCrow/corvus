@@ -8,7 +8,7 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-08-22
+## Status [DERIVED] — 2026-08-23
 
 **v0.5.0 RELEASED — CORE/GENERATOR/TEST FREEZE IN EFFECT** (signed
 tag at 73eaee0, CI-gated per-job on runs 31849654346 + 31850384519;
@@ -85,7 +85,7 @@ inventories, von Mises included); v0.4.0 2026-08-12. All tags
 CI-gated, immutable under protect-tags, each with a Release object.
 
 ## Next Steps — milestone map v0.5.0 → v1.0.0 [DERIVED, 2026-08-21]
-Last reconciled against live GitHub state: 2026-08-22.
+Last reconciled against live GitHub state: 2026-08-23 (#23 closed; #30/#31 filed; v1.1.0 retitled).
 Every open item is a GitHub issue on one of five milestones; this section
 is the map, the issues carry the detail. Order is deliberate: one
 correctness unfreeze, then bit-identical structure work, then the fleet
