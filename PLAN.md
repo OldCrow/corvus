@@ -91,7 +91,7 @@ legs, then the release, then new families behind a stable surface.
    driver, #7 outlining doctrine, #8 erf/erfc assemblies + active_target
    placement, #9 wrapper duplication + magic constants, #10 dead facade
    ops, #11 generator argparse. Exit: ULP tables byte-identical.
-3. **v0.8.0 — Fleet validation & performance**: #23 Kaby legs (a: done 2026-08-23, ACCURACY.md dagger note; b: quiet bench pending an idle machine)
+3. **v0.8.0 — Fleet validation & performance**: #23 Kaby legs — both done 2026-08-23 (a: ACCURACY.md dagger note; b: docs/PERFORMANCE.md §8 — against Apple's libm, lgamma is slower in every band but the zone, the §6 prediction confirmed; batching gains ≈ half of Zen 4, lane-bound)
    (NON-GATING, 2026-08-06 ruling stands), #24 performance document
    (M1 quiet pass + Zen 4 per-region lgamma rerun + README positioning),
    #25 examples in CI, #29 GCC PR 126741 re-qualification if the fix

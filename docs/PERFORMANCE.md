@@ -156,11 +156,13 @@ Everything here is one point in a space with at least four axes, and three of
 them are unexplored.
 
 - **Another microarchitecture.** An earlier "wins from N lanes up" claim died
-  on a Kaby Lake measurement. Nothing here has faced a second machine.
+  on a Kaby Lake measurement. §8 is the second machine: a 4-lane AVX2 part
+  from 2017, where the §4 batching gains run at roughly half these figures.
 - **Another libm.** UCRT's `lgamma` is slow — 27–56 ns/el in two of its bands.
   Against glibc or Apple's the margins in §3 would narrow, and could plausibly
-  invert somewhere. This is not a small correction; it may be the largest
-  single source of error on this page.
+  invert somewhere. **It does: §8.** Apple's `lgamma` is 12–21 ns/el in the
+  same bands and corvus loses to it everywhere but the zone. This is the
+  largest single source of error on this page, as predicted.
 - **Another compiler.** clang-cl only. MSVC cannot reach AVX-512 at all and
   would be measuring a different tier under the same name.
 - **More runs.** §5 exists because two runs looked like agreement until a third
@@ -186,3 +188,76 @@ be audited later.
 Benchmarks must come from a Release build. `corvus::active_target()` — which
 every bench prints — is the only reliable way to know which tier produced a
 number.
+
+## 8. Second machine: Kaby Lake AVX2, Apple libm (2026-08-23)
+
+| | |
+|---|---|
+| machine | i7-7820HQ (Kaby Lake, 4 cores / 8 threads), macOS 13.7 |
+| SIMD tier | `AVX2`, asserted per target via `CORVUS_EXPECT_TARGET` |
+| compiler | Apple Clang 15, Release (`release` preset, `-G Ninja`) |
+| libm | Apple libSystem (`std::lgamma` etc. as AppleClang links them) |
+| harness | `tools/quiet_bench.sh` (the Unix counterpart of `quiet_bench.ps1`, same protocol) |
+| noise | gate 4.46% / 2.59%; ten targets measured at 1.5–3.7% ambient; `erf`/`erfc` re-run separately under a 2.13% / 2.57% gate at 2.65% / 2.38% (their first samples caught a `diagnostics_agent` burst at 6–10%). A prior full pass at 10–20% ambient (`mdworker` indexing) was discarded; its rows differed from the quiet pass by a median 8.9% per row and up to 44% on the first targets, which is the reason the gate exists. |
+
+### 8.1 Against Apple's libm
+
+| function | band | corvus ns/el | libm ns/el | ratio | Zen 4 / UCRT ratio (§3) |
+|---|---|---:|---:|---:|---:|
+| `erf` | n = 10⁶ | 6.71 | 23.88 | 3.56× | 6.33× |
+| `erfc` | [−6, 6] core | 7.10 | 24.56 | 3.46× | 9.34× |
+| `erfc` | [6, 28] tail | 16.26 | 25.11 | 1.54× | 4.86× |
+| `erfc` | [−6.5, 28] mixed | 20.16 | 25.63 | 1.27× | 3.12× |
+| `lgamma` | [0.5, 2.5] zone | 16.58 | 15.46 | 0.93× | 5.47× |
+| `lgamma` | [0.01, 100] mixed | 34.99 | 19.95 | **0.57×** | 4.20× |
+| `lgamma` | [2.5, 8] recurrence | 43.48 | 12.20 | **0.28×** | 2.84× |
+| `lgamma` | [8, 1000] Stirling | 23.83 | 20.05 | **0.84×** | 1.96× |
+| `lgamma` | [−30, −0.01] reflection | 102.48 | 45.78 | **0.45×** | 1.47× |
+
+(n = 10⁶ rows; the n = 10⁴ rows agree within 10%.)
+
+Two effects stack, and they pull in the same direction for `lgamma`:
+
+- **Apple's `lgamma` is fast.** 12–21 ns/el in the bands where UCRT's is
+  27–56. The vendor baseline moved by 2–3×; corvus's own per-element cost
+  moved by the lane count.
+- **Four lanes, not eight, on a 2017 core.** corvus `lgamma` costs 17–43
+  ns/el here against 5–13 on Zen 4, a 3.2–3.3× ratio that is what one
+  expects from half the lanes on a slower clock. `erf`/`erfc` show the
+  same 3.5–4× per-element ratio against their Zen 4 cells.
+
+So the §3 statement "lgamma is faster than the vendor libm in every band"
+is a **Zen 4 / UCRT statement**. On Kaby Lake against Apple's libm, corvus
+`lgamma` is slower in every band but the zone — by 3.6× in the recurrence
+band. `erf`/`erfc` stay ahead of Apple's libm on both machines, by smaller
+margins here. Any published positioning must name the libm it was measured
+against; the README's decision to quote no figures stands.
+
+### 8.2 Batching gain, corvus against corvus
+
+| family | upper bound (Kaby Lake, AVX2) | Zen 4 (§4) |
+|---|---|---|
+| `gamma_p` / `gamma_q` | 4.83 – 11.07× | 8.79 – 23.89× |
+| `beta_p` / `beta_q` | 3.85 – 7.95× | 7.28 – 15.14× |
+| `digamma` | 4.27 – 11.92× | 7.13 – 25.12× |
+| `trigamma` | 4.11 – 15.95× | 7.29 – 30.93× |
+| `gamma_p_inv` / `gamma_q_inv` | 3.69 – 60.73× | 6.21 – 141.57× |
+| `beta_p_inv` / `beta_q_inv` | 2.35 – 27.67× | 3.89 – 54.18× |
+| `lbeta` | 4.27× main band, 6.18× big band | 7.99×, 12.73× |
+| `erfinv` / `erfcinv` | 3.15 – 20.28× | 5.17 – 14.94× — see §5 |
+| `i0` / `i1` / `i0e` / `i1e` | 4.75 – 6.49× | 8.31 – 8.45× — see §5 |
+
+Roughly half of Zen 4 across the board, as the lane count predicts. The
+ordering of families and of bands within a family is preserved, so the
+structural conclusions of §4 hold on the second microarchitecture; only
+the magnitudes are lane-bound.
+
+### 8.3 §5 on this machine
+
+`erfcinv` central [0.5, 1.5]: 21.27× (discarded noisy pass) / 20.28×
+(quiet pass). `i0` series band: 4.90× / 4.79×. Neither family produced an
+outlier here in two runs, under very different ambient load. That neither
+confirms nor clears §5 — two runs looked like agreement on Zen 4 too — but
+it does say the sporadic outlier is not a property of the kernels alone.
+
+---
