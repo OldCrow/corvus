@@ -649,7 +649,20 @@ and docs/ACCURACY.md.
   Photos analysis finish or accept the documented-deviation gate; a 5%
   gate is structurally unreachable on this box while a desktop session
   is up — decide whether the macOS gate should be 10% with the deviation
-  recorded, or wait for first-run indexing to complete.
+  recorded, or wait for first-run indexing to complete. Evening follow-up,
+  two more runs: (6) the 5% gate PASSED (4.30/4.78%) with Photos open,
+  all 12 targets green tier-asserted — but the noise chain shows
+  mediaanalysisd resumed ~10 s after gating (noise before targets
+  6.4–39.6%, avg 18%), so by the Kaby precedent (its 10–20% pass was
+  discarded) run 6 is NOT publishable either; (7) `caffeinate -imsu`
+  does NOT deter mediaanalysisd (109/116 windows at ~92% of a core with
+  VTDecoderXPCService — it is a first-run VIDEO analysis backlog, not
+  idle-gated), gate never passed. Runs 6 and the earlier 10%-gated pass
+  agree to 2–3% on every stable row (lgamma recurrence 0.22x both, erf
+  5.88x/5.90x; the zone 1e4 row is the one noise-sensitive outlier), so
+  the NEON shape is double-confirmed indicative. The publishable pass
+  waits for the Photos backlog to complete — then
+  `tools/quiet_bench.sh -b build-m1 -t NEON` against the retained build.
 - 2026-08-21 defensive review (between milestones, under the freeze):
   24 architecture, 9 safety, 16 numerical findings, all verified;
   non-frozen hygiene in 3a26bab (doc drift since v0.5.0, consumer_example
