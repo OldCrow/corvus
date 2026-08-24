@@ -115,7 +115,11 @@ legs, then the release, then new families behind a stable surface.
    fix lands. Exit: ≥ 2 quiet microarchitectures in PERFORMANCE.md or the
    document explicitly withheld.
 4. **v1.0.0 — Release**: #26 packaging/NOTICE + release checklist, #27
-   signed-commits ruleset, final API review, the libstats v2.5.0
+   signed-commits ruleset — UNBLOCKED 2026-08-23: its precondition was
+   both boxes confirmed signing, and the Ryzen/Windows box now produces
+   verified signatures (it had been committing under an address outside
+   the key's UIDs; fixed fleet-wide, mechanism in the standards repo's
+   AGENTS.md) — final API review, the libstats v2.5.0
    handshake (they adopt the frozen surface). Exit: tag cut before
    libstats v2.5.0 opens.
    [OPEN] final API review has no issue yet — file one before v1.0.0 opens.
