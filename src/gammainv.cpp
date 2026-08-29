@@ -67,12 +67,12 @@ HWY_EXPORT(GammaQInvImpl);
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
 void gamma_p_inv(std::span<const double> a, std::span<const double> p,
-                 std::span<double> out) {
+                 std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(GammaPInvImpl)(a.data(), p.data(), out.data(), a.size());
 }
 
 void gamma_q_inv(std::span<const double> a, std::span<const double> q,
-                 std::span<double> out) {
+                 std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(GammaQInvImpl)(a.data(), q.data(), out.data(), a.size());
 }
 

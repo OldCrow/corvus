@@ -170,7 +170,9 @@ Things worth knowing:
 - **Writing into the input is fine**, as long as the spans are exactly the same
   (`in.data() == out.data()`). Partial overlap is undefined behaviour.
 - **No allocation, no exceptions, thread-safe.** Safe to call from anywhere,
-  including a hot loop or a worker pool.
+  including a hot loop or a worker pool. Every public function is declared
+  `noexcept` (since v0.6.0), so the promise is compile-checked, not just
+  documented.
 - **One binary serves every CPU.** Dispatch happens on the first call.
 
 ---

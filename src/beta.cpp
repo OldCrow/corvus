@@ -90,19 +90,19 @@ HWY_EXPORT(LbetaImpl);
 // does not exist. It compiles at every other tier, so only the cap sweep
 // catches it.
 void beta_p(std::span<const double> a, std::span<const double> b,
-            std::span<const double> x, std::span<double> out) {
+            std::span<const double> x, std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(BetaPImpl)
   (a.data(), b.data(), x.data(), out.data(), a.size());
 }
 
 void beta_q(std::span<const double> a, std::span<const double> b,
-            std::span<const double> x, std::span<double> out) {
+            std::span<const double> x, std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(BetaQImpl)
   (a.data(), b.data(), x.data(), out.data(), a.size());
 }
 
 void lbeta(std::span<const double> a, std::span<const double> b,
-           std::span<double> out) {
+           std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(LbetaImpl)
   (a.data(), b.data(), out.data(), a.size());
 }

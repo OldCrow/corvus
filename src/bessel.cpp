@@ -89,19 +89,19 @@ HWY_EXPORT(I1eImpl);
 // N_SSE2::FUNC, and a globally qualified call would then name a namespace
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
-void i0(std::span<const double> in, std::span<double> out) {
+void i0(std::span<const double> in, std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(I0Impl)(in.data(), out.data(), in.size());
 }
 
-void i0e(std::span<const double> in, std::span<double> out) {
+void i0e(std::span<const double> in, std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(I0eImpl)(in.data(), out.data(), in.size());
 }
 
-void i1(std::span<const double> in, std::span<double> out) {
+void i1(std::span<const double> in, std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(I1Impl)(in.data(), out.data(), in.size());
 }
 
-void i1e(std::span<const double> in, std::span<double> out) {
+void i1e(std::span<const double> in, std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(I1eImpl)(in.data(), out.data(), in.size());
 }
 

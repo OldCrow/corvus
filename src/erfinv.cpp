@@ -51,11 +51,11 @@ HWY_EXPORT(ErfcinvImpl);
 // N_SSE2::FUNC, and a globally qualified call would then name a namespace
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
-void erfinv(std::span<const double> in, std::span<double> out) {
+void erfinv(std::span<const double> in, std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(ErfinvImpl)(in.data(), out.data(), in.size());
 }
 
-void erfcinv(std::span<const double> in, std::span<double> out) {
+void erfcinv(std::span<const double> in, std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(ErfcinvImpl)(in.data(), out.data(), in.size());
 }
 

@@ -65,12 +65,12 @@ HWY_EXPORT(GammaQImpl);
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
 void gamma_p(std::span<const double> a, std::span<const double> x,
-             std::span<double> out) {
+             std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(GammaPImpl)(a.data(), x.data(), out.data(), a.size());
 }
 
 void gamma_q(std::span<const double> a, std::span<const double> x,
-             std::span<double> out) {
+             std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(GammaQImpl)(a.data(), x.data(), out.data(), a.size());
 }
 

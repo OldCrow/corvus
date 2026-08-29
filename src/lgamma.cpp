@@ -38,7 +38,7 @@ HWY_EXPORT(LgammaImpl);
 // N_SSE2::FUNC, and a globally qualified call would then name a namespace
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
-void lgamma(std::span<const double> in, std::span<double> out) {
+void lgamma(std::span<const double> in, std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(LgammaImpl)(in.data(), out.data(), in.size());
 }
 

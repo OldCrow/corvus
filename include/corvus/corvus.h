@@ -37,13 +37,13 @@ inline constexpr int kVersionPatch = 0;
 /// \brief Name of the SIMD target selected by runtime dispatch.
 /// \return A static string such as "AVX2", "SSE4", or "NEON". Note Highway
 ///   names AVX-512 tiers "AVX3" (see README naming note).
-const char* active_target();
+[[nodiscard]] const char* active_target() noexcept;
 
 /// \brief out[i] = erf(in[i]).
 ///
 /// Max 1 ULP over the full domain on validated tiers. Specials: erf(+/-0)
 /// = +/-0, erf(+/-inf) = +/-1, NaN propagates (payload preserved).
-void erf(std::span<const double> in, std::span<double> out);
+void erf(std::span<const double> in, std::span<double> out) noexcept;
 
 /// \brief out[i] = erfc(in[i]).
 ///
@@ -52,7 +52,7 @@ void erf(std::span<const double> in, std::span<double> out);
 /// polynomial fit; see docs/ACCURACY.md). Specials: erfc(-inf) = 2,
 /// erfc(+inf) = 0, results underflow gradually past x ~ 26.5, NaN
 /// propagates (payload preserved).
-void erfc(std::span<const double> in, std::span<double> out);
+void erfc(std::span<const double> in, std::span<double> out) noexcept;
 
 /// \brief out[i] = log |Gamma(in[i])| (C's lgamma, SciPy's gammaln).
 ///
@@ -70,14 +70,14 @@ void erfc(std::span<const double> in, std::span<double> out);
 /// Specials: lgamma(1) = lgamma(2) = +0; +inf at every pole (x = 0 and the
 /// negative integers), on overflow (x above ~2.556e305), and at both
 /// infinities; NaN propagates (payload preserved).
-void lgamma(std::span<const double> in, std::span<double> out);
+void lgamma(std::span<const double> in, std::span<double> out) noexcept;
 
 /// \brief out[i] = erfinv(in[i]), the inverse error function.
 ///
 /// Accuracy on validated tiers: see docs/ACCURACY.md. Specials:
 /// erfinv(+/-0) = +/-0, erfinv(+/-1) = +/-inf, |in[i]| > 1 gives NaN, NaN
 /// propagates (payload preserved).
-void erfinv(std::span<const double> in, std::span<double> out);
+void erfinv(std::span<const double> in, std::span<double> out) noexcept;
 
 /// \brief out[i] = erfcinv(in[i]), the inverse complementary error function.
 ///
@@ -85,7 +85,7 @@ void erfinv(std::span<const double> in, std::span<double> out);
 /// Accuracy on validated tiers: see docs/ACCURACY.md. Specials:
 /// erfcinv(0) = +inf, erfcinv(2) = -inf, in[i] outside [0, 2] gives NaN, NaN
 /// propagates (payload preserved).
-void erfcinv(std::span<const double> in, std::span<double> out);
+void erfcinv(std::span<const double> in, std::span<double> out) noexcept;
 
 /// \brief out[i] = P(a[i], x[i]), the regularized lower incomplete gamma
 ///   function (SciPy's `gammainc`).
@@ -104,7 +104,7 @@ void erfcinv(std::span<const double> in, std::span<double> out);
 /// and P(a, +inf) = 1 for finite a, x; P(0, 0), P(+inf, +inf) and any
 /// negative a or x give NaN; NaN propagates (payload preserved).
 void gamma_p(std::span<const double> a, std::span<const double> x,
-             std::span<double> out);
+             std::span<double> out) noexcept;
 
 /// \brief out[i] = Q(a[i], x[i]) = 1 - P(a[i], x[i]), the regularized upper
 ///   incomplete gamma function (SciPy's `gammaincc`).
@@ -119,7 +119,7 @@ void gamma_p(std::span<const double> a, std::span<const double> x,
 /// and Q(a, +inf) = +0 for finite a, x; Q(0, 0), Q(+inf, +inf) and any
 /// negative a or x give NaN; NaN propagates (payload preserved).
 void gamma_q(std::span<const double> a, std::span<const double> x,
-             std::span<double> out);
+             std::span<double> out) noexcept;
 
 /// \brief out[i] = I_x(a, b), the regularized incomplete beta function
 ///   (SciPy's `betainc`).
@@ -144,7 +144,7 @@ void gamma_q(std::span<const double> a, std::span<const double> x,
 /// {a in {0, +inf}, b in {0, +inf}}. Negative a or b, and x outside [0, 1],
 /// give NaN; NaN propagates (payload preserved).
 void beta_p(std::span<const double> a, std::span<const double> b,
-            std::span<const double> x, std::span<double> out);
+            std::span<const double> x, std::span<double> out) noexcept;
 
 /// \brief out[i] = 1 - I_x(a, b) = I_{1-x}(b, a), the complementary
 ///   regularized incomplete beta function.
@@ -157,7 +157,7 @@ void beta_p(std::span<const double> a, std::span<const double> b,
 /// Q_1(a, b) = +0; a = 0 or b = +inf gives +0 for x in (0, 1]; b = 0 or
 /// a = +inf gives 1 for x in [0, 1). The NaN cases are identical to beta_p's.
 void beta_q(std::span<const double> a, std::span<const double> b,
-            std::span<const double> x, std::span<double> out);
+            std::span<const double> x, std::span<double> out) noexcept;
 
 /// \brief out[i] = ln B(a[i], b[i]) = lgamma(a) + lgamma(b) - lgamma(a+b).
 ///
@@ -175,7 +175,7 @@ void beta_q(std::span<const double> a, std::span<const double> b,
 /// where the true ln B falls below the double range (both parameters
 /// huge); NaN propagates as a quiet NaN (the input payload is not preserved).
 void lbeta(std::span<const double> a, std::span<const double> b,
-           std::span<double> out);
+           std::span<double> out) noexcept;
 
 /// \brief out[i] = psi(in[i]), the digamma function (SciPy's `digamma`).
 ///
@@ -196,7 +196,7 @@ void lbeta(std::span<const double> a, std::span<const double> b,
 /// every double <= -2^53 since all of those are integers; +inf at +inf;
 /// arguments small enough that -1/x overflows give -+inf accordingly; NaN
 /// propagates (payload preserved).
-void digamma(std::span<const double> in, std::span<double> out);
+void digamma(std::span<const double> in, std::span<double> out) noexcept;
 
 /// \brief out[i] = psi_1(in[i]), the trigamma function (SciPy's
 ///   `polygamma(1, .)`).
@@ -217,7 +217,7 @@ void digamma(std::span<const double> in, std::span<double> out);
 /// integers), and at any argument small enough that 1/x^2 overflows --
 /// subnormals of either sign included. psi_1(+inf) = +0; NaN propagates
 /// (payload preserved).
-void trigamma(std::span<const double> in, std::span<double> out);
+void trigamma(std::span<const double> in, std::span<double> out) noexcept;
 
 /// \brief out[i] = x with P(a[i], x) = p[i], the inverse of the regularized
 ///   lower incomplete gamma function in its second argument (SciPy's
@@ -237,7 +237,7 @@ void trigamma(std::span<const double> in, std::span<double> out);
 /// Specials: p = 0 gives +0 and p = 1 gives +inf; p outside [0, 1] gives
 /// NaN, as do a <= 0 and a = +inf; NaN propagates (payload preserved).
 void gamma_p_inv(std::span<const double> a, std::span<const double> p,
-                 std::span<double> out);
+                 std::span<double> out) noexcept;
 
 /// \brief out[i] = x with Q(a[i], x) = q[i], the inverse of the regularized
 ///   upper incomplete gamma function in its second argument (SciPy's
@@ -252,7 +252,7 @@ void gamma_p_inv(std::span<const double> a, std::span<const double> p,
 /// Specials: q = 0 gives +inf and q = 1 gives +0; q outside [0, 1] gives
 /// NaN, as do a <= 0 and a = +inf; NaN propagates (payload preserved).
 void gamma_q_inv(std::span<const double> a, std::span<const double> q,
-                 std::span<double> out);
+                 std::span<double> out) noexcept;
 
 /// \brief out[i] = x with I_x(a[i], b[i]) = p[i], the inverse of the
 ///   regularized incomplete beta function in its third argument (SciPy's
@@ -294,7 +294,7 @@ void gamma_q_inv(std::span<const double> a, std::span<const double> q,
 /// NaN, as do negative a or b and p outside [0, 1]; NaN propagates (payload
 /// preserved).
 void beta_p_inv(std::span<const double> a, std::span<const double> b,
-                std::span<const double> p, std::span<double> out);
+                std::span<const double> p, std::span<double> out) noexcept;
 
 /// \brief out[i] = x with 1 - I_x(a[i], b[i]) = q[i], the inverse of the
 ///   complementary regularized incomplete beta function in its third argument.
@@ -309,7 +309,7 @@ void beta_p_inv(std::span<const double> a, std::span<const double> b,
 /// Specials: q = 0 gives 1 and q = 1 gives +0; the parameter degeneracies and
 /// the NaN cases are identical to beta_p_inv's.
 void beta_q_inv(std::span<const double> a, std::span<const double> b,
-                std::span<const double> q, std::span<double> out);
+                std::span<const double> q, std::span<double> out) noexcept;
 
 /// \brief out[i] = I0(in[i]), the modified Bessel function of the first
 ///   kind, order 0 (SciPy's `iv(0, .)` / `i0`).
@@ -323,7 +323,7 @@ void beta_q_inv(std::span<const double> a, std::span<const double> b,
 /// Specials: I0(0) = 1; I0(+-inf) = +inf; NaN propagates (payload
 /// preserved). I0 saturates to +inf for |x| above the last finite double
 /// (~713.99, the exact boundary is documented in docs/ACCURACY.md).
-void i0(std::span<const double> in, std::span<double> out);
+void i0(std::span<const double> in, std::span<double> out) noexcept;
 
 /// \brief out[i] = I1(in[i]), the modified Bessel function of the first
 ///   kind, order 1 (SciPy's `iv(1, .)` / `i1`).
@@ -337,7 +337,7 @@ void i0(std::span<const double> in, std::span<double> out);
 /// propagates (payload preserved). I1 saturates to +-inf for |x| above the
 /// last finite double (~713.99, close to but not identical to i0's
 /// boundary; see docs/ACCURACY.md).
-void i1(std::span<const double> in, std::span<double> out);
+void i1(std::span<const double> in, std::span<double> out) noexcept;
 
 /// \brief out[i] = exp(-|in[i]|) * I0(in[i]), the exponentially-scaled
 ///   modified Bessel function of the first kind, order 0 (SciPy's
@@ -353,7 +353,7 @@ void i1(std::span<const double> in, std::span<double> out);
 /// Specials: i0e(0) = 1; i0e(+-inf) = +0; NaN propagates (payload
 /// preserved). Never underflows on a finite double (minimum ~3e-155 at
 /// DBL_MAX).
-void i0e(std::span<const double> in, std::span<double> out);
+void i0e(std::span<const double> in, std::span<double> out) noexcept;
 
 /// \brief out[i] = sign(in[i]) * exp(-|in[i]|) * I1(|in[i]|), the
 ///   exponentially-scaled modified Bessel function of the first kind,
@@ -367,7 +367,7 @@ void i0e(std::span<const double> in, std::span<double> out);
 /// Specials: i1e(+0) = +0, i1e(-0) = -0; i1e(+inf) = +0, i1e(-inf) = -0
 /// (sign follows the input at both zero and infinity); NaN propagates
 /// (payload preserved).
-void i1e(std::span<const double> in, std::span<double> out);
+void i1e(std::span<const double> in, std::span<double> out) noexcept;
 
 }  // namespace corvus
 
