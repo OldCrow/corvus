@@ -448,8 +448,17 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
     // from zero, and a subnormal a among the discarded lanes would otherwise
     // reach them.
     const auto ac = op::Max(a, at);
-    const auto u = DdMul(d, TwoSum(d, x, op::Neg(ac)), DdRecip(d, ac));
-    aphi = DdMulD(d, Log1pmxDd(d, u), ac);
+    // Dekker-ceiling prescale, GammaTemme's twin site (kGammaScaleAbove,
+    // gamma-inl.h): without it a >= 2^997 NaN'd the forward through
+    // ProdLow's non-FMA split and every Newton candidate was rejected.
+    const auto big = op::Gt(ac, op::Set(d, kGammaScaleAbove));
+    const auto dn = op::IfThenElse(big, op::Set(d, kGammaScaleDown), one);
+    const auto up = op::IfThenElse(big, op::Set(d, kGammaScaleUp), one);
+    const auto acs = op::Mul(ac, dn);
+    const auto xcs = op::Mul(x, dn);
+    const auto u = DdMul(d, TwoSum(d, xcs, op::Neg(acs)), DdRecip(d, acs));
+    const auto aphi_s = DdMulD(d, Log1pmxDd(d, u), acs);
+    aphi = Dd<D>{op::Mul(aphi_s.hi, up), op::Mul(aphi_s.lo, up)};
     // mu(a), the Stirling remainder, is lgamma's own tail polynomial in 1/a^2
     // divided by a -- the same coefficients LgammaStirling evaluates, valid
     // from kLgammaX0 = 8 and so over all of a >= a_T = 20.

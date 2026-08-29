@@ -226,6 +226,30 @@ void LaneMix() {
   }
 }
 
+// The huge-a diagonal (#12): P(a, a) = Q(a, a) ~ 1/2 all the way to
+// DBL_MAX. Above 2^996 the non-FMA tiers' Dekker split of a overflows in
+// GammaTemme's DdRecip/DdMulD unless the operands are prescaled, and the
+// laundered NaN came back as an exact, plausible-looking (1, 0) pair. Only
+// the exact diagonal is reachable at these magnitudes (x = a +/- 1 ulp is
+// genuinely saturated), so the interval assert is deliberately loose: the
+// failure mode is a wrong exact 1/0, not a ULP slip. 2^996 sits on the
+// last correct-before-the-fix boundary and serves as the control point.
+void HugeDiagonal() {
+  const double diag[] = {0x1.0p+996, 0x1.0p+997, 0x1.0p+1000,
+                         std::numeric_limits<double>::max()};
+  for (double a : diag) {
+    const double p = One(corvus::gamma_p, a, a);
+    const double q = One(corvus::gamma_q, a, a);
+    if (!(p > 0.4 && p < 0.6) || !(q > 0.4 && q < 0.6)) {
+      std::fprintf(stderr,
+                   "FAIL: gamma diagonal a=%.17g: P=%.17g Q=%.17g "
+                   "(want both in (0.4, 0.6))\n",
+                   a, p, q);
+      g_fail = 1;
+    }
+  }
+}
+
 // Aliasing is part of the public contract, and the length is deliberately
 // not a multiple of any lane count so the masked tail runs.
 void Aliasing() {
@@ -255,6 +279,7 @@ int main() {
   Specials();
   PlusQ();
   LaneMix();
+  HugeDiagonal();
   Aliasing();
   if (g_fail == 0) std::printf("PASS: gamma_p/gamma_q smoke tests\n");
   return g_fail;

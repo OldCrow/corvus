@@ -433,14 +433,19 @@ payload in both.
 
 ## gamma_p and gamma_q
 
-**EXCLUSION (2026-08-21, #12, HIGH).** On the non-FMA tiers (SSE2, SSSE3,
-SSE4) `gamma_p(a, a)` returns exactly 1 and `gamma_q(a, a)` exactly 0 —
-true value ≈ 0.5 — for a ≥ 2^997: `GammaTemme` feeds the unclamped a into
-`DdRecip`/`DdMulD`, whose Dekker split overflows there, and `GammaClampE`
-launders the NaN into saturation. Only the exact diagonal x = a is
-reachable (its neighbours are genuinely saturated); FMA tiers are
-correct. The reference set has no rows in that band, so the per-tier
-bounds below do not cover it. Kernel fix awaits the core unfreeze.
+**Huge-a diagonal (#12, fixed at the v0.6.0 unfreeze).** `GammaTemme`
+and the gammainv forward's twin site now prescale (x, a) by an exact
+power of two above 2^900 (BetaPsiCore's pattern), so `gamma_p/q(a, a)`
+returns the correctly rounded 0.5 on every tier all the way to
+a = DBL_MAX. Previously the non-FMA tiers (SSE2, SSSE3, SSE4) returned a
+laundered exact (1, 0) for a ≥ 2^997 — the Dekker split of the unclamped
+a overflowed in `DdRecip`/`DdMulD` and `GammaClampE` mapped the NaN onto
+saturation. The prescale is bit-identical on every previously-finite
+lane (power-of-two scaling commutes with each rounding in the affected
+sequences; ULP-gate output verified byte-identical pre/post on native
+AVX3_ZEN4 and capped SSE2). The band is guarded by a smoke assert
+(test_gamma, all four diagonal points, every tier); bit-stepped diagonal
+reference rows land with the #13 regeneration pass.
 
 **Bounds, measured on the 16,734-point reference set and identical
 (max ULP cell for cell) on AVX2, SSE4, SSSE3, SSE2, NEON and AVX-512.**

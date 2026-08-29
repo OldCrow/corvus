@@ -117,9 +117,24 @@ inline constexpr double kGammaTemmeZ2Split = 36.0;
 // the clamped value and the true one round identically. Must also sit under
 // ops::ProdLow's 2^996 non-FMA Dekker ceiling minus the 2^27 split factor:
 // anything above that overflows the Dekker split of the clamped a on
-// non-FMA tiers (NaN on the a >= 2^998 Temme path; gamma's reference set
-// does not yet sample that band -- see PLAN's Temme-witness item).
+// non-FMA tiers (the u and a*phi sites clear the same ceiling with the
+// prescale below).
 inline constexpr double kGammaTwoPiAClamp = 0x1.0p+900;
+
+// Exact prescale for GammaTemme's Dekker-split operands (BetaPsiCore's
+// pattern, beta-inl.h), shared by the gammainv forward's twin site.
+// u = (x - a)/a is 0-homogeneous in (x, a) and a*phi is 1-homogeneous, so
+// scaling both operands down by an exact power of two and scaling a*phi
+// back up is bit-identical wherever the unscaled arithmetic was finite:
+// power-of-two scaling commutes with every rounding in TwoSum, DdRecip and
+// DdMulD, and no intermediate over/underflows (scaled a lands in
+// (2^700, 2^824]). Without it, ops::ProdLow's non-FMA Dekker split of a
+// overflows for a > 2^996 and GammaClampE laundered the NaN into a
+// saturated (1, 0) pair on the diagonal x = a -- the one unsaturated point
+// of that band, whose true value is ~ 1/2 (#12).
+inline constexpr double kGammaScaleAbove = 0x1.0p+900;
+inline constexpr double kGammaScaleDown = 0x1.0p-200;
+inline constexpr double kGammaScaleUp = 0x1.0p+200;
 
 // --- indicator helpers ---------------------------------------------------
 // The ops facade deliberately exposes no mask AND/OR (erfcinv's comment says
@@ -397,9 +412,20 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
 
   const auto xma = op::Sub(x, a);  // exact by Sterbenz on this region
   const auto sgn = op::CopySign(one, xma);
-  const auto u = DdMul(d, TwoSum(d, x, op::Neg(a)), DdRecip(d, a));
+  // Dekker-ceiling prescale (kGammaScaleAbove): u and phi are computed in
+  // the scaled frame, a*phi scaled back with two exact multiplies. A
+  // DISCARDED tiny-x lane's x*dn can underflow inexactly; such a lane fed
+  // these sites NaN before the prescale existed, and its z is scrubbed at
+  // the gather below either way.
+  const auto big = op::Gt(a, op::Set(d, kGammaScaleAbove));
+  const auto dn = op::IfThenElse(big, op::Set(d, kGammaScaleDown), one);
+  const auto up = op::IfThenElse(big, op::Set(d, kGammaScaleUp), one);
+  const auto as = op::Mul(a, dn);
+  const auto xs = op::Mul(x, dn);
+  const auto u = DdMul(d, TwoSum(d, xs, op::Neg(as)), DdRecip(d, as));
   const auto phi = Log1pmxDd(d, u);
-  const auto aphi = DdMulD(d, phi, a);
+  const auto aphi_s = DdMulD(d, phi, as);
+  const auto aphi = Dd<D>{op::Mul(aphi_s.hi, up), op::Mul(aphi_s.lo, up)};
 
   const Dd<D> two_phi{op::Add(phi.hi, phi.hi), op::Add(phi.lo, phi.lo)};
   const auto eta = op::CopySign(DdSqrt(d, two_phi).hi, xma);
@@ -432,6 +458,13 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
                           op::Min(a, op::Set(d, kGammaTwoPiAClamp)))));
   const auto s_rv = DdMulD(d, rv, op::Mul(sgn, sum));
 
+  // GammaClampE's NaN -> floor rule assumes every NaN lane is hundreds of
+  // e-foldings past underflow. The diagonal x = a is the one unsaturated
+  // point of the huge-a band, so it must never arrive as NaN -- the
+  // prescale above is what guarantees it (#12). Debug-only premise check.
+  HWY_DASSERT(op::AllFalse(
+      d,
+      IndMask(d, op::Mul(Ind(d, op::IsNaN(aphi.hi)), Ind(d, op::Eq(x, a))))));
   const auto ea = GammaClampE(d, op::Neg(aphi.hi), op::Neg(aphi.lo));
 
   // --- core, a*phi <= 36 --------------------------------------------------

@@ -8,16 +8,31 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-08-23
+## Status [DERIVED] — 2026-08-28
 
-**v0.5.0 RELEASED — CORE/GENERATOR/TEST FREEZE IN EFFECT** (signed
+**v0.6.0 UNFREEZE OPEN [2026-08-28, user]** — the one correctness
+unfreeze (milestone map item 1) is in progress. Session plan ratified
+by the user: (1) #12 kernel fix — DONE this session (Resolved log);
+(2) #15 then #14, harness consolidation before the gate restructure so
+the odd-length tail split runs under the final helper (a tail defect it
+surfaces belongs in this unfreeze); (3) #13 all generator fixes plus
+#12's bit-stepped diagonal rows in ONE regeneration pass, buckets
+re-pinned under the final harness; (4) #5 + #16 + #17 batch, then
+milestone close (full ladder, CI green, tag). #5 scope SPLIT [user]:
+noexcept + [[nodiscard]] land in v0.6.0; the span-length HWY_DASSERT
+(S1) moves to #6's shared driver in v0.7.0 (recorded on both issues).
+Delegation posture [user]: mechanical breadth (21-file test edits,
+generator edits, #17) to Sonnet-class agents; every sweep, regeneration
+diff, and gate re-pin decision stays with the orchestrator;
+escalation-density rule applies.
+
+**v0.5.0 RELEASED** (signed
 tag at 73eaee0, CI-gated per-job on runs 31849654346 + 31850384519;
 https://github.com/OldCrow/corvus/releases/tag/v0.5.0): the
 pre-v1.0.0 documentation trim + the huge-parameter Dekker audit
-(three defect classes fixed, corner-row gated — Resolved log).
-Anything after v0.5.0 (user-focused examples and other additions)
-builds on the frozen base; core/generator/test changes now require
-explicit unfreeze.
+(three defect classes fixed, corner-row gated — Resolved log). The
+post-release freeze held until the v0.6.0 unfreeze above; the freeze
+returns when v0.6.0 closes.
 
 **Defensive review 2026-08-21 [DERIVED]** — four-lens pass (metrics,
 architecture/design, numerical, type/input safety), every finding
@@ -105,9 +120,10 @@ legs over the full surface, then the release, then new special families
 behind a stable surface.
 1. **v0.6.0 — Correctness unfreeze** (the ONE explicit unfreeze for
    anything that changes a result or a gate, plus the public-signature
-   changes that must precede 1.0): #12 gamma Dekker ceiling (HIGH),
-   #13 generators, #14 ULP-gate structure, #15 test-harness hygiene,
-   #17 frozen-file hygiene, #16 MSVC floor, #5 API hardening. Exit:
+   changes that must precede 1.0): #12 gamma Dekker ceiling (HIGH —
+   DONE 2026-08-28), #13 generators, #14 ULP-gate structure, #15
+   test-harness hygiene, #17 frozen-file hygiene, #16 MSVC floor, #5
+   API hardening (S1 split out to #6/v0.7.0, 2026-08-28). Exit:
    every gate green on every tier incl. capped; ACCURACY.md's #12
    exclusion removed; references regenerated once.
 2. **v0.7.0 — Kernel structure** (bit-identical refactors): #6 shared
@@ -193,9 +209,9 @@ profiling trigger is #30 and the work is #31.)
   on libstats #62 taking the closed-form Zipf CDF (their v2.6.0 planning
   decision; expect the ask during their v2.5.0). trigamma = ζ(2, ·) is
   already in the tree; the oracle is a thin mpmath wrapper.
-- [OPEN, gamma, HIGH — #12] gamma_p/q(a, a) silent 1/0 on the non-FMA
-  tiers for a ≥ 2^997; kernel fix, waits on the v0.6.0 unfreeze. #12 is
-  canonical.
+- [RESOLVED 2026-08-28 — #12] gamma_p/q(a, a) silent 1/0 on the non-FMA
+  tiers for a ≥ 2^997: fixed by the GammaTemme/gammainv exact prescale
+  (Resolved log). Diagonal reference rows ride the #13 regeneration.
 - [→ milestones] The review's unfreeze backlog is mapped in Next Steps:
   v0.6.0 (#5, #12–#17) and v0.7.0 (#6–#11).
 - [WATCH] Ryzen box stability: two GPU-stack bugchecks 2026-07-29 (0x9F
@@ -646,6 +662,28 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-28 **#12 CLOSED — gamma Dekker-ceiling diagonal (HIGH, the
+  v0.6.0 unfreeze opener).** GammaTemme + the gammainv-forward twin site
+  now prescale (x, a) by an exact power of two above 2^900
+  (kGammaScaleAbove/Down/Up, BetaPsiCore's pattern: u is 0-homogeneous,
+  a·phi 1-homogeneous scaled back with two exact multiplies), and
+  GammaClampE's NaN→floor premise is debug-asserted at the Temme site
+  (no NaN may coexist with x = a). Doctrine order kept: the new
+  test_gamma HugeDiagonal guard (a ∈ {2^996 control, 2^997, 2^1000,
+  DBL_MAX}, P/Q ∈ (0.4, 0.6)) was SHOWN TO FAIL on the SSE2 cap
+  pre-fix — exact (1, 0) at all three points past the ceiling — then
+  passes post-fix. Byte-identity evidence: full ctest -V output
+  captured pre/post from identical trees (stash protocol) is IDENTICAL
+  on native AVX3_ZEN4 (27/27) and on capped clang-cl SSE2 except the
+  guard's FAIL→PASS. Full clang-cl tier ladder green tier-asserted
+  (sweep_tiers.ps1 -CxxCompiler clang-cl: AVX2/SSE4/SSSE3/SSE2, 15
+  gates each, exit 0). ACCURACY.md exclusion replaced by the fix
+  record; bit-stepped diagonal reference rows deliberately deferred to
+  the #13 single regeneration pass [session plan]. Toolchain note: the
+  mingw build-cap-sse2 tree's *_ulp binaries segfault pre-output when
+  launched from a plain shell — mingw remains repro-only; clang-cl is
+  the Windows validation compiler (AGENTS.md), and the sweep now runs
+  it explicitly.
 - 2026-08-23 **M1 native NEON session (Mac Mini, macOS Tahoe 26.6, Apple
   clang 21, Homebrew Highway 1.4.0 via find_package).** Gates: 27/27
   green, Release, `CORVUS_EXPECT_TARGET=NEON` (negative check verified:
