@@ -51,8 +51,10 @@ The lighter generator standard: every enforcement-site/self-check
 rationale stays, timeless.
 
 Remaining before v1.0.0: the milestone map below — v0.6.0 unfreeze,
-v0.7.0 structure, v0.8.0 fleet legs + performance (#23 Kaby legs, #24
-performance document). The 2026-08-15 session's items are all done:
+v0.7.0 structure, v0.8.0 elementary family (#32, filed 2026-08-27,
+renumbered 2026-08-28), v0.9.0 fleet legs + performance (#23 Kaby legs
+done, #24 performance document). The 2026-08-15 session's items are all
+done:
 six examples with the CMake plumbing and a windows-clang-cl preset,
 all three consumer-integration notes, the ARCHITECTURE.md referencing
 decision, the lgamma positioning, and docs/USER-GUIDE.md.
@@ -91,11 +93,16 @@ inventories, von Mises included); v0.4.0 2026-08-12. All tags
 CI-gated, immutable under protect-tags, each with a Release object.
 
 ## Next Steps — milestone map v0.5.0 → v1.0.0 [DERIVED, 2026-08-21]
-Last reconciled against live GitHub state: 2026-08-23 (#23 closed; #30/#31 filed; v1.1.0 retitled).
-Every open item is a GitHub issue on one of five milestones; this section
+Last reconciled against live GitHub state: 2026-08-28 (elementary family
+#32 filed on a new milestone; fleet legs renumbered v0.8.0 → v0.9.0 and
+the family took v0.8.0, so validation follows it and each machine's
+quiet-bench pass runs once; post-1.0 special families stay on v1.1.0).
+Every open item is a GitHub issue on one of six milestones; this section
 is the map, the issues carry the detail. Order is deliberate: one
-correctness unfreeze, then bit-identical structure work, then the fleet
-legs, then the release, then new families behind a stable surface.
+correctness unfreeze, then bit-identical structure work, then the
+elementary family written once against the new structure, then the fleet
+legs over the full surface, then the release, then new special families
+behind a stable surface.
 1. **v0.6.0 — Correctness unfreeze** (the ONE explicit unfreeze for
    anything that changes a result or a gate, plus the public-signature
    changes that must precede 1.0): #12 gamma Dekker ceiling (HIGH),
@@ -107,14 +114,27 @@ legs, then the release, then new families behind a stable surface.
    driver, #7 outlining doctrine, #8 erf/erfc assemblies + active_target
    placement, #9 wrapper duplication + magic constants, #10 dead facade
    ops, #11 generator argparse. Exit: ULP tables byte-identical.
-3. **v0.8.0 — Fleet validation & performance**: #23 Kaby legs — both done 2026-08-23 (a: ACCURACY.md dagger note; b: docs/PERFORMANCE.md §8 — against Apple's libm, lgamma is slower in every band but the zone, the §6 prediction confirmed; batching gains ≈ half of Zen 4, lane-bound)
+3. **v0.8.0 — Elementary family**: #32 — exp/log/log1p/cos/sin, batch
+   double, single-mode kernels; clean-room exp/log/log1p [user decision
+   2026-08-28 — the libhmm donors are SLEEF-derived, spec/oracle only];
+   cos/sin port directly from the consumers' shared clean-room
+   kernel/tables. Sequenced AFTER v0.7.0 so the five families are written
+   once against the arity-generic driver; v0.6.0's #13/#14/#15 harness
+   fixes are gating prerequisites. Exit: the consumers' per-tier ULP
+   gates pass unchanged; the doctrine sentence lands in
+   docs/NUMERICAL-DOCTRINE.md. Downstream: enables ONE adoption swap per
+   consumer (special + elementary together), dissolving libstats
+   #107/#108, libhmm #99 and the kTrigDMax half of #101.
+4. **v0.9.0 — Fleet validation & performance** (renumbered from v0.8.0
+   on 2026-08-28; runs over the full surface incl. the elementary
+   family): #23 Kaby legs — both done 2026-08-23 (a: ACCURACY.md dagger note; b: docs/PERFORMANCE.md §8 — against Apple's libm, lgamma is slower in every band but the zone, the §6 prediction confirmed; batching gains ≈ half of Zen 4, lane-bound)
    (NON-GATING, 2026-08-06 ruling stands), #24 performance document
    (M1 quiet pass + Zen 4 per-region lgamma rerun + README positioning),
    #30 lgamma per-band cost profile (two machines, quiet-gated; scopes
    #31), #25 examples in CI, #29 GCC PR 126741 re-qualification if the
    fix lands. Exit: ≥ 2 quiet microarchitectures in PERFORMANCE.md or the
    document explicitly withheld.
-4. **v1.0.0 — Release**: #26 packaging/NOTICE + release checklist, #27
+5. **v1.0.0 — Release**: #26 packaging/NOTICE + release checklist, #27
    signed-commits ruleset — UNBLOCKED 2026-08-23: its precondition was
    both boxes confirmed signing, and the Ryzen/Windows box now produces
    verified signatures (it had been committing under an address outside
@@ -123,7 +143,9 @@ legs, then the release, then new families behind a stable surface.
    handshake (they adopt the frozen surface). Exit: tag cut before
    libstats v2.5.0 opens.
    [OPEN] final API review has no issue yet — file one before v1.0.0 opens.
-5. **v1.1.0 — New families & kernel performance** (full G1–G5 pipeline each): #18 erfcx (P2),
+6. **v1.1.0 — New families & kernel performance** (full G1–G5 pipeline
+   each; the elementary family moved forward to v0.8.0 on 2026-08-28):
+   #18 erfcx (P2),
    #19 von Mises ratio complement in dd (P3, filed need), #20 Hurwitz
    zeta (P3, conditional on libstats #62), #21 exp_dd bump, #22, #31 lgamma (5/2, X0) table-driven band + Estrin zone + single reflection log (bit-changing perf work lives here, not in v0.7.0 — ruling 2026-08-23; blocked on #30)
    non-gather x86 variant, #28 Highway HWY_BROKEN_MSVC upstream PR.
@@ -184,7 +206,7 @@ profiling trigger is #30 and the work is #31.)
   accumulated App state; manual driver-only installs are the fallback).
   Recurrence of either bugcheck on the clean stack flips suspicion to
   VRAM/hardware.
-- [→ #29, v0.8.0] mingw GCC by-value-vector misalignment at AVX2+ (GCC PR
+- [→ #29, v0.9.0] mingw GCC by-value-vector misalignment at AVX2+ (GCC PR
   126741, filed 2026-08-08; repros in Development/gcc-{zmm,ymm}-mingw-repro).
   mingw GCC qualified for 128-bit tiers only until the fix lands; the
   mingw test-binary "exit crash" is the same bug (detail in ENVIRONMENT.md).
@@ -227,7 +249,7 @@ profiling trigger is #30 and the work is #31.)
   margin varies by region and by libm (quiet Zen 4 vs UCRT: every region
   above 1.0x, recurrence 2.84x, spread 1.47–5.47x), so no headline
   number. Figures wait on a second microarchitecture and a second vendor
-  libm — Next Steps item 3 (#24, v0.8.0). The earlier "recurrence slower,
+  libm — Next Steps item 4 (#24, v0.9.0). The earlier "recurrence slower,
   0.2–0.6x" claim was retracted: Resolved log, 2026-08-15 quiet
   per-region pass.
 - [→ #27, v1.0.0] Signed-commits ruleset once M1 and Ryzen are confirmed
