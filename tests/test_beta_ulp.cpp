@@ -173,6 +173,22 @@ int Route(double a, double b, double x, double pref, double qref,
   return kR2;
 }
 
+// #14 N4: masked-tail split. beta_p_reference.txt/beta_q_reference.txt are
+// both 38100 rows -- a multiple of 4, so a single whole-set call never
+// exercises the masked-tail path below AVX-512. Splitting into subspans
+// [0, n-3) and [n-3, n) makes neither half a lane multiple regardless of
+// what n is, so the tail path always runs; each call is independently
+// masked and stateless, so this is row-for-row identical to one call.
+template <typename Fn, typename... In>
+void SplitCall(Fn fn, std::vector<double>& out, const In&... in) {
+  const size_t n = out.size();
+  const size_t split = n - 3;
+  fn(std::span<const double>(in).subspan(0, split)...,
+     std::span<double>(out).subspan(0, split));
+  fn(std::span<const double>(in).subspan(split)...,
+     std::span<double>(out).subspan(split));
+}
+
 bool LoadReference(const char* path, std::vector<double>* a,
                    std::vector<double>* b, std::vector<double>* x,
                    std::vector<double>* p, std::vector<double>* q) {
@@ -192,7 +208,7 @@ bool LoadReference(const char* path, std::vector<double>* a,
   return true;
 }
 
-int ReportRegions(const char* label, const Region* r, int n) {
+int ReportRegions(const char* label, const Region* r, int n, bool want_p) {
   int rc = 0;
   for (int i = 0; i < n; ++i) {
     std::printf(
@@ -205,6 +221,18 @@ int ReportRegions(const char* label, const Region* r, int n) {
                      static_cast<double>(r[i].n)
                : 0.0,
         r[i].wa, r[i].wb, r[i].wx);
+    // #14 N10: a bucket that never accumulated a row is a gate that never
+    // actually ran. The one structural exception is the specials
+    // complement cell: Route() hard-codes direct_is_p = true for kSp (see
+    // its body), so exactly one of "specials"/"specials (-)" (indices 8
+    // and 9 below) is unreachable in any single beta_p or beta_q run --
+    // that is routing, not a coverage gap, and is the only cell skipped.
+    const bool structurally_empty = (i == 8 && !want_p) || (i == 9 && want_p);
+    if (r[i].n == 0 && !structurally_empty) {
+      std::fprintf(stderr, "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n",
+                   label, r[i].name);
+      rc = 1;
+    }
     if (r[i].n > 0 && r[i].max_ulp > r[i].bound) {
       std::fprintf(stderr, "FAIL: %s %s exceeds gate\n", label, r[i].name);
       rc = 1;
@@ -240,6 +268,19 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
       u = ok ? 0 : 1;
     } else if (std::isnan(got[i]) || std::isnan(want[i])) {
       u = std::isnan(got[i]) && std::isnan(want[i]) ? 0 : ~uint64_t{0};
+    } else if (want[i] == 0.0) {
+      // #14 N6: a reference of exactly zero (saturated rows carry an exact
+      // 0/1 pair by construction) has no ULP neighbourhood -- UlpDiff maps
+      // +0 and -0 to the same point (ulp_utils.h's policy), so a
+      // signed-zero regression needs an exact-bits check instead.
+      const bool ok = SameBits(got[i], want[i]);
+      if (!ok) {
+        std::fprintf(stderr,
+                     "FAIL: %s %s signed-zero mismatch at a=%.17g b=%.17g "
+                     "x=%.17g got=%.17g want=%.17g\n",
+                     label, r.name, a[i], b[i], x[i], got[i], want[i]);
+      }
+      u = ok ? 0 : ~uint64_t{0};
     } else {
       u = UlpDiff(got[i], want[i]);
     }
@@ -270,7 +311,7 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
       r.wx = x[i];
     }
   }
-  return ReportRegions(label, reg, 14);
+  return ReportRegions(label, reg, 14, want_p);
 }
 
 // ---- Post-pass (i): monotonicity in x over the reference set -------------
@@ -441,7 +482,7 @@ int main(int argc, char** argv) {
     std::vector<double> a, b, x, p, q;
     if (!LoadReference(p_path, &a, &b, &x, &p, &q)) return 2;
     std::vector<double> got(a.size());
-    corvus::beta_p(a, b, x, got);
+    SplitCall(corvus::beta_p, got, a, b, x);
     rc |= Measure("beta_p", true, a, b, x, p, q, got, p);
     rc |= MonoPostPass(a, b, x, p, got);
     rc |= SeamSweeps();
@@ -450,7 +491,7 @@ int main(int argc, char** argv) {
     std::vector<double> a, b, x, p, q;
     if (!LoadReference(q_path, &a, &b, &x, &p, &q)) return 2;
     std::vector<double> got(a.size());
-    corvus::beta_q(a, b, x, got);
+    SplitCall(corvus::beta_q, got, a, b, x);
     rc |= Measure("beta_q", false, a, b, x, p, q, got, q);
   }
 

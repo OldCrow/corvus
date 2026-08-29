@@ -38,6 +38,22 @@ constexpr double kMaxAbs53 = 0.5;       // |lnB| < 1 band, units of 2^-53
 
 constexpr double kBigMin = 0x1.0p+990;  // mirrors kLbetaBigMin (beta-inl.h)
 
+// #14 N4: masked-tail split. Splitting into subspans [0, n-3) and [n-3, n)
+// makes neither half a lane multiple regardless of what n is, so the
+// masked-tail path always runs; each call is independently masked and
+// stateless, so this is row-for-row identical to one whole-set call.
+void SplitCall(const std::vector<double>& a, const std::vector<double>& b,
+               std::vector<double>& out) {
+  const size_t n = out.size();
+  const size_t split = n - 3;
+  corvus::lbeta(std::span<const double>(a).subspan(0, split),
+                std::span<const double>(b).subspan(0, split),
+                std::span<double>(out).subspan(0, split));
+  corvus::lbeta(std::span<const double>(a).subspan(split),
+                std::span<const double>(b).subspan(split),
+                std::span<double>(out).subspan(split));
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -57,7 +73,7 @@ int main(int argc, char** argv) {
   }
 
   std::vector<double> got(a.size());
-  corvus::lbeta(a, b, got);
+  SplitCall(a, b, got);
 
   uint64_t rel_max = 0, big_max = 0;
   size_t rel_n = 0, rel_miss = 0, big_n = 0, big_miss = 0;
@@ -127,6 +143,27 @@ int main(int argc, char** argv) {
               inf_fail);
 
   int rc = 0;
+  // #14 N10: a band that never accumulated a row is a gate that never ran --
+  // every one of these four bands is populated by design in the certified
+  // reference set (docs/ACCURACY.md), so n=0 here means a coverage gap.
+  if (rel_n == 0) {
+    std::fprintf(stderr, "FAIL: relative band is empty (n=0) -- vacuous gate\n");
+    rc = 1;
+  }
+  if (big_n == 0) {
+    std::fprintf(stderr, "FAIL: big band is empty (n=0) -- vacuous gate\n");
+    rc = 1;
+  }
+  if (abs_n == 0) {
+    std::fprintf(stderr,
+                 "FAIL: absolute band is empty (n=0) -- vacuous gate\n");
+    rc = 1;
+  }
+  if (inf_n == 0) {
+    std::fprintf(stderr,
+                 "FAIL: -inf boundary is empty (n=0) -- vacuous gate\n");
+    rc = 1;
+  }
   if (rel_max > kMaxUlp) {
     std::fprintf(stderr, "FAIL: relative band exceeds gate\n");
     rc = 1;

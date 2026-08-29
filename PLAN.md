@@ -12,10 +12,8 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 **v0.6.0 UNFREEZE OPEN [2026-08-28, user]** — the one correctness
 unfreeze (milestone map item 1) is in progress. Session plan ratified
-by the user: (1) #12 kernel fix — DONE this session (Resolved log);
-(2) #15 then #14, harness consolidation before the gate restructure so
-the odd-length tail split runs under the final helper (a tail defect it
-surfaces belongs in this unfreeze); (3) #13 all generator fixes plus
+by the user: (1) #12 kernel fix — DONE (Resolved log);
+(2) #15 then #14 — DONE (Resolved log); (3) #13 all generator fixes plus
 #12's bit-stepped diagonal rows in ONE regeneration pass, buckets
 re-pinned under the final harness; (4) #5 + #16 + #17 batch, then
 milestone close (full ladder, CI green, tag). #5 scope SPLIT [user]:
@@ -662,6 +660,39 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-28 **#15 + #14 CLOSED — test-harness consolidation + ULP-gate
+  restructure (v0.6.0 items 2, delegated per the ratified posture: four
+  Sonnet agents per wave on disjoint file groups, orchestrator owned the
+  shared-header design, all adjudications, and every validation run).**
+  #15: tests/ulp_utils.h carries the ONE NaN/Inf policy (both-NaN equal,
+  one-NaN saturates, inf exact-bits, ±0 shared point → signed zero is
+  SameBits-only) + strict LoadRef/ParseDouble (line-based, field-count
+  check, whole-token strtod, exit 2); 21 files rewired, −368 lines;
+  divergent local guards verified latent against checked-in data.
+  #14: every reference-set evaluation split into two calls [0, N−3)/
+  [N−3, N) so the masked LoadN/StoreN tail runs on EVERY tier (five
+  gates had lane-multiple row counts and never ran it) — **no tail
+  defect surfaced on any tier**, native or capped; named buckets now
+  assert non-empty (N10, non-empty not exact-count — counts move at the
+  #13 regen; structurally-dead gamma cells handled by a live-mask,
+  beta's two one-sided specials cells skipped by Route() argument);
+  zero-reference rows checked exact-bits (N6; counts recorded per set);
+  NaN-payload asserts added for erf/erfc/lgamma/erfinv/erfcinv/gamma_q/
+  beta_q (N7); per-family edge-contract batches at non-lane-multiple
+  lengths with corvus.h-cited expectations (N12: −0 slots, subnormal a,
+  DBL_MAX, betainv two-way degeneracies, erfinv/erfcinv ±inf, lbeta
+  b=0/−inf, bessel DBL_MAX saturation). Adjudications: betainv
+  subnormal-a rows pinned BEHAVIOR-DERIVED (+0 both orientations,
+  collapse argument + AVX3_ZEN4 probe — header names no such regime);
+  erfinv's known-bad −0 reference row exempted by exact match, cites
+  #13. Negative control: gammainv gate fed a bucket-stripped reference
+  via argv exits 1 naming the empty bucket. Validation: zero-warning
+  builds; ctest 27/27 on native AVX3_ZEN4 AND capped SSE2 with ctest -V
+  output byte-identical to the pre-change baselines except four new
+  informational zero-count lines; full clang-cl 4-tier sweep exit 0.
+  Found for #13: betainv references carry ZERO x=0 rows on either side
+  (the "x = 0" cross bucket was silently empty — report-only, not
+  gated, but a data-coverage gap the regeneration should fill).
 - 2026-08-28 **#12 CLOSED — gamma Dekker-ceiling diagonal (HIGH, the
   v0.6.0 unfreeze opener).** GammaTemme + the gammainv-forward twin site
   now prescale (x, a) by an exact power of two above 2^900

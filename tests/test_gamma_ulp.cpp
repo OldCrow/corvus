@@ -15,6 +15,8 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -28,6 +30,7 @@ namespace {
 
 using corvus_test::LoadRef;
 using corvus_test::ParseDouble;
+using corvus_test::SameBits;
 using corvus_test::UlpDiff;
 
 // Gates pinned to the values measured on AVX2 native plus the
@@ -105,7 +108,15 @@ bool LoadReference(const char* path, std::vector<double>* a,
   return true;
 }
 
-int ReportRegions(const char* label, const Region* r, int n) {
+// `live[i]` says whether region-cell i CAN receive any row for the function
+// under measurement. R1 is always P-direct and R2/R4 are always Q-direct
+// (Route()'s fixed orientation, independent of (a, x)), so for any single
+// call exactly one of each region's {dir, cmp} cells is structurally unfired
+// -- that is the "cells that hold no points for a function carry 0" case the
+// gate table above already documents, not a regression. R3's direct side
+// varies with (a, x), so both of its cells are always live.
+int ReportRegions(const char* label, const Region* r, const bool* live,
+                  int n) {
   int rc = 0;
   for (int i = 0; i < n; ++i) {
     std::printf(
@@ -118,12 +129,40 @@ int ReportRegions(const char* label, const Region* r, int n) {
                      static_cast<double>(r[i].n)
                : 0.0,
         r[i].worst_a, r[i].worst_x);
+    // N10: a LIVE bucket that never received a row passes every gate above
+    // vacuously -- a routing or reference-set regression, not a clean run.
+    if (live[i] && r[i].n == 0) {
+      std::fprintf(stderr, "FAIL: %s %s bucket is empty (n=0)\n", label,
+                   r[i].name);
+      std::exit(1);
+    }
     if (r[i].n > 0 && r[i].max_ulp > r[i].bound) {
       std::fprintf(stderr, "FAIL: %s %s exceeds gate\n", label, r[i].name);
       rc = 1;
     }
   }
   return rc;
+}
+
+// N4: split every whole-reference-set call into [0, n-3) and [n-3, n) so the
+// trailing 3-row group always runs a masked tail, independent of whether n
+// itself happens to be a lane multiple on the tier under test. gamma's
+// 16734 rows are even (no tail on any 2-lane tier today) and gammainv-q's
+// 6520 rows are a multiple of 8 (no tail on any tier at all) -- exactly the
+// coverage gap this closes. Downstream per-row loops are untouched: they
+// only see the fully populated `got` vector.
+void CallSplit(void (*fn)(std::span<const double>, std::span<const double>,
+                          std::span<double>),
+               const std::vector<double>& a, const std::vector<double>& x,
+               std::vector<double>& out) {
+  const size_t n = a.size();
+  const size_t split = n - 3;
+  fn(std::span<const double>(a).first(split),
+     std::span<const double>(x).first(split),
+     std::span<double>(out).first(split));
+  fn(std::span<const double>(a).subspan(split),
+     std::span<const double>(x).subspan(split),
+     std::span<double>(out).subspan(split));
 }
 
 int Measure(const char* label, bool want_p, const std::vector<double>& a,
@@ -137,12 +176,31 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
       {"R3 temme  dir", g[2][0]},   {"R3 temme  cmp", g[2][1]},
       {"R4 smalla dir", g[3][0]},   {"R4 smalla cmp", g[3][1]},
   };
+  int signed_zero_fail = 0;
+  size_t zero_ref_rows = 0;
   for (size_t i = 0; i < a.size(); ++i) {
     bool direct_is_p = false;
     const int code = Route(a[i], x[i], want_p, &direct_is_p);
     const bool is_direct = (direct_is_p == want_p);
     Region& r = reg[2 * code + (is_direct ? 0 : 1)];
-    const uint64_t u = UlpDiff(got[i], want[i]);
+    uint64_t u;
+    // N6: a reference value of exactly +/-0 has no ULP neighbourhood --
+    // UlpDiff maps both zeros to the same point (ulp_utils.h's policy
+    // comment), so it cannot see a sign regression. Check bit-exactness
+    // instead and fail with a dedicated message on any mismatch.
+    if (want[i] == 0.0) {
+      ++zero_ref_rows;
+      if (!SameBits(got[i], want[i])) {
+        std::fprintf(stderr,
+                     "FAIL: %s signed-zero mismatch at a=%.17g x=%.17g "
+                     "got=%a want=%a\n",
+                     label, a[i], x[i], got[i], want[i]);
+        signed_zero_fail = 1;
+      }
+      u = 0;
+    } else {
+      u = UlpDiff(got[i], want[i]);
+    }
     ++r.n;
     if (u > 0) ++r.miss;
     if (u > r.max_ulp) {
@@ -151,7 +209,17 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
       r.worst_x = x[i];
     }
   }
-  return ReportRegions(label, reg, 8);
+  std::printf("%-8s %zu exact-zero reference rows (checked via SameBits)\n",
+              label, zero_ref_rows);
+  // R1's dir/cmp split and R2/R4's are each fixed by Route() regardless of
+  // (a, x) -- see the comment on ReportRegions -- so exactly one cell of
+  // each is dead for this want_p. R3 varies with (a, x); both its cells
+  // (indices 4, 5) stay live.
+  bool live[8] = {true, true, true, true, true, true, true, true};
+  live[want_p ? 1 : 0] = false;  // R1: the side Route() never fires here
+  live[want_p ? 2 : 3] = false;  // R2: ditto
+  live[want_p ? 6 : 7] = false;  // R4: ditto
+  return ReportRegions(label, reg, live, 8) | signed_zero_fail;
 }
 
 }  // namespace
@@ -167,14 +235,14 @@ int main(int argc, char** argv) {
     std::vector<double> a, x, p, q;
     if (!LoadReference(p_path, &a, &x, &p, &q)) return 2;
     std::vector<double> got(a.size());
-    corvus::gamma_p(a, x, got);
+    CallSplit(corvus::gamma_p, a, x, got);
     rc |= Measure("gamma_p", true, a, x, got, p);
   }
   {
     std::vector<double> a, x, p, q;
     if (!LoadReference(q_path, &a, &x, &p, &q)) return 2;
     std::vector<double> got(a.size());
-    corvus::gamma_q(a, x, got);
+    CallSplit(corvus::gamma_q, a, x, got);
     rc |= Measure("gamma_q", false, a, x, got, q);
   }
 

@@ -5,8 +5,11 @@
 
 #include "corvus/corvus.h"
 #include "expect_target.h"
+#include "ulp_utils.h"
 
 namespace {
+
+using corvus_test::SameBits;
 
 int failures = 0;
 
@@ -48,7 +51,15 @@ int main() {
   // Specials.
   const double inf = std::numeric_limits<double>::infinity();
   const double nan = std::numeric_limits<double>::quiet_NaN();
-  std::vector<double> sp_in = {0.0, -0.0, inf, -inf, nan, 30.0, -30.0};
+  const double dbl_max = std::numeric_limits<double>::max();
+  // #14 N12: erfc(+/-DBL_MAX), folded into the same batch call (length 9,
+  // still not a lane multiple). corvus.h documents "erfc(-inf) = 2,
+  // erfc(+inf) = 0, results underflow gradually past x ~ 26.5"; DBL_MAX is
+  // far past that underflow point (erfc(30) is already the hard-zero row
+  // below), so the correctly-rounded result there is exactly +0, and by
+  // erfc(-x) = 2 - erfc(x), exactly 2 at -DBL_MAX.
+  std::vector<double> sp_in = {0.0, -0.0, inf, -inf, nan, 30.0, -30.0,
+                               dbl_max, -dbl_max};
   std::vector<double> sp_out(sp_in.size());
   corvus::erfc(sp_in, sp_out);
   Check(sp_out[0] == 1.0, "erfc(0) == 1");
@@ -58,6 +69,18 @@ int main() {
   Check(std::isnan(sp_out[4]), "erfc(nan) is nan");
   Check(sp_out[5] == 0.0, "erfc(30) == 0 (underflow)");
   Check(sp_out[6] == 2.0, "erfc(-30) == 2");
+  Check(sp_out[7] == 0.0, "erfc(DBL_MAX) == 0 (underflow)");
+  Check(sp_out[8] == 2.0, "erfc(-DBL_MAX) == 2");
+
+  // #14 N7: NaN propagates WITH its payload (corvus.h: "NaN propagates
+  // (payload preserved)"), not just as some quiet NaN.
+  {
+    const double payload = std::nan("42");
+    std::vector<double> pin = {payload};
+    std::vector<double> pout(1);
+    corvus::erfc(pin, pout);
+    Check(SameBits(pout[0], payload), "erfc(nan) preserves its NaN payload");
+  }
 
   // Region boundaries: each side of the core/tail split (6.0) and the
   // polynomial interval splits (10, 17) stays close to libm. (Do not test

@@ -135,19 +135,88 @@ void Specials() {
     CheckSpecial("beta_q", corvus::beta_q, c.a, c.b, c.x, c.q);
   }
 
-  // NaN payload propagation, the erf/erfc/lgamma/gamma convention.
+  // NaN payload propagation, the erf/erfc/lgamma/gamma convention -- checked
+  // for BOTH beta_p and beta_q, all three argument slots (#14 N7: beta_q was
+  // previously untested here).
   const double payload = std::nan("42");
   const double probes[3][3] = {
       {payload, 1.0, 0.5}, {1.0, payload, 0.5}, {1.0, 1.0, payload}};
-  for (const auto& pr : probes) {
-    const double got = One(corvus::beta_p, pr[0], pr[1], pr[2]);
-    if (!SameBits(got, payload)) {
-      std::fprintf(stderr,
-                   "FAIL: beta_p did not propagate the NaN payload for "
-                   "(%g, %g, %g)\n",
-                   pr[0], pr[1], pr[2]);
-      g_fail = 1;
+  const struct {
+    Fn fn;
+    const char* name;
+  } payload_fns[] = {{corvus::beta_p, "beta_p"}, {corvus::beta_q, "beta_q"}};
+  for (const auto& pf : payload_fns) {
+    for (const auto& pr : probes) {
+      const double got = One(pf.fn, pr[0], pr[1], pr[2]);
+      if (!SameBits(got, payload)) {
+        std::fprintf(stderr,
+                     "FAIL: %s did not propagate the NaN payload for "
+                     "(%g, %g, %g)\n",
+                     pf.name, pr[0], pr[1], pr[2]);
+        g_fail = 1;
+      }
     }
+  }
+}
+
+// #14 N12: edge contracts straight from corvus.h, evaluated as ONE batched
+// span call (length 9, not a lane multiple) so the masked-tail path carries
+// them. -0.0 is mathematically 0.0, so each row mirrors the existing +0
+// specials row for the same slot ("a = 0 or b = +inf puts all the mass at
+// 0 ... A degenerate parameter meeting the boundary its own mass sits on
+// gives NaN", corvus.h); the padding rows are the exact x = 0 / x = 1
+// identities ("I_0(a, b) = +0 and I_1(a, b) = 1"), not arbitrary filler.
+void EdgeContractsN12() {
+  struct Case {
+    double a, b, x, p, q;
+    const char* why;
+  };
+  const Case cases[] = {
+      // -0.0 in the a slot.
+      {-0.0, 1.0, 0.5, 1.0, 0.0, "a = -0"},
+      {-0.0, 1.0, 0.0, kNan, kNan, "a = -0 meets its own mass point"},
+      // -0.0 in the b slot.
+      {1.0, -0.0, 0.5, 0.0, 1.0, "b = -0"},
+      {1.0, -0.0, 1.0, kNan, kNan, "b = -0 meets its own mass point"},
+      // -0.0 in the x slot: x in [0, 1] includes -0.0 == +0.0.
+      {1.0, 1.0, -0.0, 0.0, 1.0, "x = -0"},
+      // Padding: exact x = 0 / x = 1 identities.
+      {2.0, 3.0, 0.0, 0.0, 1.0, "pad: x = 0"},
+      {5.0, 2.0, 1.0, 1.0, 0.0, "pad: x = 1"},
+      {0.5, 3.0, 0.0, 0.0, 1.0, "pad: x = 0"},
+      {10.0, 10.0, 1.0, 1.0, 0.0, "pad: x = 1"},
+  };
+  static_assert(sizeof(cases) / sizeof(cases[0]) == 9, "length check");
+  std::vector<double> a, b, x;
+  for (const Case& c : cases) {
+    a.push_back(c.a);
+    b.push_back(c.b);
+    x.push_back(c.x);
+  }
+  std::vector<double> p(a.size()), q(a.size());
+  corvus::beta_p(a, b, x, p);
+  corvus::beta_q(a, b, x, q);
+  for (size_t i = 0; i < a.size(); ++i) {
+    const Case& c = cases[i];
+    auto check = [&](const char* fname, double got, double want) {
+      bool ok;
+      if (std::isnan(want)) {
+        ok = std::isnan(got);
+      } else if (want == 0.0) {
+        ok = got == 0.0 && !std::signbit(got);
+      } else {
+        ok = got == want;
+      }
+      if (!ok) {
+        std::fprintf(stderr,
+                     "FAIL: %s(%.17g, %.17g, %.17g) [%s] = %.17g, want "
+                     "%.17g\n",
+                     fname, c.a, c.b, c.x, c.why, got, want);
+        g_fail = 1;
+      }
+    };
+    check("beta_p", p[i], c.p);
+    check("beta_q", q[i], c.q);
   }
 }
 
@@ -206,9 +275,15 @@ void PlusQ() {
 // evaluation is correctly rounded at a point where the true value is a
 // representable double, in every region the diagonal crosses.
 void SymmetricHalf() {
+  // #14 N12: DBL_MAX is in-domain for beta_p/beta_q ("Four spans ... a and
+  // b finite and positive", corvus.h); the R4-huge-B/prescale work
+  // (docs/ACCURACY.md, "R4 huge-B corner") made huge-parameter rows exact,
+  // so the diagonal identity extends all the way to DBL_MAX. Appending it
+  // also makes this array's length (17) a non-lane-multiple.
   const double as[] = {1e-300, 1e-8, 0.0078125, 0.015625, 0.5,  1.0,
                        2.0,    5.0,  20.0,      63.0,     64.0, 100.0,
-                       1000.0, 1e6,  1e10,      1e100};
+                       1000.0, 1e6,  1e10,      1e100,
+                       std::numeric_limits<double>::max()};
   std::vector<double> a, b, x;
   for (double v : as) {
     a.push_back(v);
@@ -364,6 +439,7 @@ void AnalyticLines() {
 int main() {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
   Specials();
+  EdgeContractsN12();
   PlusQ();
   SymmetricHalf();
   AnalyticLines();

@@ -110,7 +110,16 @@ int main(int argc, char** argv) {
   }
 
   std::vector<double> hi(u.size()), lo(u.size());
-  corvus::Log1pmxTest(u.data(), hi.data(), lo.data(), u.size());
+  // Two calls, not one: the second covers only the last 3 rows, a length
+  // below every lane count, so the masked LoadN/StoreN tail path inside
+  // Log1pmxTestImpl runs on every tier. Without this split the reference
+  // set's own length (3416, a multiple of 8) meant the tail branch never
+  // ran on the AVX-512 tier at all (#14 N4).
+  const size_t n = u.size();
+  const size_t split = n - 3;
+  corvus::Log1pmxTest(u.data(), hi.data(), lo.data(), split);
+  corvus::Log1pmxTest(u.data() + split, hi.data() + split, lo.data() + split,
+                      n - split);
 
   double worst_rel = 0.0, worst_rel_u = 0.0;
   double worst_abs = 0.0, worst_abs_u = 0.0;

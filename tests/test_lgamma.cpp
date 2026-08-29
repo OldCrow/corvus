@@ -6,8 +6,11 @@
 
 #include "corvus/corvus.h"
 #include "expect_target.h"
+#include "ulp_utils.h"
 
 namespace {
+
+using corvus_test::SameBits;
 
 int failures = 0;
 
@@ -78,6 +81,16 @@ int main() {
   Check(std::isnan(sp_out[9]), "lgamma(nan) is nan");
   Check(sp_out[10] == inf, "lgamma(1e308) == +inf (overflow)");
   Check(sp_out[11] == inf, "lgamma(3e305) == +inf (overflow)");
+
+  // #14 N7: NaN propagates WITH its payload (corvus.h: "NaN propagates
+  // (payload preserved)"), not just as some quiet NaN.
+  {
+    const double payload = std::nan("42");
+    std::vector<double> pin = {payload};
+    std::vector<double> pout(1);
+    corvus::lgamma(pin, pout);
+    Check(SameBits(pout[0], payload), "lgamma(nan) preserves its NaN payload");
+  }
 
   // The last finite result, and the first infinite one. This straddles the
   // point where the Stirling product itself would overflow if it were

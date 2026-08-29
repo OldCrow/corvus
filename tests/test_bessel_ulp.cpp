@@ -33,9 +33,23 @@
 namespace {
 
 using corvus_test::OrderedBits;
+using corvus_test::SameBits;
 using corvus_test::UlpDiff;
 
 using Fn = void (*)(std::span<const double>, std::span<double>);
+
+// #14 N4: masked-tail split. Splitting into subspans [0, n-3) and [n-3, n)
+// makes neither half a lane multiple regardless of what n is, so the
+// masked-tail path always runs; each call is independently masked and
+// stateless, so this is row-for-row identical to one whole-set call.
+void SplitCall(Fn fn, const std::vector<double>& in, std::vector<double>& out) {
+  const size_t n = in.size();
+  const size_t split = n - 3;
+  fn(std::span<const double>(in).subspan(0, split),
+     std::span<double>(out).subspan(0, split));
+  fn(std::span<const double>(in).subspan(split),
+     std::span<double>(out).subspan(split));
+}
 
 // Gate PINNED to measured, no margin. Both regimes land at the design's
 // expected 1 ULP ceiling on every validated tier.
@@ -91,7 +105,7 @@ int RunOne(const char* label, const char* path, Fn fn, bool has_inf) {
   }
 
   std::vector<double> got(in.size());
-  fn(in, got);
+  SplitCall(fn, in, got);
 
   Region pos_series{"pos series"};
   Region neg_series{"neg series"};
@@ -115,7 +129,22 @@ int RunOne(const char* label, const char* path, Fn fn, bool has_inf) {
       }
       continue;
     }
-    const uint64_t u = UlpDiff(got[i], want[i]);
+    uint64_t u;
+    if (want[i] == 0.0) {
+      // #14 N6: i1/i1e are odd, so their reference carries a real +-0 at
+      // x = +-0. UlpDiff maps +0 and -0 to the same point (ulp_utils.h's
+      // policy), so a signed-zero regression needs an exact-bits check.
+      const bool ok = SameBits(got[i], want[i]);
+      if (!ok) {
+        std::fprintf(stderr,
+                     "FAIL: %s(%.17g) signed-zero mismatch: got=%.17g "
+                     "want=%.17g\n",
+                     label, x, got[i], want[i]);
+      }
+      u = ok ? 0 : ~uint64_t{0};
+    } else {
+      u = UlpDiff(got[i], want[i]);
+    }
     const bool series = std::fabs(x) <= corvus::detail::kBesselSplit;
     if (x >= 0.0) {
       Accumulate(series ? pos_series : pos_tail, x, u);
@@ -144,10 +173,28 @@ int RunOne(const char* label, const char* path, Fn fn, bool has_inf) {
 
   int rc = 0;
   for (const Region* r : {&pos_series, &neg_series, &pos_tail, &neg_tail}) {
+    // #14 N10: a bucket that never accumulated a row is a gate that never
+    // ran -- the four series/tail x sign combinations are all populated by
+    // design (the file banner), so n=0 here means a coverage gap.
+    if (r->n == 0) {
+      std::fprintf(stderr, "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n",
+                   label, r->name);
+      rc = 1;
+    }
     if (r->max_ulp > kMaxUlp) {
       std::fprintf(stderr, "FAIL: %s %s exceeds gate\n", label, r->name);
       rc = 1;
     }
+  }
+  // has_inf functions (i0/i1) are documented to carry an overflow-boundary
+  // bracket in their reference set; has_inf=false functions (i0e/i1e) are
+  // already asserted not to, above.
+  if (has_inf && inf_n == 0) {
+    std::fprintf(stderr,
+                 "FAIL: %s boundary (inf) bucket is empty (n=0) -- vacuous "
+                 "gate\n",
+                 label);
+    rc = 1;
   }
   if (inf_fail != 0) rc = 1;
   return rc;

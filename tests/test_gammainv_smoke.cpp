@@ -122,6 +122,107 @@ void Specials() {
   }
 }
 
+// N12: edge-contract rows, evaluated as ONE non-lane-multiple-length span
+// call per export so the masked-lane path -- not just the scalar-equivalent
+// single-point path CheckSpecial exercises -- carries them. `check` is false
+// for the filler rows that exist only to make the vector length 9 (not a
+// multiple of any lane count in the fleet); their outputs are not asserted.
+struct EdgeCase {
+  double a, s, want;
+  bool check;
+};
+
+void CheckEdgeBatch(const char* fname,
+                    void (*fn)(std::span<const double>,
+                               std::span<const double>, std::span<double>),
+                    const EdgeCase* cases, size_t n) {
+  std::vector<double> a(n), s(n), out(n);
+  for (size_t i = 0; i < n; ++i) {
+    a[i] = cases[i].a;
+    s[i] = cases[i].s;
+  }
+  fn(a, s, out);
+  for (size_t i = 0; i < n; ++i) {
+    if (!cases[i].check) continue;
+    const EdgeCase& c = cases[i];
+    const bool ok = std::isnan(c.want)
+                       ? std::isnan(out[i])
+                       : (out[i] == c.want &&
+                          std::signbit(out[i]) == std::signbit(c.want));
+    if (!ok) {
+      std::fprintf(stderr,
+                   "FAIL: %s(%.17g, %.17g) = %.17g, want %.17g "
+                   "(edge-contract row %zu)\n",
+                   fname, c.a, c.s, out[i], c.want, i);
+      g_fail = 1;
+    }
+  }
+}
+
+// Every expectation below is derived from include/corvus/corvus.h's
+// documented contract for gamma_p_inv/gamma_q_inv (cited per row), not
+// measured -- N12 is asserting behaviour the review already verified by
+// hand-probing.
+void EdgeContracts() {
+  // corvus.h: "p outside [0, 1] gives NaN, as do a <= 0 and a = +inf" --
+  // -0.0 satisfies a <= 0 (IEEE: -0.0 <= 0 is true), so it is the same
+  // degenerate case as the existing a = 0 rows in Specials() (which the
+  // current table checks only on the p export -- this batch adds the q
+  // export the same domain guard applies to).
+  const EdgeCase kPCases[] = {
+      {-0.0, 0.25, NAN, true},
+      // corvus.h: "p = 0 gives +0" -- p = -0.0 is the same input by value
+      // (IEEE: -0.0 == 0.0), so this is the existing {a, 0.0 -> +0} row
+      // with p's sign bit flipped on an input that must not matter.
+      {1.0, -0.0, 0.0, true},
+      // Positive-subnormal a is in-domain (the guard is "a <= 0", not a
+      // magnitude floor). gammainv-inl.h's DEEP-SMALL CLOSED FORM comment:
+      // "a below [2^-900] has 1/a overflowing ... 2^-900 leaves room for the
+      // smallest subnormal a (2^-1074)" and "[the closed form] owns the
+      // entire tiny-a collapse zone". For a this small (rescaled to avoid
+      // 1/a overflow), (ln p)/a is an enormous negative number for any
+      // p in (0, 1), so exp underflows the closed form to exactly +0 --
+      // the P(a -> 0+, x) -> 1 limit approached from the x = 0 side.
+      {0x1.0p-1074, 0.25, 0.0, true},
+      {0x1.0p-1050, 0.25, 0.0, true},
+      // Benign interior filler so the batch length (9) is not a multiple of
+      // any lane count in the fleet (2, 4, 8).
+      {1.0, 0.5, 0.0, false},
+      {3.0, 0.3, 0.0, false},
+      {20.0, 0.6, 0.0, false},
+      {100.0, 0.1, 0.0, false},
+      {5.0, 0.9, 0.0, false},
+  };
+  constexpr size_t kNp = sizeof(kPCases) / sizeof(kPCases[0]);
+  static_assert(kNp == 9, "edge-contract batch length must stay a non-lane-"
+                          "multiple (9) -- update the comment above if this "
+                          "changes");
+  CheckEdgeBatch("gamma_p_inv", corvus::gamma_p_inv, kPCases, kNp);
+
+  // Same reasoning, q export: "q outside [0, 1] gives NaN, as do a <= 0 and
+  // a = +inf"; "q = 0 gives +inf"; and the deep-small closed form is reached
+  // through ln p = ln(1 - q) regardless of which export solved for it, so
+  // the same subnormal-a collapse to +0 applies (q = 0.25 keeps p = 0.75,
+  // whose log is still an ordinary negative number, so the argument stands).
+  const EdgeCase kQCases[] = {
+      {-0.0, 0.25, NAN, true},
+      // corvus.h: "q = 0 gives +inf" -- q = -0.0 is the same input by value.
+      {1.0, -0.0, kInf, true},
+      {0x1.0p-1074, 0.25, 0.0, true},
+      {0x1.0p-1050, 0.25, 0.0, true},
+      {1.0, 0.5, 0.0, false},
+      {3.0, 0.3, 0.0, false},
+      {20.0, 0.6, 0.0, false},
+      {100.0, 0.1, 0.0, false},
+      {5.0, 0.9, 0.0, false},
+  };
+  constexpr size_t kNq = sizeof(kQCases) / sizeof(kQCases[0]);
+  static_assert(kNq == 9, "edge-contract batch length must stay a non-lane-"
+                          "multiple (9) -- update the comment above if this "
+                          "changes");
+  CheckEdgeBatch("gamma_q_inv", corvus::gamma_q_inv, kQCases, kNq);
+}
+
 // a = 1: P(1,x) = 1 - e^-x and Q(1,x) = e^-x, so both inverses are libm one
 // liners and neither touches corvus. The tolerance is loose on purpose --
 // this checks the wiring, not the last bit, and log1p carries its own error.
@@ -313,6 +414,7 @@ void LaneMix() {
 int main() {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
   Specials();
+  EdgeContracts();
   ClosedForm();
   RoundTrip();
   BeyondResolution();

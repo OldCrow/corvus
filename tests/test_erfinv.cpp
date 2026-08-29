@@ -11,8 +11,11 @@
 
 #include "corvus/corvus.h"
 #include "expect_target.h"
+#include "ulp_utils.h"
 
 namespace {
+
+using corvus_test::SameBits;
 
 int failures = 0;
 
@@ -105,7 +108,7 @@ int main() {
     std::vector<double> in = {0.0, -0.0, 1.0, -1.0,
                               std::nextafter(1.0, 2.0),
                               std::nextafter(-1.0, -2.0),
-                              2.0, -2.0, nan};
+                              2.0, -2.0, nan, inf, -inf};
     std::vector<double> out(in.size());
     corvus::erfinv(in, out);
     Check(out[0] == 0.0 && !std::signbit(out[0]), "erfinv(+0) == +0");
@@ -117,12 +120,20 @@ int main() {
     Check(std::isnan(out[6]), "erfinv(2) is NaN");
     Check(std::isnan(out[7]), "erfinv(-2) is NaN");
     Check(std::isnan(out[8]), "erfinv(nan) is NaN");
+    // N12: +/-inf are outside the documented domain |in[i]| <= 1 (corvus.h:
+    // "|in[i]| > 1 gives NaN") -- same contract as the +/-2 rows above.
+    // Verified correct by probe during review but untested until now, and
+    // an 11-element (non-lane-multiple) span keeps both in the masked tail
+    // on every tier.
+    Check(std::isnan(out[9]), "erfinv(+inf) is NaN");
+    Check(std::isnan(out[10]), "erfinv(-inf) is NaN");
   }
 
   // --- erfcinv specials ---------------------------------------------------
   {
     std::vector<double> in = {0.0, 2.0, 1.0, -0.0, std::nextafter(0.0, -1.0),
-                              std::nextafter(2.0, 3.0), -0.5, 2.5, nan};
+                              std::nextafter(2.0, 3.0), -0.5, 2.5, nan, inf,
+                              -inf};
     std::vector<double> out(in.size());
     corvus::erfcinv(in, out);
     Check(out[0] == inf, "erfcinv(0) == +inf");
@@ -134,6 +145,23 @@ int main() {
     Check(std::isnan(out[6]), "erfcinv(-0.5) is NaN");
     Check(std::isnan(out[7]), "erfcinv(2.5) is NaN");
     Check(std::isnan(out[8]), "erfcinv(nan) is NaN");
+    // N12: +/-inf are outside the documented domain [0, 2] (corvus.h:
+    // "in[i] outside [0, 2] gives NaN"). Verified correct by probe during
+    // review but untested until now; an 11-element (non-lane-multiple)
+    // span keeps both in the masked tail on every tier.
+    Check(std::isnan(out[9]), "erfcinv(+inf) is NaN");
+    Check(std::isnan(out[10]), "erfcinv(-inf) is NaN");
+  }
+
+  // --- NaN payload propagation (erf/erfc/lgamma/gamma_p convention) -------
+  {
+    const double payload = std::nan("42");
+    std::vector<double> in = {payload};
+    std::vector<double> out(1);
+    corvus::erfinv(in, out);
+    Check(SameBits(out[0], payload), "erfinv(nan) preserves NaN payload");
+    corvus::erfcinv(in, out);
+    Check(SameBits(out[0], payload), "erfcinv(nan) preserves NaN payload");
   }
 
   // --- routing-boundary continuity (both sides of every split) -----------

@@ -112,7 +112,15 @@ int main(int argc, char** argv) {
   }
 
   std::vector<double> hi(xh.size()), lo(xh.size());
-  corvus::LogDdTest(xh.data(), xl.data(), hi.data(), lo.data(), xh.size());
+  // Two calls, not one: the second covers only the last 3 rows, a length
+  // below every lane count, so the masked LoadN/StoreN tail path inside
+  // LogDdTestImpl runs on every tier regardless of whether the reference
+  // set's own length happens to be a lane multiple (#14 N4).
+  const size_t n = xh.size();
+  const size_t split = n - 3;
+  corvus::LogDdTest(xh.data(), xl.data(), hi.data(), lo.data(), split);
+  corvus::LogDdTest(xh.data() + split, xl.data() + split, hi.data() + split,
+                    lo.data() + split, n - split);
 
   double worst_rel = 0.0, worst_rel_x = 0.0;
   uint64_t worst_ulp = 0;

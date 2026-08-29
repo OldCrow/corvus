@@ -92,16 +92,129 @@ void Specials() {
     CheckSpecial("gamma_q", corvus::gamma_q, c.a, c.x, c.q, true);
   }
 
-  // NaN payload propagation, the erf/erfc/lgamma convention.
+  // NaN payload propagation, the erf/erfc/lgamma convention. N7: gamma_q
+  // gets the same two-slot check as gamma_p -- the corvus.h contract ("NaN
+  // propagates, payload preserved") is stated for both functions, and
+  // gamma_q's own routing (R4's `box` branch in particular) is not the same
+  // code path as gamma_p's, so payload survival there is not implied by
+  // gamma_p's passing.
   const double payload = std::nan("42");
   for (int which = 0; which < 2; ++which) {
-    const double got = which == 0 ? One(corvus::gamma_p, payload, 1.0)
-                                  : One(corvus::gamma_p, 1.0, payload);
-    if (!SameBits(got, payload)) {
+    const double got_p = which == 0 ? One(corvus::gamma_p, payload, 1.0)
+                                    : One(corvus::gamma_p, 1.0, payload);
+    if (!SameBits(got_p, payload)) {
       std::fprintf(stderr, "FAIL: gamma_p did not propagate the NaN payload\n");
       g_fail = 1;
     }
+    const double got_q = which == 0 ? One(corvus::gamma_q, payload, 1.0)
+                                    : One(corvus::gamma_q, 1.0, payload);
+    if (!SameBits(got_q, payload)) {
+      std::fprintf(stderr, "FAIL: gamma_q did not propagate the NaN payload\n");
+      g_fail = 1;
+    }
   }
+}
+
+// N12: edge-contract rows, evaluated as ONE non-lane-multiple-length span
+// call so the masked-lane path -- not just the scalar-equivalent single-point
+// path CheckSpecial exercises -- carries them. `check` is false for the
+// filler rows that exist only to make the vector length 9 (not a multiple of
+// any lane count in the fleet); their outputs are not asserted.
+struct EdgeCase {
+  double a, x, p, q;
+  bool check;
+};
+
+void CheckEdgeBatch(const EdgeCase* cases, size_t n) {
+  std::vector<double> a(n), x(n), p(n), q(n);
+  for (size_t i = 0; i < n; ++i) {
+    a[i] = cases[i].a;
+    x[i] = cases[i].x;
+  }
+  corvus::gamma_p(a, x, p);
+  corvus::gamma_q(a, x, q);
+  for (size_t i = 0; i < n; ++i) {
+    if (!cases[i].check) continue;
+    const EdgeCase& c = cases[i];
+    const bool ok_p = std::isnan(c.p) ? std::isnan(p[i])
+                     : c.p == 0.0     ? (p[i] == 0.0 && !std::signbit(p[i]))
+                                      : p[i] == c.p;
+    const bool ok_q = std::isnan(c.q) ? std::isnan(q[i])
+                     : c.q == 0.0     ? (q[i] == 0.0 && !std::signbit(q[i]))
+                                      : q[i] == c.q;
+    if (!ok_p) {
+      std::fprintf(stderr,
+                   "FAIL: gamma_p(%.17g, %.17g) = %.17g, want %.17g "
+                   "(edge-contract row %zu)\n",
+                   c.a, c.x, p[i], c.p, i);
+      g_fail = 1;
+    }
+    if (!ok_q) {
+      std::fprintf(stderr,
+                   "FAIL: gamma_q(%.17g, %.17g) = %.17g, want %.17g "
+                   "(edge-contract row %zu)\n",
+                   c.a, c.x, q[i], c.q, i);
+      g_fail = 1;
+    }
+  }
+}
+
+// Every expectation below is derived from include/corvus/corvus.h's
+// documented contract for gamma_p/gamma_q (cited per row), not measured --
+// N12 is asserting behaviour the review already verified by hand-probing.
+void EdgeContracts() {
+  const double kDblMax = std::numeric_limits<double>::max();
+  const EdgeCase cases[] = {
+      // corvus.h: "P(a, +inf) = 1 ... for finite a, x" / "(a=0, x>0) -> P=1,
+      // Q=+0" (ACCURACY.md's specials line). Neither doc statement is
+      // written in terms of -0.0, but the domain guard is "any negative a
+      // ... give NaN": -0.0 is not negative (IEEE: -0.0 < 0 is false), so it
+      // is in-domain and equal to +0.0 by value -- the same row as the
+      // existing {0.0, 1.0, 1.0, 0.0} specials entry, with the sign bit
+      // flipped on the input that must not matter.
+      {-0.0, 1.0, 1.0, 0.0, true},
+      // Mirror image: "P(a, 0) = +0 ... for finite a, x", domain guard "any
+      // negative ... x give NaN" -- x = -0.0 is not negative either, so this
+      // is the existing {1.0, 0.0, 0.0, 1.0} row with x's sign flipped.
+      {1.0, -0.0, 0.0, 1.0, true},
+      // Both slots -0.0 at once: -0.0 maps to the a=0, x=0 case, which is
+      // its own special ("P(0,0) ... give NaN") in the existing specials
+      // table ({0.0, 0.0, kNan, kNan}) -- signed zero must not dodge that
+      // boundary case either.
+      {-0.0, -0.0, kNan, kNan, true},
+      // Positive-subnormal a is in-domain ("any negative a or x give NaN"
+      // says nothing about magnitude). ACCURACY.md's gamma_p/gamma_q section
+      // documents Q ~ a*E1(x) as a -> 0+ (the small-a expansion's own
+      // limit); at x = 18, E1(18) ~= 8.0e-10, so a*E1(18) is ~8.6e-327 for
+      // a = 0x1.0p-1074 and ~6.7e-326 for a = 0x1.0p-1050 -- both far under half
+      // the smallest subnormal (2^-1075 ~= 2.47e-324), so Q correctly rounds
+      // to +0 and P's complement is far below 1's ulp (2^-52), correctly
+      // rounding to 1.0. This is the P(a->0+, x>0) -> 1, Q -> 0 limit the
+      // review probed, pinned at two representative subnormal a values.
+      {0x1.0p-1074, 18.0, 1.0, 0.0, true},
+      {0x1.0p-1050, 18.0, 1.0, 0.0, true},
+      // DBL_MAX in the a slot, x an ordinary finite point: a >> x puts the
+      // entire Gamma(a,1) mass (mean a) far above x, so P = 0. Same
+      // direction as the existing {kInf, 1e250, 0.0, 1.0} row with a finite
+      // (but saturated) a instead of infinity -- "any negative a or x give
+      // NaN" is the only domain exclusion, and DBL_MAX is neither.
+      {kDblMax, 1.0, 0.0, 1.0, true},
+      // DBL_MAX in the x slot, a an ordinary finite point: x >> a puts x far
+      // into the tail, so P = 1. Mirrors the existing
+      // {1e250, kInf, 1.0, 0.0} row with x finite (but saturated) instead of
+      // infinite.
+      {1.0, kDblMax, 1.0, 0.0, true},
+      // Benign interior filler so the batch length (9) is not a multiple of
+      // any lane count in the fleet (2, 4, 8) -- masked lanes carry the
+      // edge rows above, not just the tail.
+      {1.0, 0.5, 0.0, 0.0, false},
+      {20.0, 20.0, 0.0, 0.0, false},
+  };
+  constexpr size_t kN = sizeof(cases) / sizeof(cases[0]);
+  static_assert(kN == 9, "edge-contract batch length must stay a non-lane-"
+                        "multiple (9) -- update the comment above if this "
+                        "changes");
+  CheckEdgeBatch(cases, kN);
 }
 
 // A spread of in-domain points covering all four regions and both sides of
@@ -265,6 +378,7 @@ void Aliasing() {
 int main() {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
   Specials();
+  EdgeContracts();
   PlusQ();
   LaneMix();
   HugeDiagonal();

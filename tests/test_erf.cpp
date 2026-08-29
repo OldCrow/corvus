@@ -5,8 +5,11 @@
 
 #include "corvus/corvus.h"
 #include "expect_target.h"
+#include "ulp_utils.h"
 
 namespace {
+
+using corvus_test::SameBits;
 
 int failures = 0;
 
@@ -45,14 +48,37 @@ int main() {
   // Specials.
   const double inf = std::numeric_limits<double>::infinity();
   const double nan = std::numeric_limits<double>::quiet_NaN();
-  std::vector<double> sp_in = {0.0, -0.0, inf, -inf, nan};
+  const double dbl_max = std::numeric_limits<double>::max();
+  // #14 N12: erf(+/-DBL_MAX), folded into the same batch call (length 7,
+  // still not a lane multiple) so the masked-lane path carries more than one
+  // special at once. corvus.h documents "Max 1 ULP over the full domain" and
+  // erf(+/-inf) = +/-1; true erf(x) is within 2^-1074 of 1 (resp. -1) once
+  // |1 - erf(x)| underflows the smallest denormal, which happens long before
+  // x = DBL_MAX (erf(6) is already 1 - 2.15e-17), so the correctly-rounded
+  // double result at DBL_MAX is exactly +/-1, not merely close to it.
+  std::vector<double> sp_in = {0.0, -0.0, inf, -inf, nan, dbl_max, -dbl_max};
   std::vector<double> sp_out(sp_in.size());
   corvus::erf(sp_in, sp_out);
-  Check(sp_out[0] == 0.0, "erf(0) == 0");
+  // #14 N6: exact-bits + signbit, not just `== 0.0` -- IEEE == treats +0 and
+  // -0 as equal, so a plain `== 0.0` cannot tell +0 from -0 and would pass
+  // even if the sign of erf(-0) regressed to +0.
+  Check(sp_out[0] == 0.0 && !std::signbit(sp_out[0]), "erf(+0) == +0");
   Check(sp_out[1] == 0.0 && std::signbit(sp_out[1]), "erf(-0) == -0");
   Check(sp_out[2] == 1.0, "erf(inf) == 1");
   Check(sp_out[3] == -1.0, "erf(-inf) == -1");
   Check(std::isnan(sp_out[4]), "erf(nan) is nan");
+  Check(sp_out[5] == 1.0, "erf(DBL_MAX) == 1");
+  Check(sp_out[6] == -1.0, "erf(-DBL_MAX) == -1");
+
+  // #14 N7: NaN propagates WITH its payload (corvus.h: "NaN propagates
+  // (payload preserved)"), not just as some quiet NaN.
+  {
+    const double payload = std::nan("42");
+    std::vector<double> pin = {payload};
+    std::vector<double> pout(1);
+    corvus::erf(pin, pout);
+    Check(SameBits(pout[0], payload), "erf(nan) preserves its NaN payload");
+  }
 
   // Exact aliasing (in-place).
   std::vector<double> buf(in);

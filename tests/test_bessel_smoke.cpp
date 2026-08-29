@@ -164,6 +164,62 @@ void OverflowBoundary() {
   }
 }
 
+// #14 N12: DBL_MAX is in-domain for every function here. i0/i1 saturate to
+// +-inf above the documented last-finite boundary (corvus.h: "I0/I1
+// saturates to +inf/+-inf for |x| above the last finite double
+// (~713.99)"), and DBL_MAX is far past it. i0e "[n]ever underflows on a
+// finite double (minimum ~3e-155 at DBL_MAX)" (corvus.h), so it must be
+// finite and strictly positive there. i1e's own brief documents an explicit
+// sign(in[i]) factor ("out[i] = sign(in[i]) * exp(-|in[i]|) * I1(|in[i]|)"),
+// which pins its sign at DBL_MAX even though corvus.h does not restate the
+// never-underflows claim for the scaled odd pair -- so only finiteness and
+// sign are asserted for i1e, not a magnitude floor. One batched call,
+// length 9 (not a lane multiple), so the masked tail carries the edge rows.
+void DblMaxEdge() {
+  const double dmax = (std::numeric_limits<double>::max)();
+  const double xs[] = {dmax, -dmax, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0};
+  static_assert(sizeof(xs) / sizeof(xs[0]) == 9, "length check");
+  std::vector<double> in(xs, xs + 9), g0(9), g1(9), g0e(9), g1e(9);
+  corvus::i0(in, g0);
+  corvus::i1(in, g1);
+  corvus::i0e(in, g0e);
+  corvus::i1e(in, g1e);
+
+  if (g0[0] != kInf) {
+    std::fprintf(stderr, "FAIL: i0(DBL_MAX) = %.17g, want +inf\n", g0[0]);
+    g_fail = 1;
+  }
+  if (g0[1] != kInf) {
+    std::fprintf(stderr, "FAIL: i0(-DBL_MAX) = %.17g, want +inf\n", g0[1]);
+    g_fail = 1;
+  }
+  if (g1[0] != kInf) {
+    std::fprintf(stderr, "FAIL: i1(DBL_MAX) = %.17g, want +inf\n", g1[0]);
+    g_fail = 1;
+  }
+  if (g1[1] != -kInf) {
+    std::fprintf(stderr, "FAIL: i1(-DBL_MAX) = %.17g, want -inf\n", g1[1]);
+    g_fail = 1;
+  }
+  if (!(std::isfinite(g0e[0]) && g0e[0] > 0.0)) {
+    std::fprintf(stderr, "FAIL: i0e(DBL_MAX) = %.17g, want finite and > 0\n",
+                 g0e[0]);
+    g_fail = 1;
+  }
+  if (!(std::isfinite(g1e[0]) && g1e[0] > 0.0)) {
+    std::fprintf(stderr,
+                 "FAIL: i1e(DBL_MAX) = %.17g, want finite and > 0 (sign "
+                 "follows the input, per the i1e brief)\n",
+                 g1e[0]);
+    g_fail = 1;
+  }
+  if (!(std::isfinite(g1e[1]) && g1e[1] < 0.0)) {
+    std::fprintf(stderr, "FAIL: i1e(-DBL_MAX) = %.17g, want finite and < 0\n",
+                 g1e[1]);
+    g_fail = 1;
+  }
+}
+
 // Known values pulled directly from the trusted mpmath-generated reference
 // rows (tests/data/i{0,1}{,e}_reference.txt), spanning series/tail and both
 // signs. Not an accuracy gate -- test_bessel_ulp owns that -- just a check
@@ -307,6 +363,7 @@ int main() {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
   Specials();
   OverflowBoundary();
+  DblMaxEdge();
   KnownValues();
   Identities();
   LaneMix();

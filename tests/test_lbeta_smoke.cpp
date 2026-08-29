@@ -67,6 +67,13 @@ int main() {
   Check(std::isnan(One(1.0, inf)), "lbeta(a,inf) is NaN");
   Check(std::isnan(One(nan, 1.0)), "lbeta(NaN,b) is NaN");
   Check(std::isnan(One(1.0, nan)), "lbeta(a,NaN) is NaN");
+  // #14 N12: b = 0 and b = -inf, straight from corvus.h's "Positive-parameter
+  // domain: a > 0 and b > 0, finite; anything else returns NaN." The a = 0
+  // and b = +inf forms above are already covered; these are their b-sided
+  // and negative-infinity counterparts. One() already batches length-3
+  // (masked-tail) spans, so no separate batch table is needed here.
+  Check(std::isnan(One(1.0, 0.0)), "lbeta(a,0) is NaN");
+  Check(std::isnan(One(1.0, -inf)), "lbeta(a,-inf) is NaN");
 
   // Tiny parameter: lbeta(m, b) ~ -ln m, positive and finite.
   Check(One(1e-300, 2.0) > 690.0 && One(1e-300, 2.0) < 692.0,

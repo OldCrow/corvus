@@ -24,7 +24,9 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <limits>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -38,6 +40,7 @@ namespace {
 
 using corvus_test::LoadRef;
 using corvus_test::ParseDouble;
+using corvus_test::SameBits;
 using corvus_test::UlpDiff;
 
 // Gate PINNED to measured, no margin. Identical cells on
@@ -114,6 +117,27 @@ int Bucketize(double a, double s, double x) {
   return t < corvus::detail::kGammaInvShallowThreshold ? kSmallTail : kSmallMid;
 }
 
+// N4: split every whole-reference-set call into [0, n-3) and [n-3, n) so the
+// trailing 3-row group always runs a masked tail, independent of whether n
+// itself happens to be a lane multiple on the tier under test. gamma's
+// 16734 rows are even (no tail on any 2-lane tier today) and gammainv-q's
+// 6520 rows are a multiple of 8 (no tail on any tier at all) -- exactly the
+// coverage gap this closes. Downstream per-row loops are untouched: they
+// only see the fully populated `got` vector.
+void CallSplit(void (*fn)(std::span<const double>, std::span<const double>,
+                          std::span<double>),
+               const std::vector<double>& a, const std::vector<double>& s,
+               std::vector<double>& out) {
+  const size_t n = a.size();
+  const size_t split = n - 3;
+  fn(std::span<const double>(a).first(split),
+     std::span<const double>(s).first(split),
+     std::span<double>(out).first(split));
+  fn(std::span<const double>(a).subspan(split),
+     std::span<const double>(s).subspan(split),
+     std::span<double>(out).subspan(split));
+}
+
 int Measure(const char* label, bool want_q, const std::vector<double>& a,
             const std::vector<double>& s, const std::vector<double>& want,
             const std::vector<double>& got) {
@@ -124,8 +148,26 @@ int Measure(const char* label, bool want_q, const std::vector<double>& a,
   Bucket cross[3] = {
       {"  ... s > 1/2 (flip)"}, {"  ... subnormal x"}, {"  ... x = 0"}};
 
+  int signed_zero_fail = 0;
   for (size_t i = 0; i < a.size(); ++i) {
-    const uint64_t u = UlpDiff(got[i], want[i]);
+    uint64_t u;
+    // N6: a reference value of exactly +/-0 has no ULP neighbourhood --
+    // UlpDiff maps both zeros to the same point (ulp_utils.h's policy
+    // comment), so it cannot see a sign regression. Check bit-exactness
+    // instead and fail with a dedicated message on any mismatch; these are
+    // exactly the rows the "x = 0" cross-cut below also counts.
+    if (want[i] == 0.0) {
+      if (!SameBits(got[i], want[i])) {
+        std::fprintf(stderr,
+                     "FAIL: %s signed-zero mismatch at a=%.17g s=%.17g "
+                     "got=%a want=%a\n",
+                     label, a[i], s[i], got[i], want[i]);
+        signed_zero_fail = 1;
+      }
+      u = 0;
+    } else {
+      u = UlpDiff(got[i], want[i]);
+    }
     Accumulate(b[Bucketize(a[i], s[i], want[i])], a[i], s[i], u);
     if (s[i] > 0.5) Accumulate(cross[0], a[i], s[i], u);
     if (want[i] > 0.0 && want[i] < (std::numeric_limits<double>::min)()) {
@@ -136,15 +178,31 @@ int Measure(const char* label, bool want_q, const std::vector<double>& a,
 
   int rc = 0;
   std::printf("--- %s (%s side) ---\n", label, want_q ? "q" : "p");
+  std::printf("%-8s %zu exact-zero reference rows (checked via SameBits)\n",
+              label, cross[2].n);
   for (const Bucket& r : b) {
     Report(r, true);
+    // N10: a named bucket that never received a row passes its gate
+    // vacuously -- a routing or reference-set regression, not a clean run.
+    if (r.n == 0) {
+      std::fprintf(stderr, "FAIL: %s %s bucket is empty (n=0)\n", label,
+                   r.name);
+      std::exit(1);
+    }
     if (r.n > 0 && r.max_ulp > kMaxUlp) {
       std::fprintf(stderr, "FAIL: %s %s exceeds gate\n", label, r.name);
       rc = 1;
     }
   }
-  for (const Bucket& r : cross) Report(r, false);
-  return rc;
+  for (const Bucket& r : cross) {
+    Report(r, false);
+    if (r.n == 0) {
+      std::fprintf(stderr, "FAIL: %s %s bucket is empty (n=0)\n", label,
+                   r.name);
+      std::exit(1);
+    }
+  }
+  return rc | signed_zero_fail;
 }
 
 }  // namespace
@@ -163,14 +221,14 @@ int main(int argc, char** argv) {
     std::vector<double> a, s, x;
     if (!LoadReference(p_path, &a, &s, &x)) return 2;
     std::vector<double> got(a.size());
-    corvus::gamma_p_inv(a, s, got);
+    CallSplit(corvus::gamma_p_inv, a, s, got);
     rc |= Measure("gamma_p_inv", false, a, s, x, got);
   }
   {
     std::vector<double> a, s, x;
     if (!LoadReference(q_path, &a, &s, &x)) return 2;
     std::vector<double> got(a.size());
-    corvus::gamma_q_inv(a, s, got);
+    CallSplit(corvus::gamma_q_inv, a, s, got);
     rc |= Measure("gamma_q_inv", true, a, s, x, got);
   }
 

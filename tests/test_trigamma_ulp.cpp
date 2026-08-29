@@ -30,6 +30,7 @@
 
 namespace {
 
+using corvus_test::SameBits;
 using corvus_test::UlpDiff;
 
 // Gate PINNED to measured, no margin. Identical cells on every validated
@@ -91,7 +92,18 @@ int main(int argc, char** argv) {
   }
 
   std::vector<double> got(in.size());
-  corvus::trigamma(in, got);
+  {
+    // #14 N4: split the whole-set call in two so the masked LoadN/StoreN
+    // tail path runs even when the reference set's length happens to be a
+    // multiple of every SIMD tier's lane count. The final call's length (3)
+    // is below every lane count, and N-3 is odd whenever N is even, so
+    // neither call can land on a lane boundary either.
+    const std::span<const double> in_s(in);
+    const std::span<double> got_s(got);
+    const size_t n = in_s.size();
+    corvus::trigamma(in_s.first(n - 3), got_s.first(n - 3));
+    corvus::trigamma(in_s.last(3), got_s.last(3));
+  }
 
   // Routing mirrors src/trigamma_data.h's own constants, so the test and the
   // kernel cannot drift apart.
@@ -104,7 +116,19 @@ int main(int argc, char** argv) {
 
   for (size_t i = 0; i < in.size(); ++i) {
     const double x = in[i];
-    const uint64_t u = UlpDiff(got[i], want[i]);
+    // #14 N6: a reference value of exactly 0.0 must be checked bit-exact --
+    // UlpDiff maps +0 and -0 to the same point, so it cannot see a sign
+    // regression there. psi_1 is a sum of squares and has no zeros (see the
+    // file header), so this reference set has no such row today; the check
+    // exists for the next regen.
+    const bool zero_ref = want[i] == 0.0;
+    const uint64_t u = zero_ref ? (SameBits(got[i], want[i]) ? 0 : UINT64_MAX)
+                                 : UlpDiff(got[i], want[i]);
+    if (zero_ref && u != 0) {
+      std::fprintf(stderr,
+                   "FAIL: signed-zero mismatch at x=%.17g: got=%.17g want=%.17g\n",
+                   x, got[i], want[i]);
+    }
     if (x < 0.0) {
       Accumulate(regions[4], x, u);
     } else if (x < corvus::detail::kTrigammaZoneLo) {
@@ -116,6 +140,22 @@ int main(int argc, char** argv) {
     } else {
       Accumulate(regions[3], x, u);
       Accumulate(asym_sub[x < corvus::detail::kTrigammaAsymCut ? 0 : 1], x, u);
+    }
+  }
+
+  // #14 N10: a routing-threshold edit that empties a bucket (including a
+  // report-only one, e.g. one side of the asym_sub 1/x-only split) must fail
+  // the gate, not silently disable it by reporting on zero rows.
+  for (const Region& r : regions) {
+    if (r.n == 0) {
+      std::fprintf(stderr, "FAIL: bucket '%s' is empty (0 rows)\n", r.name);
+      return 1;
+    }
+  }
+  for (const Region& r : asym_sub) {
+    if (r.n == 0) {
+      std::fprintf(stderr, "FAIL: bucket '%s' is empty (0 rows)\n", r.name);
+      return 1;
     }
   }
 

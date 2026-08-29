@@ -12,6 +12,7 @@
 
 namespace {
 
+using corvus_test::SameBits;
 using corvus_test::UlpDiff;
 
 // Gates, set from measured values with no margin:
@@ -47,7 +48,18 @@ int main(int argc, char** argv) {
   }
 
   std::vector<double> got(in.size());
-  corvus::erfc(in, got);
+  {
+    // #14 N4: split the whole-set call in two so the masked LoadN/StoreN
+    // tail path runs even when the reference set's length happens to be a
+    // multiple of every SIMD tier's lane count. The final call's length (3)
+    // is below every lane count, and N-3 is odd whenever N is even, so
+    // neither call can land on a lane boundary either.
+    const std::span<const double> in_s(in);
+    const std::span<double> got_s(got);
+    const size_t n = in_s.size();
+    corvus::erfc(in_s.first(n - 3), got_s.first(n - 3));
+    corvus::erfc(in_s.last(3), got_s.last(3));
+  }
 
   Region regions[] = {
       {"core |x|<=6", kMaxUlpCore},
@@ -59,7 +71,18 @@ int main(int argc, char** argv) {
   for (size_t i = 0; i < in.size(); ++i) {
     Region& r = std::abs(in[i]) <= 6.0 ? regions[0]
                 : (want[i] >= kMinNormal ? regions[1] : regions[2]);
-    const uint64_t u = UlpDiff(got[i], want[i]);
+    // #14 N6: a reference value of exactly 0.0 (this set's hard-underflow
+    // tail rows) must be checked bit-exact -- UlpDiff maps +0 and -0 to the
+    // same point (distance 0; see ulp_utils.h's policy comment), so it
+    // cannot see a sign regression there.
+    const bool zero_ref = want[i] == 0.0;
+    const uint64_t u = zero_ref ? (SameBits(got[i], want[i]) ? 0 : UINT64_MAX)
+                                 : UlpDiff(got[i], want[i]);
+    if (zero_ref && u != 0) {
+      std::fprintf(stderr,
+                   "FAIL: signed-zero mismatch at x=%.17g: got=%.17g want=%.17g\n",
+                   in[i], got[i], want[i]);
+    }
     ++r.n;
     if (u > 0) {
       ++r.miss;
@@ -67,6 +90,16 @@ int main(int argc, char** argv) {
     if (u > r.max_ulp) {
       r.max_ulp = u;
       r.worst_x = in[i];
+    }
+  }
+
+  // #14 N10: a routing-threshold edit that empties one of these buckets
+  // (e.g. moves the core/tail split so nothing lands in "tail subnormal")
+  // must fail the gate, not silently disable it by reporting on zero rows.
+  for (const Region& r : regions) {
+    if (r.n == 0) {
+      std::fprintf(stderr, "FAIL: bucket '%s' is empty (0 rows)\n", r.name);
+      return 1;
     }
   }
 

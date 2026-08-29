@@ -16,6 +16,7 @@
 
 namespace {
 
+using corvus_test::SameBits;
 using corvus_test::UlpDiff;
 
 // Gates, set from measured values with no margin (house rule): regressions
@@ -82,7 +83,15 @@ int main(int argc, char** argv) {
     std::vector<double> in, want;
     if (!LoadReference(erfinv_path, &in, &want)) return 2;
     std::vector<double> got(in.size());
-    corvus::erfinv(in, got);
+    // Two calls, not one: the second covers only the last 3 rows, a length
+    // below every lane count, forcing the masked tail path on every tier
+    // (#14 N4).
+    const size_t n = in.size();
+    const size_t split = n - 3;
+    corvus::erfinv(std::span<const double>(in.data(), split),
+                   std::span<double>(got.data(), split));
+    corvus::erfinv(std::span<const double>(in.data() + split, n - split),
+                   std::span<double>(got.data() + split, n - split));
 
     Region regions[] = {{"C", kMaxUlpErfinvC}, {"T", kMaxUlpErfinvT}};
     for (size_t i = 0; i < in.size(); ++i) {
@@ -94,6 +103,32 @@ int main(int argc, char** argv) {
         r.max_ulp = u;
         r.worst_x = in[i];
       }
+
+      // N6: UlpDiff maps +0/-0 to the same point, so a signed-zero
+      // regression needs its own SameBits check wherever the REFERENCE is
+      // exactly zero. Exempt in=-0: the checked-in reference row wrongly
+      // stores +0 there (known bug, fixed by #13's regeneration) rather
+      // than the documented erfinv(-0) == -0.
+      if (want[i] == 0.0 && !(in[i] == 0.0 && std::signbit(in[i]))) {
+        if (!SameBits(got[i], want[i])) {
+          std::fprintf(stderr,
+                       "FAIL: erfinv signed-zero mismatch at x=%.17g: "
+                       "got=%.17g want=%.17g\n",
+                       in[i], got[i], want[i]);
+          rc = 1;
+        }
+      }
+    }
+    // N10: a bucket with zero rows would otherwise pass its gate vacuously
+    // (ReportRegions only checks the gate when r.n > 0).
+    for (const Region& r : regions) {
+      if (r.n == 0) {
+        std::fprintf(stderr,
+                     "FAIL: erfinv bucket '%s' has zero reference rows -- "
+                     "the gate would be vacuous\n",
+                     r.name);
+        return 1;
+      }
     }
     rc |= ReportRegions("erfinv", regions, 2);
   }
@@ -103,7 +138,15 @@ int main(int argc, char** argv) {
     std::vector<double> in, want;
     if (!LoadReference(erfcinv_path, &in, &want)) return 2;
     std::vector<double> got(in.size());
-    corvus::erfcinv(in, got);
+    // Two calls, not one: the second covers only the last 3 rows, a length
+    // below every lane count, forcing the masked tail path on every tier
+    // (#14 N4).
+    const size_t n = in.size();
+    const size_t split = n - 3;
+    corvus::erfcinv(std::span<const double>(in.data(), split),
+                    std::span<double>(got.data(), split));
+    corvus::erfcinv(std::span<const double>(in.data() + split, n - split),
+                    std::span<double>(got.data() + split, n - split));
 
     Region regions[] = {{"C", kMaxUlpErfcinvC},
                         {"T-mid", kMaxUlpErfcinvTMid},
@@ -119,6 +162,29 @@ int main(int argc, char** argv) {
       if (u > r.max_ulp) {
         r.max_ulp = u;
         r.worst_x = z;
+      }
+
+      // N6, same rationale as the erfinv block above. No known-bad row
+      // here: the one ±0-reference row in this file (input=1, want=+0) is
+      // correct per the documented erfcinv(1) == +0.
+      if (want[i] == 0.0) {
+        if (!SameBits(got[i], want[i])) {
+          std::fprintf(stderr,
+                       "FAIL: erfcinv signed-zero mismatch at x=%.17g: "
+                       "got=%.17g want=%.17g\n",
+                       z, got[i], want[i]);
+          rc = 1;
+        }
+      }
+    }
+    // N10: a bucket with zero rows would otherwise pass its gate vacuously.
+    for (const Region& r : regions) {
+      if (r.n == 0) {
+        std::fprintf(stderr,
+                     "FAIL: erfcinv bucket '%s' has zero reference rows -- "
+                     "the gate would be vacuous\n",
+                     r.name);
+        return 1;
       }
     }
     rc |= ReportRegions("erfcinv", regions, 3);

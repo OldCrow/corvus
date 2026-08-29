@@ -90,6 +90,22 @@ constexpr double kKappaMaxPar = 1e12;
 // Gamma-limit transfer territory, the kernel's own S3 availability gate.
 constexpr double kGammaLimit = 0x1.0p+20;
 
+// #14 N4: masked-tail split. betainv_p_reference.txt is 8752 rows -- a
+// multiple of 8, so a single whole-set call never exercises the masked-tail
+// path on any validated tier today. Splitting into subspans [0, n-3) and
+// [n-3, n) makes neither half a lane multiple regardless of what n is;
+// each call is independently masked and stateless, so this is row-for-row
+// identical to one call.
+template <typename Fn, typename... In>
+void SplitCall(Fn fn, std::vector<double>& out, const In&... in) {
+  const size_t n = out.size();
+  const size_t split = n - 3;
+  fn(std::span<const double>(in).subspan(0, split)...,
+     std::span<double>(out).subspan(0, split));
+  fn(std::span<const double>(in).subspan(split)...,
+     std::span<double>(out).subspan(split));
+}
+
 double UlpOf(double x) {
   const double n = std::nextafter(std::fabs(x),
                                   std::numeric_limits<double>::infinity());
@@ -292,6 +308,15 @@ int Measure(const char* label, bool want_q, const std::vector<Row>& rows,
   std::snprintf(gateh, sizeof(gateh), "gate %llu",
                 static_cast<unsigned long long>(kMaxUlpHugeNu));
   for (int k = 0; k < kNBuckets; ++k) {
+    // #14 N10: a bucket that never accumulated a row is a gate that never
+    // actually ran; the reference set is certified to exercise every named
+    // regime (see the file banner), so n=0 here means a routing predicate
+    // drifted from the kernel's, not that the regime is legitimately absent.
+    if (b[k].n == 0) {
+      std::fprintf(stderr, "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n",
+                   label, b[k].name);
+      rc = 1;
+    }
     // The ill-conditioned bucket is NOT a y-ULP bucket: its rows are held to
     // the backward-error contract reported below, exactly as the P rows are.
     if (k == kIllCond) {
@@ -309,6 +334,12 @@ int Measure(const char* label, bool want_q, const std::vector<Row>& rows,
   std::snprintf(gateb, sizeof(gateb), "gate %llu",
                 static_cast<unsigned long long>(kMaxUlpBeyond));
   Report(beyond, gateb);
+  if (beyond.n == 0) {
+    std::fprintf(stderr,
+                 "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n", label,
+                 beyond.name);
+    rc = 1;
+  }
   if (beyond.n > 0 && beyond.max_ulp > kMaxUlpBeyond) {
     std::fprintf(stderr, "FAIL: %s beyond-resolution rows exceed gate\n",
                  label);
@@ -319,6 +350,13 @@ int Measure(const char* label, bool want_q, const std::vector<Row>& rows,
       "worst a=%.17g b=%.17g s=%.17g\n",
       "P rows (backward error)", n_p, worst_back, kMaxBackwardUlp, back_a,
       back_b, back_s);
+  if (n_p == 0) {
+    std::fprintf(stderr,
+                 "FAIL: %s P rows (backward error) bucket is empty (n=0) -- "
+                 "vacuous gate\n",
+                 label);
+    rc = 1;
+  }
   if (n_p > 0 && worst_back > kMaxBackwardUlp) {
     std::fprintf(stderr, "FAIL: %s plateau backward-error contract\n", label);
     rc = 1;
@@ -328,6 +366,13 @@ int Measure(const char* label, bool want_q, const std::vector<Row>& rows,
       "worst a=%.17g b=%.17g s=%.17g\n",
       "kappa > 2^18 (backward)", n_ill, worst_ill, kMaxBackwardUlp, ill_a,
       ill_b, ill_s);
+  if (n_ill == 0) {
+    std::fprintf(stderr,
+                 "FAIL: %s kappa > 2^18 (backward) bucket is empty (n=0) -- "
+                 "vacuous gate\n",
+                 label);
+    rc = 1;
+  }
   if (n_ill > 0 && worst_ill > kMaxBackwardUlp) {
     std::fprintf(stderr, "FAIL: %s ill-conditioned backward-error contract\n",
                  label);
@@ -348,11 +393,11 @@ int Run(const char* label, bool want_q, const char* path) {
     s[i] = rows[i].s;
   }
   if (want_q) {
-    corvus::beta_q_inv(a, bb, s, got);
-    corvus::beta_q(a, bb, got, fwd);
+    SplitCall(corvus::beta_q_inv, got, a, bb, s);
+    SplitCall(corvus::beta_q, fwd, a, bb, got);
   } else {
-    corvus::beta_p_inv(a, bb, s, got);
-    corvus::beta_p(a, bb, got, fwd);
+    SplitCall(corvus::beta_p_inv, got, a, bb, s);
+    SplitCall(corvus::beta_p, fwd, a, bb, got);
   }
   return Measure(label, want_q, rows, got, fwd);
 }

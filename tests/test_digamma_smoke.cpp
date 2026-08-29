@@ -127,6 +127,60 @@ void KnownValues() {
   }
 }
 
+// Batch-evaluated specials (#14 N12): a representative slice of the specials
+// table above, plus DBL_MAX -- verified correct only by probe until now --
+// evaluated together in ONE span call of non-lane-multiple length (9) so the
+// masked-lane path carries more than one special value at a time, the way
+// Specials()'s one-at-a-time CheckSpecial() calls never do.
+//
+// psi(DBL_MAX): corvus.h defines psi(x) = d/dx log Gamma(x) = Gamma'(x)/
+// Gamma(x) on the whole real axis. The standard asymptotic expansion
+// psi(x) = ln(x) - 1/(2x) - O(1/x^2) has a 1/(2x) correction of order 2^-1024
+// at x = DBL_MAX -- far below one ULP of the ~710 result -- so the
+// correctly-rounded double result is exactly the correctly-rounded
+// ln(DBL_MAX) (0x1.62e42fefa39efp+9), checked here with the same 2-ULP
+// tolerance KnownValues() uses.
+void SpecialsBatch() {
+  struct Case {
+    double x, want;
+    bool ulp_tol;  // true: UlpDiff(got, want) <= 2; false: NaN-or-signed-exact
+  };
+  const double ln_dbl_max = 0x1.62e42fefa39efp+9;
+  const Case cases[] = {
+      {0.0, -kInf, false},
+      {-0.0, kInf, false},
+      {-1.0, kNan, false},
+      {-2.0, kNan, false},
+      {kInf, kInf, false},
+      {-kInf, kNan, false},
+      {5e-324, -kInf, false},
+      {-5e-324, kInf, false},
+      {std::numeric_limits<double>::max(), ln_dbl_max, true},
+  };
+  std::vector<double> in, got;
+  for (const Case& c : cases) in.push_back(c.x);
+  got.resize(in.size());
+  corvus::digamma(in, got);
+  for (size_t i = 0; i < in.size(); ++i) {
+    const Case& c = cases[i];
+    bool ok;
+    if (c.ulp_tol) {
+      ok = UlpDiff(got[i], c.want) <= 2;
+    } else if (std::isnan(c.want)) {
+      ok = std::isnan(got[i]);
+    } else {
+      ok = got[i] == c.want && std::signbit(got[i]) == std::signbit(c.want);
+    }
+    if (!ok) {
+      std::fprintf(stderr,
+                   "FAIL: SpecialsBatch[%zu]: digamma(%.17g) = %.17g, want "
+                   "%.17g\n",
+                   i, c.x, got[i], c.want);
+      g_fail = 1;
+    }
+  }
+}
+
 // A spread of in-domain points covering every region, both sides of every
 // boundary the driver tests, and the walk at every depth 1..6.
 std::vector<double> Probes() {
@@ -183,6 +237,7 @@ void LaneMix() {
 int main() {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
   Specials();
+  SpecialsBatch();
   KnownValues();
   LaneMix();
   if (g_fail == 0) std::printf("PASS: digamma smoke\n");

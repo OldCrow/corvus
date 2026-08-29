@@ -141,6 +141,85 @@ void Specials() {
   }
 }
 
+// #14 N12: edge contracts straight from corvus.h, evaluated as ONE batched
+// span call (length 13, not a lane multiple) so the masked-tail path carries
+// them. Every row here is a mass-degenerate constant answer, which does not
+// depend on which probability convention a given numeric `s` is read as, so
+// the same batch is checked against both beta_p_inv and beta_q_inv.
+//
+// The positive-SUBNORMAL-a rows are BEHAVIOR-DERIVED, not a header quote:
+// corvus.h names only the a = 0 degeneracy and the joint-tiny (both
+// parameters below ~1e-16) backward contract. The +0 expectation follows
+// from the collapse argument -- as a -> 0+ with b ordinary, every interior
+// quantile falls below the smallest positive double (the deep-small closed
+// form's exponent is ~(ln s)/a), so the correctly rounded answer is +0 for
+// any s in (0, 1); probed on AVX3_ZEN4 at the v0.6.0 unfreeze, both
+// orientations. Bracket-certified reference rows are #13's business.
+void EdgeContractsN12() {
+  struct Case {
+    double a, b, s, want;  // want is the SAME for beta_p_inv and beta_q_inv:
+                           // every row is a mass-degenerate constant.
+    const char* why;
+  };
+  const Case cases[] = {
+      // b = -0: "b = 0 ... puts all the mass at 1" (corvus.h) does not
+      // distinguish the sign of the degenerate zero -- mirrors the already-
+      // tested "b = 0" row and the already-tested "a = -0" row above.
+      {2.0, -0.0, 0.25, 1.0, "b = -0 (mass at 1)"},
+      {2.0, -0.0, 0.75, 1.0, "b = -0 (mass at 1)"},
+      // Two-way degeneracy missing from the existing table: a = +inf AND
+      // b = 0 together (the reverse of the already-tested a = 0, b = +inf
+      // pair). corvus.h: "Any two-way degeneracy among {a in {0, +inf},
+      // b in {0, +inf}} gives NaN" -- both endpoints are hit here.
+      {kInf, 0.0, 0.5, NAN, "a = inf, b = 0"},
+      // Padding: exact single-degeneracy mass-point identities, not
+      // arbitrary filler.
+      {0.0, 2.0, 0.3, 0.0, "pad: a = 0 (mass at 0)"},
+      {2.0, kInf, 0.6, 0.0, "pad: b = inf (mass at 0)"},
+      {2.0, 0.0, 0.4, 1.0, "pad: b = 0 (mass at 1)"},
+      {kInf, 2.0, 0.7, 1.0, "pad: a = inf (mass at 1)"},
+      {0.0, 2.0, 0.9, 0.0, "pad: a = 0 (mass at 0)"},
+      {2.0, kInf, 0.1, 0.0, "pad: b = inf (mass at 0)"},
+      // Positive-subnormal a, ordinary b: +0 both orientations (see the
+      // header comment -- behavior-derived collapse limit, not a quote).
+      {0x1.0p-1074, 2.0, 0.25, 0.0, "subnormal a (collapse to +0)"},
+      {0x1.0p-1050, 2.0, 0.25, 0.0, "subnormal a (collapse to +0)"},
+      {0x1.0p-1074, 0.5, 0.5, 0.0, "subnormal a (collapse to +0)"},
+      {0x1.0p-1050, 0.5, 0.5, 0.0, "subnormal a (collapse to +0)"},
+  };
+  static_assert(sizeof(cases) / sizeof(cases[0]) == 13, "length check");
+  std::vector<double> a, b, s;
+  for (const Case& c : cases) {
+    a.push_back(c.a);
+    b.push_back(c.b);
+    s.push_back(c.s);
+  }
+  std::vector<double> gp(a.size()), gq(a.size());
+  corvus::beta_p_inv(a, b, s, gp);
+  corvus::beta_q_inv(a, b, s, gq);
+  for (size_t i = 0; i < a.size(); ++i) {
+    const Case& c = cases[i];
+    auto check = [&](const char* fname, double got) {
+      // A zero expectation means +0 specifically: quantiles are >= 0 and a
+      // -0 here would be a sign regression UlpDiff-style checks cannot see.
+      const bool ok = std::isnan(c.want)
+                          ? std::isnan(got)
+                          : (c.want == 0.0
+                                 ? (got == 0.0 && !std::signbit(got))
+                                 : got == c.want);
+      if (!ok) {
+        std::fprintf(stderr,
+                     "FAIL: %s(%.17g, %.17g, %.17g) [%s] = %.17g, want "
+                     "%.17g\n",
+                     fname, c.a, c.b, c.s, c.why, got, c.want);
+        g_fail = 1;
+      }
+    };
+    check("beta_p_inv", gp[i]);
+    check("beta_q_inv", gq[i]);
+  }
+}
+
 // The tolerance is dominated by the REFERENCE, not by the kernel. Every
 // closed form here is exp(L/e) with L a log, and L carries |L|*2^-53
 // absolutely, so the reference's own relative error is |L|*2^-53/e -- which at
@@ -415,6 +494,7 @@ void LaneMix() {
 int main() {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
   Specials();
+  EdgeContractsN12();
   ClosedForm();
   SwapIdentity();
   RoundTrip();
