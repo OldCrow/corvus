@@ -161,7 +161,19 @@ target_compile_options(corvus PRIVATE ${CORVUS_WARN_FLAGS})
 # every fusion they want is already an explicit ops::MulAdd — which is the
 # point: fusion should be requested in the source, not inferred.
 #
-# MSVC's default (/fp:precise) already does not contract, so it needs nothing.
+# MSVC's default (/fp:precise) already does not contract, so it needs
+# nothing — but ONLY from VS 2022 (cl 19.30): before 17.0, /fp:precise DID
+# contract a*b+c to FMA whenever /arch:AVX2 or higher was on the command
+# line, and MSVC has no contract-off switch to pin the older behavior. A
+# VS 2019 build with /arch:AVX2 would silently fuse the dd layer, so the
+# floor is fatal rather than advisory (#16; docs/ENVIRONMENT.md records it).
+if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND MSVC_VERSION LESS 1930)
+  message(FATAL_ERROR
+    "corvus requires MSVC 19.30+ (Visual Studio 2022): older cl.exe "
+    "contracts a*b+c to FMA under /arch:AVX2 with no off switch, which "
+    "breaks the double-double layer's exactness proofs (MSVC_VERSION is "
+    "${MSVC_VERSION}). Use VS 2022, clang-cl, or GCC/Clang.")
+endif()
 set(CORVUS_FP_FLAGS "")
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND MSVC)
   list(APPEND CORVUS_FP_FLAGS /clang:-ffp-contract=off)  # clang-cl driver

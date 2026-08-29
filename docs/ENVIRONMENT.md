@@ -94,6 +94,20 @@ the WinLibs `mingw64/bin` first on `PATH` — a Git Bash shell puts Git for
 Windows' own `libstdc++-6.dll` ahead of it, and the ABI mismatch segfaults
 the test before it prints anything.
 
+**MSVC version floor: cl 19.30+ (VS 2022), enforced fatally at configure
+(#16).** The "MSVC's default does not contract" premise that lets corvus
+set no FP flag for real MSVC holds only from 17.0; before that,
+`/fp:precise` contracted `a*b+c` to FMA whenever `/arch:AVX2` or higher
+was on the command line, and MSVC has no contract-off switch — a VS 2019
+user adding `/arch:AVX2` (natural for a SIMD library) would silently fuse
+the dd layer's TwoSum/Fast2Sum. Rejecting user `/arch:` flags at
+configure was considered and declined: on the enforced floor
+`/fp:precise` does not contract regardless of `/arch:`, so the flag is
+harmless there and policing it adds nothing. The IntelLLVM branch of the
+contraction regex remains a separate, unvalidated hazard (icpx
+`-fp-model=fast` is not overridden) — unvalidated because no icpx machine
+is in the fleet.
+
 ## Build detail
 
 ```sh
