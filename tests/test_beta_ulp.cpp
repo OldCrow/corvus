@@ -53,8 +53,15 @@ using corvus_test::UlpDiff;
 // 1 ULP there (worst at (40, 1e307, 1.6e-306), verified against mpmath
 // betainc at dps 380 -- the kernel is one ulp off there). Every other cell
 // is unaffected.
+//
+// R2-dir 0 -> 1 at the #13 regeneration: the single-rounding reference fix
+// moved ONE subnormal-Q row (1.97e-300, 24.68, 0.474) one ulp closer to
+// truth (re-verified against mpmath betainc at dps 400; the true value
+// sits 0.60 ulp above the old double-rounded row). The kernel agreed with
+// the OLD row, so its true error there is 1 ulp -- the old 0 was an
+// artifact of the reference's own double rounding, not a kernel change.
 constexpr uint64_t kGateR1Dir = 1, kGateR1Cmp = 1;
-constexpr uint64_t kGateR2Dir = 0, kGateR2Cmp = 0;
+constexpr uint64_t kGateR2Dir = 1, kGateR2Cmp = 0;
 constexpr uint64_t kGateR3Dir = 3, kGateR3Cmp = 1;
 constexpr uint64_t kGateR4Dir = 2, kGateR4Cmp = 0;
 constexpr uint64_t kGatePrDir = 1, kGatePrCmp = 0;

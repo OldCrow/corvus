@@ -42,6 +42,8 @@ import sys
 
 import mpmath as mp
 
+from refgen_common import round_to_double
+
 mp.mp.dps = 100
 
 SEED = 20260727
@@ -217,6 +219,10 @@ def check_oracle_overlap(fits):
 # --- helpers -----------------------------------------------------------------
 def as_bits(x):
     return struct.unpack("<Q", struct.pack("<d", x))[0]
+
+
+def from_bits(b):
+    return struct.unpack("<d", struct.pack("<Q", b))[0]
 
 
 def hexd(x):
@@ -438,6 +444,32 @@ def gen_r3_deep_tail(ps):
           f"{len(ps.pts) - n0} points", file=sys.stderr)
 
 
+def gen_diag_huge(ps):
+    """Deterministic huge-a diagonal stratum (#12 regression rows).
+
+    Draws NO rng -- called after the seeded-rng builders and before
+    gen_dd_special_reference(rng) so the shared rng call sequence (and
+    therefore that file's points) stays unchanged; see main().
+
+    At a in {2^996, 2^997, 2^1000, DBL_MAX}, x = a +/- a few ULPs: k=0 is
+    the exact diagonal (lambda=1 exactly, P=Q~0.5 via the Temme oracle at
+    eta=0); k!=0 puts lambda within ~k*2^-52 of 1, so
+    phi(lambda) ~ (lambda-1)^2/2 ~ k^2*2^-105 and a*phi ~ k^2*2^891 --
+    astronomically past APHI_SAT=800 -- so oracle_pq's existing saturation
+    branch returns the exact (1,0)/(0,1) pair with no Temme evaluation at
+    all. No special-casing needed here beyond point selection.
+    """
+    n0 = len(ps.pts)
+    for a0 in (2.0 ** 996, 2.0 ** 997, 2.0 ** 1000, sys.float_info.max):
+        for k in range(-3, 4):
+            x = from_bits(as_bits(a0) + k)
+            if not math.isfinite(x):
+                continue  # DBL_MAX, k>0 -> inf: skip
+            ps.add(a0, x, keep_if_saturated=True)
+    print(f"  diag-huge (#12 regression): {len(ps.pts) - n0} points",
+          file=sys.stderr)
+
+
 # --- oracle evaluation + emission ---------------------------------------------
 MIN_SUBNORMAL = math.ldexp(1.0, -1074)  # smallest positive double
 
@@ -453,7 +485,7 @@ def compute_and_write(ps, fits):
             continue
         if not (mp.isfinite(P) and mp.isfinite(Q)):
             continue
-        Pf, Qf = float(P), float(Q)
+        Pf, Qf = round_to_double(P), round_to_double(Q)
         if not (math.isfinite(Pf) and math.isfinite(Qf)):
             continue
         if not keep_sat:
@@ -523,8 +555,8 @@ def gen_dd_special_reference(rng):
             seen_bits.add(b)
             um = mp.mpf(u)
             phi = um - mp.log1p(um)
-            phi_hi = float(phi)
-            phi_lo = float(phi - mp.mpf(phi_hi))
+            phi_hi = round_to_double(phi)
+            phi_lo = round_to_double(phi - mp.mpf(phi_hi))
             rows.append((u, phi_hi, phi_lo))
 
     with open("tests/data/dd_special_reference.txt", "w") as f:
@@ -559,6 +591,7 @@ def main():
     gen_r2(ps, rng)
     gen_r3(ps, rng)
     gen_r3_deep_tail(ps)
+    gen_diag_huge(ps)  # no rng draw -- rng stream into gen_dd_special_reference below is unaffected
     print(f"  total distinct (a,x) points: {len(ps.pts)}", file=sys.stderr)
 
     print("evaluating oracle + writing gamma_p/q_reference.txt ...",

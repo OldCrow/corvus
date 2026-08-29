@@ -22,6 +22,7 @@ Usage:
 """
 
 import random
+import struct
 import sys
 
 import mpmath as mp
@@ -94,6 +95,14 @@ def horner_double(mono_d, s):
     return acc
 
 
+def as_bits(x):
+    return struct.unpack("<Q", struct.pack("<d", x))[0]
+
+
+def from_bits(b):
+    return struct.unpack("<d", struct.pack("<Q", b))[0]
+
+
 def main():
     rng = random.Random(20260721)
     fits = []
@@ -110,6 +119,20 @@ def main():
         worst = 0.0
         for _ in range(3000):
             u = rng.uniform(ulo, uhi)
+            s = u * scale + shift
+            got = horner_double(mono_d, s)
+            want = G(1.0 / u)
+            rel = abs((mp.mpf(got) - want) / want)
+            worst = max(worst, float(rel))
+        # Bit-stepped edge points: a uniform-u sample never lands within
+        # ~1e-10 of an interval edge, exactly where coherent Chebyshev
+        # coefficient rounding puts the worst points (doctrine). Same
+        # rel-error check, same worst/REL_TARGET gate.
+        edge_pts = [from_bits(as_bits(ulo) + k) for k in range(0, 129)]
+        edge_pts += [from_bits(as_bits(uhi) + k) for k in range(-128, 1)]
+        for u in edge_pts:
+            if not (ulo <= u <= uhi):
+                continue
             s = u * scale + shift
             got = horner_double(mono_d, s)
             want = G(1.0 / u)

@@ -94,6 +94,7 @@ Usage:
     python3 tools/gen_betainv_reference.py     # resumable; re-run until
                                                   # it reports DONE
 """
+import hashlib
 import math
 import os
 import random
@@ -109,6 +110,7 @@ sys.path.insert(0, os.path.join(REPO, "tools"))
 import gen_beta_data as gb          # noqa: E402  region cores, B_GL, T_RIDGE, ZETA_MAX
 import gen_beta_reference as gbr    # noqa: E402  small_side_direct (audited oracle)
 import gen_betainv_data as bid      # noqa: E402  seed_for, betainv_forward, r1_value_mp, ...
+from refgen_common import round_to_double  # noqa: E402  single-rounding mpf->double (#13 N14)
 
 SEED = 20260810  # fixed seed for reproducible point-set generation --
                   # changing it changes the RNG draw sequence, which
@@ -575,10 +577,17 @@ def deep_small_ly0(a, b, sigma, side, dps):
             lnB = mp.loggamma(b_m) + mp.loggamma(a_m) - mp.loggamma(a_m + b_m)
             ln_t = (mp.log(sigma_m) + mp.log(b_m) + lnB) / b_m
         y0_mpf = mp.e ** ln_t
+        # round_to_double (#13 N14): y0_mpf can land in SUBNORMAL territory
+        # (this IS the deep-small closed form's own target range) --
+        # float(mpf) there double-rounds (53-bit mantissa round, then a
+        # second ldexp round onto the 2^-1074 grid), up to 1 ulp off
+        # correctly rounded. Single-rounding matters here specifically
+        # because this yd_rounded IS the certified value (yd_override
+        # aside), not a seed.
         if side == "p":
-            yd_rounded = float(y0_mpf) if y0_mpf > 0 else 0.0
+            yd_rounded = round_to_double(y0_mpf) if y0_mpf > 0 else 0.0
         else:
-            yd_rounded = 1.0 - float(y0_mpf) if y0_mpf > 0 else 1.0
+            yd_rounded = 1.0 - round_to_double(y0_mpf) if y0_mpf > 0 else 1.0
         bound = bid._deep_small_dropped_rel(a_m, b_m, y0_mpf, side, dps=dps)
         return ln_t, yd_rounded, bound
 
@@ -880,7 +889,10 @@ def oracle_y_audited(a, b, target, side, seed_hint, dps=60,
                 hi, fhi = mid, fm
             if hi - lo < mp.mpf(10) ** (-(dps - 5)):
                 break
-        return float(bid.sigmoid((lo + hi) / 2))
+        # round_to_double (#13 N14): this IS the certified double the
+        # gamma-limit-seam stratum ships -- single rounding, not float()'s
+        # potential double-rounding in the subnormal band.
+        return round_to_double(bid.sigmoid((lo + hi) / 2))
 
 
 def certify_row(a, b, sigma, side, tag, dps_layers=(60, 100), yd_override=None):
@@ -945,7 +957,12 @@ def certify_row(a, b, sigma, side, tag, dps_layers=(60, 100), yd_override=None):
     if y_star is None:
         return {"yd": None, "certified": False, "method": "root-find-failed",
                 "marker": "N", "kappa": None}
-    yd = float(y_star)
+    # round_to_double (#13 N14): the oracle root becomes the double output
+    # here -- y_star can land in subnormal territory (underflow-threshold/
+    # subnormal-y strata target exactly that range), where float(mpf)
+    # double-rounds. Single rounding, matching deep_small_ly0/
+    # oracle_y_audited's own sites.
+    yd = round_to_double(y_star)
     if not (math.isfinite(yd) and 0.0 <= yd <= 1.0):
         return {"yd": yd, "certified": False, "method": "non-finite-yd",
                 "marker": "N", "kappa": None}
@@ -1780,9 +1797,24 @@ def hexd(x):
     return float(x).hex()
 
 
+def as_bits(x):
+    return struct.unpack("<Q", struct.pack("<d", x))[0]
+
+
 def compute_all(ps):
     total = len(ps.pts)
-    sig = f"v1 SEED={SEED} N={total}"
+    # Point-bits digest signature (NUMERICAL-DOCTRINE.md's binding rule: a
+    # checkpoint signature must bind to the POINT IDENTITIES, not just the
+    # count -- an edit that preserves N would otherwise replay stale
+    # oracle values under new point identities; gen_beta_reference.py's
+    # r4huge_append is the pattern). Digests the FULL dedup identity
+    # PointSet.add keys on -- (a, b, sigma, side), side as one byte; tag
+    # is display-only and deliberately excluded.
+    dig = hashlib.sha256()
+    for a, b, sigma, side, _tag in ps.pts:
+        dig.update(struct.pack("<QQQB", as_bits(a), as_bits(b),
+                               as_bits(sigma), 0 if side == "p" else 1))
+    sig = f"v1-{dig.hexdigest()[:16]} SEED={SEED} N={total}"
     done_map = load_checkpoint(CKPT_PATH, sig)
     status(f"checkpoint: {len(done_map)}/{total} points already computed ({CKPT_PATH})")
 
@@ -1967,7 +1999,13 @@ HUGE_CORNER_WALL_BUDGET_S = 260.0
 
 def compute_huge_corner(pts):
     total = len(pts)
-    sig = f"v1 SEED={SEED} N={total}"
+    # Point-bits digest signature -- same rule/shape as compute_all above
+    # (full (a, b, sigma, side) identity, side as one byte).
+    dig = hashlib.sha256()
+    for a, b, sigma, side, _tag in pts:
+        dig.update(struct.pack("<QQQB", as_bits(a), as_bits(b),
+                               as_bits(sigma), 0 if side == "p" else 1))
+    sig = f"v1-{dig.hexdigest()[:16]} SEED={SEED} N={total}"
     done_map = load_checkpoint(CKPT_HUGE_CORNER_PATH, sig)
     status(f"huge-corner checkpoint: {len(done_map)}/{total} already computed "
            f"({CKPT_HUGE_CORNER_PATH})")
@@ -2083,6 +2121,88 @@ def write_rows(rows_p, rows_q):
 
 
 # ============================================================================
+# Part 12b: x=0 stratum (#14 gap). NEITHER betainv reference file has a row
+# whose correctly-rounded output is exactly 0.0, so the ULP gate's x=0
+# cross bucket has been silently empty since it was written. Constructed
+# OUTSIDE compute_all/PointSet: no root-finding is needed (the output is
+# the fixed constant +0.0), so these rows carry NO checkpoint entry --
+# deterministic, code-defined points carry no staleness hazard (nothing
+# for the point-bits digest in N14.1 to protect against).
+#
+# CERTIFICATION (mandatory per row): the correctly rounded root is +0.0
+# iff the true (infinite-precision) root is strictly < 2^-1075 -- exactly
+# half the smallest positive subnormal double; the exact tie 2^-1075
+# itself also rounds to 0.0 under ties-to-even (0 is the even neighbor),
+# so a strict "<" test is the whole predicate.
+#   p-side: P(a,b,y) is increasing in y, so P(a,b,2^-1075) > s implies the
+#     true root y* (solving P(a,b,y*)=s) satisfies y* < 2^-1075.
+#   q-side: Q(a,b,y) = 1-P(a,b,y) is DEcreasing in y, so Q(a,b,2^-1075) < s,
+#     i.e. P(a,b,2^-1075) > 1-s, implies the true root y* satisfies
+#     y* < 2^-1075 by the same increasing-P argument.
+# Evaluated via bid.r1_value_mp -- the file's own validated tiny-x
+# machinery (the fast_series/R1 route fast_vs_full_validate exercises;
+# this call sits exactly in its R1-tiny regime), at dps=80 (>=60 floor).
+# ============================================================================
+_X0_Y_TINY = mp.mpf(2) ** -1075
+_X0_DPS = 80
+_X0_P_SIDE_AB = [(a, b) for a in (0.05, 0.25, 0.5, 0.9) for b in (0.5, 2.0, 37.5)]
+_X0_Q_SIDE_AB = [(a, b) for a in (0.01, 0.02, 0.04) for b in (0.5, 2.0, 8.0)]
+
+
+def _x0_certified(a, b, s, side, dps=_X0_DPS):
+    """True iff the true root for (a,b,s,side) is provably < 2^-1075 (so
+    the correctly-rounded double is +0.0) -- see the module comment above
+    for the two per-side inequalities."""
+    p_tiny = bid.r1_value_mp(a, b, _X0_Y_TINY, dps)
+    s_m = mp.mpf(s)
+    if side == "p":
+        return bool(p_tiny > s_m)
+    return bool((1 - p_tiny) < s_m)
+
+
+def gen_x_zero_rows():
+    """Returns (rows_p, rows_q, err). err is None on success; otherwise a
+    string naming the failure ('predicate-broken' from the negative
+    control, or 'candidate-failed' from a per-row certification miss) and
+    rows_p/rows_q are None -- caller (main()) turns this into the exit
+    code (mirrors negative_controls()'s own contract: nothing is written
+    on failure)."""
+    # NEGATIVE CONTROL FIRST (house exit-2 pattern, see negative_controls()
+    # above): (a=0.5, b=2.0, s=0.5) has an ORDINARY root (P(a,b,2^-1075) is
+    # astronomically smaller than 0.5) -- the predicate MUST reject it.
+    if _x0_certified(0.5, 2.0, 0.5, "p"):
+        print("  [x0-control] a=5.000000e-01 b=2.000000e+00 s=5.000000e-01 "
+              "(p) -> ACCEPTED (FATAL BUG)", file=sys.stderr)
+        status("x0 negative control: ACCEPTED (FATAL BUG)")
+        return None, None, "predicate-broken"
+    print("  [x0-control] a=5.000000e-01 b=2.000000e+00 s=5.000000e-01 "
+          "(p) -> REJECTED (correct)", file=sys.stderr)
+    status("x0 negative control: REJECTED (correct)")
+
+    rows_p, rows_q = [], []
+    for a, b in _X0_P_SIDE_AB:
+        e = min(1074, math.ceil(a * 1085))
+        s = 2.0 ** -e
+        if not _x0_certified(a, b, s, "p"):
+            print(f"FATAL: x=0 p-side candidate failed certification: "
+                  f"a={a!r} b={b!r} s={s!r} (E={e}) -- true root does not "
+                  f"provably round to 0.0 (E formula may be wrong).",
+                  file=sys.stderr)
+            return None, None, "candidate-failed"
+        rows_p.append((a, b, s, 0.0, "N"))
+    for a, b in _X0_Q_SIDE_AB:
+        s = math.nextafter(1.0, 0.0)
+        if not _x0_certified(a, b, s, "q"):
+            print(f"FATAL: x=0 q-side candidate failed certification: "
+                  f"a={a!r} b={b!r} s={s!r} -- true root does not provably "
+                  f"round to 0.0 (E formula may be wrong).", file=sys.stderr)
+            return None, None, "candidate-failed"
+        rows_q.append((a, b, s, 0.0, "N"))
+    status(f"x0 stratum: {len(rows_p)} p-rows, {len(rows_q)} q-rows certified")
+    return rows_p, rows_q, None
+
+
+# ============================================================================
 # Part 13: main.
 # ============================================================================
 def main():
@@ -2112,6 +2232,34 @@ def main():
         return 1
 
     n_done, worst, worst_at = fast_vs_full_validate(random.Random(SEED ^ 0xB17A), n=40)
+    # Hard gate (#13 N14.2): fast_vs_full_validate was print-only, and its
+    # own try/except-continue silently shrinks the sample below n=40 on
+    # any exception -- neither failure mode was enforced before this. The
+    # fast route (bid.r1_value_mp) only SEEDS root-finding in the
+    # r1-tiny/joint-tiny strata; bracket certification against the
+    # audited oracle is independent of it, so this gate catches gross
+    # route divergence, not a certification defect. 1e-20 is ~4 orders of
+    # magnitude below double resolution (~1e-16) and far above the dps-80
+    # mpf route agreement measured empirically -- do not loosen this
+    # threshold without re-deriving that margin.
+    if n_done < 30 or worst > 1e-20:
+        print(f"\nFAILED: fast-vs-full validation gate tripped "
+              f"(n_done={n_done}/40, worst={worst:.3e} at {worst_at}). "
+              f"Aborting, nothing written.", file=sys.stderr)
+        return 1
+
+    zero_p, zero_q, zero_err = gen_x_zero_rows()
+    if zero_err == "predicate-broken":
+        print("\nFATAL: x=0 stratum negative control was ACCEPTED -- the "
+              "certification predicate is not rejecting a known-ordinary "
+              "root. Aborting, nothing written.", file=sys.stderr)
+        return 2
+    if zero_err is not None:
+        print("\nFAILED: an x=0 stratum candidate failed certification. "
+              "Aborting, nothing written.", file=sys.stderr)
+        return 1
+    rows_p = rows_p + zero_p
+    rows_q = rows_q + zero_q
 
     write_rows(rows_p, rows_q)
     status(f"beyond-resolution certifications used: {N_BEYOND_RESOLUTION[0]}")

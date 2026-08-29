@@ -106,10 +106,10 @@ int main(int argc, char** argv) {
 
       // N6: UlpDiff maps +0/-0 to the same point, so a signed-zero
       // regression needs its own SameBits check wherever the REFERENCE is
-      // exactly zero. Exempt in=-0: the checked-in reference row wrongly
-      // stores +0 there (known bug, fixed by #13's regeneration) rather
-      // than the documented erfinv(-0) == -0.
-      if (want[i] == 0.0 && !(in[i] == 0.0 && std::signbit(in[i]))) {
+      // exactly zero. The in=-0 row stores -0 since #13's regeneration
+      // (the generator now carries the input's sign through mpmath's
+      // sign-losing erfinv), so no exemption remains.
+      if (want[i] == 0.0) {
         if (!SameBits(got[i], want[i])) {
           std::fprintf(stderr,
                        "FAIL: erfinv signed-zero mismatch at x=%.17g: "

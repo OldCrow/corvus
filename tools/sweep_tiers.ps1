@@ -18,6 +18,14 @@
     build failure leaves the PREVIOUS tier's binaries in place, so continuing
     would re-measure the last tier under the new tier's name.
 
+    Pass BOTH -CxxCompiler and -CCompiler consistent with the build dir's
+    cached compilers, or point -BuildDir at a fresh directory. A compiler
+    that differs from the cache makes CMake delete the cache mid-configure
+    and re-detect from PATH -- the re-detect DROPS this script's
+    -DCORVUS_DISABLED_TARGETS, so the tier binary silently compiles every
+    target (observed 2026-08-29: cached clang-cl tree + default -CCompiler
+    gcc). The CORVUS_EXPECT_TARGET gate is what catches it.
+
 .PARAMETER Tier
     Restrict the sweep to one tier (AVX2, SSE4, SSSE3, SSE2). Default: all.
 

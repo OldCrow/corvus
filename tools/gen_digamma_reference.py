@@ -57,6 +57,8 @@ import sys
 
 import mpmath as mp
 
+from refgen_common import round_to_double
+
 SEED = 20260806
 X0 = 8.0
 ZONE_LO = 1.0
@@ -410,7 +412,7 @@ def emit(strata):
             if not mp.isfinite(y):
                 skipped_overflow += 1
                 continue
-            yf = float(y)
+            yf = round_to_double(y)
             if not math.isfinite(yf):
                 skipped_overflow += 1
                 continue

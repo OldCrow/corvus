@@ -67,10 +67,12 @@ Usage:
                                                        # until it reports
                                                        # DONE
 """
+import hashlib
 import math
 import os
 import random
 import re
+import struct
 import sys
 import tempfile
 import time
@@ -80,6 +82,9 @@ import mpmath as mp
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(REPO, "tools"))
 import gen_gammainv_data as g1data  # noqa: E402
+from refgen_common import round_to_double  # noqa: E402  (single-rounding mpf->double;
+# see refgen_common.py's own docstring: float(mpf) double-rounds in the
+# subnormal band.)
 
 SEED = 20260809
 
@@ -469,7 +474,7 @@ def certify_deep_small(a, p, dps, xd_override=None):
     deep-small negative control would then be trivially 'accepted'
     because it was never actually being checked."""
     lx0, x0, bound, conv = deep_small_lx0(a, p, dps)
-    xd = xd_override if xd_override is not None else (float(x0) if x0 > 0 else 0.0)
+    xd = xd_override if xd_override is not None else (round_to_double(x0) if x0 > 0 else 0.0)
     if not math.isfinite(xd):
         return {"xd": None, "certified": False, "note": "non-finite x0"}
     with mp.workdps(dps):
@@ -548,7 +553,7 @@ def certify_row(a, s, side, fit1, fit2, dps_layers=(60, 100), seed_hint=None,
     if side == "p":
         lx0, x0, bound, conv = deep_small_lx0(a, s, dps=dps_layers[0])
         if a_m * x0 < DEEP_SMALL_CUT:
-            xd = x_hint if x_hint is not None else (float(x0) if x0 > 0 else 0.0)
+            xd = x_hint if x_hint is not None else (round_to_double(x0) if x0 > 0 else 0.0)
             if not math.isfinite(xd):
                 return {"xd": None, "certified": False, "method": "deep-small",
                          "note": "non-finite"}
@@ -563,7 +568,7 @@ def certify_row(a, s, side, fit1, fit2, dps_layers=(60, 100), seed_hint=None,
         x_star = oracle_x(a, s, side, dps=dps_layers[0], fit=fit1, seed_hint=seed_hint)
         if x_star is None:
             return {"xd": None, "certified": False, "method": "root-find-failed"}
-        xd = float(x_star)
+        xd = round_to_double(x_star)
     if not (math.isfinite(xd) and xd >= 0):
         return {"xd": xd, "certified": False, "method": "non-finite-xd"}
     if xd == 0.0:
@@ -936,9 +941,27 @@ def hexd(x):
     return float(x).hex()
 
 
+def as_bits(x):
+    return struct.unpack("<Q", struct.pack("<d", x))[0]
+
+
+def points_digest(ps):
+    """Point-bits digest signature (NUMERICAL-DOCTRINE.md's binding rule: a
+    point-set edit that preserves N would otherwise replay stale checkpoint
+    values under new point identities). Binds to the full (a, s, side) key
+    PointSet.add dedups on: a and s as their double bit patterns, side
+    ('p'/'q') as a single byte -- tag is NOT identity (PointSet.add keys
+    only on (a, s, side), so two tags on the same (a, s, side) collide to
+    one point and the tag has no bearing on what gets oracled)."""
+    dig = hashlib.sha256()
+    for a, s, side, _tag in ps.pts:
+        dig.update(struct.pack("<QQB", as_bits(a), as_bits(s), 0 if side == "p" else 1))
+    return dig.hexdigest()[:16]
+
+
 def compute_all(ps, fit1, fit2):
     total = len(ps.pts)
-    sig = f"v1 SEED={SEED} N={total}"
+    sig = f"v1-{points_digest(ps)} SEED={SEED} N={total}"
     done_map = load_checkpoint(CKPT_PATH, sig)
     print(f"  checkpoint: {len(done_map)}/{total} points already computed "
           f"({CKPT_PATH})", file=sys.stderr)
@@ -1005,7 +1028,22 @@ def compute_all(ps, fit1, fit2):
 
 # ============================================================================
 # Part 9: 25-row independent spot cross-check (elementary series/CF for
-# a<=1e4, route2 exact-asymptotic for larger a).
+# a<=1e4, route2 exact-asymptotic for larger a). HARD GATE: xd is the
+# correctly rounded root of P(x)=s (or Q(x)=s), so to first order
+# |forward(xd)-s| <= pdf*ulp(xd)/2, where pdf is the regularized gamma
+# density at xd (pdf = x^(a-1)*e^-x/Gamma(a), evaluated in log space). The
+# 4x factor covers the oracle's own dps=80 evaluation noise plus
+# second-order (curvature) terms; the 1e-55 floor covers saturated rows
+# where pdf itself has underflowed below evaluation noise, so the bound
+# would otherwise clamp to ~0 and reject on noise alone.
+#
+# ROUND-TO-ZERO rows (xd=0.0: a<1 rows whose true root is astronomically
+# below the smallest subnormal) are excluded from this linearization --
+# the gamma density diverges at the origin for a<1, so pdf*ulp is not a
+# valid local bound there, and forward(0)=0 identically regardless of the
+# (possibly non-tiny) target s. Correctness for those rows rests on
+# certify_deep_small's own log-space bracket, audited separately at
+# generation time; this spot-check does not re-litigate it.
 # ============================================================================
 def cross_check_25(rows_p, rows_q, rng, fit2):
     print("\n25-row independent spot cross-check ...", file=sys.stderr)
@@ -1015,7 +1053,8 @@ def cross_check_25(rows_p, rows_q, rng, fit2):
         sample = all_rows
     else:
         sample = rng.sample(all_rows, 25)
-    results = []
+    failures = []
+    n_failed = 0
     for a, s, xd, side in sample:
         with mp.workdps(80):
             if a <= 1e4:
@@ -1040,10 +1079,46 @@ def cross_check_25(rows_p, rows_q, rng, fit2):
                 method = "route2 exact-asymptotic"
         got = Pv if side == "p" else Qv
         rel = float(abs(got - mp.mpf(s)))
-        results.append((a, s, xd, side, method, rel))
+
+        if xd == 0.0:
+            print(f"  a={a:.6e} {side}={s:.6e} xd=0.0 [{method}] "
+                  f"|forward(xd)-s|={rel:.3e} (round-to-zero row -- pdf-bound "
+                  f"gate not applicable, see certify_deep_small)", file=sys.stderr)
+            continue
+
+        # ln(pdf) = (a-1)ln(xd) - xd - lgamma(a) cancels from term magnitude
+        # ~a*ln(a) down to ~-ln(2*pi*a)/2 on the diagonal -- ~log10(a)+3
+        # digits of cancellation, so the working precision must scale with
+        # a or the exponent is garbage in BOTH directions (measured at
+        # dps 80, a~1e230: spurious pdf~0 -> bound=floor -> false FAIL,
+        # and spurious pdf=inf -> vacuous pass). The doctrine's own rule:
+        # required accuracy is set by the result's cancellation depth.
+        need_dps = max(80, int(math.log10(max(abs(a), abs(xd), 2.0))) + 80)
+        with mp.workdps(need_dps):
+            a_m = mp.mpf(a)
+            pdf = mp.e ** ((a_m - 1) * mp.log(xd) - mp.mpf(xd) - mp.loggamma(a_m))
+            bound = 4 * pdf * mp.mpf(math.ulp(xd)) + mp.mpf(10) ** -55
+        passed = mp.mpf(rel) <= bound
+        boundf = float(bound)
+        if bound >= mp.mpf("0.5"):
+            # Beyond-resolution row (huge a): the whole tail lives inside
+            # half an ulp of xd, the linearized bound exceeds the
+            # probability scale, and this spot-check carries no
+            # information -- correctness rests on the huge-a
+            # beyond-resolution certification at generation time. Not
+            # gated (it could never fail: rel <= 1 < bound).
+            print(f"  a={a:.6e} {side}={s:.6e} xd={xd!r} [{method}] "
+                  f"|forward(xd)-s|={rel:.3e} (beyond-resolution row -- "
+                  f"bound {boundf:.3e} exceeds the probability scale, "
+                  f"informational only)", file=sys.stderr)
+            continue
         print(f"  a={a:.6e} {side}={s:.6e} xd={xd!r} [{method}] "
-              f"|forward(xd)-s|={rel:.3e}", file=sys.stderr)
-    return results
+              f"|forward(xd)-s|={rel:.3e} bound={boundf:.3e} "
+              f"{'OK' if passed else 'FAIL'}", file=sys.stderr)
+        if not passed:
+            n_failed += 1
+            failures.append((a, s, xd, side, method, rel, boundf))
+    return n_failed, failures
 
 
 # ============================================================================
@@ -1088,7 +1163,14 @@ def main():
               f"target >=5000 each.", file=sys.stderr)
         return 1
 
-    cross_check_25(rows_p, rows_q, random.Random(SEED ^ 0x51A7), fit2)
+    n_failed, failures = cross_check_25(rows_p, rows_q, random.Random(SEED ^ 0x51A7), fit2)
+    if n_failed:
+        print(f"\nFAILED: {n_failed}/25 cross-check row(s) exceeded their "
+              f"condition-aware bound -- nothing written:", file=sys.stderr)
+        for a, s, xd, side, method, rel, bound in failures:
+            print(f"  a={a!r} s={s!r} xd={xd!r} side={side} method={method} "
+                  f"rel={rel:.3e} bound={bound:.3e}", file=sys.stderr)
+        return 4
 
     write_rows(rows_p, rows_q)
     print(f"\nbeyond-resolution certifications used: {N_BEYOND_RESOLUTION[0]}",

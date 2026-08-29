@@ -74,6 +74,8 @@ import time
 import mpmath as mp
 from mpmath import mpf
 
+from refgen_common import round_to_double
+
 SEED = 20260811
 
 DBL_MAX = float.fromhex("0x1.fffffffffffffp+1023")
@@ -485,7 +487,7 @@ def emit_rows(points):
         if not ok:
             declined.append((a, b))
             continue
-        y = float(val)
+        y = round_to_double(val)
         if math.isnan(y):
             declined.append((a, b))
             continue
@@ -511,7 +513,7 @@ def reverify_sample(rows, rng, n=200):
     mism = []
     for a, b, y in sample:
         val, ok, _ = layered_value(a, b)
-        fresh = float(val) if ok else float("nan")
+        fresh = round_to_double(val) if ok else float("nan")
         if fresh != y and not (math.isnan(fresh) and math.isnan(y)):
             mism.append((a, b, y, fresh))
     return mism
@@ -534,7 +536,7 @@ def negative_control(rows, rng):
     else:
         bad_y = math.nextafter(y, math.inf)
     val, ok, _ = layered_value(a, b)
-    fresh = float(val) if ok else float("nan")
+    fresh = round_to_double(val) if ok else float("nan")
     return fresh != bad_y
 
 
@@ -546,7 +548,7 @@ def symmetry_check(rows, rng, n=150):
     mism = []
     for a, b, y in sample:
         val, ok, _ = layered_value(b, a)
-        fresh = float(val) if ok else float("nan")
+        fresh = round_to_double(val) if ok else float("nan")
         if fresh != y:
             mism.append((a, b, y, fresh))
     return mism

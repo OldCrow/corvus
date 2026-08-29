@@ -44,6 +44,7 @@ Stage B invariants over the full file: P+Q=1 (<=1 ulp), monotonicity of
 P in x within every (a,b) group.
 
 Exit non-zero on any failure. Strata without coverage are NAMED."""
+import math
 import os
 import random
 import sys
@@ -275,7 +276,9 @@ def main():
     print("negative control passed (4 known-bad rows rejected, "
           "4 corrected values accepted)", file=sys.stderr)
     rows = []
-    with open(r"C:\Users\gdwol\Development\corvus\tests\data\beta_p_reference.txt") as fh:
+    beta_p_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "..", "tests", "data", "beta_p_reference.txt")
+    with open(beta_p_path) as fh:
         for ln in fh:
             t = ln.split()
             if len(t) == 5:
@@ -429,6 +432,44 @@ def main():
     print(f"  near-diagonal: {nd} rows NOT covered here (spike width "
           f"~1/sqrt(a) below quad node resolution; certified separately "
           f"by the round-3 bracket derivation)", file=sys.stderr)
+
+    # boundary-special (#13 N14.2): three row shapes share this label.
+    # (1) DEFINITIONAL rows -- finite a,b > 0 at x = 0 or x = 1: I_0 = 0
+    #     and I_1 = 1 by the definition of the regularized incomplete
+    #     beta, no limit involved. Checked EXACTLY, every row.
+    # (2) Infinite/degenerate-parameter rows (a or b in {0, inf}, NaN
+    #     params, out-of-domain x): the stored value is corvus's API
+    #     contract for a convention-dependent limit (e.g. x = 1 with
+    #     a = inf stores NaN while finite a stores 1). No oracle exists
+    #     but the documented contract itself; NOT judged here.
+    # (3) All rows in the stratum are exact-or-NaN by construction, so a
+    #     structural invariant holds regardless of shape: (P, Q) must be
+    #     one of (0,1), (1,0), (NaN,NaN). Any other pair is corruption.
+    n_def = 0
+    n_contract = 0
+    for r in strata.get("boundary-special", []):
+        a, b, x, P, Q = r
+        pq_ok = ((P, Q) in ((0.0, 1.0), (1.0, 0.0))
+                 or (P != P and Q != Q))
+        if not pq_ok:
+            fails.append(("boundary-special:STRUCTURE", r, float("nan"),
+                          "expected (0,1), (1,0), or (NaN,NaN)"))
+            continue
+        a_fin_pos = math.isfinite(a) and a > 0
+        b_fin_pos = math.isfinite(b) and b > 0
+        if a_fin_pos and b_fin_pos and x in (0.0, 1.0):
+            want = (0.0, 1.0) if x == 0.0 else (1.0, 0.0)
+            if (P, Q) != want:
+                fails.append(("boundary-special:DEFINITIONAL", r,
+                              float(P), f"want P={want[0]} Q={want[1]}"))
+            n_def += 1
+        else:
+            n_contract += 1
+    checked["boundary-special"] = n_def
+    print(f"  boundary-special: {n_def} definitional x=0/x=1 rows checked "
+          f"exactly; {n_contract} contract rows structure-checked only "
+          f"(convention-dependent limits -- oracle is corvus.h itself)",
+          file=sys.stderr)
 
     print("\ncoverage: " + ", ".join(f"{k}={v}" for k, v in sorted(checked.items())),
           file=sys.stderr)

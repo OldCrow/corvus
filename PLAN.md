@@ -13,9 +13,8 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 **v0.6.0 UNFREEZE OPEN [2026-08-28, user]** — the one correctness
 unfreeze (milestone map item 1) is in progress. Session plan ratified
 by the user: (1) #12 kernel fix — DONE (Resolved log);
-(2) #15 then #14 — DONE (Resolved log); (3) #13 all generator fixes plus
-#12's bit-stepped diagonal rows in ONE regeneration pass, buckets
-re-pinned under the final harness; (4) #5 + #16 + #17 batch, then
+(2) #15 then #14 — DONE (Resolved log); (3) #13 generators + the ONE
+regeneration — DONE (Resolved log); (4) #5 + #16 + #17 batch, then
 milestone close (full ladder, CI green, tag). #5 scope SPLIT [user]:
 noexcept + [[nodiscard]] land in v0.6.0; the span-length HWY_DASSERT
 (S1) moves to #6's shared driver in v0.7.0 (recorded on both issues).
@@ -660,6 +659,51 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-29 **#13 CLOSED — generator fixes + the ONE v0.6.0 regeneration
+  (v0.6.0 item 3; five Sonnet agents on disjoint files, orchestrator
+  owned refgen_common.py, all adjudications, every regen diff row-class
+  by row-class, and the full validation ladder).** N14:
+  tools/refgen_common.py round_to_double (single rounding, ties-to-even,
+  import-time self-test incl. a constructed double-rounding trap) wired
+  into every reference writer; corrections matched the issue's
+  predictions exactly (erfc 6/6, exp_dd 9/9 hi + 2 lo, erfinv 6 + the −0
+  row, beta_q 1 — dps-400 re-verified — gamma 1); log_dd/lgamma/erfcinv/
+  digamma/trigamma/bessel/lbeta byte-identical. N14.1: point-bits digests
+  in beta/gammainv/betainv main checkpoint sigs (betainv packs the side
+  byte — dedup identity — after adjudication; beta xcheck sig bumped v3,
+  positional checkpoint). N14.2: replay self-checks in the five bare
+  gens (buffer → recompute sample at 2×dps → bit-compare → emit);
+  erfinv findroot exceptions now FATAL behind an explicit domain filter
+  (the old blanket except was silently dropping deliberate out-of-domain
+  endpoint neighbourhoods; regen emitted the identical 10267 points, so
+  the swallow never masked a real failure); gammainv cross_check_25 and
+  betainv fast_vs_full are hard gates; bessel control uses nextafter;
+  verify_beta path repo-relative + boundary-special upgraded (72
+  definitional x=0/x=1 rows checked EXACTLY, (0,1)/(1,0)/(NaN,NaN)
+  structure invariant on all 209, 137 contract rows disclosed);
+  erfc_tail_poly self-check gained bit-stepped edges (passes; header
+  byte-identical). N6: erfinv(−0) row stores −0; test exemption removed.
+  Riders: #12's 25 bit-stepped diagonal rows (P=Q=0.5 on-diagonal, exact
+  saturation neighbours) now gate the prescale through data on every
+  tier; betainv x=0 stratum (12p+9q, certified via P(a,b,2^-1075)>s with
+  its own negative control) — kernel is bit-exact +0 on all 21, cross
+  bucket now asserted non-empty. THREE findings fixed en route: (1) my
+  gammainv pdf-bound violated the cancellation-depth rule at huge a
+  (fixed: dps scales with log10(a); beyond-resolution rows labeled
+  informational); (2) beta's internal mpmath cross-check had always
+  admitted the both-params-huge regime where betainc returns
+  internally-consistent garbage (symmetry witness P(a,a,½)=½ vs 1.2e-109
+  at dps 60/100/200; fixed: min(a,b)≤1e6 trust filter); (3) beta_q
+  R2-direct gate re-pinned 0→1 — the kernel agreed with the OLD
+  double-rounded row, so its true error there was always 1 ulp
+  (ACCURACY.md table + prose updated). Platform note [DERIVED]: point
+  sets built through libm (10**, exp) drift by 1 ulp on this box vs the
+  original Mac — a handful of benign input-identity shifts everywhere,
+  and betainv resampled ~0.6% of its points (103/16998 certification
+  drops, fail-closed by design; gamma-limit coverage still 2237/1230
+  rows). Validation: 27/27 native AVX3_ZEN4 clang-cl, 27/27 SSE2 cap,
+  4-tier sweep, verify_beta_reference clean (0 failures) — regeneration
+  ended with the mandated harness pass.
 - 2026-08-28 **#15 + #14 CLOSED — test-harness consolidation + ULP-gate
   restructure (v0.6.0 items 2, delegated per the ratified posture: four
   Sonnet agents per wave on disjoint file groups, orchestrator owned the

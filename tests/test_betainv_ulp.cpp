@@ -379,6 +379,17 @@ int Measure(const char* label, bool want_q, const std::vector<Row>& rows,
     rc = 1;
   }
   for (const Bucket& r : cross) Report(r, "report only");
+  // #13: the x = 0 cross bucket had been silently empty since it was
+  // written (neither reference file carried a row whose correctly rounded
+  // inverse is exactly 0); the regeneration added a certified x=0 stratum
+  // on both sides, so emptiness is now a defect like the named buckets'.
+  if (cross[2].n == 0) {
+    std::fprintf(stderr,
+                 "FAIL: %s %s bucket is empty (n=0) -- the #13 x=0 stratum "
+                 "is missing from the reference set\n",
+                 label, cross[2].name);
+    rc = 1;
+  }
   return rc;
 }
 

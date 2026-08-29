@@ -35,6 +35,8 @@ import sys
 
 import mpmath as mp
 
+from refgen_common import round_to_double
+
 mp.mp.dps = 60
 
 SEED = 20260725
@@ -81,24 +83,37 @@ def erfcinv_mp(s):
     return mp.findroot(lambda x: mp.log(mp.erfc(x)) - mp.log(s), x0)
 
 
-def emit(path, points, oracle):
+def emit(path, points, oracle, in_domain):
     seen = set()
     n = 0
     with open(path, "w") as f:
         for x in points:
             if not isinstance(x, float) or x != x or abs(x) == float("inf"):
                 continue
+            if not in_domain(x):
+                # Bit-neighbourhoods of the domain endpoints deliberately
+                # step OUTSIDE the domain (x just past +-1, z just past 2);
+                # the old blanket try/except dropped them as a side effect.
+                # An explicit filter keeps the drop intentional while a
+                # non-converged findroot inside the domain stays FATAL.
+                continue
             b = as_bits(x)
             if b in seen:
                 continue
             seen.add(b)
-            try:
-                y = oracle(x)
-            except Exception:
-                continue
+            # No try/except here (issue #13 N14.2): a non-converged
+            # mp.findroot must abort the run, not silently drop the point.
+            y = oracle(x)
             if y is None or not mp.isfinite(y):
+                # Legitimate infinite oracle values at domain endpoints
+                # (erfinv(+-1) = +-inf), not a convergence failure.
                 continue
-            yf = float(y)
+            yf = round_to_double(y)
+            if x == 0.0:
+                # mpmath's erfinv(mpf(-0.0)) loses the sign (-> mpf(0)); the
+                # double input carries it, and corvus.h promises
+                # erfinv(+-0) = +-0.
+                yf = x
             import math
             if not math.isfinite(yf):
                 continue
@@ -133,6 +148,11 @@ def gen_erfinv():
         pts.append(rng.choice([v, -v]))
     pts += neighbourhood(0.0, 32)
 
+    # Both zeros as deliberate point-set members (issue #13 N6): dedup is by
+    # bit pattern, so +0.0 and -0.0 both survive; neighbourhood(0.0, ...)
+    # alone never reaches -0.0 (its b+j >= 0 filter excludes j < 0 at b = 0).
+    pts += [0.0, -0.0]
+
     # A few bit-neighbourhoods scattered across (0, 0.5) and (0.5, 1) so the
     # central polynomial's degree and the seed's own accuracy both get
     # boundary-level (not just interior) coverage.
@@ -140,7 +160,11 @@ def gen_erfinv():
         pts += neighbourhood(b, 16)
         pts += neighbourhood(-b, 16)
 
-    return emit("tests/data/erfinv_reference.txt", pts, lambda x: mp.erfinv(mp.mpf(x)))
+    # Closed domain [-1, 1]: mp.erfinv RAISES outside it; +-1 exactly give
+    # +-inf and fall to the non-finite filter as before.
+    return emit("tests/data/erfinv_reference.txt", pts,
+                lambda x: mp.erfinv(mp.mpf(x)),
+                in_domain=lambda x: -1.0 <= x <= 1.0)
 
 
 def gen_erfcinv():
@@ -172,7 +196,10 @@ def gen_erfcinv():
     # Dense over the rest of (0, 2).
     pts += [rng.uniform(0.5, 1.5) for _ in range(4096)]
 
-    return emit("tests/data/erfcinv_reference.txt", pts, erfcinv_mp)
+    # Open domain (0, 2): at z = 2 exactly erfcinv_mp reduces to -log(0)
+    # and can only fail; z <= 0 is out of domain outright.
+    return emit("tests/data/erfcinv_reference.txt", pts, erfcinv_mp,
+                in_domain=lambda z: 0.0 < z < 2.0)
 
 
 def main():

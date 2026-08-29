@@ -70,6 +70,8 @@ import time
 import mpmath as mp
 from mpmath import mpf
 
+from refgen_common import round_to_double
+
 SEED = 20260811
 
 X_S = 8.0  # kBesselSplit -- must match src/bessel_data.h
@@ -336,7 +338,7 @@ def emit_file(nu, scaled, mode, rng, negative_fraction=0.42):
         if not ok:
             declined.append(x)
             continue
-        y = float(val)
+        y = round_to_double(val)
         if math.isnan(y):
             declined.append(x)
             continue
@@ -368,7 +370,7 @@ def reverify_sample(nu, scaled, rows, rng, n=120):
     sample = rng.sample(rows, min(n, len(rows)))
     mism = []
     for x, y in sample:
-        fresh = float(besseli_value(nu, scaled, x, DPS_HI))
+        fresh = round_to_double(besseli_value(nu, scaled, x, DPS_HI))
         if fresh != y and not (math.isnan(fresh) and math.isnan(y)):
             mism.append((x, y, fresh))
     return mism
@@ -381,7 +383,9 @@ def negative_control(nu, scaled, rows, rng):
     control applied to reference-row space instead of kernel-simulation
     space."""
     x, y = rng.choice(rows)
-    bad_y = y + 1.0 if math.isfinite(y) else 0.0
+    # y+1.0 is a no-op for |y| >= 2^53 (1.0 sits below ULP(y) there) --
+    # nextafter is exactly 1 ULP away regardless of magnitude, never a no-op.
+    bad_y = math.nextafter(y, math.inf) if math.isfinite(y) else 0.0
     corrupted = [(x, bad_y)]
     mism = reverify_sample(nu, scaled, corrupted, rng, n=1)
     return len(mism) == 1

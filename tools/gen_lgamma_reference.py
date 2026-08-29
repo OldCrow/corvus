@@ -29,10 +29,14 @@ import sys
 
 import mpmath as mp
 
-mp.mp.dps = 50
+from refgen_common import round_to_double
+
+DPS = 50
+mp.mp.dps = DPS
 
 SEED = 20260725
 X0 = 8.0
+_MIN_NORMAL = 2.0 ** -1022
 
 
 def as_bits(x: float) -> int:
@@ -74,9 +78,14 @@ def gamma_one_crossings():
     return out
 
 
+def oracle(xm):
+    """The lgamma oracle value at mpf xm (xm != 0, not a pole)."""
+    return mp.loggamma(xm) if xm > 0 else mp.log(abs(mp.gamma(xm)))
+
+
 def emit(points):
     seen = set()
-    n = 0
+    rows = []
     for x in points:
         if not math.isfinite(x) or x == 0.0:
             continue
@@ -87,15 +96,43 @@ def emit(points):
         xm = mp.mpf(x)
         if xm < 0 and xm == mp.floor(xm):
             continue  # pole; test_lgamma covers it
-        y = mp.loggamma(xm) if xm > 0 else mp.log(abs(mp.gamma(xm)))
+        y = oracle(xm)
         if not mp.isfinite(y):
             continue
-        yf = float(y)
+        yf = round_to_double(y)
         if not math.isfinite(yf):
             continue
-        print(f"{x.hex()} {yf.hex()}")
-        n += 1
-    return n
+        rows.append((x, yf))
+    return rows
+
+
+def self_check(rows):
+    """Re-verify a deterministic sample at double dps (issue #13 N14.2).
+
+    Sample = every subnormal-output row plus every 97th row, capped at 500
+    rows total (no rng -- deterministic by construction). Recomputes the
+    oracle at 2*DPS and requires a bit-identical double, compared by packed
+    bit pattern so -0.0 vs +0.0 is caught.
+    """
+    subnormal = [i for i, (_, y) in enumerate(rows) if 0 < abs(y) < _MIN_NORMAL]
+    subnormal_set = set(subnormal)
+    every_97th = [i for i in range(0, len(rows), 97) if i not in subnormal_set]
+    sample = (subnormal + every_97th)[:500]
+    bad = []
+    with mp.workdps(2 * DPS):
+        for i in sample:
+            x, yf = rows[i]
+            y2 = round_to_double(oracle(mp.mpf(x)))
+            if as_bits(y2) != as_bits(yf):
+                bad.append((x, yf, y2))
+    if bad:
+        for x, yf, y2 in bad:
+            print(f"self-check MISMATCH: x={x.hex()} stored={yf.hex()} "
+                  f"recomputed={y2.hex()}", file=sys.stderr)
+        return False
+    print(f"self-check: {len(sample)} rows re-verified at dps={2 * DPS}: OK",
+          file=sys.stderr)
+    return True
 
 
 def main():
@@ -143,8 +180,12 @@ def main():
         pts += [z + rng.choice([-1.0, 1.0]) * 10.0 ** rng.uniform(-12, -2)
                 for _ in range(24)]
 
-    n = emit(pts)
-    print(f"emitted {n} points", file=sys.stderr)
+    rows = emit(pts)
+    if not self_check(rows):
+        return 1
+    for x, yf in rows:
+        print(f"{x.hex()} {yf.hex()}")
+    print(f"emitted {len(rows)} points", file=sys.stderr)
     return 0
 
 

@@ -85,6 +85,9 @@ import mpmath as mp
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gen_beta_data as gbd  # noqa: E402  (see module docstring: reused, not re-derived)
+from refgen_common import round_to_double  # noqa: E402  (single-rounding mpf->double;
+# see refgen_common.py's own docstring: float(mpf) double-rounds in the
+# subnormal band, up to 1 ulp off correctly rounded)
 
 mp.mp.dps = 100  # module-level default; every function below sets its OWN
                   # dps explicitly on entry (three-layer dps hygiene, see
@@ -1651,7 +1654,7 @@ def prewarm_betainc_rescue_checkpoint(ps, done_map, fh):
                       # gets one more (equivalent) try, then it's a real drop.
         which = which_map[idx]
         P, Q = (final, 1 - final) if which == "P" else (1 - final, final)
-        Pf, Qf = float(P), float(Q)
+        Pf, Qf = round_to_double(P), round_to_double(Q)
         if not (math.isfinite(Pf) and math.isfinite(Qf)):
             continue
         region = route_final(mp.mpf(a), mp.mpf(b), mp.mpf(x))[3]
@@ -2206,7 +2209,7 @@ def compute_all(ps, ckpt_path=CKPT_PATH, sig_ver="v2"):
             if failed:
                 append_checkpoint(fh, idx, ["FAILED"])
             else:
-                Pf, Qf = float(P), float(Q)
+                Pf, Qf = round_to_double(P), round_to_double(Q)
                 if not (math.isfinite(Pf) and math.isfinite(Qf)):
                     append_checkpoint(fh, idx, ["FAILED"])
                 else:
@@ -2388,14 +2391,33 @@ def run_cross_check(rows, n=CROSS_CHECK_N, force_idx=()):
     # vs CF there is numerically meaningless (both "agree" trivially, or
     # mpmath wastes its timeout budget on a comparison with no information
     # content) rather than a genuine test of the CF's accuracy.
-    idx_all = [i for i, r in enumerate(rows) if 0.0 < r[3] < 1.0 and 0.0 < r[4] < 1.0]
+    # Also exclude rows where BOTH parameters are large: mpmath betainc is
+    # structurally untrustworthy there at any feasible dps -- measured at
+    # (a=b=5.5e216, x=0.5): the true value is EXACTLY 1/2 by symmetry, the
+    # CF says 0.5, and betainc returns the identical garbage 1.2e-109 at
+    # dps 60/100/200 (internally-consistent, so no dps-consistency check
+    # can catch it); at a=b~1e6+ it instead runs past any timeout. Either
+    # way the comparison carries no information. min(a,b) small stays IN:
+    # that is the one-small-parameter regime where escalated-dps betainc
+    # is sound (the 2026-08-14 (1e-8, 2^996) catch lived there). Rows
+    # excluded here are still covered by the analytic-line, P+Q,
+    # small-tau-overlap, and gamma-corner self-checks plus
+    # tools/verify_beta_reference.py's stratum machinery (whose own
+    # betainc300_ok gate encodes the same regime knowledge).
+    idx_all = [i for i, r in enumerate(rows)
+               if 0.0 < r[3] < 1.0 and 0.0 < r[4] < 1.0
+               and min(r[0], r[1]) <= 1e6]
     rng.shuffle(idx_all)
     fset = set(force_idx)
     sample = list(force_idx) + [i for i in idx_all[:n] if i not in fset]
 
     # v2: comparison method changed (small_side_direct vs raw CF, dps
     # escalation for tiny oriented x) -- v1 checkpoints must not be reused.
-    sig = f"v2 SEED={SEED} NROWS={len(rows)} K={len(sample)}"
+    # v3: candidate pool changed (#13: min(a,b) <= 1e6 mpmath-trust filter
+    # above) -- the checkpoint is keyed by SAMPLE POSITION, so a pool edit
+    # would replay stale rel values against different points if K happened
+    # to collide.
+    sig = f"v3 SEED={SEED} NROWS={len(rows)} K={len(sample)}"
     done_map = load_checkpoint(CKPT_XCHECK_PATH, sig)
     print(f"self-check: mpmath betainc vs CF cross-check "
           f"({len(done_map)}/{len(sample)} already done)", file=sys.stderr)
@@ -2795,9 +2817,19 @@ def main():
     gen_r4huge_corner(ps)
     print(f"  total distinct (a,b,x) points: {len(ps.pts)}", file=sys.stderr)
 
+    # Point-bits digest signature (NUMERICAL-DOCTRINE.md's binding rule: a
+    # grid edit that preserves N would otherwise replay stale checkpoint
+    # values under new point identities) -- same pattern as corner_append/
+    # r4huge_append below; the full run was the one caller still on the
+    # count-only default (sig_ver="v2" in compute_all's own signature).
+    import hashlib
+    dig = hashlib.sha256()
+    for a, b, x, _, _ in ps.pts:
+        dig.update(struct.pack("<QQQ", as_bits(a), as_bits(b), as_bits(x)))
+
     print("evaluating oracle (CF, dps ladder 40/60/100, resumable) ...",
           file=sys.stderr)
-    rows, region_hist, done = compute_all(ps)
+    rows, region_hist, done = compute_all(ps, sig_ver=f"v2-{dig.hexdigest()[:16]}")
     if not done:
         print("\nPARTIAL RUN: re-invoke this script to continue "
               "(checkpoint saved).", file=sys.stderr)
