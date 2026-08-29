@@ -146,7 +146,7 @@ void Specials() {
     const char* name;
   } payload_fns[] = {{corvus::beta_p, "beta_p"}, {corvus::beta_q, "beta_q"}};
   for (const auto& pf : payload_fns) {
-    for (const auto& pr : probes) {
+    for (const auto* pr : probes) {
       const double got = One(pf.fn, pr[0], pr[1], pr[2]);
       if (!SameBits(got, payload)) {
         std::fprintf(stderr,

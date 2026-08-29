@@ -75,10 +75,6 @@ R4_NMAX = 36
 R4_TARGET = mp.mpf(2) ** -58
 REPLAY_TARGET = mp.mpf(2) ** -56
 
-SEED_JSON = ("/private/tmp/claude-501/-Users-wolfman-Development/"
-             "ff4fe9de-084e-403a-b00e-91fbe219cf72/scratchpad/temme_chebs.json")
-
-
 # --- Temme band + lambda(eta) ------------------------------------------------
 def phi_lam(lam):
     """phi(lambda) = lambda - 1 - log(lambda); phi(1) = 0, phi >= 0."""
@@ -268,34 +264,12 @@ def check_a_disjoint_extraction(cvals_primary, cvals_check):
     return rc
 
 
-def check_b_seed_json(fits_primary):
-    print("(b) cross-check against seed JSON:", file=sys.stderr)
-    try:
-        import json
-        with open(SEED_JSON) as f:
-            seed = json.load(f)
-    except OSError:
-        print(f"    seed JSON not found at {SEED_JSON} -- skipping (warn-only)",
-              file=sys.stderr)
-        return 0
-    rc = 0
-    worst_overall = 0.0
-    for k in range(K):
-        seed_row = seed["chebs"].get(str(k))
-        if seed_row is None:
-            continue
-        n = min(len(seed_row), len(fits_primary[k]))
-        worst = max(abs(float(fits_primary[k][j]) - seed_row[j]) for j in range(n))
-        worst_overall = max(worst_overall, worst)
-        print(f"    c_{k:2d}: worst abs diff vs seed {worst:.3e}", file=sys.stderr)
-    if worst_overall > 1e-10:
-        print(f"    FAILED: worst {worst_overall:.3e} exceeds 1e-10", file=sys.stderr)
-        rc = 1
-    else:
-        print(f"    OK: worst {worst_overall:.3e} <= 1e-10", file=sys.stderr)
-    return rc
-
-
+# The former "(b) cross-check against seed JSON" compared the fits against a
+# temme_chebs.json from the original design session's machine-local
+# scratchpad; the file never shipped, so the check had been a silent
+# warn-and-skip no-op since commit (#17). Removed rather than repointed: the
+# surviving checks re-derive the budget from scratch each run, which is the
+# stronger guarantee.
 def emit_hex_array_1d(name, vals):
     print(f"inline constexpr double {name}[{len(vals)}] = {{")
     print("    " + ", ".join(hexf(v) for v in vals) + ",")
@@ -328,11 +302,8 @@ def main():
     _, cvals_check = extract_all_nodes(A0_CHECK)
     rc |= check_a_disjoint_extraction(cvals_primary, cvals_check)
 
-    # --- self-check (b): seed JSON ------------------------------------------
-    rc |= check_b_seed_json(fits_primary)
-
     if rc:
-        print("Self-checks (a)/(b) failed -- aborting before emission.",
+        print("Self-check (a) failed -- aborting before emission.",
               file=sys.stderr)
         return rc
 

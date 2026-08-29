@@ -88,7 +88,7 @@ void Specials() {
   const double kPars[][2] = {{1e-300, 1e-300}, {1e-3, 5.0},  {0.5, 0.5},
                              {1.0, 1.0},       {3.0, 7.0},   {20.0, 20.0},
                              {1e6, 1e-6},      {1e300, 2.0}, {2.0, 1e300}};
-  for (const auto& ab : kPars) {
+  for (const auto* ab : kPars) {
     const double a = ab[0], b = ab[1];
     CheckSpecial("p = 0", false, a, b, 0.0, 0.0);
     CheckSpecial("p = -0", false, a, b, -0.0, 0.0);

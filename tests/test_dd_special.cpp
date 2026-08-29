@@ -77,11 +77,15 @@ const char* UtilTargetName() {
 
 namespace {
 
-// Gates from the design budget, not from a
-// measurement: the series truncates at 2^-75 and the log branch at the cut
-// amplifies log_dd by 2/u. PROVISIONAL until the tier sweep pins them.
-constexpr double kMinRelExp = 63.0;   // |u| >= 2^-40, relative
-constexpr double kMaxAbs = 0x1.0p-100;  // |u| <  2^-40, absolute
+// Gates pinned to MEASURED (#17): worst rel 2^-71.65 and worst abs
+// 2^-187.00, identical on native AVX3_ZEN4 and the AVX2/SSE4/SSSE3/SSE2
+// capped tiers (clang-cl, 2026-08-29 sweep). Pinned at the printed
+// measurement floored to the printout's resolution, so a regression
+// larger than the print quantum trips here rather than surfacing under a
+// consumer's name. The old values (2^-63, 2^-100) were the PROVISIONAL
+// design budget and left 8.65 / 87 bits of dead slack.
+constexpr double kMinRelExp = 71.64;    // |u| >= 2^-40, relative
+constexpr double kMaxAbs = 0x1.0p-186;  // |u| <  2^-40, absolute
 constexpr double kSplit = 0x1.0p-40;
 
 }  // namespace
