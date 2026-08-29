@@ -28,24 +28,18 @@
 #include "corvus/corvus.h"
 #include "expect_target.h"
 #include "src/bessel_data.h"
+#include "ulp_utils.h"
 
 namespace {
+
+using corvus_test::OrderedBits;
+using corvus_test::UlpDiff;
 
 using Fn = void (*)(std::span<const double>, std::span<double>);
 
 // Gate PINNED to measured, no margin. Both regimes land at the design's
 // expected 1 ULP ceiling on every validated tier.
 constexpr uint64_t kMaxUlp = 1;
-
-int64_t OrderedBits(double x) {
-  int64_t b;
-  std::memcpy(&b, &x, sizeof(b));
-  return b < 0 ? (INT64_MIN - b) : b;
-}
-
-uint64_t UlpDiff(double a, double b) {
-  return static_cast<uint64_t>(std::llabs(OrderedBits(a) - OrderedBits(b)));
-}
 
 struct Region {
   const char* name;
@@ -81,26 +75,19 @@ void Report(const Region& r) {
 // which never overflow) row -- either way it is handled by the exact-match
 // branch, but only i0/i1 are EXPECTED to exercise it.
 int RunOne(const char* label, const char* path, Fn fn, bool has_inf) {
-  std::ifstream f(path);
-  if (!f) {
-    std::fprintf(stderr, "cannot open reference file: %s\n", path);
-    return 2;
-  }
+  const auto rows = corvus_test::LoadRef(path, 2, 2000);
 
   std::vector<double> in;
   std::vector<double> want;
   std::vector<bool> want_inf;
-  std::string sx, sy;
-  while (f >> sx >> sy) {
-    in.push_back(std::strtod(sx.c_str(), nullptr));
-    const double w = std::strtod(sy.c_str(), nullptr);
+  in.reserve(rows.size());
+  want.reserve(rows.size());
+  want_inf.reserve(rows.size());
+  for (const auto& row : rows) {
+    in.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
+    const double w = corvus_test::ParseDouble(row.tok[1], path, row.line);
     want.push_back(w);
     want_inf.push_back(std::isinf(w));
-  }
-  if (in.size() < 2000) {
-    std::fprintf(stderr, "%s: reference file suspiciously small: %zu lines\n",
-                 label, in.size());
-    return 2;
   }
 
   std::vector<double> got(in.size());

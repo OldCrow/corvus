@@ -24,8 +24,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
-#include <fstream>
 #include <limits>
 #include <string>
 #include <vector>
@@ -34,8 +32,13 @@
 #include "expect_target.h"
 #include "src/gamma_data.h"      // kGammaAT: the S1 / small-a seed split
 #include "src/gammainv_data.h"   // the pinned deep-small cut and thresholds
+#include "ulp_utils.h"
 
 namespace {
+
+using corvus_test::LoadRef;
+using corvus_test::ParseDouble;
+using corvus_test::UlpDiff;
 
 // Gate PINNED to measured, no margin. Identical cells on
 // every validated leg -- clang-cl AVX3_ZEN4 native, g++ SSE2-capped, MSVC
@@ -48,18 +51,6 @@ constexpr uint64_t kMaxUlp = 1;
 // branch, by design -- but a property of the domain: a*phi(1 +- ulp/a) > 800
 // once a exceeds ~3e34, which is where the certified x collapses onto a.
 constexpr double kBeyondResolutionA = 3e34;
-
-int64_t OrderedBits(double x) {
-  int64_t b;
-  std::memcpy(&b, &x, sizeof(b));
-  return b < 0 ? (INT64_MIN - b) : b;
-}
-
-uint64_t UlpDiff(double a, double b) {
-  if (std::isnan(a) || std::isnan(b)) return UINT64_MAX;
-  if (std::isinf(a) || std::isinf(b)) return a == b ? 0 : UINT64_MAX;
-  return static_cast<uint64_t>(std::llabs(OrderedBits(a) - OrderedBits(b)));
-}
 
 struct Bucket {
   const char* name;
@@ -100,21 +91,11 @@ void Report(const Bucket& b, bool gated) {
 // Rows are three hex doubles: a, s, x.
 bool LoadReference(const char* path, std::vector<double>* a,
                    std::vector<double>* s, std::vector<double>* x) {
-  std::ifstream f(path);
-  if (!f) {
-    std::fprintf(stderr, "cannot open reference file: %s\n", path);
-    return false;
-  }
-  std::string sa, ss, sx;
-  while (f >> sa >> ss >> sx) {
-    a->push_back(std::strtod(sa.c_str(), nullptr));
-    s->push_back(std::strtod(ss.c_str(), nullptr));
-    x->push_back(std::strtod(sx.c_str(), nullptr));
-  }
-  if (a->size() < 5000) {
-    std::fprintf(stderr, "reference file suspiciously small: %zu lines\n",
-                 a->size());
-    return false;
+  const auto rows = LoadRef(path, 3, 5000);
+  for (const auto& row : rows) {
+    a->push_back(ParseDouble(row.tok[0], path, row.line));
+    s->push_back(ParseDouble(row.tok[1], path, row.line));
+    x->push_back(ParseDouble(row.tok[2], path, row.line));
   }
   return true;
 }

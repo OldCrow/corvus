@@ -32,8 +32,13 @@
 #include "corvus/corvus.h"
 #include "expect_target.h"
 #include "src/beta_data.h"
+#include "ulp_utils.h"
 
 namespace {
+
+using corvus_test::OrderedBits;
+using corvus_test::SameBits;
+using corvus_test::UlpDiff;
 
 // PINNED GATES: every cell is the value measured on AVX3_ZEN4/clang-cl
 // against the certified reference set (max over the beta_p and beta_q
@@ -54,23 +59,6 @@ constexpr uint64_t kGateR3Dir = 3, kGateR3Cmp = 1;
 constexpr uint64_t kGateR4Dir = 2, kGateR4Cmp = 0;
 constexpr uint64_t kGatePrDir = 1, kGatePrCmp = 0;
 constexpr uint64_t kGateGlDir = 1, kGateGlCmp = 1;
-
-int64_t OrderedBits(double x) {
-  int64_t b;
-  std::memcpy(&b, &x, sizeof(b));
-  return b < 0 ? (INT64_MIN - b) : b;
-}
-
-uint64_t UlpDiff(double a, double b) {
-  return static_cast<uint64_t>(std::llabs(OrderedBits(a) - OrderedBits(b)));
-}
-
-bool SameBits(double a, double b) {
-  uint64_t ba, bb;
-  std::memcpy(&ba, &a, sizeof(ba));
-  std::memcpy(&bb, &b, sizeof(bb));
-  return ba == bb;
-}
 
 struct Region {
   const char* name;
@@ -188,23 +176,18 @@ int Route(double a, double b, double x, double pref, double qref,
 bool LoadReference(const char* path, std::vector<double>* a,
                    std::vector<double>* b, std::vector<double>* x,
                    std::vector<double>* p, std::vector<double>* q) {
-  std::ifstream f(path);
-  if (!f) {
-    std::fprintf(stderr, "cannot open reference file: %s\n", path);
-    return false;
-  }
-  std::string sa, sb, sx, sp, sq;
-  while (f >> sa >> sb >> sx >> sp >> sq) {
-    a->push_back(std::strtod(sa.c_str(), nullptr));
-    b->push_back(std::strtod(sb.c_str(), nullptr));
-    x->push_back(std::strtod(sx.c_str(), nullptr));
-    p->push_back(std::strtod(sp.c_str(), nullptr));
-    q->push_back(std::strtod(sq.c_str(), nullptr));
-  }
-  if (a->size() < 10000) {
-    std::fprintf(stderr, "reference file suspiciously small: %zu lines\n",
-                 a->size());
-    return false;
+  const auto rows = corvus_test::LoadRef(path, 5, 10000);
+  a->reserve(rows.size());
+  b->reserve(rows.size());
+  x->reserve(rows.size());
+  p->reserve(rows.size());
+  q->reserve(rows.size());
+  for (const auto& row : rows) {
+    a->push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
+    b->push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
+    x->push_back(corvus_test::ParseDouble(row.tok[2], path, row.line));
+    p->push_back(corvus_test::ParseDouble(row.tok[3], path, row.line));
+    q->push_back(corvus_test::ParseDouble(row.tok[4], path, row.line));
   }
   return true;
 }

@@ -2,28 +2,16 @@
 // correctly-rounded reference (tests/data/erf_reference.txt). Gate: <= 1 ULP.
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
-#include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
 
 #include "corvus/corvus.h"
 #include "expect_target.h"
+#include "ulp_utils.h"
 
 namespace {
 
-// Monotonic sign-magnitude mapping: adjacent doubles differ by 1 everywhere,
-// including across +/-0.
-int64_t OrderedBits(double x) {
-  int64_t b;
-  std::memcpy(&b, &x, sizeof(b));
-  return b < 0 ? (INT64_MIN - b) : b;
-}
-
-uint64_t UlpDiff(double a, double b) {
-  return static_cast<uint64_t>(std::llabs(OrderedBits(a) - OrderedBits(b)));
-}
+using corvus_test::UlpDiff;
 
 }  // namespace
 
@@ -32,21 +20,12 @@ int main(int argc, char** argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   const char* path = argc > 1 ? argv[1] : "tests/data/erf_reference.txt";
-  std::ifstream f(path);
-  if (!f) {
-    std::fprintf(stderr, "cannot open reference file: %s\n", path);
-    return 2;
-  }
+  const auto rows = corvus_test::LoadRef(path, 2, 10000);
 
   std::vector<double> in, want;
-  std::string sx, sy;
-  while (f >> sx >> sy) {
-    in.push_back(std::strtod(sx.c_str(), nullptr));
-    want.push_back(std::strtod(sy.c_str(), nullptr));
-  }
-  if (in.size() < 10000) {
-    std::fprintf(stderr, "reference file suspiciously small: %zu lines\n", in.size());
-    return 2;
+  for (const auto& row : rows) {
+    in.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
+    want.push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
   }
 
   std::vector<double> got(in.size());

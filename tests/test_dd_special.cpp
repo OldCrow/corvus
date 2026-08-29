@@ -17,8 +17,6 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <fstream>
-#include <string>
 #include <vector>
 
 #undef HWY_TARGET_INCLUDE
@@ -60,6 +58,7 @@ HWY_AFTER_NAMESPACE();
 #if HWY_ONCE
 
 #include "expect_target.h"
+#include "ulp_utils.h"
 
 namespace corvus {
 HWY_EXPORT(Log1pmxTestImpl);
@@ -101,23 +100,13 @@ int main(int argc, char** argv) {
 
   const char* path =
       argc > 1 ? argv[1] : "tests/data/dd_special_reference.txt";
-  std::ifstream f(path);
-  if (!f) {
-    std::fprintf(stderr, "cannot open reference file: %s\n", path);
-    return 2;
-  }
+  const auto rows = corvus_test::LoadRef(path, 3, 1500);
 
   std::vector<double> u, want_hi, want_lo;
-  std::string a, b, c;
-  while (f >> a >> b >> c) {
-    u.push_back(std::strtod(a.c_str(), nullptr));
-    want_hi.push_back(std::strtod(b.c_str(), nullptr));
-    want_lo.push_back(std::strtod(c.c_str(), nullptr));
-  }
-  if (u.size() < 1500) {
-    std::fprintf(stderr, "reference file suspiciously small: %zu lines\n",
-                 u.size());
-    return 2;
+  for (const auto& row : rows) {
+    u.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
+    want_hi.push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
+    want_lo.push_back(corvus_test::ParseDouble(row.tok[2], path, row.line));
   }
 
   std::vector<double> hi(u.size()), lo(u.size());

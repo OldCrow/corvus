@@ -15,8 +15,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
-#include <fstream>
 #include <string>
 #include <vector>
 
@@ -24,8 +22,13 @@
 #include "expect_target.h"
 #include "src/gamma_data.h"
 #include "src/lgamma_data.h"  // R4's a-bound is lgamma's centre-2 zone, shifted
+#include "ulp_utils.h"
 
 namespace {
+
+using corvus_test::LoadRef;
+using corvus_test::ParseDouble;
+using corvus_test::UlpDiff;
 
 // Gates pinned to the values measured on AVX2 native plus the
 // SSE4/SSSE3/SSE2 caps (Kaby Lake, AppleClang) -- max ULP was identical in
@@ -45,16 +48,6 @@ constexpr uint64_t kGateQ[4][2] = {
     {2, 1},  // R3
     {1, 0},  // R4: direct Q max 1
 };
-
-int64_t OrderedBits(double x) {
-  int64_t b;
-  std::memcpy(&b, &x, sizeof(b));
-  return b < 0 ? (INT64_MIN - b) : b;
-}
-
-uint64_t UlpDiff(double a, double b) {
-  return static_cast<uint64_t>(std::llabs(OrderedBits(a) - OrderedBits(b)));
-}
 
 struct Region {
   const char* name;
@@ -102,22 +95,12 @@ int Route(double a, double x, bool want_p, bool* direct_is_p) {
 bool LoadReference(const char* path, std::vector<double>* a,
                    std::vector<double>* x, std::vector<double>* p,
                    std::vector<double>* q) {
-  std::ifstream f(path);
-  if (!f) {
-    std::fprintf(stderr, "cannot open reference file: %s\n", path);
-    return false;
-  }
-  std::string sa, sx, sp, sq;
-  while (f >> sa >> sx >> sp >> sq) {
-    a->push_back(std::strtod(sa.c_str(), nullptr));
-    x->push_back(std::strtod(sx.c_str(), nullptr));
-    p->push_back(std::strtod(sp.c_str(), nullptr));
-    q->push_back(std::strtod(sq.c_str(), nullptr));
-  }
-  if (a->size() < 10000) {
-    std::fprintf(stderr, "reference file suspiciously small: %zu lines\n",
-                 a->size());
-    return false;
+  const auto rows = LoadRef(path, 4, 10000);
+  for (const auto& row : rows) {
+    a->push_back(ParseDouble(row.tok[0], path, row.line));
+    x->push_back(ParseDouble(row.tok[1], path, row.line));
+    p->push_back(ParseDouble(row.tok[2], path, row.line));
+    q->push_back(ParseDouble(row.tok[3], path, row.line));
   }
   return true;
 }

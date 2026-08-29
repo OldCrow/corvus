@@ -8,15 +8,15 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
-#include <fstream>
-#include <string>
 #include <vector>
 
 #include "corvus/corvus.h"
 #include "expect_target.h"
+#include "ulp_utils.h"
 
 namespace {
+
+using corvus_test::UlpDiff;
 
 // Gates, set from measured values with no margin (house rule): regressions
 // should trip them.
@@ -25,16 +25,6 @@ constexpr uint64_t kMaxUlpErfinvT = 1;
 constexpr uint64_t kMaxUlpErfcinvC = 1;
 constexpr uint64_t kMaxUlpErfcinvTMid = 1;
 constexpr uint64_t kMaxUlpErfcinvTFar = 1;
-
-int64_t OrderedBits(double x) {
-  int64_t b;
-  std::memcpy(&b, &x, sizeof(b));
-  return b < 0 ? (INT64_MIN - b) : b;
-}
-
-uint64_t UlpDiff(double a, double b) {
-  return static_cast<uint64_t>(std::llabs(OrderedBits(a) - OrderedBits(b)));
-}
 
 struct Region {
   const char* name;
@@ -47,20 +37,10 @@ struct Region {
 
 bool LoadReference(const char* path, std::vector<double>* in,
                    std::vector<double>* want) {
-  std::ifstream f(path);
-  if (!f) {
-    std::fprintf(stderr, "cannot open reference file: %s\n", path);
-    return false;
-  }
-  std::string sx, sy;
-  while (f >> sx >> sy) {
-    in->push_back(std::strtod(sx.c_str(), nullptr));
-    want->push_back(std::strtod(sy.c_str(), nullptr));
-  }
-  if (in->size() < 5000) {
-    std::fprintf(stderr, "reference file suspiciously small: %zu lines\n",
-                 in->size());
-    return false;
+  const auto rows = corvus_test::LoadRef(path, 2, 5000);
+  for (const auto& row : rows) {
+    in->push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
+    want->push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
   }
   return true;
 }

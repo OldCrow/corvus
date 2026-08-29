@@ -47,8 +47,12 @@
 #include "corvus/corvus.h"
 #include "expect_target.h"
 #include "src/betainv_data.h"  // the pinned deep-small cut and S1's nu floor
+#include "ulp_utils.h"
 
 namespace {
+
+using corvus_test::OrderedBits;
+using corvus_test::UlpDiff;
 
 // Gates: PINNED to measured, no margin, gammainv precedent. Measured
 // identically on clang-cl AVX3_ZEN4 native and g++ SSE2-capped: 1 ULP in
@@ -85,18 +89,6 @@ constexpr double kKappaMaxPar = 1e12;
 
 // Gamma-limit transfer territory, the kernel's own S3 availability gate.
 constexpr double kGammaLimit = 0x1.0p+20;
-
-int64_t OrderedBits(double x) {
-  int64_t b;
-  std::memcpy(&b, &x, sizeof(b));
-  return b < 0 ? (INT64_MIN - b) : b;
-}
-
-uint64_t UlpDiff(double a, double b) {
-  if (std::isnan(a) || std::isnan(b)) return UINT64_MAX;
-  if (std::isinf(a) || std::isinf(b)) return a == b ? 0 : UINT64_MAX;
-  return static_cast<uint64_t>(std::llabs(OrderedBits(a) - OrderedBits(b)));
-}
 
 double UlpOf(double x) {
   const double n = std::nextafter(std::fabs(x),
@@ -150,25 +142,16 @@ struct Row {
 };
 
 bool LoadReference(const char* path, std::vector<Row>* rows) {
-  std::ifstream f(path);
-  if (!f) {
-    std::fprintf(stderr, "cannot open reference file: %s\n", path);
-    return false;
-  }
-  std::string sa, sb, ss, sx, sm;
-  while (f >> sa >> sb >> ss >> sx >> sm) {
+  const auto raw = corvus_test::LoadRef(path, 5, 4000);
+  rows->reserve(raw.size());
+  for (const auto& row : raw) {
     Row r;
-    r.a = std::strtod(sa.c_str(), nullptr);
-    r.b = std::strtod(sb.c_str(), nullptr);
-    r.s = std::strtod(ss.c_str(), nullptr);
-    r.x = std::strtod(sx.c_str(), nullptr);
-    r.marker = sm.empty() ? '?' : sm[0];
+    r.a = corvus_test::ParseDouble(row.tok[0], path, row.line);
+    r.b = corvus_test::ParseDouble(row.tok[1], path, row.line);
+    r.s = corvus_test::ParseDouble(row.tok[2], path, row.line);
+    r.x = corvus_test::ParseDouble(row.tok[3], path, row.line);
+    r.marker = row.tok[4].empty() ? '?' : row.tok[4][0];
     rows->push_back(r);
-  }
-  if (rows->size() < 4000) {
-    std::fprintf(stderr, "reference file suspiciously small: %zu lines\n",
-                 rows->size());
-    return false;
   }
   return true;
 }

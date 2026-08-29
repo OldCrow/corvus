@@ -10,8 +10,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <fstream>
-#include <string>
 #include <vector>
 
 #undef HWY_TARGET_INCLUDE
@@ -59,6 +57,7 @@ HWY_AFTER_NAMESPACE();
 #if HWY_ONCE
 
 #include "expect_target.h"
+#include "ulp_utils.h"
 
 namespace corvus {
 HWY_EXPORT(LogDdTestImpl);
@@ -90,15 +89,7 @@ namespace {
 constexpr double kMinRelExp = 67.8;
 constexpr uint64_t kMaxUlp = 1;
 
-int64_t OrderedBits(double x) {
-  int64_t b;
-  std::memcpy(&b, &x, sizeof(b));
-  return b < 0 ? (INT64_MIN - b) : b;
-}
-
-uint64_t UlpDiff(double a, double b) {
-  return static_cast<uint64_t>(std::llabs(OrderedBits(a) - OrderedBits(b)));
-}
+using corvus_test::UlpDiff;
 
 }  // namespace
 
@@ -110,37 +101,14 @@ int main(int argc, char** argv) {
   }
 
   const char* path = argc > 1 ? argv[1] : "tests/data/log_dd_reference.txt";
-  std::ifstream f(path);
-  if (!f) {
-    std::fprintf(stderr, "cannot open reference file: %s\n", path);
-    return 2;
-  }
+  const auto rows = corvus_test::LoadRef(path, 4, 5000);
 
   std::vector<double> xh, xl, want_hi, want_lo;
-  std::string line;
-  while (std::getline(f, line)) {
-    if (line.empty() || line[0] == '#') continue;
-    const char* p = line.c_str();
-    char* end = nullptr;
-    double v[4];
-    bool ok = true;
-    for (double& s : v) {
-      s = std::strtod(p, &end);
-      if (end == p) {
-        ok = false;
-        break;
-      }
-      p = end;
-    }
-    if (!ok) continue;
-    xh.push_back(v[0]);
-    xl.push_back(v[1]);
-    want_hi.push_back(v[2]);
-    want_lo.push_back(v[3]);
-  }
-  if (xh.size() < 5000) {
-    std::fprintf(stderr, "reference file suspiciously small: %zu lines\n", xh.size());
-    return 2;
+  for (const auto& row : rows) {
+    xh.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
+    xl.push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
+    want_hi.push_back(corvus_test::ParseDouble(row.tok[2], path, row.line));
+    want_lo.push_back(corvus_test::ParseDouble(row.tok[3], path, row.line));
   }
 
   std::vector<double> hi(xh.size()), lo(xh.size());

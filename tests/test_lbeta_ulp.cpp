@@ -21,8 +21,12 @@
 
 #include "corvus/corvus.h"
 #include "expect_target.h"
+#include "ulp_utils.h"
 
 namespace {
+
+using corvus_test::OrderedBits;
+using corvus_test::UlpDiff;
 
 // Gates PINNED to measured, no margin: lbeta
 // measured CORRECTLY ROUNDED on every row of every band -- relative and
@@ -34,39 +38,22 @@ constexpr double kMaxAbs53 = 0.5;       // |lnB| < 1 band, units of 2^-53
 
 constexpr double kBigMin = 0x1.0p+990;  // mirrors kLbetaBigMin (beta-inl.h)
 
-int64_t OrderedBits(double x) {
-  int64_t b;
-  std::memcpy(&b, &x, sizeof(b));
-  return b < 0 ? (INT64_MIN - b) : b;
-}
-
-uint64_t UlpDiff(double a, double b) {
-  return static_cast<uint64_t>(std::llabs(OrderedBits(a) - OrderedBits(b)));
-}
-
 }  // namespace
 
 int main(int argc, char** argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   const char* path = argc > 1 ? argv[1] : "tests/data/lbeta_reference.txt";
-  std::ifstream f(path);
-  if (!f) {
-    std::fprintf(stderr, "cannot open reference file: %s\n", path);
-    return 2;
-  }
+  const auto rows = corvus_test::LoadRef(path, 3, 2000);
 
   std::vector<double> a, b, want;
-  std::string sa, sb, sw;
-  while (f >> sa >> sb >> sw) {
-    a.push_back(std::strtod(sa.c_str(), nullptr));
-    b.push_back(std::strtod(sb.c_str(), nullptr));
-    want.push_back(std::strtod(sw.c_str(), nullptr));
-  }
-  if (a.size() < 2000) {
-    std::fprintf(stderr, "reference file suspiciously small: %zu lines\n",
-                 a.size());
-    return 2;
+  a.reserve(rows.size());
+  b.reserve(rows.size());
+  want.reserve(rows.size());
+  for (const auto& row : rows) {
+    a.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
+    b.push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
+    want.push_back(corvus_test::ParseDouble(row.tok[2], path, row.line));
   }
 
   std::vector<double> got(a.size());

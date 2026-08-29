@@ -32,27 +32,16 @@
 
 #include "corvus/corvus.h"
 #include "expect_target.h"
+#include "ulp_utils.h"
 
 namespace {
+
+using corvus_test::SameBits;
+using corvus_test::UlpDiff;
 
 const double kInf = std::numeric_limits<double>::infinity();
 
 int g_fail = 0;
-
-int64_t OrderedBits(double x) {
-  int64_t b;
-  std::memcpy(&b, &x, sizeof(b));
-  return b < 0 ? (INT64_MIN - b) : b;
-}
-uint64_t UlpDiff(double a, double b) {
-  return static_cast<uint64_t>(std::llabs(OrderedBits(a) - OrderedBits(b)));
-}
-bool SameBits(double a, double b) {
-  uint64_t ba, bb;
-  std::memcpy(&ba, &a, sizeof(ba));
-  std::memcpy(&bb, &b, sizeof(bb));
-  return ba == bb;
-}
 
 double OneP(double a, double s) {
   double out = 0.0;

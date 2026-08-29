@@ -17,15 +17,15 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
-#include <fstream>
-#include <string>
 #include <vector>
 
 #include "corvus/corvus.h"
 #include "expect_target.h"
+#include "ulp_utils.h"
 
 namespace {
+
+using corvus_test::UlpDiff;
 
 // Gates PINNED to measured, no margin. Identical cells on
 // every validated leg: AVX3_ZEN4 native, AVX2/SSE4/SSSE3/SSE2 capped
@@ -35,16 +35,6 @@ namespace {
 constexpr uint64_t kMaxUlpRel = 1;
 constexpr double kMaxAbsUnits = 1.0;  // in units of 2^-53
 constexpr double kAbsUnit = 0x1p-53;
-
-int64_t OrderedBits(double x) {
-  int64_t b;
-  std::memcpy(&b, &x, sizeof(b));
-  return b < 0 ? (INT64_MIN - b) : b;
-}
-
-uint64_t UlpDiff(double a, double b) {
-  return static_cast<uint64_t>(std::llabs(OrderedBits(a) - OrderedBits(b)));
-}
 
 struct Region {
   const char* name;
@@ -61,22 +51,12 @@ int main(int argc, char** argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   const char* path = argc > 1 ? argv[1] : "tests/data/digamma_reference.txt";
-  std::ifstream f(path);
-  if (!f) {
-    std::fprintf(stderr, "cannot open reference file: %s\n", path);
-    return 2;
-  }
+  const auto rows = corvus_test::LoadRef(path, 2, 10000);
 
   std::vector<double> in, want;
-  std::string sx, sy;
-  while (f >> sx >> sy) {
-    in.push_back(std::strtod(sx.c_str(), nullptr));
-    want.push_back(std::strtod(sy.c_str(), nullptr));
-  }
-  if (in.size() < 10000) {
-    std::fprintf(stderr, "reference file suspiciously small: %zu lines\n",
-                 in.size());
-    return 2;
+  for (const auto& row : rows) {
+    in.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
+    want.push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
   }
 
   std::vector<double> got(in.size());
