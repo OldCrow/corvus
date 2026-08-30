@@ -10,10 +10,14 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-08-28
 
-**v0.7.0 STRUCTURE UNFREEZE OPEN [2026-08-29, user]** — kernel-structure
-milestone (#6–#11), all six issues bit-identical-by-intent, so the cost
-driver is VALIDATION PROTOCOL (byte-compare × trees + 4-tier sweep),
-not diff size. Session plan ratified by the user:
+**v0.7.0 CLOSED [2026-08-30] — the structure unfreeze is complete and
+the FREEZE RETURNS.** All six issues shipped (#6–#11, Resolved log per
+session); tagged v0.7.0. Every change bit-identical and verified so
+(ULP byte-compare both trees at each step, 4-tier sweep ×3, CI green
+per-job, no MSVC build-time regression). Next: v0.8.0 elementary
+family (#32).
+
+Session plan (ratified 2026-08-29, user; all sessions DONE):
 (1) DONE (Resolved log) **#6 + #7** — arity-generic driver template
 (DriveUnary/Binary/Ternary owning the loop shape + #5's deferred S1
 span-length HWY_DASSERT), 20 loops/11 TUs → 1; template/seam design is
@@ -28,7 +32,7 @@ the Windows CI job duration.
 to its own TU; orchestrator-direct (facade + TU layout sits on the
 HWY_DYNAMIC_DISPATCH-inside-namespace-corvus trap that only the SSE2
 cap catches).
-(3) **#9 + #10 + #11 + close** — outlined-wrapper dedup (Sonnet);
+(3) DONE (Resolved log) **#9 + #10 + #11 + close** — outlined-wrapper dedup (Sonnet);
 4e306/3.0 clamp derivation + erfc outer-bounds emit (orchestrator;
 tail-header regen must be numerics-byte-identical); #10 facade trim
 (remove MulSub/ReduceSum/ReduceMax per the strict-mirror rationale) +
@@ -703,6 +707,32 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-30 **#9 + #10 + #11 CLOSED — v0.7.0 session 3 (dedup +
+  argparse delegated to two Sonnet agents; A8 derivation, A9 emit, #10,
+  the allow_abbrev catch, and all validation orchestrator-direct).**
+  #9-A7: 15 wrappers (issue said 16 — miscount) → 4 shared
+  OutlinedLogDd/OutlinedExpDd/OutlinedExp defs beside their callees;
+  BesselExpDdFrac kept (unique callee). #9-A8: (3.0, 4e306) →
+  kBetaGlSatT/kBetaGlTCap defined once in beta-inl.h with the
+  derivation of record — discarded-lane protection for the shared
+  gamma cores (CF k-overflow + series freeze-kill), live lanes bounded
+  ~1e20 by the non-saturation constraint, cap free in [1e21, 1e308);
+  betainv agrees by include. #9-A9: ALL erfc routing bounds (inner
+  pair included — they were hard-coded prints) derived from INTERVALS
+  and emitted; kernel routes on kErfcTailLo/Hi; header regen = exactly
+  the two new lines. #10: MulSub/ReduceSum/ReduceMax dropped (facade =
+  what kernels use; tombstone comment keeps the residual hazard);
+  version-floor citations re-grounded on the audit pin. #11: argparse
+  ×4 with allow_abbrev=False — the agent's version prefix-matched
+  --ful to --full, silently selecting the WRONG mode (caught by the
+  misspelled-flag probe; worse than the original defect); module-level
+  FULL kept sys.argv-based for the import-as-library path; three
+  append flags ruled three distinct concepts. Verified: --help ×4,
+  --ful errors ×4, both data-gen default tables byte-identical.
+  Architecture refresh (deferred one-pass, user-ratified): SVG bands +
+  ARCHITECTURE.md aligned with #6/#8/#10; stale ~20-op count fixed.
+  Validation: 27/27 both trees, ULP outputs byte-identical to the
+  post-#8 baseline, 4-tier sweep green.
 - 2026-08-29 **#8 CLOSED — v0.7.0 session 2, orchestrator-direct.**
   erf/erfc assemblies hoisted to src/erf-inl.h / src/erfc-inl.h (the
   two families whose assemblies never left their dispatch TUs — now
