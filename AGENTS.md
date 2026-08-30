@@ -50,7 +50,10 @@ special-function coverage.
   sharing/dependency boundary (families consuming the same cores share a
   TU with multiple HWY_EXPORTs). Per-target pattern: `HWY_TARGET_INCLUDE`
   + `foreach_target.h`, kernel in `corvus::HWY_NAMESPACE`, `HWY_ONCE`
-  section with `HWY_EXPORT` + public dispatch wrapper.
+  section with `HWY_EXPORT` + public dispatch wrapper. The loop itself
+  lives in `src/driver-inl.h` (`DriveUnary/Binary/Ternary` — one masked
+  full-vector+tail shape plus the debug span-length assert); each Impl
+  is a one-line forwarder into it.
 - `src/dd-inl.h` / `src/dd_special-inl.h` / `src/<fn>_dd-inl.h` —
   double-double primitives, shared dd specials (Log1pmxDd/Expm1Dd), and
   corvus-owned transcendental cores (exp_dd/log_dd, mantissa+exponent

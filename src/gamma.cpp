@@ -4,6 +4,7 @@
 #define HWY_TARGET_INCLUDE "src/gamma.cpp"
 #include "hwy/foreach_target.h"
 
+#include "src/driver-inl.h"
 #include "src/gamma-inl.h"
 #include "src/ops-inl.h"
 
@@ -16,37 +17,16 @@ namespace HWY_NAMESPACE {
 // same four region cores and differ only in the router's two decisions, so
 // splitting them would instantiate every core (and the Temme table's eleven
 // Clenshaw passes) twice per target for nothing.
-static void GammaPImpl(const double* a, const double* x, double* out, size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(GammaVec<true>(d, op::Load(d, a + i), op::Load(d, x + i)), d,
-              out + i);
-  }
-  if (i < n) {
-    // Masked tail: same code path as the full lanes, no scalar fallback.
-    const size_t m = n - i;
-    op::StoreN(
-        GammaVec<true>(d, op::LoadN(d, a + i, m), op::LoadN(d, x + i, m)), d,
-        out + i, m);
-  }
+static void GammaPImpl(std::span<const double> a, std::span<const double> x,
+                       std::span<double> out) {
+  DriveBinary([](auto d, auto va, auto vx) { return GammaVec<true>(d, va, vx); },
+              a, x, out);
 }
 
-static void GammaQImpl(const double* a, const double* x, double* out, size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(GammaVec<false>(d, op::Load(d, a + i), op::Load(d, x + i)), d,
-              out + i);
-  }
-  if (i < n) {
-    const size_t m = n - i;
-    op::StoreN(
-        GammaVec<false>(d, op::LoadN(d, a + i, m), op::LoadN(d, x + i, m)), d,
-        out + i, m);
-  }
+static void GammaQImpl(std::span<const double> a, std::span<const double> x,
+                       std::span<double> out) {
+  DriveBinary([](auto d, auto va, auto vx) { return GammaVec<false>(d, va, vx); },
+              a, x, out);
 }
 
 }  // namespace HWY_NAMESPACE
@@ -66,12 +46,12 @@ HWY_EXPORT(GammaQImpl);
 // sweep catches it.
 void gamma_p(std::span<const double> a, std::span<const double> x,
              std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(GammaPImpl)(a.data(), x.data(), out.data(), a.size());
+  HWY_DYNAMIC_DISPATCH(GammaPImpl)(a, x, out);
 }
 
 void gamma_q(std::span<const double> a, std::span<const double> x,
              std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(GammaQImpl)(a.data(), x.data(), out.data(), a.size());
+  HWY_DYNAMIC_DISPATCH(GammaQImpl)(a, x, out);
 }
 
 }  // namespace corvus

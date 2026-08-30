@@ -7,6 +7,7 @@
 #include "hwy/foreach_target.h"
 
 #include "src/dd-inl.h"
+#include "src/driver-inl.h"
 #include "src/erf_core-inl.h"
 #include "src/erfc_core-inl.h"
 #include "src/exp_dd-inl.h"
@@ -96,17 +97,8 @@ static HWY_INLINE op::V<D> ErfcVec(D d, op::V<D> x) {
   return res;
 }
 
-static void ErfcImpl(const double* in, double* out, size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(ErfcVec(d, op::Load(d, in + i)), d, out + i);
-  }
-  if (i < n) {
-    // Masked tail: same code path as the full lanes, no scalar fallback.
-    op::StoreN(ErfcVec(d, op::LoadN(d, in + i, n - i)), d, out + i, n - i);
-  }
+static void ErfcImpl(std::span<const double> in, std::span<double> out) {
+  DriveUnary([](auto d, auto x) { return ErfcVec(d, x); }, in, out);
 }
 
 }  // namespace HWY_NAMESPACE
@@ -124,7 +116,7 @@ HWY_EXPORT(ErfcImpl);
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
 void erfc(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(ErfcImpl)(in.data(), out.data(), in.size());
+  HWY_DYNAMIC_DISPATCH(ErfcImpl)(in, out);
 }
 
 }  // namespace corvus

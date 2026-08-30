@@ -10,9 +10,11 @@
 /// CPU supports (SSE2..AVX-512, NEON).
 ///
 /// Common contract for all batch functions:
-///  - `in` and `out` must have the same length. Lengths are NOT checked:
-///    the element count is taken from the first input span, so a shorter
-///    span anywhere is undefined behavior (out-of-bounds access).
+///  - `in` and `out` must have the same length. Release builds do NOT
+///    check lengths — a shorter span anywhere is undefined behavior
+///    (out-of-bounds access). Debug builds assert the contract
+///    (HWY_DASSERT in the shared driver), so the mistake fails loudly
+///    there instead.
 ///  - Exact aliasing is allowed (`in.data() == out.data()`); partial overlap
 ///    is undefined behavior. For functions taking several input spans,
 ///    exactly one input may alias `out` (every input at index i is read

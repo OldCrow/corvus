@@ -4,6 +4,7 @@
 #define HWY_TARGET_INCLUDE "src/gammainv.cpp"
 #include "hwy/foreach_target.h"
 
+#include "src/driver-inl.h"
 #include "src/gammainv-inl.h"
 #include "src/ops-inl.h"
 
@@ -18,37 +19,16 @@ namespace HWY_NAMESPACE {
 // would instantiate the whole pipeline -- which itself instantiates all four
 // forward region cores, erfcinv and the dd transcendentals -- twice per
 // target for nothing.
-static void GammaPInvImpl(const double* a, const double* p, double* out, size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(GammaInvVec<false>(d, op::Load(d, a + i), op::Load(d, p + i)), d,
-              out + i);
-  }
-  if (i < n) {
-    // Masked tail: same code path as the full lanes, no scalar fallback.
-    const size_t m = n - i;
-    op::StoreN(
-        GammaInvVec<false>(d, op::LoadN(d, a + i, m), op::LoadN(d, p + i, m)),
-        d, out + i, m);
-  }
+static void GammaPInvImpl(std::span<const double> a, std::span<const double> p,
+                          std::span<double> out) {
+  DriveBinary([](auto d, auto va, auto vp) { return GammaInvVec<false>(d, va, vp); },
+              a, p, out);
 }
 
-static void GammaQInvImpl(const double* a, const double* q, double* out, size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(GammaInvVec<true>(d, op::Load(d, a + i), op::Load(d, q + i)), d,
-              out + i);
-  }
-  if (i < n) {
-    const size_t m = n - i;
-    op::StoreN(
-        GammaInvVec<true>(d, op::LoadN(d, a + i, m), op::LoadN(d, q + i, m)), d,
-        out + i, m);
-  }
+static void GammaQInvImpl(std::span<const double> a, std::span<const double> q,
+                          std::span<double> out) {
+  DriveBinary([](auto d, auto va, auto vq) { return GammaInvVec<true>(d, va, vq); },
+              a, q, out);
 }
 
 }  // namespace HWY_NAMESPACE
@@ -68,12 +48,12 @@ HWY_EXPORT(GammaQInvImpl);
 // sweep catches it.
 void gamma_p_inv(std::span<const double> a, std::span<const double> p,
                  std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(GammaPInvImpl)(a.data(), p.data(), out.data(), a.size());
+  HWY_DYNAMIC_DISPATCH(GammaPInvImpl)(a, p, out);
 }
 
 void gamma_q_inv(std::span<const double> a, std::span<const double> q,
                  std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(GammaQInvImpl)(a.data(), q.data(), out.data(), a.size());
+  HWY_DYNAMIC_DISPATCH(GammaQInvImpl)(a, q, out);
 }
 
 }  // namespace corvus

@@ -5,6 +5,7 @@
 #include "hwy/foreach_target.h"
 
 #include "src/betainv-inl.h"
+#include "src/driver-inl.h"
 #include "src/ops-inl.h"
 
 HWY_BEFORE_NAMESPACE();
@@ -21,43 +22,22 @@ namespace HWY_NAMESPACE {
 // the dd transcendentals -- twice per target for nothing. This is the heaviest
 // TU in the library and gets /d2ReducedOptimizeHugeFunctions on real MSVC
 // (CMakeLists.txt) from day one.
-static void BetaPInvImpl(const double* a, const double* b, const double* p,
-                  double* out, size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(BetaInvVec<false>(d, op::Load(d, a + i), op::Load(d, b + i),
-                                op::Load(d, p + i)),
-              d, out + i);
-  }
-  if (i < n) {
-    // Masked tail: same code path as the full lanes, no scalar fallback.
-    const size_t m = n - i;
-    op::StoreN(BetaInvVec<false>(d, op::LoadN(d, a + i, m),
-                                 op::LoadN(d, b + i, m),
-                                 op::LoadN(d, p + i, m)),
-               d, out + i, m);
-  }
+static void BetaPInvImpl(std::span<const double> a, std::span<const double> b,
+                          std::span<const double> p, std::span<double> out) {
+  DriveTernary(
+      [](auto d, auto va, auto vb, auto vp) {
+        return BetaInvVec<false>(d, va, vb, vp);
+      },
+      a, b, p, out);
 }
 
-static void BetaQInvImpl(const double* a, const double* b, const double* q,
-                  double* out, size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(BetaInvVec<true>(d, op::Load(d, a + i), op::Load(d, b + i),
-                               op::Load(d, q + i)),
-              d, out + i);
-  }
-  if (i < n) {
-    const size_t m = n - i;
-    op::StoreN(BetaInvVec<true>(d, op::LoadN(d, a + i, m),
-                                op::LoadN(d, b + i, m),
-                                op::LoadN(d, q + i, m)),
-               d, out + i, m);
-  }
+static void BetaQInvImpl(std::span<const double> a, std::span<const double> b,
+                          std::span<const double> q, std::span<double> out) {
+  DriveTernary(
+      [](auto d, auto va, auto vb, auto vq) {
+        return BetaInvVec<true>(d, va, vb, vq);
+      },
+      a, b, q, out);
 }
 
 }  // namespace HWY_NAMESPACE
@@ -77,14 +57,12 @@ HWY_EXPORT(BetaQInvImpl);
 // sweep catches it.
 void beta_p_inv(std::span<const double> a, std::span<const double> b,
                 std::span<const double> p, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(BetaPInvImpl)
-  (a.data(), b.data(), p.data(), out.data(), a.size());
+  HWY_DYNAMIC_DISPATCH(BetaPInvImpl)(a, b, p, out);
 }
 
 void beta_q_inv(std::span<const double> a, std::span<const double> b,
                 std::span<const double> q, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(BetaQInvImpl)
-  (a.data(), b.data(), q.data(), out.data(), a.size());
+  HWY_DYNAMIC_DISPATCH(BetaQInvImpl)(a, b, q, out);
 }
 
 }  // namespace corvus

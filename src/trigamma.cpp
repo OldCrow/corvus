@@ -4,6 +4,7 @@
 #define HWY_TARGET_INCLUDE "src/trigamma.cpp"
 #include "hwy/foreach_target.h"
 
+#include "src/driver-inl.h"
 #include "src/ops-inl.h"
 #include "src/trigamma-inl.h"
 
@@ -11,17 +12,8 @@ HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
 
-static void TrigammaImpl(const double* in, double* out, size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(TrigammaVec(d, op::Load(d, in + i)), d, out + i);
-  }
-  if (i < n) {
-    // Masked tail: same code path as the full lanes, no scalar fallback.
-    op::StoreN(TrigammaVec(d, op::LoadN(d, in + i, n - i)), d, out + i, n - i);
-  }
+static void TrigammaImpl(std::span<const double> in, std::span<double> out) {
+  DriveUnary([](auto d, auto x) { return TrigammaVec(d, x); }, in, out);
 }
 
 }  // namespace HWY_NAMESPACE
@@ -39,7 +31,7 @@ HWY_EXPORT(TrigammaImpl);
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
 void trigamma(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(TrigammaImpl)(in.data(), out.data(), in.size());
+  HWY_DYNAMIC_DISPATCH(TrigammaImpl)(in, out);
 }
 
 }  // namespace corvus

@@ -5,6 +5,7 @@
 #include "hwy/foreach_target.h"
 
 #include "src/bessel-inl.h"
+#include "src/driver-inl.h"
 #include "src/ops-inl.h"
 
 HWY_BEFORE_NAMESPACE();
@@ -19,57 +20,20 @@ namespace HWY_NAMESPACE {
 // src/bessel-inl.h's file header and src/bessel_data.h document the
 // evaluation scheme.
 
-static void I0Impl(const double* in, double* out, size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(BesselNu0(d, op::Load(d, in + i)).unscaled, d, out + i);
-  }
-  if (i < n) {
-    // Masked tail: same code path as the full lanes, no scalar fallback.
-    op::StoreN(BesselNu0(d, op::LoadN(d, in + i, n - i)).unscaled, d, out + i,
-              n - i);
-  }
+static void I0Impl(std::span<const double> in, std::span<double> out) {
+  DriveUnary([](auto d, auto x) { return BesselNu0(d, x).unscaled; }, in, out);
 }
 
-static void I0eImpl(const double* in, double* out, size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(BesselNu0(d, op::Load(d, in + i)).scaled, d, out + i);
-  }
-  if (i < n) {
-    op::StoreN(BesselNu0(d, op::LoadN(d, in + i, n - i)).scaled, d, out + i,
-              n - i);
-  }
+static void I0eImpl(std::span<const double> in, std::span<double> out) {
+  DriveUnary([](auto d, auto x) { return BesselNu0(d, x).scaled; }, in, out);
 }
 
-static void I1Impl(const double* in, double* out, size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(BesselNu1(d, op::Load(d, in + i)).unscaled, d, out + i);
-  }
-  if (i < n) {
-    op::StoreN(BesselNu1(d, op::LoadN(d, in + i, n - i)).unscaled, d, out + i,
-              n - i);
-  }
+static void I1Impl(std::span<const double> in, std::span<double> out) {
+  DriveUnary([](auto d, auto x) { return BesselNu1(d, x).unscaled; }, in, out);
 }
 
-static void I1eImpl(const double* in, double* out, size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(BesselNu1(d, op::Load(d, in + i)).scaled, d, out + i);
-  }
-  if (i < n) {
-    op::StoreN(BesselNu1(d, op::LoadN(d, in + i, n - i)).scaled, d, out + i,
-              n - i);
-  }
+static void I1eImpl(std::span<const double> in, std::span<double> out) {
+  DriveUnary([](auto d, auto x) { return BesselNu1(d, x).scaled; }, in, out);
 }
 
 }  // namespace HWY_NAMESPACE
@@ -90,19 +54,19 @@ HWY_EXPORT(I1eImpl);
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
 void i0(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(I0Impl)(in.data(), out.data(), in.size());
+  HWY_DYNAMIC_DISPATCH(I0Impl)(in, out);
 }
 
 void i0e(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(I0eImpl)(in.data(), out.data(), in.size());
+  HWY_DYNAMIC_DISPATCH(I0eImpl)(in, out);
 }
 
 void i1(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(I1Impl)(in.data(), out.data(), in.size());
+  HWY_DYNAMIC_DISPATCH(I1Impl)(in, out);
 }
 
 void i1e(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(I1eImpl)(in.data(), out.data(), in.size());
+  HWY_DYNAMIC_DISPATCH(I1eImpl)(in, out);
 }
 
 }  // namespace corvus

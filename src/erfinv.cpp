@@ -4,6 +4,7 @@
 #define HWY_TARGET_INCLUDE "src/erfinv.cpp"
 #include "hwy/foreach_target.h"
 
+#include "src/driver-inl.h"
 #include "src/erfinv-inl.h"
 #include "src/ops-inl.h"
 
@@ -11,29 +12,12 @@ HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
 
-static void ErfinvImpl(const double* in, double* out, size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(ErfinvVec(d, op::Load(d, in + i)), d, out + i);
-  }
-  if (i < n) {
-    // Masked tail: same code path as the full lanes, no scalar fallback.
-    op::StoreN(ErfinvVec(d, op::LoadN(d, in + i, n - i)), d, out + i, n - i);
-  }
+static void ErfinvImpl(std::span<const double> in, std::span<double> out) {
+  DriveUnary([](auto d, auto x) { return ErfinvVec(d, x); }, in, out);
 }
 
-static void ErfcinvImpl(const double* in, double* out, size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(ErfcinvVec(d, op::Load(d, in + i)), d, out + i);
-  }
-  if (i < n) {
-    op::StoreN(ErfcinvVec(d, op::LoadN(d, in + i, n - i)), d, out + i, n - i);
-  }
+static void ErfcinvImpl(std::span<const double> in, std::span<double> out) {
+  DriveUnary([](auto d, auto x) { return ErfcinvVec(d, x); }, in, out);
 }
 
 }  // namespace HWY_NAMESPACE
@@ -52,11 +36,11 @@ HWY_EXPORT(ErfcinvImpl);
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
 void erfinv(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(ErfinvImpl)(in.data(), out.data(), in.size());
+  HWY_DYNAMIC_DISPATCH(ErfinvImpl)(in, out);
 }
 
 void erfcinv(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(ErfcinvImpl)(in.data(), out.data(), in.size());
+  HWY_DYNAMIC_DISPATCH(ErfcinvImpl)(in, out);
 }
 
 }  // namespace corvus

@@ -5,6 +5,7 @@
 #include "hwy/foreach_target.h"
 
 #include "src/beta-inl.h"
+#include "src/driver-inl.h"
 #include "src/ops-inl.h"
 
 HWY_BEFORE_NAMESPACE();
@@ -18,59 +19,32 @@ namespace HWY_NAMESPACE {
 // (and the R3 table's ten nested Clenshaw passes) twice per target for
 // nothing. The TU does NOT include src/gamma-inl.h: R2's sweep covers the
 // gamma-limit corner, so there is no gamma-core reuse to share.
-static void BetaPImpl(const double* a, const double* b, const double* x, double* out,
-               size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(BetaVec<true>(d, op::Load(d, a + i), op::Load(d, b + i),
-                            op::Load(d, x + i)),
-              d, out + i);
-  }
-  if (i < n) {
-    // Masked tail: same code path as the full lanes, no scalar fallback.
-    const size_t m = n - i;
-    op::StoreN(BetaVec<true>(d, op::LoadN(d, a + i, m), op::LoadN(d, b + i, m),
-                             op::LoadN(d, x + i, m)),
-               d, out + i, m);
-  }
+static void BetaPImpl(std::span<const double> a, std::span<const double> b,
+                       std::span<const double> x, std::span<double> out) {
+  DriveTernary(
+      [](auto d, auto va, auto vb, auto vx) {
+        return BetaVec<true>(d, va, vb, vx);
+      },
+      a, b, x, out);
 }
 
-static void BetaQImpl(const double* a, const double* b, const double* x, double* out,
-               size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(BetaVec<false>(d, op::Load(d, a + i), op::Load(d, b + i),
-                             op::Load(d, x + i)),
-              d, out + i);
-  }
-  if (i < n) {
-    const size_t m = n - i;
-    op::StoreN(BetaVec<false>(d, op::LoadN(d, a + i, m), op::LoadN(d, b + i, m),
-                              op::LoadN(d, x + i, m)),
-               d, out + i, m);
-  }
+static void BetaQImpl(std::span<const double> a, std::span<const double> b,
+                       std::span<const double> x, std::span<double> out) {
+  DriveTernary(
+      [](auto d, auto va, auto vb, auto vx) {
+        return BetaVec<false>(d, va, vb, vx);
+      },
+      a, b, x, out);
 }
 
 // Third export in this TU per the same sharing rule: lbeta is the PA
 // prefactor's own LgammaPosDd/LgammaDiffDd assembly re-handed (see
 // LbetaVec's header in beta-inl.h) -- a separate TU would re-instantiate
 // that machinery per target for nothing.
-static void LbetaImpl(const double* a, const double* b, double* out, size_t n) {
-  const op::ScalableTag<double> d;
-  const size_t N = op::Lanes(d);
-  size_t i = 0;
-  for (; i + N <= n; i += N) {
-    op::Store(LbetaVec(d, op::Load(d, a + i), op::Load(d, b + i)), d, out + i);
-  }
-  if (i < n) {
-    const size_t m = n - i;
-    op::StoreN(LbetaVec(d, op::LoadN(d, a + i, m), op::LoadN(d, b + i, m)), d,
-               out + i, m);
-  }
+static void LbetaImpl(std::span<const double> a, std::span<const double> b,
+                       std::span<double> out) {
+  DriveBinary([](auto d, auto va, auto vb) { return LbetaVec(d, va, vb); }, a, b,
+              out);
 }
 
 }  // namespace HWY_NAMESPACE
@@ -91,20 +65,17 @@ HWY_EXPORT(LbetaImpl);
 // catches it.
 void beta_p(std::span<const double> a, std::span<const double> b,
             std::span<const double> x, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(BetaPImpl)
-  (a.data(), b.data(), x.data(), out.data(), a.size());
+  HWY_DYNAMIC_DISPATCH(BetaPImpl)(a, b, x, out);
 }
 
 void beta_q(std::span<const double> a, std::span<const double> b,
             std::span<const double> x, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(BetaQImpl)
-  (a.data(), b.data(), x.data(), out.data(), a.size());
+  HWY_DYNAMIC_DISPATCH(BetaQImpl)(a, b, x, out);
 }
 
 void lbeta(std::span<const double> a, std::span<const double> b,
            std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(LbetaImpl)
-  (a.data(), b.data(), out.data(), a.size());
+  HWY_DYNAMIC_DISPATCH(LbetaImpl)(a, b, out);
 }
 
 }  // namespace corvus
