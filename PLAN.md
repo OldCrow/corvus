@@ -23,7 +23,7 @@ exemptions — issue leans doc-route) is made INSIDE #6's design since
 the shared driver redefines what driver outlining means. Session risk:
 MSVC per-instantiation build time (superlinear-codegen history) — watch
 the Windows CI job duration.
-(2) **#8** — erf/erfc assemblies hoisted to -inl.h
+(2) DONE (Resolved log) **#8** — erf/erfc assemblies hoisted to -inl.h
 (kernel-test-reachable), ops::TargetName() facade op, active_target()
 to its own TU; orchestrator-direct (facade + TU layout sits on the
 HWY_DYNAMIC_DISPATCH-inside-namespace-corvus trap that only the SSE2
@@ -703,6 +703,18 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-29 **#8 CLOSED — v0.7.0 session 2, orchestrator-direct.**
+  erf/erfc assemblies hoisted to src/erf-inl.h / src/erfc-inl.h (the
+  two families whose assemblies never left their dispatch TUs — now
+  kernel-test-reachable and reusable like the other nine; dispatch TUs
+  are pure drivers + HWY_ONCE); ops::TargetName() added to the facade
+  (the last hwy:: call outside ops-inl.h — the std::simd swap claim is
+  literal again, AGENTS.md footnote retired); active_target() moved to
+  its own src/target.cpp (a consumer calling only it links one tiny
+  object, not erf.o + erf_data.o). Validation: 27/27 both trees, ULP
+  outputs byte-identical to the post-#6 baseline, 4-tier sweep green —
+  the SSE2 cap re-proving the dispatch-inside-namespace rule for the
+  new TU.
 - 2026-08-29 **#6 + #7 CLOSED — v0.7.0 session 1: the arity-generic
   driver (src/driver-inl.h) + outlining doctrine exemptions.** Design
   decisions of record: driver templates take std::span THROUGH
