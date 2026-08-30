@@ -58,6 +58,15 @@ family design records see `PLAN.md`.
   cores (exp_dd, log_dd), internal only: they return mantissa + exponent
   so a consumer folds its own factors in before the power-of-two scaling
   rounds anything — that is what keeps a subnormal result at one rounding.
+- **Highway `contrib/math` is below contract and is never exported**
+  (2026-08-21 fleet review, recorded with #32): its documented bounds
+  (Log 4 ULP; Sin/Cos 3 ULP and only for |x| ≤ 39000; no Pow) sit under
+  corvus's accuracy-first contract, so no public corvus function may be
+  backed by it. Internal use through the facade is permitted where the
+  consuming kernel's audited budget absorbs a ~1-ULP transcendental —
+  `op::Exp` in gammainv/betainv's Newton/Picard steps is the existing,
+  gated example. That usage is part of those kernels' measured bounds,
+  never a public claim.
 
 ## Numerical hazard rules
 
