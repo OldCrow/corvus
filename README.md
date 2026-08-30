@@ -8,8 +8,10 @@ SIMD-vectorized statistical special functions for C++20, with runtime
 multi-target dispatch. Fills the gap between basic-transcendental SIMD
 libraries (SLEEF, Highway's contrib math) and SciPy-level special-function
 coverage: erf/erfc, lgamma, regularized incomplete gamma and beta and their
-inverses, and modified Bessel I0/I1 — the functions that gate vectorized
-statistical CDFs, quantiles, and maximum-likelihood fitting.
+inverses, modified Bessel I0/I1, and an accuracy-first elementary family
+(exp, log, log1p, cos, sin — full double range, no domain cutoffs) — the
+functions that gate vectorized statistical CDFs, quantiles, and
+maximum-likelihood fitting.
 
 **Status: early development.** `erf`, `erfc`, `lgamma`, `digamma`,
 `trigamma`, `erfinv`, `erfcinv`, `gamma_p`, `gamma_q`, `gamma_p_inv`,
@@ -18,7 +20,10 @@ statistical CDFs, quantiles, and maximum-likelihood fitting.
 production-quality clean-room kernels validated against an mpmath oracle
 on every SIMD tier available across the development fleet — AVX-512
 (`AVX3`, `AVX3_DL`, `AVX3_ZEN4`), AVX2, SSE4, SSSE3, SSE2 and NEON, each
-on native silicon (see docs/ACCURACY.md). API not yet stable.
+on native silicon (see docs/ACCURACY.md). The v0.8.0 elementary family
+(`exp`, `log`, `log1p`, `cos`, `sin`) carries the same per-tier gates on
+all x86 tiers plus CI's NEON leg; its native-silicon fleet legs land in
+v0.9.0. API not yet stable.
 
 - `erf`: max 1 ULP over the full domain.
 - `erfc`: max 1 ULP for |x| <= 6 and for subnormal results; max 2 ULP in
@@ -101,6 +106,22 @@ on native silicon (see docs/ACCURACY.md). API not yet stable.
   composes exactly (see docs/ACCURACY.md for the recipes, including
   stable higher-order I_j for the CDF series).
 
+- `exp` / `log` / `log1p`: **log and log1p correctly rounded on every
+  reference row (0-ULP gates); exp correctly rounded on every
+  normal-result row**, 1 ULP in the subnormal band, with overflow to
+  +inf and gradual underflow to +0 crossing at the correctly rounded
+  thresholds (exp(−inf) = +0 exactly). Thin assemblies over corvus's
+  audited internal double-double cores — nothing here depends on the
+  backend's or the platform's math library.
+
+- `cos` / `sin`: max 1 ULP over the **full double range** on every tier —
+  including the non-FMA tiers — with no domain cutoff and no per-lane
+  libm fallback: |x| ≤ 2^23 uses an exact-split quadrant reduction, and
+  beyond it a vectorized Payne–Hanek reduction certified at every
+  exponent's worst reduction cancellation, including binary64's global
+  worst case. sin(−x) is the exact bit-for-bit negation of sin(x), and
+  sin(±0) = ±0, by construction.
+
 Both transcendental cores the kernels need (`exp_dd`, `log_dd`) are
 corvus's own, so no accuracy-critical path depends on the backend's math
 library.
@@ -109,7 +130,7 @@ library.
 
 - **Public API is std-only.** `std::span` in, `std::span` out. The SIMD
   backend (Google Highway) is an implementation detail hidden behind a
-  ~20-op internal facade, sized so it can later be reimplemented on
+  ~40-op internal facade, sized so it can later be reimplemented on
   `std::simd` without touching kernel code.
 - **Runtime dispatch.** One binary serves SSE2 through AVX-512 and NEON;
   the best available tier is selected at runtime.

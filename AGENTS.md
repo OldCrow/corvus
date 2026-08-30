@@ -2,8 +2,9 @@
 
 C++20 library of SIMD-vectorized statistical special functions (erf/erfc
 and inverses, lgamma, lbeta, digamma/trigamma, incomplete gamma/beta and
-their inverses, Bessel I0/I1 with scaled variants) with runtime
-multi-target dispatch via Google Highway.
+their inverses, Bessel I0/I1 with scaled variants, and the elementary
+family exp/log/log1p/cos/sin — full-double-range, accuracy-first) with
+runtime multi-target dispatch via Google Highway.
 Design goals: audited accuracy (documented ULP bounds per kernel per
 target), clean-room provenance (MIT), swappable SIMD backend. Fills the
 gap between SLEEF/Highway-contrib transcendentals and SciPy-level
