@@ -98,6 +98,8 @@ jobs:
             tests/data/i0_reference.txt tests/data/i1_reference.txt \
             tests/data/i0e_reference.txt tests/data/i1e_reference.txt
           ./build/tests/test_lbeta_ulp tests/data/lbeta_reference.txt
+          ./build/tests/test_trig_ulp \
+            tests/data/cos_reference.txt tests/data/sin_reference.txt
 
       - name: Sanitizers (ASan+UBSan, Debug)
         run: |
@@ -245,6 +247,8 @@ jobs:
             tests/data/i0_reference.txt tests/data/i1_reference.txt \
             tests/data/i0e_reference.txt tests/data/i1e_reference.txt
           ./build/tests/Release/test_lbeta_ulp.exe tests/data/lbeta_reference.txt
+          ./build/tests/Release/test_trig_ulp.exe \
+            tests/data/cos_reference.txt tests/data/sin_reference.txt
 
   macos-arm64:
     name: macOS arm64 (NEON)
@@ -302,3 +306,5 @@ jobs:
             tests/data/i0_reference.txt tests/data/i1_reference.txt \
             tests/data/i0e_reference.txt tests/data/i1e_reference.txt
           ./build/tests/test_lbeta_ulp tests/data/lbeta_reference.txt
+          ./build/tests/test_trig_ulp \
+            tests/data/cos_reference.txt tests/data/sin_reference.txt

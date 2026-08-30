@@ -10,12 +10,44 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-08-30
 
-**v0.8.0 IN PROGRESS — Session 2 (tables + generators + oracles)
-COMPLETE [2026-08-30], UNCOMMITTED (user AFK; commit on return).
-Session 1 (design + budgets) COMPLETE [2026-08-30].** The design below
-is the S1 deliverable; sessions 2–5 execute it. The NUMERICAL-DOCTRINE
-contrib/math sentence landed with S1. S3/S4 re-scope RATIFIED
-[2026-08-30, user].
+**v0.8.0 IN PROGRESS — Session 3 (cos/sin kernels + gates) COMPLETE
+[2026-08-30]; Sessions 1–2 COMPLETE [2026-08-30].** The design below is
+the S1 deliverable. S3/S4 re-scope RATIFIED [2026-08-30, user].
+
+### S3 deliverables (cos/sin SHIPPED)
+- src/trig-inl.h — both regions + shared cores; src/trig.cpp (two
+  exports, DriveUnary Impls); src/trig_ph_data.cpp; corvus.h cos/sin;
+  op::Xor added to the facade (the one predicted addition — used for
+  quadrant sign and the bitmask core-select).
+- Design refinement over S1: BOTH exports reduce |x| and sin applies
+  the input sign at the end — exact by oddness (negation commutes with
+  RN and every sin-core term is odd in r), collapses the PH sign fix
+  and the donor's sin(±0) blend to one Xor, and makes sin(−x) ≡
+  −sin(x) and cos(−x) ≡ cos(x) BIT-exact by construction
+  (smoke-asserted). The PH exact-expansion ladder is implemented as
+  designed in the S2 correction; its adaptive error argument
+  (residuals shrink with the cancellation) is the kernel derivation
+  block in trig-inl.h.
+- **Measured: max 1 ULP, every bucket, BOTH tier classes** — native
+  AVX3_ZEN4 AND the SSE2 cap (no FMA) hold 1 ULP in all eight
+  region×sign buckets per function, including the huge region's CF
+  worst-case rows (binary64's global worst |r| = 2^-60.89 included).
+  The donor's own SSE2 tier gates at 2 — corvus's structural
+  exactness argument (30-bit parts) shows up in the measurement. Gate
+  pinned at 1, no margin, no FMA-class distinction.
+- Smoke (Sonnet-authored, reviewed): specials in-vector at length 19,
+  NaN payload at every lane position, exact in-place aliasing,
+  bit-exact parity — all green both tiers; 29/29 ctest native AND
+  capped (existing families unaffected by the facade addition).
+- Five-list registration done (tests/CMakeLists, ci.yml ×3, sweep
+  $gates, quiet_bench ×2 + bench_trig).
+- ACCURACY.md (matrix rows + full cos/sin section; NEON deferred to
+  the v0.9.0 M1 leg) and USER-GUIDE.md (§3 table + no-domain-cutoff
+  migration note) updated in the same change set.
+- Toolchain note: build-cap-cc's cached bare "clang-cl" needs a
+  vcvars64 environment to reconfigure — scratchpad vcbuild.bat wraps
+  it; do NOT re-point the cache at a full path (compiler change wipes
+  the cache and silently drops the tier cap — the S2 sweep lesson).
 
 ### S2 deliverables (all self-checks green)
 - tools/trig_common.py — shared 2/π window frame + CF worst-case

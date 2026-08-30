@@ -83,6 +83,10 @@ template <int kBits, class V> HWY_INLINE V ShiftRight(V a) {
 }
 template <class V> HWY_INLINE V And(V a, V b) { return hn::And(a, b); }
 template <class V> HWY_INLINE V Or(V a, V b) { return hn::Or(a, b); }
+// Added for the trig kernels (#32): quadrant sign application and the
+// bitmask core-select (Xor(a, And(m, Xor(a, b)))), on double and integer
+// vectors alike.
+template <class V> HWY_INLINE V Xor(V a, V b) { return hn::Xor(a, b); }
 // Integer->double conversion (exact for the exponent-sized values corvus
 // converts). The float->int direction is ConvertToInt above.
 template <class D, class VI> HWY_INLINE V<D> ConvertToDouble(D d, VI a) {

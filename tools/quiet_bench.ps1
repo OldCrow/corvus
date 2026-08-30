@@ -71,7 +71,8 @@ param(
   [string[]] $Targets = @(
     "bench_erf", "bench_erfc", "bench_lgamma", "bench_erfinv",
     "bench_gamma", "bench_beta", "bench_digamma", "bench_trigamma",
-    "bench_gammainv", "bench_betainv", "bench_bessel", "bench_lbeta"
+    "bench_gammainv", "bench_betainv", "bench_bessel", "bench_lbeta",
+    "bench_trig"
   ),
   [string] $ExpectTarget = "",
   [double] $MaxAmbient = 5.0,

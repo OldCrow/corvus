@@ -95,6 +95,8 @@ add_library(corvus STATIC
   src/lgamma.cpp
   src/log_dd_data.cpp
   src/target.cpp
+  src/trig.cpp
+  src/trig_ph_data.cpp
   src/trigamma.cpp
 )
 add_library(corvus::corvus ALIAS corvus)

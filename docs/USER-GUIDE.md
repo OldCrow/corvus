@@ -112,6 +112,14 @@ Grouped by what you would reach for them to do.
 |---|---|---|
 | `i0`, `i1` | modified Bessel functions, orders 0 and 1 | 1 ULP |
 | `i0e`, `i1e` | the same, scaled by `exp(-|x|)` | 1 ULP |
+| `cos`, `sin` | cosine and sine, the FULL double range | 1 ULP |
+
+`cos`/`sin` have no domain cutoff: an argument of 1e300 is reduced
+in-vector (no per-lane libm fallback), and the 1 ULP bound holds through
+the hardest reduction cases the double format contains. If you are
+migrating from a vectorized trig routine with a documented domain limit
+(a `kTrigDMax`-style constant), delete the limit check — there is
+nothing to guard.
 
 Plus `active_target()`, which tells you which vector instruction set runtime
 dispatch actually chose. That is more useful than it sounds — see §9.

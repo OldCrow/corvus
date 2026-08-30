@@ -73,6 +73,8 @@ machine.
 | i0e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
 | i1e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
 | lbeta | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
+| cos | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | — (v0.9.0 M1 leg) | ✅ 2026-08-30 |
+| sin | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | — (v0.9.0 M1 leg) | ✅ 2026-08-30 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
@@ -1034,6 +1036,49 @@ Consumer note: BetaBinomial log-PMF hot paths use differences of ln B;
 correctly rounded terms make the difference's error the subtraction's
 own cancellation, which is the theoretical floor available to any
 ln B implementation.
+
+## cos and sin
+
+**Bound: max 1 ULP over the FULL double range, both functions, every
+region, every validated tier — including the non-FMA tiers.** Gate
+pinned at 1 with no margin, in four buckets per function (small/huge ×
+sign; 14,374 rows per function shared row-for-row). The donor kernel's
+own SSE2 tier gates at 2 ULP; corvus holds 1 there because the
+reduction's exactness is structural (30-bit split parts make every
+n·part product exact without FMA), so only the polynomial ladders feel
+the missing fusion, and they have headroom.
+
+| Region | Bound | Notes |
+|---|---|---|
+| \|x\| ≤ 2^23 (exact-split reduction) | 1 ULP | ~1.4–1.8% not-CR; worst rows at k·π/2 bit-neighborhoods |
+| \|x\| > 2^23 (Payne–Hanek) | 1 ULP | ≤ 0.6% not-CR; rows include every exponent's CF worst cancellation and binary64's global worst case (\|r\| = 2^−60.89 at e = 849) |
+
+Method: quadrant reduction x = n·(π/2) + r with shared degree-6 parity
+cores on u = r² (transcribed from the certified clean-room consumer
+kernel — provenance chain and divergence audit recorded in PLAN.md's
+v0.8.0 S1 record). Beyond 2^23 a clean-room vectorized Payne–Hanek
+region takes over: per-exponent windows W_e = (2^(e−52)·2/π) mod 4 as
+four 53-bit chunks (products exact via TwoProd), accumulated as an
+exact expansion — integer stripping and every ladder sum exact, so
+cancellation costs nothing and only the final dd compression rounds,
+relative to the already-cancelled f − n. Window truncation ≤ 2^−157
+absolute in f (generator-certified per row); r reaches the cores at
+~2^−93 relative even at the deepest cancellation. There is no scalar
+libm fallback and no domain cutoff on any tier; kTrigDMax is a region
+boundary, not a public limit. Both exports reduce |x| and sin applies
+the input's sign at the end — exact by oddness, which also makes
+sin(−x) bit-identical to −sin(x) and cos(−x) to cos(x) by
+construction (smoke-asserted).
+
+Oracle: mpmath at exponent-scaled precision (0.302·e + 80 digits, 2×
+re-verified deterministic sample), cross-checked bit-for-bit against
+the consumers' independently generated shipping gate vectors at every
+shared finite point (0 mismatches, including 1e9 and 1e300) and
+against platform libm as a sanity floor.
+
+Special values: cos(±0) = 1 and sin(±0) = ±0 (sign preserved), exact
+by construction; cos/sin(±inf) = NaN; NaN propagates with payload in
+every lane position (smoke-asserted per position).
 
 ## exp_dd (internal)
 

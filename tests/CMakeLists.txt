@@ -271,3 +271,24 @@ add_test(NAME lbeta_ulp
 add_executable(bench_lbeta bench_lbeta.cpp)
 corvus_test_target(bench_lbeta)
 # Deliberately not registered with ctest: run manually on a quiet machine.
+
+# trig (cos + sin, one TU): a NEW leaf family -- consumes only the dd
+# primitives and its own tables (trig_data.h small region, trig_ph_data
+# Payne-Hanek windows), no other family's cores -- so it registers last.
+# The ULP gate needs the source root for src/trig_data.h (kTrigDMax is the
+# kernel's own region boundary, so gate and kernel cannot drift apart).
+add_executable(test_trig_smoke test_trig_smoke.cpp)
+corvus_test_target(test_trig_smoke)
+add_test(NAME trig COMMAND test_trig_smoke)
+
+add_executable(test_trig_ulp test_trig_ulp.cpp)
+corvus_test_target(test_trig_ulp)
+target_include_directories(test_trig_ulp PRIVATE ${PROJECT_SOURCE_DIR})
+add_test(NAME trig_ulp
+  COMMAND test_trig_ulp
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/cos_reference.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/sin_reference.txt)
+
+add_executable(bench_trig bench_trig.cpp)
+corvus_test_target(bench_trig)
+# Deliberately not registered with ctest: run manually on a quiet machine.

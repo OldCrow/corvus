@@ -371,6 +371,30 @@ void i0e(std::span<const double> in, std::span<double> out) noexcept;
 /// (payload preserved).
 void i1e(std::span<const double> in, std::span<double> out) noexcept;
 
+/// \brief out[i] = cos(in[i]), over the FULL double range.
+///
+/// Quadrant reduction with an exact 4-part pi/2 split for |x| <= 2^23 and a
+/// Payne-Hanek reduction beyond it (certified at each exponent's worst
+/// reduction cancellation, including binary64's global worst case) -- there
+/// is no domain cutoff and no libm fallback on any tier. Accuracy: measured
+/// and gate-pinned per SIMD tier (docs/ACCURACY.md).
+///
+/// Specials: cos(+-0) = 1 exactly; cos(+-inf) = NaN; NaN propagates
+/// (payload preserved), evaluated in-vector in every lane position.
+void cos(std::span<const double> in, std::span<double> out) noexcept;
+
+/// \brief out[i] = sin(in[i]), over the FULL double range.
+///
+/// Same reduction and cores as cos (sin is computed from its own quadrant
+/// table, not as cos(x - pi/2)). sin is odd by construction: sin(-x) is the
+/// exact negation of sin(x) in every lane. Accuracy: measured and
+/// gate-pinned per SIMD tier (docs/ACCURACY.md).
+///
+/// Specials: sin(+-0) = +-0 with the sign preserved exactly;
+/// sin(+-inf) = NaN; NaN propagates (payload preserved), evaluated
+/// in-vector in every lane position.
+void sin(std::span<const double> in, std::span<double> out) noexcept;
+
 }  // namespace corvus
 
 #endif  // CORVUS_CORVUS_H_
