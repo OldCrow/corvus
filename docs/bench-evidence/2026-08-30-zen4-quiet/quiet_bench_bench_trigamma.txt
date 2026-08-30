@@ -1,0 +1,19 @@
+corvus active SIMD target: AVX3_ZEN4
+trigamma, (0,1) up-step: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          10.40         110.52     10.63x
+trigamma, [1,2) zone: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          10.40         110.40     10.62x
+trigamma, [2,8) down-walk: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          16.20         137.47      8.49x
+trigamma, [8,2^89) asymptotic: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001           5.60         191.48     34.20x
+trigamma, [2^89,inf) 1/x only: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001           5.60         191.03     34.12x
+trigamma, negative axis (reflection): n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          26.87         252.21      9.39x

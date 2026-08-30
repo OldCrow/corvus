@@ -1,0 +1,10 @@
+corvus active SIMD target: AVX3_ZEN4
+         n    fn   corvus ns/el     libm ns/el    speedup
+      1000   log           4.90           3.00      0.61x
+      1000 log1p           4.90           4.20      0.86x
+     10000   log           4.91           3.01      0.61x
+     10000 log1p           4.88           4.33      0.89x
+    100000   log           4.91           3.05      0.62x
+    100000 log1p           4.88           4.45      0.91x
+   1000000   log           4.92           3.13      0.64x
+   1000000 log1p           4.88           4.48      0.92x

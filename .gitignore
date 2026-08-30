@@ -8,3 +8,5 @@ __pycache__/
 # Local benchmark artifacts from tools/quiet_bench.ps1 (run in a build tree).
 quiet_bench.log
 quiet_bench_*.txt
+# ...but the curated evidence copies under docs/ ARE the record — keep them.
+!docs/bench-evidence/**
