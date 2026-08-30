@@ -14,7 +14,7 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 milestone (#6–#11), all six issues bit-identical-by-intent, so the cost
 driver is VALIDATION PROTOCOL (byte-compare × trees + 4-tier sweep),
 not diff size. Session plan ratified by the user:
-(1) **#6 + #7** — arity-generic driver template
+(1) DONE (Resolved log) **#6 + #7** — arity-generic driver template
 (DriveUnary/Binary/Ternary owning the loop shape + #5's deferred S1
 span-length HWY_DASSERT), 20 loops/11 TUs → 1; template/seam design is
 Fable high-effort, 11-TU rollout is Sonnet agents on disjoint TUs; #7's
@@ -696,6 +696,26 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-29 **#6 + #7 CLOSED — v0.7.0 session 1: the arity-generic
+  driver (src/driver-inl.h) + outlining doctrine exemptions.** Design
+  decisions of record: driver templates take std::span THROUGH
+  HWY_EXPORT/dispatch so the #5-S1 HWY_DASSERT sees every length
+  (element count now from out — the safe side; release contract
+  unchanged UB, corvus.h reworded); no HWY_NOINLINE on the templates
+  (each family's Impl is an uninlined dispatch-table root, so codegen
+  structure and the MSVC per-instantiation rule match the hand-rolled
+  loops); NO HWY_RESTRICT (exact aliasing is a documented contract — a
+  first-draft restrict was caught in self-review before rollout).
+  Rollout: pattern proven on erf.cpp by the orchestrator
+  (byte-identical), then three Sonnet agents on disjoint TUs, 20/20
+  exports, zero escalations (bessel's struct-field returns ported
+  verbatim in the lambdas). #7 doc-route: lgamma (measured 2026-08-11
+  stop) and erf/erfc (cheapest TUs) recorded as measured exemptions,
+  void on any slow-build report. Validation: 27/27 both trees, EVERY
+  ULP output byte-identical to the pre-#6 baseline (native + SSE2),
+  4-tier sweep green, S1 assert demonstrated BOTH ways in a debug tree
+  (mismatch aborts at driver-inl.h:44, matched runs clean). −284/+101
+  lines across 11 TUs.
 - 2026-08-29 **#5 + #16 + #17 CLOSED — v0.6.0 batch, orchestrator-direct
   (validation-protocol load, not diff size, drove the no-delegation
   call).** #5 (ratified S6+S5 scope): all 21 public declarations —
