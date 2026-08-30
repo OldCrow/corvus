@@ -104,6 +104,19 @@ jobs:
           ./build/tests/test_log_ulp \
             tests/data/log_reference.txt tests/data/log1p_reference.txt
 
+      # The examples self-verify and return non-zero on failure (see
+      # examples/CMakeLists.txt — deliberately outside ctest so a green ctest
+      # stays a pure accuracy statement). Run them from the AVX2-capped build
+      # the ULP report leaves behind; sub-second each. (#25)
+      - name: Run examples (smoke)
+        run: |
+          for ex in normal_distribution chi_squared_test gamma_mle_fit \
+                    students_t von_mises_density log_space_counting; do
+            echo "::group::$ex"
+            ./build/examples/$ex
+            echo "::endgroup::"
+          done
+
       - name: Sanitizers (ASan+UBSan, Debug)
         run: |
           cmake -B build-san -G Ninja -DCMAKE_BUILD_TYPE=Debug \
