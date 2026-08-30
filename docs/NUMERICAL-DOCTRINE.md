@@ -33,7 +33,18 @@ family design records see `PLAN.md`.
   byte-compare across the boundary change). Keep genuinely small hot
   helpers inline — outlining erfinv's central polynomial cost a measured
   0.5–0.7 ns/el on its 3 ns/el fast path for no meaningful codegen
-  relief, and was reverted. MSVC additionally gets
+  relief, and was reverted. MEASURED EXEMPTIONS (#7, recorded 2026-08-29;
+  the rule is a build-time tool, not an end in itself): lgamma's cores
+  and LgammaVec stay HWY_INLINE — the 2026-08-11 retro pass measured that
+  outlining LgammaLog alone met the build-time goal (193 s → 72 s) and
+  stopped there deliberately; erf/erfc carry no HWY_NOINLINE at all —
+  they are the cheapest TUs in the library and have never shown a
+  build-time problem. Either exemption is void the moment its TU shows up
+  in a slow-build report. Since #6, the per-family DRIVER loop lives in
+  src/driver-inl.h (DriveUnary/Binary/Ternary): each family's exported
+  Impl is a dispatch-table root that is never inlined, so every
+  instantiation is one outlined driver per family per target and the
+  MSVC rule applies per instantiation, unchanged. MSVC additionally gets
   `/d2ReducedOptimizeHugeFunctions` on the heaviest TUs (gamma.cpp,
   beta.cpp; CMakeLists; real MSVC only, clang-cl rejects /d2 flags) —
   erfinv needed no such flag once outlined.
