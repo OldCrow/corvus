@@ -10,15 +10,34 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-08-30
 
-**v0.9.0 OPEN [2026-08-30] — fleet validation & performance, S1 in
-progress.** Session plan (ratified 2026-08-30, user; #33 elementary
-fleet legs and #34 final API review filed at ratification):
-(1) **S1 — Ryzen (this box)**: #25 examples-in-CI (small edit,
-orchestrator-direct), the #30 per-component bench variants (bench-only,
-must not alter any ULP table), then the Zen 4 quiet window — full-surface
-quiet-bench pass, per-region lgamma rerun (#24b), Zen 4 half of #30.
-Quiet prerequisite: Aura Wallpaper deactivated (msedgewebview2 was the
-v0.8.0 abort cause); msmpeng remains the watch.
+**v0.9.0 OPEN [2026-08-30] — fleet validation & performance, S1 DONE.**
+Session plan (ratified 2026-08-30, user; #33 elementary fleet legs and
+#34 final API review filed at ratification):
+(1) **S1 — Ryzen — DONE 2026-08-30.** #25 landed (aa65249, examples
+run green in CI); #30 instrument bench_lgamma_components landed
+(fe18e3e, kernel-test build, library untouched); Zen 4 quiet pass
+16/16 tier-asserted AVX3_ZEN4, gate 4.02%, noise 3.46–14.91% avg
+5.74% (evidence: docs/bench-evidence/2026-08-30-zen4-quiet/, closing
+#24's logs-never-checked-in gap). QUIETING RECIPE that worked: stop
+LightingService + aacambientlighting + GlassWire, pause OneDrive +
+iCloud, disable sleep, lock screen — Aura Wallpaper off alone was NOT
+enough (first attempt aborted: box slept + 5–8% ambient floor).
+#24b per-region lgamma QUIET (Zen 4/UCRT): zone 5.2x, recurrence
+2.9x, Stirling 1.9x, mixed 4.2x, reflection 1.5x — no band below
+1.0x; the retracted loaded-set recurrence claim stays dead.
+#30 Zen 4 answers: (a) zone Horner does NOT dominate (1.32 of 4.65
+ns/el; selects 0.36; the dd lead ladder ~2.2 is largest); (b) no
+single recurrence dominator (log 4.4 + zone floor 4.6 of 12.6);
+(c) reflection's two extra logs 10.0 of 33.1 (~30%; positive pipeline
+18.3 irreducible) — one log ~5 ns, so #31's single-log idea saves
+~15% on Zen 4. Kaby (gather-weak) half decides #31 at S4.
+Elementary quiet (Zen 4/UCRT): cos/sin 5.5x streaming (2.2–2.4x
+cache-resident), exp 1.2x, log 0.61–0.64x (SLOWER than UCRT — the
+correctly-rounded-dd-core-vs-fast-table positioning fact, publish
+honestly), log1p 0.86–0.92x. Noise caveat on record: inter-target
+spikes before lgamma (11.6%) and erfinv (14.9%); lgamma numbers agree
+with the component bench and the loaded sanity run to 1–3% — judged
+usable, annotation in the evidence chain.
 (2) **S2 — Mac Mini M1** (cross-machine): #33 NEON accuracy leg
 (tier-asserted, native; fills the ACCURACY.md '— (v0.9.0 M1 leg)'
 cells, committed from there), M1 full-surface quiet-bench (#24a), M1
