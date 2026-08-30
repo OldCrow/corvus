@@ -85,6 +85,13 @@ add_executable(bench_lgamma bench_lgamma.cpp)
 corvus_test_target(bench_lgamma)
 # Deliberately not registered with ctest: run manually on a quiet machine.
 
+# Per-component lgamma cost attribution (#30). Kernel-test build (compiles
+# lgamma-inl.h itself); a profiling instrument, not a family bench — it is
+# NOT in the quiet_bench default target list, pass it via -Targets.
+add_executable(bench_lgamma_components bench_lgamma_components.cpp)
+corvus_kernel_test_target(bench_lgamma_components)
+# Deliberately not registered with ctest: run manually on a quiet machine.
+
 add_executable(test_erfinv test_erfinv.cpp)
 corvus_test_target(test_erfinv)
 add_test(NAME erfinv COMMAND test_erfinv)

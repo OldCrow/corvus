@@ -10,6 +10,38 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-08-30
 
+**v0.9.0 OPEN [2026-08-30] — fleet validation & performance, S1 in
+progress.** Session plan (ratified 2026-08-30, user; #33 elementary
+fleet legs and #34 final API review filed at ratification):
+(1) **S1 — Ryzen (this box)**: #25 examples-in-CI (small edit,
+orchestrator-direct), the #30 per-component bench variants (bench-only,
+must not alter any ULP table), then the Zen 4 quiet window — full-surface
+quiet-bench pass, per-region lgamma rerun (#24b), Zen 4 half of #30.
+Quiet prerequisite: Aura Wallpaper deactivated (msedgewebview2 was the
+v0.8.0 abort cause); msmpeng remains the watch.
+(2) **S2 — Mac Mini M1** (cross-machine): #33 NEON accuracy leg
+(tier-asserted, native; fills the ACCURACY.md '— (v0.9.0 M1 leg)'
+cells, committed from there), M1 full-surface quiet-bench (#24a), M1
+half of #30, installed-package consumer smoke (#26 pre-validation).
+(3) **S3 — MacBook Pro Kaby Lake** (cross-machine): #33 AVX2-native +
+capped no-FMA leg, Kaby quiet-bench pass (also sizes #22), consumer
+smoke. S2/S3 order-independent.
+(4) **S4 — Ryzen, GATED on S2+S3 pushed**: PERFORMANCE.md promoted past
+PROVISIONAL (exit: ≥ 2 quiet microarchitectures or explicitly
+withheld — user's call if marginal), elementary PERFORMANCE entry,
+README positioning, #30 write-up + the #31 go/no-go (frontier
+judgment), close #24/#30/#33, ladder + CI, tag v0.9.0.
+#29 has no session — conditional sweep if the GCC fix lands.
+**v1.0.0 map (ratified same pass)**: S1 #34 API review (frontier;
+findings = unfreeze decisions, not in-session fixes); S2 #26
+packaging/NOTICE + release checklist (absorbs the tag↔version check
+from the v0.8.0 finding, as a script the ritual runs) + #27 ruleset
+enable (sequenced after the v0.9.0 remote pushes); S3 release — ladder,
+CI, checklist, signed tag, then the libstats v2.5.0 handshake.
+All v1.0.0 sessions on this box, provided the consumer smokes ride
+S2/S3 above. Downstream holds (libstats #107/#108, libhmm #99, #101
+half) close against the consumer swaps, outside this map.
+
 **v0.8.0 CLOSED [2026-08-30] — the elementary family shipped (#32:
 exp, log, log1p, cos, sin) and the FREEZE RETURNS.** Five sessions in
 one day, per the ratified plan (S1 design/provenance, S2 tables +
