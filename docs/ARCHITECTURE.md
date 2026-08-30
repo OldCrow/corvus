@@ -21,11 +21,16 @@ TU boundary is the sharing/dependency boundary (families consuming the same
 cores share a TU with multiple `HWY_EXPORT`s). Each TU uses the Highway
 `foreach_target.h` idiom to compile its kernels once per SIMD target, then an
 `HWY_ONCE` section exports them and defines the public wrapper, which selects
-the best target at runtime via `HWY_DYNAMIC_DISPATCH`.
+the best target at runtime via `HWY_DYNAMIC_DISPATCH`. Since #6 each exported
+Impl is a one-line forwarder into the shared driver (`src/driver-inl.h`):
+`DriveUnary/Binary/Ternary` own the single loop shape — full-vector body plus
+masked `LoadN/StoreN` tail as ONE code path (no scalar libm fallback) — and
+the debug-only span-length assert. `active_target()` lives in its own tiny
+TU (`src/target.cpp`).
 
 **Kernels** (`src/<fn>-inl.h`, `src/<fn>_core-inl.h`) — the per-target
-numerical code: region cores plus per-lane drivers, with vector body and
-masked tail as one code path (no scalar libm fallback). Coefficient and
+numerical code: region cores plus per-lane kernel drivers, invoked by the
+shared driver above. Coefficient and
 breakpoint tables are generated offline, checked in as `<fn>_data.*`, and
 never derived at runtime. Kernels never allocate. Every kernel documents its
 approximation source and error bound at the definition site.
@@ -41,11 +46,12 @@ written against `ops::` like every other kernel, so they ride along in the
 backend swap for free.
 
 **SIMD facade** (`src/ops-inl.h`) — a deliberately small op surface
-(load/store, arithmetic, FMA, compares, masks, a few specials) whose names
-mirror `hn::` 1:1. It is the only file in the project allowed to touch
-`hn::`, which makes it the single swap point: migrating to `std::simd` means
-reimplementing this one file (plus the `hwy::TargetName` call behind
-`active_target()` in `src/erf.cpp`), with kernels and dd primitives untouched.
+(load/store, arithmetic, FMA, compares, masks, a few specials, and
+`TargetName`) whose names mirror `hn::` 1:1 and which carries only ops
+kernels actually use (#10 removed the unconsumed ones). It is the only file
+in the project allowed to touch `hn::`, which makes it the single swap
+point: migrating to `std::simd` means reimplementing this one file, nothing
+else, with kernels and dd primitives untouched.
 
 **Backend** (Google Highway) — provides per-target code generation and
 runtime CPU dispatch across SSE2 through AVX-512 and NEON. Pulled in via
