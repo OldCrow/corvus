@@ -28,12 +28,8 @@ Each figure is the median of repeated timings after a warm-up call, on seeded
 inputs — so the same binary on the same data gives the same answer, run to run,
 except where §5 says otherwise.
 
-**Not yet measured: the v0.8.0 elementary family** (`exp`, `log`,
-`log1p`, `cos`, `sin`; benches `bench_exp`/`bench_log`/`bench_trig`
-exist and are registered in the harness target lists). Their
-quiet-machine numbers ride the v0.9.0 full-surface quiet-bench pass —
-one pass per machine over the whole surface, per the #24 coordination —
-and nothing in this document should be quoted for them until then.
+**The v0.8.0 elementary family** (`exp`, `log`, `log1p`, `cos`, `sin`)
+was measured in the 2026-08-30 quiet pass on this machine — see §9.
 
 ---
 
@@ -266,5 +262,51 @@ the magnitudes are lane-bound.
 outlier here in two runs, under very different ambient load. That neither
 confirms nor clears §5 — two runs looked like agreement on Zen 4 too — but
 it does say the sporadic outlier is not a property of the kernels alone.
+
+---
+
+## 9. Same machine, second quiet pass (2026-08-30) — v0.9.0 S1
+
+Same box, tier, compiler and libm as §1; harness gate passed at 4.02%,
+noise held 3.46–14.91% (average 5.74%). Raw per-target outputs and the
+runner log: `docs/bench-evidence/2026-08-30-zen4-quiet/`. Full-surface
+pass (all fifteen family benches plus the #30 component instrument),
+per the one-pass-per-machine rule on #24.
+
+### 9.1 Elementary family, first numbers (against UCRT — §3 baseline)
+
+| function | corvus ns/el | speedup |
+|---|---:|---:|
+| `cos` / `sin` | 1.6 | 5.5× streaming; 2.2–2.4× at n ≤ 10⁴ |
+| `exp` | 2.1 | 1.19–1.22× |
+| `log` | 4.9 | **0.61–0.64× — slower than UCRT** |
+| `log1p` | 4.9 | 0.86–0.92× |
+
+`log` below 1.0 is the accuracy trade stated plainly: corvus `log` is
+correctly rounded on every reference row (see ACCURACY.md), UCRT's is a
+fast table method. There is no configuration in which corvus wins this
+comparison without giving that up, and it does not intend to.
+
+### 9.2 lgamma per-region rerun
+
+Zone 5.2×, recurrence 2.9×, Stirling 1.9×, mixed 4.2×, reflection 1.5× —
+no band below 1.0×, confirming §3's quiet finding against the retracted
+loaded-set recurrence figure. The #30 per-band component profile
+(`bench_lgamma_components`, same evidence directory) attributes the
+costs: the zone's dd lead ladder outweighs its 32-coefficient Horner
+(2.2 vs 1.3 of 4.65 ns/el); the recurrence band splits between the dd
+log and the zone floor (4.4 + 4.6 of 12.6); reflection's two extra dd
+logs are 10.0 of 33.1 ns/el against an 18.3 ns positive pipeline. The
+gather-weak Kaby half of that profile is what decides #31.
+
+### 9.3 Reproducibility against §3/§4 (fifteen days apart)
+
+Where the two passes overlap, figures agree to a few percent: gamma
+49–74 → 49–77 ns/el, digamma 7.0–27.4 → 7.0–27.4, trigamma 5.7–27 →
+5.6–26.9, lbeta main 106 → 106. On §5's two families: `erfcinv`
+central reproduced the modal value (15.2× / 15.4× vs modal ~14.8×,
+no outlier); `bessel` i0 series came in at 9.9× vs modal 8.35× —
+outside the few-percent class, consistent with §5's caution. §5
+stands unchanged.
 
 ---
