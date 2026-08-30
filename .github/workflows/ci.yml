@@ -113,9 +113,9 @@ jobs:
       # accuracy-audit version) into a prefix so find_package(hwy 1.4)
       # resolves it as a system install (CORVUS_HWY_PROVIDER=system),
       # which gates the install rules. Distro libhwy-dev is deliberately
-      # NOT used: Ubuntu ships Highway 1.0.x, which predates ops the
-      # facade requires (hn::ReduceMax) and fails to compile — the same
-      # reason FindOrFetchHighway.cmake carries a version floor.
+      # NOT used: Ubuntu ships Highway 1.0.x, far below the audited 1.4
+      # pin the version floor protects (see FindOrFetchHighway.cmake --
+      # the floor is the accuracy-audit pin, not any single op).
       # -----------------------------------------------------------------
       # Cache the installed Highway prefix: building 1.4.0 from source costs
       # ~2-4 min per run. Key = pin + runner OS/arch; exact-match only (no

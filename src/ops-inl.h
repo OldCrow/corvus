@@ -48,11 +48,11 @@ template <class V> HWY_INLINE V Sub(V a, V b) { return hn::Sub(a, b); }
 template <class V> HWY_INLINE V Mul(V a, V b) { return hn::Mul(a, b); }
 template <class V> HWY_INLINE V Div(V a, V b) { return hn::Div(a, b); }
 template <class V> HWY_INLINE V MulAdd(V a, V b, V c) { return hn::MulAdd(a, b, c); }
-// MulSub is NOT for exact residuals: on non-FMA targets Highway emulates it
-// as mul-then-sub, which silently zeroes fma(a, b, -fl(a*b)). Exact residuals
-// go through ProdLow/SquareLow below, which are capability-guarded. (No
-// kernel currently uses MulSub; kept for the 1:1 hn:: mirror.)
-template <class V> HWY_INLINE V MulSub(V a, V b, V c) { return hn::MulSub(a, b, c); }
+// No ops::MulSub (#10): the facade mirrors what kernels USE, and the one
+// thing MulSub is tempting for -- exact residuals fma(a, b, -fl(a*b)) --
+// is exactly what non-FMA emulation silently zeroes. Exact residuals go
+// through the capability-guarded ProdLow/SquareLow below, which consume
+// hn::MulSub internally only under HWY_NATIVE_FMA.
 template <class V> HWY_INLINE V Neg(V a) { return hn::Neg(a); }
 
 template <class V> HWY_INLINE V Sqrt(V a) { return hn::Sqrt(a); }
@@ -141,9 +141,6 @@ template <class D> HWY_INLINE V<D> ProdLow(D d, V<D> a, V<D> b, V<D> p) {
   return hn::Add(e, hn::Mul(a_lo, b_lo));
 #endif
 }
-
-template <class D> HWY_INLINE double ReduceSum(D d, V<D> v) { return hn::ReduceSum(d, v); }
-template <class D> HWY_INLINE double ReduceMax(D d, V<D> v) { return hn::ReduceMax(d, v); }
 
 // Name of the target this TU is compiled for (#8): the one non-hn::
 // backend call kernels need, so the std::simd swap claim stays literal --
