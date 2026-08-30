@@ -40,11 +40,24 @@ with the component bench and the loaded sanity run to 1–3% — judged
 usable, annotation in the evidence chain.
 (2) **S2 — Mac Mini M1** (cross-machine): #33 NEON accuracy leg
 (tier-asserted, native; fills the ACCURACY.md '— (v0.9.0 M1 leg)'
-cells, committed from there), M1 full-surface quiet-bench (#24a), M1
-half of #30, installed-package consumer smoke (#26 pre-validation).
+cells, committed from there), M1 full-surface quiet-bench (#24a), the
+Apple-libm lgamma component run, installed-package consumer smoke
+(#26 pre-validation).
 (3) **S3 — MacBook Pro Kaby Lake** (cross-machine): #33 AVX2-native +
-capped no-FMA leg, Kaby quiet-bench pass (also sizes #22), consumer
-smoke. S2/S3 order-independent.
+capped no-FMA leg, Kaby quiet-bench pass (also sizes #22), the
+BINDING gather-weak half of #30, consumer smoke. S2/S3
+order-independent.
+S2/S3 MECHANICS (both machines): quiet runner is tools/quiet_bench.sh;
+bench_lgamma_components is NOT in its default target list — append it
+as a positional arg. Evidence drop: copy every per-target output plus
+the runner log to docs/bench-evidence/<date>-<machine>-quiet/ and
+commit (the .gitignore quiet_bench_* patterns are negated there —
+2026-08-30-zen4-quiet is the template). M1 quieting recipe and the
+~5.5–7% ambient-floor constraint: Resolved log, 2026-08-23 M1 entry
+(if the 5% gate stays unreachable, run 10%-gated INDICATIVE and leave
+the publish/withhold call to S4). Consumer smoke recipe: the
+install-contract steps in ci.yml (system Highway via brew, install to
+a prefix, build + run consumer_example, pkg-config check).
 (4) **S4 — Ryzen, GATED on S2+S3 pushed**: PERFORMANCE.md promoted past
 PROVISIONAL (exit: ≥ 2 quiet microarchitectures or explicitly
 withheld — user's call if marginal), elementary PERFORMANCE entry,
