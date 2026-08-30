@@ -10,9 +10,27 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-08-30
 
-**v0.8.0 IN PROGRESS — Session 3 (cos/sin kernels + gates) COMPLETE
-[2026-08-30]; Sessions 1–2 COMPLETE [2026-08-30].** The design below is
+**v0.8.0 IN PROGRESS — Session 4 (exp/log/log1p kernels) COMPLETE
+[2026-08-30]; Sessions 1–3 COMPLETE [2026-08-30].** The design below is
 the S1 deliverable. S3/S4 re-scope RATIFIED [2026-08-30, user].
+Remaining: S5 (consumer cross-validation + close + tag).
+
+### S4 deliverables (exp/log/log1p SHIPPED)
+- src/exp-inl.h + exp.cpp (ExpDdFrac + fl(m) + ScaleTwo + NaN blend —
+  no threshold blends, the ±1100 clamp makes every non-NaN special
+  correct by construction); src/log-inl.h + log.cpp (log = LogDdAny +
+  one rounding; log1p = TwoSum(1,x) through the same core's dd
+  overload; explicit specials blends incl. log1p's ±0 sign blend).
+  As designed: no new tables, no new fits, nothing SLEEF-shaped.
+- **Measured: log and log1p CORRECTLY ROUNDED on every reference row
+  (gates pinned at 0 ULP — tightest in the library); exp correctly
+  rounded on all 10,626 normal-result rows (gate 0), 1 ULP in the
+  subnormal band, both saturation boundaries exact through ±160-ulp
+  bit ladders.** Native AVX3_ZEN4 and SSE2 cap bucket-identical
+  (same 26 not-CR subnormal rows). 33/33 ctest both trees.
+- Five-list registration ×2 gate families; smoke/bench boilerplate
+  Sonnet-authored (reviewed); ACCURACY.md + USER-GUIDE.md in the same
+  change set (NEON cells deferred to the v0.9.0 M1 leg with trig's).
 
 ### S3 deliverables (cos/sin SHIPPED)
 - src/trig-inl.h — both regions + shared cores; src/trig.cpp (two

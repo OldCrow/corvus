@@ -121,6 +121,21 @@ migrating from a vectorized trig routine with a documented domain limit
 (a `kTrigDMax`-style constant), delete the limit check — there is
 nothing to guard.
 
+**Elementary exp/log work**
+
+| function | computes | typical bound |
+|---|---|---|
+| `exp` | e^x, overflow and gradual underflow at the correct thresholds | correctly rounded (1 ULP in the subnormal band) |
+| `log` | natural logarithm | correctly rounded |
+| `log1p` | log(1 + x) without forming 1 + x | correctly rounded |
+
+"Correctly rounded" here means every row of the audited reference sets
+matches the correctly rounded result exactly (the theoretical exception
+window is ~2^-17 ulp around rounding ties; see docs/ACCURACY.md). In
+particular exp(−inf) = 0, exp produces true subnormals instead of
+flushing, and log1p keeps full relative accuracy for tiny x — the three
+edge behaviours vectorized exp/log replacements most often get wrong.
+
 Plus `active_target()`, which tells you which vector instruction set runtime
 dispatch actually chose. That is more useful than it sounds — see §9.
 

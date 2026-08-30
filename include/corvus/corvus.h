@@ -371,6 +371,45 @@ void i0e(std::span<const double> in, std::span<double> out) noexcept;
 /// (payload preserved).
 void i1e(std::span<const double> in, std::span<double> out) noexcept;
 
+/// \brief out[i] = exp(in[i]).
+///
+/// Assembled from corvus's internal double-double exp core (~2^-70
+/// relative before the final rounding), so the result is the correctly
+/// rounded exp except within ~2^-17 ulp of a rounding tie; subnormal
+/// results keep one effective rounding through the two-step power-of-two
+/// scaling. Accuracy: measured and gate-pinned per SIMD tier
+/// (docs/ACCURACY.md). Overflow to +inf and gradual underflow through the
+/// subnormals to 0 cross at the correctly rounded thresholds.
+///
+/// Specials: exp(+-0) = 1 exactly; exp(-inf) = +0; exp(+inf) = +inf; NaN
+/// propagates (payload preserved).
+void exp(std::span<const double> in, std::span<double> out) noexcept;
+
+/// \brief out[i] = log(in[i]), natural logarithm.
+///
+/// Assembled from corvus's internal double-double log core (~2^-70
+/// relative, centred-mantissa table so full relative accuracy holds
+/// through x near 1), then rounded once. Subnormal inputs are prescaled
+/// exactly on every tier. Accuracy: measured and gate-pinned per SIMD
+/// tier (docs/ACCURACY.md).
+///
+/// Specials: log(+-0) = -inf; log(x < 0) = NaN; log(1) = +0 exactly;
+/// log(+inf) = +inf; NaN propagates (payload preserved).
+void log(std::span<const double> in, std::span<double> out) noexcept;
+
+/// \brief out[i] = log(1 + in[i]) without the cancellation of forming
+///   1 + x first.
+///
+/// 1 + x is captured exactly (TwoSum) and handed to the same core as
+/// `log`, so relative accuracy holds for tiny x (where log1p(x) ~ x) and
+/// through the deep-cancellation corner near x = -1. Accuracy: measured
+/// and gate-pinned per SIMD tier (docs/ACCURACY.md).
+///
+/// Specials: log1p(-1) = -inf; log1p(x < -1) = NaN; log1p(+-0) = +-0 with
+/// the sign preserved; log1p(+inf) = +inf; NaN propagates (payload
+/// preserved).
+void log1p(std::span<const double> in, std::span<double> out) noexcept;
+
 /// \brief out[i] = cos(in[i]), over the FULL double range.
 ///
 /// Quadrant reduction with an exact 4-part pi/2 split for |x| <= 2^23 and a

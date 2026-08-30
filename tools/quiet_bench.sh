@@ -15,7 +15,7 @@ set -u
 BUILD=build; EXPECT=""; MAXAMB=5; SAMPLE=10; MAXWAIT=10
 while getopts "b:t:m:s:w:" o; do case $o in b) BUILD=$OPTARG;; t) EXPECT=$OPTARG;; m) MAXAMB=$OPTARG;; s) SAMPLE=$OPTARG;; w) MAXWAIT=$OPTARG;; esac; done
 shift $((OPTIND-1))
-TARGETS=("$@"); [ ${#TARGETS[@]} -eq 0 ] && TARGETS=(bench_erf bench_erfc bench_lgamma bench_erfinv bench_gamma bench_beta bench_digamma bench_trigamma bench_gammainv bench_betainv bench_bessel bench_lbeta bench_trig)
+TARGETS=("$@"); [ ${#TARGETS[@]} -eq 0 ] && TARGETS=(bench_erf bench_erfc bench_lgamma bench_erfinv bench_gamma bench_beta bench_digamma bench_trigamma bench_gammainv bench_betainv bench_bessel bench_lbeta bench_trig bench_exp bench_log)
 OUT=$BUILD/quiet_bench; mkdir -p $OUT; LOG=$OUT/quiet_bench.log
 log() { echo "$(date '+%H:%M:%S') $*" | tee -a $LOG; }
 # ambient busy % over one window: 100 - idle, from top's CPU-usage line

@@ -75,6 +75,9 @@ machine.
 | lbeta | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
 | cos | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | — (v0.9.0 M1 leg) | ✅ 2026-08-30 |
 | sin | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | — (v0.9.0 M1 leg) | ✅ 2026-08-30 |
+| exp | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | — (v0.9.0 M1 leg) | ✅ 2026-08-30 |
+| log | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | — (v0.9.0 M1 leg) | ✅ 2026-08-30 |
+| log1p | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | — (v0.9.0 M1 leg) | ✅ 2026-08-30 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
@@ -1079,6 +1082,52 @@ against platform libm as a sanity floor.
 Special values: cos(±0) = 1 and sin(±0) = ±0 (sign preserved), exact
 by construction; cos/sin(±inf) = NaN; NaN propagates with payload in
 every lane position (smoke-asserted per position).
+
+## exp, log, log1p
+
+**Bound: correctly rounded on every reference row for log and log1p
+(gate pinned at 0 ULP); exp correctly rounded on every normal-result
+row (gate 0) and max 1 ULP in the subnormal-output band, with both
+saturation boundaries exact** — measured identically (bucket-for-
+bucket, row-for-row) on AVX3_ZEN4 native and the SSE2 cap. These are
+the tightest gates in the library; the theoretical statement behind
+them is "correctly rounded except within ~2^−17 ulp of a rounding
+tie", and no row of the current sets lands in that window. A future
+regeneration that legitimately draws a tie-window row re-pins the gate
+with the evidence.
+
+| Function | Region | Bound |
+|---|---|---|
+| exp | normal results | 0 ULP (correctly rounded, 10,626 rows) |
+| exp | subnormal results | 1 ULP (design bound ~0.51 ulp in the output's own ulp) |
+| exp | overflow / underflow-to-zero | exact +inf / exact +0, ±160-ulp boundary ladders |
+| log | all buckets (subnormal-in, near-1, general) | 0 ULP (15,423 rows) |
+| log1p | all buckets (corner, near-0, general) | 0 ULP (11,903 rows) |
+
+Method: thin assemblies over the audited internal dd cores — nothing
+new was fit. exp = ExpDdFrac (~2^−70 relative, generator-certified) +
+one rounding + ScaleTwo's two-step exact-then-rounding scaling; the
+core's ±1100 clamp makes ±inf, overflow and gradual underflow correct
+BY CONSTRUCTION with no threshold blends (the ULP gate's boundary
+ladders certify the crossovers land at the correctly rounded
+thresholds). log = LogDdAny (centred-mantissa table, 2^600 subnormal
+prescale) + one rounding. log1p = TwoSum(1, x) — exact for every
+double — through the same core's dd overload; no representable
+double x > −1 has a subnormal 1 + x, so the prescale is structurally
+unreachable there. Specials are explicit payload-preserving blends;
+log(1) = +0 exactly (bit-asserted).
+
+Oracle: mpmath at dps 60 with round_to_double single-rounding writers
+(the subnormal-output band is exactly where platform libm double-
+rounds — observed at 1.06e−14 relative in the libm sanity sweep, which
+is the disease, not the reference), 2×-dps deterministic re-check,
+boundary bit-ladders ±160 ulps around all three exp crossovers.
+
+Special values: exp(±0) = 1, exp(−inf) = +0, exp(+inf) = +inf;
+log(±0) = −inf, log(x<0) = NaN, log(+inf) = +inf; log1p(−1) = −inf,
+log1p(x<−1) = NaN, log1p(±0) = ±0 (sign preserved), log1p(+inf) =
++inf; NaN propagates with payload everywhere (smoke-asserted per lane
+position).
 
 ## exp_dd (internal)
 

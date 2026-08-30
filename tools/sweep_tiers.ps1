@@ -82,6 +82,8 @@ $gates = @(
   @{ exe = "test_bessel_ulp"; data = "i0_reference.txt", "i1_reference.txt", "i0e_reference.txt", "i1e_reference.txt" }
   @{ exe = "test_lbeta_ulp"; data = "lbeta_reference.txt" }
   @{ exe = "test_trig_ulp"; data = "cos_reference.txt", "sin_reference.txt" }
+  @{ exe = "test_exp_ulp"; data = "exp_reference.txt" }
+  @{ exe = "test_log_ulp"; data = "log_reference.txt", "log1p_reference.txt" }
 )
 
 $selected = if ($Tier) { $Tier } else { $caps.Keys }
