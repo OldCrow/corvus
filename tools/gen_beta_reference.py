@@ -73,6 +73,7 @@ Own fresh seed -- shares NOTHING with gamma's rng stream (SEED=20260727
 in gen_gamma_reference.py, frozen); see AGENTS.md for the general rule.
 """
 
+import argparse
 import math
 import os
 import struct
@@ -3108,8 +3109,34 @@ def r4huge_append():
 
 
 if __name__ == "__main__":
-    if "--corner-append" in sys.argv[1:]:
+    _parser = argparse.ArgumentParser(
+        allow_abbrev=False,  # '--ful' must ERROR, not prefix-match --full (#11)
+        
+        description="Generate tests/data/beta_{p,q}_reference.txt -- "
+                     "correctly-rounded oracle reference set for "
+                     "corvus::beta_p / corvus::beta_q. With no flags, runs "
+                     "the full point-set generation and writes both "
+                     "reference files directly (resumable via checkpoint).")
+    _parser.add_argument(
+        "--corner-append", action="store_true",
+        help="Incrementally certify and splice ONLY the PB-prefactor "
+             "u -> -1 corner family (gen_pb_corner) into the existing "
+             "reference files, own checkpoint/cross-check, resumable by "
+             "re-invoking with this same flag. This is the canonical name "
+             "for the 'append an extreme-corner reference block' concept.")
+    _parser.add_argument(
+        "--r4huge-append", action="store_true",
+        help="Incrementally certify and splice ONLY the R4 huge-B corner "
+             "family (gen_r4huge_corner -- the huge-parameter Dekker-"
+             "ceiling audit's second fixed site) into the existing "
+             "reference files, own checkpoint/cross-check, resumable by "
+             "re-invoking with this same flag. Same append pattern as "
+             "--corner-append but a DIFFERENT family (huge-B R4 recurrence, "
+             "not the PB prefactor corner) -- kept as its own flag rather "
+             "than aliased to --corner-append.")
+    _args = _parser.parse_args()
+    if _args.corner_append:
         sys.exit(corner_append())
-    if "--r4huge-append" in sys.argv[1:]:
+    if _args.r4huge_append:
         sys.exit(r4huge_append())
     sys.exit(main())

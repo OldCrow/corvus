@@ -94,6 +94,7 @@ Usage:
     python3 tools/gen_betainv_reference.py     # resumable; re-run until
                                                   # it reports DONE
 """
+import argparse
 import hashlib
 import math
 import os
@@ -2273,6 +2274,26 @@ def main():
 
 
 if __name__ == "__main__":
-    if "--huge-corner-append" in sys.argv[1:]:
+    _parser = argparse.ArgumentParser(
+        allow_abbrev=False,  # '--ful' must ERROR, not prefix-match --full (#11)
+        
+        description="Generate tests/data/betainv_{p,q}_reference.txt -- "
+                     "certified reference set for corvus::beta_p_inv / "
+                     "corvus::beta_q_inv. With no flags, resumable; "
+                     "re-run until it reports DONE.")
+    _parser.add_argument(
+        "--huge-corner-append", action="store_true",
+        help="Incrementally certify and splice ONLY the huge-parameter "
+             "Dekker-ceiling corner family (gen_betainv_huge_corner -- one "
+             "shape parameter log-spaced across [2^900, 1.7e308) bracketing "
+             "the non-FMA Dekker ceiling 2^996, both parameter orders) into "
+             "the existing reference files, own checkpoint, resumable by "
+             "re-invoking with this same flag. This is the 'append an "
+             "extreme-corner reference block' concept for betainv -- kept "
+             "as its own flag rather than aliased to gen_beta_reference.py's "
+             "--corner-append, since it appends a DIFFERENT family (the "
+             "huge-B Dekker-ceiling corner, not the PB-prefactor corner).")
+    _args = _parser.parse_args()
+    if _args.huge_corner_append:
         sys.exit(huge_corner_append())
     sys.exit(main())

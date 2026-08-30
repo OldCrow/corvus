@@ -70,6 +70,7 @@ Usage:
     python3 tools/gen_betainv_data.py > src/betainv_data.h
     python3 tools/gen_betainv_data.py --full > src/betainv_data.h   # denser replay
 """
+import argparse
 import math
 import os
 import sys
@@ -77,7 +78,13 @@ import time
 
 import mpmath as mp
 
-FULL = "--full" in sys.argv
+FULL = "--full" in sys.argv  # naive membership check kept for the
+# import-as-library case (gen_betainv_reference.py does `import
+# gen_betainv_data as bid` at module load, before its own argparse runs --
+# this must NOT choke on that caller's own flags); the `__main__` block
+# below re-derives FULL through argparse for this module's OWN direct
+# invocation, where the strict-parsing/--help/unknown-flag behavior
+# actually applies.
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
@@ -2096,7 +2103,24 @@ def smoke_test():
 
 
 if __name__ == "__main__":
-    if "--smoke" in sys.argv:
+    _parser = argparse.ArgumentParser(
+        allow_abbrev=False,  # '--ful' must ERROR, not prefix-match --full (#11)
+        
+        description="Generate src/betainv_data.h -- every table "
+                     "beta_p_inv/beta_q_inv needs.")
+    _parser.add_argument(
+        "--full", action="store_true",
+        help="Denser replay (see module docstring's replay-parameter "
+             "self-checks) than the default invocation.")
+    _parser.add_argument(
+        "--smoke", action="store_true",
+        help="Development smoke test -- sanity vs mp.betainc on plain "
+             "points, and per-piece diagnostics. Not part of the "
+             "generator's own self-check gate (main() is); kept for "
+             "ad hoc re-runs during future work.")
+    _args = _parser.parse_args()
+    FULL = _args.full
+    if _args.smoke:
         smoke_test()
     else:
         sys.exit(main())

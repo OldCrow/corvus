@@ -60,13 +60,20 @@ Usage:
     python3 tools/gen_gammainv_data.py > src/gammainv_data.h
     python3 tools/gen_gammainv_data.py --full > src/gammainv_data.h   # denser replay, ~slow
 """
+import argparse
 import math
 import sys
 from fractions import Fraction as Fr
 
 import mpmath as mp
 
-FULL = "--full" in sys.argv
+FULL = "--full" in sys.argv  # naive membership check kept for the
+# import-as-library case (gen_betainv_data.py does `import
+# gen_gammainv_data as ginv` at module load, before either module's own
+# argparse runs -- this must NOT choke on the caller's own flags); the
+# `__main__` block below re-derives FULL through argparse for this
+# module's OWN direct invocation, where strict-parsing/--help/unknown-flag
+# behavior actually applies.
 
 # ============================================================================
 # Part 0: shared math constants / helpers
@@ -1647,4 +1654,15 @@ def main():
 
 
 if __name__ == "__main__":
+    _parser = argparse.ArgumentParser(
+        allow_abbrev=False,  # '--ful' must ERROR, not prefix-match --full (#11)
+        
+        description="Generate src/gammainv_data.h -- every table "
+                     "gamma_p_inv/gamma_q_inv needs.")
+    _parser.add_argument(
+        "--full", action="store_true",
+        help="Denser replay (see module docstring's replay-parameter "
+             "self-checks), slower.")
+    _args = _parser.parse_args()
+    FULL = _args.full
     sys.exit(main())
