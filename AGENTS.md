@@ -44,8 +44,8 @@ special-function coverage.
 - `src/ops-inl.h` — the ~40-op SIMD facade; the ONLY file allowed to touch
   `hn::`. All kernels are written against `ops::` (aliased `op::` inside
   every kernel header), which is what keeps the backend swappable
-  (std::simd later = reimplement this file, plus the one `hwy::TargetName`
-  call behind `active_target()` in `src/erf.cpp`).
+  (std::simd later = reimplement this file, nothing else — since #8 even
+  `active_target()` reaches the backend through `ops::TargetName()`).
 - `src/<fn>.cpp` — one TU per function family; the TU boundary is the
   sharing/dependency boundary (families consuming the same cores share a
   TU with multiple HWY_EXPORTs). Per-target pattern: `HWY_TARGET_INCLUDE`

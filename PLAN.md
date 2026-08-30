@@ -34,8 +34,15 @@ tail-header regen must be numerics-byte-identical); #10 facade trim
 (remove MulSub/ReduceSum/ReduceMax per the strict-mirror rationale) +
 ci.yml/FindOrFetchHighway citation rewording; #11 argparse (small
 model; acceptance = parse-equivalence + old flag kept as alias — do NOT
-re-run the heavy reference-gen append modes); then ladder, CI, tag
-v0.7.0, freeze returns. Contingent 4th session only if #6 surfaces an
+re-run the heavy reference-gen append modes); then the ONE
+architecture-doc refresh (deferred deliberately, user-ratified
+2026-08-29: docs/architecture-layers.svg + docs/ARCHITECTURE.md pick up
+the #6 driver band + masked-loop home, the #8 facade op/TU moves, the
+#10 op removals, and the stale "~20-op" facade count — one pass after
+the surface is final; ARCHITECTURE.md is non-binding so the interim
+drift is acceptable); then ladder, CI, tag v0.7.0, freeze returns.
+No further architecture-doc changes predicted in v0.8.0–v1.0.0 (the
+elementary family is a new TU in existing bands). Contingent 4th session only if #6 surfaces an
 MSVC build-time regression or byte-compare deviation (escalation, not
 slip). Delegation posture unchanged from v0.6.0: mechanism-naming
 briefs, every sweep/byte-compare/regen-diff/doctrine decision stays

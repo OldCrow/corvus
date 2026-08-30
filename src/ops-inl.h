@@ -145,6 +145,11 @@ template <class D> HWY_INLINE V<D> ProdLow(D d, V<D> a, V<D> b, V<D> p) {
 template <class D> HWY_INLINE double ReduceSum(D d, V<D> v) { return hn::ReduceSum(d, v); }
 template <class D> HWY_INLINE double ReduceMax(D d, V<D> v) { return hn::ReduceMax(d, v); }
 
+// Name of the target this TU is compiled for (#8): the one non-hn::
+// backend call kernels need, so the std::simd swap claim stays literal --
+// reimplement THIS file, nothing else.
+HWY_INLINE const char* TargetName() { return hwy::TargetName(HWY_TARGET); }
+
 }  // namespace ops
 }  // namespace HWY_NAMESPACE
 }  // namespace corvus
