@@ -10,6 +10,45 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-08-28
 
+**v0.8.0 PLAN RATIFIED [2026-08-30, user] — elementary family (#32:
+exp, log, log1p, cos, sin), NOT YET STARTED.** Five sessions, split on
+the frontier/settled boundary (not per-issue — one issue, two port
+modes). Effort routing per docs/NUMERICAL-DOCTRINE.md:
+(1) **Design + budgets** — Fable HIGH, no agents, INDETERMINATE length
+(do not start late in a day): donor provenance audit (SLEEF-derived =
+spec/oracle only); clean-room exp/log/log1p method design — the central
+question is the relationship to the internal exp_dd/log_dd cores and
+tables (reuse infrastructure vs new reductions), region splits, error
+budgets incl. non-FMA analysis, edge-contract mapping (issue #32 lists
+the consumer-hardened contracts); cos/sin transcription review (libstats
+#95 kernel + pi-split table, bit-identical in both consumers — becomes
+the single corvus copy); TU layout (likely trig.cpp for sin+cos shared
+reduction, log+log1p shared core); the NUMERICAL-DOCTRINE sentence
+(Highway contrib/math below contract, never exported). Deliverable:
+written design in PLAN, no code.
+(2) **Tables + generators + oracles** — Fable HIGH for worst-case
+point selection (trig reduction-boundary bit-neighborhoods near
+multiples of pi/2 to huge x; exp over/underflow band; log near 1;
+subnormal bands), Sonnet for post-#13-standard boilerplate
+(refgen_common, self-checks, digests). mpmath is a TRUSTED baseline for
+all five — oracle risk far below the beta precedent. References
+generated + diff-reviewed.
+(3) **cos/sin kernels + gates** — Fable default (settled-design
+transcription onto the v0.7.0 structure), Sonnet test/bench boilerplate;
+five-list registration (tests/CMakeLists, ci.yml ×3, sweep $gates,
+quiet-bench targets); native + 4-tier, gates pinned to measured.
+(4) **exp/log/log1p kernels** — Fable HIGH (clean-room numerical code;
+exactness arguments live in the implementation; non-FMA first-class
+from day one, #12's lesson). Splits 4a/4b if exp vs log diverge.
+(5) **Consumer cross-validation + close** — mixed, escalation-prone:
+libstats trig gates (specials-in-vector, aliasing) + libhmm
+trig_ulp_vectors + exp/log gates run against corvus kernels (exit
+criterion 1); ACCURACY/USER-GUIDE/PERFORMANCE entries; tag v0.8.0.
+INTERPRETATION TO RATIFY in-session: exit criterion 3's fleet legs
+(Kaby Lake, M1) ride v0.9.0 per the renumbering — v0.8.0 closes on
+criteria 1–2 (Zen 4 + CI). Downstream holds stay open until the
+consumers swap: libstats #107/#108, libhmm #99, kTrigDMax half of #101.
+
 **v0.7.0 CLOSED [2026-08-30] — the structure unfreeze is complete and
 the FREEZE RETURNS.** All six issues shipped (#6–#11, Resolved log per
 session); tagged v0.7.0. Every change bit-identical and verified so
