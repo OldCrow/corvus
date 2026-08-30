@@ -10,8 +10,39 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-08-28
 
+**v0.7.0 STRUCTURE UNFREEZE OPEN [2026-08-29, user]** — kernel-structure
+milestone (#6–#11), all six issues bit-identical-by-intent, so the cost
+driver is VALIDATION PROTOCOL (byte-compare × trees + 4-tier sweep),
+not diff size. Session plan ratified by the user:
+(1) **#6 + #7** — arity-generic driver template
+(DriveUnary/Binary/Ternary owning the loop shape + #5's deferred S1
+span-length HWY_DASSERT), 20 loops/11 TUs → 1; template/seam design is
+Fable high-effort, 11-TU rollout is Sonnet agents on disjoint TUs; #7's
+outlining-doctrine decision (outline lgamma+erf/erfc vs record measured
+exemptions — issue leans doc-route) is made INSIDE #6's design since
+the shared driver redefines what driver outlining means. Session risk:
+MSVC per-instantiation build time (superlinear-codegen history) — watch
+the Windows CI job duration.
+(2) **#8** — erf/erfc assemblies hoisted to -inl.h
+(kernel-test-reachable), ops::TargetName() facade op, active_target()
+to its own TU; orchestrator-direct (facade + TU layout sits on the
+HWY_DYNAMIC_DISPATCH-inside-namespace-corvus trap that only the SSE2
+cap catches).
+(3) **#9 + #10 + #11 + close** — outlined-wrapper dedup (Sonnet);
+4e306/3.0 clamp derivation + erfc outer-bounds emit (orchestrator;
+tail-header regen must be numerics-byte-identical); #10 facade trim
+(remove MulSub/ReduceSum/ReduceMax per the strict-mirror rationale) +
+ci.yml/FindOrFetchHighway citation rewording; #11 argparse (small
+model; acceptance = parse-equivalence + old flag kept as alias — do NOT
+re-run the heavy reference-gen append modes); then ladder, CI, tag
+v0.7.0, freeze returns. Contingent 4th session only if #6 surfaces an
+MSVC build-time regression or byte-compare deviation (escalation, not
+slip). Delegation posture unchanged from v0.6.0: mechanism-naming
+briefs, every sweep/byte-compare/regen-diff/doctrine decision stays
+with the orchestrator.
+
 **v0.6.0 CLOSED [2026-08-29] — the correctness unfreeze is complete and
-the FREEZE RETURNS.** All seven issues shipped (#12, #15, #14, #13, #5,
+the freeze returned** (reopened above for v0.7.0). All seven issues shipped (#12, #15, #14, #13, #5,
 #16, #17 — Resolved log per session); milestone 0 open / 7 closed;
 tagged v0.6.0. Exit criteria met: every gate green on every tier
 including capped (native AVX3_ZEN4 + 4-tier sweep, clang-cl), CI green
