@@ -10,12 +10,18 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-08-28
 
-**v0.6.0 UNFREEZE OPEN [2026-08-28, user]** — the one correctness
-unfreeze (milestone map item 1) is in progress. Session plan ratified
-by the user: (1) #12 kernel fix — DONE (Resolved log);
-(2) #15 then #14 — DONE (Resolved log); (3) #13 generators + the ONE
-regeneration — DONE (Resolved log); (4) #5 + #16 + #17 batch, then
-milestone close (full ladder, CI green, tag). #5 scope SPLIT [user]:
+**v0.6.0 CLOSED [2026-08-29] — the correctness unfreeze is complete and
+the FREEZE RETURNS.** All seven issues shipped (#12, #15, #14, #13, #5,
+#16, #17 — Resolved log per session); milestone 0 open / 7 closed;
+tagged v0.6.0. Exit criteria met: every gate green on every tier
+including capped (native AVX3_ZEN4 + 4-tier sweep, clang-cl), CI green
+per-job, ACCURACY.md #12 exclusion replaced by the fix record, the
+references regenerated exactly once. Next: v0.7.0 kernel structure
+(#6 shared driver carries #5's deferred S1 span-length assert).
+
+Session plan (ratified 2026-08-28, user): (1) #12 kernel fix — DONE;
+(2) #15 then #14 — DONE; (3) #13 generators + the ONE regeneration —
+DONE; (4) #5 + #16 + #17 batch + milestone close — DONE. #5 scope SPLIT [user]:
 noexcept + [[nodiscard]] land in v0.6.0; the span-length HWY_DASSERT
 (S1) moves to #6's shared driver in v0.7.0 (recorded on both issues).
 Delegation posture [user]: mechanical breadth (21-file test edits,
@@ -659,6 +665,28 @@ Highway 1.4.0 from source; CMakePresets.json.
 ## Resolved log
 One line per closed item; detail in this file's git history, AGENTS.md,
 and docs/ACCURACY.md.
+- 2026-08-29 **#5 + #16 + #17 CLOSED — v0.6.0 batch, orchestrator-direct
+  (validation-protocol load, not diff size, drove the no-delegation
+  call).** #5 (ratified S6+S5 scope): all 21 public declarations —
+  the issue's "22" was a miscount — and their definitions noexcept;
+  [[nodiscard]] active_target; USER-GUIDE notes the compile-checked
+  promise; ULP outputs byte-identical to baseline on native + SSE2 cap.
+  S1 rides #6's shared driver (v0.7.0). #16: fatal MSVC_VERSION < 1930
+  floor (clang-cl excluded); ENVIRONMENT.md records the floor, the
+  declined /arch: policing, and the unvalidated IntelLLVM branch. #17:
+  the two constVariableReference sites (pointer-to-const range-for;
+  cppcheck quiet), the dead SEED_JSON cross-check removed
+  (gen_gamma_data.py self-check (a) survives; regenerated table
+  byte-identical), test_dd_special pinned to measured
+  (2^-71.65 rel / 2^-187.00 abs, identical across native + all four
+  capped tiers; was the provisional 2^-63/2^-100 budget). Operational:
+  the #5 commit hit the PIN-prompt-hang signing variant; held per user
+  instruction, retried on their return — staged work + message files
+  made the retry free. Sweep-tooling finding (from Session 3, fixed
+  with #13): sweep_tiers.ps1 run against a build dir whose cached
+  compilers differ makes CMake wipe the cache mid-configure and drop
+  the tier cap — the CORVUS_EXPECT_TARGET gate caught it; docstring
+  now warns.
 - 2026-08-29 **#13 CLOSED — generator fixes + the ONE v0.6.0 regeneration
   (v0.6.0 item 3; five Sonnet agents on disjoint files, orchestrator
   owned refgen_common.py, all adjudications, every regen diff row-class
