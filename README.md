@@ -273,6 +273,12 @@ corvus::i0(x, y);                          // modified Bessel I0, I1
 corvus::i1(x, y);
 corvus::i0e(x, y);                         // e^-|x| I0(x): full axis, no overflow
 corvus::i1e(x, y);
+
+corvus::exp(x, y);                         // elementary family: accuracy-first,
+corvus::log(x, y);                         //   full double range, correct
+corvus::log1p(x, y);                       //   IEEE edge behaviour
+corvus::cos(x, y);                         // no domain cutoff -- any finite x
+corvus::sin(x, y);
 ```
 
 Per-function methods, measured ULP bounds, and the validation matrix live

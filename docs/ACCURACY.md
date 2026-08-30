@@ -81,7 +81,9 @@ machine.
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
-† The beta, digamma, trigamma, inverse-gamma, inverse-beta and Bessel x86 rows come from the Ryzen box (AVX3_ZEN4 native
+† The beta, digamma, trigamma, inverse-gamma, inverse-beta, Bessel, and
+v0.8.0 elementary-family (cos/sin/exp/log/log1p) x86 rows come from the
+Ryzen box (AVX3_ZEN4 native
 dispatch, clang-cl; AVX2/SSE4/SSSE3/SSE2 via capping on the same silicon)
 plus the Linux/GCC CI sweep — every tier executes natively on real x86
 silicon, so the per-tier claims stand. Cross-machine reproduction on Kaby

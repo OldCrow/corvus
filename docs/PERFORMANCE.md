@@ -28,6 +28,13 @@ Each figure is the median of repeated timings after a warm-up call, on seeded
 inputs — so the same binary on the same data gives the same answer, run to run,
 except where §5 says otherwise.
 
+**Not yet measured: the v0.8.0 elementary family** (`exp`, `log`,
+`log1p`, `cos`, `sin`; benches `bench_exp`/`bench_log`/`bench_trig`
+exist and are registered in the harness target lists). Their
+quiet-machine numbers ride the v0.9.0 full-surface quiet-bench pass —
+one pass per machine over the whole surface, per the #24 coordination —
+and nothing in this document should be quoted for them until then.
+
 ---
 
 ## 2. Two baselines, and why they must not be compared
