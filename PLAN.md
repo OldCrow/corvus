@@ -10,293 +10,48 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-08-30
 
-**v0.8.0 IN PROGRESS — Session 4 (exp/log/log1p kernels) COMPLETE
-[2026-08-30]; Sessions 1–3 COMPLETE [2026-08-30].** The design below is
-the S1 deliverable. S3/S4 re-scope RATIFIED [2026-08-30, user].
-Remaining: S5 (consumer cross-validation + close + tag).
-
-### S4 deliverables (exp/log/log1p SHIPPED)
-- src/exp-inl.h + exp.cpp (ExpDdFrac + fl(m) + ScaleTwo + NaN blend —
-  no threshold blends, the ±1100 clamp makes every non-NaN special
-  correct by construction); src/log-inl.h + log.cpp (log = LogDdAny +
-  one rounding; log1p = TwoSum(1,x) through the same core's dd
-  overload; explicit specials blends incl. log1p's ±0 sign blend).
-  As designed: no new tables, no new fits, nothing SLEEF-shaped.
-- **Measured: log and log1p CORRECTLY ROUNDED on every reference row
-  (gates pinned at 0 ULP — tightest in the library); exp correctly
-  rounded on all 10,626 normal-result rows (gate 0), 1 ULP in the
-  subnormal band, both saturation boundaries exact through ±160-ulp
-  bit ladders.** Native AVX3_ZEN4 and SSE2 cap bucket-identical
-  (same 26 not-CR subnormal rows). 33/33 ctest both trees.
-- Five-list registration ×2 gate families; smoke/bench boilerplate
-  Sonnet-authored (reviewed); ACCURACY.md + USER-GUIDE.md in the same
-  change set (NEON cells deferred to the v0.9.0 M1 leg with trig's).
-
-### S3 deliverables (cos/sin SHIPPED)
-- src/trig-inl.h — both regions + shared cores; src/trig.cpp (two
-  exports, DriveUnary Impls); src/trig_ph_data.cpp; corvus.h cos/sin;
-  op::Xor added to the facade (the one predicted addition — used for
-  quadrant sign and the bitmask core-select).
-- Design refinement over S1: BOTH exports reduce |x| and sin applies
-  the input sign at the end — exact by oddness (negation commutes with
-  RN and every sin-core term is odd in r), collapses the PH sign fix
-  and the donor's sin(±0) blend to one Xor, and makes sin(−x) ≡
-  −sin(x) and cos(−x) ≡ cos(x) BIT-exact by construction
-  (smoke-asserted). The PH exact-expansion ladder is implemented as
-  designed in the S2 correction; its adaptive error argument
-  (residuals shrink with the cancellation) is the kernel derivation
-  block in trig-inl.h.
-- **Measured: max 1 ULP, every bucket, BOTH tier classes** — native
-  AVX3_ZEN4 AND the SSE2 cap (no FMA) hold 1 ULP in all eight
-  region×sign buckets per function, including the huge region's CF
-  worst-case rows (binary64's global worst |r| = 2^-60.89 included).
-  The donor's own SSE2 tier gates at 2 — corvus's structural
-  exactness argument (30-bit parts) shows up in the measurement. Gate
-  pinned at 1, no margin, no FMA-class distinction.
-- Smoke (Sonnet-authored, reviewed): specials in-vector at length 19,
-  NaN payload at every lane position, exact in-place aliasing,
-  bit-exact parity — all green both tiers; 29/29 ctest native AND
-  capped (existing families unaffected by the facade addition).
-- Five-list registration done (tests/CMakeLists, ci.yml ×3, sweep
-  $gates, quiet_bench ×2 + bench_trig).
-- ACCURACY.md (matrix rows + full cos/sin section; NEON deferred to
-  the v0.9.0 M1 leg) and USER-GUIDE.md (§3 table + no-domain-cutoff
-  migration note) updated in the same change set.
-- Toolchain note: build-cap-cc's cached bare "clang-cl" needs a
-  vcvars64 environment to reconfigure — scratchpad vcbuild.bat wraps
-  it; do NOT re-point the cache at a full path (compiler change wipes
-  the cache and silently drops the tier cap — the S2 sweep lesson).
-
-### S2 deliverables (all self-checks green)
-- tools/trig_common.py — shared 2/π window frame + CF worst-case
-  search; independently rediscovers the literature worst case
-  (m=0x16ac5b262ca1ff, e=849, |r|=2^-60.89, 62-bit depth) at its row.
-- tools/gen_trig_table.py → src/trig_data.h — donor port; emitted
-  constants BIT-IDENTICAL to the certified donor values (frozen
-  EXPECTED table in the generator; fit/split budgets re-asserted:
-  resid 2^-147.2, sin fit 2^-57.1, cos fit 2^-60.6).
-- tools/gen_trig_ph_table.py → src/trig_ph_data.inc (+ hand-authored
-  trig_ph_data.h decls) — 1001 rows × 4 chunks; end-to-end certified
-  per row at random + CF-worst mantissas: worst |f| error 2^-157.0
-  (= the truncation bound), worst r relative 2^-96.0 AT the literature
-  worst case; π/2 dd pair 2^-109.7 (a default-precision bug here was
-  caught by inspection — the pair emitted (hi, 0); fixed, now computed
-  and self-checked inside workprec).
-- Reference sets (tests/data/): cos 14374 + sin 14374 (shared x set;
-  per-e CF worst cases e=2..1023, k·π/2 bit-neighborhoods, consumer
-  specials verbatim), exp 14531 (incl. 3556 subnormal-output rows, all
-  boundary bit-neighborhoods; 169 overflow rows use the bessel-precedent
-  "inf" token), log 15423 (2304 subnormal-input, near-1 dense, slot
-  boundaries), log1p 11903 (corner ladder, Sterbenz zone, ±2^-53 seam).
-- Validation: (1) #13-standard 2×dps bit-identical self-checks;
-  (2) cross-check vs the CONSUMERS' shipping trig_ulp_vectors.inc —
-  0 mismatches at all shared finite points; (3) platform-libm sanity
-  floor over all five sets (worst 1.06e-14, exp subnormal band = libm's
-  own double-rounding; trig/log/log1p ≤ ~1 ulp).
-- S1-design corrections recorded: (a) the PH accumulation must be an
-  exact expansion, not naive dd (see the S2 CORRECTION block below);
-  (b) LogDdAny's subnormal path is UNREACHABLE from log1p — no
-  representable double x > −1 has subnormal 1+x (grid bottoms out at
-  1+x = 2^-53 exactly at nextafter(−1,0)); routing through LogDdAny
-  stays correct, the S4 kernel comment should not claim the prescale
-  is exercised there.
-- S3 reminder: five-list registration for the three new gate families
-  + quiet-bench targets; trig_ph_data.cpp definition TU is S3 glue.
-
-S2 CORRECTION to the S1 PH note (found while sizing the table): naive
-dd accumulation of the chunk products bounds f only to ~2^-105
-ABSOLUTE, which the worst case (|f−n| ≈ 2^-61.5) would eat down to
-~43 good bits in r. The reduction therefore accumulates as an EXACT
-expansion — every step a TwoSum/TwoProd exact transform over the known
-descending magnitude ladder, integer stripping exact (hi − 4·Round(hi/4)
-is exact for any double), cancellation of exact terms exact — and only
-the final compression to dd rounds, RELATIVE to the already-cancelled
-result. That yields r to ~2^-105 relative regardless of cancellation
-depth; 4×53-bit chunks (truncation ≤ 2^-158 absolute in f) stay
-sufficient. The generator self-check certifies this end-to-end at the
-per-exponent convergent worst cases.
-
-### S1 provenance audit — VERDICTS
-- **cos/sin donor: TRANSCRIBABLE.** Chain certified clean-room at every
-  hop: libstats NEON original → libhmm #74 → libstats #95 x86; formal
-  post-authorship divergence audit vs ARM optimized-routines advsimd
-  sin.c/cos.c (libstats docs/NEON_TRIG_DIVERGENCE_AUDIT.md, 2026-07-19,
-  provenance incidents disclosed and contained); "No third-party source"
-  attested in-file; MIT, same owner. Audit nit: the two consumer
-  trig_cleanroom_data.inc copies are payload-identical but NOT
-  byte-identical (provenance headers differ) — #32's "bit-identical"
-  holds for the constants, not the files. The corvus copy is regenerated
-  by a ported generator, never hand-copied.
-- **libhmm exp_pd/log_pd/log1p_pd: SPEC/ORACLE ONLY** (confirmed
-  SLEEF-attributed in-file: "SLEEF xlog_u1 core", "SLEEF-inspired exp";
-  log1p_pd same file, treated as SLEEF-derived conservatively). By the
-  design below NOTHING from this file enters corvus at all.
-- **Donor-as-oracle caveats** (donor behavior deviates from the ratified
-  contract at these points — edge rows come from mpmath/IEEE only):
-  donor log(x<0) = −inf (contract: NaN); donor exp clamps input to
-  [−708, 709.78] so exp(−inf) ≈ 3.3e−308, no subnormal outputs, and
-  AVX2/AVX-512 exp_pd(NaN) = +inf (libhmm #99's findings, superseded by
-  corvus's contract).
-
-### S1 consumer-gate contract (measured from the gate sources)
-- libstats + libhmm trig gates (mirrored): main bucket |x| ≤ 2^23 at
-  1.0 ulp (FMA tiers) / 2.0 (non-FMA); **specials bucket 4.0 ulp on
-  every tier with finite points D_MAX, −D_MAX, nextafter(D_MAX), 2^24,
-  1e9, 1e300** plus exactness asserts cos(±0)=1, sin(±0)=±0 signed,
-  cos/sin(±inf and NaN)=NaN, specials laid out to land in-vector.
-- **CONSEQUENCE (the load-bearing S1 finding): a documented 2^23 domain
-  is impossible — finite points to 1e300 are gated, so corvus trig must
-  reduce the FULL double range in-vector.** The donors' per-lane
-  scalar-libm fixup is doubly inadmissible (masked-path doctrine; libm
-  platform-dependence breaks reference byte-identity).
-- libhmm exp/log gates are functional tolerances (1e-12 rel / 1e-15 abs)
-  plus LogZero semantics (exp(−inf + …) = 0) — any faithful kernel with
-  the ratified edge contract passes.
-
-### S1 design: exp / log / log1p — REUSE THE DD CORES (decided)
-The central question is resolved: the public kernels are thin
-assemblies over ExpDdFrac/ScaleTwo and LogDd/LogDdAny. No new tables,
-no new fits, nothing SLEEF-shaped consulted — the clean-room burden
-collapses because the cores are corvus-owned with documented ~2^-70
-budgets, generator self-checks, and SSE2-leg validation inherited from
-the families that already ship on them.
-- **exp**: parts = ExpDdFrac(x, 0); v = fl(m.hi+m.lo); ScaleTwo(v, e);
-  NaN blend (propagate x). The existing kExpXMax = 1100 clamp makes ±inf
-  come out right with NO threshold blends: −inf → RN(m·2^-1587) = 0,
-  +inf → overflow → +inf, and over/underflow cross at the correctly-
-  rounded thresholds naturally inside ScaleTwo's single effective
-  rounding (worth a kernel comment). Subnormal outputs: one effective
-  rounding by ScaleTwo's design; composed error ≤ ~0.51 ulp in the
-  output's own ulp. Expected bound ≤ 0.5 + 2^-17 ulp on normal outputs;
-  pin to measured.
-- **log**: LogDdAny (its 2^600 subnormal lift satisfies the contract's
-  subnormal-prescale requirement); fl(hi+lo); blends ±0 → −inf,
-  x<0 → qNaN, +inf → +inf, NaN propagates. Expected ≤ 0.5 + 2^-17 ulp.
-- **log1p**: r = TwoSum(1.0, x) — exact for ALL x (Sterbenz makes 1+x
-  exact on [−1, −0.5]; hi goes subnormal only within one ulp of −1,
-  which LogDdAny's prescale covers); then LogDd's dd overload (its
-  t = lo/hi ≤ 2^-52 for any TwoSum-normalized pair, so the kept
-  quadratic correction suffices; dropped cubic ≤ ~2^-106 rel). Blends:
-  x = −1 → −inf, x < −1 → qNaN, ±inf/NaN as log, x == 0 → x
-  (log1p(−0) = −0, the donor trig sign-of-zero trick). Expected ≈ 0.5
-  ulp; pin to measured.
-- **Non-FMA**: inherited — both cores already gate on the SSE2 leg
-  inside shipping families; magnitudes bounded, no #12-class Dekker
-  ceiling in play.
-
-### S1 design: cos / sin — transcription + a NEW large-argument region
-- **Small region |x| ≤ 2^23** (donor D_MAX): transcribe the libstats
-  #95 structure onto ops:: — 4-part π/2 Cody–Waite split with exact
-  products (parts 0–2 carry 30 bits, n < 2^23 → n·part_k exact in 53
-  bits WITHOUT FMA: the exactness argument is structural, not
-  FMA-dependent; part 3's product rounding ~2^-124 abs sits below the
-  ~2^-60 reduction floor), compensated (r, rlo), shared degree-6 parity
-  cores on u = r², cos's exact 1 − u/2 head/tail split (Sterbenz +
-  Fast2Sum, also FMA-independent), quadrant swap/sign from n's low two
-  bits. op::MulAdd degrades to mul+add on SSE2 automatically; the donor
-  gates that exact form at 2 ulp (precedent).
-- **Large region |x| > 2^23** (NEW — replaces the forbidden scalar
-  fixup): vectorized Payne–Hanek-class reduction, clean-room from
-  published mathematics (Payne–Hanek 1983; Ng 1992 "Good to the Last
-  Bit"; Muller et al., Handbook of Floating-Point Arithmetic). Skeleton:
-  per-exponent table row of four 53-bit chunks of 2/π, pre-zeroed above
-  weight 2^(e−54) (bits there contribute exact multiples of 4 to
-  x·(2/π), irrelevant mod quadrant); row selected by op::GatherIndex on
-  e − 23 (~1001 rows × 4 columns stored as 4 arrays, ~32 KB); per-chunk
-  TwoProd (53-bit chunks are fine because TwoProd's dd product is
-  EXACT — no 26-bit splitting), integer parts stripped progressively
-  (integer−integer ≤ 2^53, exact), f accumulated in dd; n = Round(f.hi),
-  f −= n; r_dd = f · (π/2)_dd. Sizing: 4×53 = 212 bits covers binary64's
-  worst case (min |r| ≈ 2^-61, Muller) with r relative error ~2^-98,
-  far under core needs — certified by the generator self-check, not by
-  this note. The (r, rlo, n) triple feeds the SAME shared cores: the two
-  regions differ only in reduction, blended per lane behind an
-  op::AllFalse skip-guard so the common case pays nothing.
-- **Specials**: NaN → blend x back (payload propagates); ±inf → qNaN
-  blend; sin's x == 0 blend preserves signed zero; gather indices masked
-  into range for non-finite lanes (exp-table precedent).
-- **Facade addition (the only one predicted): op::Xor** for quadrant
-  sign application — added under the strict-mirror rule because the
-  kernel uses it, 1:1 with hn::Xor.
-- **kTrigDMax disappears as a public concept** — corvus trig is
-  full-domain. Feeds libhmm #101's kTrigDMax item and USER-GUIDE text.
-
-### S1 decisions: tables, generators, TU layout
-- tools/gen_trig_table.py: PORT of libstats
-  scripts/gen_trig_cleanroom_table.py (same-owner MIT clean-room) onto
-  the post-#13 standard (refgen_common, digests, self-checks incl. the
-  kTrigCosC[0] == −0.5 exactness assert and fit-quality budgets) →
-  src/trig_data.h.
-- tools/gen_trig_ph_table.py: NEW — per-exponent PH windows; self-check
-  recomputes x·(2/π) mod 4 at high dps for per-exponent random probes
-  plus 2/π continued-fraction-convergent worst cases; exits non-zero on
-  a budget miss.
-- Reference sets (S2): cos/sin main (incl. reduction-boundary
-  bit-neighborhoods near multiples of π/2); cos/sin huge (per-exponent-
-  band convergent worst cases to ~1e308); consumer specials points
-  verbatim; exp (over/underflow boundary neighborhoods and the
-  SUBNORMAL-OUTPUT band x ∈ [−745.14, −708.39], ±0 → 1); log (near 1,
-  subnormal inputs, normal/subnormal boundary); log1p (near −1, near ±0,
-  huge x). mpmath TRUSTED baseline for all five; round_to_double
-  writers.
-- TU layout (per the sharing rule): src/trig.cpp exports cos + sin
-  (kernels hoisted to src/trig-inl.h; tables trig_data.h +
-  trig_ph_data.h); src/log.cpp exports log + log1p (both consume
-  log_dd); src/exp.cpp exports exp (consumes exp_dd). All three:
-  DriveUnary one-line Impls; region cores and the PH reduction
-  HWY_NOINLINE from day one (erf/erfc's cheapest-TU exemption does NOT
-  extend here). Five-list registration ×3 gate families + quiet-bench
-  targets.
-
-### S1 session re-scope — RATIFIED [2026-08-30, user]
-- **S3 (trig) is no longer pure settled transcription**: it carries the
-  PH implementation and its certification — Fable HIGH for the
-  reduction and budgets; Sonnet boilerplate unchanged. PH is the one
-  genuinely new numerical machine in v0.8.0.
-- **S4 (exp/log/log1p) is LIGHTER than planned**: assembly over
-  validated cores, not clean-room from scratch. Fable default likely
-  suffices; escalate only if a gate surprises. May absorb the start of
-  S5's consumer runs if it runs short.
-- S2 and S5 unchanged.
-
-**v0.8.0 PLAN RATIFIED [2026-08-30, user] — elementary family (#32:
-exp, log, log1p, cos, sin).** Five sessions, split on
-the frontier/settled boundary (not per-issue — one issue, two port
-modes). Effort routing per docs/NUMERICAL-DOCTRINE.md:
-(1) **Design + budgets** — Fable HIGH, no agents, INDETERMINATE length
-(do not start late in a day): donor provenance audit (SLEEF-derived =
-spec/oracle only); clean-room exp/log/log1p method design — the central
-question is the relationship to the internal exp_dd/log_dd cores and
-tables (reuse infrastructure vs new reductions), region splits, error
-budgets incl. non-FMA analysis, edge-contract mapping (issue #32 lists
-the consumer-hardened contracts); cos/sin transcription review (libstats
-#95 kernel + pi-split table, bit-identical in both consumers — becomes
-the single corvus copy); TU layout (likely trig.cpp for sin+cos shared
-reduction, log+log1p shared core); the NUMERICAL-DOCTRINE sentence
-(Highway contrib/math below contract, never exported). Deliverable:
-written design in PLAN, no code.
-(2) **Tables + generators + oracles** — Fable HIGH for worst-case
-point selection (trig reduction-boundary bit-neighborhoods near
-multiples of pi/2 to huge x; exp over/underflow band; log near 1;
-subnormal bands), Sonnet for post-#13-standard boilerplate
-(refgen_common, self-checks, digests). mpmath is a TRUSTED baseline for
-all five — oracle risk far below the beta precedent. References
-generated + diff-reviewed.
-(3) **cos/sin kernels + gates** — Fable default (settled-design
-transcription onto the v0.7.0 structure), Sonnet test/bench boilerplate;
-five-list registration (tests/CMakeLists, ci.yml ×3, sweep $gates,
-quiet-bench targets); native + 4-tier, gates pinned to measured.
-(4) **exp/log/log1p kernels** — Fable HIGH (clean-room numerical code;
-exactness arguments live in the implementation; non-FMA first-class
-from day one, #12's lesson). Splits 4a/4b if exp vs log diverge.
-(5) **Consumer cross-validation + close** — mixed, escalation-prone:
-libstats trig gates (specials-in-vector, aliasing) + libhmm
-trig_ulp_vectors + exp/log gates run against corvus kernels (exit
-criterion 1); ACCURACY/USER-GUIDE/PERFORMANCE entries; tag v0.8.0.
-INTERPRETATION TO RATIFY in-session: exit criterion 3's fleet legs
-(Kaby Lake, M1) ride v0.9.0 per the renumbering — v0.8.0 closes on
-criteria 1–2 (Zen 4 + CI). Downstream holds stay open until the
-consumers swap: libstats #107/#108, libhmm #99, kTrigDMax half of #101.
+**v0.8.0 CLOSED [2026-08-30] — the elementary family shipped (#32:
+exp, log, log1p, cos, sin) and the FREEZE RETURNS.** Five sessions in
+one day, per the ratified plan (S1 design/provenance, S2 tables +
+oracles, S3 cos/sin, S4 exp/log/log1p, S5 consumer cross-validation +
+close); the full S1 design text, S2 oracle record, and S3/S4 session
+records live in this file's git history (eac63c1, 75856f9, 0e36175,
+c049f03). Exit criteria:
+(1) CONSUMER CROSS-VALIDATION PASS — both consumers' shipping trig
+vector sets (5000 main + 11 specials each, independently generated)
+run against corvus::cos/sin under the CONSUMERS' own sign-aware metric
+and budgets: main max 1.00 = the tight 1.0 FMA budget, specials 0.00
+of 4.0, all exactness asserts (inf/NaN→NaN, cos(±0)=1, sin(±0)=±0
+signed). Noted for the swap: libhmm's specials order non-finites
+first, and its sin(−0) reference row encodes +0 (their generator
+vintage predates libstats' sign-of-zero workaround) — corvus returns
+the correct −0. exp/log leg: libhmm acceptance style (1e-12/1e-15 vs
+libm at their odd sizes, LogZero exp(−inf) = +0 EXACTLY in every lane
+position — supersedes libhmm #99 — and log∘exp round-trips) PASS.
+Harness sources preserved in the session scratchpad; results recorded
+here and on #32.
+(2) corvus gates green on the post-#13/#14/#15 harness, all tiers:
+cos/sin max 1 ULP in every region×sign bucket INCLUDING non-FMA tiers
+(donor's own SSE2 gates at 2) and the PH worst-cancellation rows;
+log/log1p CORRECTLY ROUNDED on every row (0-ULP gates, tightest in
+the library); exp 0 ULP normal / 1 ULP subnormal with exact
+saturation boundaries. Native AVX3_ZEN4 + SSE2 cap + 4-tier sweep
+(72 gates) + CI green per-job on both S3 and S4 pushes (macOS NEON
+runs the same gates in CI at the same pins).
+(3) Fleet legs (Kaby Lake, M1) ride v0.9.0 per the RATIFIED
+interpretation — NEON matrix cells and the PERFORMANCE entry defer
+there (S5's quiet-bench attempt aborted: machine not quiet; the #24
+one-pass-per-machine rule wanted the full-surface pass in v0.9.0
+anyway).
+Version constants: kVersion*/project(VERSION) bumped 0.5.0 → 0.8.0 at
+this close. FINDING: both v0.6.0 and v0.7.0 were tagged with the pair
+still reading 0.5.0 (the in-repo guard checks header↔CMake
+consistency, not tag↔version) — the two historical tags stay as they
+are; consider a tag↔version check in the release ritual.
+Downstream holds stay OPEN until the consumers swap: libstats
+#107/#108, libhmm #99, kTrigDMax half of libhmm #101 — close each
+against the corvus swap, citing the S5 cross-validation record.
+Next: v0.9.0 fleet validation & performance.
 
 **v0.7.0 CLOSED [2026-08-30] — the structure unfreeze is complete and
 the FREEZE RETURNS.** All six issues shipped (#6–#11, Resolved log per
