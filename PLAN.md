@@ -10,10 +10,61 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-08-30
 
-**v0.8.0 IN PROGRESS — Session 1 (design + budgets) COMPLETE
-[2026-08-30].** The design below is the S1 deliverable; sessions 2–5
-execute it. The NUMERICAL-DOCTRINE contrib/math sentence (deferred from
-the 2026-08-21 review) landed this session. No code yet.
+**v0.8.0 IN PROGRESS — Session 2 (tables + generators + oracles)
+COMPLETE [2026-08-30], UNCOMMITTED (user AFK; commit on return).
+Session 1 (design + budgets) COMPLETE [2026-08-30].** The design below
+is the S1 deliverable; sessions 2–5 execute it. The NUMERICAL-DOCTRINE
+contrib/math sentence landed with S1. S3/S4 re-scope RATIFIED
+[2026-08-30, user].
+
+### S2 deliverables (all self-checks green)
+- tools/trig_common.py — shared 2/π window frame + CF worst-case
+  search; independently rediscovers the literature worst case
+  (m=0x16ac5b262ca1ff, e=849, |r|=2^-60.89, 62-bit depth) at its row.
+- tools/gen_trig_table.py → src/trig_data.h — donor port; emitted
+  constants BIT-IDENTICAL to the certified donor values (frozen
+  EXPECTED table in the generator; fit/split budgets re-asserted:
+  resid 2^-147.2, sin fit 2^-57.1, cos fit 2^-60.6).
+- tools/gen_trig_ph_table.py → src/trig_ph_data.inc (+ hand-authored
+  trig_ph_data.h decls) — 1001 rows × 4 chunks; end-to-end certified
+  per row at random + CF-worst mantissas: worst |f| error 2^-157.0
+  (= the truncation bound), worst r relative 2^-96.0 AT the literature
+  worst case; π/2 dd pair 2^-109.7 (a default-precision bug here was
+  caught by inspection — the pair emitted (hi, 0); fixed, now computed
+  and self-checked inside workprec).
+- Reference sets (tests/data/): cos 14374 + sin 14374 (shared x set;
+  per-e CF worst cases e=2..1023, k·π/2 bit-neighborhoods, consumer
+  specials verbatim), exp 14531 (incl. 3556 subnormal-output rows, all
+  boundary bit-neighborhoods; 169 overflow rows use the bessel-precedent
+  "inf" token), log 15423 (2304 subnormal-input, near-1 dense, slot
+  boundaries), log1p 11903 (corner ladder, Sterbenz zone, ±2^-53 seam).
+- Validation: (1) #13-standard 2×dps bit-identical self-checks;
+  (2) cross-check vs the CONSUMERS' shipping trig_ulp_vectors.inc —
+  0 mismatches at all shared finite points; (3) platform-libm sanity
+  floor over all five sets (worst 1.06e-14, exp subnormal band = libm's
+  own double-rounding; trig/log/log1p ≤ ~1 ulp).
+- S1-design corrections recorded: (a) the PH accumulation must be an
+  exact expansion, not naive dd (see the S2 CORRECTION block below);
+  (b) LogDdAny's subnormal path is UNREACHABLE from log1p — no
+  representable double x > −1 has subnormal 1+x (grid bottoms out at
+  1+x = 2^-53 exactly at nextafter(−1,0)); routing through LogDdAny
+  stays correct, the S4 kernel comment should not claim the prescale
+  is exercised there.
+- S3 reminder: five-list registration for the three new gate families
+  + quiet-bench targets; trig_ph_data.cpp definition TU is S3 glue.
+
+S2 CORRECTION to the S1 PH note (found while sizing the table): naive
+dd accumulation of the chunk products bounds f only to ~2^-105
+ABSOLUTE, which the worst case (|f−n| ≈ 2^-61.5) would eat down to
+~43 good bits in r. The reduction therefore accumulates as an EXACT
+expansion — every step a TwoSum/TwoProd exact transform over the known
+descending magnitude ladder, integer stripping exact (hi − 4·Round(hi/4)
+is exact for any double), cancellation of exact terms exact — and only
+the final compression to dd rounds, RELATIVE to the already-cancelled
+result. That yields r to ~2^-105 relative regardless of cancellation
+depth; 4×53-bit chunks (truncation ≤ 2^-158 absolute in f) stay
+sufficient. The generator self-check certifies this end-to-end at the
+per-exponent convergent worst cases.
 
 ### S1 provenance audit — VERDICTS
 - **cos/sin donor: TRANSCRIBABLE.** Chain certified clean-room at every
@@ -147,7 +198,7 @@ the families that already ship on them.
   extend here). Five-list registration ×3 gate families + quiet-bench
   targets.
 
-### S1 session re-scope — FOR RATIFICATION at S2 start
+### S1 session re-scope — RATIFIED [2026-08-30, user]
 - **S3 (trig) is no longer pure settled transcription**: it carries the
   PH implementation and its certification — Fable HIGH for the
   reduction and budgets; Sonnet boilerplate unchanged. PH is the one
