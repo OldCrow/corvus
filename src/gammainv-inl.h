@@ -108,33 +108,11 @@ namespace HWY_NAMESPACE {
 namespace op = ops;
 
 // ------------------------------------------------------------------------
-// OUTLINED log and exp [MSVC BUILD-TIME GATE, AGENTS.md]. These are thin
-// wrappers whose only purpose is the HWY_NOINLINE: log_dd (via LogDdAny),
-// exp_dd (via ExpDd) and Highway's own Exp are each large, and this file
+// OUTLINED log and exp: shared HWY_NOINLINE wrappers, see OutlinedLogDd in
+// log_dd-inl.h and OutlinedExpDd/OutlinedExp in exp_dd-inl.h. This file
 // reaches them from about seventeen call sites -- the lambda-of-eta Newton,
 // both S2 Picard loops, S3's fixed point, the forward's E/region assembly
-// and the logit swap. Inlined, each of those becomes its own copy of a
-// table gather plus a polynomial IN EVERY ONE OF THE COMPILED TARGETS, and
-// cl.exe's optimizer is superlinear in function size -- at this TU's scale
-// the difference is minutes versus the better part of an hour on one MSVC
-// invocation. Bit-identity across the outline is guaranteed by
-// contraction-off.
-template <class D>
-HWY_NOINLINE Dd<D> GammaInvLog(D d, Dd<D> x) {
-  return LogDdAny(d, x);
-}
-template <class D>
-HWY_NOINLINE Dd<D> GammaInvLog(D d, op::V<D> x) {
-  return GammaInvLog(d, Dd<D>{x, op::Zero(d)});
-}
-template <class D>
-HWY_NOINLINE Dd<D> GammaInvExpDd(D d, op::V<D> xh, op::V<D> xl) {
-  return ExpDd(d, xh, xl);
-}
-template <class D>
-HWY_NOINLINE op::V<D> GammaInvExp(D d, op::V<D> x) {
-  return op::Exp(d, x);
-}
+// and the logit swap.
 
 // The pin emits the two depth buckets separately so a future re-measure can
 // split them without a header-format change; this kernel is the single-variant
@@ -242,14 +220,14 @@ HWY_NOINLINE op::V<D> GammaInvLamOfEta(D d, op::V<D> eta) {
   auto u = op::IfThenElse(op::Ge(eta, zero), LogDd(d, op::Add(one, target)).hi,
                           op::Neg(target));
   for (int i = 0; i < detail::kGammaInvLamNewtonIters; ++i) {
-    const auto eu = GammaInvExp(d, u);
+    const auto eu = OutlinedExp(d, u);
     const auto em1 = op::Sub(eu, one);
     const auto v = op::Sub(op::Sub(em1, u), target);
     // em1 == 0 only at u == 0, which is the series branch's own domain; the
     // select keeps a discarded lane from turning it into an infinity.
     u = op::IfThenElse(op::Eq(em1, zero), u, op::Sub(u, op::Div(v, em1)));
   }
-  return op::IfThenElse(m_ser, lam_ser, GammaInvExp(d, u));
+  return op::IfThenElse(m_ser, lam_ser, OutlinedExp(d, u));
 }
 
 // c_k(eta0) from the pinned Chebyshev rows, Clenshaw in the mapped variable.
@@ -335,12 +313,12 @@ HWY_NOINLINE op::V<D> GammaInvSeedS2(D d, op::V<D> a, op::V<D> lsum) {
   // The finiteness test is against infinity, never against DBL_MAX: a is
   // allowed to BE DBL_MAX, and so therefore is the answer.
   const auto dmax = op::Set(d, std::numeric_limits<double>::infinity());
-  auto x = GammaInvExp(d, op::Div(lsum, a));
+  auto x = OutlinedExp(d, op::Div(lsum, a));
   for (int i = 0; i < detail::kGammaInvS2NCorr; ++i) {
     const auto sum = GammaInvSeedSum(d, a, x);
     const auto lx = op::Div(
         op::Sub(op::Add(lsum, x), LogDd(d, sum).hi), a);
-    const auto xn = GammaInvExp(d, lx);
+    const auto xn = OutlinedExp(d, lx);
     // The generator breaks out of the loop on a non-finite or non-positive
     // iterate; per lane, that is holding the previous value. Written through
     // the indicator arithmetic because the ops facade exposes no mask AND.
@@ -371,7 +349,7 @@ HWY_NOINLINE op::V<D> GammaInvSeedS3(D d, op::V<D> a, op::V<D> lnq,
 
   auto x = L;
   for (int i = 0; i < detail::kGammaInvS3NIter; ++i) {
-    const auto xn = op::MulAdd(op::Sub(a, one), GammaInvLog(d, x).hi, L);
+    const auto xn = op::MulAdd(op::Sub(a, one), OutlinedLogDd(d, x).hi, L);
     const auto good = IndMask(d, op::Mul(Ind(d, op::Gt(xn, zero)),
                                          Ind(d, op::Lt(xn, dmax))));
     x = op::IfThenElse(good, xn, x);
@@ -418,9 +396,9 @@ struct GammaInvFwdOut {
 
 // HWY_NOINLINE from day one, like the region cores it calls: this function is
 // reached from six call sites per export (three candidate seeds, three steps)
-// and, even with log_dd/exp_dd routed through GammaInvLog/GammaInvExpDd/
-// GammaInvExp above, still inlines Log1pmxDd, the erfc core and all four
-// region cores.
+// and, even with log_dd/exp_dd routed through the shared OutlinedLogDd/
+// OutlinedExpDd/OutlinedExp above, still inlines Log1pmxDd, the erfc core
+// and all four region cores.
 template <class D>
 HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
                                                op::V<D> i_wp, Dd<D> lga,
@@ -438,7 +416,7 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
   Dd<D> e_small{zero, zero};
   Dd<D> e_big{zero, zero};
   if (need_small) {
-    const auto lx = GammaInvLog(d, x);
+    const auto lx = OutlinedLogDd(d, x);
     e_small = DdAddD(d, DdMulD(d, lx, a), op::Neg(x));
     e_small = DdAdd(d, e_small, Dd<D>{op::Neg(lga.hi), op::Neg(lga.lo)});
   }
@@ -515,7 +493,7 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
   }
   if (!op::AllFalse(d, m_r2)) {
     const auto as = op::Min(a, op::Set(d, kGammaInvCfAMax));
-    const auto l = DdAdd(d, e, GammaInvLog(d, GammaCfRecip(d, as, x)));
+    const auto l = DdAdd(d, e, OutlinedLogDd(d, GammaCfRecip(d, as, x)));
     lnf = Dd<D>{op::IfThenElse(m_r2, l.hi, lnf.hi),
                 op::IfThenElse(m_r2, l.lo, lnf.lo)};
   }
@@ -528,7 +506,7 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
     // magnitude right, which is what pulls such a lane back toward the root
     // instead of stranding it. (No live lane is ever there: a target below
     // e^-745 is not a representable double.)
-    const auto lg3 = GammaInvLog(d, t3.val.dd);
+    const auto lg3 = OutlinedLogDd(d, t3.val.dd);
     const auto pos = op::Gt(t3.val.dd.hi, zero);
     const auto l = Dd<D>{op::IfThenElse(pos, lg3.hi, op::Neg(aphi.hi)),
                          op::IfThenElse(pos, lg3.lo, op::Neg(aphi.lo))};
@@ -537,7 +515,7 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
     i_pdir = op::IfThenElse(m_r3, t3.is_p, i_pdir);
   }
   if (!op::AllFalse(d, m_r4)) {
-    const auto l = GammaInvLog(d, GammaSmallQ(d, a, x));
+    const auto l = OutlinedLogDd(d, GammaSmallQ(d, a, x));
     lnf = Dd<D>{op::IfThenElse(m_r4, l.hi, lnf.hi),
                 op::IfThenElse(m_r4, l.lo, lnf.lo)};
     i_pdir = op::IfThenElse(m_r4, zero, i_pdir);
@@ -560,10 +538,10 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
     const auto ln_half = op::Set(d, -0.6931471805599453);
     const auto m_cmp = op::Gt(lnf.hi, ln_half);
     if (!op::AllFalse(d, m_cmp)) {
-      const auto vb = GammaInvExpDd(d, lnf.hi, lnf.lo);
+      const auto vb = OutlinedExpDd(d, lnf.hi, lnf.lo);
       const auto cb =
           DdAdd(d, Dd<D>{one, zero}, Dd<D>{op::Neg(vb.hi), op::Neg(vb.lo)});
-      const auto l = GammaInvLog(d, cb);
+      const auto l = OutlinedLogDd(d, cb);
       lnf = Dd<D>{op::IfThenElse(m_cmp, l.hi, lnf.hi),
                   op::IfThenElse(m_cmp, l.lo, lnf.lo)};
       i_pdir = op::IfThenElse(m_cmp, IndNot(d, i_pdir), i_pdir);
@@ -576,14 +554,14 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
   // already an exact 0, so the clamp is value-identical for u).
   const auto lnf_u = op::Max(lnf.hi, op::Set(d, -800.0));
   const auto lnf_ul = op::IfThenElse(op::Eq(lnf_u, lnf.hi), lnf.lo, zero);
-  const auto u = GammaInvExpDd(d, lnf_u, lnf_ul);
+  const auto u = OutlinedExpDd(d, lnf_u, lnf_ul);
   const auto c = DdAdd(d, Dd<D>{one, zero}, Dd<D>{op::Neg(u.hi), op::Neg(u.lo)});
-  const auto lnc = GammaInvLog(d, c);
+  const auto lnc = OutlinedLogDd(d, c);
   const auto lg = DdAdd(d, lnf, Dd<D>{op::Neg(lnc.hi), op::Neg(lnc.lo)});
   const auto m_p = IndMask(d, i_pdir);  // is the smaller side P?
   const Dd<D> m{op::IfThenElse(m_p, lg.hi, op::Neg(lg.hi)),
                 op::IfThenElse(m_p, lg.lo, op::Neg(lg.lo))};
-  const auto w = op::Mul(GammaInvExp(d, op::Sub(lnf.hi, e.hi)), c.hi);
+  const auto w = op::Mul(OutlinedExp(d, op::Sub(lnf.hi, e.hi)), c.hi);
   return {m, w};
 }
 
@@ -666,13 +644,13 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   // Both sides' logs. 1 (-) t is formed EXACTLY, as a pair: when fl(1 - t)
   // rounds to 1 the low word is the entire signal, and it is what the tiny-a
   // q-side answers rest on.
-  const auto lnt = GammaInvLog(d, t);  // log of the solved side; may be subnormal
-  const auto lnct = GammaInvLog(d, TwoSum(d, one, op::Neg(t)));  // log(1 - t)
+  const auto lnt = OutlinedLogDd(d, t);  // log of the solved side; may be subnormal
+  const auto lnct = OutlinedLogDd(d, TwoSum(d, one, op::Neg(t)));  // log(1 - t)
   const Dd<D> lnp{op::IfThenElse(m_wq, lnct.hi, lnt.hi),
                   op::IfThenElse(m_wq, lnct.lo, lnt.lo)};
 
   const auto lga = LgammaPosDd(d, a);
-  const auto lna = GammaInvLog(d, a);
+  const auto lna = OutlinedLogDd(d, a);
   // lgamma(1+a). For a <= 3/2 this MUST come from lgamma's own zone
   // polynomial at the exact shifted argument, exactly as GammaSmallQ does:
   // lga (+) lna is a cancellation of two ~|log a| terms whose dd residue is

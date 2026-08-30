@@ -140,6 +140,30 @@ HWY_INLINE Dd<D> ExpDd(D d, op::V<D> xh, op::V<D> xl) {
   return {ScaleTwo(d, parts.m.hi, parts.e), ScaleTwo(d, parts.m.lo, parts.e)};
 }
 
+// ------------------------------------------------------------------------
+// OUTLINED exp [MSVC BUILD-TIME GATE, AGENTS.md]. Thin wrappers whose only
+// purpose is the HWY_NOINLINE: exp_dd (via ExpDd) and Highway's own Exp are
+// each large, and gammainv, beta, betainv and bessel each reach ExpDd from
+// several call sites (region assembly, prefactor folds, the unscaled
+// Bessel exp fold), while gammainv and betainv separately reach op::Exp
+// from their Newton/Picard steps and logit swap. Inlined, each call site
+// becomes its own copy of a table gather plus a polynomial IN EVERY ONE OF
+// THE COMPILED TARGETS, and cl.exe's optimizer is superlinear in function
+// size -- at gammainv/betainv's TU scale the difference is minutes versus
+// the better part of an hour on one MSVC invocation. Shared here (rather
+// than once per family, as it was before A7) because the per-family
+// wrappers were byte-identical modulo name; hosted beside ExpDd's other
+// consumers since gammainv-inl.h and betainv-inl.h already include this
+// file. Bit-identity across the outline is guaranteed by contraction-off.
+template <class D>
+HWY_NOINLINE Dd<D> OutlinedExpDd(D d, op::V<D> xh, op::V<D> xl) {
+  return ExpDd(d, xh, xl);
+}
+template <class D>
+HWY_NOINLINE op::V<D> OutlinedExp(D d, op::V<D> x) {
+  return op::Exp(d, x);
+}
+
 }  // namespace HWY_NAMESPACE
 }  // namespace corvus
 HWY_AFTER_NAMESPACE();

@@ -278,32 +278,12 @@ inline constexpr double kBetaInvSwapBand = 0x1.0p-10;
 // ------------------------------------------------------------------------
 // Small shared helpers.
 
-// OUTLINED log, exp and sigmoid [MSVC BUILD-TIME GATE, AGENTS.md]. These are
-// thin wrappers whose only purpose is the HWY_NOINLINE: log_dd, exp_dd and
-// Highway's own Exp are each large, and this file reaches them from about
-// twenty call sites -- one per region, per prefactor path, per seed and per
-// step. Inlined, each of those becomes its own copy of a table gather plus a
-// polynomial IN EVERY ONE OF THE COMPILED TARGETS, and cl.exe's optimizer is
-// superlinear in function size: the un-outlined form of this TU ran past 45
-// minutes and 7 GB on one MSVC invocation (see the final report), against a
-// gate of ~4. Bit-identity is guaranteed by contraction-off and verified by
-// byte-comparing the ULP tables across the change.
-template <class D>
-HWY_NOINLINE Dd<D> BetaInvLog(D d, Dd<D> x) {
-  return LogDdAny(d, x);
-}
-template <class D>
-HWY_NOINLINE Dd<D> BetaInvLog(D d, op::V<D> x) {
-  return BetaInvLog(d, Dd<D>{x, op::Zero(d)});
-}
-template <class D>
-HWY_NOINLINE Dd<D> BetaInvExpDd(D d, op::V<D> xh, op::V<D> xl) {
-  return ExpDd(d, xh, xl);
-}
-template <class D>
-HWY_NOINLINE op::V<D> BetaInvExp(D d, op::V<D> x) {
-  return op::Exp(d, x);
-}
+// OUTLINED log and exp: shared HWY_NOINLINE wrappers, see OutlinedLogDd in
+// log_dd-inl.h and OutlinedExpDd/OutlinedExp in exp_dd-inl.h. This file
+// reaches them from about twenty call sites -- one per region, per
+// prefactor path, per seed and per step; the un-outlined form of this TU
+// ran past 45 minutes and 7 GB on one MSVC invocation (see the final
+// report), against a gate of ~4.
 
 // Replace a non-finite dd log by a finite sentinel so every downstream
 // operation stays total. NaN fails |v| < inf as well, so one test covers both.
@@ -322,7 +302,7 @@ HWY_INLINE Dd<D> BetaInvFiniteLog(D d, Dd<D> v) {
 template <class D>
 HWY_NOINLINE op::V<D> BetaInvSigmoid(D d, op::V<D> v) {
   const auto one = op::Set(d, 1.0);
-  const auto e = BetaInvExp(d, op::Neg(op::Abs(v)));
+  const auto e = OutlinedExp(d, op::Neg(op::Abs(v)));
   const auto lo = op::Div(e, op::Add(one, e));  // sigmoid(-|v|) in (0, 1/2]
   return op::IfThenElse(op::Lt(v, op::Zero(d)), lo, op::Sub(one, lo));
 }
@@ -356,7 +336,7 @@ HWY_NOINLINE Dd<D> BetaInvLgamma1p(D d, op::V<D> m) {
   const auto diff = LgammaDiffDd(d, op::IfThenElse(g1, op::Add(one, one), one),
                                  op::IfThenElse(g1, op::Sub(ms, one), ms));
   const auto mh = op::IfThenElse(lo, op::Set(d, 3.0), m);  // scrub the other
-  const auto gen = DdAdd(d, LgammaPosDd(d, mh), BetaInvLog(d, mh));
+  const auto gen = DdAdd(d, LgammaPosDd(d, mh), OutlinedLogDd(d, mh));
   return Dd<D>{op::IfThenElse(lo, diff.hi, gen.hi),
                op::IfThenElse(lo, diff.lo, gen.lo)};
 }
@@ -422,8 +402,8 @@ HWY_NOINLINE BetaInvCtx<D> BetaInvPrepare(D d, op::V<D> alpha, op::V<D> beta) {
   const auto dlg = LgammaDiffDd(d, mx, mn);
   const auto lg1mn = BetaInvLgamma1p(d, mn);
   const auto lb_mn = DdSub(d, lg1mn, dlg);
-  const auto lnmn = BetaInvLog(d, mn);
-  const auto lnmx = BetaInvLog(d, mx);
+  const auto lnmn = OutlinedLogDd(d, mn);
+  const auto lnmx = OutlinedLogDd(d, mx);
   const auto lnb = DdSub(d, lb_mn, lnmn);
   const auto lb_mx = DdAdd(d, lb_mn, DdSub(d, lnmx, lnmn));
   const auto amin = op::Ge(beta, alpha);  // alpha is the min
@@ -445,7 +425,7 @@ HWY_NOINLINE BetaInvCtx<D> BetaInvPrepare(D d, op::V<D> alpha, op::V<D> beta) {
   const auto delta = op::Sub(op::Add(BinetVal(d, op::Max(alpha, z0)),
                                      BinetVal(d, op::Max(beta, z0))),
                              BinetVal(d, op::Max(c_raw, z0)));
-  auto pbk = DdSub(d, BetaInvLog(d, nu),
+  auto pbk = DdSub(d, OutlinedLogDd(d, nu),
                    Dd<D>{op::Set(d, kBetaLnTwoPiHi),
                          op::Set(d, kBetaLnTwoPiLo)});
   pbk = Dd<D>{op::Mul(pbk.hi, half), op::Mul(pbk.lo, half)};  // exact
@@ -518,8 +498,8 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   const auto alpha = cx.alpha;
   const auto beta = cx.beta;
   const auto yc = TwoSum(d, one, op::Neg(y));  // 1 - y, EXACT as a dd pair
-  const auto lny = BetaInvLog(d, Dd<D>{y, zero});
-  const auto lnyc = BetaInvLog(d, yc);
+  const auto lny = OutlinedLogDd(d, Dd<D>{y, zero});
+  const auto lnyc = OutlinedLogDd(d, yc);
 
   // --- routing: beta's route_final with (a, b, x) = (alpha, beta, y) --------
   // Every predicate is written so an overflowing intermediate still decides
@@ -701,7 +681,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
     const auto as = op::IfThenElse(esat, safe_a, ra);
     const auto bs = op::IfThenElse(esat, safe_b, rb);
     const auto xs = op::IfThenElse(esat, safe_x, rxi.hi);
-    const auto l = DdAdd(d, e1, BetaInvLog(d, BetaR1Series(d, as, bs, xs)));
+    const auto l = DdAdd(d, e1, OutlinedLogDd(d, BetaR1Series(d, as, bs, xs)));
     lnf = Dd<D>{op::IfThenElse(m_r1, l.hi, lnf.hi),
                 op::IfThenElse(m_r1, l.lo, lnf.lo)};
   }
@@ -713,7 +693,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
                    op::IfThenElse(esat, zero, cd.lo)};
     const Dd<D> xs{op::IfThenElse(esat, safe_x, rxi.hi),
                    op::IfThenElse(esat, zero, rxi.lo)};
-    const auto l = DdAdd(d, e2, BetaInvLog(d, BetaR2Cf(d, as, bs, cs, xs)));
+    const auto l = DdAdd(d, e2, OutlinedLogDd(d, BetaR2Cf(d, as, bs, cs, xs)));
     lnf = Dd<D>{op::IfThenElse(m_r2, l.hi, lnf.hi),
                 op::IfThenElse(m_r2, l.lo, lnf.lo)};
   }
@@ -732,8 +712,8 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
     // its own targets bottom out sooner; beta's do not. The core branch
     // (cpsi <= 36) keeps log(value): the value is >= ~1e-17 there, normal by
     // a wide margin, and the bracket form has no advantage.
-    const auto lg3 = BetaInvLog(d, t3.val.dd);
-    const auto lgt = DdAdd(d, DdNeg(d, ps.cpsi), BetaInvLog(d, t3.brk));
+    const auto lg3 = OutlinedLogDd(d, t3.val.dd);
+    const auto lgt = DdAdd(d, DdNeg(d, ps.cpsi), OutlinedLogDd(d, t3.brk));
     const auto tail3 = op::Gt(ps.cpsi.hi, op::Set(d, kBetaZ2Split));
     const auto pos = op::Gt(t3.val.dd.hi, zero);
     auto l = Dd<D>{op::IfThenElse(pos, lg3.hi, op::Neg(ps.cpsi.hi)),
@@ -771,7 +751,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
         op::IfThenElse(m_r4x, lrxi.hi, op::Set(d, -2.0 * detail::kLogLn2Hi)),
         op::IfThenElse(m_r4x, lrxi.lo, op::Set(d, -2.0 * detail::kLogLn2Lo))};
     const auto q4 = BetaR4Tiny(d, t4, b4, x4, l4);
-    const auto l = BetaInvLog(d, q4);
+    const auto l = OutlinedLogDd(d, q4);
     lnf = Dd<D>{op::IfThenElse(m_r4x, l.hi, lnf.hi),
                 op::IfThenElse(m_r4x, l.lo, lnf.lo)};
     is_p = op::IfThenElse(m_pr, i_sw, is_p);
@@ -801,7 +781,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
     const auto gup = op::IfThenElse(gbig, op::Set(d, kBetaScaleUp), one);
     const auto tds = DdMulD(d, lx_gl, op::Neg(op::Mul(huge, gdn)));
     const Dd<D> t_dd{op::Mul(tds.hi, gup), op::Mul(tds.lo, gup)};
-    auto e_g = DdMulD(d, BetaInvLog(d, t_dd), ss);
+    auto e_g = DdMulD(d, OutlinedLogDd(d, t_dd), ss);
     e_g = DdSub(d, e_g, t_dd);
     e_g = DdSub(d, e_g, LgammaPosDd(d, ss));
     const auto th = t_dd.hi;
@@ -811,19 +791,19 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
         op::Mul(BetaInd(d, op::Ge(ss, op::Set(d, detail::kGammaAT))),
                 BetaInd(d, op::Ge(ss, op::Add(th, th)))));
     const auto m_ser = BetaIndMask(d, i_ser);
-    const auto e_s = DdSub(d, e_g, BetaInvLog(d, ss));  // gamma's R1 fold
+    const auto e_s = DdSub(d, e_g, OutlinedLogDd(d, ss));  // gamma's R1 fold
     Dd<D> e_pick{op::IfThenElse(m_ser, e_s.hi, e_g.hi),
                  op::IfThenElse(m_ser, e_s.lo, e_g.lo)};
     e_pick = BetaInvFiniteLog(d, e_pick);
     const auto gsat = op::Ge(op::Set(d, kBetaInvLogSentinel), e_pick.hi);
     const auto s_c = op::IfThenElse(gsat, one, ss);
-    const auto t_c = op::IfThenElse(gsat, op::Set(d, 3.0),
-                                    op::Min(th, op::Set(d, 4e306)));
+    const auto t_c = op::IfThenElse(gsat, op::Set(d, kBetaGlSatT),
+                                    op::Min(th, op::Set(d, kBetaGlTCap)));
     const auto ser = GammaSeriesSum(d, s_c, t_c);
     const auto cfr = GammaCfRecip(d, s_c, t_c);
     const Dd<D> fac{op::IfThenElse(m_ser, ser.hi, cfr.hi),
                     op::IfThenElse(m_ser, ser.lo, cfr.lo)};
-    const auto l = DdAdd(d, e_pick, BetaInvLog(d, fac));
+    const auto l = DdAdd(d, e_pick, OutlinedLogDd(d, fac));
     lnf = Dd<D>{op::IfThenElse(m_gl, l.hi, lnf.hi),
                 op::IfThenElse(m_gl, l.lo, lnf.lo)};
     // val holds P_gamma on series lanes, Q_gamma on CF lanes; P_gamma is the
@@ -848,9 +828,9 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   {
     const auto m_cmp = op::Gt(lnf.hi, op::Set(d, kBetaInvNegLn2));
     if (!op::AllFalse(d, m_cmp)) {
-      const auto vb = BetaInvExpDd(d, lnf.hi, lnf.lo);
+      const auto vb = OutlinedExpDd(d, lnf.hi, lnf.lo);
       const auto cb = DdSub(d, Dd<D>{one, zero}, vb);
-      const auto l = BetaInvFiniteLog(d, BetaInvLog(d, cb));
+      const auto l = BetaInvFiniteLog(d, OutlinedLogDd(d, cb));
       lnf = Dd<D>{op::IfThenElse(m_cmp, l.hi, lnf.hi),
                   op::IfThenElse(m_cmp, l.lo, lnf.lo)};
       is_p = op::IfThenElse(m_cmp, BetaIndNot(d, is_p), is_p);
@@ -870,9 +850,9 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   const auto lnf_u = op::Max(lnf.hi, op::Set(d, detail::kBetaExpFloor));
   const auto lnf_ul =
       op::IfThenElse(op::Eq(lnf_u, lnf.hi), lnf.lo, zero);
-  const auto u = BetaInvExpDd(d, lnf_u, lnf_ul);
+  const auto u = OutlinedExpDd(d, lnf_u, lnf_ul);
   const auto cmpl = DdSub(d, Dd<D>{one, zero}, u);
-  const auto lnc = BetaInvLog(d, cmpl);
+  const auto lnc = OutlinedLogDd(d, cmpl);
   const auto lg = DdSub(d, lnf, lnc);
   const auto m_p = BetaIndMask(d, is_p);
   Dd<D> m{op::IfThenElse(m_p, lg.hi, op::Neg(lg.hi)),
@@ -883,7 +863,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   const auto wl = op::Max(op::Min(op::Sub(lnf.hi, efull.hi),
                                   op::Set(d, kBetaInvWExpMax)),
                           op::Set(d, -kBetaInvWExpMax));
-  auto w = op::Mul(op::Mul(BetaInvExp(d, wl), cmpl.hi), yc.hi);
+  auto w = op::Mul(op::Mul(OutlinedExp(d, wl), cmpl.hi), yc.hi);
 
   // THE RESIDUAL'S OWN UNCERTAINTY, and the kernel needs it because the
   // forward is NOT dd-accurate near the median.
@@ -1141,11 +1121,11 @@ HWY_NOINLINE op::V<D> BetaInvSeedS2(D d, const BetaInvCtx<D>& cx,
   const auto zero = op::Zero(d);
   const auto one = op::Set(d, 1.0);
   const auto inf = op::Set(d, std::numeric_limits<double>::infinity());
-  auto y = BetaInvExp(d, op::Div(lsum, cx.alpha));
+  auto y = OutlinedExp(d, op::Div(lsum, cx.alpha));
   for (int i = 0; i < detail::kBetaInvS2NCorr; ++i) {
     const auto ser = BetaInvS2Series(d, cx.alpha, cx.beta, y);
-    const auto ly = op::Div(op::Sub(lsum, BetaInvLog(d, ser).hi), cx.alpha);
-    const auto yn = BetaInvExp(d, ly);
+    const auto ly = op::Div(op::Sub(lsum, OutlinedLogDd(d, ser).hi), cx.alpha);
+    const auto yn = OutlinedExp(d, ly);
     // The generator breaks out of the loop on a non-finite or out-of-range
     // iterate; per lane that is holding the previous value. Written through
     // the indicator arithmetic because the ops facade exposes no mask AND.
@@ -1205,7 +1185,7 @@ HWY_INLINE op::V<D> BetaInvGammaToY(D d, op::V<D> t, op::V<D> hg,
                                     op::M<D> blo) {
   const auto r = op::Div(t, hg);
   const auto e = Expm1Dd(d, Dd<D>{op::Neg(r), op::Zero(d)});
-  return op::IfThenElse(blo, op::Neg(e.hi), BetaInvExp(d, op::Neg(r)));
+  return op::IfThenElse(blo, op::Neg(e.hi), OutlinedExp(d, op::Neg(r)));
 }
 
 // ------------------------------------------------------------------------
@@ -1254,8 +1234,8 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
   // ln sigma and ln(1 - sigma). 1 - sigma is formed as an EXACT dd: below
   // sigma ~ 2^-53 the low word is the entire signal, and a native-float
   // 1 - sigma would collapse to exactly 1.0.
-  const auto lnsig = BetaInvLog(d, Dd<D>{sigma, zero});
-  const auto lnsigc = BetaInvLog(d, TwoSum(d, one, op::Neg(sigma)));
+  const auto lnsig = OutlinedLogDd(d, Dd<D>{sigma, zero});
+  const auto lnsigc = OutlinedLogDd(d, TwoSum(d, one, op::Neg(sigma)));
   const Dd<D> lnp0{op::IfThenElse(m_sq, lnsigc.hi, lnsig.hi),
                    op::IfThenElse(m_sq, lnsigc.lo, lnsig.lo)};
   const Dd<D> lnq0{op::IfThenElse(m_sq, lnsig.hi, lnsigc.hi),
@@ -1339,7 +1319,7 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
   const auto ds_q = GammaInvDivD(d, ds_num, alpha);
   const auto ds_e = ExpDdFrac(d, ds_q.hi, ds_q.lo);
   const auto y_ds = ScaleTwo(d, DdToDouble(ds_e.m), ds_e.e);
-  const auto corr_num = op::Neg(BetaInvLog(d, TwoSum(d, one, op::Neg(y_ds))).hi);
+  const auto corr_num = op::Neg(OutlinedLogDd(d, TwoSum(d, one, op::Neg(y_ds))).hi);
   const auto corr = op::IfThenElse(op::Lt(y_ds, op::Set(d, 1e-8)), one,
                                    op::Div(corr_num, y_ds));
   const auto ds_bound =
@@ -1401,7 +1381,7 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
       const auto y_hi = BetaInvSigmoid(d, op::Neg(DdToDouble(v2)));
       // tau vs s* = beta/(alpha+beta), the branch predicate; tau itself is
       // never assembled as a value, so the comparison uses its log.
-      const auto lnqm = BetaInvLog(d, cx.q_mean).hi;
+      const auto lnqm = OutlinedLogDd(d, cx.q_mean).hi;
       BetaInvConsider(d, cx,
                       op::IfThenElse(op::Ge(lnqm, lntau.hi), y_lo, y_hi), one,
                       mt, &best_y, &best_r, &best_f);

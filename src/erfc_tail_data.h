@@ -10,8 +10,10 @@
 namespace corvus::detail {
 
 inline constexpr int kErfcTailNCoef = 12;
+inline constexpr double kErfcTailLo = 6.0;  // core/tail split
 inline constexpr double kErfcTailBound1 = 10.0;  // interval 0/1 split
 inline constexpr double kErfcTailBound2 = 17.0;  // interval 1/2 split
+inline constexpr double kErfcTailHi = 28.0;  // tail clamp (past the erfc underflow point)
 inline constexpr double kErfcTailScale[3] = {
     0x1.e000000000002p+4,
     0x1.8492492492491p+5,

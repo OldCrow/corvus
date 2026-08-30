@@ -65,7 +65,7 @@ static HWY_INLINE op::V<D> ErfcCoreVec(D d, op::V<D> x, op::V<D> ax, M nan) {
 
 template <class D>
 static HWY_INLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
-  const auto at = op::Min(ax, op::Set(d, 28.0));
+  const auto at = op::Min(ax, op::Set(d, detail::kErfcTailHi));
   const auto ssq = op::Mul(at, at);
   const auto sl = op::SquareLow(d, at, ssq);  // exact: at^2 = ssq + sl
   const auto ur = DdRecip(d, at);             // 1/at to ~2^-105
@@ -84,7 +84,7 @@ static HWY_INLINE op::V<D> ErfcVec(D d, op::V<D> x) {
   const auto ax = op::Abs(x);
   const auto nan = op::IsNaN(x);
   // NaN lanes have tail_m false and are handled in the core branch.
-  const auto tail_m = op::Gt(ax, op::Set(d, 6.0));
+  const auto tail_m = op::Gt(ax, op::Set(d, detail::kErfcTailLo));
 
   // Real workloads are usually single-region per vector (Gaussian CDFs
   // essentially never leave |x| <= 6), so skip the unused path: the tail's

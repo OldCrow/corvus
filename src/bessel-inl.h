@@ -115,17 +115,15 @@ inline constexpr int kBesselI1SeriesNDCoef =
     static_cast<int>(sizeof(detail::kBesselI1SeriesDCoef) /
                      sizeof(detail::kBesselI1SeriesDCoef[0]));
 
-// --- outlined exp wrappers -------------------------------------------------
-// Thin wrappers whose only purpose is the HWY_NOINLINE: exp_dd's table
-// gather and polynomial are reached from four call sites in this file (one
-// per unscaled assembly, one per scaled-region exp fold), and cl.exe's
+// --- outlined exp wrapper ---------------------------------------------------
+// BesselExpDd's job is now done by the shared OutlinedExpDd in exp_dd-inl.h
+// (A7 dedup): reached from two call sites here, one per unscaled assembly.
+// BesselExpDdFrac has no duplicate elsewhere, so it keeps its own
+// HWY_NOINLINE outline: exp_dd's table gather and polynomial are reached
+// from two more call sites (one per scaled-region exp fold), and cl.exe's
 // optimizer is superlinear in function size -- outlining every heavy
 // callee from day one is the betainv/gammainv/trigamma precedent
 // (AGENTS.md). Bit-identity is guaranteed by contraction-off.
-template <class D>
-HWY_NOINLINE Dd<D> BesselExpDd(D d, op::V<D> xh, op::V<D> xl) {
-  return ExpDd(d, xh, xl);
-}
 template <class D>
 HWY_NOINLINE ExpDdParts<D> BesselExpDdFrac(D d, op::V<D> xh, op::V<D> xl) {
   return ExpDdFrac(d, xh, xl);
@@ -259,7 +257,7 @@ HWY_NOINLINE BesselPair<D> BesselNu0(D d, op::V<D> x) {
       detail::kBesselI0SeriesLeadLo, detail::kBesselI0SeriesLead,
       detail::kBesselI0SeriesCoef, detail::kBesselI0SeriesNCoef,
       detail::kBesselI0SeriesDCoef, kBesselI0SeriesNDCoef);
-  const auto exp_neg = BesselExpDd(d, op::Neg(ax_s), zero);
+  const auto exp_neg = OutlinedExpDd(d, op::Neg(ax_s), zero);
   const auto i0e_series = DdMul(d, s0, exp_neg);
   const auto i0_series_val = op::Add(s0.hi, s0.lo);
 
@@ -331,7 +329,7 @@ HWY_NOINLINE BesselPair<D> BesselNu1(D d, op::V<D> x) {
       detail::kBesselI1SeriesDCoef, kBesselI1SeriesNDCoef);
   const auto half_ax = op::Mul(ax_s, half);  // exact: *0.5 is a power of 2
   const auto mag_series = DdMulD(d, s1, half_ax);  // unscaled |I1|, dd
-  const auto exp_neg = BesselExpDd(d, op::Neg(ax_s), zero);
+  const auto exp_neg = OutlinedExpDd(d, op::Neg(ax_s), zero);
   const auto i1e_series = DdMul(d, mag_series, exp_neg);
   const auto i1_series_mag = op::Add(mag_series.hi, mag_series.lo);
 

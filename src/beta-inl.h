@@ -161,6 +161,25 @@ inline constexpr double kBetaScaleUp = 0x1.0p+200;
 // below 2^-1000 there, so the clamp cannot move any budgeted quantity.
 inline constexpr double kBetaBinetZClamp = 0x1.0p+500;
 
+// Benign (s, t) substitutes for the gamma-limit slice's shared-core calls
+// (GammaSeriesSum/GammaCfRecip, gamma-inl.h). Masked-off lanes still
+// EXECUTE both cores, so their inputs must be HARMLESS, not meaningful:
+// kBetaGlSatT replaces t on saturated lanes (any mid-domain value works --
+// the lane's result is discarded; 3 converges immediately in both cores),
+// and kBetaGlTCap caps live t so a huge/inf t from a lane routed elsewhere
+// cannot (a) run the CF's k = t + (2N+1) - s to inf, or (b) turn the
+// series' freeze test permanently false (Lt(NaN/inf-bred term, ...) never
+// fires, killing the early break and costing every call the full
+// kGammaSeriesN iterations). LIVE gammalim lanes sit at t <~ 1e20 -- a
+// non-saturated lane needs E_g = s ln t - t - lgamma(s) above the
+// underflow floor, which bounds t by ~s ln s at s < 2^59 -- so any cap in
+// [~1e21, ~1e308) is behavior-identical on kept lanes; 4e306 keeps ~45x
+// headroom under DBL_MAX. betainv-inl.h consumes THESE constants (it
+// includes this header), which is what keeps its twin call site in
+// agreement by construction (#9 A8).
+inline constexpr double kBetaGlSatT = 3.0;
+inline constexpr double kBetaGlTCap = 4e306;
+
 // Steps of the Gamma(z+1) = z*Gamma(z) up-walk in LgammaDiffDd. Ten unit steps
 // carry any z > 0 into [Z0, Z0+1) with Z0 = 10.
 inline constexpr int kBetaWalkSteps = 10;
@@ -288,28 +307,10 @@ HWY_INLINE BetaExpArg<D> BetaClampE(D d, op::V<D> eh, op::V<D> el) {
 }
 
 // ------------------------------------------------------------------------
-// OUTLINED log and exp [MSVC BUILD-TIME GATE, AGENTS.md]. These are thin
-// wrappers whose only purpose is the HWY_NOINLINE: log_dd (via LogDdAny) and
-// exp_dd (via ExpDd) are each large, and this file reaches them from about
-// eleven call sites -- inside LgammaDiffDd, the driver's routing and
-// prefactor assembly, and the gamma-limit slice. Inlined, each of those
-// becomes its own copy of a table gather plus a polynomial IN EVERY ONE OF
-// THE COMPILED TARGETS, and cl.exe's optimizer is superlinear in function
-// size -- at this TU's scale the difference is minutes versus the better
-// part of an hour on one MSVC invocation. Bit-identity across the outline
-// is guaranteed by contraction-off.
-template <class D>
-HWY_NOINLINE Dd<D> BetaLog(D d, Dd<D> x) {
-  return LogDdAny(d, x);
-}
-template <class D>
-HWY_NOINLINE Dd<D> BetaLog(D d, op::V<D> x) {
-  return BetaLog(d, Dd<D>{x, op::Zero(d)});
-}
-template <class D>
-HWY_NOINLINE Dd<D> BetaExpDd(D d, op::V<D> xh, op::V<D> xl) {
-  return ExpDd(d, xh, xl);
-}
+// OUTLINED log and exp: shared HWY_NOINLINE wrappers, see OutlinedLogDd in
+// log_dd-inl.h and OutlinedExpDd in exp_dd-inl.h. This file reaches them
+// from about eleven call sites -- inside LgammaDiffDd, the driver's routing
+// and prefactor assembly, and the gamma-limit slice.
 
 // ------------------------------------------------------------------------
 // Binet's function phi(z) = lgamma(z) - [(z-1/2)ln z - z + 1/2 ln 2pi], the
@@ -474,7 +475,7 @@ HWY_NOINLINE Dd<D> LgammaDiffDd(D d, op::V<D> bigm, op::V<D> smallm) {
   const auto phi = Log1pmxDd(d, w);
   const auto l1p = DdSub(d, w, phi);
 
-  const auto lz = BetaLog(d, z);
+  const auto lz = OutlinedLogDd(d, z);
   auto out = DdMulD(d, lz, smallm);  // m*ln z
 
   // z*phi(w), formed on the down-scaled z and brought back exactly.
@@ -969,7 +970,7 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
   const auto zs = op::IfThenElse(op::IsNaN(z.hi), zero, z.hi);
   const auto ec = ErfcCoreDd(d, zs, zs);
   const Dd<D> half_erfc{op::Mul(ec.hi, half), op::Mul(ec.lo, half)};
-  const auto exd = BetaExpDd(d, ea.hi, ea.lo);
+  const auto exd = OutlinedExpDd(d, ea.hi, ea.lo);
   const auto brk_core = DdAddD(
       d, s_rv, op::Neg(op::Mul(z.lo, op::Set(d, kBetaInvSqrtPiHi))));
   const auto core = DdAdd(d, half_erfc, DdMul(d, brk_core, exd));
@@ -1146,10 +1147,11 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
 // in the final handout, since the direct side is decided by the region.
 //
 // HWY_NOINLINE like the region cores, and for the same MSVC-codegen reason:
-// even with the log/exp calls routed through BetaLog/BetaExpDd above, this
-// function still inlines LgammaPosDd, ExpDdFrac twice and the dd assembly,
-// and inlining it into the two export loops would re-create a function big
-// enough to stall cl.exe's back end past the CI timeout.
+// even with the log/exp calls routed through the shared OutlinedLogDd/
+// OutlinedExpDd above, this function still inlines LgammaPosDd, ExpDdFrac
+// twice and the dd assembly, and inlining it into the two export loops
+// would re-create a function big enough to stall cl.exe's back end past the
+// CI timeout.
 template <bool kP, class D>
 HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
                               op::V<D> x_in) {
@@ -1203,7 +1205,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   const auto sw4 = op::Lt(b, a);  // tiny-first
   const Dd<D> xt{op::IfThenElse(sw4, y0.hi, x),
                  op::IfThenElse(sw4, y0.lo, zero)};
-  const auto lxt = BetaLog(d, xt);
+  const auto lxt = OutlinedLogDd(d, xt);
 
   const auto xi1 = op::Set(d, detail::kBetaXi1);
   const auto b1v = op::Set(d, detail::kBetaB1);
@@ -1340,11 +1342,11 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     const auto ua = op::IfThenElse(pba, op::Set(d, kBetaScaleUp), one);
     const auto sb = op::IfThenElse(pbb, op::Set(d, kBetaScaleDown), one);
     const auto ub = op::IfThenElse(pbb, op::Set(d, kBetaScaleUp), one);
-    const auto l1s = DdMulD(d, BetaLog(d, xi), op::Mul(alpha, sa));
+    const auto l1s = DdMulD(d, OutlinedLogDd(d, xi), op::Mul(alpha, sa));
     const Dd<D> l1{op::Mul(l1s.hi, ua), op::Mul(l1s.lo, ua)};
-    const auto l2s = DdMulD(d, BetaLog(d, yv), op::Mul(beta, sb));
+    const auto l2s = DdMulD(d, OutlinedLogDd(d, yv), op::Mul(beta, sb));
     const Dd<D> l2{op::Mul(l2s.hi, ub), op::Mul(l2s.lo, ub)};
-    const auto la = BetaLog(d, alpha);
+    const auto la = OutlinedLogDd(d, alpha);
 
     // PA: -ln B = LgammaDiffDd(max, min) - lgamma(min). Scrubbed to (3, 2).
     //
@@ -1374,7 +1376,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       const auto lg1m = LgammaDiffDd(
           d, op::IfThenElse(gt1, op::Add(one, one), one),
           op::IfThenElse(gt1, op::Sub(mns, one), mns));
-      const auto lga = DdSub(d, lg1m, BetaLog(d, mns));
+      const auto lga = DdSub(d, lg1m, OutlinedLogDd(d, mns));
       const auto lgp = LgammaPosDd(d, mn);
       const Dd<D> lgmn{op::IfThenElse(lo, lga.hi, lgp.hi),
                        op::IfThenElse(lo, lga.lo, lgp.lo)};
@@ -1388,7 +1390,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       const auto delta =
           op::Sub(op::Add(BinetVal(d, alpha), BinetVal(d, beta)),
                   BinetVal(d, c_raw));
-      auto e = DdSub(d, BetaLog(d, ps.nu),
+      auto e = DdSub(d, OutlinedLogDd(d, ps.nu),
                      Dd<D>{op::Set(d, kBetaLnTwoPiHi),
                            op::Set(d, kBetaLnTwoPiLo)});
       e = Dd<D>{op::Mul(e.hi, half), op::Mul(e.lo, half)};  // exact
@@ -1557,8 +1559,8 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     const auto ss = op::IfThenElse(m_gl, op::IfThenElse(hf, beta, alpha), one);
     const auto huge = op::IfThenElse(hf, alpha, beta);
     const Dd<D> lx_gl =
-        BetaLog(d, Dd<D>{op::IfThenElse(hf, xi.hi, yv.hi),
-                         op::IfThenElse(hf, xi.lo, yv.lo)});
+        OutlinedLogDd(d, Dd<D>{op::IfThenElse(hf, xi.hi, yv.hi),
+                               op::IfThenElse(hf, xi.lo, yv.lo)});
     // t > 0, dd. Same huge-parameter exact prescale as l1/l2 above: huge
     // exceeds ops::ProdLow's 2^996 non-FMA Dekker ceiling on the corner
     // rows' b = 1e307 gammalim lanes (bit-identical below 2^900).
@@ -1570,7 +1572,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     // E_g = s*ln t - t - lgamma(s); all the e^-t argument sensitivity is
     // absorbed HERE, in dd -- the cores below only see t.hi, whose 2^-53
     // relative slack enters their series/CF factors with O(1) sensitivity.
-    auto e_g = DdMulD(d, BetaLog(d, t_dd), ss);
+    auto e_g = DdMulD(d, OutlinedLogDd(d, t_dd), ss);
     e_g = DdSub(d, e_g, t_dd);
     e_g = DdSub(d, e_g, LgammaPosDd(d, ss));
     const auto th = t_dd.hi;
@@ -1580,13 +1582,13 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
         op::Mul(BetaInd(d, op::Ge(ss, op::Set(d, detail::kGammaAT))),
                 BetaInd(d, op::Ge(ss, op::Add(th, th)))));
     const auto m_ser = BetaIndMask(d, i_ser);
-    const auto e_s = DdSub(d, e_g, BetaLog(d, ss));  // gamma's R1 fold
+    const auto e_s = DdSub(d, e_g, OutlinedLogDd(d, ss));  // gamma's R1 fold
     const Dd<D> e_pick{op::IfThenElse(m_ser, e_s.hi, e_g.hi),
                        op::IfThenElse(m_ser, e_s.lo, e_g.lo)};
     const auto ea = BetaClampE(d, e_pick.hi, e_pick.lo);
     const auto s_c = op::IfThenElse(ea.sat, one, ss);
-    const auto t_c = op::IfThenElse(ea.sat, op::Set(d, 3.0),
-                                    op::Min(th, op::Set(d, 4e306)));
+    const auto t_c = op::IfThenElse(ea.sat, op::Set(d, kBetaGlSatT),
+                                    op::Min(th, op::Set(d, kBetaGlTCap)));
     const auto ex = ExpDdFrac(d, ea.hi, ea.lo);
     const auto ser = GammaSeriesSum(d, s_c, t_c);
     const auto cfr = GammaCfRecip(d, s_c, t_c);
@@ -1744,8 +1746,8 @@ HWY_NOINLINE op::V<D> LbetaVec(D d, op::V<D> a, op::V<D> b) {
   const auto ms = op::Mul(m2, dn);    // exact: operands normal, 2^-64 scale
   const auto mms = op::Mul(mm2, dn);  // exact
   const auto cs = TwoSum(d, mms, ms);  // c' = (m + M)*2^-64, exact dd
-  const auto lr1 = BetaLog(d, DdDivDd(d, cs, Dd<D>{ms, zero}));   // ln(c/m)
-  const auto lr2 = BetaLog(d, DdDivDd(d, cs, Dd<D>{mms, zero}));  // ln(c/M)
+  const auto lr1 = OutlinedLogDd(d, DdDivDd(d, cs, Dd<D>{ms, zero}));   // ln(c/m)
+  const auto lr2 = OutlinedLogDd(d, DdDivDd(d, cs, Dd<D>{mms, zero}));  // ln(c/M)
   auto acc = DdAdd(d, DdMulD(d, lr1, ms), DdMulD(d, lr2, mms));
   // Scale back exactly; overflow here IS the -inf boundary (see header).
   const auto up = op::Set(d, kLbetaScaleUp);
@@ -1753,7 +1755,7 @@ HWY_NOINLINE op::V<D> LbetaVec(D d, op::V<D> a, op::V<D> b) {
   // + (1/2) ln(c/(m*M)) = (1/2) ln((c'/m'/M') * 2^-64), formed stepwise so
   // no intermediate overflows; ~2^-990 relative to the result, kept cheap.
   const auto rr = op::Mul(op::Div(op::Div(cs.hi, ms), mms), dn);
-  const auto lhalf = BetaLog(d, rr);
+  const auto lhalf = OutlinedLogDd(d, rr);
   // If the scale-back overflowed, acc.hi is +inf and feeding it onward
   // would put inf-inf NaNs through TwoSum's error algebra -- detect it
   // HERE, hand the subtraction a benign clamped value, and select -inf.

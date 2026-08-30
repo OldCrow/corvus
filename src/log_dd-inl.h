@@ -172,6 +172,28 @@ HWY_INLINE Dd<D> LogDdAny(D d, op::V<D> x) {
   return LogDdAny(d, Dd<D>{x, op::Zero(d)});
 }
 
+// ------------------------------------------------------------------------
+// OUTLINED log [MSVC BUILD-TIME GATE, AGENTS.md]. Thin wrapper whose only
+// purpose is the HWY_NOINLINE: log_dd (via LogDdAny) is large, and lgamma,
+// beta, betainv and gammainv each reach it from a double-digit number of
+// call sites -- zone/Stirling seams, reflection terms, region routing and
+// prefactor assembly, Newton/Picard steps and the logit swap. Inlined, each
+// call site becomes its own copy of a table gather plus a polynomial IN
+// EVERY ONE OF THE COMPILED TARGETS, and cl.exe's optimizer is superlinear
+// in function size. Shared here (rather than once per family, as it was
+// before A7) because the four families' wrappers were byte-identical
+// modulo name. Bit-identity across the outline is guaranteed by
+// contraction-off and verified by byte-comparing the ULP tables across the
+// change.
+template <class D>
+HWY_NOINLINE Dd<D> OutlinedLogDd(D d, Dd<D> x) {
+  return LogDdAny(d, x);
+}
+template <class D>
+HWY_NOINLINE Dd<D> OutlinedLogDd(D d, op::V<D> x) {
+  return OutlinedLogDd(d, Dd<D>{x, op::Zero(d)});
+}
+
 }  // namespace HWY_NAMESPACE
 }  // namespace corvus
 HWY_AFTER_NAMESPACE();

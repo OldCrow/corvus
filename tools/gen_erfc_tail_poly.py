@@ -160,8 +160,19 @@ def main():
     print("namespace corvus::detail {")
     print()
     print(f"inline constexpr int kErfcTailNCoef = {n_coef};")
-    print("inline constexpr double kErfcTailBound1 = 10.0;  // interval 0/1 split")
-    print("inline constexpr double kErfcTailBound2 = 17.0;  // interval 1/2 split")
+    # Every routing bound is DERIVED from INTERVALS (#9 A9): re-running this
+    # generator over a different range must update the kernel's routing with
+    # it, not leave the kernel on stale hard-coded literals. The outer pair
+    # (Lo = core/tail split, Hi = tail clamp past the underflow point) was
+    # previously bare 6.0/28.0 in the kernel source.
+    print(f"inline constexpr double kErfcTailLo = {INTERVALS[0][0]};"
+          "  // core/tail split")
+    print(f"inline constexpr double kErfcTailBound1 = {INTERVALS[0][1]};"
+          "  // interval 0/1 split")
+    print(f"inline constexpr double kErfcTailBound2 = {INTERVALS[1][1]};"
+          "  // interval 1/2 split")
+    print(f"inline constexpr double kErfcTailHi = {INTERVALS[2][1]};"
+          "  // tail clamp (past the erfc underflow point)")
     print("inline constexpr double kErfcTailScale[3] = {")
     for _, _, scale, _, _ in fits:
         print(f"    {float.hex(scale)},")
