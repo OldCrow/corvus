@@ -117,7 +117,27 @@ upstream GCC, an external event independent of any corvus version;
 pure watch). The FREEZE CONTINUES. Next: v1.0.0 S1 — #34 final API
 review.
 #29 has no session — conditional sweep if the GCC fix lands.
-**v1.0.0 map (ratified same pass)**: S1 #34 API review (frontier;
+**v1.0.0 map — REVISED 2026-08-31 (user-ratified gap analysis; #35
+filed, #26/#34 scopes expanded on the issues).** Source-only
+distribution RATIFIED for 1.0 (no binary artifacts → no
+signing/notarization; prerequisites for future channels recorded in
+#26's checklist; Homebrew-class plumbing already exists and is
+CI-tested — policy was the only gap). Sessions, order deliberate:
+(S1) **#35 pre-1.0 adversarial review** of the post-2026-08-21 delta
+— engineering (incl. the outlining-doctrine conformance audit +
+MSVC-CI-duration canary, user-requested), numerical (elementary
+family), input safety/security (driver boundary, gathers), fresh
+static-analysis sweep. Findings = unfreeze decisions.
+(S2) **#34 API review** on the surface that survives S1 — expanded
+checklist on the issue (header hygiene/facade boundary, behavioral
+contracts, naming adjudication, docs parity).
+(S3) **#26 packaging** — NOTICE (lands regardless of channel),
+SECURITY.md, versioning/stability policy, release checklist +
+tag↔version script, CHANGELOG decision point (default: status quo).
+(S4) **release** — ladder, CI, checklist executed, signed tag, then
+the libstats v2.5.0 handshake.
+SUPERSEDED original map (ratified 2026-08-30, kept for the record):
+S1 #34 API review (frontier;
 findings = unfreeze decisions, not in-session fixes); S2 #26
 packaging/NOTICE + release checklist (absorbs the tag↔version check
 from the v0.8.0 finding, as a script the ritual runs) + #27 ruleset
