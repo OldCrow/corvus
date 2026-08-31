@@ -1,0 +1,32 @@
+corvus active SIMD target: AVX2
+band [0.5, 2.5] (zone)
+       component      10k ns/el       1M ns/el
+           floor           0.17           0.73
+       zone_full          14.98          14.94
+     zone_horner           4.48           5.56
+  zone_horner_1c           2.59           2.76
+       zone_lead           6.50           6.73
+
+band [2.5, 8] (recurrence)
+       component      10k ns/el       1M ns/el
+           floor           0.18           0.85
+        rec_full          45.58          44.67
+        rec_walk           2.49           3.83
+         rec_log          17.50          18.51
+       zone_full          13.28          14.17
+
+band [8, 1000] (Stirling)
+       component      10k ns/el       1M ns/el
+           floor           0.16           1.10
+       stir_full          25.46          24.62
+        stir_log          12.02          11.64
+        stir_rem           1.09           1.28
+
+band [-30, -0.01] (reflection)
+       component      10k ns/el       1M ns/el
+           floor           0.17           0.70
+       refl_full         110.64         107.63
+        refl_pos          51.76          53.80
+       refl_logs          40.36          40.44
+       refl_sinc           5.74           6.21
+

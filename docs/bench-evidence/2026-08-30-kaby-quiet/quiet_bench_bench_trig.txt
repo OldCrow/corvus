@@ -1,0 +1,10 @@
+corvus active SIMD target: AVX2
+         n   fn   corvus ns/el     libm ns/el    speedup
+      1000  cos           4.43          13.47      3.04x
+      1000  sin           4.42          11.74      2.66x
+     10000  cos           4.36          21.24      4.87x
+     10000  sin           4.35          20.22      4.65x
+    100000  cos           4.38          21.57      4.93x
+    100000  sin           4.35          21.17      4.87x
+   1000000  cos           4.43          21.55      4.87x
+   1000000  sin           4.37          21.79      4.98x

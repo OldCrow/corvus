@@ -1,0 +1,16 @@
+corvus active SIMD target: AVX2
+digamma, (0,1) up-step: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          25.66         115.94      4.52x
+digamma, [1,2) zone: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          25.65         115.78      4.51x
+digamma, [2,8) down-walk: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          39.62         154.34      3.90x
+digamma, [8,inf) asymptotic: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          21.44         228.79     10.67x
+digamma, negative axis (reflection): n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          68.90         321.19      4.66x

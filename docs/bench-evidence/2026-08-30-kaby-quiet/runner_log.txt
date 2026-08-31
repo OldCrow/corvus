@@ -1,0 +1,83 @@
+19:12:30 quiet_bench.sh  build=build  expect=AVX2  targets=16
+19:12:30 gate          : ambient < 5% over two consecutive 10s windows
+19:12:30 machine       : Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz; macOS 13.7.8
+19:12:41 ambient sample : 9.82%
+19:12:41   top consumers:
+     10.4 /usr/libexec/TouchBarServer
+      4.0 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      1.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      0.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/FSEvents.framework/Versions/A/Support/fseventsd
+      0.7 /bin/zsh
+19:12:52 ambient sample : 5.65%
+19:12:52   top consumers:
+     11.7 /usr/libexec/TouchBarServer
+      4.6 /usr/libexec/sandboxd
+      2.8 /usr/libexec/opendirectoryd
+      2.1 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      0.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+19:13:02 ambient sample : 6.00%
+19:13:02   top consumers:
+     12.0 /usr/libexec/TouchBarServer
+      1.2 /System/Applications/News.app/Contents/PlugIns/NewsToday2.appex/Contents/MacOS/NewsToday2
+      0.9 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      0.8 /Applications/iPulse.app/Contents/MacOS/iPulse
+      0.6 /usr/libexec/opendirectoryd
+19:13:13 ambient sample : 5.29%
+19:13:13   top consumers:
+     10.8 /usr/libexec/TouchBarServer
+      2.4 /Applications/iPulse.app/Contents/MacOS/iPulse
+      1.9 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      1.5 /usr/libexec/opendirectoryd
+      0.9 /usr/libexec/locationd
+19:13:24 ambient sample : 5.12%
+19:13:24   top consumers:
+     10.7 /usr/libexec/TouchBarServer
+      3.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      2.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      1.9 /usr/libexec/opendirectoryd
+      1.5 /usr/libexec/trustd
+19:13:35 ambient sample : 5.31%
+19:13:35   top consumers:
+     10.5 /usr/libexec/TouchBarServer
+      1.7 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      0.4 /usr/libexec/wifip2pd
+      0.4 /Applications/Claude.app/Contents/MacOS/Claude
+      0.3 /Applications/iPulse.app/Contents/MacOS/iPulse
+19:13:45 ambient sample : 4.30%
+19:13:56 ambient sample : 3.74%
+19:13:56 gate passed at: 4.30 3.74%
+19:14:07 bench_erf: noise before 5.10%  top: 2.0%Application 0.4%iPulse 0.3%com.apple.ifdreader 
+19:14:08 bench_erf: rc=0 1s target=AVX2
+19:14:19 bench_erfc: noise before 3.80%  top: 2.1%Application 1.4%Energiza 1.0%wifip2pd 
+19:14:21 bench_erfc: rc=0 2s target=AVX2
+19:14:31 bench_lgamma: noise before 3.47%  top: 1.5%iPulse 1.0%Application 0.7%opendirectoryd 
+19:14:36 bench_lgamma: rc=0 5s target=AVX2
+19:14:47 bench_erfinv: noise before 4.46%  top: 1.6%WindowServer 1.1%Application 0.8%locationd 
+19:14:54 bench_erfinv: rc=0 7s target=AVX2
+19:15:05 bench_gamma: noise before 3.52%  top: 1.0%Application 0.9%iPulse 0.6%opendirectoryd 
+19:15:35 bench_gamma: rc=0 30s target=AVX2
+19:15:46 bench_beta: noise before 3.57%  top: 2.9%Application 1.5%launchservicesd 1.0%de.appgineers.energiza.helper 
+19:15:49 bench_beta: rc=0 3s target=AVX2
+19:16:00 bench_digamma: noise before 3.47%  top: 3.4%WindowServer 2.5%Application 0.5%ControlCenter 
+19:16:00 bench_digamma: rc=0 0s target=AVX2
+19:16:11 bench_trigamma: noise before 4.09%  top: 1.1%WindowServer 1.1%Application 0.6%Claude 
+19:16:12 bench_trigamma: rc=0 1s target=AVX2
+19:16:22 bench_gammainv: noise before 3.81%  top: 2.2%opendirectoryd 1.3%locationd 0.9%Application 
+19:16:27 bench_gammainv: rc=0 5s target=AVX2
+19:16:38 bench_betainv: noise before 3.69%  top: 3.5%bluetoothd 0.9%sharingd 0.5%launchd 
+19:16:56 bench_betainv: rc=0 18s target=AVX2
+19:17:07 bench_bessel: noise before 4.11%  top: 26.4%launchd 2.9%bluetoothd 0.9%Application 
+19:17:07 bench_bessel: rc=0 0s target=AVX2
+19:17:18 bench_lbeta: noise before 4.84%  top: 6.2%sandboxd 4.5%secd 3.2%opendirectoryd 
+19:17:19 bench_lbeta: rc=0 1s target=AVX2
+19:17:30 bench_trig: noise before 3.79%  top: 1.1%Application 0.9%iPulse 0.9%wifip2pd 
+19:17:31 bench_trig: rc=0 1s target=AVX2
+19:17:42 bench_exp: noise before 3.67%  top: 1.0%Application 0.7%locationd 0.6%wifip2pd 
+19:17:42 bench_exp: rc=0 0s target=AVX2
+19:17:53 bench_log: noise before 6.50%  top: 32.2%opendirectoryd 19.0%Application 1.0%Application 
+19:17:55 bench_log: rc=0 2s target=AVX2
+19:18:05 bench_lgamma_components: noise before 5.24%  top: 1.2%Application 0.9%wifip2pd 0.8%bluetoothd 
+19:18:10 bench_lgamma_components: rc=0 5s target=AVX2
+19:18:10 done fail=0. Raw per-target output: build/quiet_bench/quiet_bench_<target>.txt
+
+[exited with code 0]

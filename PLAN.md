@@ -43,10 +43,29 @@ usable, annotation in the evidence chain.
 cells, committed from there), M1 full-surface quiet-bench (#24a), the
 Apple-libm lgamma component run, installed-package consumer smoke
 (#26 pre-validation).
-(3) **S3 — MacBook Pro Kaby Lake** (cross-machine): #33 AVX2-native +
-capped no-FMA leg, Kaby quiet-bench pass (also sizes #22), the
-BINDING gather-weak half of #30, consumer smoke. S2/S3
-order-independent.
+(3) **S3 — MacBook Pro Kaby Lake — DONE 2026-08-30.** #33 AVX2-native
+33/33 + capped SSE4/SSSE3/SSE2 33/33 each, all tier-asserted (negative
+check: expecting SSE2 on native exits 2); AppleClang 15, brew Highway
+1.4.0, fresh Release build. ACCURACY.md dagger note extended.
+Kaby quiet pass 16/16 tier-asserted AVX2, gate 4.30/3.74%, noise
+3.41–5.24% (bench_log re-run under a fresh 3.90/3.54% gate after a
+6.50% opendirectoyd burst on its first sample; passes agree — ratios
+0.24x vs 0.23–0.27x, pass-1 file kept as *_pass1_superseded.txt).
+Evidence: docs/bench-evidence/2026-08-30-kaby-quiet/. Headlines vs
+Apple libm: §8 reproduced (erf 3.3–3.4x, erfc core ~3.1x, lgamma
+recurrence 0.28x exactly); elementary first Kaby numbers — cos/sin
+~4.9x streaming (corvus WINS trig here), exp 0.61–0.65x (Apple exp
+fast — INVERTS the Zen 4/UCRT 1.2x), log 0.23–0.27x, log1p
+0.39–0.41x (publish-honestly rows, sharper than Zen 4/UCRT).
+#30 gather-weak half (BINDING, decides #31 at S4): zone lead ladder
+6.5–6.7 of 15.0 (horner 4.5–5.6 — not dominant, same shape as Zen 4);
+recurrence dd log 17.5–18.5 of 44.7–45.6 (~40%); Stirling log ~half
+(11.6–12.0 of 24.6–25.5); reflection two extra logs 40.4 of ~108
+(~37%, positive pipeline 52–54) — one dd log ≈ 18–20 ns/el on Kaby vs
+~5 on Zen 4, so #31's single-log idea saves ~18% in reflection here.
+Consumer smoke PASS (prefix install, consumer_demo AVX2, pkg-config).
+#22 sizing data now on record via the quiet pass. S2/S3
+order-independent; S2 (M1) still open.
 S2/S3 MECHANICS (both machines): quiet runner is tools/quiet_bench.sh;
 bench_lgamma_components is NOT in its default target list — append it
 as a positional arg. Evidence drop: copy every per-target output plus
