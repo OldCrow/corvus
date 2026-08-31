@@ -73,11 +73,11 @@ machine.
 | i0e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
 | i1e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
 | lbeta | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
-| cos | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | — (v0.9.0 M1 leg) | ✅ 2026-08-30 |
-| sin | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | — (v0.9.0 M1 leg) | ✅ 2026-08-30 |
-| exp | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | — (v0.9.0 M1 leg) | ✅ 2026-08-30 |
-| log | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | — (v0.9.0 M1 leg) | ✅ 2026-08-30 |
-| log1p | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | — (v0.9.0 M1 leg) | ✅ 2026-08-30 |
+| cos | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
+| sin | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
+| exp | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
+| log | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
+| log1p | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
@@ -110,7 +110,11 @@ Validation legs: Kaby Lake i7-7820HQ, AppleClang (AVX2+FMA native; SSE
 tiers via capping, which also exercises the no-FMA paths); Linux/GCC CI
 tier sweep; NEON on the Apple Silicon GitHub runner (native silicon,
 native FMA — per-run measured values appear in the CI "ULP report"
-steps); AVX-512 on the Ryzen 7 7445HS (Zen 4, Windows 11). "AVX-512"
+steps) and natively on the Mac Mini M1 (Apple M1, AppleClang 21, macOS
+Tahoe, Homebrew Highway 1.4.0 via find_package): 27 gates 2026-08-23
+on the pre-elementary surface, and all 33 gates 2026-08-30 (v0.9.0 S2)
+tier-asserted with the negative check verified — the elementary rows'
+NEON cells date from that run; AVX-512 on the Ryzen 7 7445HS (Zen 4, Windows 11). "AVX-512"
 means the three AVX3\* variants this CPU supports — `AVX3_ZEN4` (native
 dispatch), `AVX3_DL`, `AVX3` (capping) — all passing every gate with
 values identical to AVX2. `AVX3_SPR` compiles but is Sapphire-Rapids-only
