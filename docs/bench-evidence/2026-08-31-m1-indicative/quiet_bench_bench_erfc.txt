@@ -1,0 +1,13 @@
+corvus active SIMD target: NEON
+input range [-6, 6] (core-dominated)
+         n   corvus ns/el     libm ns/el    speedup
+     10000           4.03          12.95      3.22x
+   1000000           4.04          13.14      3.25x
+input range [-6.5, 28] (mixed)
+         n   corvus ns/el     libm ns/el    speedup
+     10000          15.10          11.84      0.78x
+   1000000          15.64          12.30      0.79x
+input range [6, 28] (tail-only)
+         n   corvus ns/el     libm ns/el    speedup
+     10000          14.48          10.41      0.72x
+   1000000          14.52          10.42      0.72x

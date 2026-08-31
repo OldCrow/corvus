@@ -1,0 +1,17 @@
+corvus active SIMD target: NEON
+gamma_p, R1 series: a in [2, 19], x/a in [0.2, 1]
+         n     simd ns/el   scalar ns/el    speedup
+     10000         229.19         938.54      4.10x
+   1000000         227.46         940.40      4.13x
+gamma_q, R2 backward CF: a in [2, 19], x/a in [3, 20]
+         n     simd ns/el   scalar ns/el    speedup
+     10000         180.97         883.95      4.88x
+   1000000         181.73         881.18      4.85x
+gamma_p, R3 Temme: a in [50, 1e+06], x/a in [0.7, 1.4]
+         n     simd ns/el   scalar ns/el    speedup
+     10000         158.63         840.71      5.30x
+   1000000         159.41         839.71      5.27x
+gamma_q, R4 small-a: a in [0.05, 1.5], x/a in [0.5, 2.5]
+         n     simd ns/el   scalar ns/el    speedup
+     10000         198.79         494.97      2.49x
+   1000000         199.90         497.13      2.49x

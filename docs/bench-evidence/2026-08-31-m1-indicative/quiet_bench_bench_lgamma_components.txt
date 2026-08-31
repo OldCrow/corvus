@@ -1,0 +1,32 @@
+corvus active SIMD target: NEON
+band [0.5, 2.5] (zone)
+       component      10k ns/el       1M ns/el
+           floor           0.48           0.58
+       zone_full          37.27          17.67
+     zone_horner           5.78           5.71
+  zone_horner_1c           2.56           2.63
+       zone_lead           6.56           6.16
+
+band [2.5, 8] (recurrence)
+       component      10k ns/el       1M ns/el
+           floor           0.16           0.20
+        rec_full          41.38          42.09
+        rec_walk           2.52           5.04
+         rec_log          12.17          12.38
+       zone_full          17.33          17.76
+
+band [8, 1000] (Stirling)
+       component      10k ns/el       1M ns/el
+           floor           0.18           0.21
+       stir_full          19.99          19.85
+        stir_log           6.55           6.71
+        stir_rem           0.71           0.63
+
+band [-30, -0.01] (reflection)
+       component      10k ns/el       1M ns/el
+           floor           0.16           0.20
+       refl_full          80.95          81.71
+        refl_pos          37.92          38.32
+       refl_logs          27.76          27.31
+       refl_sinc           6.01           6.10
+

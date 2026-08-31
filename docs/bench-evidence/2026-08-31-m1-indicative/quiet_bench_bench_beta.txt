@@ -1,0 +1,19 @@
+corvus active SIMD target: NEON
+beta_p, R1 series: n=4001, region=R1 membership 4001/4001 (100.0%)
+         n     simd ns/el   scalar ns/el    speedup
+      4001         859.63        1731.07      2.01x
+beta_q, R2 backward CF: n=4001, region=R2 membership 4001/4001 (100.0%)
+         n     simd ns/el   scalar ns/el    speedup
+      4001        1374.82        3674.62      2.67x
+beta_p, R3 Temme ridge: n=4001, region=R3 membership 4001/4001 (100.0%)
+         n     simd ns/el   scalar ns/el    speedup
+      4001         968.74        3808.96      3.93x
+beta_q, R4 tiny-min: n=4001, region=R4 membership 4001/4001 (100.0%)
+         n     simd ns/el   scalar ns/el    speedup
+      4001         901.31        3392.60      3.76x
+beta_p, R4 postroute near-one: n=4001, region=Pr membership 4001/4001 (100.0%)
+         n     simd ns/el   scalar ns/el    speedup
+      4001        1738.87        3828.66      2.20x
+beta_q, R2 gamma-limit: n=4001, region=Gl membership 4001/4001 (100.0%)
+         n     simd ns/el   scalar ns/el    speedup
+      4001        1746.27        3646.36      2.09x

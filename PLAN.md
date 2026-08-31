@@ -38,11 +38,25 @@ honestly), log1p 0.86–0.92x. Noise caveat on record: inter-target
 spikes before lgamma (11.6%) and erfinv (14.9%); lgamma numbers agree
 with the component bench and the loaded sanity run to 1–3% — judged
 usable, annotation in the evidence chain.
-(2) **S2 — Mac Mini M1** (cross-machine): #33 NEON accuracy leg
-(tier-asserted, native; fills the ACCURACY.md '— (v0.9.0 M1 leg)'
-cells, committed from there), M1 full-surface quiet-bench (#24a), the
-Apple-libm lgamma component run, installed-package consumer smoke
-(#26 pre-validation).
+(2) **S2 — Mac Mini M1 — DONE 2026-08-31 (quiet-bench leg INDICATIVE,
+publish/withhold to S4).** #33 NEON accuracy leg: 33/33 tier-asserted
+native (negative check: expecting AVX2 exits 2), AppleClang 21, brew
+Highway 1.4.0, fresh Release build-m1; ACCURACY.md elementary cells
+filled + M1-native provenance note (ec2adb9). Consumer smoke PASS
+(prefix install from the system-Highway build, consumer_demo NEON,
+pkg-config resolves). Full-surface bench 16/16 tier-asserted NEON
+including bench_lgamma_components — but under the ratified 10%-gate
+fallback (armed 9.02/9.50%; noise 13.8–50.5%, mediaanalysisd resumed
+~10 s after gating): INDICATIVE, evidence + two more failed 5%-gate
+windows (60 min min 13.43%; 8 h overnight min 4.62%, one sub-5 sample
+in 2,724, never two consecutive) committed in
+docs/bench-evidence/2026-08-31-m1-indicative/. Stable rows agree with
+2026-08-23 (recurrence 0.20x vs 0.22x, Stirling 0.39x, erf 5.90x);
+first M1 elementary rows: cos/sin ~3.2–3.3x, exp 1.21–1.28x (INVERTS
+Kaby's 0.61x — Apple's fast x86 exp doesn't carry to M1), log
+0.19–0.24x, log1p ~0.31x. Two ops facts for the record: Backblaze
+SELF-RESUMES overnight after a manual pause (third night), and
+bzfilelist scans while transfers are paused.
 (3) **S3 — MacBook Pro Kaby Lake — DONE 2026-08-30.** #33 AVX2-native
 33/33 + capped SSE4/SSSE3/SSE2 33/33 each, all tier-asserted (negative
 check: expecting SSE2 on native exits 2); AppleClang 15, brew Highway
@@ -283,6 +297,14 @@ gate v1.0.0 [DERIVED 2026-08-23]:
     the deviation recorded in PERFORMANCE.md, or keep waiting for the
     backlog to complete (unknown depth — it has survived every window
     tried so far). [OPEN — user decision]
+  - [DERIVED 2026-08-31] v0.9.0 S2 added two more failed 5% windows
+    (60 min + 8 h overnight, 3,065 samples, min 4.62%, never two
+    consecutive sub-5%) and then took the ratified 10%-gate INDICATIVE
+    fallback: 16/16 tier-asserted NEON, evidence committed in
+    docs/bench-evidence/2026-08-31-m1-indicative/ (gate-abort logs
+    included — the build-m1/quiet_bench log history is no longer the
+    only copy). The 5%-vs-10% publish/withhold call now sits with S4,
+    with ~30 h of cumulative gate evidence behind it.
 - #24 also: the Zen 4 per-region lgamma rerun (Ryzen box, not M1).
 - libstats: DONE 2026-08-23 (same-day M1 session): v2.3.0 NEON native
   validation 55/55 and the mpmath sweep ran (recorded in their

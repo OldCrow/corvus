@@ -1,0 +1,21 @@
+corvus active SIMD target: NEON
+erfinv, input range [-0.5, 0.5] (central C)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          34.30          28.08      0.82x
+   1000000          11.47          27.86      2.43x
+erfinv, input range [-0.999, 0.999] (mixed)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          36.94          66.17      1.79x
+   1000000          37.50          66.65      1.78x
+erfcinv, input range [0.5, 1.5] (central C)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          12.23         106.34      8.69x
+   1000000          12.30         106.35      8.65x
+erfcinv, input range [1e-06, 0.5] (T-mid)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          39.53          76.54      1.94x
+   1000000          39.89          78.34      1.96x
+erfcinv, input range [4.94066e-324, 2.2e-308] (T-far, subnormal z)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          61.33         135.06      2.20x
+   1000000          61.80         136.07      2.20x

@@ -1,0 +1,2393 @@
+21:30:53 quiet_bench.sh  build=build-m1  expect=NEON  targets=16
+21:30:53 gate          : ambient < 5% over two consecutive 10s windows
+21:30:53 machine       : Apple M1; macOS 26.6.2
+21:31:03 ambient sample : 35.27%
+21:31:03   top consumers:
+     46.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     24.9 /sbin/launchd
+     22.8 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     21.1 /usr/libexec/syspolicyd
+     18.4 /Users/wolfman/Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+21:31:14 ambient sample : 35.49%
+21:31:14   top consumers:
+     52.2 /System/Library/CoreServices/TimeMachine/backupd
+     47.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     24.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     22.2 /Users/wolfman/Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+     21.3 /usr/libexec/syspolicyd
+21:31:24 ambient sample : 35.18%
+21:31:24   top consumers:
+     60.4 /System/Library/Frameworks/CoreGraphics.framework/Versions/A/XPCServices/CGPDFService.xpc/Contents/MacOS/CGPDFService
+     43.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.8 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     21.5 /usr/libexec/syspolicyd
+     13.3 /usr/libexec/trustd
+21:31:35 ambient sample : 34.80%
+21:31:35   top consumers:
+     44.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     25.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     22.1 /usr/libexec/syspolicyd
+     16.0 /usr/libexec/trustd
+     15.7 /usr/libexec/opendirectoryd
+21:31:46 ambient sample : 27.32%
+21:31:46   top consumers:
+     41.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     18.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     16.6 /usr/libexec/syspolicyd
+     11.6 /usr/libexec/trustd
+      7.8 /System/Library/CoreServices/TimeMachine/backupd
+21:31:56 ambient sample : 52.15%
+21:31:56   top consumers:
+     95.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     36.9 /usr/libexec/spotlightknowledged.updater
+     36.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     23.2 /usr/libexec/dasd
+     22.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+21:32:07 ambient sample : 50.87%
+21:32:07   top consumers:
+    130.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     75.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores
+     32.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     25.5 /System/Library/CoreServices/TimeMachine/backupd
+     21.3 /usr/libexec/syspolicyd
+21:32:17 ambient sample : 47.89%
+21:32:17   top consumers:
+    160.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     63.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     36.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.7 /usr/libexec/syspolicyd
+     20.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores
+21:32:28 ambient sample : 49.68%
+21:32:28   top consumers:
+    116.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     77.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores
+     34.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     32.5 /System/Library/CoreServices/TimeMachine/backupd
+     22.3 /usr/libexec/syspolicyd
+21:32:39 ambient sample : 55.20%
+21:32:39   top consumers:
+    150.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+    126.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     35.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.9 /usr/libexec/syspolicyd
+     18.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:32:49 ambient sample : 55.90%
+21:32:49   top consumers:
+     56.4 /System/Library/CoreServices/TimeMachine/backupd
+     34.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.3 /usr/libexec/syspolicyd
+     19.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     18.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores
+21:33:00 ambient sample : 40.02%
+21:33:00   top consumers:
+    170.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     45.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.4 /usr/libexec/syspolicyd
+     20.2 /System/Library/CoreServices/TimeMachine/backupd
+     19.9 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:33:11 ambient sample : 36.85%
+21:33:11   top consumers:
+    114.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     35.5 /System/Library/CoreServices/TimeMachine/backupd
+     32.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     23.1 /usr/libexec/syspolicyd
+     20.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:33:21 ambient sample : 29.30%
+21:33:21   top consumers:
+     38.6 /System/Library/CoreServices/TimeMachine/backupd
+     36.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.9 /usr/libexec/syspolicyd
+     19.1 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.3 /usr/libexec/trustd
+21:33:32 ambient sample : 29.04%
+21:33:32   top consumers:
+    124.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     60.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     31.3 /System/Library/CoreServices/TimeMachine/backupd
+     20.9 /usr/libexec/syspolicyd
+21:33:42 ambient sample : 47.48%
+21:33:42   top consumers:
+    176.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     62.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     38.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     23.1 /System/Library/CoreServices/TimeMachine/backupd
+     20.4 /usr/libexec/syspolicyd
+21:33:53 ambient sample : 43.62%
+21:33:53   top consumers:
+    201.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     34.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     28.9 /System/Library/CoreServices/TimeMachine/backupd
+     21.5 /usr/libexec/syspolicyd
+     18.9 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:34:04 ambient sample : 32.31%
+21:34:04   top consumers:
+     97.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.1 /System/Library/CoreServices/TimeMachine/backupd
+     32.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.9 /usr/libexec/syspolicyd
+     19.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:34:14 ambient sample : 34.50%
+21:34:14   top consumers:
+     97.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     30.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     26.9 /System/Library/CoreServices/TimeMachine/backupd
+     23.0 /usr/libexec/syspolicyd
+     20.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:34:25 ambient sample : 34.23%
+21:34:25   top consumers:
+     98.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.7 /System/Library/CoreServices/TimeMachine/backupd
+     32.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     23.4 /usr/libexec/syspolicyd
+     20.1 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:34:35 ambient sample : 31.57%
+21:34:35   top consumers:
+     96.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     30.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.1 /usr/libexec/syspolicyd
+     20.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     13.0 /usr/libexec/trustd
+21:34:46 ambient sample : 32.02%
+21:34:46   top consumers:
+     99.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     31.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     23.5 /usr/libexec/syspolicyd
+     20.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.9 /usr/libexec/trustd
+21:34:57 ambient sample : 28.90%
+21:34:57   top consumers:
+     91.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     31.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     23.3 /usr/libexec/syspolicyd
+     20.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.8 /usr/libexec/trustd
+21:35:07 ambient sample : 24.58%
+21:35:07   top consumers:
+     66.6 top
+     34.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.4 /usr/libexec/syspolicyd
+     20.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.7 /usr/libexec/trustd
+21:35:18 ambient sample : 21.51%
+21:35:18   top consumers:
+     35.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.3 /usr/libexec/syspolicyd
+     15.8 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.5 /usr/libexec/trustd
+     12.2 /System/Library/CoreServices/TimeMachine/backupd
+21:35:28 ambient sample : 28.57%
+21:35:28   top consumers:
+     93.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     29.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.8 /usr/libexec/syspolicyd
+     20.9 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     13.2 /usr/libexec/trustd
+21:35:39 ambient sample : 30.32%
+21:35:39   top consumers:
+     97.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     32.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.8 /usr/libexec/syspolicyd
+     20.1 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.7 /usr/libexec/trustd
+21:35:50 ambient sample : 31.34%
+21:35:50   top consumers:
+     77.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     32.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.0 /usr/libexec/syspolicyd
+     20.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     19.6 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:36:00 ambient sample : 31.76%
+21:36:00   top consumers:
+     91.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     53.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.1 /usr/libexec/syspolicyd
+     20.1 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     13.4 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+21:36:11 ambient sample : 32.35%
+21:36:11   top consumers:
+     94.1 /System/Library/CoreServices/TimeMachine/backupd
+     92.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     32.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     26.9 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+     21.6 /usr/libexec/syspolicyd
+21:36:21 ambient sample : 33.89%
+21:36:21   top consumers:
+     96.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     32.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.9 /usr/libexec/syspolicyd
+     19.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.4 /usr/libexec/trustd
+21:36:32 ambient sample : 31.63%
+21:36:32   top consumers:
+     96.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     32.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.7 /usr/libexec/syspolicyd
+     21.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.8 /usr/libexec/trustd
+21:36:43 ambient sample : 33.27%
+21:36:43   top consumers:
+     95.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     33.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.6 /usr/libexec/syspolicyd
+     19.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.5 /usr/libexec/trustd
+21:36:53 ambient sample : 30.78%
+21:36:53   top consumers:
+     97.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     31.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.1 /usr/libexec/syspolicyd
+     19.9 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.8 /usr/libexec/trustd
+21:37:04 ambient sample : 35.64%
+21:37:04   top consumers:
+     97.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     33.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.3 /usr/libexec/syspolicyd
+     19.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.6 /usr/libexec/trustd
+21:37:14 ambient sample : 45.73%
+21:37:14   top consumers:
+    168.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     71.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     35.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.5 /usr/libexec/syspolicyd
+     19.1 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:37:25 ambient sample : 45.59%
+21:37:25   top consumers:
+    108.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     81.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     41.3 /sbin/launchd
+     34.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     30.6 /System/Library/CoreServices/TimeMachine/backupd
+21:37:36 ambient sample : 50.69%
+21:37:36   top consumers:
+    115.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     88.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     35.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.1 /usr/libexec/syspolicyd
+     19.1 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:37:46 ambient sample : 44.30%
+21:37:46   top consumers:
+     95.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     42.0 /System/Library/CoreServices/TimeMachine/backupd
+     33.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.1 /usr/libexec/syspolicyd
+     19.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:37:57 ambient sample : 33.50%
+21:37:57   top consumers:
+    102.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     33.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.0 /usr/libexec/syspolicyd
+     19.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.4 /usr/libexec/trustd
+21:38:07 ambient sample : 41.29%
+21:38:07   top consumers:
+    183.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     65.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     36.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.0 /usr/libexec/syspolicyd
+     18.8 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:38:18 ambient sample : 47.43%
+21:38:18   top consumers:
+     87.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     85.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     54.2 /usr/libexec/mobileassetd
+     36.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     26.0 /System/Library/CoreServices/TimeMachine/backupd
+21:38:29 ambient sample : 48.04%
+21:38:29   top consumers:
+     95.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     91.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     35.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.2 /usr/libexec/syspolicyd
+     18.9 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:38:39 ambient sample : 46.66%
+21:38:39   top consumers:
+     97.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     97.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     32.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.5 /usr/libexec/syspolicyd
+     20.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:38:50 ambient sample : 32.38%
+21:38:50   top consumers:
+     89.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.6 /usr/libexec/syspolicyd
+     20.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.9 /usr/libexec/trustd
+21:39:00 ambient sample : 31.67%
+21:39:00   top consumers:
+     90.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     45.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.0 /usr/libexec/syspolicyd
+     20.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     14.2 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+21:39:11 ambient sample : 36.61%
+21:39:11   top consumers:
+     94.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     94.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     33.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     24.7 /System/Library/CoreServices/TimeMachine/backupd
+     21.6 /usr/libexec/syspolicyd
+21:39:22 ambient sample : 45.16%
+21:39:22   top consumers:
+     96.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     83.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.5 /usr/libexec/syspolicyd
+     19.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:39:32 ambient sample : 42.33%
+21:39:32   top consumers:
+     94.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     31.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.7 /usr/libexec/syspolicyd
+     19.6 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.7 /usr/libexec/trustd
+21:39:43 ambient sample : 31.85%
+21:39:43   top consumers:
+     92.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     31.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.2 /usr/libexec/syspolicyd
+     20.1 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.7 /usr/libexec/trustd
+21:39:53 ambient sample : 30.40%
+21:39:53   top consumers:
+     70.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     33.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.4 /usr/libexec/syspolicyd
+     20.1 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     13.1 /usr/libexec/trustd
+21:40:04 ambient sample : 32.42%
+21:40:04   top consumers:
+     93.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.3 /usr/libexec/syspolicyd
+     19.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.2 /usr/libexec/trustd
+21:40:15 ambient sample : 30.88%
+21:40:15   top consumers:
+     94.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     33.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.6 /usr/libexec/syspolicyd
+     19.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.6 /usr/libexec/trustd
+21:40:25 ambient sample : 31.87%
+21:40:25   top consumers:
+    107.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     38.5 /Library/Backblaze.bzpkg/bzfilelist
+     31.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.4 /usr/libexec/syspolicyd
+     20.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:40:36 ambient sample : 31.71%
+21:40:36   top consumers:
+     97.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.4 /usr/libexec/syspolicyd
+     19.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.0 /usr/libexec/trustd
+21:40:47 ambient sample : 31.22%
+21:40:47   top consumers:
+     94.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     35.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.5 /usr/libexec/syspolicyd
+     19.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.7 /usr/libexec/trustd
+21:40:57 ambient sample : 34.01%
+21:40:57   top consumers:
+     95.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     68.2 top
+     29.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.9 /usr/libexec/syspolicyd
+     21.1 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:41:08 ambient sample : 32.02%
+21:41:08   top consumers:
+     95.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     35.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.5 /usr/libexec/syspolicyd
+     20.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.4 /usr/libexec/trustd
+21:41:18 ambient sample : 31.40%
+21:41:18   top consumers:
+     91.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     26.4 /usr/libexec/biomesyncd
+     21.1 /usr/libexec/syspolicyd
+     19.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:41:29 ambient sample : 36.55%
+21:41:29   top consumers:
+     96.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     32.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.9 /usr/libexec/syspolicyd
+     19.9 /usr/libexec/biomesyncd
+     19.6 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:41:40 ambient sample : 33.55%
+21:41:40   top consumers:
+     95.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     31.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.9 /usr/libexec/syspolicyd
+     20.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.7 /usr/libexec/trustd
+21:41:50 ambient sample : 35.35%
+21:41:50   top consumers:
+     96.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.9 /usr/libexec/syspolicyd
+     19.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.6 /usr/libexec/trustd
+21:42:01 ambient sample : 34.53%
+21:42:01   top consumers:
+     96.5 /usr/libexec/biomesyncd
+     88.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     39.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.6 /usr/libexec/syspolicyd
+     19.9 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:42:11 ambient sample : 32.35%
+21:42:11   top consumers:
+     64.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     32.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.4 /usr/libexec/syspolicyd
+     21.3 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+     20.7 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+21:42:22 ambient sample : 38.15%
+21:42:22   top consumers:
+     98.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.0 /usr/libexec/syspolicyd
+     19.6 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.6 /usr/libexec/trustd
+21:42:33 ambient sample : 31.65%
+21:42:33   top consumers:
+     96.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.4 /usr/libexec/syspolicyd
+     19.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.1 /usr/libexec/trustd
+21:42:43 ambient sample : 31.60%
+21:42:43   top consumers:
+     94.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     33.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.4 /usr/libexec/syspolicyd
+     19.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.5 /usr/libexec/trustd
+21:42:54 ambient sample : 32.15%
+21:42:54   top consumers:
+     90.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     71.9 /System/Library/CoreServices/TimeMachine/backupd
+     35.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.5 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+     19.9 /usr/libexec/syspolicyd
+21:43:04 ambient sample : 34.71%
+21:43:04   top consumers:
+     87.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     33.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     23.0 /usr/libexec/syspolicyd
+     20.6 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.7 /usr/libexec/trustd
+21:43:15 ambient sample : 29.90%
+21:43:15   top consumers:
+     97.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     33.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.6 /usr/libexec/syspolicyd
+     19.8 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.7 /usr/libexec/trustd
+21:43:26 ambient sample : 30.59%
+21:43:26   top consumers:
+     97.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.9 /usr/libexec/syspolicyd
+     19.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.2 /usr/libexec/trustd
+21:43:36 ambient sample : 40.49%
+21:43:36   top consumers:
+    135.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     82.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     38.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.9 /usr/libexec/syspolicyd
+     18.1 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:43:47 ambient sample : 46.89%
+21:43:47   top consumers:
+    100.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     94.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.4 /usr/libexec/syspolicyd
+     19.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:43:58 ambient sample : 44.30%
+21:43:58   top consumers:
+    100.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     93.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     36.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.0 /usr/libexec/syspolicyd
+     19.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:44:08 ambient sample : 34.33%
+21:44:08   top consumers:
+     92.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     33.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.3 /usr/libexec/syspolicyd
+     18.9 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.2 /usr/libexec/trustd
+21:44:19 ambient sample : 31.76%
+21:44:19   top consumers:
+     71.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.3 /usr/libexec/syspolicyd
+     19.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+21:44:29 ambient sample : 38.65%
+21:44:29   top consumers:
+    103.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     41.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.5 /usr/libexec/syspolicyd
+     20.4 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+     19.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:44:40 ambient sample : 41.54%
+21:44:40   top consumers:
+    101.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     90.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     33.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.0 /usr/libexec/syspolicyd
+     19.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:44:51 ambient sample : 47.77%
+21:44:51   top consumers:
+    119.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     85.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     35.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.9 /usr/libexec/syspolicyd
+     19.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:45:01 ambient sample : 45.48%
+21:45:01   top consumers:
+     93.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     86.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     35.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.3 /usr/libexec/syspolicyd
+     19.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:45:12 ambient sample : 36.12%
+21:45:12   top consumers:
+     95.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.4 /usr/libexec/syspolicyd
+     18.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.6 /usr/libexec/trustd
+21:45:22 ambient sample : 34.30%
+21:45:22   top consumers:
+     91.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     81.5 /System/Library/CoreServices/TimeMachine/backupd
+     31.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.6 /usr/libexec/syspolicyd
+     20.1 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:45:33 ambient sample : 31.37%
+21:45:33   top consumers:
+    103.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     33.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.5 /usr/libexec/syspolicyd
+     19.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.4 /usr/libexec/trustd
+21:45:44 ambient sample : 32.20%
+21:45:44   top consumers:
+     95.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.3 /usr/libexec/syspolicyd
+     19.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.2 /usr/libexec/trustd
+21:45:54 ambient sample : 30.80%
+21:45:54   top consumers:
+     86.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     33.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.0 /usr/libexec/syspolicyd
+     19.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.5 /usr/libexec/trustd
+21:46:05 ambient sample : 31.65%
+21:46:05   top consumers:
+     94.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     32.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.7 /usr/libexec/syspolicyd
+     19.8 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     15.5 /usr/libexec/trustd
+21:46:15 ambient sample : 31.16%
+21:46:15   top consumers:
+     95.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     35.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.2 /usr/libexec/syspolicyd
+     19.8 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.5 /usr/libexec/trustd
+21:46:26 ambient sample : 31.64%
+21:46:26   top consumers:
+     95.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     52.9 /System/Library/CoreServices/TimeMachine/backupd
+     33.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.7 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+     21.4 /usr/libexec/syspolicyd
+21:46:37 ambient sample : 36.78%
+21:46:37   top consumers:
+     93.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     32.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.3 /usr/libexec/syspolicyd
+     20.6 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.6 /usr/libexec/trustd
+21:46:47 ambient sample : 39.59%
+21:46:47   top consumers:
+    120.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     49.9 top
+     32.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.6 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     20.5 /usr/libexec/syspolicyd
+21:46:58 ambient sample : 40.60%
+21:46:58   top consumers:
+     84.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     38.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     18.7 /usr/libexec/syspolicyd
+     11.4 /usr/libexec/trustd
+21:47:09 ambient sample : 30.35%
+21:47:09   top consumers:
+     65.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     37.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.6 /usr/libexec/syspolicyd
+     19.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.0 /usr/libexec/trustd
+21:47:19 ambient sample : 32.66%
+21:47:19   top consumers:
+     43.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     35.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.1 /usr/libexec/syspolicyd
+     18.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     18.2 /System/Library/CoreServices/TimeMachine/backupd
+21:47:30 ambient sample : 32.59%
+21:47:30   top consumers:
+     79.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     41.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.5 /usr/libexec/syspolicyd
+     20.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     18.6 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+21:47:41 ambient sample : 34.59%
+21:47:41   top consumers:
+     92.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     85.4 /System/Library/CoreServices/TimeMachine/backupd
+     38.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     27.0 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+     19.5 /usr/libexec/syspolicyd
+21:47:51 ambient sample : 33.48%
+21:47:51   top consumers:
+     95.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     37.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.6 /usr/libexec/syspolicyd
+     18.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     11.2 /usr/libexec/trustd
+21:48:02 ambient sample : 33.20%
+21:48:02   top consumers:
+     70.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     40.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.5 /usr/libexec/syspolicyd
+     18.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     11.5 /usr/libexec/trustd
+21:48:13 ambient sample : 33.37%
+21:48:13   top consumers:
+     76.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     44.6 /System/Library/CoreServices/TimeMachine/backupd
+     38.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.5 /usr/libexec/syspolicyd
+     18.9 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:48:23 ambient sample : 32.90%
+21:48:23   top consumers:
+    155.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     35.7 /System/Library/CoreServices/TimeMachine/backupd
+     32.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     28.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+     21.0 /usr/libexec/syspolicyd
+21:48:34 ambient sample : 36.09%
+21:48:34   top consumers:
+     91.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     73.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     37.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.9 /usr/libexec/syspolicyd
+     19.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:48:45 ambient sample : 40.68%
+21:48:45   top consumers:
+    151.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     40.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.6 /usr/libexec/syspolicyd
+     18.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     11.4 /usr/libexec/trustd
+21:48:55 ambient sample : 29.53%
+21:48:55   top consumers:
+     75.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     38.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.6 /usr/libexec/syspolicyd
+     18.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     11.6 /usr/libexec/trustd
+21:49:06 ambient sample : 37.07%
+21:49:06   top consumers:
+     62.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     38.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.4 /usr/libexec/syspolicyd
+     18.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     11.4 /usr/libexec/trustd
+21:49:17 ambient sample : 36.33%
+21:49:17   top consumers:
+     77.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     39.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     39.0 /System/Library/CoreServices/TimeMachine/backupd
+     20.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores
+     19.4 /usr/libexec/syspolicyd
+21:49:27 ambient sample : 39.11%
+21:49:27   top consumers:
+     62.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     42.3 /System/Library/CoreServices/TimeMachine/backupd
+     35.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.1 /usr/libexec/syspolicyd
+     18.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:49:38 ambient sample : 31.65%
+21:49:38   top consumers:
+     70.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     38.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.9 /usr/libexec/syspolicyd
+     18.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     11.5 /usr/libexec/trustd
+21:49:49 ambient sample : 44.27%
+21:49:49   top consumers:
+     89.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     74.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     41.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     38.5 /System/Library/CoreServices/TimeMachine/backupd
+     19.3 /usr/libexec/syspolicyd
+21:49:59 ambient sample : 48.34%
+21:49:59   top consumers:
+    140.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+    103.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     39.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.2 /usr/libexec/syspolicyd
+     17.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:50:10 ambient sample : 46.44%
+21:50:10   top consumers:
+    112.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     70.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     40.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.3 /usr/libexec/syspolicyd
+     18.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:50:21 ambient sample : 47.70%
+21:50:21   top consumers:
+     92.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     72.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     41.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.2 /System/Library/CoreServices/TimeMachine/backupd
+     20.1 /usr/libexec/syspolicyd
+21:50:31 ambient sample : 49.04%
+21:50:31   top consumers:
+     96.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     71.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     38.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.2 /usr/libexec/syspolicyd
+     19.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:50:42 ambient sample : 41.03%
+21:50:42   top consumers:
+     87.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     41.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.0 /usr/libexec/syspolicyd
+     17.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     11.0 /usr/libexec/trustd
+21:50:53 ambient sample : 45.31%
+21:50:53   top consumers:
+     77.0 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+     69.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     48.0 /System/Library/ExtensionKit/Extensions/TGOnDeviceInferenceProviderService.appex/Contents/MacOS/TGOnDeviceInferenceProviderService
+     39.9 /System/Applications/Messages.app/Contents/PlugIns/Messages Assistant Extension.appex/Contents/MacOS/Messages Assistant Extension
+     38.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+21:51:03 ambient sample : 41.23%
+21:51:03   top consumers:
+     76.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     37.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.8 /usr/libexec/syspolicyd
+     19.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.1 /usr/libexec/trustd
+21:51:14 ambient sample : 46.30%
+21:51:14   top consumers:
+    101.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     71.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     50.4 /System/Library/CoreServices/TimeMachine/backupd
+     41.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     18.9 /usr/libexec/syspolicyd
+21:51:25 ambient sample : 47.05%
+21:51:25   top consumers:
+    107.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     39.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.1 /usr/libexec/syspolicyd
+     18.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     14.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+21:51:35 ambient sample : 32.65%
+21:51:35   top consumers:
+     82.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     38.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.4 /usr/libexec/syspolicyd
+     18.1 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     11.4 /usr/libexec/trustd
+21:51:46 ambient sample : 31.07%
+21:51:46   top consumers:
+     75.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     40.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.9 /usr/libexec/syspolicyd
+     18.6 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     18.5 /System/Library/CoreServices/TimeMachine/backupd
+21:51:57 ambient sample : 37.75%
+21:51:57   top consumers:
+    156.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     38.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     28.4 top
+     19.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     18.9 /usr/libexec/syspolicyd
+21:52:07 ambient sample : 32.15%
+21:52:07   top consumers:
+     64.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     35.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.9 /usr/libexec/syspolicyd
+     19.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.1 /usr/libexec/trustd
+21:52:18 ambient sample : 30.30%
+21:52:18   top consumers:
+     97.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     36.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.6 /usr/libexec/syspolicyd
+     19.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     19.1 top
+21:52:29 ambient sample : 50.10%
+21:52:29   top consumers:
+    109.1 /System/Library/CoreServices/TimeMachine/backupd
+     76.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     37.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.3 /usr/libexec/syspolicyd
+     20.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:52:39 ambient sample : 37.17%
+21:52:39   top consumers:
+    119.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     35.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.9 /usr/libexec/syspolicyd
+     19.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.1 /usr/libexec/trustd
+21:52:50 ambient sample : 38.60%
+21:52:50   top consumers:
+     75.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     74.0 /System/Library/CoreServices/TimeMachine/backupd
+     40.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.0 /usr/libexec/syspolicyd
+     18.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:53:00 ambient sample : 36.40%
+21:53:00   top consumers:
+     74.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     48.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     19.5 /usr/libexec/syspolicyd
+     16.2 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+21:53:11 ambient sample : 34.24%
+21:53:11   top consumers:
+     86.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     35.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.0 /usr/libexec/syspolicyd
+     18.8 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.0 /usr/libexec/trustd
+21:53:22 ambient sample : 29.89%
+21:53:22   top consumers:
+     85.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     38.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.5 /usr/libexec/syspolicyd
+     18.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     11.8 /usr/libexec/trustd
+21:53:32 ambient sample : 39.50%
+21:53:32   top consumers:
+    104.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     36.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.9 /usr/libexec/syspolicyd
+     18.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     16.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+21:53:43 ambient sample : 29.26%
+21:53:43   top consumers:
+     78.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     38.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.5 /usr/libexec/syspolicyd
+     18.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     11.4 /usr/libexec/trustd
+21:53:54 ambient sample : 30.10%
+21:53:54   top consumers:
+     69.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     39.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.4 /usr/libexec/syspolicyd
+     18.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     11.2 /usr/libexec/trustd
+21:54:04 ambient sample : 41.68%
+21:54:04   top consumers:
+     61.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     37.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.6 /usr/libexec/syspolicyd
+     19.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     11.7 /usr/libexec/trustd
+21:54:15 ambient sample : 35.90%
+21:54:15   top consumers:
+    117.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     38.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     18.6 /usr/libexec/syspolicyd
+     18.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     12.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores
+21:54:26 ambient sample : 30.83%
+21:54:26   top consumers:
+     85.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     39.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.2 /usr/libexec/syspolicyd
+     18.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     11.5 /usr/libexec/trustd
+21:54:36 ambient sample : 30.37%
+21:54:36   top consumers:
+     66.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     37.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.6 /usr/libexec/syspolicyd
+     19.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     11.4 /usr/libexec/trustd
+21:54:47 ambient sample : 37.82%
+21:54:47   top consumers:
+    159.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     94.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     36.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.5 /usr/libexec/syspolicyd
+     18.6 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:54:57 ambient sample : 50.78%
+21:54:57   top consumers:
+    161.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+    115.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     39.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.2 /usr/libexec/syspolicyd
+     17.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:55:08 ambient sample : 44.43%
+21:55:08   top consumers:
+     96.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     82.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     40.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.1 /usr/libexec/syspolicyd
+     17.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:55:19 ambient sample : 36.03%
+21:55:19   top consumers:
+     98.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     36.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.6 /usr/libexec/airportd
+      5.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.1 /usr/libexec/locationd
+21:55:29 ambient sample : 31.03%
+21:55:29   top consumers:
+    136.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     48.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     10.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      9.6 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      7.7 /System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter
+21:55:40 ambient sample : 32.31%
+21:55:40   top consumers:
+    155.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     12.3 /usr/libexec/locationd
+      7.4 /usr/libexec/airportd
+      6.1 /sbin/launchd
+      5.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+21:55:50 ambient sample : 28.57%
+21:55:50   top consumers:
+     75.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     36.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.6 /usr/libexec/syspolicyd
+     19.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     11.8 /usr/libexec/trustd
+21:56:01 ambient sample : 32.09%
+21:56:01   top consumers:
+     84.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     17.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     13.4 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+     12.5 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+      7.4 /System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter
+21:56:12 ambient sample : 19.83%
+21:56:12   top consumers:
+    103.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     16.1 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.1 /usr/libexec/locationd
+      3.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      2.5 /Applications/iPulse.app/Contents/MacOS/iPulse
+21:56:22 ambient sample : 15.48%
+21:56:22   top consumers:
+     53.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      2.4 /usr/libexec/replayd
+      2.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      1.9 /usr/libexec/locationd
+      1.9 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+21:56:33 ambient sample : 24.18%
+21:56:33   top consumers:
+     63.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     10.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      7.4 /System/Library/PrivateFrameworks/HomeKitDaemon.framework/Support/homed
+      6.8 /usr/libexec/rapportd
+      5.3 /usr/libexec/secd
+21:56:43 ambient sample : 16.01%
+21:56:43   top consumers:
+     38.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     24.1 /System/Library/CoreServices/TimeMachine/backupd
+      8.7 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+      4.8 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.0 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+21:56:54 ambient sample : 20.06%
+21:56:54   top consumers:
+    152.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      9.7 /usr/libexec/locationd
+      5.8 /usr/libexec/airportd
+      4.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.3 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+21:57:04 ambient sample : 24.75%
+21:57:04   top consumers:
+     96.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     12.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.8 /usr/libexec/syspolicyd
+      4.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:57:15 ambient sample : 16.02%
+21:57:15   top consumers:
+     71.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      2.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      1.9 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.5 /System/Library/Frameworks/Accounts.framework/Versions/A/Support/accountsd
+      1.5 /usr/libexec/locationd
+21:57:26 ambient sample : 23.20%
+21:57:26   top consumers:
+     76.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.3 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.2 /usr/libexec/locationd
+      3.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.4 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+21:57:36 ambient sample : 17.60%
+21:57:36   top consumers:
+     62.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     11.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      8.2 /usr/libexec/syspolicyd
+      6.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      6.1 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+21:57:47 ambient sample : 20.36%
+21:57:47   top consumers:
+    128.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     14.5 /System/Library/CoreServices/TimeMachine/backupd
+      8.3 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      7.2 top
+      4.6 /usr/libexec/locationd
+21:57:57 ambient sample : 17.40%
+21:57:57   top consumers:
+     52.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      3.0 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.1 /System/Library/CoreServices/TimeMachine/backupd
+      1.7 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+21:58:08 ambient sample : 22.26%
+21:58:08   top consumers:
+    149.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     67.5 top
+     10.1 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      5.2 /usr/libexec/locationd
+      2.9 /usr/libexec/airportd
+21:58:18 ambient sample : 25.60%
+21:58:18   top consumers:
+    148.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     14.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      2.3 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.0 /System/Library/CoreServices/TimeMachine/backupd
+21:58:29 ambient sample : 24.75%
+21:58:29   top consumers:
+     92.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     80.4 /System/Library/CoreServices/TimeMachine/backupd
+     12.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      8.4 top
+      3.7 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+21:58:39 ambient sample : 17.84%
+21:58:39   top consumers:
+     76.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     12.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.2 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      1.0 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+21:58:50 ambient sample : 19.78%
+21:58:50   top consumers:
+     91.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     16.0 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+     11.1 /System/Library/CoreServices/TimeMachine/backupd
+      6.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      5.1 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+21:59:01 ambient sample : 18.76%
+21:59:01   top consumers:
+     66.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     22.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     18.2 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+     13.0 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+     11.1 /System/Library/CoreServices/TimeMachine/backupd
+21:59:11 ambient sample : 17.08%
+21:59:11   top consumers:
+     77.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      7.0 /System/Library/CoreServices/TimeMachine/backupd
+      4.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      4.1 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.8 /usr/libexec/diskimagesiod
+21:59:22 ambient sample : 17.50%
+21:59:22   top consumers:
+     74.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     12.2 /usr/libexec/locationd
+     11.4 /System/Library/CoreServices/TimeMachine/backupd
+      7.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      7.2 /usr/libexec/syspolicyd
+21:59:32 ambient sample : 34.71%
+21:59:32   top consumers:
+     87.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     14.1 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      2.4 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      1.6 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+21:59:43 ambient sample : 20.84%
+21:59:43   top consumers:
+     63.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     62.8 /System/Library/CoreServices/TimeMachine/backupd
+     17.0 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+      3.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.4 /usr/libexec/diskimagesiod
+21:59:54 ambient sample : 29.50%
+21:59:54   top consumers:
+    157.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     59.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.0 /usr/libexec/locationd
+      3.1 /Applications/iPulse.app/Contents/MacOS/iPulse
+22:00:04 ambient sample : 33.40%
+22:00:04   top consumers:
+    137.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     58.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      9.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      7.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      5.1 /usr/libexec/syspolicyd
+22:00:15 ambient sample : 33.47%
+22:00:15   top consumers:
+    123.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     83.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     17.7 /System/Library/CoreServices/TimeMachine/backupd
+      5.7 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+      5.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:00:25 ambient sample : 30.08%
+22:00:25   top consumers:
+    101.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     60.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      7.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      1.8 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.0 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+22:00:36 ambient sample : 33.65%
+22:00:36   top consumers:
+     96.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     73.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     11.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     10.3 /usr/libexec/locationd
+      7.6 /usr/libexec/airportd
+22:00:46 ambient sample : 26.40%
+22:00:46   top consumers:
+     61.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     12.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      9.0 /System/Library/CoreServices/TimeMachine/backupd
+      5.6 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+      4.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:00:57 ambient sample : 17.58%
+22:00:57   top consumers:
+     65.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.0 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.8 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      1.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:01:07 ambient sample : 20.03%
+22:01:07   top consumers:
+    181.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      7.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.1 /usr/libexec/locationd
+      3.2 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+      2.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:01:18 ambient sample : 18.77%
+22:01:18   top consumers:
+     87.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     15.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+     14.7 /System/Library/CoreServices/TimeMachine/backupd
+      6.6 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+      5.6 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:01:29 ambient sample : 17.30%
+22:01:29   top consumers:
+     82.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      5.8 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      5.6 /System/Library/CoreServices/TimeMachine/backupd
+      3.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      2.9 /usr/libexec/locationd
+22:01:39 ambient sample : 17.69%
+22:01:39   top consumers:
+    155.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     42.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.0 /usr/libexec/aned
+      1.6 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+      1.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:01:50 ambient sample : 29.90%
+22:01:50   top consumers:
+     88.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     83.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores
+     16.8 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+     15.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      9.4 /usr/libexec/syspolicyd
+22:02:00 ambient sample : 31.08%
+22:02:00   top consumers:
+     82.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores
+     47.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     37.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     25.4 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+     19.2 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+22:02:11 ambient sample : 32.31%
+22:02:11   top consumers:
+    166.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     10.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores
+      8.5 /System/Library/Frameworks/Security.framework/Versions/A/XPCServices/authd.xpc/Contents/MacOS/authd
+      6.8 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.0 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+22:02:22 ambient sample : 17.70%
+22:02:22   top consumers:
+     48.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      5.0 /usr/libexec/locationd
+      4.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      4.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.7 /System/Library/CoreServices/TimeMachine/backupd
+22:02:32 ambient sample : 17.79%
+22:02:32   top consumers:
+     79.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      2.8 /usr/libexec/locationd
+      2.6 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      2.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:02:43 ambient sample : 18.57%
+22:02:43   top consumers:
+    143.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      5.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      3.6 /usr/libexec/locationd
+      2.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:02:53 ambient sample : 18.81%
+22:02:53   top consumers:
+     73.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.3 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      4.1 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.7 /usr/libexec/syspolicyd
+      3.6 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:03:04 ambient sample : 18.27%
+22:03:04   top consumers:
+     90.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      9.7 /usr/libexec/locationd
+      7.0 /System/Library/CoreServices/TimeMachine/backupd
+      6.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.4 /usr/libexec/airportd
+22:03:14 ambient sample : 16.77%
+22:03:14   top consumers:
+     43.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     24.7 /System/Library/CoreServices/TimeMachine/backupd
+     11.8 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+      3.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.0 /usr/libexec/diskimagesiod
+22:03:25 ambient sample : 24.16%
+22:03:25   top consumers:
+     71.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      5.0 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.3 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+      3.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      3.0 /System/Library/CoreServices/TimeMachine/backupd
+22:03:36 ambient sample : 17.15%
+22:03:36   top consumers:
+     84.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.5 /usr/libexec/locationd
+      3.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:03:46 ambient sample : 22.12%
+22:03:46   top consumers:
+    160.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      3.9 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      3.6 /usr/libexec/replayd
+      3.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.9 /usr/libexec/locationd
+22:03:57 ambient sample : 19.81%
+22:03:57   top consumers:
+     73.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      3.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.8 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.8 /usr/libexec/locationd
+      2.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:04:07 ambient sample : 19.11%
+22:04:07   top consumers:
+     64.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     14.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     13.5 /usr/libexec/syspolicyd
+     11.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     10.3 /System/Library/Frameworks/Security.framework/Versions/A/XPCServices/authd.xpc/Contents/MacOS/authd
+22:04:18 ambient sample : 15.68%
+22:04:18   top consumers:
+     46.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     32.2 top
+     10.2 /usr/libexec/locationd
+      6.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      5.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:04:28 ambient sample : 21.29%
+22:04:28   top consumers:
+     61.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      7.6 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.4 /usr/libexec/syspolicyd
+      3.4 /System/Library/CoreServices/TimeMachine/backupd
+      2.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:04:39 ambient sample : 17.49%
+22:04:39   top consumers:
+     70.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     46.2 top
+     12.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+     12.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      8.9 /usr/libexec/syspolicyd
+22:04:49 ambient sample : 17.80%
+22:04:49   top consumers:
+    125.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.9 /System/Library/CoreServices/TimeMachine/backupd
+      4.1 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.7 /usr/libexec/diskimagesiod
+22:05:00 ambient sample : 34.81%
+22:05:00   top consumers:
+    109.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     75.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     23.9 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+     14.0 /System/Library/CoreServices/TimeMachine/backupd
+     13.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:05:11 ambient sample : 30.76%
+22:05:11   top consumers:
+    117.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     45.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      9.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      7.6 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      5.9 /usr/libexec/syspolicyd
+22:05:21 ambient sample : 34.04%
+22:05:21   top consumers:
+    162.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     98.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      3.9 /usr/libexec/syspolicyd
+      3.6 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      2.4 /usr/libexec/trustd
+22:05:32 ambient sample : 29.02%
+22:05:32   top consumers:
+     65.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     12.4 /usr/libexec/locationd
+     10.6 /usr/libexec/sandboxd
+     10.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.3 /usr/libexec/airportd
+22:05:42 ambient sample : 16.72%
+22:05:42   top consumers:
+     72.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      5.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.9 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      1.4 /usr/libexec/diskimagesiod
+22:05:53 ambient sample : 21.46%
+22:05:53   top consumers:
+    125.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     12.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      1.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      1.4 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+22:06:03 ambient sample : 27.83%
+22:06:03   top consumers:
+    150.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     80.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     15.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      9.3 /usr/libexec/syspolicyd
+      9.1 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:06:14 ambient sample : 32.11%
+22:06:14   top consumers:
+     98.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     57.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     48.8 /usr/libexec/PerfPowerServices
+     41.7 /usr/libexec/runningboardd
+     11.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+22:06:25 ambient sample : 28.01%
+22:06:25   top consumers:
+     58.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      7.0 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.7 /usr/libexec/locationd
+      3.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      2.2 /usr/libexec/airportd
+22:06:35 ambient sample : 17.20%
+22:06:35   top consumers:
+     68.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      5.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      5.0 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.4 /usr/libexec/syspolicyd
+      3.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:06:46 ambient sample : 22.85%
+22:06:46   top consumers:
+    129.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.5 /usr/libexec/locationd
+      2.2 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+22:06:56 ambient sample : 15.76%
+22:06:56   top consumers:
+     70.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      3.3 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.4 /usr/libexec/locationd
+      2.4 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      1.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+22:07:07 ambient sample : 17.34%
+22:07:07   top consumers:
+     71.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      3.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      2.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.3 /usr/libexec/locationd
+22:07:17 ambient sample : 15.29%
+22:07:17   top consumers:
+     73.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      2.3 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.3 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      1.2 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+      1.1 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+22:07:28 ambient sample : 22.37%
+22:07:28   top consumers:
+    171.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      7.8 /usr/libexec/locationd
+      6.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      5.3 /usr/libexec/airportd
+22:07:38 ambient sample : 18.19%
+22:07:38   top consumers:
+     61.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     19.0 /sbin/launchd
+      7.1 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.9 /usr/libexec/replayd
+      2.6 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:07:49 ambient sample : 16.80%
+22:07:49   top consumers:
+     81.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      9.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      5.5 /usr/libexec/syspolicyd
+      4.8 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      3.1 /usr/libexec/trustd
+22:07:59 ambient sample : 16.68%
+22:07:59   top consumers:
+     95.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     24.0 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+     18.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     15.3 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.5 /usr/libexec/opendirectoryd
+22:08:10 ambient sample : 22.41%
+22:08:10   top consumers:
+     81.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.9 /usr/libexec/locationd
+      2.1 /usr/libexec/airportd
+      1.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:08:21 ambient sample : 15.57%
+22:08:21   top consumers:
+     93.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.6 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      5.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.1 /usr/libexec/locationd
+      2.8 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+22:08:31 ambient sample : 16.78%
+22:08:31   top consumers:
+     71.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      5.5 /usr/libexec/runningboardd
+      4.6 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+      2.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:08:42 ambient sample : 18.90%
+22:08:42   top consumers:
+    173.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.8 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.4 /usr/libexec/locationd
+      3.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.7 /usr/libexec/airportd
+22:08:52 ambient sample : 22.26%
+22:08:52   top consumers:
+     60.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      7.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      1.4 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+22:09:03 ambient sample : 17.44%
+22:09:03   top consumers:
+     60.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      9.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      1.2 /usr/libexec/locationd
+      1.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      1.0 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+22:09:14 ambient sample : 16.60%
+22:09:14   top consumers:
+     66.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      3.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.1 /usr/libexec/locationd
+      1.9 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      1.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:09:24 ambient sample : 23.67%
+22:09:24   top consumers:
+     76.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.5 /usr/libexec/locationd
+      3.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:09:35 ambient sample : 17.77%
+22:09:35   top consumers:
+     64.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     17.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     10.4 /usr/libexec/syspolicyd
+     10.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      7.4 /sbin/launchd
+22:09:45 ambient sample : 16.04%
+22:09:45   top consumers:
+     66.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      2.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.6 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+      1.0 /usr/libexec/diskimagesiod
+      0.8 /Users/wolfman/Library/Application Support/Claude/Claude Extensions/ant.dir.gh.flexibits.fantastical-mcp/server/FantasticalMCP.app/Contents/MacOS/FantasticalMCP
+22:09:56 ambient sample : 26.62%
+22:09:56   top consumers:
+     94.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      7.3 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      5.0 /usr/libexec/locationd
+      3.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      2.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:10:06 ambient sample : 17.67%
+22:10:06   top consumers:
+     80.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.0 /usr/libexec/syspolicyd
+      3.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      2.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:10:17 ambient sample : 20.56%
+22:10:17   top consumers:
+     64.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.9 /usr/libexec/syspolicyd
+      4.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:10:27 ambient sample : 29.58%
+22:10:27   top consumers:
+     99.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     82.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      3.3 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      1.1 /usr/libexec/diskimagesiod
+22:10:38 ambient sample : 34.70%
+22:10:38   top consumers:
+    172.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+    134.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.0 /usr/libexec/locationd
+      4.0 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      3.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:10:49 ambient sample : 34.76%
+22:10:49   top consumers:
+    135.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     92.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     72.3 top
+      5.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.2 /usr/libexec/locationd
+22:10:59 ambient sample : 27.07%
+22:10:59   top consumers:
+     79.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.4 /usr/libexec/syspolicyd
+      4.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      2.7 /usr/libexec/trustd
+22:11:10 ambient sample : 17.55%
+22:11:10   top consumers:
+     81.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     13.1 top
+      4.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      2.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.6 /usr/libexec/locationd
+22:11:20 ambient sample : 15.59%
+22:11:20   top consumers:
+     77.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      9.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      6.0 /usr/libexec/syspolicyd
+      5.6 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      3.6 /usr/libexec/trustd
+22:11:31 ambient sample : 31.49%
+22:11:31   top consumers:
+    129.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     95.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     18.4 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+     16.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.8 /System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter
+22:11:41 ambient sample : 31.06%
+22:11:41   top consumers:
+    154.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     53.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.0 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.3 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+22:11:52 ambient sample : 25.63%
+22:11:52   top consumers:
+     97.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     16.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      9.8 /usr/libexec/locationd
+      5.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.9 /usr/libexec/airportd
+22:12:02 ambient sample : 18.70%
+22:12:02   top consumers:
+    136.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     14.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      3.7 /Applications/Backblaze.app/Contents/MacOS/bzserv
+      2.1 /usr/libexec/diskimagesiod
+22:12:13 ambient sample : 19.38%
+22:12:13   top consumers:
+     65.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      9.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      6.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.0 /usr/libexec/syspolicyd
+      5.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:12:24 ambient sample : 16.51%
+22:12:24   top consumers:
+    136.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     14.6 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.1 /usr/libexec/locationd
+      1.9 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.7 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+22:12:34 ambient sample : 27.85%
+22:12:34   top consumers:
+    108.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     11.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.6 /System/Library/PrivateFrameworks/ExchangeSync.framework/Versions/Current/exchangesyncd
+      5.4 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      3.6 /usr/libexec/airportd
+22:12:45 ambient sample : 17.16%
+22:12:45   top consumers:
+     66.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     47.5 /usr/libexec/duetexpertd
+     36.5 /System/Library/PrivateFrameworks/PhotoLibraryServices.framework/Versions/A/Support/photolibraryd
+     12.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      6.7 /usr/libexec/routined
+22:12:55 ambient sample : 24.63%
+22:12:55   top consumers:
+     73.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.6 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.6 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      1.1 /usr/libexec/diskimagesiod
+22:13:06 ambient sample : 18.72%
+22:13:06   top consumers:
+     90.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     11.7 /usr/libexec/locationd
+     10.3 /usr/libexec/airportd
+     10.2 /usr/libexec/sandboxd
+      5.9 /usr/sbin/mDNSResponder
+22:13:16 ambient sample : 16.86%
+22:13:16   top consumers:
+     64.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      7.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      7.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      5.1 /usr/libexec/syspolicyd
+      4.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:13:27 ambient sample : 21.76%
+22:13:27   top consumers:
+    150.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     34.8 /usr/libexec/sysmond
+     11.7 /sbin/launchd
+      6.3 /usr/sbin/systemstats
+      4.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+22:13:37 ambient sample : 19.60%
+22:13:37   top consumers:
+     91.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     12.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      5.3 /usr/libexec/syspolicyd
+      3.9 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      2.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:13:48 ambient sample : 16.01%
+22:13:48   top consumers:
+     97.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     13.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.7 /usr/libexec/locationd
+      3.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:13:59 ambient sample : 21.37%
+22:13:59   top consumers:
+     70.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      5.2 /usr/libexec/locationd
+      4.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.3 /usr/libexec/airportd
+22:14:09 ambient sample : 29.08%
+22:14:09   top consumers:
+    186.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     17.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.8 /usr/libexec/syspolicyd
+      3.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:14:20 ambient sample : 18.60%
+22:14:20   top consumers:
+     85.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     14.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      2.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.7 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+22:14:30 ambient sample : 17.83%
+22:14:30   top consumers:
+     82.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     37.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     23.6 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+     14.5 /System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter
+      4.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+22:14:41 ambient sample : 17.34%
+22:14:41   top consumers:
+     77.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.7 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+22:14:51 ambient sample : 16.10%
+22:14:51   top consumers:
+     66.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     10.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.6 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.7 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      1.5 /usr/libexec/diskimagesiod
+22:15:02 ambient sample : 24.83%
+22:15:02   top consumers:
+    137.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     15.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      8.3 /usr/libexec/sandboxd
+      8.2 /usr/libexec/syspolicyd
+      7.7 /usr/libexec/locationd
+22:15:13 ambient sample : 22.24%
+22:15:13   top consumers:
+     82.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      2.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.8 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.4 /usr/libexec/replayd
+      1.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:15:23 ambient sample : 17.20%
+22:15:23   top consumers:
+     77.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      3.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.4 /usr/libexec/diskimagesiod
+      1.3 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+22:15:34 ambient sample : 18.08%
+22:15:34   top consumers:
+     83.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     18.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     12.0 /sbin/launchd
+      9.3 /usr/libexec/syspolicyd
+      9.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:15:44 ambient sample : 17.57%
+22:15:44   top consumers:
+     89.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.0 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.1 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      3.0 /usr/libexec/locationd
+      2.8 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:15:55 ambient sample : 27.71%
+22:15:55   top consumers:
+    114.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     78.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.8 /usr/libexec/PerfPowerServices
+      3.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.7 /usr/libexec/locationd
+22:16:05 ambient sample : 39.80%
+22:16:05   top consumers:
+    173.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     99.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     19.3 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      7.3 /usr/libexec/opendirectoryd
+      3.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:16:16 ambient sample : 34.35%
+22:16:16   top consumers:
+     99.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     96.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     19.8 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.6 /usr/libexec/locationd
+      5.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:16:26 ambient sample : 31.10%
+22:16:26   top consumers:
+     99.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     15.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+     12.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      8.9 /usr/libexec/syspolicyd
+      8.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:16:37 ambient sample : 17.19%
+22:16:37   top consumers:
+     89.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     12.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+     10.5 /sbin/launchd
+      2.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.8 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+22:16:48 ambient sample : 30.30%
+22:16:48   top consumers:
+    100.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     76.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.2 /usr/libexec/locationd
+      3.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+22:16:58 ambient sample : 34.26%
+22:16:58   top consumers:
+    194.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     93.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     19.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.7 /usr/libexec/locationd
+      3.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:17:09 ambient sample : 20.75%
+22:17:09   top consumers:
+     67.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.8 /usr/libexec/locationd
+      2.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      2.6 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:17:19 ambient sample : 19.57%
+22:17:19   top consumers:
+    178.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     47.5 top
+     12.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      7.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.5 /usr/libexec/syspolicyd
+22:17:30 ambient sample : 17.51%
+22:17:30   top consumers:
+    100.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     24.0 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+     21.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     15.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+     10.2 /usr/libexec/locationd
+22:17:40 ambient sample : 19.70%
+22:17:40   top consumers:
+    129.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      7.1 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.1 top
+      3.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      3.3 /usr/libexec/PerfPowerServices
+22:17:51 ambient sample : 18.05%
+22:17:51   top consumers:
+     74.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      2.1 /usr/libexec/syspolicyd
+      2.0 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:18:01 ambient sample : 18.42%
+22:18:01   top consumers:
+     60.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     10.5 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+      8.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      5.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      2.7 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:18:12 ambient sample : 20.75%
+22:18:12   top consumers:
+     71.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      5.1 /usr/libexec/locationd
+      4.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.6 /usr/libexec/airportd
+22:18:23 ambient sample : 16.58%
+22:18:23   top consumers:
+     93.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     10.8 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      5.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.3 /usr/libexec/locationd
+      3.0 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:18:33 ambient sample : 18.63%
+22:18:33   top consumers:
+    111.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      9.6 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      1.3 /usr/libexec/syspolicyd
+22:18:44 ambient sample : 26.06%
+22:18:44   top consumers:
+     91.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     13.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      8.3 /usr/libexec/syspolicyd
+      7.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      5.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+22:18:54 ambient sample : 16.17%
+22:18:54   top consumers:
+     84.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      2.8 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.8 /usr/libexec/locationd
+      2.0 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      1.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:19:05 ambient sample : 20.19%
+22:19:05   top consumers:
+     91.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     14.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+     12.0 /sbin/launchd
+      3.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.4 /usr/libexec/replayd
+22:19:15 ambient sample : 16.52%
+22:19:15   top consumers:
+     80.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.9 /usr/libexec/syspolicyd
+      4.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:19:26 ambient sample : 18.33%
+22:19:26   top consumers:
+     96.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     17.6 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      8.1 /usr/libexec/locationd
+      7.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.0 /usr/libexec/airportd
+22:19:36 ambient sample : 22.12%
+22:19:36   top consumers:
+    156.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      3.1 /usr/libexec/syspolicyd
+      2.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:19:47 ambient sample : 25.17%
+22:19:47   top consumers:
+    128.8 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+     32.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+     16.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     12.1 /System/Library/PrivateFrameworks/TelephonyUtilities.framework/callservicesd
+     11.1 /System/Library/PrivateFrameworks/People.framework/peopled
+22:19:58 ambient sample : 25.68%
+22:19:58   top consumers:
+     79.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     66.9 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+     38.8 /System/Library/PrivateFrameworks/CoreSuggestions.framework/Versions/A/Support/suggestd
+     10.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      5.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:20:08 ambient sample : 29.80%
+22:20:08   top consumers:
+     60.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     11.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.1 /usr/libexec/syspolicyd
+      3.0 /usr/libexec/locationd
+      2.9 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:20:19 ambient sample : 16.41%
+22:20:19   top consumers:
+    137.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     26.6 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      7.8 /usr/libexec/locationd
+      4.6 /usr/libexec/airportd
+      4.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:20:29 ambient sample : 19.74%
+22:20:29   top consumers:
+    107.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     15.8 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.3 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.6 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+      1.0 /usr/libexec/diskimagesiod
+22:20:40 ambient sample : 17.74%
+22:20:40   top consumers:
+     94.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     19.8 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+     11.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      7.4 /usr/libexec/locationd
+      4.1 /usr/libexec/airportd
+22:20:50 ambient sample : 22.69%
+22:20:50   top consumers:
+     60.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      9.6 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      4.5 /usr/libexec/syspolicyd
+      4.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:21:01 ambient sample : 17.45%
+22:21:01   top consumers:
+     92.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     14.6 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+     10.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      9.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      5.7 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+22:21:12 ambient sample : 17.40%
+22:21:12   top consumers:
+     65.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     10.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      7.1 /usr/libexec/searchpartyd
+      5.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.4 /usr/libexec/dasd
+22:21:22 ambient sample : 32.33%
+22:21:22   top consumers:
+    101.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     97.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     12.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.9 /usr/libexec/locationd
+22:21:33 ambient sample : 32.65%
+22:21:33   top consumers:
+    148.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     57.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      5.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.6 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      3.4 /usr/libexec/locationd
+22:21:43 ambient sample : 30.20%
+22:21:43   top consumers:
+    115.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     53.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.1 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:21:54 ambient sample : 32.67%
+22:21:54   top consumers:
+     62.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     51.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     10.3 /usr/libexec/locationd
+      8.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      7.0 /usr/libexec/airportd
+22:22:04 ambient sample : 22.75%
+22:22:04   top consumers:
+    132.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      9.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      6.6 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      5.9 /usr/libexec/syspolicyd
+      5.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:22:15 ambient sample : 17.27%
+22:22:15   top consumers:
+     60.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.2 /usr/libexec/syspolicyd
+      4.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:22:25 ambient sample : 27.05%
+22:22:25   top consumers:
+     99.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     77.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     13.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.9 /usr/libexec/runningboardd
+      1.6 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:22:36 ambient sample : 31.90%
+22:22:36   top consumers:
+    117.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     66.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      5.3 /usr/libexec/locationd
+      5.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.8 /usr/libexec/airportd
+22:22:47 ambient sample : 30.03%
+22:22:47   top consumers:
+     94.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      9.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.7 /usr/libexec/locationd
+      3.0 /Library/Backblaze.bzpkg/bzfilelist
+      2.4 /Applications/iPulse.app/Contents/MacOS/iPulse
+22:22:57 ambient sample : 16.82%
+22:22:57   top consumers:
+     64.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.3 /usr/libexec/syspolicyd
+      3.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:23:08 ambient sample : 17.17%
+22:23:08   top consumers:
+     62.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.6 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      3.8 /usr/libexec/syspolicyd
+      3.0 /usr/libexec/trustd
+22:23:18 ambient sample : 13.43%
+22:23:18   top consumers:
+     62.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     10.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.6 /usr/libexec/locationd
+      1.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      1.6 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+22:23:29 ambient sample : 23.84%
+22:23:29   top consumers:
+    143.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     70.5 top
+     15.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     10.0 /usr/libexec/syspolicyd
+      9.5 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:23:39 ambient sample : 19.46%
+22:23:39   top consumers:
+     78.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      3.7 /System/Library/PrivateFrameworks/IDS.framework/identityservicesd.app/Contents/MacOS/identityservicesd
+      2.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      2.3 /usr/libexec/syspolicyd
+      2.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:23:50 ambient sample : 15.00%
+22:23:50   top consumers:
+    106.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     18.8 top
+     11.0 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      8.0 /usr/libexec/locationd
+      3.9 /usr/libexec/airportd
+22:24:01 ambient sample : 15.56%
+22:24:01   top consumers:
+     57.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     40.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     32.0 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+     16.4 /System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter
+     15.6 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+22:24:11 ambient sample : 15.43%
+22:24:11   top consumers:
+     33.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.3 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.7 /System/Library/CoreServices/Dock.app/Contents/MacOS/Dock
+      2.0 top
+22:24:22 ambient sample : 14.62%
+22:24:22   top consumers:
+     63.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      3.0 /usr/libexec/locationd
+      3.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      1.9 /Applications/iPulse.app/Contents/MacOS/iPulse
+      1.6 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+22:24:32 ambient sample : 19.18%
+22:24:32   top consumers:
+     65.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     10.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      8.2 /usr/libexec/syspolicyd
+      7.3 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      5.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+22:24:43 ambient sample : 14.73%
+22:24:43   top consumers:
+     37.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      9.1 /System/Library/PrivateFrameworks/CloudKitDaemon.framework/Support/cloudd
+      4.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.4 /usr/libexec/trustd
+      2.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:24:53 ambient sample : 17.65%
+22:24:53   top consumers:
+     68.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.0 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      3.7 /usr/libexec/syspolicyd
+      3.6 /Library/Backblaze.bzpkg/bzfilelist
+      3.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:25:04 ambient sample : 19.23%
+22:25:04   top consumers:
+    178.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     13.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.8 /usr/libexec/locationd
+      4.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.7 /usr/libexec/airportd
+22:25:15 ambient sample : 21.75%
+22:25:15   top consumers:
+     32.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.3 /usr/libexec/locationd
+      5.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.1 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      3.7 /usr/libexec/syspolicyd
+22:25:25 ambient sample : 16.08%
+22:25:25   top consumers:
+     86.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      5.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.9 /usr/libexec/syspolicyd
+      3.6 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:25:36 ambient sample : 16.36%
+22:25:36   top consumers:
+     70.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      3.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.9 /Library/Backblaze.bzpkg/bzfilelist
+      3.7 /usr/libexec/syspolicyd
+      2.5 /usr/libexec/locationd
+22:25:46 ambient sample : 16.58%
+22:25:46   top consumers:
+     42.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     27.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     10.5 /usr/libexec/runningboardd
+      9.2 /usr/libexec/locationd
+      9.1 /System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter
+22:25:57 ambient sample : 16.13%
+22:25:57   top consumers:
+     44.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      5.1 /Library/Backblaze.bzpkg/bzfilelist
+      2.7 /usr/libexec/locationd
+      2.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.4 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+22:26:07 ambient sample : 27.76%
+22:26:07   top consumers:
+    100.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     12.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     11.9 /usr/libexec/syspolicyd
+     10.1 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      6.8 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+22:26:18 ambient sample : 20.40%
+22:26:18   top consumers:
+     75.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      7.9 /usr/libexec/locationd
+      6.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.3 /usr/libexec/airportd
+      2.6 /usr/libexec/syspolicyd
+22:26:29 ambient sample : 14.15%
+22:26:29   top consumers:
+     67.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      5.2 /usr/libexec/locationd
+      3.5 /Library/Backblaze.bzpkg/bzfilelist
+      1.9 /usr/libexec/airportd
+      1.8 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+22:26:39 ambient sample : 16.54%
+22:26:39   top consumers:
+     75.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.1 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      1.7 /usr/libexec/replayd
+      1.7 /Library/Backblaze.bzpkg/bzfilelist
+22:26:50 ambient sample : 23.17%
+22:26:50   top consumers:
+    108.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     40.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.0 /Library/Backblaze.bzpkg/bztransmit
+      7.8 /usr/libexec/locationd
+      5.3 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+22:27:00 ambient sample : 31.53%
+22:27:00   top consumers:
+    148.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     67.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     33.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     21.0 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+     16.0 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+22:27:11 ambient sample : 30.05%
+22:27:11   top consumers:
+    115.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     32.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      3.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.0 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      1.9 /Library/Backblaze.bzpkg/bzfilelist
+22:27:21 ambient sample : 34.71%
+22:27:21   top consumers:
+    133.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+    113.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      4.3 /usr/libexec/locationd
+      2.1 /Library/Backblaze.bzpkg/bzfilelist
+      1.5 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+22:27:32 ambient sample : 20.15%
+22:27:32   top consumers:
+     33.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      5.8 /usr/libexec/locationd
+      5.0 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      3.8 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:27:43 ambient sample : 26.79%
+22:27:43   top consumers:
+     97.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     79.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     13.3 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      5.0 /usr/libexec/locationd
+      3.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:27:53 ambient sample : 30.14%
+22:27:53   top consumers:
+    143.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     66.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      7.9 /usr/libexec/syspolicyd
+      6.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:28:04 ambient sample : 21.77%
+22:28:04   top consumers:
+     87.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     13.3 /usr/libexec/locationd
+     10.5 /usr/libexec/sandboxd
+      8.9 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.0 /usr/libexec/airportd
+22:28:14 ambient sample : 14.67%
+22:28:14   top consumers:
+     55.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.9 /usr/libexec/syspolicyd
+      3.8 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      3.5 /Library/Backblaze.bzpkg/bzfilelist
+22:28:25 ambient sample : 15.36%
+22:28:25   top consumers:
+     76.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.6 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      3.4 /Library/Backblaze.bzpkg/bzfilelist
+      1.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      1.4 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+22:28:35 ambient sample : 19.56%
+22:28:35   top consumers:
+    158.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     13.6 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.8 /usr/libexec/locationd
+      1.2 /usr/libexec/airportd
+      0.9 /usr/libexec/logd
+22:28:46 ambient sample : 14.40%
+22:28:46   top consumers:
+     69.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      7.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      5.2 /Library/Backblaze.bzpkg/bzfilelist
+      4.9 /usr/libexec/syspolicyd
+      4.8 /usr/libexec/locationd
+22:28:57 ambient sample : 15.24%
+22:28:57   top consumers:
+     37.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.5 /Library/Backblaze.bzpkg/bzfilelist
+      4.2 /usr/libexec/locationd
+      3.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.0 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+22:29:07 ambient sample : 21.12%
+22:29:07   top consumers:
+     28.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.3 /Library/Backblaze.bzpkg/bzfilelist
+      3.0 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+      1.8 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+22:29:18 ambient sample : 14.85%
+22:29:18   top consumers:
+     64.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     14.2 /usr/libexec/locationd
+      7.8 /usr/libexec/airportd
+      4.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.3 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+22:29:28 ambient sample : 17.52%
+22:29:28   top consumers:
+     55.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      7.2 /Library/Backblaze.bzpkg/bzfilelist
+      5.3 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.6 /usr/libexec/syspolicyd
+      3.4 /usr/libexec/sandboxd
+22:29:39 ambient sample : 19.20%
+22:29:39   top consumers:
+     67.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.8 /usr/libexec/syspolicyd
+      4.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      4.0 /Library/Backblaze.bzpkg/bzfilelist
+22:29:50 ambient sample : 18.06%
+22:29:50   top consumers:
+     68.5 /usr/libexec/sandboxd
+     58.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     55.8 /Library/Backblaze.bzpkg/bzfilelist
+      7.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      5.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:30:00 ambient sample : 18.81%
+22:30:00   top consumers:
+    126.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     81.9 top
+     40.8 /usr/libexec/sandboxd
+     32.5 /Library/Backblaze.bzpkg/bzfilelist
+     25.1 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+22:30:11 ambient sample : 23.25%
+22:30:11   top consumers:
+     61.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     56.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      6.2 /System/Library/PrivateFrameworks/DoNotDisturbServer.framework/Support/donotdisturbd
+      5.7 /Library/Backblaze.bzpkg/bzfilelist
+      4.7 /System/Library/PrivateFrameworks/IDS.framework/identityservicesd.app/Contents/MacOS/identityservicesd
+22:30:21 ambient sample : 15.90%
+22:30:21   top consumers:
+     67.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      9.4 /Library/Backblaze.bzpkg/bzfilelist
+      7.3 top
+      1.5 /usr/libexec/airportd
+      1.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+22:30:32 ambient sample : 21.26%
+22:30:32   top consumers:
+     88.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     11.1 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      5.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      5.1 /usr/libexec/locationd
+      2.9 /usr/libexec/syspolicyd
+22:30:43 ambient sample : 15.49%
+22:30:43   top consumers:
+     47.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      5.3 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.3 /usr/libexec/locationd
+      3.5 /Library/Backblaze.bzpkg/bzfilelist
+      3.2 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+22:30:53 ambient sample : 16.84%
+22:30:53   top consumers:
+    122.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.5 /Library/Backblaze.bzpkg/bzfilelist
+      4.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      3.7 /usr/libexec/syspolicyd
+      3.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:31:04 ambient sample : 21.64%
+22:31:04   top consumers:
+     71.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      7.3 /Library/Backblaze.bzpkg/bzfilelist
+      5.1 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.1 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      2.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+22:31:04 ABORT: machine did not go quiet within 60 min
+
+[exited with code 3]

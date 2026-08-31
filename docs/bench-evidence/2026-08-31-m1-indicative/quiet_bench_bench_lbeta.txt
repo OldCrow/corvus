@@ -1,0 +1,3 @@
+corvus active SIMD target: NEON
+lbeta main band:  293.24 ns/el SIMD,  748.81 ns/el scalar-walk, 2.55x
+lbeta big band :  222.95 ns/el SIMD,  782.98 ns/el scalar-walk, 3.51x

@@ -1,0 +1,6 @@
+corvus active SIMD target: NEON
+         n   corvus ns/el     libm ns/el    speedup
+      1000          12.33          49.25      3.99x
+     10000           2.53          32.23     12.74x
+    100000           4.32          13.89      3.21x
+   1000000           2.20          12.97      5.90x

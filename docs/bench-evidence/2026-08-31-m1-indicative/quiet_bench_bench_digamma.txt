@@ -1,0 +1,16 @@
+corvus active SIMD target: NEON
+digamma, (0,1) up-step: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          25.77          57.98      2.25x
+digamma, [1,2) zone: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          25.77          59.04      2.29x
+digamma, [2,8) down-walk: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          41.29          80.67      1.95x
+digamma, [8,inf) asymptotic: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          19.68         128.20      6.51x
+digamma, negative axis (reflection): n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          67.01         173.83      2.59x

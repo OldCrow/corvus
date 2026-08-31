@@ -1,0 +1,230 @@
+06:32:17 quiet_bench.sh  build=build-m1  expect=NEON  targets=16
+06:32:17 gate          : ambient < 10% over two consecutive 10s windows
+06:32:17 machine       : Apple M1; macOS 26.6.2
+06:32:27 ambient sample : 24.50%
+06:32:27   top consumers:
+    100.0 /Library/Backblaze.bzpkg/bztransmit
+     86.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.0 /System/Library/Frameworks/Security.framework/Versions/A/XPCServices/authd.xpc/Contents/MacOS/authd
+      4.2 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+      2.7 /usr/libexec/diskarbitrationd
+06:32:38 ambient sample : 27.02%
+06:32:38   top consumers:
+     87.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      4.5 /usr/libexec/locationd
+      3.3 /Library/Backblaze.bzpkg/bzfilelist
+      3.0 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+06:32:48 ambient sample : 27.11%
+06:32:48   top consumers:
+    100.0 /Library/Backblaze.bzpkg/bztransmit
+     84.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     12.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      7.8 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      6.5 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+06:32:59 ambient sample : 23.70%
+06:32:59   top consumers:
+     79.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      6.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.0 /Library/Backblaze.bzpkg/bzfilelist
+      2.3 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+      1.3 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+06:33:10 ambient sample : 18.13%
+06:33:10   top consumers:
+     79.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     15.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+     13.5 /usr/libexec/locationd
+     10.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     10.1 /usr/libexec/sandboxd
+06:33:20 ambient sample : 22.60%
+06:33:20   top consumers:
+     51.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      8.6 85C27NK92C.com.flexibits.fantastical2.mac.helper
+      8.1 /usr/libexec/remindd
+      5.6 /Library/Backblaze.bzpkg/bzfilelist
+      3.8 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+06:33:31 ambient sample : 32.35%
+06:33:31   top consumers:
+     77.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     71.6 /usr/libexec/sandboxd
+     56.5 /Library/Backblaze.bzpkg/bzfilelist
+      7.9 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+      6.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+06:33:41 ambient sample : 16.74%
+06:33:41   top consumers:
+      4.4 /Library/Backblaze.bzpkg/bzfilelist
+      3.3 /usr/libexec/locationd
+      2.8 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.7 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+      2.1 /Applications/iPulse.app/Contents/MacOS/iPulse
+06:33:52 ambient sample : 16.21%
+06:33:52   top consumers:
+    100.0 /Library/Backblaze.bzpkg/bztransmit
+      3.1 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+      2.7 /usr/libexec/locationd
+      1.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.3 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+06:34:03 ambient sample : 10.13%
+06:34:03   top consumers:
+      8.1 /Library/Backblaze.bzpkg/bztransmit
+      5.5 /Library/Backblaze.bzpkg/bzfilelist
+      3.9 /System/Library/Frameworks/AddressBook.framework/Versions/A/Helpers/AddressBookSourceSync.app/Contents/MacOS/AddressBookSourceSync
+      2.8 /usr/libexec/diskarbitrationd
+      2.7 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+06:34:13 ambient sample : 22.21%
+06:34:13   top consumers:
+     71.4 /System/Library/Frameworks/AddressBook.framework/Versions/A/Helpers/AddressBookSourceSync.app/Contents/MacOS/AddressBookSourceSync
+      8.4 /usr/libexec/trustd
+      3.6 /Library/Backblaze.bzpkg/bzfilelist
+      2.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.3 /System/Library/PrivateFrameworks/AuthKit.framework/Versions/A/Support/akd
+06:34:24 ambient sample : 15.69%
+06:34:24   top consumers:
+     92.2 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+     32.4 /System/Library/Frameworks/AddressBook.framework/Versions/A/Helpers/AddressBookSourceSync.app/Contents/MacOS/AddressBookSourceSync
+     14.0 /System/Library/CoreServices/NotificationCenter.app/Contents/MacOS/NotificationCenter
+     10.1 /usr/libexec/locationd
+      9.3 /usr/libexec/siriknowledged
+06:34:34 ambient sample : 24.03%
+06:34:34   top consumers:
+     99.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     72.6 top
+      4.2 /usr/libexec/locationd
+      2.4 /Library/Backblaze.bzpkg/bzfilelist
+      2.2 /Applications/iPulse.app/Contents/MacOS/iPulse
+06:34:45 ambient sample : 21.21%
+06:34:45   top consumers:
+    127.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      4.3 /Library/Backblaze.bzpkg/bzfilelist
+      1.5 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      1.0 /usr/libexec/spotlightknowledged.updater
+      0.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+06:34:55 ambient sample : 22.48%
+06:34:55   top consumers:
+    161.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     97.3 /Library/Backblaze.bzpkg/bztransmit
+     10.3 top
+      4.0 /Library/Backblaze.bzpkg/bzfilelist
+      3.7 /usr/libexec/locationd
+06:35:06 ambient sample : 33.12%
+06:35:06   top consumers:
+     61.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     21.3 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+     20.8 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+     19.9 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+     19.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+06:35:16 ambient sample : 28.54%
+06:35:17   top consumers:
+    102.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+    100.0 /Library/Backblaze.bzpkg/bztransmit
+      2.5 /usr/libexec/locationd
+      1.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/FSEvents.framework/Versions/A/Support/fseventsd
+      1.6 /usr/libexec/runningboardd
+06:35:27 ambient sample : 39.34%
+06:35:27   top consumers:
+    122.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     26.5 /System/Library/PrivateFrameworks/CoreSuggestions.framework/Versions/A/Support/suggestd
+     16.9 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+      1.8 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      1.5 /Library/Backblaze.bzpkg/bzfilelist
+06:35:38 ambient sample : 10.09%
+06:35:38   top consumers:
+     18.2 /usr/libexec/sandboxd
+     15.9 /usr/libexec/locationd
+     13.0 /Library/Backblaze.bzpkg/bzfilelist
+      6.7 /usr/libexec/airportd
+      5.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+06:35:48 ambient sample : 14.51%
+06:35:48   top consumers:
+     17.0 /System/Library/CoreServices/TimeMachine/backupd
+      5.3 /usr/libexec/locationd
+      3.9 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      3.1 /Library/Backblaze.bzpkg/bzfilelist
+      2.2 /usr/libexec/diskimagesiod
+06:35:59 ambient sample : 12.90%
+06:35:59   top consumers:
+     93.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores
+      8.4 /Library/Backblaze.bzpkg/bzfilelist
+      5.1 /System/Library/Frameworks/Security.framework/Versions/A/XPCServices/authd.xpc/Contents/MacOS/authd
+      4.8 /usr/libexec/diskarbitrationd
+      2.3 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+06:36:09 ambient sample : 30.37%
+06:36:09   top consumers:
+     97.1 /System/Library/CoreServices/TimeMachine/backupd
+     91.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores
+     17.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     11.5 /usr/libexec/syspolicyd
+     11.2 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+06:36:20 ambient sample : 36.16%
+06:36:20   top consumers:
+    100.0 /Library/Backblaze.bzpkg/bztransmit
+     94.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores
+     27.0 /System/Library/CoreServices/TimeMachine/backupd
+      5.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.2 /usr/libexec/locationd
+06:36:30 ambient sample : 22.56%
+06:36:30   top consumers:
+     20.3 /usr/libexec/PerfPowerServices
+      6.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      5.1 /Applications/Bartender 6.app/Contents/MacOS/Bartender 6
+      4.8 /usr/libexec/locationd
+      4.7 /usr/libexec/airportd
+06:36:41 ambient sample : 20.20%
+06:36:41   top consumers:
+     98.1 /Library/Backblaze.bzpkg/bztransmit
+     11.3 /System/Library/CoreServices/TimeMachine/backupd
+     10.7 /usr/libexec/airportd
+      9.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      8.5 /usr/libexec/runningboardd
+06:36:52 ambient sample : 25.65%
+06:36:52   top consumers:
+     13.8 /usr/libexec/locationd
+      7.8 /Library/Backblaze.bzpkg/bzfilelist
+      7.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      6.2 /usr/libexec/airportd
+      4.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+06:37:02 ambient sample : 12.34%
+06:37:02   top consumers:
+      6.0 /Library/Backblaze.bzpkg/bzfilelist
+      4.6 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      4.6 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      2.7 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.247/claude.app/Contents/MacOS/claude
+      2.3 /usr/libexec/diskimagesiod
+06:37:13 ambient sample : 9.02%
+06:37:23 ambient sample : 9.50%
+06:37:23 gate passed at: 9.02 9.50%
+06:37:34 bench_erf: noise before 14.35%  top: 14.4%bzfilelist 6.3%com.apple.DriverKit-AppleBCMWLAN 5.2%locationd 
+06:37:35 bench_erf: rc=0 1s target=NEON
+06:37:46 bench_erfc: noise before 14.49%  top: 99.9%bztransmit 11.3%locationd 10.6%sandboxd 
+06:37:47 bench_erfc: rc=0 1s target=NEON
+06:37:57 bench_lgamma: noise before 20.50%  top: 17.0%backupd 9.8%SystemUIServer 7.9%com.apple.DriverKit-AppleBCMWLAN 
+06:38:01 bench_lgamma: rc=0 4s target=NEON
+06:38:12 bench_erfinv: noise before 25.20%  top: 62.8%bztransmit 19.7%launchd 17.8%backupd 
+06:38:16 bench_erfinv: rc=0 4s target=NEON
+06:38:26 bench_gamma: noise before 13.77%  top: 7.2%com.apple.DriverKit-AppleBCMWLAN 6.4%bzfilelist 5.9%backupd 
+06:38:49 bench_gamma: rc=0 23s target=NEON
+06:39:00 bench_beta: noise before 25.63%  top: 93.5%mediaanalysisd 21.2%Bartender 16.7%WindowServer 
+06:39:03 bench_beta: rc=0 3s target=NEON
+06:39:13 bench_digamma: noise before 41.77%  top: 92.8%mediaanalysisd 57.1%backupd 20.4%SystemUIServer 
+06:39:14 bench_digamma: rc=0 0s target=NEON
+06:39:24 bench_trigamma: noise before 31.60%  top: 98.2%bztransmit 98.2%mediaanalysisd 4.4%com.apple.DriverKit-AppleBCMWLAN 
+06:39:24 bench_trigamma: rc=0 0s target=NEON
+06:39:35 bench_gammainv: noise before 35.36%  top: 101.8%corespotlightd 94.3%mediaanalysisd 6.9%spotlightknowledged.updater 
+06:39:40 bench_gammainv: rc=0 5s target=NEON
+06:39:50 bench_betainv: noise before 43.09%  top: 202.1%corespotlightd 66.5%mediaanalysisd 44.4%backupd 
+06:40:06 bench_betainv: rc=0 16s target=NEON
+06:40:16 bench_bessel: noise before 38.63%  top: 90.9%mediaanalysisd 65.4%backupd 20.7%SystemUIServer 
+06:40:17 bench_bessel: rc=0 1s target=NEON
+06:40:27 bench_lbeta: noise before 35.42%  top: 99.5%bztransmit 97.1%mediaanalysisd 26.1%backupd 
+06:40:28 bench_lbeta: rc=0 1s target=NEON
+06:40:38 bench_trig: noise before 42.10%  top: 82.0%mediaanalysisd 70.0%contactsd 58.8%backupd 
+06:40:39 bench_trig: rc=0 1s target=NEON
+06:40:50 bench_exp: noise before 50.49%  top: 100.0%bztransmit 97.5%corespotlightd 95.9%mediaanalysisd 
+06:40:50 bench_exp: rc=0 0s target=NEON
+06:41:01 bench_log: noise before 41.63%  top: 80.0%corespotlightd 68.2%mediaanalysisd 48.4%backupd 
+06:41:01 bench_log: rc=0 0s target=NEON
+06:41:12 bench_lgamma_components: noise before 36.10%  top: 66.3%mediaanalysisd 35.2%backupd 16.1%SystemUIServer 
+06:41:16 bench_lgamma_components: rc=0 4s target=NEON
+06:41:16 done fail=0. Raw per-target output: build-m1/quiet_bench/quiet_bench_<target>.txt
+
+[exited with code 0]
