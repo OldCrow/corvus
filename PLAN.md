@@ -500,10 +500,13 @@ profiling trigger is #30 and the work is #31.)
   libm — Next Steps item 4 (#24, v0.9.0). The earlier "recurrence slower,
   0.2–0.6x" claim was retracted: Resolved log, 2026-08-15 quiet
   per-region pass.
-- [→ #27, v1.0.0] Signed-commits ruleset once M1 and Ryzen are confirmed
-  signing (and the author-email verification gap is settled). M1 half
-  CONFIRMED 2026-08-23: `git commit -S` on the Mac Mini produced a Good
-  signature (YubiKey/gpg-agent). Ryzen remains.
+- [RESOLVED 2026-08-31 — #27] Signed-commits ruleset ENABLED:
+  "require-signed-commits" (id 21966300), active, all branches
+  (~ALL), required_signatures, no bypass actors — protect-tags style.
+  Precondition proven on live data before flipping: recent commits
+  from all THREE machines (Ryzen f883b49, M1 ee89f1f/908e45c/ec2adb9,
+  Kaby 69bb46e/cfee5b7) all verified=true/valid on the same author
+  email via the GitHub API. The enabling push itself passed the rule.
 - [OPEN] AGENTS.md is ~7.5 KB vs the ~4 KB core budget set 2026-08-09
   (Decisions); trim or re-budget.
 - [ILLUSTRATIVE] Possible future consumers: C++ port of multi-agent_sim
@@ -880,9 +883,10 @@ protection, private vulnerability reporting. Ruleset "protect-main":
 blocks force-push/deletion, direct pushes allowed (solo workflow).
 Ruleset "protect-tags" [2026-08-06, id 20491885]: v* tags immutable
 (deletion + update blocked, no bypass actors; creation open). Actions
-GITHUB_TOKEN read-only, cannot approve PRs. Deferred: signed-commits
-rule (see Open Items). Required status checks deliberately absent
-(incompatible with direct-push workflow).
+GITHUB_TOKEN read-only, cannot approve PRs. Ruleset
+"require-signed-commits" [2026-08-31, id 21966300]: required_signatures
+on all branches, no bypass actors (#27). Required status checks
+deliberately absent (incompatible with direct-push workflow).
 
 ## Build-stack standardization (2026-07-23) [DERIVED]
 Cross-repo effort tracked in the fleet standards repo
