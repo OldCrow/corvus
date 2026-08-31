@@ -71,7 +71,10 @@ bench_lgamma_components is NOT in its default target list — append it
 as a positional arg. Evidence drop: copy every per-target output plus
 the runner log to docs/bench-evidence/<date>-<machine>-quiet/ and
 commit (the .gitignore quiet_bench_* patterns are negated there —
-2026-08-30-zen4-quiet is the template). M1 quieting recipe and the
+2026-08-30-zen4-quiet is the template). Commit the drop in-session,
+INDICATIVE runs included: the M1 2026-08-23 raw output lived only in
+that session's scratchpad and is gone — its runs survive as prose
+summaries here, which a frontier review cannot re-analyze. M1 quieting recipe and the
 ~5.5–7% ambient-floor constraint: Resolved log, 2026-08-23 M1 entry
 (if the 5% gate stays unreachable, run 10%-gated INDICATIVE and leave
 the publish/withhold call to S4). Consumer smoke recipe: the
