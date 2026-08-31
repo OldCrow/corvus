@@ -266,6 +266,23 @@ gate v1.0.0 [DERIVED 2026-08-23]:
   INDICATIVE-only but points the same way as §8 (recurrence 0.22x); the
   5% gate needs the box quiet — recipe and constraints in the Resolved
   log entry.
+  - [DERIVED 2026-08-29] **Three more gated attempts, all ABORT — the
+    5% gate did not pass once in ~20 h of 10 s sampling** (2026-08-28
+    19:40 → 2026-08-29 15:42, windows 4 h + 8 h + 8 h, machine locked,
+    Backblaze paused at the start, `quiet_bench.sh -b build-m1 -t NEON`;
+    full ambient/consumer history appended in
+    `build-m1/quiet_bench/quiet_bench.log`). ~6800 samples: min 4.30%,
+    only 7 ever < 5%, never two consecutive; overnight mean 25%, daytime
+    mean 29%. Dominant consumer in ~94% of failed-gate snapshots:
+    `mediaanalysisd` (+`VTDecoderXPCService`) — the Photos VIDEO backlog
+    is still not drained six days after this box's first boot, idles
+    briefly (it was absent at the 07:41 arm, ambient 5.6%), then
+    relaunches on demand; `bztransmit` resumed mid-run both nights, and
+    nightly XProtect/Time Machine joined after 23:00. The 2026-08-23
+    decision point is now forced: either accept a 10% macOS gate with
+    the deviation recorded in PERFORMANCE.md, or keep waiting for the
+    backlog to complete (unknown depth — it has survived every window
+    tried so far). [OPEN — user decision]
 - #24 also: the Zen 4 per-region lgamma rerun (Ryzen box, not M1).
 - libstats: DONE 2026-08-23 (same-day M1 session): v2.3.0 NEON native
   validation 55/55 and the mpmath sweep ran (recorded in their
