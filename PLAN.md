@@ -109,7 +109,11 @@ RETIRED — the Horner is not the zone's dominant cost on any machine.
 watch. Ladder: 4-tier capped sweep "all tiers passed" (clang-cl,
 build-cap-cc, post-S1 tree). Version pair bumped 0.8.0 → 0.9.0 at
 this close (tag↔version, the v0.8.0 finding — the ritual check
-itself lands with #26). Tag v0.9.0 after CI green on this commit.
+itself lands with #26). TAGGED: signed v0.9.0 at 83a95cd (CI green
+per-job), Good signature verified, release published
+(https://github.com/OldCrow/corvus/releases/tag/v0.9.0); milestone
+closed 5/0 (#29 rolled to v1.1.0 as a pure watch). The FREEZE
+CONTINUES. Next: v1.0.0 S1 — #34 final API review.
 #29 has no session — conditional sweep if the GCC fix lands.
 **v1.0.0 map (ratified same pass)**: S1 #34 API review (frontier;
 findings = unfreeze decisions, not in-session fixes); S2 #26
