@@ -1,10 +1,17 @@
-# corvus — Performance (provisional)
+# corvus — Performance
 
-**Status: FIRST PASS. These numbers will change.** One machine, one compiler,
-one libm, and two families whose figures are not yet reproducible. This is the
-working record, not a claim — see §6 before quoting anything from it.
+**Status: MEASURED, three microarchitectures (v0.9.0, 2026-08-31).**
+Zen 4 / UCRT and Kaby Lake / Apple x86 libm under the 5% ambient gate;
+Apple M1 / Apple arm64 libm under the §10 gate (ratified 2026-08-31),
+stable rows only. **Start at §11** — the cross-machine synthesis is the
+quotable part; §§1–10 are the dated measurement ledger behind it, kept
+because a number without its provenance cannot be audited later.
 
-`docs/ACCURACY.md` is the audited document. Nothing here has that standing.
+What promotion does NOT change: `docs/ACCURACY.md` is the audited
+document and nothing here has that standing; every ratio names the libm
+and machine it was measured against, and ratios against different libms
+are not comparable (§6); §5's two families still do not reproduce
+run-to-run and stay provisional inside an otherwise settled document.
 
 ---
 
@@ -171,9 +178,10 @@ them are unexplored.
 - **More runs.** §5 exists because two runs looked like agreement until a third
   disagreed.
 
-A published performance claim needs at least the first two settled. Until then
-this page is a record of what one machine did on one afternoon, and the README
-deliberately quotes no figures at all.
+A published performance claim needs at least the first two settled. **As of
+v0.9.0 they are** — three microarchitectures, three vendor libms (§11) —
+which is what promoted this document. The compiler axis and §5 remain open;
+the README quotes ranges with their libm named, never a single number.
 
 ---
 
@@ -311,12 +319,14 @@ stands unchanged.
 
 ---
 
-## 10. Apple Silicon ambient gate — PROPOSAL, pending v0.9.0 S4
+## 10. Apple Silicon ambient gate — RATIFIED
 
-**Status: PROPOSED 2026-08-31, not ratified.** The 5% gate stays the
-universal standard; this section proposes a documented deviation for
-heterogeneous-core Apple Silicon only. No number in this document was
-taken under it yet.
+**Status: RATIFIED 2026-08-31 (v0.9.0 S4, user).** The 5% gate stays the
+universal standard; this section is the documented deviation for
+heterogeneous-core Apple Silicon only. The M1 rows in §11 are published
+under it, subject to its own two-run agreement requirement — which is
+why the M1 elementary rows and the lgamma zone band are flagged rather
+than published there.
 
 **Proposal.** On Apple Silicon, gate at 10% ambient (same two-window
 protocol), with two additions: per-target noise annotation stays
@@ -353,3 +363,99 @@ lgamma zone band: 0.35–0.95× across runs). The two-run agreement
 requirement exists to catch exactly this class. A more principled
 gate — P-cluster idle via `powermetrics` — needs root and new
 tooling; noted as a possible refinement, not part of this proposal.
+
+---
+
+## 11. Fleet synthesis — v0.9.0 (2026-08-31)
+
+The quotable section. Sources: §9 (Zen 4, 5% gate,
+`docs/bench-evidence/2026-08-30-zen4-quiet/`), the Kaby v0.9.0 pass
+(5% gate, `docs/bench-evidence/2026-08-30-kaby-quiet/`), the M1 pass
+(§10 gate, `docs/bench-evidence/2026-08-31-m1-indicative/`). All rows
+n = 10⁶, tier-asserted (`AVX3_ZEN4` / `AVX2` / `NEON`). Ratios in one
+COLUMN share a libm; ratios across columns do not, and §2's rule
+against comparing them still applies row by row.
+
+### 11.1 Elementary family, three libms
+
+| function | Zen 4 vs UCRT | Kaby vs Apple x86 | M1 vs Apple arm64 ‡ |
+|---|---:|---:|---:|
+| `cos` | 5.50× (1.6 ns/el) | 4.87× (4.4) | 3.27× (4.0) |
+| `sin` | 5.58× (1.6) | 4.98× (4.4) | 3.21× (4.1) |
+| `exp` | 1.20× (2.1) | 0.65× (8.4) | 1.28× (4.7) |
+| `log` | 0.64× (4.9) | 0.27× (19.4) | 0.21× (13.5) |
+| `log1p` | 0.92× (4.9) | 0.40× (19.4) | 0.32× (13.8) |
+
+‡ Single gated run — the §10 two-run agreement requirement is not yet
+met for the elementary family (it did not exist at the 2026-08-23 M1
+runs), so this column is REPORTED, NOT PUBLISHED; it firms up at the
+next M1 pass. Its shape is consistent across sizes 10⁵–10⁶.
+
+Three positioning facts, stable across all three libms:
+
+- **`cos`/`sin` win everywhere** — 3.2–5.6× against every vendor libm
+  measured, full double range, 1 ULP. The strongest performance row
+  corvus has.
+- **`log` loses everywhere (0.2–0.64×), and that is the product
+  working as designed**: corvus `log` is correctly rounded on every
+  reference row; every vendor libm measured trades exactly that away
+  for speed. `log1p` sits below parity for the same reason. There is
+  no configuration in which corvus wins this without giving up the
+  bound.
+- **`exp` is libm-dependent in both directions** (1.2× vs UCRT and
+  Apple arm64, 0.65× vs Apple's x86 vectorized exp) — the cleanest
+  demonstration that the baseline, not the kernel, moves these ratios.
+
+### 11.2 lgamma across the fleet, and the Apple-libm question
+
+§8 left open whether the lgamma inversion was an Apple-libm fact or a
+Kaby-lane fact. **Answered: it is an Apple-libm fact.** M1 stable rows
+(two-run agreement met): recurrence 0.20×, Stirling 0.39×, mixed
+0.34×, reflection 0.39× — the same inversion as Kaby's 0.28×/0.77–
+0.84×/0.55×/0.44× on a different microarchitecture with eight-lane
+NEON-class arithmetic replaced by Apple's arm64 libm at 8.4–32 ns/el.
+(M1 zone: flagged unstable under §10, not published.) Meanwhile Zen 4
+vs UCRT stays above 1.0× in every band (§9.2). One function, one
+kernel, and the vendor baseline alone decides which side of 1.0 it
+lands on — this is why no README figure ever omits the libm name.
+
+### 11.3 #30 component attribution, three machines (ns/el, n = 10⁶)
+
+| component | Zen 4 | Kaby | M1 ‡ |
+|---|---:|---:|---:|
+| zone: full band | 4.7 | 14.9 | 17.7 |
+| zone: 32-coef Horner (with selects) | 1.3 | 5.6 | 5.7 |
+| zone: dd lead ladder | 2.2 | 6.7 | 6.2 |
+| recurrence: full band | 12.6 | 44.7 | 42.1 |
+| recurrence: masked walk-down | 1.4 | 3.8 | 5.0 |
+| recurrence: outlined dd log | 4.4 | 18.5 | 12.4 |
+| Stirling: full band | 6.8 | 24.6 | 19.9 |
+| Stirling: dd log | 3.0 | 11.6 | 6.7 |
+| Stirling: 1/x² remainder | 0.5 | 1.3 | 0.6 |
+| reflection: full band | 33.1 | 107.6 | 81.7 |
+| reflection: positive pipeline | 18.3 | 53.8 | 38.3 |
+| reflection: two extra dd logs | 10.0 | 40.4 | 27.3 |
+| reflection: LogSinc | 2.0 | 6.2 | 6.1 |
+
+‡ M1 column single-run (same caveat as §11.1); its ratios agree with
+the other machines' shape.
+
+The #30 exit questions, answered on every machine measured:
+
+- **(a) Does the zone Horner dominate the zone? No, anywhere.** The dd
+  lead-term ladder outweighs the Horner on all three machines; the
+  per-lane coefficient selects are a minor share of the Horner itself.
+  This retires the Estrin-zone leg of #31.
+- **(b) Does the dd log dominate the recurrence band? On the
+  gather-weak machine, nearly** — 41% on Kaby (18.5 of 44.7, one dd
+  log costing 18–20 ns/el against Zen 4's ~5), 35% on Zen 4, 29% on
+  M1. The rest is the zone floor; the walk itself is cheap everywhere.
+- **(c) Do the two extra logs dominate reflection?** They are the
+  largest addressable share — 30% / 38% / 33% — atop an irreducible
+  positive pipeline at ~55% / 50% / 47%. A single-log rewrite (#31)
+  saves ~15% on Zen 4 and ~18% on Kaby in this band.
+
+These answers scope #31: the table-driven (5/2, X0) band and the
+single reflection log proceed (both attack the dd-log share, largest
+exactly where corvus is weakest — Apple-libm machines); the Estrin
+zone leg is retired by (a).

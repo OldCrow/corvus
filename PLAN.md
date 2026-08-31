@@ -94,15 +94,22 @@ summaries here, which a frontier review cannot re-analyze. M1 quieting recipe an
 the publish/withhold call to S4). Consumer smoke recipe: the
 install-contract steps in ci.yml (system Highway via brew, install to
 a prefix, build + run consumer_example, pkg-config check).
-(4) **S4 — Ryzen, GATED on S2+S3 pushed** (un-gated 2026-08-31, both
-pushed): PERFORMANCE.md promoted past
-PROVISIONAL (exit: ≥ 2 quiet microarchitectures or explicitly
-withheld — user's call if marginal), elementary PERFORMANCE entry,
-README positioning, #30 write-up + the #31 go/no-go (frontier
-judgment), **ratify-or-reject the Apple Silicon 10% gate proposal
-(PERFORMANCE.md §10, proposed 2026-08-31)** — accepting it promotes
-the S2 indicative run's stable rows and resolves #24a's
-publish/withhold; close #24/#30/#33, ladder + CI, tag v0.9.0.
+(4) **S4 — Ryzen — DONE 2026-08-31.** §10 Apple Silicon 10% gate
+RATIFIED (user); PERFORMANCE.md PROMOTED past PROVISIONAL (criterion
+met by Zen 4 + Kaby at the 5% gate) with the §11 fleet synthesis as
+the quotable section — M1 elementary rows and lgamma zone band
+REPORTED NOT PUBLISHED (§10's own two-run agreement rule; they firm
+up at the next M1 pass). The Apple-libm question ANSWERED: the lgamma
+inversion is an Apple-libm fact (M1 stable rows corroborate Kaby on a
+second microarchitecture). README quotes ranges with the libm named.
+#31 GO re-scoped (frontier judgment, recorded on the issue):
+table-driven band + single reflection log proceed, Estrin zone leg
+RETIRED — the Horner is not the zone's dominant cost on any machine.
+#24/#30/#33 closed with records; #25 closed at S1; #29 rides on as a
+watch. Ladder: 4-tier capped sweep "all tiers passed" (clang-cl,
+build-cap-cc, post-S1 tree). Version pair bumped 0.8.0 → 0.9.0 at
+this close (tag↔version, the v0.8.0 finding — the ritual check
+itself lands with #26). Tag v0.9.0 after CI green on this commit.
 #29 has no session — conditional sweep if the GCC fix lands.
 **v1.0.0 map (ratified same pass)**: S1 #34 API review (frontier;
 findings = unfreeze decisions, not in-session fixes); S2 #26

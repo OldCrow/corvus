@@ -170,19 +170,26 @@ work is genuinely harder the margin narrows, and that cost is forced by the
 accuracy target rather than chosen — lgamma's Stirling switchover sits at
 X0 = 8 because accuracy puts it there, not because it was tuned.
 
-No headline speed figure is published here, deliberately. An earlier "wins from
-N lanes up" formulation did not survive measurement on a second
-microarchitecture, and the per-region picture currently rests on one
-microarchitecture against one libm. Figures will appear in this README when it
-holds on quiet-machine release builds across more than one microarchitecture,
-and against more than one vendor libm — the two turn out to matter about
-equally.
+As of v0.9.0 the measurements hold on quiet-machine release builds across
+three microarchitectures (Zen 4, Kaby Lake, Apple M1) and three vendor
+libms (UCRT, Apple x86, Apple arm64), so ranges can be quoted — always
+with the libm named, never as one number:
 
-The measurements taken so far are written up in
-[docs/PERFORMANCE.md](docs/PERFORMANCE.md), clearly marked provisional: one
-machine, one compiler, one libm, and two families whose numbers do not yet
-reproduce between runs. It is a working record rather than a claim, and the
-tables in it are expected to change.
+- `cos`/`sin` run 3.2–5.6× ahead of every vendor libm measured, at 1 ULP
+  over the full double range.
+- `lgamma` spans 1.5–5.2× against UCRT and 0.2–0.9× against Apple's
+  libm: the same kernel lands on opposite sides of 1.0 depending on the
+  baseline alone.
+- `log` runs at 0.2–0.64× of every vendor libm measured — deliberately.
+  It is correctly rounded on every reference row, and every baseline it
+  loses to trades exactly that away for speed.
+- Batching the compute-heavy families (inverses, incomplete functions)
+  gains roughly 4–140× over calling the same kernels one element at a
+  time — an upper bound against per-call overhead, not a libm
+  comparison.
+
+The full per-machine, per-band record is
+[docs/PERFORMANCE.md](docs/PERFORMANCE.md) — start at its §11 synthesis.
 If throughput against your own libm on your own hardware is what decides the
 question, measure it — what corvus documents, and stands behind, is the
 accuracy at vector width.
