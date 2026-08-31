@@ -112,8 +112,10 @@ this close (tag↔version, the v0.8.0 finding — the ritual check
 itself lands with #26). TAGGED: signed v0.9.0 at 83a95cd (CI green
 per-job), Good signature verified, release published
 (https://github.com/OldCrow/corvus/releases/tag/v0.9.0); milestone
-closed 5/0 (#29 rolled to v1.1.0 as a pure watch). The FREEZE
-CONTINUES. Next: v1.0.0 S1 — #34 final API review.
+closed 5/0 (#29 un-milestoned 2026-08-31, user — its trigger is
+upstream GCC, an external event independent of any corvus version;
+pure watch). The FREEZE CONTINUES. Next: v1.0.0 S1 — #34 final API
+review.
 #29 has no session — conditional sweep if the GCC fix lands.
 **v1.0.0 map (ratified same pass)**: S1 #34 API review (frontier;
 findings = unfreeze decisions, not in-session fixes); S2 #26
@@ -451,7 +453,8 @@ profiling trigger is #30 and the work is #31.)
   accumulated App state; manual driver-only installs are the fallback).
   Recurrence of either bugcheck on the clean stack flips suspicion to
   VRAM/hardware.
-- [→ #29, v0.9.0] mingw GCC by-value-vector misalignment at AVX2+ (GCC PR
+- [→ #29, WATCH — un-milestoned 2026-08-31: triggers on upstream GCC,
+  not on any corvus version] mingw GCC by-value-vector misalignment at AVX2+ (GCC PR
   126741, filed 2026-08-08; repros in Development/gcc-{zmm,ymm}-mingw-repro).
   mingw GCC qualified for 128-bit tiers only until the fix lands; the
   mingw test-binary "exit crash" is the same bug (detail in ENVIRONMENT.md).
