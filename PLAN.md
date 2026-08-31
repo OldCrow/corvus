@@ -94,11 +94,15 @@ summaries here, which a frontier review cannot re-analyze. M1 quieting recipe an
 the publish/withhold call to S4). Consumer smoke recipe: the
 install-contract steps in ci.yml (system Highway via brew, install to
 a prefix, build + run consumer_example, pkg-config check).
-(4) **S4 — Ryzen, GATED on S2+S3 pushed**: PERFORMANCE.md promoted past
+(4) **S4 — Ryzen, GATED on S2+S3 pushed** (un-gated 2026-08-31, both
+pushed): PERFORMANCE.md promoted past
 PROVISIONAL (exit: ≥ 2 quiet microarchitectures or explicitly
 withheld — user's call if marginal), elementary PERFORMANCE entry,
 README positioning, #30 write-up + the #31 go/no-go (frontier
-judgment), close #24/#30/#33, ladder + CI, tag v0.9.0.
+judgment), **ratify-or-reject the Apple Silicon 10% gate proposal
+(PERFORMANCE.md §10, proposed 2026-08-31)** — accepting it promotes
+the S2 indicative run's stable rows and resolves #24a's
+publish/withhold; close #24/#30/#33, ladder + CI, tag v0.9.0.
 #29 has no session — conditional sweep if the GCC fix lands.
 **v1.0.0 map (ratified same pass)**: S1 #34 API review (frontier;
 findings = unfreeze decisions, not in-session fixes); S2 #26
@@ -296,7 +300,8 @@ gate v1.0.0 [DERIVED 2026-08-23]:
     decision point is now forced: either accept a 10% macOS gate with
     the deviation recorded in PERFORMANCE.md, or keep waiting for the
     backlog to complete (unknown depth — it has survived every window
-    tried so far). [OPEN — user decision]
+    tried so far). [RESOLVED 2026-08-31 → the Apple Silicon 10%-gate
+    proposal, PERFORMANCE.md §10; ratification is an S4 item]
   - [DERIVED 2026-08-31] v0.9.0 S2 added two more failed 5% windows
     (60 min + 8 h overnight, 3,065 samples, min 4.62%, never two
     consecutive sub-5%) and then took the ratified 10%-gate INDICATIVE

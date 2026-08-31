@@ -310,3 +310,46 @@ outside the few-percent class, consistent with §5's caution. §5
 stands unchanged.
 
 ---
+
+## 10. Apple Silicon ambient gate — PROPOSAL, pending v0.9.0 S4
+
+**Status: PROPOSED 2026-08-31, not ratified.** The 5% gate stays the
+universal standard; this section proposes a documented deviation for
+heterogeneous-core Apple Silicon only. No number in this document was
+taken under it yet.
+
+**Proposal.** On Apple Silicon, gate at 10% ambient (same two-window
+protocol), with two additions: per-target noise annotation stays
+mandatory (the runner already records it), and a row is publishable
+only if it reproduces within a few percent across two gated runs.
+Rows that fail the agreement check are flagged, not published.
+
+**Why the 5% gate is unreachable there.** macOS Tahoe's on-demand ML
+services (`mediaanalysisd`, `photoanalysisd`) are SIP-protected,
+relaunch on demand despite launchd disables, and set a practical
+ambient floor. ~30 h of gate sampling on the Mac Mini M1 across
+2026-08-28..31 (evidence: `docs/bench-evidence/2026-08-31-m1-indicative/`,
+gate-abort logs included) produced a minimum of 4.30% and never two
+consecutive sub-5% windows. Kaby Lake on macOS 13 passes the 5% gate
+(§8), so this is a modern-macOS-services floor, not a macOS one.
+
+**Why 10% is equivalent rigor, not lesser.** Global CPU% on M-class
+parts averages the performance and efficiency clusters, and macOS
+schedules background/utility-QoS work onto the E-cores: one
+background task saturating an E-core reads as ~12.5% ambient while
+the single-threaded bench, at default QoS, runs on a P core
+essentially uncontended. On SMT Intel, the same 10% means contention
+for the very cores, shared L3 and ring the bench occupies — which is
+what §8's discarded 10–20% pass measured (median 8.9% per-row shift).
+Empirically on the M1, three independent runs (2026-08-23 twice,
+2026-08-31 once) agree to 2–3% on every stable row under ambient
+anywhere from 6% to 50%.
+
+**Caveats the proposal carries.** Unified memory is the leak in the
+isolation: E-core video decode still consumes shared bandwidth, so
+streaming rows (n = 10⁶) are more exposed than cache-resident ones —
+the likely mechanism behind the one persistently unstable row (the
+lgamma zone band: 0.35–0.95× across runs). The two-run agreement
+requirement exists to catch exactly this class. A more principled
+gate — P-cluster idle via `powermetrics` — needs root and new
+tooling; noted as a possible refinement, not part of this proposal.
