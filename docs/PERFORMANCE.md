@@ -35,8 +35,9 @@ Each figure is the median of repeated timings after a warm-up call, on seeded
 inputs — so the same binary on the same data gives the same answer, run to run,
 except where §5 says otherwise.
 
-**The v0.8.0 elementary family** (`exp`, `log`, `log1p`, `cos`, `sin`)
-was measured in the 2026-08-30 quiet pass on this machine — see §9.
+**The elementary family** (`exp`, `log`, `log1p`, `cos`, `sin`, shipped
+in v0.8.0) was measured in the 2026-08-30 quiet pass on this machine —
+see §9.
 
 ---
 
@@ -100,9 +101,9 @@ regions, and the kernel pays for both.
 | [8, 1000] Stirling | 6.81 | 13.36 | 1.96× |
 | [−30, −0.01] reflection | 33.25 | 48.83 | 1.47× |
 
-Best to worst spans nearly four times, against one baseline on one machine.
-That spread is the point of publishing per region at all: a single number for
-"how much faster is lgamma" would be hiding it.
+Best to worst spans nearly a factor of four, against one baseline on one
+machine. That spread is the point of publishing per region at all: a single
+number for "how much faster is lgamma" would hide it.
 
 Note the reflection band's absolute cost (33 ns/el) — the negative axis runs
 the positive pipeline and then a reflection on top, so it is genuinely more
@@ -273,13 +274,14 @@ it does say the sporadic outlier is not a property of the kernels alone.
 
 ---
 
-## 9. Same machine, second quiet pass (2026-08-30) — v0.9.0 S1
+## 9. Same machine, second quiet pass (2026-08-30, v0.9.0)
 
 Same box, tier, compiler and libm as §1; harness gate passed at 4.02%,
 noise held 3.46–14.91% (average 5.74%). Raw per-target outputs and the
 runner log: `docs/bench-evidence/2026-08-30-zen4-quiet/`. Full-surface
-pass (all fifteen family benches plus the #30 component instrument),
-per the one-pass-per-machine rule on #24.
+pass (all fifteen family benches plus the lgamma component instrument,
+`bench_lgamma_components`), per the one-pass-per-machine rule: a
+machine's published numbers come from a single full-surface run.
 
 ### 9.1 Elementary family, first numbers (against UCRT — §3 baseline)
 
@@ -298,14 +300,16 @@ comparison without giving that up, and it does not intend to.
 ### 9.2 lgamma per-region rerun
 
 Zone 5.2×, recurrence 2.9×, Stirling 1.9×, mixed 4.2×, reflection 1.5× —
-no band below 1.0×, confirming §3's quiet finding against the retracted
-loaded-set recurrence figure. The #30 per-band component profile
+no band below 1.0×, confirming §3's quiet-machine finding against an
+earlier recurrence figure that was measured on a loaded machine and
+retracted. The per-band component profile
 (`bench_lgamma_components`, same evidence directory) attributes the
 costs: the zone's dd lead ladder outweighs its 32-coefficient Horner
 (2.2 vs 1.3 of 4.65 ns/el); the recurrence band splits between the dd
 log and the zone floor (4.4 + 4.6 of 12.6); reflection's two extra dd
 logs are 10.0 of 33.1 ns/el against an 18.3 ns positive pipeline. The
-gather-weak Kaby half of that profile is what decides #31.
+gather-weak Kaby half of that profile is what decides the follow-up
+lgamma optimization work (§11.3).
 
 ### 9.3 Reproducibility against §3/§4 (fifteen days apart)
 
@@ -321,7 +325,7 @@ stands unchanged.
 
 ## 10. Apple Silicon ambient gate — RATIFIED
 
-**Status: RATIFIED 2026-08-31 (v0.9.0 S4, user).** The 5% gate stays the
+**Status: RATIFIED 2026-08-31 by the maintainer.** The 5% gate stays the
 universal standard; this section is the documented deviation for
 heterogeneous-core Apple Silicon only. The M1 rows in §11 are published
 under it, subject to its own two-run agreement requirement — which is
@@ -419,7 +423,7 @@ vs UCRT stays above 1.0× in every band (§9.2). One function, one
 kernel, and the vendor baseline alone decides which side of 1.0 it
 lands on — this is why no README figure ever omits the libm name.
 
-### 11.3 #30 component attribution, three machines (ns/el, n = 10⁶)
+### 11.3 lgamma component attribution, three machines (ns/el, n = 10⁶)
 
 | component | Zen 4 | Kaby | M1 ‡ |
 |---|---:|---:|---:|
@@ -440,22 +444,23 @@ lands on — this is why no README figure ever omits the libm name.
 ‡ M1 column single-run (same caveat as §11.1); its ratios agree with
 the other machines' shape.
 
-The #30 exit questions, answered on every machine measured:
+The component study's exit questions, answered on every machine measured:
 
 - **(a) Does the zone Horner dominate the zone? No, anywhere.** The dd
   lead-term ladder outweighs the Horner on all three machines; the
   per-lane coefficient selects are a minor share of the Horner itself.
-  This retires the Estrin-zone leg of #31.
+  This retires the proposed Estrin rewrite of the zone Horner.
 - **(b) Does the dd log dominate the recurrence band? On the
   gather-weak machine, nearly** — 41% on Kaby (18.5 of 44.7, one dd
   log costing 18–20 ns/el against Zen 4's ~5), 35% on Zen 4, 29% on
   M1. The rest is the zone floor; the walk itself is cheap everywhere.
 - **(c) Do the two extra logs dominate reflection?** They are the
   largest addressable share — 30% / 38% / 33% — atop an irreducible
-  positive pipeline at ~55% / 50% / 47%. A single-log rewrite (#31)
+  positive pipeline at ~55% / 50% / 47%. A single-log rewrite
   saves ~15% on Zen 4 and ~18% on Kaby in this band.
 
-These answers scope #31: the table-driven (5/2, X0) band and the
+These answers scope the follow-up lgamma optimization work: the
+table-driven (5/2, X0) band and the
 single reflection log proceed (both attack the dd-log share, largest
 exactly where corvus is weakest — Apple-libm machines); the Estrin
 zone leg is retired by (a).

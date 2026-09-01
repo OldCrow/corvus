@@ -34,6 +34,10 @@ special-function coverage.
   consumer → `docs/USER-GUIDE.md` (what corvus does/does not provide,
   the returned-vs-composed accuracy rule, pair-selection rules of thumb).
   Keep it in sync when a bound or the public surface changes.
+- Tagging a release, or any question about what a version number
+  promises → `docs/RELEASING.md` (the checklist, tag↔version script,
+  binary-channel prerequisites) and `docs/VERSIONING.md` (API and
+  accuracy-bound stability policy — bounds are contractual floors).
 - Orienting on where a change belongs, or on what the facade contains →
   `docs/ARCHITECTURE.md` (band diagram + layer-by-layer notes). VISUAL
   REFERENCE ONLY: it restates the Architecture section below in picture
@@ -61,9 +65,9 @@ special-function coverage.
   form so scaling rounds last).
 - `tests/` — ctest gates against checked-in reference sets, registered in
   dependency order. Smoke tests use lengths that are non-multiples of
-  lane counts so the masked-tail path is exercised; the ULP gates
-  evaluate whole reference sets, several of which are lane multiples
-  (#14 is the fix).
+  lane counts so the masked-tail path is exercised; every ULP gate
+  evaluates its reference set as two calls (lengths N-3 and 3) so the
+  masked tail also runs on lane-multiple sets.
 
 ## Build & test
 ```sh

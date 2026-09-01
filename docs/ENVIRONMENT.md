@@ -3,7 +3,7 @@
 Loaded on demand via AGENTS.md's reading map. Covers the development
 fleet, toolchains, build options, tier capping/validation recipes, the
 CMake standard, and CI design. For kernel/generator/oracle rules see
-`docs/NUMERICAL-DOCTRINE.md`; for session state see `PLAN.md`.
+`docs/NUMERICAL-DOCTRINE.md`.
 
 ## Development Fleet
 
@@ -94,8 +94,8 @@ the WinLibs `mingw64/bin` first on `PATH` — a Git Bash shell puts Git for
 Windows' own `libstdc++-6.dll` ahead of it, and the ABI mismatch segfaults
 the test before it prints anything.
 
-**MSVC version floor: cl 19.30+ (VS 2022), enforced fatally at configure
-(#16).** The "MSVC's default does not contract" premise that lets corvus
+**MSVC version floor: cl 19.30+ (VS 2022), enforced fatally at
+configure.** The "MSVC's default does not contract" premise that lets corvus
 set no FP flag for real MSVC holds only from 17.0; before that,
 `/fp:precise` contracted `a*b+c` to FMA whenever `/arch:AVX2` or higher
 was on the command line, and MSVC has no contract-off switch — a VS 2019
@@ -147,9 +147,9 @@ Manual alternative (no preset): `cmake -B build -DCMAKE_BUILD_TYPE=Release -G Ni
   deliberate `message(WARNING)`).
 - Contraction flags (`CORVUS_FP_FLAGS`): `-ffp-contract=off` for
   GCC/Clang/AppleClang/mingw, `/clang:-ffp-contract=off` for clang-cl.
-  Real MSVC relies on cl ≥ 19.30's no-contraction default — no version
-  floor is enforced yet (#16). The `IntelLLVM` branch of the same regex
-  gets `-ffp-contract=off` only and leaves icpx's default `-fp-model=fast`
+  Real MSVC relies on cl ≥ 19.30's no-contraction default — the version
+  floor above is enforced fatally at configure. The `IntelLLVM` branch
+  of the same regex gets `-ffp-contract=off` only and leaves icpx's default `-fp-model=fast`
   (reassociation, FTZ) in place: unvalidated, unclaimed, a placeholder.
 - Highway: uses system install if `find_package(hwy)` succeeds, else
   FetchContent of a pinned version (network on first configure). The pin
@@ -192,7 +192,7 @@ section restates rather than deviates. It is self-sufficient for this repo.
   AVX-512 — Highway-internal terminology, not an Intel ISA name. Expect it
   in build output, ActiveTarget() strings, and CORVUS_DISABLED_TARGETS.
 - `install` target only exists when Highway came from find_package (see
-  CMakeLists comment and PLAN.md).
+  the CMakeLists comment).
 - Presets (`CMakePresets.json`, schema 6, min CMake 3.25 — matches this
   repo's existing minimum): `release` → `build/`, `debug` → `build-debug/`,
   `rel-with-debug` → `build-relwithdebinfo/`, plus the `sanitize` extra →
@@ -238,7 +238,7 @@ read it before editing the `$gates` array handling.
 
 Benchmarks (`bench_*`, not ctest-registered): Release build, quiet machine
 only; numbers taken on a loaded machine are indicative and must be labeled
-as such in PLAN.md / docs.
+as such wherever they are recorded.
 
 ## CI
 

@@ -2,8 +2,7 @@
 
 Loaded on demand via AGENTS.md's reading map. BINDING for kernel,
 generator, reference/oracle, and accuracy work. For machines, builds,
-tier capping, and CI see `docs/ENVIRONMENT.md`; for session state and
-family design records see `PLAN.md`.
+tier capping, and CI see `docs/ENVIRONMENT.md`.
 
 ## Kernel construction
 
@@ -33,14 +32,14 @@ family design records see `PLAN.md`.
   byte-compare across the boundary change). Keep genuinely small hot
   helpers inline — outlining erfinv's central polynomial cost a measured
   0.5–0.7 ns/el on its 3 ns/el fast path for no meaningful codegen
-  relief, and was reverted. MEASURED EXEMPTIONS (#7, recorded 2026-08-29;
+  relief, and was reverted. MEASURED EXEMPTIONS (recorded 2026-08-29;
   the rule is a build-time tool, not an end in itself): lgamma's cores
   and LgammaVec stay HWY_INLINE — the 2026-08-11 retro pass measured that
   outlining LgammaLog alone met the build-time goal (193 s → 72 s) and
   stopped there deliberately; erf/erfc carry no HWY_NOINLINE at all —
   they are the cheapest TUs in the library and have never shown a
   build-time problem. Either exemption is void the moment its TU shows up
-  in a slow-build report. Since #6, the per-family DRIVER loop lives in
+  in a slow-build report. The per-family DRIVER loop lives in
   src/driver-inl.h (DriveUnary/Binary/Ternary): each family's exported
   Impl is a dispatch-table root that is never inlined, so every
   instantiation is one outlined driver per family per target and the
@@ -59,7 +58,7 @@ family design records see `PLAN.md`.
   so a consumer folds its own factors in before the power-of-two scaling
   rounds anything — that is what keeps a subnormal result at one rounding.
 - **Highway `contrib/math` is below contract and is never exported**
-  (2026-08-21 fleet review, recorded with #32): its documented bounds
+  (2026-08-21 fleet review): its documented bounds
   (Log 4 ULP; Sin/Cos 3 ULP and only for |x| ≤ 39000; no Pow) sit under
   corvus's accuracy-first contract, so no public corvus function may be
   backed by it. Internal use through the facade is permitted where the
@@ -99,8 +98,9 @@ family design records see `PLAN.md`.
 
 - ctest executables compare against libm/reference values. Smoke-test
   lengths are deliberately non-multiples of lane counts to exercise the
-  masked-tail path; the ULP gates currently evaluate whole reference sets
-  in one call, and five of those sets are multiples of 8 (#14).
+  masked-tail path; every ULP gate additionally evaluates its reference
+  set as two calls of lengths N-3 and 3, so the masked tail runs on every
+  tier even for the five sets whose row counts are lane multiples.
 - **Tests are registered in DEPENDENCY order, not development order** (dd
   cores first, then every family after the cores it consumes), so a
   shared-core regression fails under its own name rather than a
@@ -179,7 +179,7 @@ beta reference regeneration MUST end with a clean
 `tools/verify_beta_reference.py` pass before the files are trusted: the
 harness is oracle-independent and carries a baked-in negative control
 (known-bad rows that must be rejected, exit 2 otherwise) — the
-oracle-trust doctrine's enforcement point (see PLAN.md Decisions).
+oracle-trust doctrine's enforcement point (see below).
 `gen_gammainv_reference.py` and `gen_betainv_reference.py` write their
 reference files directly (checkpointed/resumable) with per-row bracket
 certification and baked-in negative controls — same exit-2 doctrine.
@@ -201,9 +201,9 @@ both functions have trusted single-argument mpmath baselines).
   accuracy is set by the result's cancellation depth, not the
   component's.
 - A stratum aimed at a STRUCTURAL seam must also carry FULL-MANTISSA
-  rows across the seam's binades (#35 H1, paid for in a shipped
-  defect): power-of-two bit-neighborhood anchors probe the regime
-  BORDER but have near-empty mantissas, for which multiply/divide
+  rows across the seam's binades (paid for in a shipped log1p defect
+  its gate could not see): power-of-two bit-neighborhood anchors probe
+  the regime BORDER but have near-empty mantissas, for which multiply/divide
   chains are exact by construction — they cannot see the arithmetic's
   rounding, and a 0-ULP pin over such rows proves nothing about it.
   Corollary: "expected ≈ X; pin to measured" is only as strong as the
@@ -211,7 +211,7 @@ both functions have trusted single-argument mpmath baselines).
   ask what population would trip it if the kernel were wrong, and
   check that population is in the set.
 - A self-check's sample must never pass through a truncating global
-  cap (#35 M2/L3): `(arm_a + arm_b)[:N]` silently starves every later
+  cap: `(arm_a + arm_b)[:N]` silently starves every later
   arm once an early arm grows. Cap per arm if at all, and print
   per-arm counts so the stderr line states what actually ran.
 
@@ -227,7 +227,7 @@ a table that misses its error budget — `gen_exp_table.py` re-derives the
 whole budget (reduction exactness, polynomial truncation, table dd error)
 onto stderr. Trust that line over any claim in a comment.
 
-**Oracle-trust doctrine** (canonical statement in PLAN.md Decisions):
+**Oracle-trust doctrine:**
 reference-oracle construction for a function WITHOUT a trusted library
 baseline is FRONTIER work. References are trusted only after independent
 verification — a separate harness with baked-in negative controls
@@ -266,9 +266,9 @@ effort; much of the surrounding work did not need that).
 
 **Low effort / small model** — documented recipes and mechanical edits:
 - Running the per-tier validation recipe on another machine and recording
-  results in ACCURACY.md/PLAN.md.
+  the results in ACCURACY.md.
 - Regenerating tables/references unchanged; renames; badge/link fixes;
-  PLAN.md bookkeeping after decisions are made.
+  project bookkeeping after decisions are made.
 
 **Escalate** (or flag a model/effort switch to the user) the moment a
 recipe task surfaces a decision: a ULP gate trips, measured values differ

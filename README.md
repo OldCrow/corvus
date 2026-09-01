@@ -13,17 +13,14 @@ inverses, modified Bessel I0/I1, and an accuracy-first elementary family
 functions that gate vectorized statistical CDFs, quantiles, and
 maximum-likelihood fitting.
 
-**Status: early development.** `erf`, `erfc`, `lgamma`, `digamma`,
-`trigamma`, `erfinv`, `erfcinv`, `gamma_p`, `gamma_q`, `gamma_p_inv`,
-`gamma_q_inv`, `beta_p`, `beta_q`, `beta_p_inv`, `beta_q_inv`, `i0`,
-`i1`, `i0e`, `i1e` and `lbeta` are
-production-quality clean-room kernels validated against an mpmath oracle
-on every SIMD tier available across the development fleet — AVX-512
-(`AVX3`, `AVX3_DL`, `AVX3_ZEN4`), AVX2, SSE4, SSSE3, SSE2 and NEON, each
-on native silicon (see docs/ACCURACY.md). The v0.8.0 elementary family
-(`exp`, `log`, `log1p`, `cos`, `sin`) carries the same per-tier gates on
-all x86 tiers plus CI's NEON leg; its native-silicon fleet legs land in
-v0.9.0. API not yet stable.
+**Status: production.** All 25 functions are clean-room kernels
+validated against a correctly-rounded mpmath oracle on every SIMD tier
+available across the development fleet — AVX-512 (`AVX3`, `AVX3_DL`,
+`AVX3_ZEN4`), AVX2, SSE4, SSSE3, SSE2 and NEON, each on native silicon.
+The per-tier validation matrix lives in
+[docs/ACCURACY.md](docs/ACCURACY.md). The public API is reviewed and
+stable; [docs/VERSIONING.md](docs/VERSIONING.md) states exactly what
+that promises — and what it deliberately does not.
 
 - `erf`: max 1 ULP over the full domain.
 - `erfc`: max 1 ULP for |x| <= 6 and for subnormal results; max 2 ULP in
@@ -133,10 +130,10 @@ library.
   ~40-op internal facade, sized so it can later be reimplemented on
   `std::simd` without touching kernel code.
 - **Runtime dispatch.** One binary serves SSE2 through AVX-512 and NEON;
-  the best available tier is selected at runtime.
+  dispatch selects the best available tier at runtime.
 - **Audited accuracy.** Every kernel documents its approximation source and
-  accuracy bound; claims are made per SIMD tier only after validation on
-  native silicon (not emulation).
+  accuracy bound; corvus claims a bound per SIMD tier only after
+  validating on native silicon (not emulation).
 - **Clean provenance.** Clean-room implementations only; MIT licensed.
 
 The shape behind those claims — each band resting on the one below it, with
@@ -162,10 +159,10 @@ vector width buys is amortization across lanes, so any advantage grows with
 the vector and is close to nothing at two lanes.
 
 Expect the margin to vary a lot — and to depend on which libm you are
-comparing against as much as on which part of the domain you are in. Measured
-per-region on one machine, lgamma's best and worst bands differ by nearly a
-factor of four against the same baseline. A single number for "how much faster
-is it" would be hiding that spread rather than summarising it. Where the
+comparing against as much as on which part of the domain you are in. On
+one machine, lgamma's best and worst bands measure nearly a factor of
+four apart against the same baseline. A single number for "how much faster
+is it" would hide that spread rather than summarize it. Where the
 work is genuinely harder the margin narrows, and that cost is forced by the
 accuracy target rather than chosen — lgamma's Stirling switchover sits at
 X0 = 8 because accuracy puts it there, not because it was tuned.
@@ -194,6 +191,18 @@ If throughput against your own libm on your own hardware is what decides the
 question, measure it — what corvus documents, and stands behind, is the
 accuracy at vector width.
 
+## Stability and security
+
+- [docs/VERSIONING.md](docs/VERSIONING.md) — what a corvus version
+  number promises: API stability, accuracy bounds as contractual
+  floors, and what is deliberately not promised (bit-for-bit
+  reproducibility across releases, ABI, performance).
+- [SECURITY.md](SECURITY.md) — how to report a vulnerability
+  privately.
+- corvus is MIT licensed ([LICENSE](LICENSE)). Distributing corvus
+  binaries additionally involves Highway's Apache-2.0 terms;
+  [NOTICE](NOTICE) has the details.
+
 ## Build
 
 ```sh
@@ -202,12 +211,12 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-Uses an installed Highway if found, otherwise fetches a pinned copy at
-configure time.
+The build uses an installed Highway if it finds one and otherwise
+fetches a pinned copy at configure time.
 
 ### Platforms and compilers
 
-Built and tested in CI on Linux x86-64 (GCC), macOS arm64 (Apple Clang),
+CI builds and tests on Linux x86-64 (GCC), macOS arm64 (Apple Clang),
 and Windows x86-64 (MSVC). Two Windows-specific points are worth knowing:
 
 - **Without `-G Ninja` you get the Visual Studio generator**, which is
@@ -233,8 +242,8 @@ and Windows x86-64 (MSVC). Two Windows-specific points are worth knowing:
   AVX2 or above: GCC 16.1 miscompiles 256- and 512-bit by-value vector
   arguments on the Windows ABI (misaligned stack temporaries — crashes
   depend on call-chain luck; GCC PR 126741, see docs/ACCURACY.md). It
-  remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4). Worth knowing
-  that this one bites at *run* time, not build time: the build succeeds
+  remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4). This one bites
+  at *run* time, not build time: the build succeeds
   and the binary faults, which reads like a bug in your own code.
   `corvus::active_target()` reports the tier runtime dispatch actually
   selected, and is the only reliable way to know.
@@ -283,7 +292,7 @@ corvus::i1e(x, y);
 
 corvus::exp(x, y);                         // elementary family: accuracy-first,
 corvus::log(x, y);                         //   full double range, correct
-corvus::log1p(x, y);                       //   IEEE edge behaviour
+corvus::log1p(x, y);                       //   IEEE edge behavior
 corvus::cos(x, y);                         // no domain cutoff -- any finite x
 corvus::sin(x, y);
 ```

@@ -2,8 +2,8 @@
 
 corvus claims accuracy only where it has been measured on real silicon.
 This document records, per function: the method, the measured error bounds,
-and how they were measured. It is updated in the same change as any kernel
-or test-gate change.
+and how they were measured. It is updated in the same change set as any
+kernel or test-gate change.
 
 ## Methodology
 
@@ -13,10 +13,10 @@ the kernel under test carries more than working precision
 (`tools/gen_*_reference.py`). Every writer converts through
 `tools/refgen_common.py`'s `round_to_double` — a SINGLE rounding
 (ties-to-even) in the subnormal band, where a bare `float(mpf)`
-double-rounds (the 2026-08-21 caveat, closed by the #13 regeneration:
-the predicted 6/642 erfc and 9/931 exp_dd 1-ulp subnormal rows were
-corrected exactly, plus 2 exp_dd `lo` components, 6 erfinv rows, and one
-beta_q and one gamma row). Reference
+double-rounds (a hazard noted 2026-08-21 and closed by the v0.6.0
+single-rounding regeneration: the predicted 6/642 erfc and 9/931 exp_dd
+1-ulp subnormal rows were corrected exactly, plus 2 exp_dd `lo`
+components, 6 erfinv rows, and one beta_q and one gamma row). Reference
 files are checked in (`tests/data/`); each point-selection strategy is
 documented in its generator and deliberately includes the worst cases for
 the method under test (grid residual extremes, region boundaries at the
@@ -35,8 +35,8 @@ as native for any tier at or below the host CPU's best.
 
 **Floating-point contraction is disabled** (`-ffp-contract=off`; MSVC's
 default does not contract for cl ≥ 19.30 / VS 2022 — earlier cl fused under
-`/fp:precise` once `/arch:AVX2` was set, and no version floor is enforced
-yet, #16). The double-double layer's exactness
+`/fp:precise` once `/arch:AVX2` was set, so the configure step fails
+fatally below that version). The double-double layer's exactness
 identities assume each IEEE operation is rounded as written, and every
 fusion the kernels actually want is an explicit `ops::MulAdd`. This is a
 reproducibility requirement, not a tuning choice: GCC's default was
@@ -45,9 +45,9 @@ identical source at the same tier. erf and erfc are bit-for-bit unaffected
 by the setting. Consumers do not inherit the flag — it is PRIVATE to
 corvus's own translation units.
 
-**Benchmarks** are not accuracy claims and live outside this document;
-per-tier numbers in PLAN.md are labeled indicative unless taken on a quiet
-machine.
+**Benchmarks** are not accuracy claims and live outside this document
+(docs/PERFORMANCE.md); per-tier numbers are labeled indicative unless
+taken on a quiet machine.
 
 ## Validation matrix
 
@@ -77,7 +77,7 @@ machine.
 | sin | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
 | exp | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
 | log | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
-| log1p | ✅ 2026-08-31 † | ✅ | ✅ | ✅ | — (#35 H1 fix: M1 re-leg) | ✅ 2026-08-31 |
+| log1p | ✅ 2026-08-31 † | ✅ | ✅ | ✅ | — (tiny-band fix 2026-08-31: NEON re-validation pending) | ✅ 2026-08-31 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
@@ -87,11 +87,11 @@ Ryzen box (AVX3_ZEN4 native
 dispatch, clang-cl; AVX2/SSE4/SSSE3/SSE2 via capping on the same silicon)
 plus the Linux/GCC CI sweep — every tier executes natively on real x86
 silicon, so the per-tier claims stand. Cross-machine reproduction on Kaby
-Lake (i7-7820HQ, AVX2+FMA native, AppleClang, macOS 13) was done
-2026-08-23 (#23a) as an additional check, not a gap in the claim: all 27
+Lake (i7-7820HQ, AVX2+FMA native, AppleClang, macOS 13) ran
+2026-08-23 as an additional check, not a gap in the claim: all 27
 ctest gates green on AVX2 native and on SSE4/SSSE3/SSE2 via capping, with
 `CORVUS_EXPECT_TARGET` asserted on every run. Repeated 2026-08-30
-(v0.9.0 S3) on the post-elementary surface: all 33 gates green on the
+on the post-elementary surface: all 33 gates green on the
 same four tiers, tier-asserted, with the negative check verified. The three no-FMA tiers are
 bit-identical to each other (every max-ULP cell, not-CR count and
 worst-case input). AVX2 differs from them only in the usual FMA/no-FMA
@@ -112,7 +112,7 @@ tier sweep; NEON on the Apple Silicon GitHub runner (native silicon,
 native FMA — per-run measured values appear in the CI "ULP report"
 steps) and natively on the Mac Mini M1 (Apple M1, AppleClang 21, macOS
 Tahoe, Homebrew Highway 1.4.0 via find_package): 27 gates 2026-08-23
-on the pre-elementary surface, and all 33 gates 2026-08-30 (v0.9.0 S2)
+on the pre-elementary surface, and all 33 gates 2026-08-30
 tier-asserted with the negative check verified — the elementary rows'
 NEON cells date from that run; AVX-512 on the Ryzen 7 7445HS (Zen 4, Windows 11). "AVX-512"
 means the three AVX3\* variants this CPU supports — `AVX3_ZEN4` (native
@@ -137,8 +137,8 @@ AVX2), so no AVX-512 claim may be made from one. Overriding the
 blocklist (`CORVUS_MSVC_UNBLOCK_AVX512=ON`, OFF by default) dispatched
 `AVX3_ZEN4` and reproduced every value in this document exactly —
 evidence the blocklist is stale for these kernels, not a validated
-configuration; substantiating it means running Highway's own suite under
-MSVC (see PLAN.md Open Items).
+configuration; substantiating it means running Highway's own suite
+under MSVC, which has not been done.
 
 **Cross-architecture reproducibility:** every FMA-capable target
 validated so far produces bit-identical results on every point of every
@@ -173,7 +173,7 @@ same worst-case input in every region.
 Not-correctly-rounded counts, Ryzen/GCC 2026-07-25 (erfc regions are
 core / tail-normal / tail-subnormal; lgamma regions are
 small / zone / mid / big / negative; erfinv regions are C / T; erfcinv
-regions are C / T-mid / T-far; exp_dd is normal results):
+regions are C / T-mid / T-far; exp_dd counts normal results):
 
 | Tier | erf | erfc | lgamma | erfinv | erfcinv | exp_dd | log_dd |
 |---|---|---|---|---|---|---|---|
@@ -447,7 +447,7 @@ payload in both.
 
 ## gamma_p and gamma_q
 
-**Huge-a diagonal (#12, fixed at the v0.6.0 unfreeze).** `GammaTemme`
+**Huge-a diagonal (fixed at the v0.6.0 unfreeze).** `GammaTemme`
 and the gammainv forward's twin site now prescale (x, a) by an exact
 power of two above 2^900 (BetaPsiCore's pattern), so `gamma_p/q(a, a)`
 returns the correctly rounded 0.5 on every tier all the way to
@@ -458,8 +458,9 @@ saturation. The prescale is bit-identical on every previously-finite
 lane (power-of-two scaling commutes with each rounding in the affected
 sequences; ULP-gate output verified byte-identical pre/post on native
 AVX3_ZEN4 and capped SSE2). The band is guarded by a smoke assert
-(test_gamma, all four diagonal points, every tier); since the #13
-regeneration the ULP gates also carry 25 bit-stepped diagonal rows
+(test_gamma, all four diagonal points, every tier); since the v0.6.0
+single-rounding regeneration the ULP gates also carry 25 bit-stepped
+diagonal rows
 (a ∈ {2^996, 2^997, 2^1000, DBL_MAX}, x = a ± 3 ulp: exact-diagonal
 P = Q = 0.5, saturated exact (1, +0)/(+0, 1) neighbours).
 
@@ -548,8 +549,8 @@ margin.
 | R4 near-one post-route | **1 ULP** | 0 ULP (CR) |
 | R2 gamma-limit slice | **1 ULP** (1.4% not-CR) | 1 ULP |
 
-R2-direct moved 0 → 1 ULP at the v0.6.0 #13 regeneration: the
-single-rounding reference fix corrected one subnormal-Q row
+R2-direct moved 0 → 1 ULP at the v0.6.0 single-rounding regeneration:
+the reference fix corrected one subnormal-Q row
 (1.97e-300, 24.68, 0.474) that the old writer had double-rounded, and the
 kernel — unchanged — agrees with the old row, so its true error there is
 1 ULP (1 of 2948 R2-direct rows; re-verified against mpmath betainc at
@@ -605,7 +606,7 @@ individually dd-relative, a near-one post-route folding R1 lanes whose
 value exceeds 1 − 2⁻¹¹ into that assembly, and a gamma-limit slice
 (one parameter ≥ 2⁵⁹) routed through the incomplete-gamma limit. Region
 map and seams: the derivation blocks in src/beta-inl.h; the
-correction-by-correction history is in PLAN.md's git record.
+correction-by-correction history is in the repository's git record.
 
 Three hazard classes worth recording, each caught by this family's
 validation machinery and each a lesson with reach beyond beta:
@@ -633,7 +634,7 @@ validation machinery and each a lesson with reach beyond beta:
    verification harness (`tools/verify_beta_reference.py`: layered
    brute-precision series + half-split log-coordinate quadrature,
    sharing no code with the generator) that carries a mandatory
-   negative control — four adjudicated-bad rows from an earlier oracle
+   negative control — four confirmed-bad rows from an earlier oracle
    round must be rejected, and their corrections accepted, before any
    row is judged.
 
@@ -943,15 +944,16 @@ declined, never guessed):
   0, so the clamp is value-identical everywhere it was correct
   before); gamma's inverse carried the same latent shape at its u
   site — unreachable on its gates — and received the same clamp.
+
 Special values (smoke-pinned, corvus.h is the contract): p = 0 → +0
 and p = 1 → 1, mirrored for q. A single degenerate parameter puts all
 the mass at one endpoint and every quantile is that endpoint: a = 0 or
 b = +inf → +0, b = 0 or a = +inf → 1. Any two-way degeneracy among
 {a, b} ∈ {0, +inf} gives NaN, as do negative a or b and p outside
 [0, 1]; NaN propagates from any argument (payload preserved).
-(Restored at #34 S2-M2: the previous paragraph lost its lead-in to the
-huge-parameter insertion above, and its surviving
-non-positive/non-finite → NaN clause predated the point-mass
+(This paragraph was restored after an earlier edit dropped its lead-in
+when the huge-parameter note above was inserted, leaving only a stale
+non-positive/non-finite → NaN clause that predated the point-mass
 handling.)
 
 ## i0, i1, i0e, i1e
@@ -1073,9 +1075,9 @@ the missing fusion, and they have headroom.
 | \|x\| > 2^23 (Payne–Hanek) | 1 ULP | ≤ 0.6% not-CR; rows include every exponent's CF worst cancellation and binary64's global worst case (\|r\| = 2^−60.89 at e = 849) |
 
 Method: quadrant reduction x = n·(π/2) + r with shared degree-6 parity
-cores on u = r² (transcribed from the certified clean-room consumer
-kernel — provenance chain and divergence audit recorded in PLAN.md's
-v0.8.0 S1 record). Beyond 2^23 a clean-room vectorized Payne–Hanek
+cores on u = r² (transcribed from a certified clean-room consumer
+kernel; every divergence from the donor was audited at transcription).
+Beyond 2^23 a clean-room vectorized Payne–Hanek
 region takes over: per-exponent windows W_e = (2^(e−52)·2/π) mod 4 as
 four 53-bit chunks (products exact via TwoProd), accumulated as an
 exact expansion — integer stripping and every ladder sum exact, so
@@ -1109,13 +1111,13 @@ bucket, row-for-row) on AVX3_ZEN4 native and the SSE2 cap. These are
 the tightest gates in the library; the theoretical statement behind
 them is "correctly rounded except within ~2^−15 ulp of a rounding
 tie" — the window the audited core bounds (2^−68.4 exp, 2^−67.88 log)
-support; the ~2^−17 design budget is tighter than what is proven —
-(for log1p below 2^−30, ~2^−23: the #35 H1 series branch), and no
-row of the current sets lands in that window. A future regeneration
-that legitimately draws a tie-window row re-pins the gate with the
-evidence.
+support; the ~2^−17 design budget is tighter than what is proven (for
+log1p below 2^−30 the window is ~2^−23, from the dedicated tiny-band
+series branch) — and no row of the current sets lands in that window.
+A future regeneration that legitimately draws a tie-window row re-pins
+the gate with the evidence.
 
-**#35 H1 (v1.0.0 S1, fixed 2026-08-31):** as shipped in v0.8.0/v0.9.0,
+**log1p tiny-band defect (fixed 2026-08-31):** as shipped in v0.8.0/v0.9.0,
 log1p was NOT correctly rounded for |x| ≈ [2^−53, 2^−47] — the dd-log
 correction term's plain-double rounding landed unattenuated in a
 result of the same size (up to 0.66 ulp from truth, so ≤ 1 ULP from
@@ -1132,7 +1134,7 @@ row. Anyone consuming v0.8.0/v0.9.0 log1p in that band should assume
 | Function | Region | Bound |
 |---|---|---|
 | exp | normal results | 0 ULP (correctly rounded, 10,626 rows) |
-| exp | subnormal results | 1 ULP (design bound ~0.75 ulp in the output's own ulp — 0.7495 measured in the top subnormal binade; the earlier ~0.51 figure held only for deeper subnormals, corrected at #35 L4) |
+| exp | subnormal results | 1 ULP (design bound ~0.75 ulp in the output's own ulp — 0.7495 measured in the top subnormal binade; the earlier ~0.51 figure held only for deeper subnormals and has been corrected) |
 | exp | overflow / underflow-to-zero | exact +inf / exact +0, ±160-ulp boundary ladders |
 | log | all buckets (subnormal-in, near-1, general) | 0 ULP (15,423 rows) |
 | log1p | all buckets (corner, near-0, general) | 0 ULP (11,903 rows) |
@@ -1160,12 +1162,12 @@ Special values: exp(±0) = 1, exp(−inf) = +0, exp(+inf) = +inf;
 log(±0) = −inf, log(x<0) = NaN, log(+inf) = +inf; log1p(−1) = −inf,
 log1p(x<−1) = NaN, log1p(±0) = ±0 (sign preserved), log1p(+inf) =
 +inf; NaN propagates with payload everywhere (smoke-asserted per lane
-position). DELIBERATE DEVIATION (#35 L6, library-wide): a signaling
+position). DELIBERATE DEVIATION (library-wide): a signaling
 NaN input is returned with its bits unchanged — NOT quieted, unlike
 C99 libm, which would raise invalid and return a qNaN. corvus never
 inspects the quiet bit; payload preservation is the contract. The one
 exception is lbeta, whose min/max scrub loses the input bits: it
-documents and delivers a fresh quiet NaN instead (#34 S2-L6).
+documents and delivers a fresh quiet NaN instead.
 
 ## exp_dd (internal)
 

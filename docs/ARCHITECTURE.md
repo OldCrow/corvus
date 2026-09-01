@@ -21,7 +21,7 @@ TU boundary is the sharing/dependency boundary (families consuming the same
 cores share a TU with multiple `HWY_EXPORT`s). Each TU uses the Highway
 `foreach_target.h` idiom to compile its kernels once per SIMD target, then an
 `HWY_ONCE` section exports them and defines the public wrapper, which selects
-the best target at runtime via `HWY_DYNAMIC_DISPATCH`. Since #6 each exported
+the best target at runtime via `HWY_DYNAMIC_DISPATCH`. Each exported
 Impl is a one-line forwarder into the shared driver (`src/driver-inl.h`):
 `DriveUnary/Binary/Ternary` own the single loop shape — full-vector body plus
 masked `LoadN/StoreN` tail as ONE code path (no scalar libm fallback) — and
@@ -47,11 +47,11 @@ backend swap for free.
 
 **SIMD facade** (`src/ops-inl.h`) — a deliberately small op surface
 (load/store, arithmetic, FMA, compares, masks, a few specials, and
-`TargetName`) whose names mirror `hn::` 1:1 and which carries only ops
-kernels actually use (#10 removed the unconsumed ones). It is the only file
-in the project allowed to touch `hn::`, which makes it the single swap
-point: migrating to `std::simd` means reimplementing this one file, nothing
-else, with kernels and dd primitives untouched.
+`TargetName`) whose names mirror `hn::` 1:1 and which carries only the ops
+kernels actually use (unconsumed ops are removed, not kept speculatively).
+It is the only file in the project allowed to touch `hn::`, which makes
+it the single swap point: migrating to `std::simd` means reimplementing
+this one file, nothing else, with kernels and dd primitives untouched.
 
 **Backend** (Google Highway) — provides per-target code generation and
 runtime CPU dispatch across SSE2 through AVX-512 and NEON. Pulled in via

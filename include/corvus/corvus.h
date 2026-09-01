@@ -20,9 +20,7 @@
 ///    is undefined behavior. For functions taking several input spans, ANY
 ///    subset of the inputs may exactly alias `out`, and inputs may alias
 ///    each other: the shared driver loads every input block before writing
-///    the corresponding output block, in the masked tail as well (#35 L2 --
-///    the earlier wording granted only one aliasing input while its own
-///    justification proved the general property).
+///    the corresponding output block, in the masked tail as well.
 ///  - Zero-length spans are valid: every function is a no-op on them.
 ///  - When several inputs of a multi-input function are NaN in the same
 ///    lane, the payload returned is the LAST input span's (argument
@@ -417,7 +415,7 @@ void log(std::span<const double> in, std::span<double> out) noexcept;
 ///
 /// 1 + x is captured exactly (TwoSum) and handed to the same core as
 /// `log`; below |x| = 2^-30 a dedicated series branch sidesteps the
-/// core's seam rounding (#35 H1). Relative accuracy therefore holds for
+/// core's seam rounding. Relative accuracy therefore holds for
 /// tiny x (where log1p(x) ~ x) and
 /// through the deep-cancellation corner near x = -1. Accuracy: measured
 /// and gate-pinned per SIMD tier (docs/ACCURACY.md).

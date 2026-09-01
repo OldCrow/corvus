@@ -82,7 +82,7 @@ best one available when your program starts; you do not configure anything.
 
 ## 3. What you get
 
-Grouped by what you would reach for them to do.
+Grouped by what you would use them for.
 
 **Normal distribution work**
 
@@ -194,7 +194,7 @@ corvus::gamma_p(a, x, out);
 Things worth knowing:
 
 - **Batch, don't loop.** One call for the whole array. The kernel handles the
-  ragged end itself. Calling it per element is correct and pointless.
+  ragged end itself. Calling it per element is correct but pointless.
 - **Writing into the input is fine**, as long as the spans are exactly the same
   (`in.data() == out.data()`). Partial overlap is undefined behaviour.
 - **No allocation, no exceptions, thread-safe.** Safe to call from anywhere,
