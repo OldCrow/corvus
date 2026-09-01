@@ -77,7 +77,7 @@ machine.
 | sin | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
 | exp | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
 | log | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
-| log1p | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
+| log1p | ✅ 2026-08-31 † | ✅ | ✅ | ✅ | — (#35 H1 fix: M1 re-leg) | ✅ 2026-08-31 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
@@ -1100,14 +1100,29 @@ saturation boundaries exact** — measured identically (bucket-for-
 bucket, row-for-row) on AVX3_ZEN4 native and the SSE2 cap. These are
 the tightest gates in the library; the theoretical statement behind
 them is "correctly rounded except within ~2^−17 ulp of a rounding
-tie", and no row of the current sets lands in that window. A future
-regeneration that legitimately draws a tie-window row re-pins the gate
-with the evidence.
+tie" (for log1p below 2^−30, ~2^−23: the #35 H1 series branch), and no
+row of the current sets lands in that window. A future regeneration
+that legitimately draws a tie-window row re-pins the gate with the
+evidence.
+
+**#35 H1 (v1.0.0 S1, fixed 2026-08-31):** as shipped in v0.8.0/v0.9.0,
+log1p was NOT correctly rounded for |x| ≈ [2^−53, 2^−47] — the dd-log
+correction term's plain-double rounding landed unattenuated in a
+result of the same size (up to 0.66 ulp from truth, so ≤ 1 ULP from
+CR; misrounding up to 21% of the 2^−53 binade). The v0.8.0 gate passed
+because the seam stratum's power-of-two bit-neighborhood anchors have
+near-empty mantissas, for which that path is exact by construction.
+Fixed by a dedicated series branch below 2^−30 (src/log-inl.h); the
+reference set gained 3,968 full-mantissa tiny-band rows both signs,
+on which the OLD kernel measurably fails (41 not-CR rows — the
+negative control) and the fixed kernel is correctly rounded on every
+row. Anyone consuming v0.8.0/v0.9.0 log1p in that band should assume
+1 ULP, not CR.
 
 | Function | Region | Bound |
 |---|---|---|
 | exp | normal results | 0 ULP (correctly rounded, 10,626 rows) |
-| exp | subnormal results | 1 ULP (design bound ~0.51 ulp in the output's own ulp) |
+| exp | subnormal results | 1 ULP (design bound ~0.75 ulp in the output's own ulp — 0.7495 measured in the top subnormal binade; the earlier ~0.51 figure held only for deeper subnormals, corrected at #35 L4) |
 | exp | overflow / underflow-to-zero | exact +inf / exact +0, ±160-ulp boundary ladders |
 | log | all buckets (subnormal-in, near-1, general) | 0 ULP (15,423 rows) |
 | log1p | all buckets (corner, near-0, general) | 0 ULP (11,903 rows) |
@@ -1135,7 +1150,10 @@ Special values: exp(±0) = 1, exp(−inf) = +0, exp(+inf) = +inf;
 log(±0) = −inf, log(x<0) = NaN, log(+inf) = +inf; log1p(−1) = −inf,
 log1p(x<−1) = NaN, log1p(±0) = ±0 (sign preserved), log1p(+inf) =
 +inf; NaN propagates with payload everywhere (smoke-asserted per lane
-position).
+position). DELIBERATE DEVIATION (#35 L6, library-wide): a signaling
+NaN input is returned with its bits unchanged — NOT quieted, unlike
+C99 libm, which would raise invalid and return a qNaN. corvus never
+inspects the quiet bit; payload preservation is the contract.
 
 ## exp_dd (internal)
 

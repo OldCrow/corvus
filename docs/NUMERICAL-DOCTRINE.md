@@ -200,6 +200,20 @@ both functions have trusted single-argument mpmath baselines).
   scale is void once the consuming assembly cancels below it — required
   accuracy is set by the result's cancellation depth, not the
   component's.
+- A stratum aimed at a STRUCTURAL seam must also carry FULL-MANTISSA
+  rows across the seam's binades (#35 H1, paid for in a shipped
+  defect): power-of-two bit-neighborhood anchors probe the regime
+  BORDER but have near-empty mantissas, for which multiply/divide
+  chains are exact by construction — they cannot see the arithmetic's
+  rounding, and a 0-ULP pin over such rows proves nothing about it.
+  Corollary: "expected ≈ X; pin to measured" is only as strong as the
+  reference set's power to FALSIFY — before pinning a headline gate,
+  ask what population would trip it if the kernel were wrong, and
+  check that population is in the set.
+- A self-check's sample must never pass through a truncating global
+  cap (#35 M2/L3): `(arm_a + arm_b)[:N]` silently starves every later
+  arm once an early arm grows. Cap per arm if at all, and print
+  per-arm counts so the stderr line states what actually ran.
 
 Reference files and generated tables are checked in; regenerate only when
 the method or point selection changes, and re-run the ULP tests after.

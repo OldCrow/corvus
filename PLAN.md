@@ -196,6 +196,66 @@ trig PH generator has no fp-replay sim of the shipped ladder
 structural |x| symmetry + smoke parity asserts).
 Full reviewer reports in the session transcripts; adjudication and
 any unfreeze land in the next entry.
+**ADJUDICATION [2026-08-31, user]: unfreeze — fix everything, priority
+order. ALL FIXED same session:**
+[H1 FIXED] log1p series branch below 2^-30 in src/log-inl.h ONLY (the
+shared dd-log overload untouched — every other family bit-identical):
+x − x²/2 + x³/3 in exact-product arithmetic, both regimes ≥ ~2^-23 ulp
+from ties at the cut. All three counterexamples now return CR on
+native silicon. gen_log1p_reference gained a full-mantissa tiny-band
+stratum (3,968 rows, dedicated rng stream — pure append, old rows
+byte-identical); NEGATIVE CONTROL demonstrated: old kernel fails the
+new rows 41 not-CR / max 1 ULP, fixed kernel 0 everywhere. ACCURACY.md
+carries the H1 record incl. the v0.8.0/v0.9.0 consumer caveat (assume
+1 ULP in the band on those tags).
+[M1 FIXED] refgen_common self-test now runs under workdps(60) with a
+genuinely tie-adjacent construction (33·2^-1075 + 2^-1130 → 17 vs
+float()'s double-rounded 16) + a canary assert that pinned mpmath
+still HAS the disease; negative control verified.
+[M2/L3 FIXED] all three self-check caps removed (per-arm honesty);
+the strengthened trig check re-verified ALL 934 huge rows at 2×dps —
+OK, no latent oracle defect in the 334 previously-unchecked rows;
+exp/log full-arm checks ran, regenerated files byte-identical to
+shipped. [L8 FIXED] 256 negative-subnormal rows per trig file
+(dedicated rng, pure append); trig gates hold 1 ULP.
+[L1 FIXED] Max-with-zero clamp after HalleyMid's NaN scrub (provably
+no-op on live lanes); erfinv gates identical cells. [L7 FIXED]
+gen_trig_ph_table gained self-check stage 5: bit-faithful fp replay
+of the shipped ladder, BOTH TwoProd flavors, 5,005 probes — flavors
+bit-identical everywhere, worst abs 2^-108 / rel 2^-97 vs gates
+2^-100/2^-88; table byte-identical. [L2 FIXED] corvus.h grants the
+any-subset aliasing the driver actually guarantees. [L4 FIXED]
+exp subnormal design bound corrected ~0.51 → ~0.75 ulp (0.7495
+measured) in exp-inl.h + ACCURACY.md. [L5 FIXED] exp_dd Fast2Sum
+comment now carries the correct near-grid-point argument. [L6 FIXED]
+sNaN-unquieted documented as a deliberate library-wide deviation in
+ACCURACY.md.
+FLEET CONSEQUENCE: the log1p kernel change voids its M1-native NEON
+cell (CI NEON re-covers the gates; the native audit needs a short M1
+re-leg — fold into the next M1 touch, with the appended trig/log1p
+rows riding the same ctest). All x86 cells re-validated this session
+(native AVX3_ZEN4 33/33 + 4-tier capped sweep).
+H1 ARCHAEOLOGY (how it shipped; excavated from git history): a SCOPE
+gap, not a calculation error — the S1 design budgeted only the series
+truncation ("dropped cubic ~2^-106 rel") and never the kept term's own
+rounding; the dd core's comment reasoned correctly about O(result)-
+sized t for WHICH TERMS TO KEEP (411f662, written for lgamma where
+c's rounding is negligible) and the frame was never turned on the
+evaluation itself; log1p is the first caller where c IS the result.
+The seam stratum's power-of-two anchors were deliberate — aimed at
+the TwoSum regime BORDER (structural), the worst possible mantissas
+for seeing arithmetic rounding — and no recorded check had a
+realistic shot: the 0-ULP gate's near-0 bucket hid 16 lucky
+full-mantissa rows among thousands, the oracle self-check never
+touches the kernel, consumer cross-validation ran at 1e-12/1e-15.
+Contrast: the same session-day made exactly the right
+absolute-vs-relative move on trig's PH accumulation (75856f9) — S2
+carried the analytic attention, S4 was re-scoped "LIGHTER than
+planned" and its "Expected ≈ 0.5 ulp; pin to measured" let a
+reference set that couldn't see the flaw become the whole proof.
+LESSON (for NUMERICAL-DOCTRINE if ratified): a stratum aimed at a
+structural seam needs FULL-MANTISSA rows too, and "pin to measured"
+is only as strong as the reference set's power to falsify.
 SUPERSEDED original map (ratified 2026-08-30, kept for the record):
 S1 #34 API review (frontier;
 findings = unfreeze decisions, not in-session fixes); S2 #26
