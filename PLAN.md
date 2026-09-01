@@ -139,16 +139,86 @@ the libstats v2.5.0 handshake.
 **v1.0.0 S1 — #35 pre-1.0 adversarial review: CLOSED 2026-08-31.**
 All findings fixed under the user-ratified unfreeze (6aad501/2150d9a/
 92a8daa), CI green per-job at 92a8daa (#35 closed with the record).
-**NEXT SESSION: S2 — #34 final API review.** Pickup notes: the
-expanded checklist is on #34 (header hygiene/facade boundary,
-behavioral contracts, naming adjudication, docs parity); L2's
-aliasing-wording fix already landed (92a8daa) — review the surface AS
-NOW SHIPPED, i.e. post-#35; findings remain unfreeze decisions, not
-in-session fixes; frontier effort. OPEN RESIDUAL for any M1 trip
-(not S2 work): log1p NEON cell flagged in ACCURACY.md — short re-leg,
-appended trig/log1p rows ride the same ctest. After S2: S3 #26
-packaging (NOTICE, SECURITY.md, versioning policy, checklist +
-tag↔version script, CHANGELOG decision), S4 release.
+**v1.0.0 S2 — #34 final API review: RUN 2026-09-01, findings
+PENDING ADJUDICATION.** Method: two independent reviewer agents (docs
+parity three-way header/ACCURACY/USER-GUIDE; behavioral contracts vs
+implementation) plus orchestrator lenses (header hygiene, naming,
+expensive-to-change); every finding orchestrator-verified at the cited
+lines. Surface as counted: 26 entry points (25 batch + active_target;
+the issue's "30" was an estimate) + 3 version constants, one installed
+header.
+CLEAN lenses: header hygiene (corvus.h compiles standalone at strict
+C++20 -Wall -Wextra -Wpedantic -Wshadow -Wconversion, double-include
+safe, ZERO Highway type/macro leakage, single installed header, C++20
+travels PUBLIC via target_compile_features through the exported
+config); behavioral contracts — ALL SIX common-contract claims
+DELIVERED (debug asserts cover every input span in all three Drive
+shapes incl. the 4-span DriveTernary users; load-before-store aliasing
+holds in full-vector AND masked-tail paths; empty spans are a safe
+no-op; Highway first-call dispatch is an idempotent atomic-index
+update over an immutable const table — safe for concurrent first
+calls on corvus's targets, RVV/HWY_NO_LIBCXX the only Highway
+exceptions, neither applicable; corvus src holds no mutable state;
+26/26 noexcept with no allocation and all four gather families
+index-clamped; lbeta's documented payload-loss exception is real and
+the other 24 preserve via final bitwise blends, last argument's
+payload winning uniformly in the multi-input six); expensive-to-change
+sweep (SciPy parameter order throughout, spans by value, version
+constants configure-enforced, source-only distribution = no
+ABI/export-macro surface to freeze).
+NAMING ADJUDICATION — recommend BLESS: erfinv/erfcinv are the
+dominant ecosystem names (SciPy/MATLAB/CUDA/PyTorch spell it fused);
+gamma_p_inv/gamma_q_inv are literally Boost.Math's names AND compose
+from corvus's own gamma_p/gamma_q, as beta_p_inv/beta_q_inv compose
+from beta_p/beta_q. The two rules — established cross-library name
+where one exists, else corvus base name + _inv — agree on every
+shipped function; record that tiebreak (established name wins) for
+future additions.
+FINDINGS — 3 MED + 11 LOW, ALL doc/comment-only; zero
+kernel-arithmetic changes implied by any of them (a fix batch leaves
+every gate byte-identical by construction, except two header edits
+with no codegen effect).
+MED (a consumer would be misled):
+[S2-M1] USER-GUIDE.md §4 (~line 154) still says "No basic
+transcendentals. No exp, log, sin" — contradicting its own §3 tables
+and the shipped surface; stale pre-v0.8.0 text (the pow clause
+remains true). [S2-M2] ACCURACY.md beta-inverse specials paragraph
+(~line 946) is MANGLED — begins mid-clause ("q; inputs outside…"),
+lead-in destroyed by the huge-parameter-corner insertion above it —
+and as it stands says non-positive/non-finite parameters → NaN,
+contradicting corvus.h's point-mass doctrine (a=0 or b=+inf → +0/1);
+applies to beta_q_inv by reference. [S2-M3] USER-GUIDE gamma_q row
+says 2 ULP; audited max is 4 ULP (R1 complement, ACCURACY.md ~483) —
+every other row quotes the worst audited figure, so 2 reads as a max.
+LOW: [S2-L1] header prose never states the C++20 requirement and a
+pre-C++20 include fails with a raw "no member named 'span'" — a
+<version> + __cpp_lib_span #error guard fixes both (header edit, no
+codegen). [S2-L2] <cstddef> include unused (nothing from it
+referenced). [S2-L3] empty-span no-op behavior delivered but
+undocumented. [S2-L4] multi-input NaN docs don't say which payload
+wins (impl uniform: last argument). [S2-L5] driver-inl.h:10 internal
+comment mischaracterizes the OOB direction (loop bound is out.size():
+out-shorter truncates in-bounds; input-shorter is the OOB read).
+[S2-L6] ACCURACY.md's "library-wide" sNaN bits-unchanged paragraph
+(~1153) is falsified by lbeta and records no exception. [S2-L7]
+beta_p_inv header collapse regime quotes the wrong variable and
+threshold ("shape-side parameter ~1e32" vs audited ν = ab/(a+b) ≥
+10³¹ band, full collapse ν ≳ 10³⁵ — skewed counterexample a=1e33,
+b=0.5 has ν≈0.5, no collapse); values unaffected. [S2-L8] the
+~2^-70/~2^-17 design figures in corvus.h (exp, log) and USER-GUIDE
+disagree with the audited core bounds (2^-68.4/2^-67.88 → ~2^-15
+window); ACCURACY.md carries both. [S2-L9] exp header's "one
+effective rounding" phrase is ambiguous against the #35 L4 corrected
+~0.75-ulp subnormal bound (quotes no number, so at most tightening).
+[S2-L10] log1p header method text predates the #35 H1 fix (says
+TwoSum→same core; below 2^-30 a dedicated series branch runs).
+[S2-L11] USER-GUIDE "about twenty special functions" — surface is 25.
+ORCHESTRATOR NOTE (pre-existing residual, restated): log1p NEON cell
+open in ACCURACY.md — M1 re-leg before the v1.0.0 tag's claims.
+ADJUDICATION PENDING: fix scope (recommend all 14 — doc-only batch)
+and the naming bless. After S2: S3 #26 packaging (NOTICE, SECURITY.md,
+versioning policy, checklist + tag↔version script, CHANGELOG
+decision), S4 release.
 Original review record follows (posture as run: unfreeze
 decisions, nothing fixed until adjudication). Method: three independent
 reviewer agents (trig / exp-log / driver-boundary), every surviving
