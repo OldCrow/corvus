@@ -1,0 +1,18 @@
+corvus
+Copyright (c) 2026 Gary Wolfman
+
+corvus is licensed under the MIT License; see LICENSE.
+
+corvus links against Google Highway (https://github.com/google/highway,
+Copyright 2020 Google LLC), which is dual-licensed under your choice of
+the Apache License 2.0 or the BSD 3-Clause License. corvus elects the
+Apache License 2.0. The corvus source tree does not bundle Highway: the
+build either uses a system-installed copy or downloads a pinned release
+at configure time.
+
+Distributions of corvus SOURCE therefore carry no Highway code and no
+Highway license obligations. Any distribution that includes Highway
+object code — a static or shared corvus binary — must retain Highway's
+copyright notice and include a copy of the Apache License 2.0, per its
+section 4. Highway publishes no NOTICE file of its own, so section 4(d)
+requires no further attribution text.
