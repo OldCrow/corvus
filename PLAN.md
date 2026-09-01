@@ -241,8 +241,8 @@ VALIDATION: header probe strict-C++20
 CLEAN; full release clang-cl rebuild + ctest 33/33 (doc-only batch —
 no kernel arithmetic anywhere, gates green as predicted); CI green
 per-job at 7b18e77. #34 CLOSED with the record.
-**v1.0.0 S3 — #26 packaging + doc review: RUN 2026-09-01, #26 closes
-on CI green.** Scope expanded in-session (user): in addition to the
+**v1.0.0 S3 — #26 packaging + doc review: CLOSED 2026-09-01.** #26
+closed at 181cc5f, CI green per-job (run 33569888473). Scope expanded in-session (user): in addition to the
 #26 checklist, a full documentation review — grammar/comprehension/
 style (active voice, ABC) plus SELF-CONTAINMENT (issue-number and
 PLAN.md references replaced with the facts they point at), docs first,
