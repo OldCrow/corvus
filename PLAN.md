@@ -136,9 +136,21 @@ SECURITY.md, versioning/stability policy, release checklist +
 tag↔version script, CHANGELOG decision point (default: status quo).
 (S4) **release** — ladder, CI, checklist executed, signed tag, then
 the libstats v2.5.0 handshake.
-**v1.0.0 S1 — #35 pre-1.0 adversarial review: REVIEW COMPLETE
-2026-08-31, findings pending user adjudication (posture: unfreeze
-decisions, nothing fixed in-session).** Method: three independent
+**v1.0.0 S1 — #35 pre-1.0 adversarial review: CLOSED 2026-08-31.**
+All findings fixed under the user-ratified unfreeze (6aad501/2150d9a/
+92a8daa), CI green per-job at 92a8daa (#35 closed with the record).
+**NEXT SESSION: S2 — #34 final API review.** Pickup notes: the
+expanded checklist is on #34 (header hygiene/facade boundary,
+behavioral contracts, naming adjudication, docs parity); L2's
+aliasing-wording fix already landed (92a8daa) — review the surface AS
+NOW SHIPPED, i.e. post-#35; findings remain unfreeze decisions, not
+in-session fixes; frontier effort. OPEN RESIDUAL for any M1 trip
+(not S2 work): log1p NEON cell flagged in ACCURACY.md — short re-leg,
+appended trig/log1p rows ride the same ctest. After S2: S3 #26
+packaging (NOTICE, SECURITY.md, versioning policy, checklist +
+tag↔version script, CHANGELOG decision), S4 release.
+Original review record follows (posture as run: unfreeze
+decisions, nothing fixed until adjudication). Method: three independent
 reviewer agents (trig / exp-log / driver-boundary), every surviving
 finding re-verified by the orchestrator — the HIGH on the actual
 shipped binary, native AVX3_ZEN4.
