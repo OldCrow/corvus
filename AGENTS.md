@@ -110,7 +110,10 @@ capping recipes, sweep scripts: `docs/ENVIRONMENT.md`.
 
 ## Conventions
 - Public/non-SIMD code: snake_case functions, CamelCase types (house
-  style). Kernel code and the facade follow Highway idiom — CamelCase
+  style). Public function names (#34, ratified 2026-09-01): use the
+  established cross-library name where one exists (erfinv, erfcinv);
+  otherwise corvus's own base name + `_inv` for inverses (gamma_p_inv).
+  Where both rules apply, the established name wins. Kernel code and the facade follow Highway idiom — CamelCase
   ops mirroring `hn::` names 1:1 (that mapping is what makes the future
   std::simd swap mechanical). Constants kCamelCase. `.h`/`.cpp`;
   `-inl.h` for per-target headers with the toggle guard.

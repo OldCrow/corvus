@@ -4,7 +4,8 @@
 /// \file corvus.h
 /// \brief Public API: SIMD-vectorized statistical special functions.
 ///
-/// This is the only installed header. The SIMD backend is an implementation
+/// This is the only installed header. It requires C++20 (std::span is
+/// part of the API). The SIMD backend is an implementation
 /// detail: no Highway types appear here, and consumers need only link
 /// libcorvus. All functions dispatch at runtime to the best SIMD tier the
 /// CPU supports (SSE2..AVX-512, NEON).
@@ -22,12 +23,20 @@
 ///    the corresponding output block, in the masked tail as well (#35 L2 --
 ///    the earlier wording granted only one aliasing input while its own
 ///    justification proved the general property).
+///  - Zero-length spans are valid: every function is a no-op on them.
+///  - When several inputs of a multi-input function are NaN in the same
+///    lane, the payload returned is the LAST input span's (argument
+///    order) for every function that preserves payloads.
 ///  - No allocation, no exceptions, thread-safe (stateless; the dispatch
 ///    pointer is resolved on first call).
 ///  - Accuracy bounds are measured against a correctly-rounded mpmath
 ///    oracle and enforced per-tier by the test suite; see docs/ACCURACY.md.
 
-#include <cstddef>
+#include <version>
+#ifndef __cpp_lib_span
+#error "corvus requires C++20: std::span is part of the public API"
+#endif
+
 #include <span>
 
 namespace corvus {
@@ -287,8 +296,9 @@ void gamma_q_inv(std::span<const double> a, std::span<const double> q,
 /// distribution's interior density is ~4 min(a, b), so an interior x is not
 /// resolvable to 1 ULP by any double-precision inverse; there the returned x
 /// satisfies a BACKWARD-error contract instead (its forward value is within a
-/// few ulp of the requested probability). Where the shape-side parameter
-/// exceeds ~1e32 the entire transition from I = 0 to I = 1 happens inside one
+/// few ulp of the requested probability). Where the effective sample size
+/// nu = ab/(a+b) is huge (audited band nu >= ~1e31; full collapse for
+/// nu >~ 1e35) the entire transition from I = 0 to I = 1 happens inside one
 /// or two ulp of x, so every interior probability has effectively the same
 /// answer; that is the correctly rounded result, not a shortcut.
 ///
@@ -376,11 +386,13 @@ void i1e(std::span<const double> in, std::span<double> out) noexcept;
 
 /// \brief out[i] = exp(in[i]).
 ///
-/// Assembled from corvus's internal double-double exp core (~2^-70
-/// relative before the final rounding), so the result is the correctly
-/// rounded exp except within ~2^-17 ulp of a rounding tie; subnormal
-/// results keep one effective rounding through the two-step power-of-two
-/// scaling. Accuracy: measured and gate-pinned per SIMD tier
+/// Assembled from corvus's internal double-double exp core (audited at
+/// 2^-68.4 relative before the final rounding), so the result is the
+/// correctly rounded exp except within ~2^-15 ulp of a rounding tie.
+/// Subnormal results take ONE extra rounding through the two-step
+/// power-of-two scaling (worst construction bound ~0.75 ulp of the
+/// output, within the 1-ULP gate). Accuracy: measured and gate-pinned
+/// per SIMD tier
 /// (docs/ACCURACY.md). Overflow to +inf and gradual underflow through the
 /// subnormals to 0 cross at the correctly rounded thresholds.
 ///
@@ -390,8 +402,8 @@ void exp(std::span<const double> in, std::span<double> out) noexcept;
 
 /// \brief out[i] = log(in[i]), natural logarithm.
 ///
-/// Assembled from corvus's internal double-double log core (~2^-70
-/// relative, centred-mantissa table so full relative accuracy holds
+/// Assembled from corvus's internal double-double log core (audited at
+/// 2^-67.88 relative, centred-mantissa table so full relative accuracy holds
 /// through x near 1), then rounded once. Subnormal inputs are prescaled
 /// exactly on every tier. Accuracy: measured and gate-pinned per SIMD
 /// tier (docs/ACCURACY.md).
@@ -404,7 +416,9 @@ void log(std::span<const double> in, std::span<double> out) noexcept;
 ///   1 + x first.
 ///
 /// 1 + x is captured exactly (TwoSum) and handed to the same core as
-/// `log`, so relative accuracy holds for tiny x (where log1p(x) ~ x) and
+/// `log`; below |x| = 2^-30 a dedicated series branch sidesteps the
+/// core's seam rounding (#35 H1). Relative accuracy therefore holds for
+/// tiny x (where log1p(x) ~ x) and
 /// through the deep-cancellation corner near x = -1. Accuracy: measured
 /// and gate-pinned per SIMD tier (docs/ACCURACY.md).
 ///

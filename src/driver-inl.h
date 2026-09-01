@@ -7,10 +7,13 @@
 //     as the full-vector body, under LoadN/StoreN masking.
 //   * The debug-only span-length contract check (#5 S1): corvus.h
 //     declares mismatched span lengths undefined behaviour; HWY_DASSERT
-//     makes the natural caller mistake (out shorter than in) fail loudly
-//     in debug builds instead of writing out of bounds. Zero release
-//     cost. HWY_DASSERT comes from hwy/base.h via ops-inl.h -- not an
-//     hn:: symbol, so the facade rule holds.
+//     makes any mismatch fail loudly in debug builds. Zero release
+//     cost. In release the loop bound is out.size(), so an out shorter
+//     than its inputs truncates in-bounds; the dangerous mistake is an
+//     INPUT shorter than out, which reads past the input's end (#34
+//     S2-L5 -- an earlier version of this comment had the directions
+//     swapped). HWY_DASSERT comes from hwy/base.h via ops-inl.h -- not
+//     an hn:: symbol, so the facade rule holds.
 //
 // The kernel parameter is a callable (in practice a stateless lambda
 // naming one per-target Vec function, e.g. GammaVec<true>) invoked as

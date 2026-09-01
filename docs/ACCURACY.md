@@ -943,8 +943,16 @@ declined, never guessed):
   0, so the clamp is value-identical everywhere it was correct
   before); gamma's inverse carried the same latent shape at its u
   site — unreachable on its gates — and received the same clamp.
-q; inputs outside [0, 1] → NaN, as are non-positive or non-finite
-parameters; NaN propagates from any argument.
+Special values (smoke-pinned, corvus.h is the contract): p = 0 → +0
+and p = 1 → 1, mirrored for q. A single degenerate parameter puts all
+the mass at one endpoint and every quantile is that endpoint: a = 0 or
+b = +inf → +0, b = 0 or a = +inf → 1. Any two-way degeneracy among
+{a, b} ∈ {0, +inf} gives NaN, as do negative a or b and p outside
+[0, 1]; NaN propagates from any argument (payload preserved).
+(Restored at #34 S2-M2: the previous paragraph lost its lead-in to the
+huge-parameter insertion above, and its surviving
+non-positive/non-finite → NaN clause predated the point-mass
+handling.)
 
 ## i0, i1, i0e, i1e
 
@@ -1099,8 +1107,10 @@ row (gate 0) and max 1 ULP in the subnormal-output band, with both
 saturation boundaries exact** — measured identically (bucket-for-
 bucket, row-for-row) on AVX3_ZEN4 native and the SSE2 cap. These are
 the tightest gates in the library; the theoretical statement behind
-them is "correctly rounded except within ~2^−17 ulp of a rounding
-tie" (for log1p below 2^−30, ~2^−23: the #35 H1 series branch), and no
+them is "correctly rounded except within ~2^−15 ulp of a rounding
+tie" — the window the audited core bounds (2^−68.4 exp, 2^−67.88 log)
+support; the ~2^−17 design budget is tighter than what is proven —
+(for log1p below 2^−30, ~2^−23: the #35 H1 series branch), and no
 row of the current sets lands in that window. A future regeneration
 that legitimately draws a tie-window row re-pins the gate with the
 evidence.
@@ -1153,7 +1163,9 @@ log1p(x<−1) = NaN, log1p(±0) = ±0 (sign preserved), log1p(+inf) =
 position). DELIBERATE DEVIATION (#35 L6, library-wide): a signaling
 NaN input is returned with its bits unchanged — NOT quieted, unlike
 C99 libm, which would raise invalid and return a qNaN. corvus never
-inspects the quiet bit; payload preservation is the contract.
+inspects the quiet bit; payload preservation is the contract. The one
+exception is lbeta, whose min/max scrub loses the input bits: it
+documents and delivers a fresh quiet NaN instead (#34 S2-L6).
 
 ## exp_dd (internal)
 

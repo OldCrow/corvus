@@ -12,8 +12,10 @@ for using them.
 
 ## 1. What corvus is
 
-corvus computes about twenty **special functions** — the awkward mathematical
-functions that statistical work is built out of. It computes them on whole
+corvus computes twenty **special functions** — the awkward mathematical
+functions that statistical work is built out of — plus the five
+full-double-range elementary functions they are built on (`exp`, `log`,
+`log1p`, `cos`, `sin`). It computes them on whole
 arrays at a time, using whatever vector instructions your CPU turns out to
 have, and every function comes with a measured accuracy bound.
 
@@ -93,7 +95,7 @@ Grouped by what you would reach for them to do.
 
 | function | computes | typical bound |
 |---|---|---|
-| `gamma_p`, `gamma_q` | regularized incomplete gamma, lower and upper | 2 ULP |
+| `gamma_p`, `gamma_q` | regularized incomplete gamma, lower and upper | 2 ULP (`gamma_q`: 4 in one band) |
 | `gamma_p_inv`, `gamma_q_inv` | their inverses | 1 ULP |
 | `lgamma` | log of the gamma function | 1 ULP |
 | `digamma`, `trigamma` | first and second derivatives of `lgamma` | 1 ULP |
@@ -131,7 +133,8 @@ nothing to guard.
 
 "Correctly rounded" here means every row of the audited reference sets
 matches the correctly rounded result exactly (the theoretical exception
-window is ~2^-17 ulp around rounding ties; see docs/ACCURACY.md). In
+window is ~2^-15 ulp around rounding ties, from the audited core
+bounds; see docs/ACCURACY.md). In
 particular exp(−inf) = 0, exp produces true subnormals instead of
 flushing, and log1p keeps full relative accuracy for tiny x — the three
 edge behaviours vectorized exp/log replacements most often get wrong.
@@ -151,9 +154,11 @@ Worth being blunt about, so you can plan around it.
 
 - **No distributions.** There is no `normal_cdf`. You build it from `erfc`, in
   one line. The `examples/` directory shows how for the common ones.
-- **No basic transcendentals.** No `exp`, `log`, `sin`, `pow`. Use `<cmath>`,
-  or your SIMD library's own math functions. corvus covers the special
-  functions specifically.
+- **Not a general vector-math library.** corvus ships the elementary
+  functions its own kernels needed at full-double-range accuracy — `exp`,
+  `log`, `log1p`, `cos`, `sin` (§3) — but nothing else from `<cmath>`: no
+  `pow`, no `tan`, no `sqrt`. For those, use `<cmath>` or your SIMD
+  library's own math functions.
 - **No random number generation, sampling, or fitting.** `digamma` and
   `trigamma` are what a maximum-likelihood fit needs, but you write the fit.
 - **Real arguments only.** No complex arguments, no arbitrary precision, no
