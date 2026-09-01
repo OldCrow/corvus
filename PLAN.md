@@ -241,16 +241,51 @@ VALIDATION: header probe strict-C++20
 CLEAN; full release clang-cl rebuild + ctest 33/33 (doc-only batch —
 no kernel arithmetic anywhere, gates green as predicted); CI green
 per-job at 7b18e77. #34 CLOSED with the record.
-**NEXT SESSION: S3 — #26 packaging.** Pickup notes: checklist on #26
-(NOTICE with the Highway Apache notice — lands regardless of channel;
-SECURITY.md; versioning/stability policy; release checklist +
-tag↔version script; binary-channel prerequisite list). CHANGELOG
-decision point is the USER's in-session call (default: status quo).
-Mostly recipe/bookkeeping effort — escalate only if a policy question
-surfaces. The v1.0.0 tag blocks on S3, S4, and the log1p NEON re-leg
-(short M1 trip, rides the existing ctest — see ACCURACY.md's matrix
-row). After S3: S4 release — ladder, CI, checklist executed, signed
-tag, then the libstats v2.5.0 handshake.
+**v1.0.0 S3 — #26 packaging + doc review: RUN 2026-09-01, #26 closes
+on CI green.** Scope expanded in-session (user): in addition to the
+#26 checklist, a full documentation review — grammar/comprehension/
+style (active voice, ABC) plus SELF-CONTAINMENT (issue-number and
+PLAN.md references replaced with the facts they point at), docs first,
+README last.
+PACKAGING DELIVERED (edf574b): NOTICE — Highway is dual-licensed
+Apache-2.0/BSD-3 upstream with NO NOTICE file of its own, so ours
+elects Apache-2.0, records attribution, and scopes obligations to
+binary distributions (source tree bundles no Highway code).
+SECURITY.md (private advisory reporting; accuracy defects are quality
+bugs, not vulnerabilities). docs/VERSIONING.md — RATIFIED 2026-09-01
+(user): accuracy bounds are CONTRACTUAL FLOORS (loosening on a
+validated tier = MAJOR, tightening = MINOR); bit-for-bit across
+releases deliberately NOT promised (movement within bounds = PATCH);
+no ABI promise (source-only); doc-violating-result fix = PATCH.
+docs/RELEASING.md — 14-step checklist, binary-channel prerequisite
+list, tag↔version check as tools/check_release_version.py (tested on
+agree/mismatch/untagged paths). CHANGELOG: STATUS QUO ratified
+2026-09-01 (user) — release notes + ACCURACY.md remain the record.
+AGENTS.md reading map gained the two new docs.
+DOC REVIEW DELIVERED (37f1c1b): three agents (ACCURACY /
+USER-GUIDE+ARCHITECTURE / PERFORMANCE+DOCTRINE+ENVIRONMENT) under a
+no-semantic-drift brief; README + corvus.h by the orchestrator; every
+diff hunk orchestrator-reviewed. ~50 external references replaced
+in-place with their facts; zero numbers/bounds/table values changed.
+THREE STALE STATEMENTS corrected against verified reality: (1) the
+MSVC 19.30 floor IS enforced fatally at configure (CMakeLists ~175;
+ENVIRONMENT.md + ACCURACY.md both claimed no floor yet); (2) the
+lane-multiple ULP-gate tail gap IS fixed (988401a: every gate
+evaluates as N-3 + 3 calls; DOCTRINE + AGENTS.md said unfixed);
+(3) README early-development/v0.9.0-pending status replaced with the
+production statement, VERSIONING/SECURITY/NOTICE links added, spelling
+normalized to American. bench-evidence READMEs deliberately untouched
+(measurement-provenance ledgers, not documentation). VALIDATION:
+header probe strict-C++20 clean; full rebuild + ctest 33/33.
+**NEXT SESSION: S4 — release.** Pickup notes: run docs/RELEASING.md
+top to bottom for v1.0.0 — version ladder to 1.0.0 (header + CMake,
+one commit), check_release_version.py --tag v1.0.0, fresh
+release build + ctest, signed tag, CI green on the tag, GitHub
+release (source-only), close milestone, then the libstats v2.5.0
+handshake. GATING RESIDUAL: log1p NEON native cell — short M1 re-leg
+(rides existing ctest; ACCURACY.md matrix row) before the tag's
+claims are complete; do it on the next M1 trip or accept the open
+cell explicitly in the release notes (user call at S4).
 Original review record follows (posture as run: unfreeze
 decisions, nothing fixed until adjudication). Method: three independent
 reviewer agents (trig / exp-log / driver-boundary), every surviving
