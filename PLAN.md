@@ -136,6 +136,66 @@ SECURITY.md, versioning/stability policy, release checklist +
 tag↔version script, CHANGELOG decision point (default: status quo).
 (S4) **release** — ladder, CI, checklist executed, signed tag, then
 the libstats v2.5.0 handshake.
+**v1.0.0 S1 — #35 pre-1.0 adversarial review: REVIEW COMPLETE
+2026-08-31, findings pending user adjudication (posture: unfreeze
+decisions, nothing fixed in-session).** Method: three independent
+reviewer agents (trig / exp-log / driver-boundary), every surviving
+finding re-verified by the orchestrator — the HIGH on the actual
+shipped binary, native AVX3_ZEN4.
+CLEAN lenses: outlining-doctrine conformance (inventory conformant,
+both #7 exemptions valid, MSVC CI canary 11m13s–13m45s across
+v0.7.0→v0.9.0 — no superlinear signature); static analysis (cppcheck
+2.21 clean, clang-tidy 22.1.3 with src headers in scope 0 unique,
+lizard avg CCN 1.7 / max 14 unchanged, dead-code only exported-API
+FPs); driver boundary (all NINE gather-class sites SAFE — table in
+the #35 record; empty spans, tail bounds, overflow, dispatch
+thread-safety, facade rule all verified clean); trig kernel (PH index
+safety machine-verified for every input class both endpoints,
+exactness/boundary/sign lenses clean); exp no-blend design and log
+blends clean; non-FMA exactness clean everywhere.
+FINDINGS (all orchestrator-verified):
+[H1] corvus::log1p NOT correctly rounded for |x|~[2^-53, 2^-47]: the
+plain-double correction c = t(1 − t/2) in the dd-log overload leaves
+up to ~0.66 ulp deviation from truth (still ≤ 1 ULP), misrounding up
+to 21%/binade at 2^-53. CONFIRMED on native silicon:
+log1p(0x1.bd59273209114p-52) returns ...113, CR is ...112 (two more
+counterexamples verified). The 0-ULP gate passed via a
+sparse-mantissa seam stratum (anchors are power-of-two
+bit-neighborhoods; only 16 full-mantissa rows land in the band, all
+pass by luck). ACCURACY.md's CR-except-near-tie language and
+log-inl.h's "full relative accuracy" are contradicted; the per-row
+gate statement stays literally true.
+[M1] tools/refgen_common.py _self_test doubly vacuous vs subnormal
+double rounding (runs at import before dps set AND its construction
+is non-discriminating at any dps — both verified; the real disease
+exists in pinned mpmath: float(33·2^-1075 + 2^-1130) double-rounds).
+Shipped references independently re-verified fine (reviewer's
+Fraction oracle agreed with all 41,857 rows).
+[M2] gen_trig_reference.py self-check [:600] cap drops the 334
+HIGHEST-exponent huge rows (sample tops at 2^955; dropped rows reach
+2^1024) and the entire every-97th arm — verified against the shipped
+file. Those rows also sit outside both consumers' 2^23 domain, so
+the truncated replay is their only oracle check (mitigation: the
+kernel, an independent construction, agrees ≤ 1 ULP on all tiers).
+[L1] erfinv discarded-lane negative-x0 window into the erf-table
+gather: min x0 = −2.70e-4 vs OOB threshold −1/512 — a 7.23× margin
+enforced nowhere (verified numerically); a seed regeneration could
+silently break it. [L2] corvus.h aliasing doc internally
+inconsistent (grants one-input aliasing, justification proves
+any-input) → route to #34. [L3] exp/log 2×-dps self-check caps
+overstate coverage (same class as M2; log1p unaffected). [L4] exp
+subnormal-band doc bound understated (~0.75 ulp construction bound,
+0.7495 measured, vs "~0.51" in exp-inl.h and ACCURACY.md; 1-ULP gate
+sound). [L5] exp_dd-inl.h:99 Fast2Sum ordering justification false
+near reduction grid points (conclusion holds via a different bound).
+[L6] sNaN returned unquieted by exp/log/log1p (in-contract with
+"NaN propagates with payload"; deviates from C99 quieting). [L7]
+trig PH generator has no fp-replay sim of the shipped ladder
+(doctrine replay-rule gap; mitigated by silicon gates per tier).
+[L8] trig subnormal reference stratum positive-only (mitigated by
+structural |x| symmetry + smoke parity asserts).
+Full reviewer reports in the session transcripts; adjudication and
+any unfreeze land in the next entry.
 SUPERSEDED original map (ratified 2026-08-30, kept for the record):
 S1 #34 API review (frontier;
 findings = unfreeze decisions, not in-session fixes); S2 #26
