@@ -215,10 +215,34 @@ TwoSum→same core; below 2^-30 a dedicated series branch runs).
 [S2-L11] USER-GUIDE "about twenty special functions" — surface is 25.
 ORCHESTRATOR NOTE (pre-existing residual, restated): log1p NEON cell
 open in ACCURACY.md — M1 re-leg before the v1.0.0 tag's claims.
-ADJUDICATION PENDING: fix scope (recommend all 14 — doc-only batch)
-and the naming bless. After S2: S3 #26 packaging (NOTICE, SECURITY.md,
-versioning policy, checklist + tag↔version script, CHANGELOG
-decision), S4 release.
+ADJUDICATED 2026-09-01 (user): FIX ALL 14; NAMING BLESSED (rule
+recorded in AGENTS.md Conventions — established cross-library name
+where one exists, else base + _inv; established name wins). All 14
+fixes landed in one doc/comment batch: USER-GUIDE (M1 §4 rewrite —
+"not a general vector-math library", elementary five named; M3
+gamma_q 4-ULP band; L8 ~2^-15 window; L11 twenty special + five
+elementary), ACCURACY (M2 beta-inverse specials paragraph rebuilt to
+the smoke-pinned point-mass doctrine — the pre-mangling original ALSO
+had the stale non-positive/non-finite → NaN clause, recovered via
+c85e4de~1 and corrected; L6 lbeta carve-out; L8 tie-window ~2^-15
+with the design-budget note), corvus.h (L1 <version> +
+__cpp_lib_span #error — pre-C++20 include now fails with "corvus
+requires C++20" as the FIRST diagnostic, verified; L2 <cstddef>
+dropped; L3 empty-span bullet; L4 last-payload-wins bullet; L7 ν =
+ab/(a+b) collapse condition; L8 audited core figures; L9 "ONE extra
+rounding, ~0.75 ulp" phrasing; L10 H1 series-branch sentence),
+driver-inl.h (L5 comment direction corrected). Kernel-internal
+design-budget prose (exp_dd/exp-inl derivation blocks) deliberately
+kept at ~2^-70/~2^-17 — those are generator-self-check-enforced
+budgets labeled as such; audited numbers are the public claims.
+VALIDATION: header probe strict-C++20
+-Wall/-Wextra/-Wpedantic/-Wshadow/-Wconversion CLEAN + double-include
+CLEAN; full release clang-cl rebuild + ctest 33/33 (doc-only batch —
+no kernel arithmetic anywhere, gates green as predicted). #34 closes
+on CI green; the v1.0.0 tag then blocks only on S3/S4 and the log1p
+NEON re-leg noted above. After S2: S3 #26 packaging (NOTICE,
+SECURITY.md, versioning policy, checklist + tag↔version script,
+CHANGELOG decision), S4 release.
 Original review record follows (posture as run: unfreeze
 decisions, nothing fixed until adjudication). Method: three independent
 reviewer agents (trig / exp-log / driver-boundary), every surviving
