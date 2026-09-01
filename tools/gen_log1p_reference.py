@@ -18,6 +18,12 @@ Point selection (fixed seed, reproducible):
   - near 0, both signs: |x| log-spaced 1e-320..1 incl. subnormal inputs
     (log1p(x) ~ x - x^2/2)
   - the |x| ~ 2^-53 seam, bit-neighborhoods (TwoSum lo-only regime border)
+  - FULL-MANTISSA tiny band, 2^-56..2^-26 both signs (#35 H1): the power-
+    of-two bit-neighborhoods above have near-empty mantissas, for which
+    the old correction path was exact by construction -- they could not
+    see its rounding. Random full mantissas per binade straddle the
+    kernel's 2^-30 series cut and exercise the arithmetic the seam
+    anchors structurally cannot.
   - moderate/huge x log-uniform to the top of the double range
     (log1p(x) ~ log(x))
 
@@ -63,15 +69,19 @@ def emit(points):
 
 
 def self_check(rows):
-    """Every corner row (x within 2^-45 of -1: the -1 + j*2^-53 ladder,
-    where 1 + x is smallest and cancellation deepest) plus every 97th row,
-    capped at 600, re-verified at 2x dps bit-identical (issue #13 N14.2
-    pattern)."""
+    """Deep-corner rows (x within 2^-45 of -1: the -1 + j*2^-53 ladder,
+    where 1 + x is smallest and cancellation deepest), every 13th
+    full-mantissa tiny-band row, and every 97th row overall, re-verified
+    at 2x dps bit-identical (issue #13 N14.2 pattern). Per-arm caps, NOT
+    a truncating global cap: #35 M2/L3 found the old (a + b)[:600] shape
+    silently starves later arms once an early arm grows."""
     corner = [i for i, (x, _) in enumerate(rows)
-              if x < -1.0 + 2.0 ** -45]
+              if x < -1.0 + 2.0 ** -45][:600]
     corner_set = set(corner)
+    tiny = [i for i, (x, _) in enumerate(rows)
+            if 2.0 ** -56 <= abs(x) <= 2.0 ** -26][::13]
     every_97th = [i for i in range(0, len(rows), 97) if i not in corner_set]
-    sample = (corner + every_97th)[:600]
+    sample = sorted(set(corner + tiny + every_97th))
     bad = []
     with mp.workdps(2 * DPS):
         for i in sample:
@@ -84,8 +94,9 @@ def self_check(rows):
             print(f"self-check MISMATCH: x={x.hex()} stored={y.hex()} "
                   f"recomputed={y2.hex()}", file=sys.stderr)
         return False
-    print(f"self-check: {len(sample)} rows ({len(corner)} deep-corner) "
-          f"re-verified at dps={2 * DPS}: OK", file=sys.stderr)
+    print(f"self-check: {len(sample)} rows ({len(corner)} deep-corner, "
+          f"{len(tiny)} tiny-band) re-verified at dps={2 * DPS}: OK",
+          file=sys.stderr)
     return True
 
 
@@ -127,6 +138,16 @@ def main():
         e = rng.uniform(0, 308)
         pts.append(10.0 ** e * rng.uniform(1.0, 9.99))
     pts += [rng.uniform(-0.5, 4.0) for _ in range(1024)]
+
+    # Full-mantissa tiny band (#35 H1). Dedicated rng stream so every row
+    # above is byte-identical to the pre-H1 file and this stratum is a pure
+    # append -- the regeneration diff stays reviewable.
+    rng2 = random.Random(SEED ^ 0x5EAB)
+    for e in range(-56, -25):
+        exp_bits = (1023 + e) << 52
+        for _ in range(64):
+            x = from_bits(exp_bits | rng2.randrange(1 << 52))
+            pts += [x, -x]
 
     rows = emit(pts)
     if not self_check(rows):
