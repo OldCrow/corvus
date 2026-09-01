@@ -16,9 +16,12 @@
 ///    (HWY_DASSERT in the shared driver), so the mistake fails loudly
 ///    there instead.
 ///  - Exact aliasing is allowed (`in.data() == out.data()`); partial overlap
-///    is undefined behavior. For functions taking several input spans,
-///    exactly one input may alias `out` (every input at index i is read
-///    before out[i] is written); inputs may alias each other.
+///    is undefined behavior. For functions taking several input spans, ANY
+///    subset of the inputs may exactly alias `out`, and inputs may alias
+///    each other: the shared driver loads every input block before writing
+///    the corresponding output block, in the masked tail as well (#35 L2 --
+///    the earlier wording granted only one aliasing input while its own
+///    justification proved the general property).
 ///  - No allocation, no exceptions, thread-safe (stateless; the dispatch
 ///    pointer is resolved on first call).
 ///  - Accuracy bounds are measured against a correctly-rounded mpmath

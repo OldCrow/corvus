@@ -35,11 +35,21 @@ Self-check (exits non-zero on any failure):
        and to <= 2^-88 relative in r at every probed point;
     4. the literature worst case (M = 0x16ac5b262ca1ff, e = 849,
        |r| = 2^-60.89) is probed explicitly.
+    5. fp LADDER REPLAY (#35 L7, the NUMERICAL-DOCTRINE replay rule): the
+       shipped expansion ladder (src/trig-inl.h TrigReducePh, through
+       fmn = f - n; the trailing DdMul by pi/2 is dd-inl.h machinery
+       outside this table's scope) re-run bit-faithfully in python
+       doubles under BOTH TwoProd flavors -- FMA residual and the non-FMA
+       Dekker split -- against the exact rational reduction: the flavors
+       must agree bit for bit (the kernel's cross-tier identity), the
+       quadrant must match, and the fp error must sit within the header's
+       budget at every probe including the per-exponent CF worst cases.
 
 Usage:
     python tools/gen_trig_ph_table.py > src/trig_ph_data.inc
 """
 
+import math
 import random
 import sys
 from fractions import Fraction
@@ -151,8 +161,113 @@ def self_check():
     return fails, worst_abs, worst_rel, deepest
 
 
+def _two_sum(a, b):
+    s = a + b
+    bb = s - a
+    return s, (a - (s - bb)) + (b - bb)
+
+
+def _two_prod_dekker(a, b):
+    # The non-FMA tiers' exact product residual: Dekker via the 2^27+1
+    # split (ops::ProdLow). Magnitudes here are <= 2^55, far under the
+    # split's 2^996 overflow ceiling.
+    c = 134217729.0 * a
+    ah = c - (c - a)
+    al = a - ah
+    t = 134217729.0 * b
+    bh = t - (t - b)
+    bl = b - bh
+    p = a * b
+    return p, ((ah * bh - p) + ah * bl + al * bh) + al * bl
+
+
+def _two_prod_fma(a, b):
+    # FMA-tier residual. TwoProd's residual is exactly representable, so
+    # the fused subtract is exact; math.fma models it directly (3.13+).
+    p = a * b
+    return p, math.fma(a, b, -p)
+
+
+def _muladd_fused(q, c, x):
+    return math.fma(q, c, x)
+
+
+def _muladd_unfused(q, c, x):
+    return (q * c) + x
+
+
+def _replay_ladder(m, e, two_prod, muladd):
+    """Bit-faithful double replay of TrigReducePh's ladder -> (n mod 4,
+    fmn_hi, fmn_lo). Mirrors src/trig-inl.h line for line; python floats
+    ARE IEEE doubles and round() is ties-to-even, matching op::Round for
+    the <= 2^53 magnitudes stripped here."""
+    chunks = window_chunks(e)
+    mf = float(m)
+    p0, p0l = two_prod(mf, float(chunks[0]))
+    p1, p1l = two_prod(mf, float(chunks[1]))
+    p2, p2l = two_prod(mf, float(chunks[2]))
+    p3, _ = two_prod(mf, float(chunks[3]))
+    q0 = float(round(p0 * 0.25))
+    d0 = muladd(q0, -4.0, p0)
+    a_hi, a_lo = _two_sum(p0l, p1)
+    b_hi, b_lo = _two_sum(a_hi, d0)
+    q1 = float(round(b_hi * 0.25))
+    s = muladd(q1, -4.0, b_hi)
+    n = float(round(s))
+    f1 = s - n
+    g_hi, g_lo = _two_sum(p1l, p2)
+    h1_hi, h1_lo = _two_sum(f1, b_lo)
+    h2_hi, h2_lo = _two_sum(h1_hi, a_lo)
+    h3_hi, h3_lo = _two_sum(h2_hi, g_hi)
+    lo = ((h1_lo + h2_lo) + (h3_lo + g_lo)) + (p2l + p3)
+    fmn_hi, fmn_lo = _two_sum(h3_hi, lo)
+    return int(n), fmn_hi, fmn_lo
+
+
+def ladder_replay_check():
+    """Self-check stage 5 (docstring). Returns (fails, worst_abs_log2,
+    worst_rel_log2)."""
+    rng = random.Random(SEED ^ 0x9EF)
+    fails = []
+    worst_abs = Fraction(0)
+    worst_rel = Fraction(0)
+    for e in range(PH_E_MIN, PH_E_MAX + 1):
+        probes = [m for m, _ in worst_m_for_exponent(e, 2)]
+        probes += [rng.randrange(1 << 52, 1 << 53) for _ in range(3)]
+        wf = window_fraction(e)
+        for m in probes:
+            f = (m * wf) % 4
+            n_e = round(f)
+            exact_total = n_e + (f - n_e)  # == f, kept in split form
+            fma_out = _replay_ladder(m, e, _two_prod_fma, _muladd_fused)
+            dek_out = _replay_ladder(m, e, _two_prod_dekker,
+                                     _muladd_unfused)
+            if fma_out != dek_out:
+                fails.append(f"e={e} m={m:#x}: FMA and Dekker replays "
+                             f"disagree: {fma_out} vs {dek_out}")
+                continue
+            n_k, hi, lo = fma_out
+            err = (Fraction(n_k) + Fraction(hi) + Fraction(lo)
+                   - exact_total) % 4
+            err = min(err, 4 - err)
+            worst_abs = max(worst_abs, err)
+            if err > Fraction(1, 2 ** 100):
+                fails.append(f"e={e} m={m:#x}: ladder abs err > 2^-100")
+            fmn_e = f - n_e
+            if fmn_e != 0:
+                rel = err / abs(fmn_e)
+                worst_rel = max(worst_rel, rel)
+                if rel > Fraction(1, 2 ** 88):
+                    fails.append(f"e={e} m={m:#x}: ladder rel err > 2^-88 "
+                                 f"at |f-n| ~ 2^"
+                                 f"{math.log2(abs(fmn_e)):.1f}")
+    return fails, worst_abs, worst_rel
+
+
 def main():
     fails, worst_abs, worst_rel, deepest = self_check()
+    replay_fails, replay_abs, replay_rel = ladder_replay_check()
+    fails += replay_fails
     for f in fails[:40]:
         print(f"self-check FAILED: {f}", file=sys.stderr)
     if fails:
@@ -163,6 +278,12 @@ def main():
         f"2^{float(mp.log(worst_rel, 2)):.1f}; deepest cancellation probed "
         f"{deepest[0]} bits (m={deepest[1]:#x}, e={deepest[2]}); literature "
         f"worst case (e=849) verified",
+        file=sys.stderr,
+    )
+    print(
+        f"ladder replay OK (#35 L7): FMA and Dekker bit-identical at every "
+        f"probe; worst abs err 2^{math.log2(replay_abs):.1f}, worst rel "
+        f"2^{math.log2(replay_rel):.1f} vs gates 2^-100 / 2^-88",
         file=sys.stderr,
     )
 

@@ -64,17 +64,26 @@ def _self_test():
     assert round_to_double(mp.mpf(1) / 3) == float(mp.mpf(1) / 3)
     # Sign preserved through the subnormal path.
     assert round_to_double(-(mp.mpf(3) * mp.mpf(2) ** -1075)) == -(2 * 2.0 ** -1074)
-    # The double-rounding defect this module exists to fix: a value whose
-    # 53-bit rounding lands exactly on a half-ulp of the subnormal grid
-    # (second rounding then goes the wrong way ~half the time). Construct
-    # one: v = (2^-1070)*(1 + 2^-53 + 2^-90). 53-bit rounding of the
-    # mantissa gives 1 + 2^-52 exactly (tie broken up by the 2^-90 bit is
-    # already above the tie): float(v) via to_float rounds mantissa to
-    # 1 + 2^-52, then ldexp onto the 2^-1074 grid rounds 16 + 2^-48-ish...
-    # the ONE-rounding answer: v*2^1074 = 16*(1 + 2^-53 + 2^-90) =
-    # 16 + 2^-49 + 2^-86, nearest integer = 16.
-    v = mp.mpf(2) ** -1070 * (1 + mp.mpf(2) ** -53 + mp.mpf(2) ** -90)
-    assert round_to_double(v) == math.ldexp(16.0, -1074)
+    # The double-rounding defect this module exists to fix, with a
+    # construction that actually DISCRIMINATES (#35 M1: the previous one,
+    # 2^-1070*(1 + 2^-53 + 2^-90), scales to 16 + 2^-49 + 2^-86 -- nowhere
+    # near a half-integer of the 2^-1074 grid, so float() passes it too,
+    # and at import-time default precision it collapsed to exactly 2^-1070
+    # besides). u = 33*2^-1075 + 2^-1130 scales to 16.5 + 2^-55: single
+    # rounding gives 17 (just above the tie); mpmath's float() first
+    # rounds the mantissa to 53 bits -- landing EXACTLY on the 16.5 tie --
+    # then ties-to-even DOWN to 16. Verified against pinned mpmath 1.4.1:
+    # float(u) returns 16*2^-1074, so this assert fails on any regression
+    # to float() in the subnormal branch.
+    u = mp.mpf(33) * mp.mpf(2) ** -1075 + mp.mpf(2) ** -1130
+    assert round_to_double(u) == math.ldexp(17.0, -1074)
+    assert float(u) == math.ldexp(16.0, -1074), \
+        "float(mpf) no longer double-rounds; round_to_double may be droppable"
 
 
-_self_test()
+# #35 M1: run under explicit precision -- module import happens BEFORE the
+# generators set their working dps, and the old ambient-precision run let
+# every discriminating construction collapse to an exactly-representable
+# value at prec 53.
+with mp.workdps(60):
+    _self_test()

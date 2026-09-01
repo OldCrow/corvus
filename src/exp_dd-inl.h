@@ -95,8 +95,15 @@ HWY_INLINE ExpDdParts<D> ExpDdFrac(D d, op::V<D> xh, op::V<D> xl) {
   const auto kl2_lo = op::ProdLow(d, kf, l2, kl2);  // exact residual
   const auto s0 = TwoSum(d, xh, op::Neg(kl1));
   const auto s1 = TwoSum(d, s0.hi, op::Neg(kl2));
-  // |s1.hi| ~ 2^-8.5 dominates every term here, so Fast2Sum's ordering
-  // precondition holds even though x_lo may be far larger than s1.lo.
+  // Fast2Sum's ordering precondition USUALLY holds via |s1.hi| ~ 2^-8.5;
+  // within ~2^-60 of a reduction grid point k*ln2/128 it can FAIL (s1.hi
+  // shrinks below the correction operand). The result still stands, by a
+  // different argument (#35 L5): when the precondition fails, both
+  // operands are ~2^-60-scale, the pair error is bounded by an ulp of
+  // their sum (~2^-112 ABSOLUTE in r), and that propagates through exp as
+  // ~2^-112 relative -- orders below the 2^-70 budget. Verified by the
+  // reference set's reduction-stress stratum and an adversarial
+  // half-slot sweep at review.
   const auto r = Fast2Sum(
       d, s1.hi,
       op::Add(op::Sub(op::Add(s0.lo, s1.lo), kl2_lo), xl));

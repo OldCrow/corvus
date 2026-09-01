@@ -11,7 +11,8 @@ covered by the smoke/edge test, not here (erf-reference convention).
 Point selection (fixed seed, reproducible):
   small region (|x| <= 2^23, the exact-split reduction):
   - uniform over +/-2^23
-  - log-spaced small magnitudes to 1e-300 incl. subnormals (sin(x) ~ x)
+  - log-spaced small magnitudes to 1e-300 incl. subnormals, BOTH signs
+    (sin(x) ~ x; negative subnormals added by #35 L8)
   - bit-neighborhoods of k*pi/2 (random k <= n_max = 5,340,354): the
     reduction-boundary stress rows
   - per-exponent CF worst cases for e in [2, 22] (deepest cancellation
@@ -85,13 +86,17 @@ def emit(fn, points):
 
 def self_check(fn, rows):
     """Deterministic sample re-verified at 2x dps, bit-identical (issue #13
-    N14.2 pattern). Every huge-region row with |x| >= 1e250 is in the
-    sample (they lean hardest on the oracle's internal reduction), plus
-    every 97th row, capped at 600."""
+    N14.2 pattern). EVERY huge-region row with |x| >= 1e250 is in the
+    sample (they lean hardest on the oracle's internal reduction; these
+    rows also sit above both consumers' 2^23 domain, so this replay is
+    their only oracle cross-check), plus every 97th row. No truncating
+    global cap: #35 M2 found the old (huge + every_97th)[:600] silently
+    dropped the 334 HIGHEST-exponent huge rows and the entire every-97th
+    arm."""
     huge = [i for i, (x, _) in enumerate(rows) if abs(x) >= 1e250]
     huge_set = set(huge)
     every_97th = [i for i in range(0, len(rows), 97) if i not in huge_set]
-    sample = (huge + every_97th)[:600]
+    sample = huge + every_97th
     bad = []
     for i in sample:
         x, y = rows[i]
@@ -103,7 +108,8 @@ def self_check(fn, rows):
             print(f"self-check MISMATCH: x={x.hex()} stored={y.hex()} "
                   f"recomputed={y2.hex()}", file=sys.stderr)
         return False
-    print(f"self-check: {len(sample)} rows re-verified at 2x dps: OK",
+    print(f"self-check: {len(sample)} rows ({len(huge)} huge, all of them) "
+          f"re-verified at 2x dps: OK",
           file=sys.stderr)
     return True
 
@@ -120,6 +126,12 @@ def build_points():
         x = 10.0 ** e
         pts.append(rng.choice([x, -x]))
     pts += [from_bits(rng.randrange(1, 1 << 52)) for _ in range(256)]  # subnormals
+    # Negative subnormals (#35 L8): the stratum above never negated, so the
+    # kernel's |x| symmetry met no negative-subnormal reference row. A
+    # dedicated rng stream keeps every row above byte-identical (pure
+    # append, same pattern as gen_log1p's H1 stratum).
+    rng_l8 = random.Random(SEED ^ 0x1B8)
+    pts += [-from_bits(rng_l8.randrange(1, 1 << 52)) for _ in range(256)]
 
     with mp.workdps(60):
         for _ in range(3584):

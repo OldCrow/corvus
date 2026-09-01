@@ -8,8 +8,14 @@
 //   apply 2^e in two exact-then-rounding steps. Total error on a normal
 //   result: 0.5 ulp (final rounding) + ~2^-17 ulp (core), i.e. correctly
 //   rounded except within ~2^-17 ulp of a tie. On a subnormal result the
-//   fl(m.hi + m.lo) rounding (2^-53 relative) composes with ScaleTwo's
-//   single subnormal rounding for <= ~0.51 ulp in the output's own ulp.
+//   fl(m.hi + m.lo) rounding composes with ScaleTwo's single subnormal
+//   rounding: in the TOP subnormal binade the first rounding is worth up
+//   to 0.25 ulp of the output (m in [1,2) against e = -1023), so the
+//   construction bound is ~0.75 ulp in the output's own ulp -- 0.7495
+//   measured (#35 L4 corrected the earlier ~0.51 figure, which held only
+//   for deeper subnormals). Still within the 1-ULP gate: total < 1
+//   guarantees at most 1 ULP from correctly rounded, which is what the
+//   gate deliberately admits for the two-rounding path.
 //
 // WHY THERE ARE NO THRESHOLD BLENDS
 //   The core's kExpXMax = 1100 clamp bounds |e| <= 1600 (ScaleTwo's

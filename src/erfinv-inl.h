@@ -158,7 +158,15 @@ HWY_INLINE op::V<D> HalleyMid(D d, op::V<D> x0, op::V<D> s) {
   // (x86 minpd returns the non-NaN second operand; ARM fcvtzs(NaN) = 0):
   // neither is a guarantee, and Highway's debug-mode gather bounds assert
   // would trip. The scrubbed lanes' results are garbage and discarded.
-  const auto x0s = op::IfThenElse(op::IsNaN(x0), op::Zero(d), x0);
+  // #35 L1: discarded central-window lanes can also carry a NEGATIVE
+  // non-NaN x0 (the mid seed's constant term is negative, so t*seed(t)
+  // dips to -2.7e-4 for t < ~0.03). ErfcCoreDd has no lower clamp and its
+  // gather index round(ac*256) only stays at 0 because |x0| < 1/512 --
+  // a 7.2x rounding margin enforced nowhere until this Max. The clamp is
+  // provably a no-op on live lanes (x0 > 0) and runs after the NaN scrub,
+  // so Max never sees a NaN.
+  const auto x0s = op::Max(
+      op::IfThenElse(op::IsNaN(x0), op::Zero(d), x0), op::Zero(d));
   const auto e = ErfcCoreDd(d, x0s, x0s);  // x0 > 0 on live lanes
   const auto f = DdToDouble(DdAddD(d, e, op::Neg(s)));
   const auto fp = op::Mul(op::Set(d, -kErfinvTwoOverSqrtPi),

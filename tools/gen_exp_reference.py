@@ -67,7 +67,9 @@ def self_check(rows):
     subnormal = [i for i, (_, y) in enumerate(rows) if 0 < abs(y) < _MIN_NORMAL]
     subnormal_set = set(subnormal)
     every_97th = [i for i in range(0, len(rows), 97) if i not in subnormal_set]
-    sample = (subnormal + every_97th)[:600]
+    # No truncating global cap (#35 L3: the old [:600] starved the
+    # every-97th arm entirely and most of the subnormal stratum).
+    sample = subnormal + every_97th
     bad = []
     with mp.workdps(2 * DPS):
         for i in sample:
