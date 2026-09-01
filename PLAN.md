@@ -139,8 +139,9 @@ the libstats v2.5.0 handshake.
 **v1.0.0 S1 — #35 pre-1.0 adversarial review: CLOSED 2026-08-31.**
 All findings fixed under the user-ratified unfreeze (6aad501/2150d9a/
 92a8daa), CI green per-job at 92a8daa (#35 closed with the record).
-**v1.0.0 S2 — #34 final API review: RUN 2026-09-01, findings
-PENDING ADJUDICATION.** Method: two independent reviewer agents (docs
+**v1.0.0 S2 — #34 final API review: CLOSED 2026-09-01.** Surface
+reviewed and confirmed post-fixes; #34 closed with the record at
+7b18e77, CI green per-job (run 33567284071). Method: two independent reviewer agents (docs
 parity three-way header/ACCURACY/USER-GUIDE; behavioral contracts vs
 implementation) plus orchestrator lenses (header hygiene, naming,
 expensive-to-change); every finding orchestrator-verified at the cited
@@ -238,11 +239,18 @@ budgets labeled as such; audited numbers are the public claims.
 VALIDATION: header probe strict-C++20
 -Wall/-Wextra/-Wpedantic/-Wshadow/-Wconversion CLEAN + double-include
 CLEAN; full release clang-cl rebuild + ctest 33/33 (doc-only batch —
-no kernel arithmetic anywhere, gates green as predicted). #34 closes
-on CI green; the v1.0.0 tag then blocks only on S3/S4 and the log1p
-NEON re-leg noted above. After S2: S3 #26 packaging (NOTICE,
-SECURITY.md, versioning policy, checklist + tag↔version script,
-CHANGELOG decision), S4 release.
+no kernel arithmetic anywhere, gates green as predicted); CI green
+per-job at 7b18e77. #34 CLOSED with the record.
+**NEXT SESSION: S3 — #26 packaging.** Pickup notes: checklist on #26
+(NOTICE with the Highway Apache notice — lands regardless of channel;
+SECURITY.md; versioning/stability policy; release checklist +
+tag↔version script; binary-channel prerequisite list). CHANGELOG
+decision point is the USER's in-session call (default: status quo).
+Mostly recipe/bookkeeping effort — escalate only if a policy question
+surfaces. The v1.0.0 tag blocks on S3, S4, and the log1p NEON re-leg
+(short M1 trip, rides the existing ctest — see ACCURACY.md's matrix
+row). After S3: S4 release — ladder, CI, checklist executed, signed
+tag, then the libstats v2.5.0 handshake.
 Original review record follows (posture as run: unfreeze
 decisions, nothing fixed until adjudication). Method: three independent
 reviewer agents (trig / exp-log / driver-boundary), every surviving
