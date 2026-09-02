@@ -306,8 +306,24 @@ integration section — "Consuming corvus" added (find_package,
 add_subdirectory/FetchContent, pkg-config); (4) README beta-inverse
 bullet overclaimed "max 1 ULP over the whole domain" — 2-ULP
 neighbour-semantics band now carved out per ACCURACY.md. Residual
-risk: unknown unknowns only. READY FOR THE S4 LADDER from step 6
-(preconditions 1–5 verified this session).
+risk: unknown unknowns only.
+**v1.0.0 S4 — RELEASED 2026-09-01 (Mac Mini M1).** RELEASING.md run
+top to bottom: ladder commit 9d0d433 (header + CMake 1.0.0, configure
+gate + check_release_version.py --tag OK; fresh build-release zero
+warnings, 33/33 NEON-asserted); CI green per job on 9d0d433; signed
+tag v1.0.0 on 9d0d433 (good signature, pushed, re-check against git
+describe OK); GitHub release "v1.0.0 — Stable surface" (source-only,
+notes: log1p bound change, #35/#34/#26 records, pkg-config fix,
+validation at tag); milestone v1.0.0 closed; libstats handshake done
+(milestone #6 prerequisite (b) marked SATISFIED, libstats PLAN.md
+7429e11). Lesson: a "smartcard signing failed: Timeout" ~15 s after
+scdaemon takes the PIN is the YubiKey TOUCH going unanswered — not the
+gpg-agent wake-wedge; do not resync, just touch the key on retry.
+**NEXT SESSION: v1.1.0 pickup** — milestone "New families & kernel
+performance" (7 open: #31 lgamma table-driven band GO re-scoped, #22
+non-gather x86 variant, #21 exp_dd bump, #18 erfcx P2, #19/#20 P3
+conditional on libstats, #28/#29 upstream watches). No corvus-side
+work is owed to libstats v2.5.0 beyond the frozen surface.
 Original review record follows (posture as run: unfreeze
 decisions, nothing fixed until adjudication). Method: three independent
 reviewer agents (trig / exp-log / driver-boundary), every surviving
