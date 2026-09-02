@@ -289,6 +289,25 @@ CORVUS_EXPECT_TARGET=NEON, negative check AVX2→FAIL verified; log1p
 corner/near-0/general all 0 ULP at gate 0). ACCURACY.md matrix row
 and NEON provenance note filled. No open cells remain for the tag's
 claims; S4 is now the version ladder + checklist only.
+PRE-RELEASE AUDIT 2026-09-01 (same M1 session, user-requested "is a
+short-turnaround v1.0.1 unlikely?"): milestone empty; CI per-job green;
+first NATIVE Apple Silicon ASan+UBSan pass 33/33 tier-asserted (CI
+sanitizes on Linux only); CORVUS_DEV_WARNINGS Release on AppleClang 21
+zero warnings; install + find_package + add_subdirectory consumers PASS
+(transitive Highway resolved, installed header std-only, strict-C++20
+clean); docs sweep: 25/25 surface + every bound + links + examples +
+NOTICE/LICENSE/SECURITY + Highway pin consistent. FOUR GAPS FOUND AND
+FIXED (0004e8c, CI green incl. the new step): (1) corvus.pc had libhwy
+under Requires.private but libcorvus.a is static, so plain
+`pkg-config --libs corvus` failed to link — moved to Requires;
+(2) CI's pkg-config step only ran --exists — now compiles/links/runs
+consumer_example with the plain flags; (3) README had no consumer
+integration section — "Consuming corvus" added (find_package,
+add_subdirectory/FetchContent, pkg-config); (4) README beta-inverse
+bullet overclaimed "max 1 ULP over the whole domain" — 2-ULP
+neighbour-semantics band now carved out per ACCURACY.md. Residual
+risk: unknown unknowns only. READY FOR THE S4 LADDER from step 6
+(preconditions 1–5 verified this session).
 Original review record follows (posture as run: unfreeze
 decisions, nothing fixed until adjudication). Method: three independent
 reviewer agents (trig / exp-log / driver-boundary), every surviving
