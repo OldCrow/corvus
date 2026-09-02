@@ -177,11 +177,16 @@ jobs:
       - name: Run consumer_example
         run: ./consumer_example/build/consumer_demo
 
-      - name: pkg-config smoke test
+      - name: pkg-config consumer (compile, link, run with the plain flags)
         run: |
           export PKG_CONFIG_PATH="$GITHUB_WORKSPACE/_install/lib/pkgconfig:$GITHUB_WORKSPACE/_hwy/lib/pkgconfig"
           pkg-config --exists --print-errors corvus
           pkg-config --cflags --libs corvus
+          # Deliberately no --static: corvus.pc must carry Highway in
+          # Requires (not Requires.private) because libcorvus.a is static.
+          g++ -o pc_consumer consumer_example/main.cpp \
+            $(pkg-config --cflags --libs corvus)
+          ./pc_consumer
 
   # -------------------------------------------------------------------------
   # Windows / MSVC — toolchain coverage. This job deliberately produces NO new

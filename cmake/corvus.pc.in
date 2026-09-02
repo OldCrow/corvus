@@ -10,6 +10,6 @@ Description: SIMD-vectorized statistical special functions
 Version: @PROJECT_VERSION@
 URL: https://github.com/OldCrow/corvus
 
-Requires.private: libhwy
+Requires: libhwy
 Libs: -L${libdir} -lcorvus
 Cflags: -I${includedir} -std=c++20

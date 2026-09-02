@@ -72,8 +72,9 @@ that promises — and what it deliberately does not.
 
 - `beta_p_inv` / `beta_q_inv` (inverse regularized incomplete beta —
   directly the Beta-distribution quantile): max 1 ULP over the whole
-  (a, b, p) domain, with subnormal and endpoint results correctly
-  rounded, and BOTH ends of [0, 1] lossless — the kernel always solves
+  (a, b, p) domain (2 ULP only where the entire 0→1 transition sits
+  inside one or two ulp of x, so neighbouring doubles are equally
+  correct), with subnormal and endpoint results correctly rounded, and BOTH ends of [0, 1] lossless — the kernel always solves
   for whichever of x, 1−x is small, so `beta_p_inv(b, a, q)` returns
   1−x at full relative precision (SciPy's `betaincinv`, for
   comparison, degrades to ~10¹¹ ULP near 1). Where both parameters
@@ -213,6 +214,31 @@ ctest --test-dir build --output-on-failure
 
 The build uses an installed Highway if it finds one and otherwise
 fetches a pinned copy at configure time.
+
+### Consuming corvus
+
+Three ways, all producing the same static library. The imported target
+carries the C++20 requirement and the Highway dependency, so a consumer
+sets neither.
+
+- **Installed package** (recommended): `cmake --install build --prefix
+  <prefix>` from a build that used an installed Highway (the install
+  rules only exist in that configuration), then
+
+  ```cmake
+  find_package(corvus CONFIG REQUIRED)
+  target_link_libraries(app PRIVATE corvus::corvus)
+  ```
+
+  with `-DCMAKE_PREFIX_PATH=<prefix>` if it is not a system location.
+  [consumer_example/](consumer_example/) is exactly this, and CI builds
+  and runs it against a fresh install.
+- **In-tree**: `add_subdirectory(corvus)` (or `FetchContent` on a tag)
+  with `-DCORVUS_BUILD_TESTS=OFF -DCORVUS_BUILD_EXAMPLES=OFF`, then link
+  `corvus::corvus` as above.
+- **pkg-config**: `pkg-config --cflags --libs corvus` from the installed
+  prefix's `lib/pkgconfig`. Highway is listed as a public requirement
+  because the archive is static, so the plain flags link.
 
 ### Platforms and compilers
 

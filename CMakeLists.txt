@@ -299,9 +299,13 @@ if(CORVUS_HWY_PROVIDER STREQUAL "system")
     ${CMAKE_CURRENT_BINARY_DIR}/corvus-config-version.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/corvus)
 
-  # pkg-config file. Requires.private: libhwy matches the module name
-  # Highway's own install() emits (lib/pkgconfig/libhwy.pc) — verified by
-  # building Highway 1.4.0 locally and inspecting its installed .pc file.
+  # pkg-config file. Requires: libhwy matches the module name Highway's
+  # own install() emits (lib/pkgconfig/libhwy.pc) — verified by building
+  # Highway 1.4.0 locally and inspecting its installed .pc file. It is
+  # Requires, not Requires.private, on purpose: corvus is a static archive,
+  # so a consumer's link line always needs Highway; Requires.private would
+  # make plain `pkg-config --libs corvus` fail to link (only --static
+  # would work). CI compiles and links a consumer with the plain flags.
   # Path from <prefix>/<libdir>/pkgconfig back to <prefix> (usually ../..;
   # handles multiarch libdirs too). Consumed by cmake/corvus.pc.in.
   file(RELATIVE_PATH CORVUS_PC_PREFIX_REL

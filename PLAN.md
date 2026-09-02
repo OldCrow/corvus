@@ -681,7 +681,7 @@ behind a stable surface.
    AGENTS.md) — final API review, the libstats v2.5.0
    handshake (they adopt the frozen surface). Exit: tag cut before
    libstats v2.5.0 opens.
-   [OPEN] final API review has no issue yet — file one before v1.0.0 opens.
+   [DONE] final API review ran as #34 (v1.0.0 S2, closed 2026-09-01).
 6. **v1.1.0 — New families & kernel performance** (full G1–G5 pipeline
    each; the elementary family moved forward to v0.8.0 on 2026-08-28):
    #18 erfcx (P2),
