@@ -282,10 +282,13 @@ top to bottom for v1.0.0 — version ladder to 1.0.0 (header + CMake,
 one commit), check_release_version.py --tag v1.0.0, fresh
 release build + ctest, signed tag, CI green on the tag, GitHub
 release (source-only), close milestone, then the libstats v2.5.0
-handshake. GATING RESIDUAL: log1p NEON native cell — short M1 re-leg
-(rides existing ctest; ACCURACY.md matrix row) before the tag's
-claims are complete; do it on the next M1 trip or accept the open
-cell explicitly in the release notes (user call at S4).
+handshake. GATING RESIDUAL — RESOLVED 2026-09-01 on the Mac Mini M1:
+log1p NEON native cell re-legged (fresh Release build-m1 from ebea880,
+AppleClang 21, system Highway 1.4.0; 33/33 under
+CORVUS_EXPECT_TARGET=NEON, negative check AVX2→FAIL verified; log1p
+corner/near-0/general all 0 ULP at gate 0). ACCURACY.md matrix row
+and NEON provenance note filled. No open cells remain for the tag's
+claims; S4 is now the version ladder + checklist only.
 Original review record follows (posture as run: unfreeze
 decisions, nothing fixed until adjudication). Method: three independent
 reviewer agents (trig / exp-log / driver-boundary), every surviving
