@@ -70,10 +70,20 @@ special-function coverage.
   masked tail also runs on lane-multiple sets.
 
 ## Build & test
+Linux/macOS:
 ```sh
-cmake --preset release -G Ninja   # only windows-clang-cl pins a generator; pass -G Ninja otherwise
+cmake --preset release -G Ninja   # generic presets pin no generator; pass -G Ninja
 cmake --build build
 ctest --test-dir build --output-on-failure
+```
+Windows — ALWAYS the clang-cl preset, from a vcvars64 environment.
+Generic presets take the first compiler on PATH: mingw g++ compiles
+clean and mass-segfaults at AVX2+ (GCC PR 126741); MSVC silently caps
+at AVX2. No configure-time guard rejects them yet.
+```sh
+cmake --preset windows-clang-cl   # pins Ninja + clang-cl; builds into build-clangcl
+cmake --build build-clangcl
+ctest --test-dir build-clangcl --output-on-failure
 ```
 Release for every perf/accuracy number. Options are `CORVUS_`-prefixed
 (`CORVUS_DISABLED_TARGETS` tier capping, `CORVUS_SANITIZE`,
