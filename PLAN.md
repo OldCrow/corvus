@@ -320,9 +320,10 @@ validation at tag); milestone v1.0.0 closed; libstats handshake done
 scdaemon takes the PIN is the YubiKey TOUCH going unanswered — not the
 gpg-agent wake-wedge; do not resync, just touch the key on retry.
 **NEXT SESSION: v1.1.0 pickup** — milestone "New families & kernel
-performance" (7 open: #31 lgamma table-driven band GO re-scoped, #22
+performance" (8 open: #31 lgamma table-driven band GO re-scoped, #22
 non-gather x86 variant, #21 exp_dd bump, #18 erfcx P2, #19/#20 P3
-conditional on libstats, #28/#29 upstream watches). No corvus-side
+conditional on libstats, #28/#29 upstream watches, #37 x86 erf
+throughput — see below). No corvus-side
 work is owed to libstats v2.5.0 beyond the frozen surface.
 Handshake state update 2026-09-04: libstats v2.4.0 is nearly closed on
 `dev/v2.4.0` — all four distribution workstreams merged (19 → 27),
@@ -332,6 +333,14 @@ PR #143 / 7c2ca49); the M1 leg is the sole remaining gate before the
 dev → main PR + tag. v2.5.0 (corvus adoption, all prerequisites
 satisfied) opens directly after — expect the adoption-scoping
 questions (libstats #47/#52 re-scope, #126 absorption check) then.
+Second update, same day: M1 leg DONE, both machine legs complete,
+release gate cleared — only the dev → main PR + tag + pylibstats bump
+remain. Cross-repo issue FILED 2026-09-04: **#37** (v1.1.0) — libstats
+fleet data shows their x86 vector_erf ~5× slower per element than
+their NEON one (root cause of a HalfNormal-CDF dispatch divergence);
+corvus owes a per-tier benchmark of its OWN erf before the v2.5.0
+adoption to learn whether the gap is theirs (adoption fixes it free)
+or generic x86 (real optimization target here). Detail on the issue.
 Original review record follows (posture as run: unfreeze
 decisions, nothing fixed until adjudication). Method: three independent
 reviewer agents (trig / exp-log / driver-boundary), every surviving
