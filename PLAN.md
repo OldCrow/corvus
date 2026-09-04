@@ -324,6 +324,14 @@ performance" (7 open: #31 lgamma table-driven band GO re-scoped, #22
 non-gather x86 variant, #21 exp_dd bump, #18 erfcx P2, #19/#20 P3
 conditional on libstats, #28/#29 upstream watches). No corvus-side
 work is owed to libstats v2.5.0 beyond the frozen surface.
+Handshake state update 2026-09-04: libstats v2.4.0 is nearly closed on
+`dev/v2.4.0` — all four distribution workstreams merged (19 → 27),
+sweep/oracle extended, Zen 4 and Kaby Lake validation legs DONE
+(thresholds recalibrated post a parallelFor fork repair, libstats
+PR #143 / 7c2ca49); the M1 leg is the sole remaining gate before the
+dev → main PR + tag. v2.5.0 (corvus adoption, all prerequisites
+satisfied) opens directly after — expect the adoption-scoping
+questions (libstats #47/#52 re-scope, #126 absorption check) then.
 Original review record follows (posture as run: unfreeze
 decisions, nothing fixed until adjudication). Method: three independent
 reviewer agents (trig / exp-log / driver-boundary), every surviving
