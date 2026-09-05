@@ -1,0 +1,13 @@
+# Corvid Cartography
+
+**Philosophy:** The observed made reverent. A single dark form held against a field of patient measurement, as if an ornithologist and a metrologist shared one drafting table and a single night.
+
+**Space and form.** The canvas is a wide horizon, and it breathes. One silhouette, cut with the confidence of a paper-cutter who has made ten thousand birds, sits at the exact point of balance. Everything else is landscape: a rise and fall drawn once as a clean line and then again as ten thousand hairline verticals standing beneath it like reeds, so that the shape is not drawn but accumulated. Negative space is not empty; it is the sky the measurement has not yet reached.
+
+**Color and material.** Ink-dark ground, the black of a wing rather than of a screen: warm, faintly blue, never pure. Marks in the cream of old survey paper. One metal accent, a tarnished gold, used for no more than a handful of points, so that when it appears it means something has been fixed and named. No gradients that announce themselves; only the tonal drift that comes from hairlines packing closer together. The surface should feel plotted by a pen that took an evening to cross the page.
+
+**Scale and rhythm.** The field has a pulse: marks grouped in twos, fours, eights, the eighth stroke a hair heavier, so a rhythm runs through the density like a meter under a poem. Scale is set by the bird: everything is measured against its stillness. Reference marks are tiny, clinical, monospaced, placed where a surveyor would place them and nowhere else. The typography is thin and rare, a display serif for one word, a mono whisper for numbers, and it belongs to the diagram rather than sitting on top of it.
+
+**Composition and balance.** Asymmetry disciplined by a strict grid. The apex sits left of center so the long tail of the field has room to fade into the dark, and the eye travels from the bird outward along the falling curve until the marks become too fine to count. Above, a constellation of four points, barely there, echoes the silhouette's own geometry. Nothing touches an edge. Nothing overlaps. Every alignment is the result of countless refinements by someone at the absolute top of their craft, and it should look that way: painstaking, unhurried, master-level execution.
+
+**Visual hierarchy.** First the bird, then the curve, then the density, then the labels, then the stars. Words are the last thing seen and the fewest things present. The piece must read, at a glance, as a finished artifact from an imaginary discipline that studies quiet things with real instruments, meticulously crafted, labored over with care, and proof that something ephemeral can be mapped.
