@@ -10,6 +10,14 @@ target), clean-room provenance (MIT), swappable SIMD backend. Fills the
 gap between SLEEF/Highway-contrib transcendentals and SciPy-level
 special-function coverage.
 
+## Session Start
+
+Fleet-wide session-start steps (architecture check, build-path selection):
+[Session Start](https://github.com/OldCrow/standards/blob/main/SESSION-START.md).
+The check earns its keep here: kernels dispatch per target, so a build
+carried over from another machine measures the wrong tier without failing in
+any visible way.
+
 ## Reading map — load on demand, not preemptively
 - Kernel, generator, reference/oracle, or accuracy work →
   `docs/NUMERICAL-DOCTRINE.md` (hazard rules, test doctrine, generator
@@ -21,6 +29,8 @@ special-function coverage.
 - CMake and CI edits also follow the fleet standards repo
   (https://github.com/OldCrow/standards — CMAKE-HOUSE-STYLE.md,
   CI-HOUSE-STYLE.md); ENVIRONMENT.md links the relevant sections.
+- What each repo document is for, and how they cross-reference →
+  [DOC-CONVENTIONS.md](https://github.com/OldCrow/standards/blob/main/DOC-CONVENTIONS.md).
 - Session state, decisions, open items, shipped-family records →
   `PLAN.md` (full design texts live in its git history).
 - Audited accuracy claims → `docs/ACCURACY.md`; update it in the same
