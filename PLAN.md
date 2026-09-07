@@ -855,14 +855,19 @@ profiling trigger is #30 and the work is #31.)
   (Decisions); trim or re-budget.
 - [ILLUSTRATIVE] Possible future consumers: C++ port of multi-agent_sim
   (batch distance/trig), zeekhmm training pipelines.
-- AGENTS.md context trim, not yet done (~410 B, smallest in the fleet).
+- AGENTS.md context trim, assessed and declined (~410 B, smallest in the fleet).
   Raised by the 2026-09-07 fleet-wide AGENTS.md audit (durable vs
   on-demand context). AGENTS.md is imported eagerly by CLAUDE.md, so all
   of it is paid in every session in this repo; docs/ costs nothing until
   read. Sizes measured, line numbers current as of that date.
-  - AGENTS.md:157 `## Effort routing`, 7 lines — summarises the full table in
-    `docs/NUMERICAL-DOCTRINE.md`, which the reading map already marks BINDING
-    for that work. Could shrink to a one-line pointer.
+  - [DECLINED 2026-09-07] `## Effort routing`. Re-read rather than shrunk: it
+    is not a summary of the table, it is the escalation rule — ESCALATE the
+    moment a recipe task surfaces a decision (a ULP gate trips, tiers
+    disagree, a fit misses, Highway behaves contrary to assumptions), and
+    de-escalate when high-effort work reaches pure execution. That has to be
+    in durable context: you cannot consult a document to discover you should
+    have escalated an hour ago. It already carries the pointer to the full
+    table in its own heading. Nothing else in this repo was flagged.
   - corvus was the leanest of the six in the audit; nothing else flagged.
 
 ## Decisions
