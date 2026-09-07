@@ -855,6 +855,15 @@ profiling trigger is #30 and the work is #31.)
   (Decisions); trim or re-budget.
 - [ILLUSTRATIVE] Possible future consumers: C++ port of multi-agent_sim
   (batch distance/trig), zeekhmm training pipelines.
+- AGENTS.md context trim, not yet done (~410 B, smallest in the fleet).
+  Raised by the 2026-09-07 fleet-wide AGENTS.md audit (durable vs
+  on-demand context). AGENTS.md is imported eagerly by CLAUDE.md, so all
+  of it is paid in every session in this repo; docs/ costs nothing until
+  read. Sizes measured, line numbers current as of that date.
+  - AGENTS.md:157 `## Effort routing`, 7 lines — summarises the full table in
+    `docs/NUMERICAL-DOCTRINE.md`, which the reading map already marks BINDING
+    for that work. Could shrink to a one-line pointer.
+  - corvus was the leanest of the six in the audit; nothing else flagged.
 
 ## Decisions
 - Name: corvus (OldCrow tie-in). Namespace `corvus::`.
