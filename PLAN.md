@@ -341,6 +341,24 @@ their NEON one (root cause of a HalfNormal-CDF dispatch divergence);
 corvus owes a per-tier benchmark of its OWN erf before the v2.5.0
 adoption to learn whether the gap is theirs (adoption fixes it free)
 or generic x86 (real optimization target here). Detail on the issue.
+**#37 headline ANSWERED 2026-09-13 from already-committed evidence — no
+new run needed; per-tier half deferred to libstats v2.5.0 adoption prep
+(recorded in libstats PLAN.md Next Steps 3).** The native rows in
+docs/bench-evidence/ at n=1e6 answer the ours-or-theirs question:
+Zen 4 AVX3_ZEN4 1.67 ns/el, M1 NEON 2.20, Kaby Lake AVX2 7.38 — corvus's
+own x86 erf is NOT uniformly slower than its NEON one, since Zen 4 BEATS
+the M1. So libstats' ~5x is very likely theirs and the adoption swap
+closes it free. TWO CAVEATS, both live: the M1 row is INDICATIVE under
+the ratified 10% fallback gate and was never promoted (the direction
+survives with margin, but the number is not publishable); and a
+provenance confound is unexcluded — if libstats' x86 numbers came from a
+Kaby-class box and its NEON from the M1, then 7.38 vs 2.20 reproduces
+~3.4x from hardware generation alone, most of the reported gap, with no
+kernel defect anywhere. Exclude that before concluding. STILL OPEN: the
+literal per-tier ask — quiet_bench.sh runs native targets only, so capped
+SSE4/SSSE3/SSE2 erf throughput exists on no machine. The Kaby Lake box
+can produce it (proven quiet recipe, 5% gate, capped ladder already run
+there for #33); it runs only if adoption scoping needs the capped rows.
 Original review record follows (posture as run: unfreeze
 decisions, nothing fixed until adjudication). Method: three independent
 reviewer agents (trig / exp-log / driver-boundary), every surviving
