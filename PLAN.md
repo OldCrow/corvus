@@ -341,24 +341,41 @@ their NEON one (root cause of a HalfNormal-CDF dispatch divergence);
 corvus owes a per-tier benchmark of its OWN erf before the v2.5.0
 adoption to learn whether the gap is theirs (adoption fixes it free)
 or generic x86 (real optimization target here). Detail on the issue.
-**#37 headline ANSWERED 2026-09-13 from already-committed evidence — no
-new run needed; per-tier half deferred to libstats v2.5.0 adoption prep
-(recorded in libstats PLAN.md Next Steps 3).** The native rows in
-docs/bench-evidence/ at n=1e6 answer the ours-or-theirs question:
-Zen 4 AVX3_ZEN4 1.67 ns/el, M1 NEON 2.20, Kaby Lake AVX2 7.38 — corvus's
-own x86 erf is NOT uniformly slower than its NEON one, since Zen 4 BEATS
-the M1. So libstats' ~5x is very likely theirs and the adoption swap
-closes it free. TWO CAVEATS, both live: the M1 row is INDICATIVE under
-the ratified 10% fallback gate and was never promoted (the direction
-survives with margin, but the number is not publishable); and a
-provenance confound is unexcluded — if libstats' x86 numbers came from a
-Kaby-class box and its NEON from the M1, then 7.38 vs 2.20 reproduces
-~3.4x from hardware generation alone, most of the reported gap, with no
-kernel defect anywhere. Exclude that before concluding. STILL OPEN: the
-literal per-tier ask — quiet_bench.sh runs native targets only, so capped
-SSE4/SSSE3/SSE2 erf throughput exists on no machine. The Kaby Lake box
-can produce it (proven quiet recipe, 5% gate, capped ladder already run
-there for #33); it runs only if adoption scoping needs the capped rows.
+**#37 PREMISE RETIRED 2026-09-13 — the ~5x was never measured.** Two
+passes, same day, both from already-committed data; no new run needed.
+FIRST, corvus's own native erf at n=1e6 (docs/bench-evidence/): Zen 4
+AVX3_ZEN4 1.67 ns/el, M1 NEON 2.20, Kaby Lake AVX2 7.38 — corvus's x86
+erf is NOT uniformly slower than its NEON one, since Zen 4 BEATS the M1.
+SECOND, the provenance check on libstats' side, which is the decisive
+one: their ~5x lives in a code comment
+(include/libstats/core/dispatch_thresholds.h:226, kNeon table, written
+2026-09-04), and the ONLY measured per-element figure anywhere in that
+chain is the M1's vector_erf at 2.2 ns/elem. The x86 half was
+back-derived from HalfNormal-CDF DISPATCH RATIOS, not timed, and both
+x86 data points are one 2017 Kaby Lake (native AVX2 + capped AVX); Zen 4
+is "—" for HalfNormal CDF in their v2.4.0 table and its kAvx512 row
+carries no mechanism comment. So the comparison was a 2017 laptop
+against an M1 with the fleet's fastest x86 machine absent. Corvus's own
+Kaby-vs-M1 ratio on that same pair is 3.35x, so hardware generation
+alone reproduces most of the inferred 5x; the ~1.5x residual rests on an
+unmeasured number. Two more facts point the same way: libstats' M1 NEON
+erf (2.2) MATCHES corvus's (2.20), so adoption is throughput-neutral on
+NEON and any win is x86-only; and their two sides are different
+ALGORITHMS — NEON is the ARM glibc erf_advsimd 769-entry table
+(clean-room, their #67), x86 the musl four-region rational polynomial —
+so x86-vs-NEON there was never a statement about ISAs.
+WHAT SURVIVES: a possible ~1.5x same-machine gap between libstats' x86
+kernel and corvus's, settled by timing theirs once inside the v2.5.0
+before/after characterization sweep — no separate session, and no
+generic-x86 optimization target for corvus. Their dispatch tables are
+unaffected (set from measured HalfNormal ratios, not from the erf
+comparison); it is the explanatory prose that was unsound.
+STILL OPEN, unchanged: the literal per-tier ask — quiet_bench.sh runs
+native targets only, so capped SSE4/SSSE3/SSE2 erf throughput exists on
+no machine. The Kaby Lake box can produce it (proven quiet recipe, 5%
+gate, capped ladder already run there for #33); it runs only if adoption
+scoping needs the capped rows. Deferred to libstats v2.5.0 adoption prep
+(their PLAN.md Next Steps 3).
 Original review record follows (posture as run: unfreeze
 decisions, nothing fixed until adjudication). Method: three independent
 reviewer agents (trig / exp-log / driver-boundary), every surviving
