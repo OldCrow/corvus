@@ -847,7 +847,17 @@ profiling trigger is #30 and the work is #31.)
   first), and the Zipf CDF decision (libstats #62) that scopes #20 here.
   Spike verdict, costs and execution state: libstats/PLAN.md; the
   clang-cl-into-MSVC link proof is in the Resolved log 2026-08-15.
-  libhmm: not yet decided.
+  libhmm: paper half of its spike DONE 2026-09-17 (libhmm #106) —
+  adoption shape and pre-registered go/no-go criteria fixed; the
+  decision itself waits on the fleet-half measurements. Fact relevant
+  HERE: libhmm's ten fused distribution kernels and three logsumexp
+  reductions consume transcendentals in-register, and corvus offers no
+  register-level entry point by design, so a libhmm go replaces six
+  span-shaped table entries plus NegativeBinomial's per-element lgamma
+  directly, and the fused kernels only as staged span passes measured
+  per kernel. No corvus-side work is proposed; a register-level facade
+  export would contradict the std-only public surface and is not on the
+  table.
 - [DONE 2026-08-15] Consumer-integration notes, all three delivered as
   comments on the libstats issues rather than carried here — the audience
   is libstats, and a copy on this side could not notice when it went
