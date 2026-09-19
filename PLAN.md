@@ -782,7 +782,8 @@ watch. (lgamma zone interval splitting moved to GitHub 2026-08-23: its
 profiling trigger is #30 and the work is #31.)
 
 ## Open Items
-- [IN PR, 2026-09-19, travel session] **#36 Windows configure-time
+- [DONE 2026-09-19, travel session; PR #39 squash-merged `b222046`, all
+  legs green, #36 closed] **#36 Windows configure-time
   guard** — `cmake/ToolchainGuard.cmake`. Decisions [user]: mingw GCC with
   AVX2+ targets compiled in is fatal (escapes: 128-bit cap, or
   `CORVUS_ALLOW_UNSUPPORTED_TOOLCHAIN`); real MSVC is DELIBERATELY capped
@@ -795,8 +796,9 @@ profiling trigger is #30 and the work is #31.)
   function tested in `cmake -P` on every leg (mutation-checked). Verified
   on Kaby Lake by widening the system match to Darwin in a scratch copy and
   configuring with Homebrew g++-16: uncapped → fatal, 128-bit cap → OK,
-  partial cap → fatal, override → warning. CI adds two configure-only
-  mingw steps to the Windows job. Owed on the Zen 4 box, not a blocker:
+  partial cap → fatal, override → warning. CI's Windows job confirmed it
+  on real toolchains: MSVC cap notice printed, mingw GCC refused with the
+  PR named, capped mingw configured (two configure-only steps, kept). Owed on the Zen 4 box, not a blocker:
   the real "32/33 segfaults becomes one refusal" confirmation, and one
   MSVC configure to read the cap notice. #29 stays the trigger for a GCC
   version condition.
