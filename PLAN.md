@@ -8,7 +8,17 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-08-30
+## Status [DERIVED] — 2026-09-19
+
+**v1.0.1 RELEASED 2026-09-19** (travel session, Kaby Lake + CI): build-
+system patch, the #36 configure-time Windows toolchain guard (PR #39).
+No API, kernel or bound change — the ACCURACY.md matrix stands as
+published for v1.0.0. RELEASING.md checklist run in full on this machine
+(fresh Release build, 34/34 ctest; version pair + tag consistency checks;
+main and tagged-commit CI green per job). Consumers should pin v1.0.1,
+not v1.0.0: libstats PLAN.md carries the note for the v2.5.0 swap. The
+v1.1.0 milestone is untouched. Earlier status follows.
+
 
 **v0.9.0 OPEN [2026-08-30] — fleet validation & performance, S1 DONE.**
 Session plan (ratified 2026-08-30, user; #33 elementary fleet legs and
