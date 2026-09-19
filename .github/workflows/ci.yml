@@ -184,8 +184,9 @@ jobs:
           pkg-config --cflags --libs corvus
           # Deliberately no --static: corvus.pc must carry Highway in
           # Requires (not Requires.private) because libcorvus.a is static.
-          g++ -o pc_consumer consumer_example/main.cpp \
-            $(pkg-config --cflags --libs corvus)
+          # Split into an array on purpose: the flags are separate arguments.
+          read -ra pc_flags <<< "$(pkg-config --cflags --libs corvus)"
+          g++ -o pc_consumer consumer_example/main.cpp "${pc_flags[@]}"
           ./pc_consumer
 
   # -------------------------------------------------------------------------
@@ -193,7 +194,8 @@ jobs:
   # tier information: Highway blocklists every AVX3* target under real MSVC
   # (HWY_BROKEN_MSVC), so dispatch tops out at AVX2 no matter how capable the
   # runner's silicon is. That is what makes CORVUS_EXPECT_TARGET=AVX2 stable
-  # here without any capping — the blocklist pins the ceiling for us.
+  # here without any capping — the blocklist pins the ceiling for us, and
+  # since #36 corvus states the same cap itself (cmake/ToolchainGuard.cmake).
   #
   # What it *does* catch, and nothing else in this workflow can:
   #   - MSVC-only diagnostics (/W4 /WX via CORVUS_WERROR). Real precedent: the
