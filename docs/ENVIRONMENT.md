@@ -69,6 +69,29 @@ those capped tiers; run the sweep under `-CxxCompiler clang-cl
 -CCompiler clang-cl` (verified clean) for AVX2 and wider, and the
 uncapped native build must be clang-cl (from a VS dev shell so link.exe
 resolves).
+
+**Both Windows hazards are enforced at configure time**
+(`cmake/ToolchainGuard.cmake`, #36), not only described here:
+- mingw GCC (also Cygwin/MSYS GCC — same ABI, untested) with any AVX2-or-
+  wider target compiled in is a `FATAL_ERROR` naming GCC PR 126741. The
+  guard does not parse `CORVUS_DISABLED_TARGETS`; it compiles a probe
+  against Highway's own `HWY_TARGETS`, so a partial cap cannot pass as a
+  full one — `"HWY_AVX3|HWY_AVX2"` still compiles `AVX3_DL`/`AVX3_ZEN4`/
+  `AVX3_SPR` and is refused. The qualified 128-bit cap is
+  `-DCORVUS_DISABLED_TARGETS="(HWY_AVX2|(HWY_AVX2-1))"` (AVX2 and everything
+  more advanced, including targets a future Highway adds).
+  `-DCORVUS_ALLOW_UNSUPPORTED_TOOLCHAIN=ON` downgrades the error to a
+  warning; nothing else sets it. There is no GCC version condition because
+  no fixed release exists — #29 is the trigger to add one.
+- Real MSVC is capped at AVX2 by corvus itself (`(HWY_AVX3|(HWY_AVX3-1))`
+  OR-ed into `HWY_DISABLED_TARGETS`), so a change to Highway's blocklist
+  cannot silently widen an MSVC build nobody validated. The cap is announced
+  on every MSVC configure — `WARNING` top-level (Visual Studio surfaces it),
+  `NOTICE` when corvus is a subproject — regardless of the configuring
+  machine's CPU, since the cap governs what is compiled, not what the host
+  can run. `CORVUS_MSVC_UNBLOCK_AVX512=ON` lifts both caps.
+- clang-cl and GNU-driver clang pass untouched: the guard keys on the
+  compiler ID (`GNU`/`MSVC`), never on CMake's `MSVC`/`MINGW` variables.
 Confirm the active set before trusting any tier result:
 `build/_deps/highway-build/hwy_list_targets`. Also note `AVX3_SPR`
 (Intel Sapphire Rapids) and `AVX10_2` are not available on Zen 4, so
@@ -144,7 +167,8 @@ Manual alternative (no preset): `cmake -B build -DCMAKE_BUILD_TYPE=Release -G Ni
   only, never exported), `CORVUS_WERROR` (CI), `CORVUS_DISABLED_TARGETS`
   (tier capping), `CORVUS_SANITIZE`, `CORVUS_MSVC_UNBLOCK_AVX512` (OFF;
   see the MSVC/AVX-512 caveat above — configuring with it ON emits a
-  deliberate `message(WARNING)`).
+  deliberate `message(WARNING)`), `CORVUS_ALLOW_UNSUPPORTED_TOOLCHAIN`
+  (OFF; the toolchain guard's escape hatch, above).
 - Contraction flags (`CORVUS_FP_FLAGS`): `-ffp-contract=off` for
   GCC/Clang/AppleClang/mingw, `/clang:-ffp-contract=off` for clang-cl.
   Real MSVC relies on cl ≥ 19.30's no-contraction default — the version

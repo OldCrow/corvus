@@ -782,6 +782,24 @@ watch. (lgamma zone interval splitting moved to GitHub 2026-08-23: its
 profiling trigger is #30 and the work is #31.)
 
 ## Open Items
+- [IN PR, 2026-09-19, travel session] **#36 Windows configure-time
+  guard** — `cmake/ToolchainGuard.cmake`. Decisions [user]: mingw GCC with
+  AVX2+ targets compiled in is fatal (escapes: 128-bit cap, or
+  `CORVUS_ALLOW_UNSUPPORTED_TOOLCHAIN`); real MSVC is DELIBERATELY capped
+  at AVX2 by corvus (not just by Highway's blocklist) and says so on every
+  configure, WARNING top-level / NOTICE as a subproject;
+  `CORVUS_MSVC_UNBLOCK_AVX512` lifts both caps. Design points worth
+  keeping: the guard probes Highway's `HWY_TARGETS` instead of parsing the
+  cap string — the probe showed the hand-written `"HWY_AVX3|HWY_AVX2"` is
+  NOT a 128-bit cap (AVX3_DL/ZEN4/SPR stay compiled); the verdict is a pure
+  function tested in `cmake -P` on every leg (mutation-checked). Verified
+  on Kaby Lake by widening the system match to Darwin in a scratch copy and
+  configuring with Homebrew g++-16: uncapped → fatal, 128-bit cap → OK,
+  partial cap → fatal, override → warning. CI adds two configure-only
+  mingw steps to the Windows job. Owed on the Zen 4 box, not a blocker:
+  the real "32/33 segfaults becomes one refusal" confirmation, and one
+  MSVC configure to read the cap notice. #29 stays the trigger for a GCC
+  version condition.
 - [DONE 2026-08-15] docs/USER-GUIDE.md written. Raised by the user
   after the examples kept converging on one rule the docs had nowhere
   to state. Plain-language by request, and deliberately NOT a second

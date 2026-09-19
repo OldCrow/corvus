@@ -30,6 +30,10 @@ endfunction()
 # erfinv reuses erfc's core and tail; gamma reuses all of them plus
 # Log1pmxDd/Expm1Dd from dd_special).
 
+# #36: the Windows toolchain verdicts, in script mode so every leg runs them.
+add_test(NAME toolchain_guard
+  COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchain_guard_test.cmake)
+
 add_executable(test_exp_dd test_exp_dd.cpp)
 corvus_kernel_test_target(test_exp_dd)
 add_test(NAME exp_dd

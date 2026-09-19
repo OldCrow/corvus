@@ -60,8 +60,10 @@ set(CORVUS_DISABLED_TARGETS "" CACHE STRING
 # Highway blocklists every AVX-512 target (HWY_AVX3 and the more advanced
 # variants below its bit) under real MSVC: one unconditional entry in
 # hwy/detect_targets.h citing a 2016 codegen bug, with no compiler-version
-# floor — unlike every sibling entry in that file. The effect is silent, an
-# MSVC build simply tops out at AVX2 with no diagnostic.
+# floor — unlike every sibling entry in that file. Upstream's effect is silent
+# (an MSVC build tops out at AVX2 with no diagnostic), so corvus states the
+# same cap itself and announces it at configure time — see the toolchain guard
+# below and cmake/ToolchainGuard.cmake (#36).
 #
 # Measured 2026-07-24 (Ryzen 7 7445HS, MSVC 19.51): unblocking dispatches to
 # AVX3_ZEN4, passes every ULP gate with values bit-identical to GCC and
@@ -73,12 +75,20 @@ option(CORVUS_MSVC_UNBLOCK_AVX512
        "MSVC only: override Highway's AVX-512 blocklist (unsupported upstream)"
        OFF)
 
+# Escape hatch for the configure-time toolchain guard (cmake/ToolchainGuard.cmake,
+# #36). Deliberately its own explicitly named switch: nothing else sets it, so
+# a CI matrix or preset cannot enable it by accident.
+option(CORVUS_ALLOW_UNSUPPORTED_TOOLCHAIN
+       "Configure despite a known-bad toolchain/tier combination (mingw GCC at AVX2+)"
+       OFF)
+
 # Sanitizers for Debug-type dev builds, e.g. -DCORVUS_SANITIZE=address;undefined
 # (UBSan is cheap insurance for numerical kernel code; not for benchmarks).
 set(CORVUS_SANITIZE "" CACHE STRING
     "Semicolon-separated sanitizers (address;undefined;thread)")
 
 include(cmake/FindOrFetchHighway.cmake)
+include(cmake/ToolchainGuard.cmake)
 
 add_library(corvus STATIC
   src/bessel.cpp
@@ -236,16 +246,86 @@ endif()
 # capped library measured by an uncapped test is the failure mode
 # CORVUS_EXPECT_TARGET exists to catch.
 set(CORVUS_HWY_TARGET_DEFS "")
-if(CORVUS_DISABLED_TARGETS)
+set(corvus_disabled_targets "${CORVUS_DISABLED_TARGETS}")
+
+# Known-bad Windows toolchain/tier combinations (#36); the rationale and the
+# verdicts are in cmake/ToolchainGuard.cmake. The wide-target probe only
+# matters to — and only runs for — GCC.
+set(corvus_wide_targets FALSE)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_SYSTEM_NAME MATCHES "^(Windows|CYGWIN|MSYS)$")
+  if(CORVUS_HWY_PROVIDER STREQUAL "fetched")
+    set(corvus_hwy_includes "${highway_SOURCE_DIR}")
+  else()
+    get_target_property(corvus_hwy_includes hwy::hwy INTERFACE_INCLUDE_DIRECTORIES)
+  endif()
+  corvus_probe_wide_x86_targets(corvus_wide_targets
+    "${corvus_disabled_targets}" "${corvus_hwy_includes}")
+endif()
+corvus_toolchain_verdict(corvus_toolchain
+  SYSTEM_NAME "${CMAKE_SYSTEM_NAME}"
+  COMPILER_ID "${CMAKE_CXX_COMPILER_ID}"
+  WIDE_TARGETS "${corvus_wide_targets}"
+  ALLOW_UNSUPPORTED "${CORVUS_ALLOW_UNSUPPORTED_TOOLCHAIN}"
+  MSVC_UNBLOCK "${CORVUS_MSVC_UNBLOCK_AVX512}")
+
+if(corvus_toolchain MATCHES "^MINGW_")
+  string(CONCAT corvus_mingw_text
+    "GCC on Windows miscompiles by-value 256/512-bit vector arguments "
+    "(GCC PR 126741, https://gcc.gnu.org/bugzilla/show_bug.cgi?id=126741): "
+    "the build succeeds and the kernels segfault at AVX2 and above. ")
+  if(corvus_wide_targets STREQUAL "PROBE_FAILED")
+    string(APPEND corvus_mingw_text
+      "(The probe for compiled-in targets failed, so this build is treated as "
+      "uncapped — see CMakeFiles/CMakeConfigureLog.yaml.) ")
+  endif()
+  if(corvus_toolchain STREQUAL "MINGW_REJECT")
+    message(FATAL_ERROR "corvus: ${corvus_mingw_text}"
+      "This configuration compiles 256-bit or wider targets. Either\n"
+      "  - use clang-cl: cmake --preset windows-clang-cl (the supported Windows path), or\n"
+      "  - cap GCC to the 128-bit tiers, where it is qualified:\n"
+      "      -DCORVUS_DISABLED_TARGETS=\"${CORVUS_TARGETS_AVX2_AND_WIDER}\"\n"
+      "    (a partial list such as \"HWY_AVX3|HWY_AVX2\" still compiles the "
+      "other AVX-512 targets), or\n"
+      "  - accept the risk explicitly: -DCORVUS_ALLOW_UNSUPPORTED_TOOLCHAIN=ON\n"
+      "See docs/ENVIRONMENT.md.")
+  endif()
+  message(WARNING "corvus: ${corvus_mingw_text}"
+    "Proceeding because CORVUS_ALLOW_UNSUPPORTED_TOOLCHAIN=ON. Expect "
+    "segfaults; do not quote results from this build.")
+elseif(corvus_toolchain STREQUAL "MSVC_CAP")
+  # OR-ed with the user's own cap rather than replacing it.
+  if(corvus_disabled_targets)
+    set(corvus_disabled_targets
+      "(${corvus_disabled_targets})|${CORVUS_TARGETS_AVX3_AND_WIDER}")
+  else()
+    set(corvus_disabled_targets "${CORVUS_TARGETS_AVX3_AND_WIDER}")
+  endif()
+  # A deliberate, permanent state rather than a problem, so a consuming
+  # project gets a NOTICE; top-level, WARNING is what Visual Studio surfaces.
+  if(PROJECT_IS_TOP_LEVEL)
+    set(corvus_cap_level WARNING)
+  else()
+    set(corvus_cap_level NOTICE)
+  endif()
+  message(${corvus_cap_level}
+    "corvus: MSVC builds are capped at AVX2. Highway blocklists every AVX-512 "
+    "target under cl.exe, and corvus states the same cap so an upstream change "
+    "cannot silently widen it. On AVX-512 hardware this build dispatches AVX2; "
+    "make no tier claim above AVX2 from it. For AVX-512 on Windows use clang-cl "
+    "(cmake --preset windows-clang-cl); CORVUS_MSVC_UNBLOCK_AVX512=ON lifts the "
+    "cap without upstream support.")
+endif()
+
+if(corvus_disabled_targets)
   list(APPEND CORVUS_HWY_TARGET_DEFS
-    "HWY_DISABLED_TARGETS=(${CORVUS_DISABLED_TARGETS})")
+    "HWY_DISABLED_TARGETS=(${corvus_disabled_targets})")
 endif()
 
 if(CORVUS_MSVC_UNBLOCK_AVX512)
   # CMake's MSVC is true for any cl-compatible driver, clang-cl included; only
   # real cl.exe is blocklisted, matching Highway's HWY_COMPILER_MSVC
   # (_MSC_VER && !__clang__).
-  if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  if(corvus_toolchain STREQUAL "MSVC_UNBLOCKED")
     # PRIVATE is sufficient: Highway derives the dispatch index from
     # HWY_CHOSEN_TARGET_MASK_TARGETS in the *calling* TU by design (see the
     # comment on ChosenTarget::GetIndex), so corvus's compiled target set may

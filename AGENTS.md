@@ -88,8 +88,9 @@ ctest --test-dir build --output-on-failure
 ```
 Windows — ALWAYS the clang-cl preset, from a vcvars64 environment.
 Generic presets take the first compiler on PATH: mingw g++ compiles
-clean and mass-segfaults at AVX2+ (GCC PR 126741); MSVC silently caps
-at AVX2. No configure-time guard rejects them yet.
+clean and mass-segfaults at AVX2+ (GCC PR 126741); MSVC caps at AVX2.
+A configure-time guard refuses the first and announces the second
+(`cmake/ToolchainGuard.cmake`; details in `docs/ENVIRONMENT.md`).
 ```sh
 cmake --preset windows-clang-cl   # pins Ninja + clang-cl; builds into build-clangcl
 cmake --build build-clangcl
@@ -119,7 +120,7 @@ capping recipes, sweep scripts: `docs/ENVIRONMENT.md`.
 - Assert the tier, never assume it: validate under
   `CORVUS_EXPECT_TARGET=<tier>` and confirm the active target before
   trusting any tier result. Windows validation numbers come from clang-cl
-  ONLY — MSVC silently caps at AVX2, and mingw GCC miscompiles by-value
+  ONLY — MSVC is capped at AVX2, and mingw GCC miscompiles by-value
   vector calls at AVX2 and above (GCC PR 126741; safe only for the
   128-bit tiers).
 - Accuracy claims are made per SIMD tier only after native-silicon

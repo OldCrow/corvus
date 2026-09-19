@@ -274,6 +274,34 @@ jobs:
           ./build/tests/Release/test_log_ulp.exe \
             tests/data/log_reference.txt tests/data/log1p_reference.txt
 
+      # #36 toolchain guard, against a real mingw-w64 GCC (the runner image
+      # ships one on PATH). Configure-only — no build, and the Highway checkout
+      # from the MSVC configure above is reused — so the guard's probe and both
+      # of its mingw outcomes are exercised for seconds, not a second job. The
+      # verdict logic itself runs on every leg as the toolchain_guard ctest.
+      - name: Toolchain guard (mingw GCC, configure-only)
+        run: |
+          g++ --version | head -1
+          HWY_SRC="$PWD/build/_deps/highway-src"
+          common=(-G Ninja -DCMAKE_CXX_COMPILER=g++ -DCORVUS_BUILD_TESTS=OFF
+                  "-DFETCHCONTENT_SOURCE_DIR_HIGHWAY=$HWY_SRC")
+
+          echo "::group::uncapped mingw GCC must be refused, naming the GCC PR"
+          if cmake -B build-guard-reject "${common[@]}" > guard-reject.log 2>&1; then
+            cat guard-reject.log
+            echo "::error::uncapped mingw GCC configured; the #36 guard did not fire"
+            exit 1
+          fi
+          cat guard-reject.log
+          grep -q "GCC PR 126741" guard-reject.log
+          grep -q "CORVUS_ALLOW_UNSUPPORTED_TOOLCHAIN" guard-reject.log
+          echo "::endgroup::"
+
+          echo "::group::mingw GCC capped to the 128-bit tiers must configure"
+          cmake -B build-guard-capped "${common[@]}" \
+            "-DCORVUS_DISABLED_TARGETS=(HWY_AVX2|(HWY_AVX2-1))"
+          echo "::endgroup::"
+
   macos-arm64:
     name: macOS arm64 (NEON)
     runs-on: macos-latest
