@@ -19,6 +19,21 @@ main and tagged-commit CI green per job). Consumers should pin v1.0.1,
 not v1.0.0: libstats PLAN.md carries the note for the v2.5.0 swap. The
 v1.1.0 milestone is untouched. Earlier status follows.
 
+**Return from travel 2026-09-28 — the fleet is available again.**
+Cross-repo task order and machine needs:
+[CORVUS-ADOPTION-WORKPLAN.md](https://github.com/OldCrow/standards/blob/main/records/CORVUS-ADOPTION-WORKPLAN.md).
+corvus stays off the critical path. Two fleet facts for this repo:
+(1) the Mac Mini M1 moved from macOS Tahoe 26 to macOS 28 during travel
+[user], so every M1 accuracy and timing record here is a Tahoe record —
+[OPEN] re-run the tier-asserted NEON gates at v1.0.1 from a fresh build,
+update the `docs/ENVIRONMENT.md` fleet table from the measured
+toolchain, and retry the M1 quiet bench only after the post-upgrade
+indexing settles (Apple libm may have changed, so the vs-libm ratios are
+not comparable across the upgrade); (2) [OPEN] the v1.0.1 toolchain
+guard has run on CI runners only — confirm it natively on Zen 4 under
+clang-cl, MSVC and mingw. Open dependabot PR #40 (actionlint 1.76.0) is
+CI-green.
+
 
 **v0.9.0 OPEN [2026-08-30] — fleet validation & performance, S1 DONE.**
 Session plan (ratified 2026-08-30, user; #33 elementary fleet legs and
