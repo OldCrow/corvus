@@ -29,10 +29,13 @@ corvus stays off the critical path. Two fleet facts for this repo:
 update the `docs/ENVIRONMENT.md` fleet table from the measured
 toolchain, and retry the M1 quiet bench only after the post-upgrade
 indexing settles (Apple libm may have changed, so the vs-libm ratios are
-not comparable across the upgrade); (2) [OPEN] the v1.0.1 toolchain
-guard has run on CI runners only — confirm it natively on Zen 4 under
-clang-cl, MSVC and mingw. Open dependabot PR #40 (actionlint 1.76.0) is
-CI-green.
+not comparable across the upgrade); (2) [DONE 2026-09-28, Zen 4] the
+v1.0.1 toolchain guard confirmed natively: clang-cl 22.1.3 configures
+clean; MSVC 19.51 configures and announces the AVX2 cap; mingw g++ 16.1.0
+(WinLibs UCRT) is refused with the GCC PR 126741 message. Same session:
+fresh `windows-clang-cl` Release build (CMake 4.4.3, Ninja 1.13.2,
+Highway 1.4.0), ctest 34/34 tier-asserted at AVX3_ZEN4. Dependabot PR
+#40 merged 2026-09-28.
 
 
 **v0.9.0 OPEN [2026-08-30] — fleet validation & performance, S1 DONE.**
