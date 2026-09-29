@@ -22,7 +22,17 @@ v1.1.0 milestone is untouched. Earlier status follows.
 **Return from travel 2026-09-28 — the fleet is available again.**
 Cross-repo task order and machine needs:
 [CORVUS-ADOPTION-WORKPLAN.md](https://github.com/OldCrow/standards/blob/main/records/CORVUS-ADOPTION-WORKPLAN.md).
-corvus stays off the critical path. [DECIDED 2026-09-29, user] libstats
+~~corvus stays off the critical path.~~ **Back on it, 2026-09-29:** the
+libstats swap is correctness-complete (their `dev/v2.5.0-corvus`) and
+its M1 throughput gates their release — special-function CDF 12–24×,
+quantile 8–66× slower than v2.4.1, from gamma_p 190 / beta_p 950 /
+gamma_p_inv 2,400 ns per element at batch and ~4× that single-lane;
+corvus exp/log 4.6×/8× slower than the libstats NEON kernels they
+replaced. Decision [user]: v1.1.0 throughput first — **#42**
+(incomplete gamma/beta family + inverses, scalar entry point), **#43**
+(NEON elementary import from libstats' clean-room kernels), #31, #37 —
+then libstats task 3 once. Numbers and targets on the issues; libstats
+#156 is their side. [DECIDED 2026-09-29, user] libstats
 fills constant-argument spans on its side (libstats `PLAN.md` Decided,
 2026-09-29); no broadcast overload is requested for v2.5.0. A broadcast
 form becomes a v1.1.0 candidate only if libstats task 3 measures the
@@ -357,8 +367,9 @@ gpg-agent wake-wedge; do not resync, just touch the key on retry.
 performance" (8 open: #31 lgamma table-driven band GO re-scoped, #22
 non-gather x86 variant, #21 exp_dd bump, #18 erfcx P2, #19/#20 P3
 conditional on libstats, #28/#29 upstream watches, #37 x86 erf
-throughput — see below). No corvus-side
-work is owed to libstats v2.5.0 beyond the frozen surface.
+throughput — see below). **Update 2026-09-29: corvus-side work IS now
+owed to libstats v2.5.0 — throughput, not surface: #42 and #43 lead the
+milestone, with #31 and #37 (Status, above).**
 Handshake state update 2026-09-04: libstats v2.4.0 is nearly closed on
 `dev/v2.4.0` — all four distribution workstreams merged (19 → 27),
 sweep/oracle extended, Zen 4 and Kaby Lake validation legs DONE
