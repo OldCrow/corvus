@@ -23,11 +23,13 @@ v1.1.0 milestone is untouched. Earlier status follows.
 Cross-repo task order and machine needs:
 [CORVUS-ADOPTION-WORKPLAN.md](https://github.com/OldCrow/standards/blob/main/records/CORVUS-ADOPTION-WORKPLAN.md).
 corvus stays off the critical path. Two fleet facts for this repo:
-(1) the Mac Mini M1 moved from macOS Tahoe 26 to macOS 28 during travel
-[user], so every M1 accuracy and timing record here is a Tahoe record —
-[OPEN] re-run the tier-asserted NEON gates at v1.0.1 from a fresh build,
-update the `docs/ENVIRONMENT.md` fleet table from the measured
-toolchain, and retry the M1 quiet bench only after the post-upgrade
+(1) the Mac Mini M1 moved from macOS Tahoe 26 to macOS 27 Golden Gate
+during travel [user], so every M1 accuracy and timing record here before
+2026-09-28 is a Tahoe record. [DONE 2026-09-28, M1] tier-asserted NEON
+gates at v1.0.1 (34bd565) from a fresh `build-m1-gg/`: macOS 27.0.1,
+AppleClang 21.0.0 (clang-2100.3.34.2), system Highway 1.4.0,
+`CORVUS_EXPECT_TARGET=NEON` ctest 34/34, warning-clean; fleet table
+updated. [OPEN] Retry the M1 quiet bench only after the post-upgrade
 indexing settles (Apple libm may have changed, so the vs-libm ratios are
 not comparable across the upgrade); (2) [DONE 2026-09-28, Zen 4] the
 v1.0.1 toolchain guard confirmed natively: clang-cl 22.1.3 configures

@@ -10,7 +10,7 @@ CMake standard, and CI design. For kernel/generator/oracle rules see
 | Machine | OS | CPU | SIMD | Compiler | Validation role |
 |---|---|---|---|---|---|
 | MacBook Pro 2017 (Kaby Lake) | macOS Ventura | i7-7820HQ | AVX2+FMA | Apple Clang | AVX2 native; SSE4/SSSE3/SSE2 via tier capping (no FMA on those) |
-| Mac Mini M1 | macOS Tahoe | Apple M1 | NEON (native FMA) | Apple Clang | NEON validation |
+| Mac Mini M1 | macOS 27 Golden Gate | Apple M1 | NEON (native FMA) | Apple Clang 21 | NEON validation |
 | Asus TUF A16 | Windows 11 | Ryzen 7 7445 (Zen 4) | AVX-512 | **clang-cl (GCC unsafe at AVX-512, MSVC can't dispatch it)** | AVX3* native; every lower x86 tier via capping |
 
 **corvus deviates from the house Windows default, and this is deliberate.**
