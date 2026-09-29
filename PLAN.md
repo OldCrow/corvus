@@ -22,7 +22,11 @@ v1.1.0 milestone is untouched. Earlier status follows.
 **Return from travel 2026-09-28 — the fleet is available again.**
 Cross-repo task order and machine needs:
 [CORVUS-ADOPTION-WORKPLAN.md](https://github.com/OldCrow/standards/blob/main/records/CORVUS-ADOPTION-WORKPLAN.md).
-corvus stays off the critical path. Two fleet facts for this repo:
+corvus stays off the critical path. [DECIDED 2026-09-29, user] libstats
+fills constant-argument spans on its side (libstats `PLAN.md` Decided,
+2026-09-29); no broadcast overload is requested for v2.5.0. A broadcast
+form becomes a v1.1.0 candidate only if libstats task 3 measures the
+fill — file it then, with the number. Two fleet facts for this repo:
 (1) the Mac Mini M1 moved from macOS Tahoe 26 to macOS 27 Golden Gate
 during travel [user], so every M1 accuracy and timing record here before
 2026-09-28 is a Tahoe record. [DONE 2026-09-28, M1] tier-asserted NEON
