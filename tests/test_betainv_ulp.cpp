@@ -96,6 +96,11 @@ constexpr double kGammaLimit = 0x1.0p+20;
 // [n-3, n) makes neither half a lane multiple regardless of what n is;
 // each call is independently masked and stateless, so this is row-for-row
 // identical to one call.
+// The family's names are overload sets since the scalar entry points
+// (#42), so a deducing template needs the span form named explicitly.
+using SpanFn = void (*)(std::span<const double>, std::span<const double>,
+                        std::span<const double>, std::span<double>);
+
 template <typename Fn, typename... In>
 void SplitCall(Fn fn, std::vector<double>& out, const In&... in) {
   const size_t n = out.size();
@@ -404,11 +409,11 @@ int Run(const char* label, bool want_q, const char* path) {
     s[i] = rows[i].s;
   }
   if (want_q) {
-    SplitCall(corvus::beta_q_inv, got, a, bb, s);
-    SplitCall(corvus::beta_q, fwd, a, bb, got);
+    SplitCall(SpanFn(corvus::beta_q_inv), got, a, bb, s);
+    SplitCall(SpanFn(corvus::beta_q), fwd, a, bb, got);
   } else {
-    SplitCall(corvus::beta_p_inv, got, a, bb, s);
-    SplitCall(corvus::beta_p, fwd, a, bb, got);
+    SplitCall(SpanFn(corvus::beta_p_inv), got, a, bb, s);
+    SplitCall(SpanFn(corvus::beta_p), fwd, a, bb, got);
   }
   return Measure(label, want_q, rows, got, fwd);
 }

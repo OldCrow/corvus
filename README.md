@@ -126,7 +126,9 @@ library.
 
 ## Design
 
-- **Public API is std-only.** `std::span` in, `std::span` out. The SIMD
+- **Public API is std-only.** `std::span` in, `std::span` out, plus
+  `double f(double...)` scalar entry points for the incomplete gamma/beta
+  family (same bits as the span form; for callers with one point). The SIMD
   backend (Google Highway) is an implementation detail hidden behind a
   ~40-op internal facade, sized so it can later be reimplemented on
   `std::simd` without touching kernel code.

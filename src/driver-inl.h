@@ -23,6 +23,21 @@
 // codegen structure as the hand-rolled loops, and the MSVC
 // outlining rule applies per instantiation exactly as before.
 //
+// The masked tail pads its dead lanes with the tail's FIRST element rather
+// than zero (#42). A zero lane is not a no-op for the region kernels: their
+// specials scrub rewrites it to an interior safe point, whose region core
+// then runs for the padding alone -- a span-of-1 gamma_p call cost 2.2-2.5x
+// a full vector on AVX2 for that reason. A live element's copy shares its
+// region and its convergence, so the tail costs what its live lanes cost.
+// Results are unchanged: every lane is computed by its own region core and
+// frozen on its own mask, so a neighbour's value never reaches it (the
+// lane-mix determinism checks in the smoke tests are the guard).
+//
+// DriveScalar* are the scalar entry points (#42): one point broadcast to
+// every lane, so a single call costs one vector in one region and nothing
+// more, with no loop and no masked load/store. Bit-identical to the span
+// form for the same reason the padding is.
+//
 // Nothing here uses hn:: directly (facade rule; std::simd migration
 // touches ops-inl.h only).
 #if defined(CORVUS_DRIVER_INL_H_) == defined(HWY_TARGET_TOGGLE)
@@ -56,7 +71,7 @@ static void DriveUnary(Kernel kernel, std::span<const double> in,
   }
   if (i < n) {
     const size_t m = n - i;
-    op::StoreN(kernel(d, op::LoadN(d, pi + i, m)), d, po + i, m);
+    op::StoreN(kernel(d, op::LoadNOr(op::Set(d, pi[i]), d, pi + i, m)), d, po + i, m);
   }
 }
 
@@ -76,8 +91,9 @@ static void DriveBinary(Kernel kernel, std::span<const double> a,
   }
   if (i < n) {
     const size_t m = n - i;
-    op::StoreN(kernel(d, op::LoadN(d, pa + i, m), op::LoadN(d, pb + i, m)), d,
-               po + i, m);
+    op::StoreN(kernel(d, op::LoadNOr(op::Set(d, pa[i]), d, pa + i, m),
+                      op::LoadNOr(op::Set(d, pb[i]), d, pb + i, m)),
+               d, po + i, m);
   }
 }
 
@@ -102,10 +118,23 @@ static void DriveTernary(Kernel kernel, std::span<const double> a,
   }
   if (i < n) {
     const size_t m = n - i;
-    op::StoreN(kernel(d, op::LoadN(d, pa + i, m), op::LoadN(d, pb + i, m),
-                      op::LoadN(d, pc + i, m)),
+    op::StoreN(kernel(d, op::LoadNOr(op::Set(d, pa[i]), d, pa + i, m),
+                      op::LoadNOr(op::Set(d, pb[i]), d, pb + i, m),
+                      op::LoadNOr(op::Set(d, pc[i]), d, pc + i, m)),
                d, po + i, m);
   }
+}
+
+template <class Kernel>
+static double DriveScalarBinary(Kernel kernel, double a, double b) {
+  const op::ScalableTag<double> d;
+  return op::GetLane(kernel(d, op::Set(d, a), op::Set(d, b)));
+}
+
+template <class Kernel>
+static double DriveScalarTernary(Kernel kernel, double a, double b, double c) {
+  const op::ScalableTag<double> d;
+  return op::GetLane(kernel(d, op::Set(d, a), op::Set(d, b), op::Set(d, c)));
 }
 
 }  // namespace HWY_NAMESPACE

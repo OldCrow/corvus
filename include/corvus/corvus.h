@@ -29,6 +29,11 @@
 ///    pointer is resolved on first call).
 ///  - Accuracy bounds are measured against a correctly-rounded mpmath
 ///    oracle and enforced per-tier by the test suite; see docs/ACCURACY.md.
+///
+/// The incomplete gamma and beta family (gamma_p/q, beta_p/q and their
+/// inverses) also has scalar entry points, `double f(double...)`, for
+/// callers with one point. They return the same bits as the span form and
+/// carry the same specials; see each one's note.
 
 #include <version>
 #ifndef __cpp_lib_span
@@ -118,6 +123,15 @@ void erfcinv(std::span<const double> in, std::span<double> out) noexcept;
 void gamma_p(std::span<const double> a, std::span<const double> x,
              std::span<double> out) noexcept;
 
+/// \brief P(a, x) for one point; the scalar entry point of gamma_p.
+///
+/// Same value, bit for bit, as the span form on a length-1 span; use it
+/// where the caller has one point (a scalar CDF, a quantile solve). It
+/// costs one vector's evaluation of the point's region and nothing more,
+/// so it is the right call for one point and the wrong one for a loop --
+/// batch the loop instead.
+[[nodiscard]] double gamma_p(double a, double x) noexcept;
+
 /// \brief out[i] = Q(a[i], x[i]) = 1 - P(a[i], x[i]), the regularized upper
 ///   incomplete gamma function (SciPy's `gammaincc`).
 ///
@@ -132,6 +146,15 @@ void gamma_p(std::span<const double> a, std::span<const double> x,
 /// negative a or x give NaN; NaN propagates (payload preserved).
 void gamma_q(std::span<const double> a, std::span<const double> x,
              std::span<double> out) noexcept;
+
+/// \brief Q(a, x) for one point; the scalar entry point of gamma_q.
+///
+/// Same value, bit for bit, as the span form on a length-1 span; use it
+/// where the caller has one point (a scalar CDF, a quantile solve). It
+/// costs one vector's evaluation of the point's region and nothing more,
+/// so it is the right call for one point and the wrong one for a loop --
+/// batch the loop instead.
+[[nodiscard]] double gamma_q(double a, double x) noexcept;
 
 /// \brief out[i] = I_x(a, b), the regularized incomplete beta function
 ///   (SciPy's `betainc`).
@@ -158,6 +181,15 @@ void gamma_q(std::span<const double> a, std::span<const double> x,
 void beta_p(std::span<const double> a, std::span<const double> b,
             std::span<const double> x, std::span<double> out) noexcept;
 
+/// \brief I_x(a, b) for one point; the scalar entry point of beta_p.
+///
+/// Same value, bit for bit, as the span form on a length-1 span; use it
+/// where the caller has one point (a scalar CDF, a quantile solve). It
+/// costs one vector's evaluation of the point's region and nothing more,
+/// so it is the right call for one point and the wrong one for a loop --
+/// batch the loop instead.
+[[nodiscard]] double beta_p(double a, double b, double x) noexcept;
+
 /// \brief out[i] = 1 - I_x(a, b) = I_{1-x}(b, a), the complementary
 ///   regularized incomplete beta function.
 ///
@@ -170,6 +202,15 @@ void beta_p(std::span<const double> a, std::span<const double> b,
 /// a = +inf gives 1 for x in [0, 1). The NaN cases are identical to beta_p's.
 void beta_q(std::span<const double> a, std::span<const double> b,
             std::span<const double> x, std::span<double> out) noexcept;
+
+/// \brief 1 - I_x(a, b) for one point; the scalar entry point of beta_q.
+///
+/// Same value, bit for bit, as the span form on a length-1 span; use it
+/// where the caller has one point (a scalar CDF, a quantile solve). It
+/// costs one vector's evaluation of the point's region and nothing more,
+/// so it is the right call for one point and the wrong one for a loop --
+/// batch the loop instead.
+[[nodiscard]] double beta_q(double a, double b, double x) noexcept;
 
 /// \brief out[i] = ln B(a[i], b[i]) = lgamma(a) + lgamma(b) - lgamma(a+b).
 ///
@@ -251,6 +292,16 @@ void trigamma(std::span<const double> in, std::span<double> out) noexcept;
 void gamma_p_inv(std::span<const double> a, std::span<const double> p,
                  std::span<double> out) noexcept;
 
+/// \brief x with P(a, x) = p for one point; the scalar entry point of
+///   gamma_p_inv.
+///
+/// Same value, bit for bit, as the span form on a length-1 span; use it
+/// where the caller has one point (a scalar CDF, a quantile solve). It
+/// costs one vector's evaluation of the point's region and nothing more,
+/// so it is the right call for one point and the wrong one for a loop --
+/// batch the loop instead.
+[[nodiscard]] double gamma_p_inv(double a, double p) noexcept;
+
 /// \brief out[i] = x with Q(a[i], x) = q[i], the inverse of the regularized
 ///   upper incomplete gamma function in its second argument (SciPy's
 ///   `gammainccinv`).
@@ -265,6 +316,16 @@ void gamma_p_inv(std::span<const double> a, std::span<const double> p,
 /// NaN, as do a <= 0 and a = +inf; NaN propagates (payload preserved).
 void gamma_q_inv(std::span<const double> a, std::span<const double> q,
                  std::span<double> out) noexcept;
+
+/// \brief x with Q(a, x) = q for one point; the scalar entry point of
+///   gamma_q_inv.
+///
+/// Same value, bit for bit, as the span form on a length-1 span; use it
+/// where the caller has one point (a scalar CDF, a quantile solve). It
+/// costs one vector's evaluation of the point's region and nothing more,
+/// so it is the right call for one point and the wrong one for a loop --
+/// batch the loop instead.
+[[nodiscard]] double gamma_q_inv(double a, double q) noexcept;
 
 /// \brief out[i] = x with I_x(a[i], b[i]) = p[i], the inverse of the
 ///   regularized incomplete beta function in its third argument (SciPy's
@@ -309,6 +370,16 @@ void gamma_q_inv(std::span<const double> a, std::span<const double> q,
 void beta_p_inv(std::span<const double> a, std::span<const double> b,
                 std::span<const double> p, std::span<double> out) noexcept;
 
+/// \brief x with I_x(a, b) = p for one point; the scalar entry point of
+///   beta_p_inv.
+///
+/// Same value, bit for bit, as the span form on a length-1 span; use it
+/// where the caller has one point (a scalar CDF, a quantile solve). It
+/// costs one vector's evaluation of the point's region and nothing more,
+/// so it is the right call for one point and the wrong one for a loop --
+/// batch the loop instead.
+[[nodiscard]] double beta_p_inv(double a, double b, double p) noexcept;
+
 /// \brief out[i] = x with 1 - I_x(a[i], b[i]) = q[i], the inverse of the
 ///   complementary regularized incomplete beta function in its third argument.
 ///
@@ -323,6 +394,16 @@ void beta_p_inv(std::span<const double> a, std::span<const double> b,
 /// the NaN cases are identical to beta_p_inv's.
 void beta_q_inv(std::span<const double> a, std::span<const double> b,
                 std::span<const double> q, std::span<double> out) noexcept;
+
+/// \brief x with 1 - I_x(a, b) = q for one point; the scalar entry point of
+///   beta_q_inv.
+///
+/// Same value, bit for bit, as the span form on a length-1 span; use it
+/// where the caller has one point (a scalar CDF, a quantile solve). It
+/// costs one vector's evaluation of the point's region and nothing more,
+/// so it is the right call for one point and the wrong one for a loop --
+/// batch the loop instead.
+[[nodiscard]] double beta_q_inv(double a, double b, double q) noexcept;
 
 /// \brief out[i] = I0(in[i]), the modified Bessel function of the first
 ///   kind, order 0 (SciPy's `iv(0, .)` / `i0`).

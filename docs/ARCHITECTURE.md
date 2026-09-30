@@ -24,8 +24,13 @@ cores share a TU with multiple `HWY_EXPORT`s). Each TU uses the Highway
 the best target at runtime via `HWY_DYNAMIC_DISPATCH`. Each exported
 Impl is a one-line forwarder into the shared driver (`src/driver-inl.h`):
 `DriveUnary/Binary/Ternary` own the single loop shape — full-vector body plus
-masked `LoadN/StoreN` tail as ONE code path (no scalar libm fallback) — and
-the debug-only span-length assert. `active_target()` lives in its own tiny
+masked `LoadNOr/StoreN` tail as ONE code path (no scalar libm fallback) — and
+the debug-only span-length assert. The tail pads its dead lanes with the
+tail's first element rather than zero, so they share a live lane's region
+instead of dragging the specials scrub's safe point (and its region core)
+into every short call (#42). `DriveScalarBinary/Ternary` are the scalar
+entry points of the incomplete gamma/beta family: one point broadcast to
+every lane, no loop, bit-identical to the span form. `active_target()` lives in its own tiny
 TU (`src/target.cpp`).
 
 **Kernels** (`src/<fn>-inl.h`, `src/<fn>_core-inl.h`) — the per-target

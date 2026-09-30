@@ -40,6 +40,24 @@ static void BetaQInvImpl(std::span<const double> a, std::span<const double> b,
       a, b, q, out);
 }
 
+
+// Scalar entry points (#42): the same kernel on a broadcast point.
+static double BetaPInvScalarImpl(double a, double b, double p) {
+  return DriveScalarTernary(
+      [](auto d, auto va, auto vb, auto vp) {
+        return BetaInvVec<false>(d, va, vb, vp);
+      },
+      a, b, p);
+}
+
+static double BetaQInvScalarImpl(double a, double b, double q) {
+  return DriveScalarTernary(
+      [](auto d, auto va, auto vb, auto vq) {
+        return BetaInvVec<true>(d, va, vb, vq);
+      },
+      a, b, q);
+}
+
 }  // namespace HWY_NAMESPACE
 }  // namespace corvus
 HWY_AFTER_NAMESPACE();
@@ -63,6 +81,17 @@ void beta_p_inv(std::span<const double> a, std::span<const double> b,
 void beta_q_inv(std::span<const double> a, std::span<const double> b,
                 std::span<const double> q, std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(BetaQInvImpl)(a, b, q, out);
+}
+
+HWY_EXPORT(BetaPInvScalarImpl);
+HWY_EXPORT(BetaQInvScalarImpl);
+
+double beta_p_inv(double a, double b, double p) noexcept {
+  return HWY_DYNAMIC_DISPATCH(BetaPInvScalarImpl)(a, b, p);
+}
+
+double beta_q_inv(double a, double b, double q) noexcept {
+  return HWY_DYNAMIC_DISPATCH(BetaQInvScalarImpl)(a, b, q);
 }
 
 }  // namespace corvus

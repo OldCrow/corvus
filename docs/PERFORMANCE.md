@@ -60,6 +60,18 @@ ranking families across the two tables below would be meaningless. There is no
 vendor implementation of the inverse incomplete gamma in the C runtime to
 compare against, which is why the baseline differs in the first place.
 
+**The per-element baseline changed on 2026-09-30 (#42).** Every "upper
+bnd" on this page was measured while a length-1 call zero-padded its dead
+lanes; the specials scrub turned those zeros into an interior safe point
+whose region core then ran alongside the live lane's, so a single call cost
+up to ~2.5× one vector (Kaby Lake AVX2: `gamma_p` 1,258 → 506 ns, `lgamma`
+274 → 122 ns per call after the driver pads with a live element). The
+batching-gain tables in §4 and §8.2 therefore overstate what a caller gains
+today by roughly that factor for the families whose safe point lands in a
+different region (`gamma_p`, `lgamma`, `digamma`/`trigamma` to be
+re-measured; `beta_p` and the inverses were already at one vector per call).
+They are left as measured; a v1.1.0 re-run replaces them.
+
 ---
 
 ## 3. Against the system libm

@@ -191,10 +191,28 @@ std::vector<double> a(x.size(), 3.5);
 corvus::gamma_p(a, x, out);
 ```
 
+The incomplete gamma and beta family — `gamma_p`, `gamma_q`, `beta_p`,
+`beta_q` and their inverses — also has scalar entry points for callers that
+have one point, such as a scalar CDF or a quantile solve:
+
+```cpp
+double p = corvus::gamma_p(3.5, 2.0);       // same bits as the span form
+double x = corvus::gamma_p_inv(3.5, p);
+```
+
+They return exactly what the span form returns for a length-1 span, and
+cost one vector's evaluation of the point's region — the right call for one
+point, the wrong one for a loop. One consequence for generic code: these
+names are now overload sets, so a template that deduces a function type
+from `corvus::gamma_p` needs the span form named explicitly
+(`static_cast<void (*)(std::span<const double>, std::span<const double>,
+std::span<double>)>(corvus::gamma_p)`) or a lambda.
+
 Things worth knowing:
 
 - **Batch, don't loop.** One call for the whole array. The kernel handles the
-  ragged end itself. Calling it per element is correct but pointless.
+  ragged end itself. Calling it per element is correct but pointless; if
+  you truly have one point, use the scalar entry point above.
 - **Writing into the input is fine**, as long as the spans are exactly the same
   (`in.data() == out.data()`). Partial overlap is undefined behaviour.
 - **No allocation, no exceptions, thread-safe.** Safe to call from anywhere,

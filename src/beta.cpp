@@ -47,6 +47,24 @@ static void LbetaImpl(std::span<const double> a, std::span<const double> b,
               out);
 }
 
+
+// Scalar entry points (#42): the same kernel on a broadcast point.
+static double BetaPScalarImpl(double a, double b, double x) {
+  return DriveScalarTernary(
+      [](auto d, auto va, auto vb, auto vx) {
+        return BetaVec<true>(d, va, vb, vx);
+      },
+      a, b, x);
+}
+
+static double BetaQScalarImpl(double a, double b, double x) {
+  return DriveScalarTernary(
+      [](auto d, auto va, auto vb, auto vx) {
+        return BetaVec<false>(d, va, vb, vx);
+      },
+      a, b, x);
+}
+
 }  // namespace HWY_NAMESPACE
 }  // namespace corvus
 HWY_AFTER_NAMESPACE();
@@ -76,6 +94,17 @@ void beta_q(std::span<const double> a, std::span<const double> b,
 void lbeta(std::span<const double> a, std::span<const double> b,
            std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(LbetaImpl)(a, b, out);
+}
+
+HWY_EXPORT(BetaPScalarImpl);
+HWY_EXPORT(BetaQScalarImpl);
+
+double beta_p(double a, double b, double x) noexcept {
+  return HWY_DYNAMIC_DISPATCH(BetaPScalarImpl)(a, b, x);
+}
+
+double beta_q(double a, double b, double x) noexcept {
+  return HWY_DYNAMIC_DISPATCH(BetaQScalarImpl)(a, b, x);
 }
 
 }  // namespace corvus

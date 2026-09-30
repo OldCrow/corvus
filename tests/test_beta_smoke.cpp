@@ -1,6 +1,7 @@
 // Smoke test for corvus::beta_p / corvus::beta_q: the full specials table,
-// P + Q = 1, the exact symmetric value I_{1/2}(a,a) = 1/2, and lane-mix
-// determinism.
+// P + Q = 1, the exact symmetric value I_{1/2}(a,a) = 1/2, lane-mix
+// determinism, and the scalar entry points' bit identity with the span form
+// (#42).
 //
 // The last one is the interesting one, and it is why this file exists
 // separately from the ULP gate. Both summed regions (R1's power series and
@@ -313,12 +314,24 @@ void LaneMix() {
   const size_t n = probes.size();
 
   for (int fn_idx = 0; fn_idx < 2; ++fn_idx) {
-    Fn fn = fn_idx == 0 ? corvus::beta_p : corvus::beta_q;
+    Fn fn = fn_idx == 0 ? Fn(corvus::beta_p) : Fn(corvus::beta_q);
     const char* name = fn_idx == 0 ? "beta_p" : "beta_q";
 
     std::vector<double> alone(n);
     for (size_t i = 0; i < n; ++i) {
       alone[i] = One(fn, probes[i][0], probes[i][1], probes[i][2]);
+      // The scalar entry point (#42): bit identity with the span form.
+      const double sc =
+          fn_idx == 0 ? corvus::beta_p(probes[i][0], probes[i][1], probes[i][2])
+                      : corvus::beta_q(probes[i][0], probes[i][1], probes[i][2]);
+      if (!SameBits(sc, alone[i])) {
+        std::fprintf(stderr,
+                     "FAIL: %s scalar entry point differs at a=%.17g b=%.17g "
+                     "x=%.17g (span %.17g, scalar %.17g)\n",
+                     name, probes[i][0], probes[i][1], probes[i][2], alone[i],
+                     sc);
+        g_fail = 1;
+      }
     }
 
     // Offsets 0..8 cover every lane position on every tier up to AVX-512, and

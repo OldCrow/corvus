@@ -186,6 +186,11 @@ int Route(double a, double b, double x, double pref, double qref,
 // [0, n-3) and [n-3, n) makes neither half a lane multiple regardless of
 // what n is, so the tail path always runs; each call is independently
 // masked and stateless, so this is row-for-row identical to one call.
+// The family's names are overload sets since the scalar entry points
+// (#42), so a deducing template needs the span form named explicitly.
+using SpanFn = void (*)(std::span<const double>, std::span<const double>,
+                        std::span<const double>, std::span<double>);
+
 template <typename Fn, typename... In>
 void SplitCall(Fn fn, std::vector<double>& out, const In&... in) {
   const size_t n = out.size();
@@ -489,7 +494,7 @@ int main(int argc, char** argv) {
     std::vector<double> a, b, x, p, q;
     if (!LoadReference(p_path, &a, &b, &x, &p, &q)) return 2;
     std::vector<double> got(a.size());
-    SplitCall(corvus::beta_p, got, a, b, x);
+    SplitCall(SpanFn(corvus::beta_p), got, a, b, x);
     rc |= Measure("beta_p", true, a, b, x, p, q, got, p);
     rc |= MonoPostPass(a, b, x, p, got);
     rc |= SeamSweeps();
@@ -498,7 +503,7 @@ int main(int argc, char** argv) {
     std::vector<double> a, b, x, p, q;
     if (!LoadReference(q_path, &a, &b, &x, &p, &q)) return 2;
     std::vector<double> got(a.size());
-    SplitCall(corvus::beta_q, got, a, b, x);
+    SplitCall(SpanFn(corvus::beta_q), got, a, b, x);
     rc |= Measure("beta_q", false, a, b, x, p, q, got, q);
   }
 

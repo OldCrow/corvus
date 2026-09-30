@@ -53,6 +53,44 @@ fresh `windows-clang-cl` Release build (CMake 4.4.3, Ninja 1.13.2,
 Highway 1.4.0), ctest 34/34 tier-asserted at AVX3_ZEN4. Dependabot PR
 #40 merged 2026-09-28.
 
+**#42 single-lane cost — DONE on Kaby Lake 2026-09-30 (v1.1.0, first
+increment).** Cause found and removed: the driver's masked tail zero-padded
+its dead lanes (`LoadN`), the kernels' specials scrub rewrote those zeros to
+the interior safe point, and the safe point's region core then ran on top
+of the live lane's — a span-of-1 `gamma_p` cost what an explicit (v, 0, 0,
+0) vector costs, 2.2–2.5× one all-equal vector on AVX2 (probe, same run:
+R1 1,533 vs 699 ns, R2 1,537 vs 644, R3 1,522 vs 606; R4 1.09× because
+the safe point (1, 3) IS an R4 point; `beta_p` 0.99× and `gamma_p_inv`
+1.19× — those were already paying one vector). Fix: `src/driver-inl.h`
+pads the tail with the tail's first element (`ops::LoadNOr`, new in the
+facade), so padding lanes share a live lane's region and convergence;
+bit-identical by construction (each lane is computed by its own region
+core and frozen on its own mask) and by the lane-mix gates. After: n = 1
+equals the all-equal vector within 1% in every region. Plus the scalar
+entry points the issue asked for: `double gamma_p(double, double)` and
+the other seven of the incomplete gamma/beta family (`DriveScalarBinary/
+Ternary`: broadcast, one kernel call, `GetLane`), contract = same bits as
+the span form on a length-1 span, checked in all four smoke tests. They
+buy ~1% over the fixed span-of-1 path (696 vs 701 ns) — the API value is
+ergonomic, the throughput came from the driver. ctest 34/34
+`CORVUS_EXPECT_TARGET=AVX2`, warning-clean. Fleet-format scaling rows,
+QUIET (corvus `quiet_bench.sh`, gate 4.90/3.71%, noise 3.1–4.2%, v1.0.1
+and this commit run back to back, twice each; `build/quiet_bench/`), ns
+per call: n = 1 lgamma 277 → 107 (2.6×), gamma_p 1,292 → 448 (2.9×),
+beta_p 2,709 → 2,636, gamma_p_inv 6,402 → 5,502 (1.16×); n = 2 gamma_p
+791 → 385; every row from n = 4 up identical within noise (erf 6.5 / exp
+8.0 / lgamma 58 / gamma_p 151–156 / beta_p 1,022–1,031 / gamma_p_inv
+1,890–1,903 ns/el at n = 65536 on both).
+What remains of #42 is lever 1: a single call is now exactly one vector's
+cost, so the ≤ ~250 ns target is per-element kernel cost (gamma_p 152,
+beta_p 1,024, gamma_p_inv 1,886 ns/el on AVX2 at batch), not call
+overhead. Consumer note: the family's names are now overload sets, so a
+deducing template (`template <class Fn> corvus_scalar(Fn, ...)` in
+libstats `math_utils.cpp`) fails to deduce at the pin bump — the intended
+replacement is the scalar entry point itself. `docs/PERFORMANCE.md` §4 /
+§8.2 batching-gain tables were measured against the padded baseline and
+overstate the gain by the factors above (noted there; v1.1.0 re-run).
+
 
 **v0.9.0 OPEN [2026-08-30] — fleet validation & performance, S1 DONE.**
 Session plan (ratified 2026-08-30, user; #33 elementary fleet legs and

@@ -1,5 +1,6 @@
 // Smoke test for corvus::gamma_p / corvus::gamma_q: the specials table, the
-// P + Q = 1 identity, and lane-mix determinism.
+// P + Q = 1 identity, lane-mix determinism, and the scalar entry points'
+// bit identity with the span form (#42).
 //
 // The third one is the interesting one. Both summed regions (R1's series and
 // R4's alternating series) stop per lane on a freeze mask and let the whole
@@ -271,12 +272,26 @@ void LaneMix() {
   const size_t n = probes.size();
 
   for (int fn_idx = 0; fn_idx < 2; ++fn_idx) {
-    auto fn = fn_idx == 0 ? corvus::gamma_p : corvus::gamma_q;
+    using Fn = void (*)(std::span<const double>, std::span<const double>,
+                        std::span<double>);
+    Fn fn = fn_idx == 0 ? Fn(corvus::gamma_p) : Fn(corvus::gamma_q);
     const char* name = fn_idx == 0 ? "gamma_p" : "gamma_q";
 
     std::vector<double> alone(n);
     for (size_t i = 0; i < n; ++i) {
       alone[i] = One(fn, probes[i].first, probes[i].second);
+      // The scalar entry point (#42) is the same kernel on a broadcast
+      // point; the contract is bit identity with the span form.
+      const double sc = fn_idx == 0
+                            ? corvus::gamma_p(probes[i].first, probes[i].second)
+                            : corvus::gamma_q(probes[i].first, probes[i].second);
+      if (!SameBits(sc, alone[i])) {
+        std::fprintf(stderr,
+                     "FAIL: %s scalar entry point differs at a=%.17g x=%.17g "
+                     "(span %.17g, scalar %.17g)\n",
+                     name, probes[i].first, probes[i].second, alone[i], sc);
+        g_fail = 1;
+      }
     }
 
     // Offsets 0..8 cover every lane position on every tier up to AVX-512,

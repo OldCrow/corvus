@@ -27,6 +27,10 @@ using hn::Lanes;
 
 template <class D> HWY_INLINE V<D> Load(D d, const double* p) { return hn::LoadU(d, p); }
 template <class D> HWY_INLINE V<D> LoadN(D d, const double* p, size_t n) { return hn::LoadN(d, p, n); }
+// LoadN with the lanes past n filled from `no` instead of zero (#42): the
+// driver pads a masked tail with a live element so the padding lanes share
+// its region instead of the specials scrub's safe point.
+template <class D> HWY_INLINE V<D> LoadNOr(V<D> no, D d, const double* p, size_t n) { return hn::LoadNOr(no, d, p, n); }
 template <class D> HWY_INLINE void Store(V<D> v, D d, double* p) { hn::StoreU(v, d, p); }
 template <class D> HWY_INLINE void StoreN(V<D> v, D d, double* p, size_t n) { hn::StoreN(v, d, p, n); }
 
@@ -35,6 +39,8 @@ template <class D> HWY_INLINE void StoreN(V<D> v, D d, double* p, size_t n) { hn
 template <class D> using T = hn::TFromD<D>;
 
 template <class D> HWY_INLINE V<D> Set(D d, T<D> x) { return hn::Set(d, x); }
+// Lane 0 of a vector, for the scalar entry points (#42).
+template <class V> HWY_INLINE auto GetLane(V v) { return hn::GetLane(v); }
 template <class D> HWY_INLINE V<D> Zero(D d) { return hn::Zero(d); }
 
 // Reinterpret lanes without converting: used to build 2^e from an integer

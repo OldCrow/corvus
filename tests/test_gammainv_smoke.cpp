@@ -364,6 +364,16 @@ void LaneMix() {
   for (size_t i = 0; i < kNPts; ++i) {
     alone_p[i] = OneP(pts[i].a, pts[i].s);
     alone_q[i] = OneQ(pts[i].a, pts[i].s);
+    // The scalar entry points (#42): bit identity with the span form.
+    const double sp = corvus::gamma_p_inv(pts[i].a, pts[i].s);
+    const double sq = corvus::gamma_q_inv(pts[i].a, pts[i].s);
+    if (!SameBits(sp, alone_p[i]) || !SameBits(sq, alone_q[i])) {
+      std::fprintf(stderr,
+                   "FAIL: scalar entry point differs at a=%.17g s=%.17g: p "
+                   "%.17g vs %.17g, q %.17g vs %.17g\n",
+                   pts[i].a, pts[i].s, sp, alone_p[i], sq, alone_q[i]);
+      g_fail = 1;
+    }
   }
 
   constexpr size_t kN = 13;  // not a multiple of any lane count in the fleet

@@ -29,6 +29,18 @@ static void GammaQImpl(std::span<const double> a, std::span<const double> x,
               a, x, out);
 }
 
+
+// Scalar entry points (#42): the same kernel on a broadcast point.
+static double GammaPScalarImpl(double a, double x) {
+  return DriveScalarBinary(
+      [](auto d, auto va, auto vx) { return GammaVec<true>(d, va, vx); }, a, x);
+}
+
+static double GammaQScalarImpl(double a, double x) {
+  return DriveScalarBinary(
+      [](auto d, auto va, auto vx) { return GammaVec<false>(d, va, vx); }, a, x);
+}
+
 }  // namespace HWY_NAMESPACE
 }  // namespace corvus
 HWY_AFTER_NAMESPACE();
@@ -52,6 +64,17 @@ void gamma_p(std::span<const double> a, std::span<const double> x,
 void gamma_q(std::span<const double> a, std::span<const double> x,
              std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(GammaQImpl)(a, x, out);
+}
+
+HWY_EXPORT(GammaPScalarImpl);
+HWY_EXPORT(GammaQScalarImpl);
+
+double gamma_p(double a, double x) noexcept {
+  return HWY_DYNAMIC_DISPATCH(GammaPScalarImpl)(a, x);
+}
+
+double gamma_q(double a, double x) noexcept {
+  return HWY_DYNAMIC_DISPATCH(GammaQScalarImpl)(a, x);
 }
 
 }  // namespace corvus
