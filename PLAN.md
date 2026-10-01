@@ -24,6 +24,21 @@ re-run (baseline changed) and the libstats pin bump note (overload sets
 break their deducing `corvus_scalar` wrapper — replace with the scalar
 entry points). Cross-repo order: standards workplan row 2b, IN PROGRESS.
 
+**Zen 4, 2026-09-30:** `a78eddd` (checkout `e802644`) — `windows-clang-cl`
+Release (clang-cl 22.1.3), warning-clean, ctest 34/34 tier-asserted
+`AVX3_ZEN4`; the assertion was shown to fail against `AVX2`. The AVX-512
+half of the pre-release tier check is done; the M1 (NEON) half is still
+owed. Same session, for #28 and `docs/ENVIRONMENT.md`: v1.0.1 built by
+clang-cl capped at AVX2 separates compiler from tier on this CPU — tier
+1.4–1.6× (the 2026-07-24 figure holds), MSVC code generation 3–19× on
+top (per element at n = 65536, clang-cl AVX2 vs MSVC AVX2: gamma_p 142 vs
+2,722 ns, beta_p 973 vs 8,069, gamma_p_inv 1,664 vs 10,699, erf 3.4 vs
+12.2). Results are bit-identical between the two builds over libstats'
+9798-row sweep. Evidence: libstats
+`docs/bench-evidence/2026-09-30-zen4-clangcl-avx2/`. Local state here:
+`build-clangcl/` is a Release build of `e802644`; worktree
+`../corvus-v1.0.1` (tag) used for the capped build.
+
 **v1.0.1 RELEASED 2026-09-19** (travel session, Kaby Lake + CI): build-
 system patch, the #36 configure-time Windows toolchain guard (PR #39).
 No API, kernel or bound change — the ACCURACY.md matrix stands as
