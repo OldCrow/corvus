@@ -8,7 +8,21 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-09-19
+## Status [DERIVED] — 2026-09-30
+
+**Session 2026-09-30 (Kaby Lake) closed with:** `main` at `a78eddd` — #42
+lever 2 (driver tail padding + eight scalar entry points; record below
+under "#42 single-lane cost"), CI pending on that commit. Local state on
+this machine: `build/` is a Release build of `a78eddd` with ctest 34/34
+tier-asserted AVX2; `build/quiet_bench/` holds the gated v1.0.1 vs
+`a78eddd` scaling record (`scaling_v101`, `scaling_new`); `build-cap/`
+is stale (pre-session). Next pickup, any machine: M1 (NEON) and Zen 4
+(AVX3_ZEN4) ctest of `a78eddd` first, then #42 lever 1 (per-element
+kernel cost; the ≤ 250 ns single-call target lives there) or #43. v1.1.0
+release checklist additionally owes `docs/PERFORMANCE.md` §4/§8.2
+re-run (baseline changed) and the libstats pin bump note (overload sets
+break their deducing `corvus_scalar` wrapper — replace with the scalar
+entry points). Cross-repo order: standards workplan row 2b, IN PROGRESS.
 
 **v1.0.1 RELEASED 2026-09-19** (travel session, Kaby Lake + CI): build-
 system patch, the #36 configure-time Windows toolchain guard (PR #39).
@@ -401,7 +415,7 @@ validation at tag); milestone v1.0.0 closed; libstats handshake done
 7429e11). Lesson: a "smartcard signing failed: Timeout" ~15 s after
 scdaemon takes the PIN is the YubiKey TOUCH going unanswered — not the
 gpg-agent wake-wedge; do not resync, just touch the key on retry.
-**NEXT SESSION: v1.1.0 pickup** — milestone "New families & kernel
+**NEXT SESSION: v1.1.0 pickup** (2026-09-30: #42 lever 2 DONE, see Status) — milestone "New families & kernel
 performance" (8 open: #31 lgamma table-driven band GO re-scoped, #22
 non-gather x86 variant, #21 exp_dd bump, #18 erfcx P2, #19/#20 P3
 conditional on libstats, #28/#29 upstream watches, #37 x86 erf
