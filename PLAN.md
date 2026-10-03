@@ -8,7 +8,7 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-09-30
+## Status [DERIVED] — 2026-10-02
 
 **Session 2026-09-30 (Kaby Lake) closed with:** `main` at `a78eddd` — #42
 lever 2 (driver tail padding + eight scalar entry points; record below
@@ -38,6 +38,17 @@ top (per element at n = 65536, clang-cl AVX2 vs MSVC AVX2: gamma_p 142 vs
 `docs/bench-evidence/2026-09-30-zen4-clangcl-avx2/`. Local state here:
 `build-clangcl/` is a Release build of `e802644`; worktree
 `../corvus-v1.0.1` (tag) used for the capped build.
+
+**libstats side, 2026-10-02:** libstats `main` at `d8d3388` (PR #169):
+every timing-label speedup gate now measures steady state with the
+paths interleaved, so the four exp/log SIMD-speedup failures on their
+`dev/v2.5.0-corvus` (the #43 target, libstats #156) are real
+steady-state measurements, not first-call artefacts. Timing suite
+22/22 on Zen 4 (×10) and Kaby Lake (×4, Dev build native AVX2);
+M1 still owed. Their branch rebased onto that `main`, `dev/v2.4.2`
+cut for the correctness patch (libstats #157–#167, independent of 2b).
+Nothing changes for this repo's order: #42 lever 1, #43, #31, #37;
+M1 ctest of `a78eddd` before the release.
 
 **v1.0.1 RELEASED 2026-09-19** (travel session, Kaby Lake + CI): build-
 system patch, the #36 configure-time Windows toolchain guard (PR #39).
