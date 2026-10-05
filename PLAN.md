@@ -16,8 +16,9 @@ under "#42 single-lane cost"), CI pending on that commit. Local state on
 this machine: `build/` is a Release build of `a78eddd` with ctest 34/34
 tier-asserted AVX2; `build/quiet_bench/` holds the gated v1.0.1 vs
 `a78eddd` scaling record (`scaling_v101`, `scaling_new`); `build-cap/`
-is stale (pre-session). Next pickup, any machine: M1 (NEON) and Zen 4
-(AVX3_ZEN4) ctest of `a78eddd` first, then #42 lever 1 (per-element
+is stale (pre-session). Next pickup, any machine: ~~M1 (NEON) and Zen 4
+(AVX3_ZEN4) ctest of `a78eddd` first~~ (both DONE: Zen 4 2026-09-30, M1
+2026-10-02 — see below), then #42 lever 1 (per-element
 kernel cost; the ≤ 250 ns single-call target lives there) or #43. v1.1.0
 release checklist additionally owes `docs/PERFORMANCE.md` §4/§8.2
 re-run (baseline changed) and the libstats pin bump note (overload sets
@@ -27,8 +28,12 @@ entry points). Cross-repo order: standards workplan row 2b, IN PROGRESS.
 **Zen 4, 2026-09-30:** `a78eddd` (checkout `e802644`) — `windows-clang-cl`
 Release (clang-cl 22.1.3), warning-clean, ctest 34/34 tier-asserted
 `AVX3_ZEN4`; the assertion was shown to fail against `AVX2`. The AVX-512
-half of the pre-release tier check is done; the M1 (NEON) half is still
-owed. Same session, for #28 and `docs/ENVIRONMENT.md`: v1.0.1 built by
+half of the pre-release tier check is done; ~~the M1 (NEON) half is still
+owed~~. **M1, 2026-10-02:** `4534d30` (code at `a78eddd`; the two commits
+after it are docs) — `build-m1-gg/` Release rebuilt incrementally,
+warning-clean, `CORVUS_EXPECT_TARGET=NEON` ctest 34/34; the assertion
+shown to fail against `AVX2`. The 2b pre-release tier check is complete
+on both halves. Same session, for #28 and `docs/ENVIRONMENT.md`: v1.0.1 built by
 clang-cl capped at AVX2 separates compiler from tier on this CPU — tier
 1.4–1.6× (the 2026-07-24 figure holds), MSVC code generation 3–19× on
 top (per element at n = 65536, clang-cl AVX2 vs MSVC AVX2: gamma_p 142 vs
@@ -85,7 +90,14 @@ AppleClang 21.0.0 (clang-2100.3.34.2), system Highway 1.4.0,
 `CORVUS_EXPECT_TARGET=NEON` ctest 34/34, warning-clean; fleet table
 updated. [OPEN] Retry the M1 quiet bench only after the post-upgrade
 indexing settles (Apple libm may have changed, so the vs-libm ratios are
-not comparable across the upgrade); (2) [DONE 2026-09-28, Zen 4] the
+not comparable across the upgrade). ATTEMPTED 2026-10-02, 10% gate,
+30 min, screen locked, Backblaze paused, WARP killed, Time Machine
+skipped: ABORT — 173 samples, min 11.88%, none < 10%; `mediaanalysisd`
+top consumer in 134/173 (launches on idle, so locking the screen summons
+it), plus Spotlight knowledge indexing and Time Machine's hourly restart.
+Evidence: `docs/bench-evidence/2026-10-02-m1-gate-abort/`. A window needs
+the Photos analysis agent and automatic Time Machine held off, not just
+Backblaze paused; (2) [DONE 2026-09-28, Zen 4] the
 v1.0.1 toolchain guard confirmed natively: clang-cl 22.1.3 configures
 clean; MSVC 19.51 configures and announces the AVX2 cap; mingw g++ 16.1.0
 (WinLibs UCRT) is refused with the GCC PR 126741 message. Same session:
