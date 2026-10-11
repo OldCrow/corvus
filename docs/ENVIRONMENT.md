@@ -290,6 +290,17 @@ surface lean and justify every runner:
   `CORVUS_MSVC_UNBLOCK_AVX512=ON` to it — that manufactures a green
   "Windows passing" that reads as AVX-512 validation on an untested code
   path and unguaranteed runner silicon.
+- Windows x86-64 / clang-cl: a second build in the SAME job (no new
+  runner; reuses the MSVC configure's Highway checkout). clang-cl is the
+  toolchain corvus recommends on Windows and the only source of its
+  Windows validation numbers, yet until 2026-10-11 no CI job built with
+  it; since #43 it also builds a different kernel shape from MSVC
+  (`CORVUS_OUTLINE` inlines hot regions everywhere but MSVC). Runs the
+  `windows-clang-cl` preset inside vcvars64, located with the image's own
+  `vswhere` (no third-party action). Capped at AVX2 with
+  `CORVUS_DISABLED_TARGETS` and asserted with `CORVUS_EXPECT_TARGET=AVX2`:
+  unlike MSVC, clang-cl dispatches AVX-512 when the runner has it, and
+  hosted silicon is not guaranteed. AVX-512 stays a Zen 4 manual stop.
 - Docs-only changes skip CI; concurrency cancellation; per-job timeouts.
 - Deliberately absent: required status checks (incompatible with
   direct-push-to-main workflow); caching (build is ~minutes; add only
