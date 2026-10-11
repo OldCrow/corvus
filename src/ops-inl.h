@@ -11,6 +11,23 @@
 #include "hwy/highway.h"
 #include "hwy/contrib/math/math-inl.h"
 
+// Outlining for HOT per-vector regions (#43). MSVC's codegen time is
+// superlinear in function size, so under MSVC these stay HWY_NOINLINE like
+// every other region core. Elsewhere a call per vector is a measurable tax
+// on the short elementary kernels -- on NEON (2 lanes) the two outlined
+// trig regions cost cos/sin 1.6x against the same algorithm inlined -- so
+// clang and GCC inline them. Rare-path regions (behind an AllFalse skip)
+// keep HWY_NOINLINE on every compiler: outlined, they stay out of the hot
+// loop's register allocation. #ifndef-guarded: the per-target
+// re-inclusion of this file defines it once.
+#ifndef CORVUS_OUTLINE
+#if defined(_MSC_VER) && !defined(__clang__)
+#define CORVUS_OUTLINE HWY_NOINLINE
+#else
+#define CORVUS_OUTLINE HWY_INLINE
+#endif
+#endif
+
 HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
@@ -24,6 +41,7 @@ template <class D> using V = hn::Vec<D>;
 template <class D> using M = hn::Mask<D>;
 
 using hn::Lanes;
+using hn::MaxLanes;  // compile-time lane bound (driver unroll choice)
 
 template <class D> HWY_INLINE V<D> Load(D d, const double* p) { return hn::LoadU(d, p); }
 template <class D> HWY_INLINE V<D> LoadN(D d, const double* p, size_t n) { return hn::LoadN(d, p, n); }

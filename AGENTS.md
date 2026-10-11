@@ -108,8 +108,13 @@ capping recipes, sweep scripts: `docs/ENVIRONMENT.md`.
 - Call `HWY_DYNAMIC_DISPATCH` from inside `namespace corvus` — a
   single-target cap build breaks otherwise, and only the SSE2 sweep
   catches it.
-- Outline region cores AND per-lane drivers (`HWY_NOINLINE`) from day one;
-  MSVC codegen time is superlinear in function size.
+- Outline region cores AND per-lane drivers from day one; MSVC codegen
+  time is superlinear in function size. Hot per-vector regions use
+  `CORVUS_OUTLINE` (src/ops-inl.h): `HWY_NOINLINE` under MSVC, inlined
+  elsewhere, because a call per 2-lane vector cost NEON cos/sin 1.6× (#43).
+  Rare-path regions behind an `AllFalse`/`AllTrue` skip stay `HWY_NOINLINE`
+  everywhere. Reassess the whole split if MSVC ever becomes properly
+  supportable under Highway (AVX-512 dispatch included) — PLAN.md.
 - A new function family goes, in dependency position, into all FOUR
   gating lists: tests/CMakeLists.txt, the three ULP-report steps in ci.yml,
   and the `$gates` array in tools/sweep_tiers.ps1. ctest auto-discovers;

@@ -33,6 +33,14 @@
 // frozen on its own mask, so a neighbour's value never reaches it (the
 // lane-mix determinism checks in the smoke tests are the guard).
 //
+// On 2-lane targets (NEON, the SSE tiers) DriveUnary runs two vectors per
+// iteration (#43): the short elementary chains are latency-bound at two
+// lanes, and a second independent chain fills the FP pipes (~11% on NEON
+// cos/sin). Each lane's arithmetic is unchanged, so results are
+// bit-identical. Wider targets keep one vector per iteration -- the extra
+// inlined kernel copy costs code size and MSVC build time for no
+// measured gain.
+//
 // DriveScalar* are the scalar entry points (#42): one point broadcast to
 // every lane, so a single call costs one vector in one region and nothing
 // more, with no loop and no masked load/store. Bit-identical to the span
@@ -66,6 +74,15 @@ static void DriveUnary(Kernel kernel, std::span<const double> in,
   const double* pi = in.data();
   double* po = out.data();
   size_t i = 0;
+  if constexpr (op::MaxLanes(d) == 2) {
+    // Two independent vectors per iteration on 2-lane targets (#43).
+    for (; i + 2 * N <= n; i += 2 * N) {
+      const auto v0 = kernel(d, op::Load(d, pi + i));
+      const auto v1 = kernel(d, op::Load(d, pi + i + N));
+      op::Store(v0, d, po + i);
+      op::Store(v1, d, po + i + N);
+    }
+  }
   for (; i + N <= n; i += N) {
     op::Store(kernel(d, op::Load(d, pi + i)), d, po + i);
   }
@@ -74,6 +91,7 @@ static void DriveUnary(Kernel kernel, std::span<const double> in,
     op::StoreN(kernel(d, op::LoadNOr(op::Set(d, pi[i]), d, pi + i, m)), d, po + i, m);
   }
 }
+
 
 template <class Kernel>
 static void DriveBinary(Kernel kernel, std::span<const double> a,

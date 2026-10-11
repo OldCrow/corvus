@@ -186,9 +186,10 @@ HWY_NOINLINE TrigRed<D> TrigReducePh(D d, op::V<D> ax) {
 }
 
 // Both regions, blended, with a skip guard so vectors with no huge lane
-// (the overwhelmingly common case) never pay for the gathers.
+// (the overwhelmingly common case) never pay for the gathers. Hot path:
+// CORVUS_OUTLINE (inlined off MSVC); TrigReducePh stays outlined.
 template <class D>
-HWY_NOINLINE TrigRed<D> TrigReduce(D d, op::V<D> ax) {
+CORVUS_OUTLINE TrigRed<D> TrigReduce(D d, op::V<D> ax) {
   TrigRed<D> red = TrigReduceSmall(d, ax);
   const auto big = op::Gt(ax, op::Set(d, detail::kTrigDMax));  // NaN: false
   if (!op::AllFalse(d, big)) {
@@ -206,8 +207,8 @@ HWY_NOINLINE TrigRed<D> TrigReduce(D d, op::V<D> ax) {
 // exactly (generator-asserted), and both the split's subtractions are exact
 // with or without FMA (Sterbenz + shared grid).
 template <class D>
-HWY_NOINLINE void TrigCores(D d, op::V<D> r, op::V<D> rlo, op::V<D>& s_core,
-                            op::V<D>& c_core) {
+CORVUS_OUTLINE void TrigCores(D d, op::V<D> r, op::V<D> rlo, op::V<D>& s_core,
+                              op::V<D>& c_core) {
   const auto u = op::Mul(r, r);
 
   auto ps = op::Set(d, detail::kTrigSinC[6]);
