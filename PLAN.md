@@ -59,6 +59,24 @@ exp 2.4× libm (was 1.3×), log 0.7× (was 0.2×).
 - CI on `f5f46db` GREEN (2026-10-11, run 38146468509): Linux tier
   sweep 34/34 tier-asserted at AVX2/SSE4/SSSE3/SSE2, ASan+UBSan, MSVC
   AVX2, macOS NEON; exp/log 0 ULP in the AVX2 ULP reports.
+- CI workflow changes [DECIDED 2026-10-11, user], on `main` and
+  cherry-picked to `dev/v1.1.0`:
+  `88dd321`/`f5f46db` add the monthly canary (`45 3 1 * *`, after
+  libhmm 03:15 and libstats 03:30) and `workflow_dispatch` — dev
+  branches without a PR now run CI via
+  `gh workflow run ci.yml --ref <branch>`. Dispatch only works once the
+  trigger is on `main`, so CI changes land there first.
+  `76a4be8`/`8d8779f` add a clang-cl build to the Windows job (no new
+  runner): `windows-clang-cl` preset inside vcvars64 found with
+  `vswhere`, capped at AVX2 and tier-asserted, because clang-cl
+  dispatches AVX-512 on runners that have it. Reason: clang-cl is the
+  recommended Windows toolchain and the source of Windows validation
+  numbers, yet no job built it, and since #43 it builds a different
+  kernel shape from MSVC. First run green on `main` (run 38162360745,
+  runner clang-cl 20.1.8, 34/34, +2.7 min). Mix otherwise unchanged:
+  MinGW needs no runner (refused at configure, guard-tested in the
+  Windows job); AVX-512 stays a Zen 4 manual stop. Dev-branch run of
+  `8d8779f` dispatched (run 38163545531).
 - log stays at ~0.7× scalar libm (3.4× faster than before) [DECIDED
   2026-10-11, user]; libstats exempts or re-baselines its log speedup
   gate. The 129-slot log table is CLOSED, not worth a generator: an
