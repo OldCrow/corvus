@@ -38,7 +38,13 @@ struct ErfCoreParts {
 // ~3e-30 absolute -- harmless for erf against ulp(1), but up to ~2e-13
 // RELATIVE against erfc(6) ~ 2e-17. Worst-case c6 contribution scales as
 // ~5e-18 * a^6; terms through c8 push truncation below 1e-18 relative.
-template <class D>
+// kDeg truncates the series for consumers that only need erf against
+// ulp(erf) (#43): at kDeg = 6 the dropped c7/c8 terms are <= 0.012 ulp of
+// the result over the whole grid (worst at r = 0, where it is c7*d^6
+// relative), and the correctly rounded fraction on 2e6 uniform points in
+// [-6, 6] matches kDeg = 8 to within 3 points. kDeg = 5 was measured at
+// ~0.075% more not-CR points and rejected. erfc keeps the default.
+template <int kDeg = 8, class D>
 HWY_INLINE ErfCoreParts<D> ErfTableCore(D d, op::V<D> ac) {
   const op::SignedTag<D> di;
 
@@ -76,9 +82,16 @@ HWY_INLINE ErfCoreParts<D> ErfTableCore(D d, op::V<D> ac) {
              op::Set(d, 1.0 / 24.0)));
 
   // t = c2 + d(c3 + d(c4 + ... + d*c8)); p = d + d^2*t
-  auto t = op::MulAdd(dd, c8, c7);
-  t = op::MulAdd(dd, t, c6);
-  t = op::MulAdd(dd, t, c5);
+  op::V<D> t;
+  if constexpr (kDeg == 8) {
+    t = op::MulAdd(dd, op::MulAdd(dd, op::MulAdd(dd, c8, c7), c6), c5);
+  } else if constexpr (kDeg == 7) {
+    t = op::MulAdd(dd, op::MulAdd(dd, c7, c6), c5);
+  } else if constexpr (kDeg == 6) {
+    t = op::MulAdd(dd, c6, c5);
+  } else {
+    t = c5;
+  }
   t = op::MulAdd(dd, t, c4);
   t = op::MulAdd(dd, t, c3);
   t = op::MulAdd(dd, t, c2);

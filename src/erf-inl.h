@@ -18,7 +18,9 @@ namespace corvus {
 namespace HWY_NAMESPACE {
 namespace op = ops;
 
-// See ErfTableCore (src/erf_core-inl.h) for the method. Max 1 ULP on
+// See ErfTableCore (src/erf_core-inl.h) for the method; erf runs the
+// correction to d^6 (the d^7/d^8 terms exist for erfc's relative
+// precision, ~28% of erf's NEON cost, below 0.012 ulp here). Max 1 ULP on
 // validated tiers. |x| >= kErfAMax saturates to +/-1 (the bound is the
 // smallest double whose erf rounds to 1, so this is correctly rounded);
 // NaN is masked explicitly rather than relying on per-target Min/convert
@@ -33,7 +35,7 @@ static HWY_INLINE op::V<D> ErfVec(D d, op::V<D> x) {
   auto ac = op::Min(ax, amax);
   ac = op::IfThenElse(nan, op::Zero(d), ac);  // safe table index for NaN lanes
 
-  const auto core = ErfTableCore(d, ac);
+  const auto core = ErfTableCore<6>(d, ac);
   auto res = op::Add(core.e_hi, core.small);
 
   res = op::IfThenElse(op::Ge(ax, amax), one, res);
