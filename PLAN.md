@@ -14,7 +14,7 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 carrying this note, pushed, in sync; `main` at `76a4be8` (two CI
 commits, cherry-picked to dev). #43 is implementation-complete and
 CI-green; the ONLY remaining work is the K/Z close-out steps under
-"#43 open items" below. NEXT PICKUP: Kaby Lake (steps 1–4), then Zen 4
+"#43 open items" below. NEXT PICKUP: ~~Kaby Lake (steps 1–4)~~ DONE 2026-10-11, then Zen 4
 (step 5), then close (6–7). After #43 closes, corvus stays PAUSED until
 libstats v2.5.0 releases (the 2026-10-10 decision below still holds);
 the libstats log speedup-gate exemption is theirs to make. Local state
@@ -84,6 +84,25 @@ exp 2.4× libm (was 1.3×), log 0.7× (was 0.2×).
      error: ESCALATE (frontier), don't loosen the gate.
   4. GCC 16 leg owed from the M1 (no GCC there): GCC capped to AVX2,
      `-DCORVUS_DEV_WARNINGS=ON -DCMAKE_CXX_FLAGS=-Werror`, ctest 34/34.
+  **K DONE 2026-10-11** at `f1db1a0` (code = `1bcba54`): macOS 13.7.8,
+  AppleClang 15.0.0, CMake 4.4.3, system Highway 1.4.0. Steps 1–4:
+  - Sync check clean; `../corvus-hunt` untouched.
+  - Release sweep in separate build dirs (`build-k43-<tier>`): AVX2, SSE4,
+    SSSE3 and SSE2 each ctest 34/34, every report line printing the
+    asserted tier.
+  - Negative check: the native build under `CORVUS_EXPECT_TARGET=AVX3`
+    fails 33/34 (only `toolchain_guard`, which asserts no tier, passes).
+  - ULP lines identical on all four tiers: exp normal 0 ULP (subnormal
+    1, 26 not-CR); log/log1p 0 ULP in all six strata; cos/sin max 1.
+  - erf max 1 ULP; not-CR 217 at AVX2 and 218 at SSE4/SSSE3/SSE2 (M1
+    figure 217).
+  - GCC 16.1.0 capped to AVX2 with `CORVUS_DEV_WARNINGS=ON
+    -DCMAKE_CXX_FLAGS=-Werror` and the CLT sysroot (#62): 0 warnings,
+    34/34.
+  - Every AppleClang build prints the system-Highway `base.h:359`
+    `-Wgnu-zero-variadic-macro-arguments` warning (Xcode.app SDK, not
+    -isystem): #62, not corvus code.
+  Next: Z step 5, then 6–7.
   **Z (Zen 4, clang-cl):**
   5. From a vcvars64 shell: `cmake --preset windows-clang-cl`, build,
      `CORVUS_EXPECT_TARGET=AVX3_ZEN4` ctest 34/34; negative check
