@@ -52,6 +52,7 @@ they re-gate every consumer. libstats v2.5.0 is gated on #42/#43.
 | 7 | #52 Bessel tail 1.56 ulp | independent files; can run parallel to 2–6 | mid | tail sweep, rows | all tiers |
 | 8 | #53 remainder: regen reference rows for the bands, ACCURACY counts, doc drift, sweep_tiers smoke gap, erfinv generator self-check, oracle re-score | after 2–7 so regeneration runs once | recipe | generators | K, Z (sweep) |
 | 9 | #42 lever 1 (per-element cost) | after 2–6: same region cores; guards then protect it | frontier | early-exit lane-mix tests | M1, K, Z |
+| 9b | #45 export span expm1, log1pmx | filed libstats v3.0.0 need; after #49 (same Log1pmxDd hazard); independent of #42's files, can run on another machine; comes off the milestone if it would hold the release | mid (new family) | generator, gates in all four lists | K, M1, Z |
 | 10 | #43 NEON elementary import | shared exp/log cores: after #42 so its evidence stands once | frontier/mid | ULP re-gate all tiers | M1 |
 | 11 | #31 lgamma table band | beta/gamma consume lgamma; after the family settles | frontier | generator + regen | K, Z, M1 |
 | 12 | #37 erf x86 | premise retired; measure capped rows only if libstats asks, else close | recipe | none | K |
@@ -62,9 +63,9 @@ Gated, not on the critical path; they stay in v1.1.0 for now [DECIDED
 need), #20 (libstats #62 decision), #21 (no filed need; shared exp_dd
 core), #19 (need filed, but its oracle is frontier work and libstats
 carries a local mitigation). #28 (upstream; needs Highway's suite under
-MSVC AVX-512) taken off every milestone [DECIDED 2026-10-10, user]. Related unmilestoned:
-#45 (export Log1pmxDd/Expm1Dd) after #49; #44 is a possible route for #42
-lever 1. Release tail: PERFORMANCE.md §4/§8.2 re-run, libstats pin note
+MSVC AVX-512) taken off every milestone [DECIDED 2026-10-10, user]. #45 milestoned v1.1.0 (row 9b) and #44 left unmilestoned as research
+[DECIDED 2026-10-10, user]; #42 lever 1 must weigh #44's fixed-cost
+regions against masked early exit before committing (noted on #42). Release tail: PERFORMANCE.md §4/§8.2 re-run, libstats pin note
 (scalar entry points replace their deducing wrapper), RELEASING.md
 checklist, M1 + Zen 4 tier checks at the freeze head.
 
