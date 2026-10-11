@@ -53,13 +53,20 @@ exp 2.4× libm (was 1.3×), log 0.7× (was 0.2×).
   not call-induced spills); HWY_LIKELY on the skip branch.
 
 **#43 open items [OPEN]:**
-- x86 re-gate: K (AVX2 native + SSE4/SSSE3/SSE2 caps — the fast paths'
-  non-FMA budget runs only there) and Z (AVX3_ZEN4), plus CI. Owed
-  before #43 closes.
-- log is still 0.7× libm and 2.3× libstats. Next lever: a 129-slot
-  rounding-index table (|r| <= 2^-8, centring folded into the index, a
-  shorter series) — new generator, frontier. libstats' speedup gate is
-  1.5× over scalar, so log likely still fails it; exp passes.
+- x86 re-gate on native silicon: K (AVX2 + SSE4/SSSE3/SSE2 caps) and
+  Z (AVX3_ZEN4); CI already green (below). The ONLY item left before
+  #43 closes.
+- CI on `f5f46db` GREEN (2026-10-11, run 38146468509): Linux tier
+  sweep 34/34 tier-asserted at AVX2/SSE4/SSSE3/SSE2, ASan+UBSan, MSVC
+  AVX2, macOS NEON; exp/log 0 ULP in the AVX2 ULP reports.
+- log stays at ~0.7× scalar libm (3.4× faster than before) [DECIDED
+  2026-10-11, user]; libstats exempts or re-baselines its log speedup
+  gate. The 129-slot log table is CLOSED, not worth a generator: an
+  upper-bound build at its op count ran 3.65 vs 3.89 ns (~6%). A
+  correctly rounded log on this structure cannot reach 1.5× libm
+  (~1.85 ns): exact r, the error-free assembly and the rounding test
+  are ~45 of ~60 ops, and the fall-back's cost forbids a looser test
+  window. A non-CR opt-in log entry point was considered and not taken.
 - log1p untouched (dd path with a Div per call); not in #43's text.
 - LogDd(Dd) pays a Div even for x.lo = 0 — a double-only LogDdAny would
   speed every consumer's fall-back; touches lgamma/gamma/beta, so after
