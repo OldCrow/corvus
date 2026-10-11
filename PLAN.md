@@ -8,11 +8,23 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-10-10
+## Status [DERIVED] — 2026-10-11
 
-**Session 2026-10-10 evening (M1): #43 started on `dev/v1.1.0`
-(uncommitted at session end — commits need the YubiKey).** Pre-check
-validated on NEON first: branch head `6bd479b` ctest 34/34
+**Session CLOSED 2026-10-11 (M1).** `dev/v1.1.0` at the commit
+carrying this note, pushed, in sync; `main` at `76a4be8` (two CI
+commits, cherry-picked to dev). #43 is implementation-complete and
+CI-green; the ONLY remaining work is the K/Z close-out steps under
+"#43 open items" below. NEXT PICKUP: Kaby Lake (steps 1–4), then Zen 4
+(step 5), then close (6–7). After #43 closes, corvus stays PAUSED until
+libstats v2.5.0 releases (the 2026-10-10 decision below still holds);
+the libstats log speedup-gate exemption is theirs to make. Local state
+on M1: `build-m1-gg/` is a Release build of the #43 code (`1bcba54`;
+later commits are docs/CI only), ctest 34/34 NEON. The scratch timing
+harness and stress-comparison tools were scratchpad-only; the issue
+comments and this file are the record.
+
+**Session 2026-10-10 evening (M1): #43 started on `dev/v1.1.0`.**
+Pre-check validated on NEON first: branch head `6bd479b` ctest 34/34
 tier-asserted, warning-clean.
 
 #43 RESCOPED [DECIDED 2026-10-10, user]: importing libstats' exp/log
