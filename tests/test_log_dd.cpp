@@ -25,7 +25,7 @@ namespace HWY_NAMESPACE {
 
 // Drives the dd-input overload, which subsumes the plain-double one (x_lo is
 // 0 for most reference points). Masked tail, same as the shipped kernels.
-void LogDdTestImpl(const double* xh, const double* xl, double* hi, double* lo,
+static void LogDdTestImpl(const double* xh, const double* xl, double* hi, double* lo,
                    size_t n) {
   // Named rather than decltype(d): d is const-qualified, and Dd<const Simd<>>
   // is a different type from the Dd<Simd<>> the kernel deduces.
@@ -48,7 +48,7 @@ void LogDdTestImpl(const double* xh, const double* xl, double* hi, double* lo,
   }
 }
 
-const char* TestTargetNameImpl() { return hwy::TargetName(HWY_TARGET); }
+static const char* TestTargetNameImpl() { return hwy::TargetName(HWY_TARGET); }
 
 }  // namespace HWY_NAMESPACE
 }  // namespace corvus
@@ -66,11 +66,11 @@ HWY_EXPORT(TestTargetNameImpl);
 // Dispatch from inside namespace corvus: with a single compiled target (the
 // SSE2 cap) Highway collapses HWY_DYNAMIC_DISPATCH to N_SSE2::FUNC, and a
 // globally qualified call would name a namespace that does not exist.
-void LogDdTest(const double* xh, const double* xl, double* hi, double* lo,
+static void LogDdTest(const double* xh, const double* xl, double* hi, double* lo,
                size_t n) {
   HWY_DYNAMIC_DISPATCH(LogDdTestImpl)(xh, xl, hi, lo, n);
 }
-const char* TestTargetName() { return HWY_DYNAMIC_DISPATCH(TestTargetNameImpl)(); }
+static const char* TestTargetName() { return HWY_DYNAMIC_DISPATCH(TestTargetNameImpl)(); }
 }  // namespace corvus
 
 namespace {
@@ -93,7 +93,7 @@ using corvus_test::UlpDiff;
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char* const* argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
   if (std::strcmp(corvus::TestTargetName(), corvus::active_target()) != 0) {
     std::fprintf(stderr, "FAIL: this TU and the library dispatched different targets\n");

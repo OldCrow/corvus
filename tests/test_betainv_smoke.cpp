@@ -39,7 +39,6 @@
 
 namespace {
 
-using corvus_test::OrderedBits;
 using corvus_test::SameBits;
 using corvus_test::UlpDiff;
 
@@ -106,8 +105,8 @@ void Specials() {
   }
 
   // One degenerate parameter: all the mass sits at one endpoint.
-  for (double s : {0.25, 0.5, 0.75}) {
-    for (bool q : {false, true}) {
+  for (const double s : {0.25, 0.5, 0.75}) {
+    for (const bool q : {false, true}) {
       CheckSpecial("a = 0 (mass at 0)", q, 0.0, 2.0, s, 0.0);
       CheckSpecial("a = -0 (mass at 0)", q, -0.0, 2.0, s, 0.0);
       CheckSpecial("b = inf (mass at 0)", q, 2.0, kInf, s, 0.0);
@@ -127,7 +126,7 @@ void Specials() {
   uint64_t bits = 0x7FF8000000ABCDEFULL;
   double payload;
   std::memcpy(&payload, &bits, sizeof(payload));
-  for (bool q : {false, true}) {
+  for (const bool q : {false, true}) {
     const double g1 = q ? OneQ(payload, 2.0, 0.25) : OneP(payload, 2.0, 0.25);
     const double g2 = q ? OneQ(2.0, payload, 0.25) : OneP(2.0, payload, 0.25);
     const double g3 = q ? OneQ(2.0, 3.0, payload) : OneP(2.0, 3.0, payload);
@@ -199,7 +198,7 @@ void EdgeContractsN12() {
   corvus::beta_q_inv(a, b, s, gq);
   for (size_t i = 0; i < a.size(); ++i) {
     const Case& c = cases[i];
-    auto check = [&](const char* fname, double got) {
+    const auto check = [&](const char* fname, double got) {
       // A zero expectation means +0 specifically: quantiles are >= 0 and a
       // -0 here would be a sign regression UlpDiff-style checks cannot see.
       const bool ok = std::isnan(c.want)
@@ -252,8 +251,8 @@ void ClosedForm() {
   const double kExps[] = {0.25, 0.5, 1.0, 2.0, 7.0, 40.0};
   const double kSs[] = {1e-300, 1e-100, 1e-20, 1e-8, 0.001, 0.1,
                         0.25,   0.5,    0.75,  0.9,  0.99};
-  for (double e : kExps) {
-    for (double s : kSs) {
+  for (const double e : kExps) {
+    for (const double s : kSs) {
       {
         const double lg = std::log(s);
         const double want = std::exp(lg / e);
@@ -291,7 +290,7 @@ void ClosedForm() {
   // The uniform case, where the quantile is the probability itself and the
   // answer must be EXACT: both flips and both orientations collapse to
   // identity, so any stray rounding in the frame shows up here.
-  for (double s : kSs) {
+  for (const double s : kSs) {
     const double gp = OneP(1.0, 1.0, s);
     const double gq = OneQ(1.0, 1.0, s);
     if (UlpDiff(gp, s) > 1 || UlpDiff(gq, 1.0 - s) > 1) {
@@ -315,9 +314,9 @@ void SwapIdentity() {
   const double kAs[] = {0.03, 0.5, 1.5, 4.0, 30.0, 1e4};
   const double kBs[] = {0.07, 0.9, 2.0, 11.0, 500.0, 1e6};
   const double kPs[] = {0.05, 0.2, 0.5, 0.8, 0.95};
-  for (double a : kAs) {
-    for (double b : kBs) {
-      for (double p : kPs) {
+  for (const double a : kAs) {
+    for (const double b : kBs) {
+      for (const double p : kPs) {
         const double x = OneP(a, b, p);
         const double z = OneP(b, a, 1.0 - p);
         if (!(x > 1e-8 && x < 1.0 - 1e-8)) continue;
@@ -348,9 +347,9 @@ void SwapIdentity() {
 // bound would report on the conditioning rather than on either kernel.
 void RoundTrip() {
   std::vector<double> as, bs, ss;
-  for (double a : {1e-3, 0.1, 0.5, 1.0, 2.5, 19.0, 100.0, 1e4}) {
-    for (double b : {1e-3, 0.1, 0.7, 1.0, 3.0, 21.0, 400.0, 1e6}) {
-      for (double s : {1e-30, 1e-8, 1e-3, 0.1, 0.3, 0.5, 0.7, 0.9}) {
+  for (const double a : {1e-3, 0.1, 0.5, 1.0, 2.5, 19.0, 100.0, 1e4}) {
+    for (const double b : {1e-3, 0.1, 0.7, 1.0, 3.0, 21.0, 400.0, 1e6}) {
+      for (const double s : {1e-30, 1e-8, 1e-3, 0.1, 0.3, 0.5, 0.7, 0.9}) {
         as.push_back(a);
         bs.push_back(b);
         ss.push_back(s);
@@ -360,7 +359,7 @@ void RoundTrip() {
   const size_t n = as.size();
   std::vector<double> x(n), back(n);
 
-  for (bool q : {false, true}) {
+  for (const bool q : {false, true}) {
     if (q) {
       corvus::beta_q_inv(as, bs, ss, x);
       corvus::beta_q(as, bs, x, back);

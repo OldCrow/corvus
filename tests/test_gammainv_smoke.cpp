@@ -78,7 +78,7 @@ void CheckSpecial(const char* what, bool want_q, double a, double s,
 
 void Specials() {
   const double kAs[] = {1e-300, 1e-3, 0.5, 1.0, 3.0, 20.0, 1e6, 1e300};
-  for (double a : kAs) {
+  for (const double a : kAs) {
     CheckSpecial("p = 0", false, a, 0.0, 0.0);
     CheckSpecial("p = -0", false, a, -0.0, 0.0);
     CheckSpecial("p = 1", false, a, 1.0, kInf);
@@ -95,7 +95,7 @@ void Specials() {
   }
 
   // Degenerate a, on both exports and at an ordinary s.
-  for (double s : {0.25, 0.5, 0.75}) {
+  for (const double s : {0.25, 0.5, 0.75}) {
     CheckSpecial("a = 0", false, 0.0, s, NAN);
     CheckSpecial("a = -0", false, -0.0, s, NAN);
     CheckSpecial("a < 0", false, -1.0, s, NAN);
@@ -111,7 +111,7 @@ void Specials() {
   uint64_t bits = 0x7FF8000000ABCDEFULL;
   double payload;
   std::memcpy(&payload, &bits, sizeof(payload));
-  for (bool q : {false, true}) {
+  for (const bool q : {false, true}) {
     const double g1 = q ? OneQ(payload, 0.25) : OneP(payload, 0.25);
     const double g2 = q ? OneQ(2.0, payload) : OneP(2.0, payload);
     if (!SameBits(g1, payload) || !SameBits(g2, payload)) {
@@ -229,7 +229,7 @@ void EdgeContracts() {
 void ClosedForm() {
   const double kPs[] = {1e-320, 1e-300, 1e-100, 1e-16, 1e-8, 0.001, 0.1,
                         0.25,   0.5,    0.75,   0.9,   0.99, 1.0 - 1e-12};
-  for (double p : kPs) {
+  for (const double p : kPs) {
     const double want = -std::log1p(-p);
     const double got = OneP(1.0, p);
     if (UlpDiff(got, want) > 8) {
@@ -241,7 +241,7 @@ void ClosedForm() {
   }
   const double kQs[] = {1e-320, 1e-300, 1e-100, 1e-16, 0.001, 0.1,
                         0.5,    0.9,    0.999999};
-  for (double q : kQs) {
+  for (const double q : kQs) {
     const double want = -std::log(q);
     const double got = OneQ(1.0, q);
     if (UlpDiff(got, want) > 8) {
@@ -266,9 +266,9 @@ void ClosedForm() {
 // trip to check.
 void RoundTrip() {
   std::vector<double> as, ss;
-  for (double a : {1e-3, 0.1, 0.5, 1.0, 2.5, 7.0, 19.0, 20.0, 21.0, 100.0,
+  for (const double a : {1e-3, 0.1, 0.5, 1.0, 2.5, 7.0, 19.0, 20.0, 21.0, 100.0,
                    1e4, 1e8, 1e16}) {
-    for (double s : {1e-30, 1e-8, 1e-3, 0.1, 0.3, 0.5, 0.7, 0.9, 0.999}) {
+    for (const double s : {1e-30, 1e-8, 1e-3, 0.1, 0.3, 0.5, 0.7, 0.9, 0.999}) {
       as.push_back(a);
       ss.push_back(s);
     }
@@ -327,9 +327,9 @@ void RoundTrip() {
 // condition number is 2^-500-class there -- so it is worth pinning as a
 // behaviour, not just as a bucket in the ULP table.
 void BeyondResolution() {
-  for (double a : {1e35, 1e100, 1e300, 1.7976931348623157e308}) {
-    for (double s : {0.25, 0.5, 0.75}) {
-      for (bool q : {false, true}) {
+  for (const double a : {1e35, 1e100, 1e300, 1.7976931348623157e308}) {
+    for (const double s : {0.25, 0.5, 0.75}) {
+      for (const bool q : {false, true}) {
         const double got = q ? OneQ(a, s) : OneP(a, s);
         if (got != a) {
           std::fprintf(stderr,

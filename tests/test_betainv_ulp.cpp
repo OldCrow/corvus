@@ -51,7 +51,6 @@
 
 namespace {
 
-using corvus_test::OrderedBits;
 using corvus_test::UlpDiff;
 
 // Gates: PINNED to measured, no margin, gammainv precedent. Measured
@@ -420,7 +419,7 @@ int Run(const char* label, bool want_q, const char* path) {
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char* const* argv) {
   // Before doing any work: a wrong tier makes every number below meaningless.
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 

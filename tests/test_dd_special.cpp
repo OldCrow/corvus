@@ -31,7 +31,7 @@ namespace corvus {
 namespace HWY_NAMESPACE {
 
 // Same masked-tail discipline as the shipped kernels: one code path.
-void Log1pmxTestImpl(const double* u, double* hi, double* lo, size_t n) {
+static void Log1pmxTestImpl(const double* u, double* hi, double* lo, size_t n) {
   using DT = op::ScalableTag<double>;
   const DT d;
   const size_t N = op::Lanes(d);
@@ -49,7 +49,7 @@ void Log1pmxTestImpl(const double* u, double* hi, double* lo, size_t n) {
   }
 }
 
-const char* UtilTargetNameImpl() { return hwy::TargetName(HWY_TARGET); }
+static const char* UtilTargetNameImpl() { return hwy::TargetName(HWY_TARGET); }
 
 }  // namespace HWY_NAMESPACE
 }  // namespace corvus
@@ -67,10 +67,10 @@ HWY_EXPORT(UtilTargetNameImpl);
 // Dispatch from INSIDE namespace corvus: with a single compiled target
 // Highway collapses HWY_DYNAMIC_DISPATCH to N_<target>::FUNC, and a
 // globally qualified call would then name a namespace that does not exist.
-void Log1pmxTest(const double* u, double* hi, double* lo, size_t n) {
+static void Log1pmxTest(const double* u, double* hi, double* lo, size_t n) {
   HWY_DYNAMIC_DISPATCH(Log1pmxTestImpl)(u, hi, lo, n);
 }
-const char* UtilTargetName() {
+static const char* UtilTargetName() {
   return HWY_DYNAMIC_DISPATCH(UtilTargetNameImpl)();
 }
 }  // namespace corvus
@@ -90,7 +90,7 @@ constexpr double kSplit = 0x1.0p-40;
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char* const* argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   const char* here = corvus::UtilTargetName();

@@ -148,7 +148,7 @@ int RunOne(const char* label, const char* path, Fn fn) {
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char* const* argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   const char* cos_path = argc > 1 ? argv[1] : "tests/data/cos_reference.txt";

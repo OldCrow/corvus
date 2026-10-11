@@ -36,7 +36,6 @@
 
 namespace {
 
-using corvus_test::OrderedBits;
 using corvus_test::SameBits;
 using corvus_test::UlpDiff;
 
@@ -483,7 +482,7 @@ int SeamSweeps() {
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char* const* argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   const char* p_path = argc > 1 ? argv[1] : "tests/data/beta_p_reference.txt";

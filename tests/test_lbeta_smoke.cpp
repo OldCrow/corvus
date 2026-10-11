@@ -22,6 +22,7 @@ void Check(bool ok, const char* what) {
 }
 
 bool SameBits(double x, double y) {
+  // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): bit equality is the intent.
   return std::memcmp(&x, &y, sizeof(x)) == 0;
 }
 
@@ -51,8 +52,8 @@ int main() {
 
   // Symmetry on a small grid spanning the bands.
   const double grid[] = {1e-300, 0.5, 1.0, 7.5, 256.5, 1e5, 1e100, 0x1.1p+990};
-  for (double a : grid) {
-    for (double b : grid) {
+  for (const double a : grid) {
+    for (const double b : grid) {
       if (One(a, b) != One(b, a)) {
         Check(false, "symmetry lbeta(a,b) == lbeta(b,a)");
       }

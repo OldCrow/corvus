@@ -77,7 +77,7 @@ void Report(const Region& r) {
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char* const* argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   const char* path = argc > 1 ? argv[1] : "tests/data/exp_reference.txt";

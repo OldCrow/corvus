@@ -165,7 +165,7 @@ int main() {
   }
 
   // --- routing-boundary continuity (both sides of every split) -----------
-  for (double b : {0.5, 1.5}) {
+  for (const double b : {0.5, 1.5}) {
     std::vector<double> bx = {std::nextafter(b, 0.0), b, std::nextafter(b, 3.0)};
     std::vector<double> by(bx.size());
     corvus::erfcinv(bx, by);
@@ -174,7 +174,7 @@ int main() {
             "erfcinv continuous across a routing boundary");
     }
   }
-  for (double b : {0.5, -0.5}) {
+  for (const double b : {0.5, -0.5}) {
     std::vector<double> bx = {std::nextafter(b, 0.0), b, std::nextafter(b, 2.0)};
     std::vector<double> by(bx.size());
     corvus::erfinv(bx, by);

@@ -224,7 +224,7 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char* const* argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   const char* p_path = argc > 1 ? argv[1] : "tests/data/gamma_p_reference.txt";

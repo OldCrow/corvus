@@ -518,7 +518,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   const auto b1v = op::Set(d, detail::kBetaB1);
   const auto thr_t = op::Div(
       one, op::Add(one, op::Div(op::Add(bmax, one), op::Add(tau, one))));
-  auto i_r4 = op::Mul(
+  const auto i_r4 = op::Mul(
       BetaInd(d, op::Ge(op::Set(d, detail::kBetaEpsR4), tau)),
       op::Mul(BetaInd(d, op::Ge(op::Set(d, detail::kBetaLn2),
                                 op::Mul(tau, op::Abs(lxt.hi)))),
@@ -698,7 +698,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
                 op::IfThenElse(m_r2, l.lo, lnf.lo)};
   }
   if (!op::AllFalse(d, m_r3)) {
-    auto t3 = BetaR3Temme(
+    const auto t3 = BetaR3Temme(
         d, ps, BetaInd(d, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim))));
     // THE TAIL BRANCH IS TAKEN IN LOG SPACE, NOT AS log(value).
     // Above cpsi = 36 the R3 value is e^-cpsi times a bracket, so its log is

@@ -68,7 +68,7 @@ int ReportRegions(const char* label, const Region* regions, int n_regions) {
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char* const* argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   const char* erfinv_path =

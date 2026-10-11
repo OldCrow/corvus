@@ -86,7 +86,7 @@ int main() {
   // polynomial interval splits (10, 17) stays close to libm. (Do not test
   // step-to-step jumps: erfc's own relative slope is ~2a per ULP of x, so
   // the true function moves ~1e-13 across two ULPs at x = 17.)
-  for (double b : {6.0, 10.0, 17.0}) {
+  for (const double b : {6.0, 10.0, 17.0}) {
     std::vector<double> bx = {std::nextafter(b, 0.0), b, std::nextafter(b, 99.0)};
     std::vector<double> by(bx.size());
     corvus::erfc(bx, by);

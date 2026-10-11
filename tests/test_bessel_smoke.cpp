@@ -23,7 +23,6 @@
 
 namespace {
 
-using corvus_test::OrderedBits;
 using corvus_test::SameBits;
 using corvus_test::UlpDiff;
 
@@ -279,7 +278,7 @@ void Identities() {
   const double kXs[] = {0.001, 0.25, 1.0,  2.5, 5.0,   7.999, 8.0,
                         8.001, 15.0, 50.0, 200, 500.0, 700.0};
   static_assert(sizeof(kXs) / sizeof(kXs[0]) == 13, "length check");
-  for (double x : kXs) {
+  for (const double x : kXs) {
     const double i0p = I0(x), i0n = I0(-x);
     const double i1p = I1(x), i1n = I1(-x);
     const double i0ep = I0e(x), i0en = I0e(-x);

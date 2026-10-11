@@ -28,7 +28,7 @@ namespace HWY_NAMESPACE {
 
 // Same masked-tail discipline as the shipped kernels: one code path, no
 // scalar fallback for the remainder.
-void ExpDdTestImpl(const double* xh, const double* xl, double* hi, double* lo,
+static void ExpDdTestImpl(const double* xh, const double* xl, double* hi, double* lo,
                    size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
@@ -50,7 +50,7 @@ void ExpDdTestImpl(const double* xh, const double* xl, double* hi, double* lo,
 // defines as the library (CORVUS_HWY_TARGET_DEFS), and main() asserts the two
 // tables agreed -- otherwise the reported tier would describe the library
 // while the numbers came from here.
-const char* TestTargetNameImpl() { return hwy::TargetName(HWY_TARGET); }
+static const char* TestTargetNameImpl() { return hwy::TargetName(HWY_TARGET); }
 
 }  // namespace HWY_NAMESPACE
 }  // namespace corvus
@@ -71,11 +71,11 @@ HWY_EXPORT(TestTargetNameImpl);
 // N_<target>:: -- so a qualified corvus::Foo call from global scope becomes
 // N_SSE2::corvus::Foo and fails to compile. It builds fine at every other
 // tier, which is what makes it worth a comment rather than a fix in silence.
-void ExpDdTest(const double* xh, const double* xl, double* hi, double* lo,
+static void ExpDdTest(const double* xh, const double* xl, double* hi, double* lo,
                size_t n) {
   HWY_DYNAMIC_DISPATCH(ExpDdTestImpl)(xh, xl, hi, lo, n);
 }
-const char* TestTargetName() { return HWY_DYNAMIC_DISPATCH(TestTargetNameImpl)(); }
+static const char* TestTargetName() { return HWY_DYNAMIC_DISPATCH(TestTargetNameImpl)(); }
 }  // namespace corvus
 
 namespace {
@@ -103,7 +103,7 @@ struct Region {
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char* const* argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   const char* here = corvus::TestTargetName();

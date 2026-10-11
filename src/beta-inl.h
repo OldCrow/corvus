@@ -1223,7 +1223,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // extension is 2^-57.3 (2^-71.9 inside the unwidened box, generator
   // target 2^-58), because B < 0.24 keeps every term ratio below
   // xi_tau. The other two caps are the box's own.
-  auto i_r4 = op::Mul(
+  const auto i_r4 = op::Mul(
       BetaInd(d, op::Ge(op::Set(d, detail::kBetaEpsR4), tau)),
       op::Mul(BetaInd(d, op::Ge(op::Set(d, detail::kBetaLn2),
                                 op::Mul(tau, op::Abs(lxt.hi)))),
@@ -1235,7 +1235,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
                            BetaInd(d, op::Ge(b1v, op::Mul(b, x))));
   const auto r1s = op::Mul(BetaInd(d, op::Ge(xi1, y0.hi)),
                            BetaInd(d, op::Ge(b1v, op::Mul(a, y0.hi))));
-  auto i_r1 = op::Mul(op::Max(r1n, r1s), BetaIndNot(d, i_r4));
+  const auto i_r1 = op::Mul(op::Max(r1n, r1s), BetaIndNot(d, i_r4));
 
   const auto nu_r = op::Div(one, op::Add(op::Div(one, a), op::Div(one, b)));
   const auto rat1 = op::Mul(x, op::Add(one, op::Div(b, a)));       // xi/p
@@ -1255,7 +1255,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   const auto i_glr = op::Mul(
       BetaInd(d, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim))),
       BetaInd(d, op::Ge(nu_r, op::Set(d, detail::kBetaGlRidgeMin))));
-  auto i_r3 = op::Mul(
+  const auto i_r3 = op::Mul(
       op::Mul(op::Max(BetaInd(d, op::Ge(nu_r, op::Set(d, detail::kBetaTRidge))),
                       i_glr),
               band),
@@ -1263,7 +1263,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
 
   const auto thr = op::Div(
       one, op::Add(one, op::Div(op::Add(b, one), op::Add(a, one))));
-  auto i_r2 = op::Mul(BetaIndNot(d, i_r4),
+  const auto i_r2 = op::Mul(BetaIndNot(d, i_r4),
                       op::Mul(BetaIndNot(d, i_r1), BetaIndNot(d, i_r3)));
 
   // Orientation, one indicator over disjoint regions.
@@ -1721,8 +1721,8 @@ HWY_NOINLINE op::V<D> LbetaVec(D d, op::V<D> a, op::V<D> b) {
       op::Or(op::Gt(a, maxf), op::Gt(b, maxf)));
 
   // Scrub invalid lanes to a benign interior point before any arithmetic.
-  auto as = op::IfThenElse(bad, one, a);
-  auto bs = op::IfThenElse(bad, one, b);
+  const auto as = op::IfThenElse(bad, one, a);
+  const auto bs = op::IfThenElse(bad, one, b);
   const auto m_raw = op::Min(as, bs);
   const auto mm_raw = op::Max(as, bs);
 

@@ -74,7 +74,7 @@ void Specials() {
   const double kNegInts[] = {-1.0,     -2.0,    -3.0,          -17.0,
                              -1.0e6,   -1.0e15, -0x1p53,       -0x1p53 - 2.0,
                              -1.0e300, -1.7976931348623157e308};
-  for (double v : kNegInts) CheckSpecial("negative integer", v, kInf);
+  for (const double v : kNegInts) CheckSpecial("negative integer", v, kInf);
 
   CheckSpecial("psi_1(+inf)", kInf, 0.0);   // +0, not merely zero
   CheckSpecial("psi_1(-inf)", -kInf, kInf);  // scipy convention
@@ -239,8 +239,9 @@ void LaneMix() {
   // probe sits next to a different region's point every time.
   for (size_t off = 0; off < 9; ++off) {
     std::vector<double> in;
+    in.reserve(off);
     for (size_t k = 0; k < off; ++k) in.push_back(probes[(n - 1 - k) % n]);
-    for (double v : probes) in.push_back(v);
+    for (const double v : probes) in.push_back(v);
     std::vector<double> got(in.size());
     corvus::trigamma(in, got);
     for (size_t i = 0; i < n; ++i) {

@@ -29,7 +29,6 @@
 
 namespace {
 
-using corvus_test::OrderedBits;
 using corvus_test::SameBits;
 using corvus_test::UlpDiff;
 
@@ -199,7 +198,7 @@ void EdgeContractsN12() {
   corvus::beta_q(a, b, x, q);
   for (size_t i = 0; i < a.size(); ++i) {
     const Case& c = cases[i];
-    auto check = [&](const char* fname, double got, double want) {
+    const auto check = [&](const char* fname, double got, double want) {
       bool ok;
       if (std::isnan(want)) {
         ok = std::isnan(got);
@@ -286,7 +285,7 @@ void SymmetricHalf() {
                        1000.0, 1e6,  1e10,      1e100,
                        std::numeric_limits<double>::max()};
   std::vector<double> a, b, x;
-  for (double v : as) {
+  for (const double v : as) {
     a.push_back(v);
     b.push_back(v);
     x.push_back(0.5);
@@ -418,8 +417,8 @@ void AnalyticLines() {
     double a, b, x, want;
   };
   std::vector<Case> cs;
-  for (double xx : {0.05, 0.25, 0.5, 0.75, 0.99}) {
-    for (double aa : {0.5, 1.0, 2.5, 10.0}) {
+  for (const double xx : {0.05, 0.25, 0.5, 0.75, 0.99}) {
+    for (const double aa : {0.5, 1.0, 2.5, 10.0}) {
       cs.push_back({aa, 1.0, xx, std::pow(xx, aa)});
       cs.push_back({1.0, aa, xx, -std::expm1(aa * std::log1p(-xx))});
     }

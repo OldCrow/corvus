@@ -10,6 +10,14 @@
 #    satisfied); HWY_EXPORT references qualified names and static is
 #    the smaller structural change than nesting anonymous namespaces
 #    inside HWY_NAMESPACE.
-Checks: '-*,bugprone-*,performance-*,portability-*,misc-*,-misc-include-cleaner,-bugprone-easily-swappable-parameters,-misc-use-anonymous-namespace'
+# Added by the 2026-10-10 sweep (clang-tidy 23.1.2, PLAN.md status):
+#  - bugprone-exception-escape: fires on test/example main(); a throw
+#    there is a crash, which is the intended test failure.
+#  - bugprone-random-generator-seed: fixed seeds are deliberate, for
+#    reproducible test and bench inputs.
+#  - bugprone-signed-bitwise: `rc |=` exit codes, int64_t{1} << k table
+#    constants, and (k & 1) parity of non-negative loop counters.
+#  - performance-enum-size: test/bench enums; no measurable value.
+Checks: '-*,bugprone-*,performance-*,portability-*,misc-*,-misc-include-cleaner,-bugprone-easily-swappable-parameters,-misc-use-anonymous-namespace,-bugprone-exception-escape,-bugprone-random-generator-seed,-bugprone-signed-bitwise,-performance-enum-size'
 WarningsAsErrors: ''
 FormatStyle: none
