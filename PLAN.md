@@ -40,8 +40,26 @@ kernel's formula (#54) or caps its own self-check (#61); (2) one clean
 oracle row never refutes a band claim — re-check across the band;
 (3) several bounds were never achievable by the method (#52, #56): a
 derivation comment is a claim to test, not evidence.
-[DECIDED 2026-10-10, user] next: `cpp-quality-sweep`, then the order
-below. Hunt and review reports were scratchpad-only; the issues are the
+**Same session: `cpp-quality-sweep`** (cppcheck 2.22.0, clang-tidy
+23.1.2, lizard 1.23.0; baseline 2026-08-12 at 2.21/22.1.3/1.22.1).
+AppleClang AVX2 and SSE4-capped, and GCC 16 capped to AVX2, all with
+`-Werror` dev warnings: 0 warnings, ctest 34/34. cppcheck src 0. clang-tidy
+unique src 11 → 3, tests 230 → 113, examples 4, vendored Highway 0. Fix-now
+batch `2015fd7` (const, static, unused usings, reserve; library objects
+md5-identical, gate output byte-identical). New accepted checks pinned in
+`.clang-tidy` with reasons; the remaining src hits are 3 signed-bitwise
+sites, now excluded. Still accepted from the baseline: useStlAlgorithm,
+uninitMemberVarNoCtor, the betainv-ulp ternary, Case::why. Also accepted:
+21 const-correctness and 16 internal-linkage hits on test dispatch
+wrappers (tidy sees one target; const breaks the build). lizard max CCN
+14 (BetaVec), avg 1.6. DRIFT TO WATCH, not refactor: BetaVec 511 lines and
+BetaInvForward 413 exceed the 400-line tripwire; BesselSeriesS (10) and
+GammaInvConsider (11) exceed 8 parameters — BetaVec is rewritten by
+#47/#54/#42 anyway. Filed #62 (macOS: system Highway not -isystem under the
+Xcode.app SDK; GCC 16 rejects AVX10.2 mnemonics). AGENTS.md
+bench-list wording and the dead LoadReference branches went to #53.
+The pre-check is complete [user, 2026-10-10]; next is the order below,
+starting at row 1. Hunt and review reports were scratchpad-only; the issues are the
 record.
 
 ## v1.1.0 issue order [DECIDED 2026-10-10, user; revised same day]
@@ -57,7 +75,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 
 | # | Issue | Why here | Effort | New test code | Machines |
 |---|---|---|---|---|---|
-| 0 | `cpp-quality-sweep` | user-decided pre-check; may add issues | review | — | K |
+| 0 | #62 macOS build environment | recipe; any time, any Mac | small | none | K, M1 |
 | 1 | #43 NEON elementary import | libstats v2.5.0 path; no file overlap with 2–10 | frontier/mid | ULP re-gate all tiers | M1 (K, Z re-gate) |
 | 2 | #53 guard harness (bracket check, seam/x=½ symmetry, sign/range, scalar=span, ulp_utils UB) | fail-first guards for 3–10 | mid | yes — new CI tests | K, CI |
 | 3 | #59 non-FMA DdDivDd floor (+ DdSqrt policy) | core primitive; local prescale | small | subnormal rows; capped legs | K capped, CI |
