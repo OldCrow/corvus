@@ -8,6 +8,8 @@
 # - One Windows job for TOOLCHAIN coverage, not tier coverage: MSVC is the
 #   only compiler in the fleet that can produce Windows-specific diagnostics,
 #   and the VS generator is the only multi-config generator we build under.
+#   The same job then builds with clang-cl, the toolchain corvus recommends
+#   on Windows, capped at AVX2.
 # - Docs-only changes skip CI entirely.
 name: CI
 
@@ -223,9 +225,9 @@ jobs:
   # a manual stop on the Ryzen box; see docs/ACCURACY.md.
   # -------------------------------------------------------------------------
   windows-msvc:
-    name: Windows x86-64 (MSVC toolchain)
+    name: Windows x86-64 (MSVC + clang-cl toolchains)
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     defaults:
       run:
         shell: bash
@@ -283,6 +285,25 @@ jobs:
           ./build/tests/Release/test_exp_ulp.exe tests/data/exp_reference.txt
           ./build/tests/Release/test_log_ulp.exe \
             tests/data/log_reference.txt tests/data/log1p_reference.txt
+
+      # clang-cl: the Windows toolchain corvus RECOMMENDS (windows-clang-cl
+      # preset, #36 guard) and the only one its Windows validation numbers
+      # come from -- and since #43 it builds a different kernel shape from
+      # MSVC (CORVUS_OUTLINE inlines hot regions off MSVC). Same job, so no
+      # new runner; the Highway checkout above is reused. vcvars via the
+      # image's own vswhere (no third-party action). Capped at AVX2 like the
+      # Linux sweep: unlike MSVC, clang-cl dispatches AVX-512 on a runner
+      # that has it, and hosted silicon is not guaranteed.
+      - name: clang-cl build and test (AVX2 cap)
+        shell: cmd
+        run: |
+          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set "VSDIR=%%i"
+          call "%VSDIR%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          clang-cl --version || exit /b 1
+          cmake --preset windows-clang-cl -DCORVUS_WERROR=ON "-DCORVUS_DISABLED_TARGETS=HWY_AVX10_2|HWY_AVX3_SPR|HWY_AVX3_ZEN4|HWY_AVX3_DL|HWY_AVX3" "-DFETCHCONTENT_SOURCE_DIR_HIGHWAY=%CD%\build\_deps\highway-src" || exit /b 1
+          cmake --build build-clangcl || exit /b 1
+          set CORVUS_EXPECT_TARGET=AVX2
+          ctest --test-dir build-clangcl --output-on-failure || exit /b 1
 
       # #36 toolchain guard, against a real mingw-w64 GCC (the runner image
       # ships one on PATH). Configure-only — no build, and the Highway checkout
