@@ -19,55 +19,73 @@ Pre-check: the libstats-derived skill `numerical-defect-hunt` (dotfiles
 AVX2/SSE4/SSE2, T2 mpmath sweep, T5/T6 contraction A/B + mutation, T8
 structural scan; T3/T7/T9–T11 do not apply (no state, I/O, samplers or
 fits). Six defects confirmed and filed, all pre-existing, all in bands with
-zero reference rows: #47–#52; guards and doc drift: #53. One T2 claim
-RETRACTED by orchestrator re-check: `beta_p` "25k-ulp" errors at
-max(a,b) ≥ 2^59 were the hunt's own oracle (mpmath `betainc` and the
-₂F₁ closed form agree to 22 digits; corvus within 8.9e-17) — #53 carries
-the re-score. Clean: contraction A/B (one 1-ULP `beta_p` difference at
-AVX2, both points within gate), lane isolation and NaN payloads at three
-tiers, scalar = span, dispatch, gating lists, header/ACCURACY/test bound
-agreement. Lesson: the reference sets prove the grid, not the domain —
-four of six defects sit where an inverse's seed or a region seam meets a
-parameter band the generators never sampled. [DECIDED 2026-10-10, user]
-next: `numerical-code-review`, then `cpp-quality-sweep`, then the issue
-order below. Hunt reports were scratchpad-only; the issues are the record.
+zero reference rows: #47–#52; guards and doc drift: #53. Clean:
+contraction A/B (one 1-ULP `beta_p` difference at AVX2, both points within
+gate), lane isolation and NaN payloads at three tiers, scalar = span,
+dispatch, gating lists, header/ACCURACY/test bound agreement.
 
-## v1.1.0 issue order [DECIDED 2026-10-10, user]
+**Same session: `numerical-code-review`** (five Opus area reviewers:
+beta, betainv, gamma family, dd/elementary/facade, erf/Bessel/oracles)
+filed #54–#61 and extended #50, #52 and #53; headline triggers re-checked
+by the orchestrator against mpmath on AVX2/SSE4/SSE2. The orchestrator
+first RETRACTED the hunt's gamma-limit-band claim on one clean row; the
+review proved it real (#54, 2.1e-12 rel at `beta_p(2000, 2^59, 1.39e-15)`)
+and the retraction is withdrawn on #53. Clean: every compensated sequence
+on FMA and non-FMA tiers, trig reduction (69 worst cases to n = 5.3e6),
+masked-lane gathers, driver tail padding, signed zero, CORVUS_FP_FLAGS on
+every kernel TU, lgamma/digamma/trigamma near poles. Lessons: (1) the
+reference sets prove the grid, not the domain — every defect sits in a
+band the generators never sampled, often because the generator shares the
+kernel's formula (#54) or caps its own self-check (#61); (2) one clean
+oracle row never refutes a band claim — re-check across the band;
+(3) several bounds were never achievable by the method (#52, #56): a
+derivation comment is a claim to test, not evidence.
+[DECIDED 2026-10-10, user] next: `cpp-quality-sweep`, then the order
+below. Hunt and review reports were scratchpad-only; the issues are the
+record.
 
-Rules behind the order: correctness before bit-changing performance in the
-same files (a perf change measured on wrong code, or a fix that invalidates
-a fresh perf/ULP record, costs a re-gate); guards written fail-first and
-landed with their fix; shared-core changes (exp_dd/log_dd) last, since
-they re-gate every consumer. libstats v2.5.0 is gated on #42/#43.
+## v1.1.0 issue order [DECIDED 2026-10-10, user; revised same day]
+
+Rules: correctness before bit-changing performance in the same files;
+guards written fail-first and landed with their fix; the forward before
+its inverse (an inverse is measured against its forward); generators
+hardened before reference rows are regenerated, and regeneration done
+once. #43 moved AHEAD of the gamma/beta correctness block [user]: its
+files (exp/log/trig/erf span kernels) do not overlap the fixes, so
+libstats v2.5.0's NEON path proceeds while the block is designed. If #43
+touches exp_dd/log_dd, the block's gates then run once on the final cores.
 
 | # | Issue | Why here | Effort | New test code | Machines |
 |---|---|---|---|---|---|
-| 0 | `numerical-code-review`, `cpp-quality-sweep` | user-decided pre-check; may add issues | review | — | K |
-| 1 | #53 guard harness (bracket check, x=½/seam symmetry, sign/range, scalar=span) | fail-first guards for 2–7; cheap, every push | mid | yes — new CI tests | K, CI |
-| 2 | #47 beta_p R4 seam `<` | one comparison; the same root returns 0.5 from the beta inverses; may clear part of #50 | small | rows + #53 symmetry | K, CI tiers |
-| 3 | #51 gamma_q −denorm_min | sign clamp at subnormal a | small | #53 sign sweep | K |
-| 4 | #49 gammainv one-arg Log1pmxDd | hazard rule already prescribes the fix; grep all one-arg sites | small | rows a∈[19,28], tiny p | K |
-| 5 | #48 gammainv small-a seed gap | new seed regime: design | frontier | rows + bracket band | K, M1, Z |
-| 6 | #50 betainv tiny b | re-measure after #47; then seed/solver design | frontier | rows + bracket band | K, M1, Z |
-| 7 | #52 Bessel tail 1.56 ulp | independent files; can run parallel to 2–6 | mid | tail sweep, rows | all tiers |
-| 8 | #53 remainder: regen reference rows for the bands, ACCURACY counts, doc drift, sweep_tiers smoke gap, erfinv generator self-check, oracle re-score | after 2–7 so regeneration runs once | recipe | generators | K, Z (sweep) |
-| 9 | #42 lever 1 (per-element cost) | after 2–6: same region cores; guards then protect it | frontier | early-exit lane-mix tests | M1, K, Z |
-| 9b | #45 export span expm1, log1pmx | filed libstats v3.0.0 need; after #49 (same Log1pmxDd hazard); independent of #42's files, can run on another machine; comes off the milestone if it would hold the release | mid (new family) | generator, gates in all four lists | K, M1, Z |
-| 10 | #43 NEON elementary import | shared exp/log cores: after #42 so its evidence stands once | frontier/mid | ULP re-gate all tiers | M1 |
-| 11 | #31 lgamma table band | beta/gamma consume lgamma; after the family settles | frontier | generator + regen | K, Z, M1 |
-| 12 | #37 erf x86 | premise retired; measure capped rows only if libstats asks, else close | recipe | none | K |
-| 13 | #22 non-gather x86 | after #31/#43 (gather users); likely slips | frontier | tier audit | K, Z |
+| 0 | `cpp-quality-sweep` | user-decided pre-check; may add issues | review | — | K |
+| 1 | #43 NEON elementary import | libstats v2.5.0 path; no file overlap with 2–10 | frontier/mid | ULP re-gate all tiers | M1 (K, Z re-gate) |
+| 2 | #53 guard harness (bracket check, seam/x=½ symmetry, sign/range, scalar=span, ulp_utils UB) | fail-first guards for 3–10 | mid | yes — new CI tests | K, CI |
+| 3 | #59 non-FMA DdDivDd floor (+ DdSqrt policy) | core primitive; local prescale | small | subnormal rows; capped legs | K capped, CI |
+| 4 | #58 Expm1Dd + #49 one-arg Log1pmxDd (+ #45 after) | one file, one hazard rule; ungated dd specials get gates | small–mid | test_dd_special gates; rows | K |
+| 5 | #47 beta_p R4 seam; #51 gamma_q −denorm_min | one comparison; one sign clamp | small | #53 symmetry, sign sweep | K, CI tiers |
+| 6 | #56 gamma R1/R2 ridge + #57 Temme z.lo | forward before #48; same TU | frontier + small | near-ridge rows | K, M1, Z |
+| 7 | #48 gammainv small-a seeds | after #56 | frontier | rows + bracket band | K, M1, Z |
+| 8 | #54 beta gamma-limit slice (+ R2 below 2^59 policy) | forward before #55/#50; new ₂F₁ oracle | frontier | rows b∈[2^58,1e30] | K, M1, Z |
+| 9 | #55 betainv a ≳ 1e17 orientation; #50 tiny b (to a≈2.6e4); #60 betainv gates/contract | inverse after #47/#54; one design pass for orientation, seeds, convergence check | frontier | swap-identity guard, rows, non-circular gate | K, M1, Z |
+| 10 | #52 Bessel tail double rounding | independent; can run parallel to 3–9 | small (fix known) | tail sweep, rows | all tiers |
+| 11 | #61 generator self-check hardening | before regeneration | recipe–mid | generator checks | K |
+| 12 | #53 remainder: regenerate band rows, ACCURACY counts and claims, doc drift, sweep_tiers smoke gap | once, after 3–11 | recipe | generators | K, Z (sweep) |
+| 13 | #42 lever 1 (per-element cost); weigh #44 first | after 5–9: same region cores; guards protect it | frontier | early-exit lane-mix tests | M1, K, Z |
+| 14 | #45 export span expm1, log1pmx | after 4; off the milestone if it would hold the release | mid (new family) | generator, four gating lists | K, M1, Z |
+| 15 | #31 lgamma table band | beta/gamma consume lgamma | frontier | generator + regen | K, Z, M1 |
+| 16 | #37 erf x86 | premise retired; close unless libstats asks | recipe | none | K |
+| 17 | #22 non-gather x86 | after #31/#43; likely slips | frontier | tier audit | K, Z |
 
-Gated, not on the critical path; they stay in v1.1.0 for now [DECIDED
-2026-10-10, user] and are worked only if the gate opens: #18 (no filed
-need), #20 (libstats #62 decision), #21 (no filed need; shared exp_dd
-core), #19 (need filed, but its oracle is frontier work and libstats
-carries a local mitigation). #28 (upstream; needs Highway's suite under
-MSVC AVX-512) taken off every milestone [DECIDED 2026-10-10, user]. #45 milestoned v1.1.0 (row 9b) and #44 left unmilestoned as research
-[DECIDED 2026-10-10, user]; #42 lever 1 must weigh #44's fixed-cost
-regions against masked early exit before committing (noted on #42). Release tail: PERFORMANCE.md §4/§8.2 re-run, libstats pin note
-(scalar entry points replace their deducing wrapper), RELEASING.md
-checklist, M1 + Zen 4 tier checks at the freeze head.
+Gated, stay in v1.1.0, worked only if the gate opens [DECIDED 2026-10-10,
+user]: #18 (no filed need), #20 (libstats #62), #21 (no filed need; shared
+exp_dd core; #60 touches its contract wording), #19 (need filed; frontier
+oracle; libstats mitigates locally). #28 off every milestone; #44
+unmilestoned research, weighed in #42 lever 1 [user]. Release tail:
+PERFORMANCE.md §4/§8.2 re-run, libstats pin note (scalar entry points
+replace their deducing wrapper), RELEASING.md checklist, M1 + Zen 4 tier
+checks at the freeze head. Scale: the correctness block (rows 2–12) is
+the bulk of v1.1.0 and carries five frontier designs (#48, #50/#55, #54,
+#56); libstats v2.5.0 should plan on #43 first and #42 lever 1 late.
 
 ## Status [DERIVED] — 2026-10-02
 
