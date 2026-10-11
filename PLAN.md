@@ -58,8 +58,19 @@ GammaInvConsider (11) exceed 8 parameters — BetaVec is rewritten by
 #47/#54/#42 anyway. Filed #62 (macOS: system Highway not -isystem under the
 Xcode.app SDK; GCC 16 rejects AVX10.2 mnemonics). AGENTS.md
 bench-list wording and the dead LoadReference branches went to #53.
-The pre-check is complete [user, 2026-10-10]; next is the order below,
-starting at row 1. Hunt and review reports were scratchpad-only; the issues are the
+The pre-check is complete [user, 2026-10-10].
+
+**PAUSED [DECIDED 2026-10-10, user].** corvus work stops at the
+pre-check. The real start of v1.1.0 waits until libstats v2.5.0 has
+released; that release is in progress in another session, and its
+verification is uncovering many defects. Exception: #43 (row 1) may be
+started on the M1 before then. On resuming, re-read libstats PLAN.md for
+what v2.5.0 shipped against (pin, adopted functions). Its outcome may change
+#42's priority and this order. Re-run the git sync check, since the
+branch may have moved on another machine. Local state on Kaby Lake: the
+worktree `../corvus-hunt` (detached `768c526`; `build/`, `build-sse4/`,
+`build-sse2/`) is the unfixed baseline for showing each new guard fails
+first. Remove it once the correctness block lands. Hunt and review reports were scratchpad-only; the issues are the
 record.
 
 ## v1.1.0 issue order [DECIDED 2026-10-10, user; revised same day]
