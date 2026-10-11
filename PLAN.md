@@ -10,6 +10,67 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-10
 
+**Session 2026-10-10 evening (M1): #43 started on `dev/v1.1.0`
+(uncommitted at session end — commits need the YubiKey).** Pre-check
+validated on NEON first: branch head `6bd479b` ctest 34/34
+tier-asserted, warning-clean.
+
+#43 RESCOPED [DECIDED 2026-10-10, user]: importing libstats' exp/log
+would loosen a validated bound — corvus exp/log are correctly rounded on
+NEON (0-ULP gates), the libstats kernels ~0.52 ULP, and VERSIONING.md
+makes that MAJOR. Split instead, keeping every bound: (a) erf/cos/sin
+already share libstats' algorithms, so find the overhead; (b) exp/log
+get a correctly-rounded fast path. No libstats code or table imported;
+provenance unchanged. Findings and changes (scratch harness timing both
+libraries in one binary, n = 1e6, ns/element, libstats v2.4.1 kernels
+→ corvus before → after):
+
+| | libstats | before | after | cause / change |
+|---|---:|---:|---:|---|
+| exp | 1.0 | 4.6 | 2.4 | dd core on every lane → fast path + CRlibm rounding test, dd fall-back |
+| log | 1.7 | 13.4 | 3.9 | same; integer centring; dd path also pays a Div |
+| erf | 1.4 | 2.2 | 1.8 | d^8 correction (erfc's need) → d^6 for erf |
+| cos/sin | 2.5 | 4.1 | 2.6 | two HWY_NOINLINE calls per 2-lane vector; driver 2× unroll |
+
+vs scalar Apple libm (bench_exp/bench_log, n = 1e6, libm 6.1 / 2.8 ns):
+exp 2.4× libm (was 1.3×), log 0.7× (was 0.2×).
+- `CORVUS_OUTLINE` [DECIDED, user]: HWY_NOINLINE under MSVC only,
+  inlined elsewhere; on hot regions (trig now, exp/log fast paths).
+  AGENTS.md non-negotiable amended. DriveUnary runs two vectors per
+  iteration on 2-lane targets only [DECIDED, user].
+- Bits: exp/log/cos/sin bit-identical to `6bd479b` on 4e6 NEON stress
+  inputs per function, mpmath near-midpoint exp inputs and 72k
+  structured log hard cases. Rounding-test control: injected error
+  inside the window → 0 misrounds with the test, 291 exp / 2,003 log
+  without (the fast paths alone are CR on every natural set — real
+  error sits far below the certified bound). erf
+  moves within 1 ULP (ACCURACY.md erf note). Gates 34/34 NEON;
+  `-Werror` dev-warnings build clean (AppleClang; no GCC on M1).
+- What did NOT help, so nobody re-tries it: paired-load gather for erf
+  (Highway's NEON GatherIndex is fine); Estrin for log's series; a
+  chunked driver keeping the fall-back call out of the hot loop, and
+  inlining the fall-back (the cost was the rounding test's own ~10 ops,
+  not call-induced spills); HWY_LIKELY on the skip branch.
+
+**#43 open items [OPEN]:**
+- x86 re-gate: K (AVX2 native + SSE4/SSSE3/SSE2 caps — the fast paths'
+  non-FMA budget runs only there) and Z (AVX3_ZEN4), plus CI. Owed
+  before #43 closes.
+- log is still 0.7× libm and 2.3× libstats. Next lever: a 129-slot
+  rounding-index table (|r| <= 2^-8, centring folded into the index, a
+  shorter series) — new generator, frontier. libstats' speedup gate is
+  1.5× over scalar, so log likely still fails it; exp passes.
+- log1p untouched (dd path with a Div per call); not in #43's text.
+- LogDd(Dd) pays a Div even for x.lo = 0 — a double-only LogDdAny would
+  speed every consumer's fall-back; touches lgamma/gamma/beta, so after
+  the correctness block.
+- `CORVUS_OUTLINE` codebase-wide [user, OPEN]: measure per family, not
+  a blind replace (rare-path regions inlined can cost hot loops register
+  pressure); after the correctness block (same files).
+- Reassess the outlining split entirely if MSVC becomes properly
+  supportable under Highway, AVX-512 dispatch included [user].
+- Release tail: PERFORMANCE.md re-run now also covers #43.
+
 **Session 2026-10-10 (Kaby Lake): `dev/v1.1.0` cut and pre-checked.**
 Branch `dev/v1.1.0` from `768c526` (main fast-forwarded first), pushed
 with tracking. v1.1.0 work lands here; `main` takes it at release.

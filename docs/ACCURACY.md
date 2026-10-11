@@ -215,6 +215,15 @@ so saturation is correctly rounded). The method was independently derived
 generator self-checks the derivation against mpmath each run. Special
 values: erf(±0) = ±0, erf(±inf) = ±1, NaN propagates with payload.
 
+Since #43 (dev/v1.1.0) erf truncates the correction at d^6, not d^8 — the
+d^7/d^8 terms exist for erfc's relative precision near 6, and dropping
+them costs erf at most 0.012 ulp (worst at r = 0) and ~28% of its NEON
+time. Same reference counts on NEON (max 1 ULP, 217 not-CR); on 2·10^6
+uniform points in [−6, 6] the correctly rounded fraction moves by 3
+points out of 1957 differing (d^6 the better side on 2), and on 4·10^6
+stress inputs d^6 is correctly rounded on 42 of the 66 differing points
+against d^8's 19. erfc is unchanged. x86 tiers re-gate before release.
+
 ## erfc
 
 **Bounds: max 1 ULP for |x| ≤ 6; max 1 ULP for subnormal results; max
@@ -1143,7 +1152,22 @@ row. Anyone consuming v0.8.0/v0.9.0 log1p in that band should assume
 | log1p | all buckets (corner, near-0, general) | 0 ULP (11,903 rows) |
 
 Method: thin assemblies over the audited internal dd cores — nothing
-new was fit. exp = ExpDdFrac (~2^−70 relative, generator-certified) +
+new was fit. Since #43 (dev/v1.1.0) exp and log first run a fast path on
+the same tables (exp ~2^−66.8, log ~2^−63.5 relative, budgets at the
+definition sites in src/exp-inl.h and src/log-inl.h, valid on FMA and
+non-FMA tiers) and certify each lane with CRlibm's rounding test,
+y == fl(y + fl(ρ·c)); lanes that fail it, and every special or
+out-of-range lane, take the dd path described here. Correctly rounded
+results are unique, so the bits do not change: NEON output was
+bit-identical to the pre-#43 kernels on 4·10^6 stress inputs per
+function (subnormal, special, near-1, reduction-grid and random bit
+patterns), on 400 exp inputs nearest a rounding midpoint found by an
+mpmath scan (to 2.4·10^−7 of a gap), and on 72,000 structured log hard
+cases 2^e·(1 ± j·ulp) (log(1 − 2^−52) sits 2^−53.6 of a gap from a
+midpoint) — all correctly rounded. Negative control: an injected error
+just inside each certified window (2^−66 exp, 2^−63 log) misrounds 291
+exp and 2,003 log stress results with the test bypassed, and none with
+it. log1p still runs the dd path only. exp = ExpDdFrac (~2^−70 relative, generator-certified) +
 one rounding + ScaleTwo's two-step exact-then-rounding scaling; the
 core's ±1100 clamp makes ±inf, overflow and gradual underflow correct
 BY CONSTRUCTION with no threshold blends (the ULP gate's boundary
