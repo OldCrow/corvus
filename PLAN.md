@@ -53,9 +53,39 @@ exp 2.4× libm (was 1.3×), log 0.7× (was 0.2×).
   not call-induced spills); HWY_LIKELY on the skip branch.
 
 **#43 open items [OPEN]:**
-- x86 re-gate on native silicon: K (AVX2 + SSE4/SSSE3/SSE2 caps) and
-  Z (AVX3_ZEN4); CI already green (below). The ONLY item left before
-  #43 closes.
+- x86 re-gate on native silicon — the ONLY item left before #43
+  closes (CI already green, below). Close-out steps:
+  **K (Kaby Lake, AppleClang):**
+  1. `git fetch`; check out `dev/v1.1.0` at the pushed head; confirm in
+     sync (Session Start check). Leave `../corvus-hunt` alone (needed
+     until the correctness block lands).
+  2. Release per-tier sweep, docs/ENVIRONMENT.md "Per-tier validation
+     recipe", AVX2/SSE4/SSSE3/SSE2, each with
+     `-G Ninja -DCMAKE_BUILD_TYPE=Release` and
+     `CORVUS_EXPECT_TARGET=<tier>`: 34/34 at every tier. SSE4/SSSE3/SSE2
+     are the only silicon that runs the fast paths' non-FMA (Dekker)
+     budget. Negative check: `CORVUS_EXPECT_TARGET=AVX3` must fail on
+     the native build.
+  3. Per tier, read the ULP lines: exp normal 0 ULP, log/log1p 0 ULP,
+     erf max 1 ULP (not-CR count may move from 217 — record it),
+     cos/sin max 1 ULP. Any 0-ULP gate tripping is a fast-path budget
+     error: ESCALATE (frontier), don't loosen the gate.
+  4. GCC 16 leg owed from the M1 (no GCC there): GCC capped to AVX2,
+     `-DCORVUS_DEV_WARNINGS=ON -DCMAKE_CXX_FLAGS=-Werror`, ctest 34/34.
+  **Z (Zen 4, clang-cl):**
+  5. From a vcvars64 shell: `cmake --preset windows-clang-cl`, build,
+     `CORVUS_EXPECT_TARGET=AVX3_ZEN4` ctest 34/34; negative check
+     against `AVX2` must fail. Read the same ULP lines as step 3. The
+     lower tiers are covered by K and CI; `pwsh tools/sweep_tiers.ps1`
+     is optional here.
+  **Close:**
+  6. docs/ACCURACY.md: update the validation-matrix dates for the erf,
+     exp, log, cos and sin rows (NEON 2026-10-10 from the M1; x86 from
+     K/Z), and change the erf note's "x86 tiers re-gate before release"
+     to the result. One `docs(accuracy)` commit.
+  7. Close #43 with a comment linking the K/Z results; mark row 1 of
+     the v1.1.0 issue order DONE here. libstats' log-gate change stays
+     with the libstats v2.5.0 session.
 - CI on `f5f46db` GREEN (2026-10-11, run 38146468509): Linux tier
   sweep 34/34 tier-asserted at AVX2/SSE4/SSSE3/SSE2, ASan+UBSan, MSVC
   AVX2, macOS NEON; exp/log 0 ULP in the AVX2 ULP reports.
@@ -76,7 +106,9 @@ exp 2.4× libm (was 1.3×), log 0.7× (was 0.2×).
   runner clang-cl 20.1.8, 34/34, +2.7 min). Mix otherwise unchanged:
   MinGW needs no runner (refused at configure, guard-tested in the
   Windows job); AVX-512 stays a Zen 4 manual stop. Dev-branch run of
-  `8d8779f` dispatched (run 38163545531).
+  `8d8779f` GREEN (run 38163545531): Linux tier sweep 34/34 at all four
+  tiers, ASan+UBSan, MSVC 34/34, clang-cl 34/34 (AVX2-asserted), NEON
+  34/34 — the #43 kernels under both Windows toolchains.
 - log stays at ~0.7× scalar libm (3.4× faster than before) [DECIDED
   2026-10-11, user]; libstats exempts or re-baselines its log speedup
   gate. The 129-slot log table is CLOSED, not worth a generator: an
@@ -1111,6 +1143,21 @@ watch. (lgamma zone interval splitting moved to GitHub 2026-08-23: its
 profiling trigger is #30 and the work is #31.)
 
 ## Open Items
+- [DEFERRED until the CMake minimum reaches 3.28, 2026-10-11, user]
+  **Fetched Highway builds unused targets.** Do NOT bump CMake for this
+  alone; fold it into whichever change raises the minimum to 3.28 for
+  its own reasons. The VS-generator (MSVC) build compiles `hwy_test` and
+  `hwy_list_targets`, which corvus never links — Windows CI minutes, and
+  half of the eight D9025 warnings per MSVC build (`overriding '/EHs'
+  with '/EHs-'`). The warning itself is benign, confirmed 2026-10-11:
+  Highway 1.4.0 appends `/GR- /EHs-c- -D_HAS_EXCEPTIONS=0` PRIVATE to
+  its own targets over CMake's default `/EHsc`, nothing leaks into
+  corvus targets, no exception crosses a Highway frame (HWY_ABORT;
+  corvus API `noexcept`), and corvus's `/WX` does not apply to them.
+  Fix at that bump: add `EXCLUDE_FROM_ALL` to the Highway
+  `FetchContent_Declare` (a 3.28 keyword; corvus's minimum is 3.25
+  today). Check that `hwy`/`hwy_contrib` still build as dependencies and
+  the `install` gating is unchanged.
 - [DONE 2026-09-19, travel session; PR #39 squash-merged `b222046`, all
   legs green, #36 closed] **#36 Windows configure-time
   guard** — `cmake/ToolchainGuard.cmake`. Decisions [user]: mingw GCC with
