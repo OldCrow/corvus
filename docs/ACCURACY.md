@@ -53,7 +53,7 @@ taken on a quiet machine.
 
 | Function | AVX2 | SSE4 | SSSE3 | SSE2 | NEON | AVX-512 |
 |---|---|---|---|---|---|---|
-| erf | ✅ 2026-10-11 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-10-11 |
+| erf | ✅ 2026-10-11 | ✅ | ✅ | ✅ | ✅ 2026-10-10 | ✅ 2026-10-11 |
 | erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-25 |
 | lgamma | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | erfinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
@@ -73,11 +73,11 @@ taken on a quiet machine.
 | i0e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
 | i1e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
 | lbeta | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
-| cos | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
-| sin | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
-| exp | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
-| log | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
-| log1p | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-09-01 | ✅ 2026-10-11 |
+| cos | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-10 | ✅ 2026-10-11 |
+| sin | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-10 | ✅ 2026-10-11 |
+| exp | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-10 | ✅ 2026-10-11 |
+| log | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-10 | ✅ 2026-10-11 |
+| log1p | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-10 | ✅ 2026-10-11 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
@@ -101,8 +101,12 @@ direct 1 → 2 ULP (gate 2) and trigamma (0, 1) 0 → 1 ULP (gate 1).
 The #43 re-gate (2026-10-11) moved the erf, cos, sin, exp, log and log1p
 AVX2-column dates to Kaby Lake (AVX2 native; SSE4, SSSE3 and SSE2 by
 capping; AppleClang 15.0.0); AVX-512 is from the Ryzen box (AVX3_ZEN4
-native, clang-cl 22.1.3). All four Kaby tiers ran 34/34 tier-asserted,
-with the negative check verified. The new exp/log fast paths hold 0 ULP
+native, clang-cl 22.1.3), and NEON from the Mac Mini M1 (2026-10-10,
+AppleClang 21.0.0, system Highway 1.4.0; re-confirmed 2026-10-12 at the
+same code, ULP lines unchanged). All four Kaby tiers, AVX3_ZEN4 and
+NEON ran 34/34 tier-asserted, each with the negative check verified,
+and every #43 ULP line is identical across them except erf's not-CR
+count (217; 218 on the three no-FMA tiers). The new exp/log fast paths hold 0 ULP
 for exp normal results and for log/log1p on every tier, including the
 three no-FMA tiers that run their non-FMA rounding-test budget.
 
