@@ -10,6 +10,13 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-12
 
+**Session CLOSED 2026-10-12 (M1).** `dev/v1.1.0` at the commit
+carrying this note, pushed, in sync; `main` at `76a4be8`. No work in
+progress, nothing uncommitted. Next pickup: none until libstats v2.5.0
+releases — then re-run the Session Start sync check on whichever
+machine, re-read libstats PLAN.md, and resume the v1.1.0 issue order at
+row 0 (#62) / row 2 (#53).
+
 **#43 CLOSED 2026-10-12 (M1).** All close-out steps done: K (steps
 1–4) and Z (step 5) on 2026-10-11, step 6 x86 columns by K/Z, NEON
 column and step 7 here. NEON re-confirmed at the current head (code
