@@ -53,7 +53,7 @@ taken on a quiet machine.
 
 | Function | AVX2 | SSE4 | SSSE3 | SSE2 | NEON | AVX-512 |
 |---|---|---|---|---|---|---|
-| erf | ✅ 2026-07-20 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-10-11 |
+| erf | ✅ 2026-10-11 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-10-11 |
 | erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-25 |
 | lgamma | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | erfinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
@@ -73,11 +73,11 @@ taken on a quiet machine.
 | i0e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
 | i1e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
 | lbeta | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
-| cos | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
-| sin | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
-| exp | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
-| log | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
-| log1p | ✅ 2026-08-31 † | ✅ | ✅ | ✅ | ✅ 2026-09-01 | ✅ 2026-10-11 |
+| cos | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
+| sin | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
+| exp | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
+| log | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
+| log1p | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-09-01 | ✅ 2026-10-11 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
@@ -98,6 +98,13 @@ worst-case input). AVX2 differs from them only in the usual FMA/no-FMA
 not-CR spread (32 report lines across the 12 ULP gates) and two max-ULP
 cells that move *within* their gates without FMA: `beta_q` R4 tiny-min
 direct 1 → 2 ULP (gate 2) and trigamma (0, 1) 0 → 1 ULP (gate 1).
+The #43 re-gate (2026-10-11) moved the erf, cos, sin, exp, log and log1p
+AVX2-column dates to Kaby Lake (AVX2 native; SSE4, SSSE3 and SSE2 by
+capping; AppleClang 15.0.0); AVX-512 is from the Ryzen box (AVX3_ZEN4
+native, clang-cl 22.1.3). All four Kaby tiers ran 34/34 tier-asserted,
+with the negative check verified. The new exp/log fast paths hold 0 ULP
+for exp normal results and for log/log1p on every tier, including the
+three no-FMA tiers that run their non-FMA rounding-test budget.
 
 `exp_dd` and `log_dd` are not public API; they are audited here because the
 erfc tail's bound rests on `exp_dd` and lgamma's rests on `log_dd`. Their
@@ -224,7 +231,10 @@ points out of 1957 differing (d^6 the better side on 2), and on 4·10^6
 stress inputs d^6 is correctly rounded on 42 of the 66 differing points
 against d^8's 19. erfc is unchanged. AVX-512 re-gated 2026-10-11
 (`AVX3_ZEN4` native, clang-cl 22.1.3): max 1 ULP, 217 not-CR, matching
-NEON. AVX2 and lower x86 tiers re-gate before release.
+NEON. AVX2, SSE4, SSSE3 and SSE2 re-gated 2026-10-11 on Kaby Lake
+(AVX2 native, lower tiers by capping, AppleClang 15.0.0, each
+tier-asserted): max 1 ULP; not-CR 217 at AVX2 and 218 at the three
+no-FMA tiers.
 
 ## erfc
 

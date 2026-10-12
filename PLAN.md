@@ -15,7 +15,8 @@ carrying this note, pushed, in sync; `main` at `76a4be8` (two CI
 commits, cherry-picked to dev). #43 is implementation-complete and
 CI-green; the ONLY remaining work is the K/Z close-out steps under
 "#43 open items" below. NEXT PICKUP: ~~Kaby Lake (steps 1–4)~~ DONE 2026-10-11, ~~Zen 4
-(step 5)~~ DONE 2026-10-11, then close (6–7). After #43 closes, corvus stays PAUSED until
+(step 5)~~ DONE 2026-10-11, step 6 x86 half DONE (K); M1 owes the NEON
+dates and step 7. After #43 closes, corvus stays PAUSED until
 libstats v2.5.0 releases (the 2026-10-10 decision below still holds);
 the libstats log speedup-gate exemption is theirs to make. Local state
 on M1: `build-m1-gg/` is a Release build of the #43 code (`1bcba54`;
@@ -120,6 +121,11 @@ exp 2.4× libm (was 1.3×), log 0.7× (was 0.2×).
     log/log1p 0 ULP in all six strata; cos/sin max 1; erf max 1 ULP,
     not-CR 217 (same as M1 and Kaby AVX2).
   Next: steps 6–7.
+  **Step 6 x86 half DONE 2026-10-11 (K):** the AVX2-column dates for erf,
+  cos, sin, exp, log and log1p moved to 2026-10-11; the erf note records
+  the four Kaby tiers; the † footnote records the #43 re-gate. The
+  AVX-512 column was Z's (`4368d45`). OWED ON M1 [user]: the NEON-column
+  dates (2026-10-10), then step 7 (close #43, mark order row 1 DONE).
   **Close:**
   6. docs/ACCURACY.md: update the validation-matrix dates for the erf,
      exp, log, cos and sin rows (NEON 2026-10-10 from the M1; x86 from
