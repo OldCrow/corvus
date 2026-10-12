@@ -53,7 +53,7 @@ taken on a quiet machine.
 
 | Function | AVX2 | SSE4 | SSSE3 | SSE2 | NEON | AVX-512 |
 |---|---|---|---|---|---|---|
-| erf | ✅ 2026-07-20 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-24 |
+| erf | ✅ 2026-07-20 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-10-11 |
 | erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-25 |
 | lgamma | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | erfinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
@@ -73,11 +73,11 @@ taken on a quiet machine.
 | i0e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
 | i1e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
 | lbeta | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
-| cos | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
-| sin | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
-| exp | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
-| log | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
-| log1p | ✅ 2026-08-31 † | ✅ | ✅ | ✅ | ✅ 2026-09-01 | ✅ 2026-08-31 |
+| cos | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
+| sin | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
+| exp | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
+| log | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-10-11 |
+| log1p | ✅ 2026-08-31 † | ✅ | ✅ | ✅ | ✅ 2026-09-01 | ✅ 2026-10-11 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
 
@@ -222,7 +222,9 @@ time. Same reference counts on NEON (max 1 ULP, 217 not-CR); on 2·10^6
 uniform points in [−6, 6] the correctly rounded fraction moves by 3
 points out of 1957 differing (d^6 the better side on 2), and on 4·10^6
 stress inputs d^6 is correctly rounded on 42 of the 66 differing points
-against d^8's 19. erfc is unchanged. x86 tiers re-gate before release.
+against d^8's 19. erfc is unchanged. AVX-512 re-gated 2026-10-11
+(`AVX3_ZEN4` native, clang-cl 22.1.3): max 1 ULP, 217 not-CR, matching
+NEON. AVX2 and lower x86 tiers re-gate before release.
 
 ## erfc
 
