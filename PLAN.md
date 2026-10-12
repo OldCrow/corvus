@@ -8,21 +8,22 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-10-11
+## Status [DERIVED] — 2026-10-12
 
-**Session CLOSED 2026-10-11 (M1).** `dev/v1.1.0` at the commit
-carrying this note, pushed, in sync; `main` at `76a4be8` (two CI
-commits, cherry-picked to dev). #43 is implementation-complete and
-CI-green; the ONLY remaining work is the K/Z close-out steps under
-"#43 open items" below. NEXT PICKUP: ~~Kaby Lake (steps 1–4)~~ DONE 2026-10-11, ~~Zen 4
-(step 5)~~ DONE 2026-10-11, step 6 x86 half DONE (K); M1 owes the NEON
-dates and step 7. After #43 closes, corvus stays PAUSED until
-libstats v2.5.0 releases (the 2026-10-10 decision below still holds);
-the libstats log speedup-gate exemption is theirs to make. Local state
-on M1: `build-m1-gg/` is a Release build of the #43 code (`1bcba54`;
-later commits are docs/CI only), ctest 34/34 NEON. The scratch timing
-harness and stress-comparison tools were scratchpad-only; the issue
-comments and this file are the record.
+**#43 CLOSED 2026-10-12 (M1).** All close-out steps done: K (steps
+1–4) and Z (step 5) on 2026-10-11, step 6 x86 columns by K/Z, NEON
+column and step 7 here. NEON re-confirmed at the current head (code
+unchanged since `1bcba54`): `build-m1-gg/` rebuilt warning-clean,
+`CORVUS_EXPECT_TARGET=NEON` ctest 34/34, negative check under AVX2
+33/34 fail; ULP lines identical to K and Z (erf max 1, 217 not-CR;
+cos/sin max 1; exp normal 0 ULP, subnormal 1 with 26 not-CR; log/log1p
+0 ULP in all six strata). corvus is now PAUSED until libstats v2.5.0
+releases (2026-10-10 decision below); the libstats log speedup-gate
+exemption is theirs to make. Nothing else is owed by the M1 now: the
+quiet-bench retry belongs to the release tail (PERFORMANCE.md re-run),
+and #62 (order row 0) waits with the rest of v1.1.0. The scratch
+timing harness and stress-comparison tools were scratchpad-only; the
+issue comments and this file are the record.
 
 **Session 2026-10-10 evening (M1): #43 started on `dev/v1.1.0`.**
 Pre-check validated on NEON first: branch head `6bd479b` ctest 34/34
@@ -124,8 +125,10 @@ exp 2.4× libm (was 1.3×), log 0.7× (was 0.2×).
   **Step 6 x86 half DONE 2026-10-11 (K):** the AVX2-column dates for erf,
   cos, sin, exp, log and log1p moved to 2026-10-11; the erf note records
   the four Kaby tiers; the † footnote records the #43 re-gate. The
-  AVX-512 column was Z's (`4368d45`). OWED ON M1 [user]: the NEON-column
-  dates (2026-10-10), then step 7 (close #43, mark order row 1 DONE).
+  AVX-512 column was Z's (`4368d45`).
+  **Steps 6 (NEON) and 7 DONE 2026-10-12 (M1):** NEON-column dates for
+  the six rows set to 2026-10-10, the re-gate note extended to NEON;
+  #43 closed; order row 1 marked DONE.
   **Close:**
   6. docs/ACCURACY.md: update the validation-matrix dates for the erf,
      exp, log, cos and sin rows (NEON 2026-10-10 from the M1; x86 from
@@ -253,7 +256,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | # | Issue | Why here | Effort | New test code | Machines |
 |---|---|---|---|---|---|
 | 0 | #62 macOS build environment | recipe; any time, any Mac | small | none | K, M1 |
-| 1 | #43 NEON elementary import | libstats v2.5.0 path; no file overlap with 2–10 | frontier/mid | ULP re-gate all tiers | M1 (K, Z re-gate) |
+| 1 | ~~#43 NEON elementary import~~ DONE 2026-10-12 | libstats v2.5.0 path; no file overlap with 2–10 | frontier/mid | ULP re-gate all tiers | M1 (K, Z re-gate) |
 | 2 | #53 guard harness (bracket check, seam/x=½ symmetry, sign/range, scalar=span, ulp_utils UB) | fail-first guards for 3–10 | mid | yes — new CI tests | K, CI |
 | 3 | #59 non-FMA DdDivDd floor (+ DdSqrt policy) | core primitive; local prescale | small | subnormal rows; capped legs | K capped, CI |
 | 4 | #58 Expm1Dd + #49 one-arg Log1pmxDd (+ #45 after) | one file, one hazard rule; ungated dd specials get gates | small–mid | test_dd_special gates; rows | K |
