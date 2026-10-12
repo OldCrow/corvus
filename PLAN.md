@@ -14,8 +14,8 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 carrying this note, pushed, in sync; `main` at `76a4be8` (two CI
 commits, cherry-picked to dev). #43 is implementation-complete and
 CI-green; the ONLY remaining work is the K/Z close-out steps under
-"#43 open items" below. NEXT PICKUP: ~~Kaby Lake (steps 1–4)~~ DONE 2026-10-11, then Zen 4
-(step 5), then close (6–7). After #43 closes, corvus stays PAUSED until
+"#43 open items" below. NEXT PICKUP: ~~Kaby Lake (steps 1–4)~~ DONE 2026-10-11, ~~Zen 4
+(step 5)~~ DONE 2026-10-11, then close (6–7). After #43 closes, corvus stays PAUSED until
 libstats v2.5.0 releases (the 2026-10-10 decision below still holds);
 the libstats log speedup-gate exemption is theirs to make. Local state
 on M1: `build-m1-gg/` is a Release build of the #43 code (`1bcba54`;
@@ -109,6 +109,17 @@ exp 2.4× libm (was 1.3×), log 0.7× (was 0.2×).
      against `AVX2` must fail. Read the same ULP lines as step 3. The
      lower tiers are covered by K and CI; `pwsh tools/sweep_tiers.ps1`
      is optional here.
+  **Z DONE 2026-10-11** at `c8fa43a` (code = `1bcba54`): Ryzen 7 7445HS,
+  Windows 11, clang-cl 22.1.3 (VS 18 bundled LLVM), Highway via pinned
+  FetchContent, Release, `build-clangcl`:
+  - Sync check clean; build warning-free.
+  - `CORVUS_EXPECT_TARGET=AVX3_ZEN4` ctest 34/34, every report line
+    printing AVX3_ZEN4. Negative check under `AVX2`: 33/34 fail (only
+    `toolchain_guard` passes).
+  - ULP lines identical to K: exp normal 0 ULP (subnormal 1, 26 not-CR);
+    log/log1p 0 ULP in all six strata; cos/sin max 1; erf max 1 ULP,
+    not-CR 217 (same as M1 and Kaby AVX2).
+  Next: steps 6–7.
   **Close:**
   6. docs/ACCURACY.md: update the validation-matrix dates for the erf,
      exp, log, cos and sin rows (NEON 2026-10-10 from the M1; x86 from
