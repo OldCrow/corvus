@@ -310,7 +310,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 13 | #42 lever 1 (per-element cost); weigh #44 first | after 5–9: same region cores; guards protect it | frontier | early-exit lane-mix tests | M1, K, Z |
 | 14 | #45 export span expm1, log1pmx | after 4; off the milestone if it would hold the release | mid (new family) | generator, four gating lists | K, M1, Z |
 | 15 | #31 lgamma table band | beta/gamma consume lgamma | frontier | generator + regen | K, Z, M1 |
-| 16 | #37 erf x86 | premise retired; close unless libstats asks | recipe | none | K |
+| 16 | ~~#37 erf x86~~ CLOSED 2026-10-16 (K) | premise retired: libstats 2a kept corvus erf on x86 on both ISAs; 2c measured it 3.4× faster than v2.4.1 on Zen 4 | recipe | none | K |
 | 17 | #22 non-gather x86 | after #31/#43; likely slips | frontier | tier audit | K, Z |
 
 Gated, stay in v1.1.0, worked only if the gate opens [DECIDED 2026-10-10,
