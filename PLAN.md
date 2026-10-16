@@ -8,7 +8,39 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-10-12
+## Status [DERIVED] — 2026-10-16
+
+**corvus RESUMED 2026-10-16 (Kaby Lake).** libstats v2.5.0 released
+2026-10-16 (its `main` at `35f51d8`); the pause condition is met. Re-read
+of libstats `PLAN.md`: corvus stays pinned at v1.0.1 on
+`dev/v2.5.0-corvus` (libstats v3.0.0, milestone #6); the only new corvus
+asks from the v2.5.0 cycle are #44 and #45, both already in the order
+below; nothing changes #42's priority or the row order. Sync check
+clean on all three repos (`dev/v1.1.0` in sync with origin). Next
+pickup: row 2 (#53 guard harness) on K.
+
+**#62 DONE 2026-10-16 (K)**, order row 0. Root cause differs from the
+issue text: the flag is not `-I`, it is absent. With `CMAKE_OSX_SYSROOT`
+empty (CMake's default when the selected Xcode's SDK is the compiler's
+own; the hunt worktree's builds were this case) Apple Clang adds
+`/usr/local/include` as a builtin *user* directory and CMake drops the
+imported target's `-isystem` because the directory is implicit, so
+`hwy/base.h` compiles as our own code. Any explicit sysroot (`SDKROOT`,
+`-DCMAKE_OSX_SYSROOT`, the CLT SDK — which is why `build/` here was
+clean) removes clang's builtin entry and CMake's `-isystem` takes over.
+Fix in `cmake/FindOrFetchHighway.cmake`: for Apple Clang, an implicit
+Highway include directory gets an explicit `-isystem<dir>` on `hwy::hwy`
+(clang then "ignores duplicate directory" and keeps the system one).
+Verified: empty-sysroot Release, `CORVUS_DEV_WARNINGS=ON CORVUS_WERROR=ON`,
+0 warnings, ctest 34/34 (`build-xcode2/`); explicit Xcode SDK and CLT SDK
+builds unchanged (no `-isystem` added, the message does not fire). GCC
+half: `-DCORVUS_DISABLED_TARGETS=HWY_AVX10_2` alone is enough for
+Homebrew GCC 16.1 on macOS — `-Werror` clean, 34/34 under
+`CORVUS_EXPECT_TARGET=AVX2` (`build-gcc-avx10cap/`). Documented in
+`docs/ENVIRONMENT.md` (two paragraphs before "Build detail"); no
+toolchain-guard change — GCC on macOS is a diagnostics leg, not a
+validation path. Scratch build dirs `build-xcode*/`, `build-gcc-avx10cap/`
+are disposable.
 
 **Session CLOSED 2026-10-12 (M1).** `dev/v1.1.0` at the commit
 carrying this note, pushed, in sync; `main` at `76a4be8`. No work in
@@ -262,7 +294,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 
 | # | Issue | Why here | Effort | New test code | Machines |
 |---|---|---|---|---|---|
-| 0 | #62 macOS build environment | recipe; any time, any Mac | small | none | K, M1 |
+| 0 | ~~#62 macOS build environment~~ DONE 2026-10-16 (K) | recipe; any time, any Mac | small | none | K, M1 |
 | 1 | ~~#43 NEON elementary import~~ DONE 2026-10-12 | libstats v2.5.0 path; no file overlap with 2–10 | frontier/mid | ULP re-gate all tiers | M1 (K, Z re-gate) |
 | 2 | #53 guard harness (bracket check, seam/x=½ symmetry, sign/range, scalar=span, ulp_utils UB) | fail-first guards for 3–10 | mid | yes — new CI tests | K, CI |
 | 3 | #59 non-FMA DdDivDd floor (+ DdSqrt policy) | core primitive; local prescale | small | subnormal rows; capped legs | K capped, CI |

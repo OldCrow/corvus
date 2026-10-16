@@ -131,6 +131,34 @@ contraction regex remains a separate, unvalidated hazard (icpx
 `-fp-model=fast` is not overridden) — unvalidated because no icpx machine
 is in the fleet.
 
+**macOS: system Highway under an empty `CMAKE_OSX_SYSROOT` (#62).** When
+the selected Xcode's default SDK is the compiler's own, CMake leaves
+`CMAKE_OSX_SYSROOT` empty and passes no `-isysroot`. Apple Clang then adds
+`/usr/local/include` to its builtin search list as a *user* directory, and
+CMake, finding that directory among the compiler's implicit include
+directories, emits no `-isystem` for the imported `hwy::hwy` target at
+all — so a system Highway's headers compile as corvus's own code and
+`hwy/base.h` fails `-Wpedantic -Werror` on
+`-Wgnu-zero-variadic-macro-arguments`. With any explicit sysroot
+(`SDKROOT` set, `-DCMAKE_OSX_SYSROOT=...`, the CLT SDK) clang drops its
+builtin `/usr/local/include`, the directory stops being implicit, and
+CMake's `-isystem` does its job. `cmake/FindOrFetchHighway.cmake` closes
+the gap: when a found Highway's include directory is implicit for Apple
+Clang it adds `-isystem<dir>` to `hwy::hwy` explicitly, which clang honours
+by discarding its own duplicate. A fetched Highway is unaffected
+(`FetchContent_Declare(... SYSTEM)`). Not a `-Wno-` suppression, which
+would hide the same warning in corvus code.
+
+**macOS: Homebrew GCC must be capped below AVX10.2.** Uncapped, GCC 16
+emits AVX10.2 mnemonics (`vcvttpd2qqs`) that Apple's assembler rejects, so
+the build fails at assembly. `-DCORVUS_DISABLED_TARGETS=HWY_AVX10_2` is
+enough: on Kaby Lake (GCC 16.1, 2026-10-16) that cap alone builds with
+`CORVUS_DEV_WARNINGS=ON CORVUS_WERROR=ON` at 0 warnings and passes 34/34
+under `CORVUS_EXPECT_TARGET=AVX2`; the wider AVX2 cap used for the #43
+`-Werror` leg works too. GCC on macOS is a diagnostics leg only; no
+validation number comes from it (Apple Clang is the macOS compiler in the
+fleet table).
+
 ## Build detail
 
 ```sh
