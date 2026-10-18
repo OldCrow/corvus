@@ -10,8 +10,10 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-18
 
-**Order row 2 (#53 guard harness) DONE 2026-10-18 (Z), UNCOMMITTED; CI
-owed at the push.** Done on Z instead of K [user]: Ryzen 7 7445HS,
+**Order row 2 (#53 guard harness) DONE 2026-10-18 (Z)**, `56253a7`;
+CI GREEN at `5bbc2a8` (run 39102018831: Linux tier sweep and ASan+UBSan,
+Windows MSVC + clang-cl, macOS NEON), after the Linux job timeout went
+20 → 30 min (`guards` takes ~9 min in the Debug sanitizer build). Done on Z instead of K [user]: Ryzen 7 7445HS,
 clang-cl 22.1.3, Release `build-clangcl`. Fail-first baseline: a fresh
 worktree `../corvus-hunt` at `768c526` on Z (K keeps its own), ctest
 34/34 `AVX3_ZEN4`. New ctest `guards` (`tests/test_guards.cpp`,
@@ -50,7 +52,10 @@ reverted, it fails on 6 points (the 0.5 fallback) on both tiers. The
 #55 band is capped at a <= 1e20 so the clamp's a = 1e100 witnesses stay
 outside it.
 
-Scope findings, issue comments owed [ask the user before posting]:
+Scope findings, posted 2026-10-18 as comments on #50 and #47 (#47: at
+a = 0.1 the boundary value is a wrong POSITIVE beta_p, e.g.
+2.77e-24 for a true 1.0e-99, mpmath-confirmed; sign/range cannot see
+it, only the symmetry check):
 - #50 is wider than filed: big shape in [20, 1.8e4] (the order table's
   "to a ≈ 2.6e4"), and one stray, `beta_q_inv(5.38e-6, 20.26,
   1.3e-12)`, is 7.4e-13 relative off (mpmath dps 80, ~6,700 ulp) with
@@ -58,9 +63,8 @@ Scope findings, issue comments owed [ask the user before posting]:
   ~220 draws with the small shape in [1e-12, 0.1].
 - #47's symmetry failures reach a = 0.1 (filed: a ≲ 1e-4).
 
-Still owed for row 2: CI on the push; the M1 NEON `guards` run; the #53
-checkboxes (bracket, symmetry, sign/range, scalar = span, the two
-`c85e4de` items, ulp_utils UB). Local state on Z: `../corvus-hunt`
+Still owed for row 2: a native M1 `guards` run (CI's NEON leg is
+green). #53's row-2 checkboxes ticked 2026-10-18. Local state on Z: `../corvus-hunt`
 (remove after the correctness block), `build-guards-sse4/` (SSE4-capped
 clang-cl, reusable for row 3's capped legs). Next pickup: row 3, #59
 non-FMA DdDivDd floor; Z can run its capped legs.
@@ -351,7 +355,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 |---|---|---|---|---|---|
 | 0 | ~~#62 macOS build environment~~ DONE 2026-10-16 (K) | recipe; any time, any Mac | small | none | K, M1 |
 | 1 | ~~#43 NEON elementary import~~ DONE 2026-10-12 | libstats v2.5.0 path; no file overlap with 2–10 | frontier/mid | ULP re-gate all tiers | M1 (K, Z re-gate) |
-| 2 | ~~#53 guard harness (bracket check, seam/x=½ symmetry, sign/range, scalar=span, ulp_utils UB)~~ DONE 2026-10-18 (Z; CI and M1 owed) | fail-first guards for 3–10; strict known-defect bands, each fix deletes its own | mid | yes — new CI tests | K, CI |
+| 2 | ~~#53 guard harness (bracket check, seam/x=½ symmetry, sign/range, scalar=span, ulp_utils UB)~~ DONE 2026-10-18 (Z; CI green; native M1 owed) | fail-first guards for 3–10; strict known-defect bands, each fix deletes its own | mid | yes — new CI tests | K, CI |
 | 3 | #59 non-FMA DdDivDd floor (+ DdSqrt policy) | core primitive; local prescale | small | subnormal rows; capped legs | K capped, CI |
 | 4 | #58 Expm1Dd + #49 one-arg Log1pmxDd (+ #45 after) | one file, one hazard rule; ungated dd specials get gates | small–mid | test_dd_special gates; rows | K |
 | 5 | #47 beta_p R4 seam; #51 gamma_q −denorm_min | one comparison; one sign clamp | small | #53 symmetry, sign sweep | K, CI tiers |
