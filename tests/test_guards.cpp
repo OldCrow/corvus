@@ -103,11 +103,6 @@ Band g_bands[] = {
        return a < 0.5 && ((Is(fn, "gamma_p_inv") && x > 0.5) ||
                           (Is(fn, "gamma_q_inv") && x < 0.5));
      }},
-    // #49: gamma_p_inv's wrong root for a in [20, 26.5], p <~ 1e-220.
-    {49, "inverse bracket",
-     [](const char* fn, double a, double, double x) {
-       return Is(fn, "gamma_p_inv") && a >= 19.5 && a <= 27.0 && x < 1e-180;
-     }},
     // #50: betainv off by up to ~2e9 ulp for a moderate shape and a tiny one,
     // p below the tiny one (beta_q_inv: the shapes swapped). Measured to big
     // in [20, 1.8e4], small <= 5.4e-6 -- wider than the issue's b <~ 1e-8.
@@ -575,6 +570,12 @@ void CheckBracket() {
         a.push_back(ai);
         s.push_back(si);
       }
+    // #49's band, seeded: the big-a forward's E with u -> -1 (a just above
+    // a_T = 20, tiny p, down to denorm_min).
+    for (int i = 0; i < 600; ++i) {
+      a.push_back(19.0 + 9.0 * rng.Unit());
+      s.push_back(rng.LogU(kDmin, 1e-150));
+    }
     BracketGamma(&c, a, s);
   }
   {

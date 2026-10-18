@@ -434,8 +434,15 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
     const auto up = op::IfThenElse(big, op::Set(d, kGammaScaleUp), one);
     const auto acs = op::Mul(ac, dn);
     const auto xcs = op::Mul(x, dn);
-    const auto u = DdMul(d, TwoSum(d, xcs, op::Neg(acs)), DdRecip(d, acs));
-    const auto aphi_s = DdMulD(d, Log1pmxDd(d, u), acs);
+    const auto ra = DdRecip(d, acs);
+    const auto u = DdMul(d, TwoSum(d, xcs, op::Neg(acs)), ra);
+    // 1 + u = x/a, formed directly and handed to the 2-arg Log1pmxDd (#49).
+    // Unlike the forward's Temme band, this E runs on EVERY a >= a_T lane
+    // whatever x is, and a tiny-p root puts x near 0, i.e. u near -1: the
+    // 1-arg form then derives 1 + u by cancellation, which dd_special-inl.h's
+    // HAZARD RULE forbids (gamma_p_inv(20, 1e-300) came back 9.7e-5 off).
+    const auto w = DdMulD(d, ra, xcs);
+    const auto aphi_s = DdMulD(d, Log1pmxDd(d, u, w), acs);
     aphi = Dd<D>{op::Mul(aphi_s.hi, up), op::Mul(aphi_s.lo, up)};
     // mu(a), the Stirling remainder, is lgamma's own tail polynomial in 1/a^2
     // divided by a -- the same coefficients LgammaStirling evaluates, valid

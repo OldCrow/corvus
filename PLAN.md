@@ -10,6 +10,65 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-18
 
+**Order row 4 (#58 + #49; #45 not taken) DONE 2026-10-19 (Z).** Full
+ctest 35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2 (clang-cl); CI owed
+at the push. The Log1pmxDd pin question is DECIDED [user]: option (a)
+now, (b) folded into row 12.
+- **#49** (`src/gammainv-inl.h`): `GammaInvForward`'s Stirling-side E
+  runs on every a >= 20 lane whatever x is; a tiny-p root puts
+  u = (x-a)/a near -1, and the 1-arg `Log1pmxDd` built 1 + u by
+  cancellation (the HAZARD RULE in `dd_special-inl.h`). It now passes
+  w = x/a = `DdMulD(DdRecip(a), x)` to the 2-arg form. Grep of every
+  1-arg call: the other two (gamma Temme, beta's ratio band) are bounded
+  away from -1 by routing, as the hazard comment says.
+  - Guards: the #49 band in `tests/test_guards.cpp` is DELETED (strict
+    mode demanded it: 0 failures after the fix), and the bracket grid
+    gains 600 seeded points a in [19, 28], p down to denorm_min.
+  - Rows: `gen_gammainv_reference.py --band49-append` (new mode; the
+    default path's checkpoint signature is unchanged), 82
+    bracket-certified p-rows, +82/-0. Witnesses certify at
+    8.304361203739346e-15 and 1.0387395175611068e-15, and corvus now
+    returns exactly those.
+  - Fail-first: with the 1-arg call restored, `gammainv_ulp` S1 fails at
+    1.99e17 ULP (34 rows); with the fix, every bucket max is unchanged.
+- **#58** (`src/dd_special-inl.h`): the reviewer's tested fix.
+  `kExpm1Cut` 2^-10 -> 2^-6, series through w^11/11!, and the accuracy
+  comments corrected: ~2^-64 worst, not ~2^-95.
+  - New gate sets: `tools/gen_dd_special_gates.py` (new, seed 58,
+    mpmath dps 60/100, self-checks with a negative control) writes
+    `tests/data/expm1_dd_reference.txt` (3,012 rows) and
+    `tests/data/log1pmx_ulo_reference.txt` (2,006 rows, nonzero u.lo).
+    `dd_special_reference.txt` is left alone: it comes from
+    gen_gamma_reference.py's shared RNG stream (row 12 territory).
+  - `test_dd_special` gains two pinned cells, identical on all three
+    tiers: Expm1Dd 2^-64.34 (pin 64.33), and Log1pmxDd with u.lo != 0
+    2^-71.41 (pin 71.40).
+  - Fail-first: before the fix Expm1Dd measured 2^-61.41 at
+    w = -0.003, below the pin.
+  - #58's witness `gamma_q(0x1.f9d9f993458a9p-10, 0x1.fec3334db02dbp+1)`
+    is now `…6e3p-18`, correctly rounded, at AVX3_ZEN4 and SSE2. No
+    consumer gate cell moved: gamma, beta, betainv and gammainv are all
+    within their pins on all three tiers.
+- **DECIDED 2026-10-19 [user]: (a) now, (b) in row 12 — the Log1pmxDd
+  pin.** The record as found: As #58 predicted, the
+  nonzero-u.lo set measures 2^-71.41, below the existing u.lo = 0 cell's
+  71.64 pin. Diagnosed: it is NOT u.lo's doing. The same u.hi values with
+  u.lo = 0 also give 2^-71.41 at u = 0.1166, in the LogDdAny branch
+  (|u| > 1/16). The u.lo = 0 set never sampled that point, so its 71.64
+  pin overstates the primitive by 0.23 bits there. Done for now: a
+  separate cell pinned at 71.40, so nothing tripped and nothing was
+  loosened. Options:
+  (a) keep two cells and record the primitive's true worst as 2^-71.41;
+  (b) unify on one cell at 71.40, which needs `dd_special_reference.txt`
+      to cover the large-|u| branch better: row 12's regeneration;
+  (c) investigate the LogDdAny branch (log_dd near 1).
+  Taken: (a). The primitive's measured worst (2^-71.41) is recorded in
+  `dd_special-inl.h` and at the pins.
+- Local leftovers: `%TEMP%\corvus_gammainv_ref_ckpt_20260809.tsv` (a
+  stray partial checkpoint from the subagent's mistaken flag-less run;
+  harmless, deletable). Next pickup: row 5, #47 R4 seam + #51
+  gamma_q -denorm_min, whose fixes delete the #47 and #51 bands.
+
 **Order row 3 (#59) DONE 2026-10-18 (Z).** `DdDivDd` floor fixed;
 `DdSqrt` floor DOCUMENTED, prescale DEFERRED until a caller needs it
 [DECIDED 2026-10-18, user]: comments in `src/dd-inl.h` (`DdSqrt`) and
@@ -395,7 +454,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 1 | ~~#43 NEON elementary import~~ DONE 2026-10-12 | libstats v2.5.0 path; no file overlap with 2–10 | frontier/mid | ULP re-gate all tiers | M1 (K, Z re-gate) |
 | 2 | ~~#53 guard harness (bracket check, seam/x=½ symmetry, sign/range, scalar=span, ulp_utils UB)~~ DONE 2026-10-18 (Z; CI green; native M1 owed) | fail-first guards for 3–10; strict known-defect bands, each fix deletes its own | mid | yes — new CI tests | K, CI |
 | 3 | #59 non-FMA DdDivDd floor (+ DdSqrt policy) — DONE 2026-10-18 (Z): DdDivDd floor fixed, DdSqrt floor documented | core primitive; local prescale | small | subnormal rows; capped legs | K capped, CI |
-| 4 | #58 Expm1Dd + #49 one-arg Log1pmxDd (+ #45 after) | one file, one hazard rule; ungated dd specials get gates | small–mid | test_dd_special gates; rows | K |
+| 4 | #58 Expm1Dd + #49 one-arg Log1pmxDd (+ #45 after) — DONE 2026-10-19 (Z) | one file, one hazard rule; ungated dd specials get gates | small–mid | test_dd_special gates; rows | K |
 | 5 | #47 beta_p R4 seam; #51 gamma_q −denorm_min | one comparison; one sign clamp | small | #53 symmetry, sign sweep | K, CI tiers |
 | 6 | #56 gamma R1/R2 ridge + #57 Temme z.lo | forward before #48; same TU | frontier + small | near-ridge rows | K, M1, Z |
 | 7 | #48 gammainv small-a seeds | after #56 | frontier | rows + bracket band | K, M1, Z |
@@ -403,7 +462,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 9 | #55 betainv a ≳ 1e17 orientation; #50 tiny b (to a≈2.6e4); #60 betainv gates/contract | inverse after #47/#54; one design pass for orientation, seeds, convergence check | frontier | swap-identity guard, rows, non-circular gate | K, M1, Z |
 | 10 | #52 Bessel tail double rounding | independent; can run parallel to 3–9 | small (fix known) | tail sweep, rows | all tiers |
 | 11 | #61 generator self-check hardening | before regeneration | recipe–mid | generator checks | K |
-| 12 | #53 remainder: regenerate band rows, ACCURACY counts and claims, doc drift, sweep_tiers smoke gap | once, after 3–11 | recipe | generators | K, Z (sweep) |
+| 12 | #53 remainder: regenerate band rows, ACCURACY counts and claims, doc drift, sweep_tiers smoke gap; widen `dd_special_reference.txt`'s large-\|u\| coverage (it comes from gen_gamma_reference.py) and unify test_dd_special's two Log1pmxDd cells at the true worst (row 4 decision (b)) | once, after 3–11 | recipe | generators | K, Z (sweep) |
 | 13 | #42 lever 1 (per-element cost); weigh #44 first | after 5–9: same region cores; guards protect it | frontier | early-exit lane-mix tests | M1, K, Z |
 | 14 | #45 export span expm1, log1pmx | after 4; off the milestone if it would hold the release | mid (new family) | generator, four gating lists | K, M1, Z |
 | 15 | #31 lgamma table band | beta/gamma consume lgamma | frontier | generator + regen | K, Z, M1 |

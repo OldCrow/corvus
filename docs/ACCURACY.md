@@ -548,6 +548,16 @@ references above a = 1e4 come from exact-arithmetic Temme evaluation at
 the coefficient extraction must run on the P-side identity — the Q-side
 difference is a 1-minus-tiny cancellation that needs thousands of digits.
 
+The R4 small-a cell rests on the dd e^w − 1 primitive, whose comment
+claimed ~2⁻⁹⁵ while its exponential branch measured 2⁻⁶¹·⁴ (ExpDd's
+plain-double p2 term, amplified by 1/|w| up to the old 2⁻¹⁰ series cut).
+`GammaSmallQ` subtracts two such values, so gamma_q R4 reached 1.59 ULP
+real error, e.g. gamma_q(0x1.f9d9f993458a9p-10, 0x1.fec3334db02dbp+1)
+one ulp off (#58). The series now runs to w¹¹/11! below a 2⁻⁶ cut:
+the primitive measures 2⁻⁶⁴·³⁴ (gated in test_dd_special, alongside a
+nonzero-u.lo set for φ) and that call is correctly rounded at AVX3_ZEN4
+and SSE2 (Zen 4, 2026-10-18); the R4 cell is unchanged at 1 ULP.
+
 Specials (SciPy limit conventions, exercised by the smoke test): x<0, a<0,
 (0,0) and (∞,∞) → NaN, payload preserved; (x=0, a>0) → P=+0, Q=1;
 (a=0, x>0) → P=1, Q=+0; x=+∞ → P=1; a=+∞ → Q=1. P+Q = 1 holds within
@@ -833,17 +843,19 @@ subnormals of both signs → +inf.
 
 ## gamma_p_inv and gamma_q_inv
 
-**Bounds, measured on the 14,926-row certified reference set and
+**Bounds, measured on the 15,008-row certified reference set and
 identical on every validated leg** — clang-cl AVX3_ZEN4 native, the
 capped AVX2/SSE4/SSSE3/SSE2 sweep, Linux CI, NEON, and MSVC AVX2 —
-including not-CR tallies and worst-case points:
+including not-CR tallies and worst-case points (the 82 #49 band rows
+added 2026-10-18 are validated on Zen 4 at AVX3_ZEN4, SSE4 and SSE2,
+the other legs at the next CI run):
 
 | Regime | Bound | not-CR (p / q) |
 |---|---|---|
 | deep-small closed form (x·(1+a) < 2⁻⁶⁰) | **0 ULP — correctly rounded** | 0.00% |
-| small-a seeds (a < 20), tail targets | 1 ULP | 0.52% / 0.94% |
+| small-a seeds (a < 20), tail targets | 1 ULP | 0.51% / 0.94% |
 | small-a seeds, near-median targets | 1 ULP | 4.29% / 4.22% |
-| Temme seed (20 ≤ a ≲ 3·10³⁴) | 1 ULP | 0.18% / 0.38% |
+| Temme seed (20 ≤ a ≲ 3·10³⁴) | 1 ULP | 0.16% / 0.38% |
 | beyond-resolution (a ≳ 3·10³⁴) | 1 ULP | 0.08% / 0.08% |
 | large-side inputs (s > ½, exact flip) | 1 ULP | 0.84% / 0.73% |
 | subnormal and zero results | **0 ULP — correctly rounded** | 0.00% |
@@ -870,6 +882,16 @@ exp_dd((ln p + lnΓ(1+a))/a) assembled in double-double with the
 power-of-two scaling last — two roundings into the subnormals (mantissa,
 then grid) and to zero; measured correctly rounded on every reference row
 in that band.
+
+**Tiny-p roots just above a = 20, closed (#49).** The Stirling-side E
+runs on every a ≥ 20 lane whatever x is, and a tiny-p root puts
+u = (x − a)/a near −1, where the one-argument φ(u) derived 1 + u by
+cancellation: gamma_p_inv(20, 1e-300) was 9.7·10⁻⁵ relative off, and
+the band's new reference rows measured up to 2·10¹⁷ ULP. Fixed by
+handing φ the exact 1 + u = x/a (the two-argument form the primitive's
+hazard rule requires); gated by 82 bracket-certified rows (a in
+[19.5, 27], p down to 5·10⁻³²⁴) and by the guard harness's inverse
+bracket over a in [19, 28].
 
 For a ≳ 3·10³⁴ the entire transition from P = 0 to P = 1 happens
 inside one ulp of x = a, so x = a is the correctly rounded answer for

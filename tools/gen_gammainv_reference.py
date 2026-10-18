@@ -67,6 +67,7 @@ Usage:
                                                        # until it reports
                                                        # DONE
 """
+import argparse
 import hashlib
 import math
 import os
@@ -959,22 +960,24 @@ def points_digest(ps):
     return dig.hexdigest()[:16]
 
 
-def compute_all(ps, fit1, fit2):
+def compute_all(ps, fit1, fit2, ckpt_path=None, sig_tag="v1", seed_label=None):
+    ckpt_path = CKPT_PATH if ckpt_path is None else ckpt_path
+    seed_label = SEED if seed_label is None else seed_label
     total = len(ps.pts)
-    sig = f"v1-{points_digest(ps)} SEED={SEED} N={total}"
-    done_map = load_checkpoint(CKPT_PATH, sig)
+    sig = f"{sig_tag}-{points_digest(ps)} SEED={seed_label} N={total}"
+    done_map = load_checkpoint(ckpt_path, sig)
     print(f"  checkpoint: {len(done_map)}/{total} points already computed "
-          f"({CKPT_PATH})", file=sys.stderr)
+          f"({ckpt_path})", file=sys.stderr)
 
     existing_sig = None
-    if os.path.exists(CKPT_PATH):
-        with open(CKPT_PATH, "r") as f0:
+    if os.path.exists(ckpt_path):
+        with open(ckpt_path, "r") as f0:
             existing_sig = f0.readline().strip()
     mode = "a" if existing_sig == sig else "w"
 
     t_start = time.time()
     newly_done = 0
-    with open(CKPT_PATH, mode) as fh:
+    with open(ckpt_path, mode) as fh:
         if mode == "w":
             fh.write(sig + "\n")
             fh.flush()
@@ -1007,7 +1010,7 @@ def compute_all(ps, fit1, fit2):
     print(f"  computed {newly_done} points this run ({time.time() - t_start:.0f}s); "
           f"all {total} points now checkpointed.", file=sys.stderr)
 
-    done_map = load_checkpoint(CKPT_PATH, sig)
+    done_map = load_checkpoint(ckpt_path, sig)
     rows_p, rows_q = [], []
     n_failed = 0
     fail_by_tag = {}
@@ -1135,7 +1138,106 @@ def write_rows(rows_p, rows_q):
     print(f"  wrote gammainv_q_reference.txt: {len(rows_q)} rows", file=sys.stderr)
 
 
+# ============================================================================
+# Part 11: incremental append of the #49 band family (gamma_p_inv wrong root
+# for a in [20, ~26.5] at tiny p). Own RNG (Random(49)); the main seed stream
+# is never touched. Only the new rows are certified; existing lines of
+# gammainv_p_reference.txt stay byte-identical (rows are appended, the file's
+# existing line ending is preserved).
+# ============================================================================
+BAND49_SEED = 49
+BAND49_N = 80
+BAND49_CKPT_PATH = os.path.join(tempfile.gettempdir(),
+                                f"corvus_gammainv_ref_ckpt_band49_{BAND49_SEED}.tsv")
+BAND49_WITNESSES = (
+    (20.0, 1e-300),
+    (float.fromhex("0x1.4051228b5392cp+4"), float.fromhex("0x1.4a85p-1058")),
+)
+
+
+def build_band49_point_set():
+    rng = random.Random(BAND49_SEED)
+    ps = PointSet()
+    for a, s in BAND49_WITNESSES:
+        ps.add(a, s, "p", "band49-witness")
+    lo, hi = math.log10(MIN_SUBNORMAL), -150.0
+    n_added = 0
+    while n_added < BAND49_N:
+        a = rng.uniform(19.5, 27.0)
+        s = max(10.0 ** rng.uniform(lo, hi), MIN_SUBNORMAL)
+        before = len(ps.pts)
+        ps.add(a, s, "p", "band49")
+        n_added += 1 if len(ps.pts) > before else 0
+    return ps
+
+
+def band49_append(fit1, fit2):
+    t0 = time.time()
+    ps = build_band49_point_set()
+    print(f"  band49 point set: {len(ps.pts)} points", file=sys.stderr)
+    result, done = compute_all(ps, fit1, fit2, ckpt_path=BAND49_CKPT_PATH,
+                               sig_tag="band49-v1",
+                               seed_label=f"band49:{BAND49_SEED}")
+    if not done:
+        print("\nPARTIAL RUN: re-invoke with --band49-append to continue "
+              "(checkpoint saved).", file=sys.stderr)
+        return 3
+    rows_p, _rows_q = result
+    got = {(a, s) for a, s, _ in rows_p}
+    declined = [(a, s) for a, s, _side, _t in ps.pts if (a, s) not in got]
+    for a, s in declined:
+        print(f"  DECLINED (not emitted): a={a!r} ({hexd(a)}) p={s!r} ({hexd(s)})",
+              file=sys.stderr)
+    for a, s in BAND49_WITNESSES:
+        if (a, s) not in got:
+            print(f"\nFAILED: witness a={a!r} p={s!r} was not certified -- "
+                  f"nothing written.", file=sys.stderr)
+            return 5
+    n_failed, failures = cross_check_25(rows_p, [], random.Random(BAND49_SEED ^ 0x51A7), fit2)
+    if n_failed:
+        print(f"\nFAILED: {n_failed} cross-check row(s) exceeded their bound "
+              f"-- nothing written:", file=sys.stderr)
+        for a, s, xd, side, method, rel, bound in failures:
+            print(f"  a={a!r} s={s!r} xd={xd!r} rel={rel:.3e} bound={bound:.3e}",
+                  file=sys.stderr)
+        return 4
+
+    path = os.path.join(REPO, "tests", "data", "gammainv_p_reference.txt")
+    with open(path, "rb") as f:
+        old = f.read()
+    if old and not old.endswith(b"\n"):
+        print("\nFAILED: data file lacks a trailing newline -- nothing written.",
+              file=sys.stderr)
+        return 6
+    eol = b"\r\n" if b"\r\n" in old else b"\n"
+    present = set()
+    for ln in old.decode().splitlines():
+        t = ln.split()
+        if len(t) == 3:
+            present.add((t[0], t[1]))
+    new = []
+    for a, s, xd in rows_p:
+        if (hexd(a), hexd(s)) in present:
+            print(f"  already present, skipped: a={hexd(a)} p={hexd(s)}", file=sys.stderr)
+            continue
+        new.append(f"{hexd(a)} {hexd(s)} {hexd(xd)}".encode() + eol)
+    with open(path, "wb") as f:
+        f.write(old + b"".join(new))
+    print(f"  appended {len(new)} rows to gammainv_p_reference.txt", file=sys.stderr)
+    for a, s in BAND49_WITNESSES:
+        xd = next(x for aa, ss, x in rows_p if (aa, ss) == (a, s))
+        print(f"  witness a={a!r} p={s!r} -> x={xd!r} ({hexd(xd)})", file=sys.stderr)
+    print(f"band49 runtime (this invocation): {time.time()-t0:.1f}s", file=sys.stderr)
+    return 0
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0],
+                                     allow_abbrev=False)
+    parser.add_argument("--band49-append", action="store_true",
+                        help="certify only the #49 band family and append its "
+                             "p-side rows to tests/data/gammainv_p_reference.txt")
+    args = parser.parse_args()
     t_all = time.time()
     fit1, fit2 = build_fits()
 
@@ -1145,6 +1247,9 @@ def main():
               file=sys.stderr)
         return 2
     print("negative controls: all rejected (correct).", file=sys.stderr)
+
+    if args.band49_append:
+        return band49_append(fit1, fit2)
 
     rng = random.Random(SEED)
     print("\nbuilding point set ...", file=sys.stderr)

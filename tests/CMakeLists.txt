@@ -48,7 +48,9 @@ add_executable(test_dd_special test_dd_special.cpp)
 corvus_kernel_test_target(test_dd_special)
 add_test(NAME dd_special
   COMMAND test_dd_special
-  ${CMAKE_CURRENT_SOURCE_DIR}/data/dd_special_reference.txt)
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/dd_special_reference.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/log1pmx_ulo_reference.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/expm1_dd_reference.txt)
 
 add_executable(test_erf test_erf.cpp)
 corvus_test_target(test_erf)
