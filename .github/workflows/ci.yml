@@ -39,7 +39,9 @@ jobs:
   linux-x86:
     name: Linux x86-64 (tier sweep + sanitizers)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 30, not 20: the #53 `guards` test takes ~9 min in the Debug ASan+UBSan
+    # build (1.8 s in Release), which pushed the job to ~24 min.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
