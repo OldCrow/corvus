@@ -15,7 +15,9 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 [DECIDED 2026-10-18, user]: comments in `src/dd-inl.h` (`DdSqrt`) and
 `src/ops-inl.h` (`ProdLow`/`SquareLow` ceiling and floor), and a floor
 rule beside the ceiling rule in NUMERICAL-DOCTRINE.md's hazard rules.
-CI owed at the push.
+`3462e6a`; CI GREEN (run 39111781368: Linux tier sweep incl. the
+SSE4/SSSE3/SSE2 legs over the new rows, ASan+UBSan, Windows MSVC +
+clang-cl, macOS NEON).
 - Mapped by a native-vs-SSE4 differential (clang-cl, 2,400 both-tiny
   pairs): the defect appears only when the LARGER shape is at or below
   ~2e-308 (`LgammaDiffDd`'s j = 0 step divides by it). At SSE4 it
