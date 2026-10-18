@@ -335,3 +335,10 @@ add_test(NAME log_ulp
 add_executable(bench_log bench_log.cpp)
 corvus_test_target(bench_log)
 # Deliberately not registered with ctest: run manually on a quiet machine.
+
+# Guard harness (#53): scalar = span, sign/range, beta symmetry and the
+# inverse bracket over seeded grids. It consumes every incomplete gamma/beta
+# export, so it registers last; no reference file.
+add_executable(test_guards test_guards.cpp)
+corvus_test_target(test_guards)
+add_test(NAME guards COMMAND test_guards)

@@ -52,7 +52,13 @@ inline uint64_t UlpDiff(double a, double b) {
   if (na && nb) return 0;
   if (na || nb) return UINT64_MAX;
   if (std::isinf(a) || std::isinf(b)) return SameBits(a, b) ? 0 : UINT64_MAX;
-  return static_cast<uint64_t>(std::llabs(OrderedBits(a) - OrderedBits(b)));
+  // Subtract in uint64 (#53): for opposite signs the int64 difference
+  // overflows once |a|, |b| >= 2. Flipping the sign bit maps OrderedBits
+  // onto uint64 in the same order, and the larger minus the smaller cannot
+  // wrap.
+  const uint64_t ua = static_cast<uint64_t>(OrderedBits(a)) ^ (1ULL << 63);
+  const uint64_t ub = static_cast<uint64_t>(OrderedBits(b)) ^ (1ULL << 63);
+  return ua > ub ? ua - ub : ub - ua;
 }
 
 // Strict double parse: the WHOLE token must be consumed. strtod without the

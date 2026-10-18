@@ -8,7 +8,62 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-10-16
+## Status [DERIVED] — 2026-10-18
+
+**Order row 2 (#53 guard harness) DONE 2026-10-18 (Z), UNCOMMITTED; CI
+owed at the push.** Done on Z instead of K [user]: Ryzen 7 7445HS,
+clang-cl 22.1.3, Release `build-clangcl`. Fail-first baseline: a fresh
+worktree `../corvus-hunt` at `768c526` on Z (K keeps its own), ctest
+34/34 `AVX3_ZEN4`. New ctest `guards` (`tests/test_guards.cpp`,
+registered last, also in `tools/sweep_tiers.ps1` `$gates`; public API,
+no reference file, 1.8 s):
+- Harness self-test: `UlpDiff` across opposite signs. The `ulp_utils.h`
+  int64 overflow is fixed (uint64 difference). Fail-first only under a
+  trapping sanitizer: clang-cl happens to compute the right value, so
+  the old header traps under `-fsanitize=signed-integer-overflow
+  -fsanitize-trap` and the fixed one passes.
+- Scalar = span: the eight scalar entry points against one span call
+  over a 24-value IEEE-specials product grid, 57,600 points, 0 diffs.
+- Sign/range: gamma/beta forwards and inverses over subnormal and huge
+  shapes, 104,960 points.
+- Beta symmetry: `beta_p(a,b,x)` vs `beta_q(b,a,1-x)` for x in [1/2, 1)
+  (x = 1/2, the R4 window boundary ±3 ulp), tiny pairs, ≤ 6 ulp.
+- Inverse bracket: `F(x - 4 ulp) <= p <= F(x + 4 ulp)` with 8 ulp of
+  forward slack, seeded grids (splitmix64, seed 53), 29,078 points,
+  including the hunt's headline calls and `c85e4de`'s witness points.
+
+**Known-defect bands [DECIDED 2026-10-18, user]: strict, one per open
+issue.** The test fails on any failure outside every band AND on a band
+with no failure, so each fix row (3-10) deletes its band in the fix
+commit. Never widen a band to absorb a new failure; file it. Pinned on
+Z at `AVX3_ZEN4` and SSE4-capped, identical failing points on both:
+#51 (21, sign/range), #47 (66 sign/range + 60 symmetry), #48 (8), #49
+(5), #50 (322), #55 (111). NEON is unmeasured: the M1 runs `guards` at
+its next session; a band that fails on x86 only would need a per-tier
+rule, so ESCALATE rather than loosen.
+
+Fail-first for `c85e4de` (T6 mutation, the two "unguarded accuracy
+fixes" in #53): with the betainv prescale reverted, `guards` fails on 2
+witness points at SSE4 (2.33e-291, 6.86e-306, the hunt's values) and
+passes natively, as FMA tiers do not need it; with the exp-floor clamp
+reverted, it fails on 6 points (the 0.5 fallback) on both tiers. The
+#55 band is capped at a <= 1e20 so the clamp's a = 1e100 witnesses stay
+outside it.
+
+Scope findings, issue comments owed [ask the user before posting]:
+- #50 is wider than filed: big shape in [20, 1.8e4] (the order table's
+  "to a ≈ 2.6e4"), and one stray, `beta_q_inv(5.38e-6, 20.26,
+  1.3e-12)`, is 7.4e-13 relative off (mpmath dps 80, ~6,700 ulp) with
+  the small shape ~500× above the filed "b ≲ 1e-8". No other failure in
+  ~220 draws with the small shape in [1e-12, 0.1].
+- #47's symmetry failures reach a = 0.1 (filed: a ≲ 1e-4).
+
+Still owed for row 2: CI on the push; the M1 NEON `guards` run; the #53
+checkboxes (bracket, symmetry, sign/range, scalar = span, the two
+`c85e4de` items, ulp_utils UB). Local state on Z: `../corvus-hunt`
+(remove after the correctness block), `build-guards-sse4/` (SSE4-capped
+clang-cl, reusable for row 3's capped legs). Next pickup: row 3, #59
+non-FMA DdDivDd floor; Z can run its capped legs.
 
 **corvus RESUMED 2026-10-16 (Kaby Lake).** libstats v2.5.0 released
 2026-10-16 (its `main` at `35f51d8`); the pause condition is met. Re-read
@@ -296,7 +351,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 |---|---|---|---|---|---|
 | 0 | ~~#62 macOS build environment~~ DONE 2026-10-16 (K) | recipe; any time, any Mac | small | none | K, M1 |
 | 1 | ~~#43 NEON elementary import~~ DONE 2026-10-12 | libstats v2.5.0 path; no file overlap with 2–10 | frontier/mid | ULP re-gate all tiers | M1 (K, Z re-gate) |
-| 2 | #53 guard harness (bracket check, seam/x=½ symmetry, sign/range, scalar=span, ulp_utils UB) | fail-first guards for 3–10 | mid | yes — new CI tests | K, CI |
+| 2 | ~~#53 guard harness (bracket check, seam/x=½ symmetry, sign/range, scalar=span, ulp_utils UB)~~ DONE 2026-10-18 (Z; CI and M1 owed) | fail-first guards for 3–10; strict known-defect bands, each fix deletes its own | mid | yes — new CI tests | K, CI |
 | 3 | #59 non-FMA DdDivDd floor (+ DdSqrt policy) | core primitive; local prescale | small | subnormal rows; capped legs | K capped, CI |
 | 4 | #58 Expm1Dd + #49 one-arg Log1pmxDd (+ #45 after) | one file, one hazard rule; ungated dd specials get gates | small–mid | test_dd_special gates; rows | K |
 | 5 | #47 beta_p R4 seam; #51 gamma_q −denorm_min | one comparison; one sign clamp | small | #53 symmetry, sign sweep | K, CI tiers |

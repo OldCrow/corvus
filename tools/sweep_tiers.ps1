@@ -84,6 +84,8 @@ $gates = @(
   @{ exe = "test_trig_ulp"; data = "cos_reference.txt", "sin_reference.txt" }
   @{ exe = "test_exp_ulp"; data = "exp_reference.txt" }
   @{ exe = "test_log_ulp"; data = "log_reference.txt", "log1p_reference.txt" }
+  # #53 guard harness: no reference file; last, since it consumes every family.
+  @{ exe = "test_guards"; data = @() }
 )
 
 $selected = if ($Tier) { $Tier } else { $caps.Keys }

@@ -122,6 +122,13 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   applies `CORVUS_HWY_TARGET_DEFS` so the test sees the same target set as
   the library. Such a test also asserts its own dispatched target equals
   `corvus::active_target()`.
+- `tests/test_guards.cpp` (#53) checks what the reference sets cannot
+  reach: scalar = span, sign/range, beta reflection symmetry and the
+  inverse bracket over seeded grids. An open defect the grids reach is a
+  STRICT known-defect band tagged with its issue: the test fails on any
+  failure outside the bands and on a band that stops failing, so a fix
+  deletes its own band in the same commit. Never widen a band to absorb
+  a new failure; file an issue.
 - Where the kernel carries more than working precision, the reference file
   carries a double-double pair and the test measures relative error below
   the last bit of a double; rounding first would hide what is being
