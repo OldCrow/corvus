@@ -613,6 +613,19 @@ by a 215-row certified R4-huge-B corner family (τ to 1e-8, B
 bit-stepped across 2^900/2^996/1.4e308, B·ξ approaching the cap from
 below, both orientations; independent-harness verified, 0 declines).
 
+**Both-subnormal shapes, closed by the `DdDivDd` floor (#59).**
+`LgammaDiffDd`'s up-walk divides by a subnormal max-parameter, where
+`DdDivDd`'s product residual rounds on the 2⁻¹⁰⁷⁴ grid: on non-FMA tiers
+up to 2.2e7 ULP (R1 complement, the #59 witness at SSE4), and 1 ULP at 7
+of 4,800 sampled points even on AVX3_ZEN4. Fixed by an exact 2⁶⁰⁰
+prescale of divisors below 2⁻⁹⁰⁰, the mirror of the existing 2⁹⁰⁰
+ceiling; bit-identical for every divisor between the two. Gated by a
+289-row certified family (`--subsub-append`: 240 rows with both shapes
+in [5e-324, 2e-308], 40 controls with the larger shape in
+[1e-300, 1e-260], 8 rows bit-stepped across 2⁻⁹⁰⁰, the witness), which
+fails at SSE4 without the fix and passes at AVX3_ZEN4 and SSE4 with it
+(2026-10-18, Zen 4, clang-cl); every pinned cell unchanged.
+
 The small side is always the directly-computed side (P ≤ ½ invariant via
 the symmetry I_x(a,b) = 1 − I_{1−x}(b,a)), so every bound above is
 relative down to the subnormal band; complements are handed out as
@@ -1047,7 +1060,9 @@ underflow on finite doubles (minimum ≈ 3·10⁻¹⁵⁵ at DBL_MAX).
 
 **Bound: CORRECTLY ROUNDED on every measured row of every band** — the
 strongest result in the library. Relative metric where |ln B| ≥ 1:
-max 0 ULP (4,569 rows, gate pinned at 0). The band around ln B's zero
+max 0 ULP (4,801 rows, gate pinned at 0; 232 of them the both-subnormal
+family added with #59's `DdDivDd` floor, which took SSE4 from 65,836 ULP
+there to 0). The band around ln B's zero
 curve through (1,1), where the result itself is relative-ill-conditioned:
 max 0.500·2^−53 absolute — the final rounding itself (gate 0.5·2^−53).
 Both-parameters-huge band (min > 2^990): 0 ULP. True values below

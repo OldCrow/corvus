@@ -90,6 +90,14 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   code path for every target rather than a non-FMA special case. lgamma's
   Stirling product is the first kernel to need it; it read as correct on
   every FMA target and only the capped SSE sweep exposed it.
+- The same residual has a FLOOR: once |a*b| falls below ~2^-968 it is not
+  representable on the 2^-1074 grid, so Dekker's partial products round
+  on non-FMA tiers (gross) and even a fused MulSub rounds it (mild). A
+  dd primitive fed tiny operands prescales UP by an exact power of two:
+  LogDdAny (2^600), DdDivDd (#59: 2^600 below a 2^-900 divisor). DdSqrt
+  has the floor documented, not prescaled [DECIDED 2026-10-18, user]: no
+  caller reaches it, so a new caller that can is the one that adds the
+  prescale.
 - FP contraction is OFF project-wide (`CORVUS_FP_FLAGS`): the dd exactness
   proofs assume IEEE ops as written; fusion is requested in source
   (`ops::MulAdd`), never inferred by the compiler.

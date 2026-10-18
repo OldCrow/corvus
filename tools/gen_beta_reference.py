@@ -3027,6 +3027,47 @@ def corner_append():
 
 
 # ============================================================================
+# Both-subnormal family (issue #59: non-FMA DdDivDd with a subnormal divisor).
+# Own RNG (seed 59), never the main SEED stream. Appended via --subsub-append.
+# ============================================================================
+SUBSUB_SEED = 59
+SUBSUB_WITNESS = (2.255641e-316, 4.48138277e-316, 0.99999999)
+
+
+def gen_subsub_corner(ps):
+    n0 = len(ps.pts)
+    rng = random.Random(SUBSUB_SEED)
+
+    def loguni(lo, hi):
+        return math.exp(rng.uniform(math.log(lo), math.log(hi)))
+
+    def xuni():
+        while True:
+            x = rng.random()
+            if 0.0 < x < 1.0:
+                return x
+
+    sub_lo, sub_hi = 4.9e-324, 2e-308
+    for _ in range(240):
+        a = max(loguni(sub_lo, sub_hi), 5e-324)
+        b = max(loguni(sub_lo, sub_hi), 5e-324)
+        ps.add(a, b, xuni(), keep_if_saturated=True, tag="subsub")
+    for _ in range(40):
+        big = loguni(1e-300, 1e-260)
+        small = big * loguni(1e-10, 1.0)
+        a, b = (big, small) if rng.random() < 0.5 else (small, big)
+        ps.add(a, b, xuni(), keep_if_saturated=True, tag="subsub-control")
+    m = 2.0 ** -900
+    for bigm in (m, math.nextafter(m, 0.0), math.nextafter(m, 1.0),
+                 2.0 ** -901):
+        for x in (0.3, 0.7):
+            ps.add(bigm / 2.0, bigm, x, keep_if_saturated=True,
+                   tag="subsub-floor")
+    ps.add(*SUBSUB_WITNESS, keep_if_saturated=True, tag="subsub-witness")
+    print(f"  subsub family: {len(ps.pts) - n0} points", file=sys.stderr)
+
+
+# ============================================================================
 # --r4huge-append: incremental certification of the r4huge-corner family
 # alone, same pattern as --corner-append (see its docstring): own checkpoint
 # file/signature, same small_side_direct protocol and self-checks, splice
@@ -3108,6 +3149,82 @@ def r4huge_append():
     return rc
 
 
+
+# --subsub-append: incremental certification of the both-subnormal family
+# (issue #59), same pattern as --r4huge-append.
+CKPT_SUBSUB_PATH = os.path.join(tempfile.gettempdir(),
+                                f"corvus_beta_ref_ckpt_subsub_{SEED}.tsv")
+
+
+def subsub_append():
+    t_all = time.time()
+    ps = PointSet()
+    gen_subsub_corner(ps)
+    print(f"subsub point set: {len(ps.pts)} distinct points", file=sys.stderr)
+
+    # Point-bits digest signature (NUMERICAL-DOCTRINE.md's binding rule: a
+    # grid edit that preserves N would otherwise replay stale checkpoint
+    # values under new point identities).
+    import hashlib
+    dig = hashlib.sha256()
+    for a, b, x, _, _ in ps.pts:
+        dig.update(struct.pack("<QQQ", as_bits(a), as_bits(b), as_bits(x)))
+    rows, region_hist, done = compute_all(
+        ps, ckpt_path=CKPT_SUBSUB_PATH,
+        sig_ver=f"v1-subsub-{dig.hexdigest()[:16]}")
+    if not done:
+        print("\nPARTIAL RUN: re-invoke with --subsub-append to continue "
+              "(checkpoint saved).", file=sys.stderr)
+        return 3
+    print(f"  subsub region histogram: {region_hist}", file=sys.stderr)
+
+    rc = 0
+    rc |= check_p_plus_q(rows)
+    rc |= check_small_side_direct(rows)
+
+    # The task-example witness must be present as an emitted row, and is
+    # force-included in the cross-check sample below.
+    wit = [SUBSUB_WITNESS]
+    wit_idx = []
+    for wa, wb, wx in wit:
+        hits = [i for i, r in enumerate(rows)
+                if as_bits(r[0]) == as_bits(wa) and as_bits(r[1]) == as_bits(wb)
+                and as_bits(r[2]) == as_bits(wx)]
+        if not hits:
+            print(f"  FAILED: witness row ({wa}, {wb}, {wx:.17e}) missing "
+                  f"from the subsub set.", file=sys.stderr)
+            rc = 1
+        else:
+            wit_idx.append(hits[0])
+            r = rows[hits[0]]
+            print(f"  witness ({wa:.9g}, {wb:.9g}, {wx:.17e}): P={r[3]:.17e} "
+                  f"Q={r[4]:.17g}", file=sys.stderr)
+
+    xcheck_ok, xcheck_summary = run_cross_check(rows, n=60,
+                                                force_idx=tuple(wit_idx))
+    if not xcheck_ok:
+        print("\nPARTIAL RUN: cross-check incomplete, re-invoke with "
+              "--subsub-append to continue (checkpoint saved).",
+              file=sys.stderr)
+        return 3
+    if xcheck_summary is not None and \
+            xcheck_summary["worst"] > float(CROSS_CHECK_TARGET):
+        print(f"  FAILED: cross-check worst disagreement "
+              f"{xcheck_summary['worst']:.3e} exceeds target "
+              f"{float(CROSS_CHECK_TARGET):.0e}.", file=sys.stderr)
+        rc = 1
+
+    if rc:
+        print("\nSelf-checks FAILED -- not touching reference files.",
+              file=sys.stderr)
+        return rc
+
+    rc = _splice_corner(rows)
+    print(f"\nsubsub-append runtime: {time.time() - t_all:.1f}s",
+          file=sys.stderr)
+    return rc
+
+
 if __name__ == "__main__":
     _parser = argparse.ArgumentParser(
         allow_abbrev=False,  # '--ful' must ERROR, not prefix-match --full (#11)
@@ -3134,9 +3251,18 @@ if __name__ == "__main__":
              "--corner-append but a DIFFERENT family (huge-B R4 recurrence, "
              "not the PB prefactor corner) -- kept as its own flag rather "
              "than aliased to --corner-append.")
+    _parser.add_argument(
+        "--subsub-append", action="store_true",
+        help="Incrementally certify and splice ONLY the both-subnormal "
+             "family (gen_subsub_corner -- a and b both subnormal, issue "
+             "#59 non-FMA DdDivDd) into the existing reference files, own "
+             "checkpoint/cross-check, resumable by re-invoking with this "
+             "same flag. Same append pattern as --r4huge-append.")
     _args = _parser.parse_args()
     if _args.corner_append:
         sys.exit(corner_append())
     if _args.r4huge_append:
         sys.exit(r4huge_append())
+    if _args.subsub_append:
+        sys.exit(subsub_append())
     sys.exit(main())

@@ -161,6 +161,18 @@ HWY_INLINE Dd<D> DdRecipDd(D d, Dd<D> b) {
 // sqrt(0) = 0 exactly, so it is selected in. Negative a.hi is the caller's
 // problem -- it produces NaN rather than trapping, which discarded lanes are
 // allowed to do.
+//
+// FLOOR (#59): the exactness argument needs the s^2 residual to be
+// representable, which fails once s^2 nears the subnormal range. Below
+// a.hi ~ 2^-968 SquareLow's residual rounds on the 2^-1074 grid: on
+// non-FMA tiers the HIGH word degrades (DdSqrt(0x1.8p-1050) is wrong at
+// 2^-26 relative at SSE4), and on FMA tiers the low word does. So the
+// ~2^-105 claim holds for a.hi = 0 or a.hi >~ 2^-968 only. No caller goes
+// below it (audit 2026-10-18: the Temme/ridge sites pass 2*phi or a*phi
+// with phi ~ u^2/2, u = (x-a)/a exactly 0 or >= ~2^-54; Bessel and gamma
+// pass 2*pi*x, 2*pi*a >= O(1)). A new caller that can pass tinier
+// arguments prescales by an even power of two (LogDdAny's 2^600 pattern)
+// -- here, or at its call site.
 template <class D>
 HWY_INLINE Dd<D> DdSqrt(D d, Dd<D> a) {
   const auto zero = op::Zero(d);

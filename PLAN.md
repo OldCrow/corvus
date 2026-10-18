@@ -10,6 +10,42 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-18
 
+**Order row 3 (#59) DONE 2026-10-18 (Z).** `DdDivDd` floor fixed;
+`DdSqrt` floor DOCUMENTED, prescale DEFERRED until a caller needs it
+[DECIDED 2026-10-18, user]: comments in `src/dd-inl.h` (`DdSqrt`) and
+`src/ops-inl.h` (`ProdLow`/`SquareLow` ceiling and floor), and a floor
+rule beside the ceiling rule in NUMERICAL-DOCTRINE.md's hazard rules.
+CI owed at the push.
+- Mapped by a native-vs-SSE4 differential (clang-cl, 2,400 both-tiny
+  pairs): the defect appears only when the LARGER shape is at or below
+  ~2e-308 (`LgammaDiffDd`'s j = 0 step divides by it). At SSE4 it
+  reached 6.3e7 ULP (beta) and 6.6e4 ULP (lbeta); none with max shape at
+  1e-250.
+- Fix (`src/beta-inl.h`): divisors with |b.hi| < 2^-900 are prescaled by
+  2^600 (`kBetaDivFloor`, `kBetaDivFloorUp`), mirroring the 2^900
+  ceiling; exact, no overflow (scaled divisor < 2^-300, numerator
+  < ~2^-290). It also corrects AVX3_ZEN4: 7 of 4,800 both-subnormal
+  beta points were 1 ULP off natively and are now correctly rounded
+  (mpmath dps 120). Bit-identical for 2^-900 <= |b.hi| <= 2^900.
+- Fail-first rows via append modes (existing rows untouched, numstat
+  +N/-0): `gen_beta_reference.py --subsub-append` (289 rows, own seed
+  59, regions R1 109 / R4 157 / R2 23, cross-check worst 1.1e-51) and a
+  new `gen_lbeta_reference.py --subsub-append` (232 rows, appended in
+  generation order). Without the floor, SSE4 fails `beta_ulp` (R1 cmp
+  22,116,085 ULP at the #59 witness, R2 dir 2,194, R1 dir 50) and
+  `lbeta_ulp` (65,836 ULP, gate 0); native passes. With it, both pass
+  at AVX3_ZEN4 and SSE4 with every pinned cell unchanged. Full ctest
+  35/35, 0 warnings, at AVX3_ZEN4, SSE4 (`build-guards-sse4/`) and SSE2
+  (`build-guards-sse2/`, new) on Z.
+- `DdSqrt` floor (~2^-968 at SSE tiers): no caller reaches it. The
+  Temme/ridge sites take φ ≈ u²/2 with u = (x−a)/a either exactly 0
+  (selected) or >= ~2^-54, so the argument is >= ~2^-108·a; Bessel's
+  2πx and gamma's 2πa are O(1) or larger. Options: document the floor
+  in `DdSqrt` and `ops::ProdLow` (no bit change), or prescale like
+  `LogDdAny` (cost on every call, no current beneficiary). Documented
+  (above).
+- Next pickup: row 4, #58 Expm1Dd + #49 one-arg Log1pmxDd.
+
 **Order row 2 (#53 guard harness) DONE 2026-10-18 (Z)**, `56253a7`;
 CI GREEN at `5bbc2a8` (run 39102018831: Linux tier sweep and ASan+UBSan,
 Windows MSVC + clang-cl, macOS NEON), after the Linux job timeout went
@@ -356,7 +392,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 0 | ~~#62 macOS build environment~~ DONE 2026-10-16 (K) | recipe; any time, any Mac | small | none | K, M1 |
 | 1 | ~~#43 NEON elementary import~~ DONE 2026-10-12 | libstats v2.5.0 path; no file overlap with 2–10 | frontier/mid | ULP re-gate all tiers | M1 (K, Z re-gate) |
 | 2 | ~~#53 guard harness (bracket check, seam/x=½ symmetry, sign/range, scalar=span, ulp_utils UB)~~ DONE 2026-10-18 (Z; CI green; native M1 owed) | fail-first guards for 3–10; strict known-defect bands, each fix deletes its own | mid | yes — new CI tests | K, CI |
-| 3 | #59 non-FMA DdDivDd floor (+ DdSqrt policy) | core primitive; local prescale | small | subnormal rows; capped legs | K capped, CI |
+| 3 | #59 non-FMA DdDivDd floor (+ DdSqrt policy) — DONE 2026-10-18 (Z): DdDivDd floor fixed, DdSqrt floor documented | core primitive; local prescale | small | subnormal rows; capped legs | K capped, CI |
 | 4 | #58 Expm1Dd + #49 one-arg Log1pmxDd (+ #45 after) | one file, one hazard rule; ungated dd specials get gates | small–mid | test_dd_special gates; rows | K |
 | 5 | #47 beta_p R4 seam; #51 gamma_q −denorm_min | one comparison; one sign clamp | small | #53 symmetry, sign sweep | K, CI tiers |
 | 6 | #56 gamma R1/R2 ridge + #57 Temme z.lo | forward before #48; same TU | frontier + small | near-ridge rows | K, M1, Z |

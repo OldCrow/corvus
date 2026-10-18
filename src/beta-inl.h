@@ -155,6 +155,9 @@ inline constexpr double kBetaTinyPairUp = 0x1.0p+900;
 inline constexpr double kBetaScaleAbove = 0x1.0p+900;
 inline constexpr double kBetaScaleDown = 0x1.0p-200;
 inline constexpr double kBetaScaleUp = 0x1.0p+200;
+// DdDivDd's tiny-divisor floor and its exact up-scale (#59; see DdDivDd).
+inline constexpr double kBetaDivFloor = 0x1.0p-900;
+inline constexpr double kBetaDivFloorUp = 0x1.0p+600;
 
 // Ceiling applied to z before 1/z inside BinetDiffDd, purely to keep the
 // Dekker split of DdRecip's argument in range; Binet's difference is already
@@ -220,12 +223,28 @@ HWY_INLINE Dd<D> DdSub(D d, Dd<D> a, Dd<D> b) {
 // |a/b| stays inside the Dekker range too, which every call site here
 // satisfies by construction (all quotients are O(1) or smaller except R2's
 // bounded (beta-m)xi/(alpha+2m), which saturation caps near 800).
+//
+// A TINY divisor is taken UP by 2^600 for the mirror-image reason (#59):
+// below ~2^-968, DdMulD(bn, q)'s product residual rounds on the 2^-1074
+// grid, so the remainder -- hence the low word -- is wrong. On non-FMA tiers
+// Dekker's partial products round (measured on Zen 4: beta_p/q up to ~6e7
+// ulp, lbeta ~6e4 ulp at SSE4); an FMA residual of a subnormal product
+// rounds too, far more mildly (7 of 4,800 both-subnormal beta points 1 ulp
+// off at AVX3_ZEN4, all correctly rounded with the floor). LgammaDiffDd's
+// walk divides by a subnormal max-parameter at j = 0. 2^600 is LogDdAny's
+// prescale: with |b.hi| < 2^-900 the scaled divisor stays below 2^-300, and
+// by the quotient precondition the scaled numerator stays below ~2^-290, so
+// nothing overflows. Both scalings are exact and mutually exclusive, and
+// every lane with 2^-900 <= |b.hi| <= 2^900 multiplies by 1.0:
+// bit-identical there.
 template <class D>
 HWY_INLINE Dd<D> DdDivDd(D d, Dd<D> a, Dd<D> b) {
   const auto one = op::Set(d, 1.0);
-  const auto s = op::IfThenElse(op::Gt(op::Abs(b.hi),
-                                       op::Set(d, kBetaScaleAbove)),
-                                op::Set(d, kBetaScaleDown), one);
+  const auto ab = op::Abs(b.hi);
+  const auto s = op::IfThenElse(
+      op::Gt(ab, op::Set(d, kBetaScaleAbove)), op::Set(d, kBetaScaleDown),
+      op::IfThenElse(op::Lt(ab, op::Set(d, kBetaDivFloor)),
+                     op::Set(d, kBetaDivFloorUp), one));
   const Dd<D> an{op::Mul(a.hi, s), op::Mul(a.lo, s)};
   const Dd<D> bn{op::Mul(b.hi, s), op::Mul(b.lo, s)};
   const auto q = op::Div(an.hi, bn.hi);

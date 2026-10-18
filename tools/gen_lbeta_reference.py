@@ -683,5 +683,158 @@ def main():
     return 0
 
 
+# ---------------------------------------------------------------------------
+# --subsub-append: both-subnormal family (issue #59, non-FMA DdDivDd with a
+# subnormal divisor). Own RNG (seed 59); the main SEED stream is untouched.
+# Rows are certified by the same layered_value oracle and the same per-row
+# checks main() applies (decline on oracle disagreement/NaN, full re-verify,
+# negative control, symmetry), then APPENDED to the existing file (its order
+# is generation order, not sorted) with every existing line left untouched;
+# (a, b) bits already present are skipped.
+# ---------------------------------------------------------------------------
+SUBSUB_SEED = 59
+SUBSUB_WITNESSES = (
+    ("0x0.0000003be25b6p-1022", "0x0.000000438865dp-1022"),
+    ("0x0.0000001a8c7d0p-1022", "0x0.000000a57ebe6p-1022"),
+    ("0x0.0000002bbab9ep-1022", "0x0.000001250a5a3p-1022"),
+)
+
+
+def gen_subsub_points():
+    rng = random.Random(SUBSUB_SEED)
+
+    def loguni(lo, hi):
+        return math.exp(rng.uniform(math.log(lo), math.log(hi)))
+
+    pts = []
+    for _ in range(200):
+        pts.append((max(loguni(4.9e-324, 2e-308), 5e-324),
+                    max(loguni(4.9e-324, 2e-308), 5e-324)))
+    for _ in range(30):
+        big = loguni(1e-300, 1e-260)
+        small = big * loguni(1e-10, 1.0)
+        pts.append((big, small) if rng.random() < 0.5 else (small, big))
+    wit = [(float.fromhex(a), float.fromhex(b)) for a, b in SUBSUB_WITNESSES]
+    return pts + wit, wit
+
+
+def subsub_append(path="tests/data/lbeta_reference.txt"):
+    t_start = time.time()
+    pts, wit = gen_subsub_points()
+    with open(path, "rb") as f:
+        raw = f.read()
+    crlf = b"\r\n" in raw
+    text = raw.decode().replace("\r\n", "\n")
+    if "\r" in text:
+        print("[gen_lbeta_reference] FAILED: lone CR in existing file", file=sys.stderr)
+        return 1
+    existing = set()
+    n_existing = 0
+    for line in text.split("\n"):
+        if not line.strip():
+            continue
+        t = line.split()
+        existing.add((as_bits(float.fromhex(t[0])), as_bits(float.fromhex(t[1]))))
+        n_existing += 1
+    seen = set(existing)
+    uniq = []
+    n_dup = 0
+    for a, b in pts:
+        key = (as_bits(a), as_bits(b))
+        if key in seen:
+            n_dup += 1
+            continue
+        seen.add(key)
+        uniq.append((a, b))
+    print(f"[gen_lbeta_reference] subsub: {len(pts)} candidates, {n_dup} "
+          f"duplicates skipped, {len(uniq)} to certify", file=sys.stderr)
+
+    rows, declined, escalated_n = emit_rows(uniq)
+    print(f"[gen_lbeta_reference] subsub: emitted {len(rows)} rows, "
+          f"declined={len(declined)}, escalated-past-dps{DPS_HI}={escalated_n}",
+          file=sys.stderr)
+    ok = True
+    if declined:
+        print(f"[gen_lbeta_reference] FAILED: declined points: {declined[:20]}",
+              file=sys.stderr)
+        ok = False
+
+    # Odd total-row-count convention (main() trims to odd): trim the last
+    # new non-witness row if the combined count would be even.
+    if (n_existing + len(rows)) % 2 == 0:
+        wkeys = {(as_bits(a), as_bits(b)) for a, b in wit}
+        di = max(i for i, r in enumerate(rows)
+                 if (as_bits(r[0]), as_bits(r[1])) not in wkeys)
+        dropped = rows.pop(di)
+        print(f"[gen_lbeta_reference] subsub: dropped new non-witness row {dropped[0].hex()} "
+              f"{dropped[1].hex()} to keep the total row count odd", file=sys.stderr)
+
+    # Witnesses must be emitted (or already present).
+    emitted = {(as_bits(a), as_bits(b)) for a, b, _ in rows}
+    for wa, wb in wit:
+        k = (as_bits(wa), as_bits(wb))
+        if k not in emitted and k not in existing:
+            print(f"[gen_lbeta_reference] FAILED: witness {wa.hex()} {wb.hex()} missing",
+                  file=sys.stderr)
+            ok = False
+        for a, b, y in rows:
+            if (as_bits(a), as_bits(b)) == k:
+                print(f"[gen_lbeta_reference] witness lnB({wa.hex()}, {wb.hex()}) = "
+                      f"{y!r} ({y.hex()})", file=sys.stderr)
+
+    rng = random.Random(SUBSUB_SEED)
+    mism = reverify_sample(rows, rng, n=len(rows))
+    print(f"[gen_lbeta_reference] subsub re-verify (n={len(rows)}): "
+          f"{len(mism)} mismatches", file=sys.stderr)
+    if mism:
+        print(f"[gen_lbeta_reference] FAILED: re-verify mismatches: {mism[:5]}",
+              file=sys.stderr)
+        ok = False
+    caught = negative_control(rows, rng)
+    print(f"[gen_lbeta_reference] subsub negative control: "
+          f"{'CAUGHT' if caught else 'NOT CAUGHT'}", file=sys.stderr)
+    if not caught:
+        ok = False
+    sym_mism = symmetry_check(rows, rng, n=len(rows))
+    print(f"[gen_lbeta_reference] subsub symmetry (n={len(rows)}): "
+          f"{len(sym_mism)} mismatches", file=sys.stderr)
+    if sym_mism:
+        print(f"[gen_lbeta_reference] FAILED: symmetry mismatches: {sym_mism[:5]}",
+              file=sys.stderr)
+        ok = False
+    worst, worst_pt = cross_check_sample(rows, rng)
+    print(f"[gen_lbeta_reference] subsub cross-check (1e-6..1e6 window only; "
+          f"family is outside it): worst rel {float(worst):.3e} @ {worst_pt!r}",
+          file=sys.stderr)
+    if worst > mpf("1e-20"):
+        ok = False
+
+    if not ok:
+        print("[gen_lbeta_reference] ABORTING: not touching "
+              "tests/data/lbeta_reference.txt", file=sys.stderr)
+        return 1
+
+    if not text.endswith("\n"):
+        text += "\n"
+    text += "".join(f"{a.hex()} {b.hex()} {y.hex()}\n" for a, b, y in rows)
+    if crlf:
+        text = text.replace("\n", "\r\n")
+    with open(path, "wb") as f:
+        f.write(text.encode())
+    print(f"[gen_lbeta_reference] subsub: appended {len(rows)} rows to {path} "
+          f"(total {n_existing + len(rows)}) in {time.time() - t_start:.1f}s",
+          file=sys.stderr)
+    return 0
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    import argparse
+    _parser = argparse.ArgumentParser(allow_abbrev=False)
+    _parser.add_argument(
+        "--subsub-append", action="store_true",
+        help="Certify ONLY the both-subnormal family (issue #59) with the "
+             "same oracle/self-checks as the full run and append its rows "
+             "to tests/data/lbeta_reference.txt, leaving existing lines "
+             "untouched.")
+    _args = _parser.parse_args()
+    sys.exit(subsub_append() if _args.subsub_append else main())

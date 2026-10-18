@@ -149,8 +149,14 @@ template <class D> HWY_INLINE V<D> SquareLow(D d, V<D> a, V<D> p) {
 // Low part of a*b given p = fl(a*b), i.e. the exact residual a*b - p; the
 // two-operand form of SquareLow, and subject to the same FMA hazard, so it
 // carries the same capability guard. Dekker's product needs both operands
-// split. Exact for |a*b| within the normal range with room for the splits
-// (|a|, |b| < 2^996); corvus's dd kernels stay far inside that.
+// split. Exact only between a CEILING and a FLOOR, for this and SquareLow:
+//   * ceiling: |a|, |b| < 2^996, or the 2^27+1 split overflows;
+//   * floor: |a*b| >~ 2^-968. Below it the residual is not representable
+//     on the 2^-1074 grid: Dekker's partial products round on non-FMA tiers
+//     (gross: #59 measured 2.2e7 ULP downstream), and even a fused MulSub
+//     rounds the residual (mild: 1 ULP-class downstream).
+// Every caller must sit between the two or prescale by an exact power of
+// two (DdDivDd, LogDdAny, the beta/gamma 2^900 clamps).
 template <class D> HWY_INLINE V<D> ProdLow(D d, V<D> a, V<D> b, V<D> p) {
 #if HWY_NATIVE_FMA
   (void)d;
