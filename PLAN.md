@@ -10,8 +10,8 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-19
 
-**Order row 8 (#54): defect 1 FIXED 2026-10-19 on Z; #65 closed (not a
-defect); defect 2 FIX IMPLEMENTED (option B), uncommitted.** Probe: 1,400 huge-parameter points, both orientations, against
+**Order row 8 (#54) DONE 2026-10-20 on Z**, `e376460` + `a82fd0e`; #54
+and #65 closed. Probe: 1,400 huge-parameter points, both orientations, against
 the ₂F₁ closed form with precision raised until 1 − I resolves.
 - Defect 1 (the slice, N >= 2^59): P small up to 11,592 ulp (huge second)
   and 529 (huge first). FIXED: `BetaGlT` (src/beta-inl.h) forms
@@ -113,12 +113,11 @@ the ₂F₁ closed form with precision raised until 1 − I resolves.
     and the local MSVC /W4 /WX build is clean (0 diagnostics), all
     2026-10-20. The ACCURACY.md defect-2 paragraph is drafted;
     USER-GUIDE.md cites no 2^59.
-  - NEXT: user review of the uncommitted diff (src/beta-inl.h,
-    src/betainv-inl.h, src/beta_data.h, tools/gen_beta_data.py,
-    tools/gen_beta_reference.py, both beta data files,
-    tests/test_beta_ulp.cpp, docs/ACCURACY.md, PLAN.md), then commit and
-    push, CI, close #54 (fix commits e376460 + the new one; guards: the
-    gl54 and gl54b rows and the 0/0 gammalim pin). Native M1 run owed.
+  - Committed as `a82fd0e` after user review. CI GREEN (run 39318081144,
+    all three jobs, NEON included). #54 closed with both fix commits and
+    their guards. A native M1 run is still owed.
+- Next pickup: row 9 (#55 betainv orientation, #50 tiny b, #60 betainv
+  gates/contract; frontier).
 
 **Order row 7 (#48) DONE 2026-10-19 on Z**, `07ca2f6` + `8dc5623`. Full
 ctest 35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2. CI: the first run
