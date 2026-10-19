@@ -96,10 +96,12 @@ int Route(double a, double b, double x, double pref, double qref,
   const bool sw4 = b < a;
   const double xt = sw4 ? y : x;
 
-  const double thr_t = 1.0 / (1.0 + (bmax + 1.0) / (tau + 1.0));
+  // R4's widened window is R2's own orientation predicate (#47).
+  const double thr = 1.0 / (1.0 + (b + 1.0) / (a + 1.0));
+  const bool r2_tiny_first = (x < thr) != sw4;
   const bool r4 = tau <= kBetaEpsR4 &&
                   tau * std::fabs(std::log(xt)) <= kBetaLn2 &&
-                  (xt <= kBetaXi1 || xt < thr_t) && bmax * xt <= kBetaB1;
+                  (xt <= kBetaXi1 || r2_tiny_first) && bmax * xt <= kBetaB1;
   if (r4) {
     *direct_is_p = sw4;
     return kR4;
@@ -131,7 +133,6 @@ int Route(double a, double b, double x, double pref, double qref,
     *direct_is_p = sw ? (lam > 0.0) : (lam >= 0.0);
     return kR3;
   }
-  const double thr = 1.0 / (1.0 + (b + 1.0) / (a + 1.0));
   const bool sw = !(x < thr);
   if (gl_hi && std::min(a, b) < corvus::detail::kBetaGammaLim) {
     const double ra = sw ? b : a;

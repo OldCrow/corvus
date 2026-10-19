@@ -360,7 +360,16 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   auto num = DdAdd(d, g1a_m1, Dd<D>{op::Neg(xa_m1.hi), op::Neg(xa_m1.lo)});
   const auto axs = DdMulD(d, DdMul(d, xa, s), a);
   num = DdAdd(d, num, Dd<D>{op::Neg(axs.hi), op::Neg(axs.lo)});
-  return DdMul(d, num, DdRecipDd(d, g1a));
+  const auto q = DdMul(d, num, DdRecipDd(d, g1a));
+  // SIGN CLAMP (#51). Q > 0 always, but for a subnormal a the three O(a)
+  // terms of num cancel to a true Q far below denorm_min (gamma_q(2^-1074, 2)
+  // = 2.4e-325), and their rounding residue can come out as -denorm_min or
+  // -0. Clamping q.hi <= 0 to +0 is value-safe -- it only fires where the
+  // true Q rounds to +0 anyway -- and keeps the contract that a probability
+  // is never negative, signed zero included.
+  const auto nonpos = op::Ge(zero, q.hi);
+  return Dd<D>{op::IfThenElse(nonpos, zero, q.hi),
+               op::IfThenElse(nonpos, zero, q.lo)};
 }
 
 // R3: Temme's uniform asymptotic expansion on the ridge.

@@ -79,24 +79,6 @@ struct Band {
 bool Is(const char* fn, const char* name) { return std::strcmp(fn, name) == 0; }
 
 Band g_bands[] = {
-    // #51: gamma_q(k*denorm_min, x) = -denorm_min for odd k, x in [1.65, 2.45].
-    {51, "sign/range",
-     [](const char* fn, double a, double, double x) {
-       return Is(fn, "gamma_q") && a < 0x1p-1022 && x >= 1.65 && x <= 2.45;
-     }},
-    // #47: beta_p < 0 for tiny b < a at x = 1/2 (and so P(a,b,x) !=
-    // Q(b,a,1-x) there, and at the R4 window boundary within 3 ulp).
-    // Measured to a = 0.1 -- wider than the issue's a <~ 1e-4.
-    {47, "sign/range",
-     [](const char* fn, double a, double b, double x) {
-       return Is(fn, "beta_p") && b < a && a <= 1e-12 && x == 0.5;
-     }},
-    {47, "beta symmetry",
-     [](const char*, double a, double b, double x) {
-       const double w = (a + 1.0) / (a + b + 2.0);
-       return b < a && a <= 0.1 && b <= 1e-12 &&
-              (x == 0.5 || UlpDiff(x, w) <= 3);
-     }},
     // #48: gammainv diverges for small a in the upper tail.
     {48, "inverse bracket",
      [](const char* fn, double a, double, double x) {
@@ -120,6 +102,16 @@ Band g_bands[] = {
      [](const char* fn, double a, double, double) {
        return (Is(fn, "beta_p_inv") || Is(fn, "beta_q_inv")) && a >= 1e16 &&
               a <= 1e20;
+     }},
+    // #55 (found under #47): both shapes tiny -- the backward-error regime
+    // -- with a >> b, where the orientation probe falls back to 0.5
+    // (beta_q_inv(1e-20, 1e-70, q) = 0.5; the root is 1). Measured on
+    // AVX3_ZEN4/SSE4/SSE2, identical: a <= 2.8e-17, b/a <= 1.6e-33, never
+    // a < b. Row 9's orientation pass deletes it.
+    {55, "inverse bracket",
+     [](const char* fn, double a, double b, double) {
+       return (Is(fn, "beta_p_inv") || Is(fn, "beta_q_inv")) && a <= 1e-16 &&
+              b < a * 1e-32;
      }},
 };
 
@@ -611,6 +603,15 @@ void CheckBracket() {
       a.push_back(p[0]);
       b.push_back(p[1]);
       s.push_back(p[2]);
+    }
+    // Both shapes tiny -- betainv's backward-error regime and its
+    // orientation probe (#55, found under #47). Drawn LAST so the grids
+    // above keep their points.
+    for (int i = 0; i < 1500; ++i) {
+      a.push_back(rng.LogU(1e-300, 1e-16));
+      b.push_back(rng.LogU(1e-300, 1e-16));
+      const double t = rng.LogU(1e-300, 0.5);
+      s.push_back(rng.Unit() < 0.5 ? t : 1.0 - t);
     }
     BracketBeta(&c, a, b, s);
   }

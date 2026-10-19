@@ -1228,26 +1228,38 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
 
   const auto xi1 = op::Set(d, detail::kBetaXi1);
   const auto b1v = op::Set(d, detail::kBetaB1);
-  // R2's orientation threshold, evaluated in the TINY-FIRST frame.
-  const auto thr_t = op::Div(
-      one, op::Add(one, op::Div(op::Add(bmax, one), op::Add(tau, one))));
-  // R4's xi cap, WIDENED past the box's xi1: for xi_tau in (xi1, thr_t)
-  // neither R1 orientation fires (both xi_tau and 1 - xi_tau exceed xi1)
-  // and R2 would then evaluate the TINY-FIRST side, which for
-  // tau <= eps_R4 is 1 - O(tau) -- the near-one member of the pair, so the
-  // complement it hands back is pure noise.
-  // The window is narrow -- thr_t = (tau+1)/(tau+B+2) exceeds
-  // xi1 only for B < ~0.24, and is always below 1/2 -- and inside it the
-  // series is untroubled: worst N = 48 truncation over the whole
-  // extension is 2^-57.3 (2^-71.9 inside the unwidened box, generator
-  // target 2^-58), because B < 0.24 keeps every term ratio below
-  // xi_tau. The other two caps are the box's own.
+  // R2's orientation threshold, native frame: R2 keeps (a, b, x) iff
+  // x < thr, else it evaluates the swapped (b, a, 1 - x).
+  const auto thr = op::Div(
+      one, op::Add(one, op::Div(op::Add(b, one), op::Add(a, one))));
+  // R4's xi cap, WIDENED past the box's xi1: for xi_tau beyond xi1 but
+  // below R2's threshold neither R1 orientation fires (both xi_tau and
+  // 1 - xi_tau exceed xi1) and R2 would then evaluate the TINY-FIRST side,
+  // which for tau <= eps_R4 is 1 - O(tau) -- the near-one member of the
+  // pair, so the complement it hands back is pure noise.
+  //
+  // The window is stated as R2's OWN predicate (#47): R4 claims the lane
+  // iff R2's orientation would be the tiny-first one, i.e.
+  // (x < thr) != (b < a). It used to be xi_tau < thr_t with thr_t =
+  // (tau+1)/(tau+B+2) evaluated in the tiny-first frame -- equal to R2's
+  // boundary in exact arithmetic but rounded differently, so for b < a a
+  // point within an ulp or so of it (x = 1/2 exactly for tiny pairs, and up
+  // to a ~ 0.1) fell to neither region and R2 complemented the near-one
+  // side: negative beta_p, or a wrong positive one.
+  //
+  // The window is narrow -- its edge (tau+1)/(tau+B+2) exceeds xi1 only for
+  // B < ~0.24, and is always below 1/2 -- and inside it the series is
+  // untroubled: worst N = 48 truncation over the whole extension is
+  // 2^-57.3 (2^-71.9 inside the unwidened box, generator target 2^-58),
+  // because B < 0.24 keeps every term ratio below xi_tau. The other two
+  // caps are the box's own.
+  const auto r2_tiny_first = op::Abs(
+      op::Sub(BetaInd(d, op::Lt(x, thr)), BetaInd(d, sw4)));
   const auto i_r4 = op::Mul(
       BetaInd(d, op::Ge(op::Set(d, detail::kBetaEpsR4), tau)),
       op::Mul(BetaInd(d, op::Ge(op::Set(d, detail::kBetaLn2),
                                 op::Mul(tau, op::Abs(lxt.hi)))),
-              op::Mul(op::Max(BetaInd(d, op::Ge(xi1, xt.hi)),
-                              BetaInd(d, op::Lt(xt.hi, thr_t))),
+              op::Mul(op::Max(BetaInd(d, op::Ge(xi1, xt.hi)), r2_tiny_first),
                       BetaInd(d, op::Ge(b1v, op::Mul(bmax, xt.hi))))));
 
   const auto r1n = op::Mul(BetaInd(d, op::Ge(xi1, x)),
@@ -1280,8 +1292,6 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
               band),
       op::Mul(BetaIndNot(d, i_r4), BetaIndNot(d, i_r1)));
 
-  const auto thr = op::Div(
-      one, op::Add(one, op::Div(op::Add(b, one), op::Add(a, one))));
   const auto i_r2 = op::Mul(BetaIndNot(d, i_r4),
                       op::Mul(BetaIndNot(d, i_r1), BetaIndNot(d, i_r3)));
 

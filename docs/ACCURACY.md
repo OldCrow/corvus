@@ -562,7 +562,11 @@ Specials (SciPy limit conventions, exercised by the smoke test): x<0, a<0,
 (0,0) and (∞,∞) → NaN, payload preserved; (x=0, a>0) → P=+0, Q=1;
 (a=0, x>0) → P=1, Q=+0; x=+∞ → P=1; a=+∞ → Q=1. P+Q = 1 holds within
 1 ULP everywhere. Results underflow gradually; deep-tail lanes saturate to
-the exact 0/1 pair below e^-800.
+the exact 0/1 pair below e^-800. A probability is never negative, signed
+zero included: R4's small-a assembly cancels three O(a) terms, and for a
+subnormal a (gamma_q(2⁻¹⁰⁷⁴, 2), true value 2.4e-325) their rounding
+residue came out as −denorm_min; a value-safe clamp now returns +0 there
+(#51, gated by the guard harness's sign/range sweep).
 
 ## beta_p and beta_q
 
@@ -635,6 +639,24 @@ in [5e-324, 2e-308], 40 controls with the larger shape in
 [1e-300, 1e-260], 8 rows bit-stepped across 2⁻⁹⁰⁰, the witness), which
 fails at SSE4 without the fix and passes at AVX3_ZEN4 and SSE4 with it
 (2026-10-18, Zen 4, clang-cl); every pinned cell unchanged.
+
+**R4 window seam, closed (#47).** R4's widened window and R2's
+orientation test describe one boundary, (a+1)/(a+b+2), but the window
+evaluated it in the tiny-first frame and so rounded it differently. For
+b < a a point within an ulp or so of it fell to neither region and R2
+complemented the near-one side: beta_p came back negative for tiny pairs
+at x = ½ exactly (≈ −a·ln 2), and as a wrong positive value up to a = 0.1
+(beta_p(0.1, 1e-100, fl(1.1/2.1)) = 2.8e-24 against 1.0e-99). The
+window is now R2's own predicate — R4 takes the lane iff R2 would
+evaluate the tiny-first side — so the two cannot disagree. Gated by a
+1,414-row certified seam family (`--r4seam-append`: tiny pairs at
+x = ½ and at the boundary ± 3 ulp, both orientations, the issue's
+witnesses), which with the old window fails R4 direct at 8.3·10¹⁸ ULP
+and the monotonicity post-pass at the seam; and by the guard harness's
+sign/range and reflection checks. Every pinned cell unchanged. The
+issue's inverse symptom — betainv's orientation probe at both-tiny
+pairs — is NOT closed by this fix: it is tracked in #55 (with the
+contract gap in #60), under a strict harness band.
 
 The small side is always the directly-computed side (P ≤ ½ invariant via
 the symmetry I_x(a,b) = 1 − I_{1−x}(b,a)), so every bound above is

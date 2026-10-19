@@ -105,12 +105,14 @@ int Route(double a, double b, double x, double pref, double qref,
   const bool sw4 = b < a;
   const double xt = sw4 ? y : x;
 
-  // 0. tiny-min box, evaluated tiny-first. The xi cap is the WIDENED one --
-  // see the routing note in src/beta-inl.h.
-  const double thr_t = 1.0 / (1.0 + (bmax + 1.0) / (tau + 1.0));
+  // 0. tiny-min box, evaluated tiny-first. The xi cap is the WIDENED one,
+  // stated as R2's own orientation predicate (#47) -- see the routing note
+  // in src/beta-inl.h.
+  const double thr = 1.0 / (1.0 + (b + 1.0) / (a + 1.0));
+  const bool r2_tiny_first = (x < thr) != sw4;
   const bool r4 = tau <= kBetaEpsR4 &&
                   tau * std::fabs(std::log(xt)) <= kBetaLn2 &&
-                  (xt <= kBetaXi1 || xt < thr_t) && bmax * xt <= kBetaB1;
+                  (xt <= kBetaXi1 || r2_tiny_first) && bmax * xt <= kBetaB1;
   if (r4) {
     *direct_is_p = sw4;  // R4 computes the COMPLEMENT of its own triple
     return kR4;
@@ -157,7 +159,6 @@ int Route(double a, double b, double x, double pref, double qref,
   // kBetaGammaLim, where the lane takes the (C) gamma-limit slice and val
   // holds the NATURALLY COMPUTED gamma side (series -> P_gamma, CF ->
   // Q_gamma; see the slice block in src/beta-inl.h for the mapping).
-  const double thr = 1.0 / (1.0 + (b + 1.0) / (a + 1.0));
   const bool sw = !(x < thr);
   // Both-huge lanes are EXCLUDED from the slice (kernel mirror): the
   // small/huge mapping needs exactly one parameter above the limit;

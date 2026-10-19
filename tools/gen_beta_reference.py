@@ -3068,6 +3068,70 @@ def gen_subsub_corner(ps):
 
 
 # ============================================================================
+# R4 widened-window seam family (issue #47: beta_p wrong at the R4 boundary
+# for tiny shape pairs). Own RNG (seed 47), never the main SEED stream.
+# Appended via --r4seam-append.
+# ============================================================================
+R4SEAM_SEED = 47
+R4SEAM_WITNESSES = (
+    (1e-100, 1e-140, 0.5),
+    (float.fromhex('0x1.c340cc210bfa3p-518'),
+     float.fromhex('0x1.1618b68cd170dp-635'), 0.5),
+    (float.fromhex('0x1.7b5e7ef47b33cp-14'),
+     float.fromhex('0x1.a42c5bb289b41p-156'),
+     float.fromhex('0x1.0002f6b4353f4p-1')),
+    (0.1, 1e-100, float.fromhex('0x1.0c30c30c30c31p-1')),
+)
+
+
+def gen_r4seam_corner(ps):
+    n0 = len(ps.pts)
+    from fractions import Fraction
+    rng = random.Random(R4SEAM_SEED)
+
+    def loguni(lo, hi):
+        return math.exp(rng.uniform(math.log(lo), math.log(hi)))
+
+    a_set = (1e-300, 1e-200, 1e-140, 1e-100, 1e-40, 1e-20, 1e-12, 1e-8,
+             1e-4, 1e-3, 0.01, 0.1)
+    b_set = (1e-300, 1e-200, 1e-140, 1e-100, 1e-40, 1e-20, 1e-12)
+    pairs = [(a, b) for a in a_set for b in b_set if b < a]
+    for _ in range(60):
+        a = loguni(1e-300, 0.1)
+        b = a * loguni(1e-200, 1e-2)
+        if b == 0.0:
+            continue
+        pairs.append((a, b))
+
+    for a, b in pairs:
+        w = (a + 1.0) / (a + b + 2.0)
+        xs = [0.5]
+        wk = w
+        for _ in range(3):
+            wk = math.nextafter(wk, 0.0)
+            xs.append(wk)
+        wk = w
+        xs.append(w)
+        for _ in range(3):
+            wk = math.nextafter(wk, 1.0)
+            xs.append(wk)
+        for x in xs:
+            if not (0.0 < x < 1.0):
+                continue
+            ps.add(a, b, x, keep_if_saturated=True, tag="r4seam")
+            # Mirror only when 1 - x is exact (always for x >= 0.5; x
+            # just below 0.5 may round).
+            if Fraction(1) - Fraction(x) == Fraction(1.0 - x):
+                ps.add(b, a, 1.0 - x, keep_if_saturated=True,
+                       tag="r4seam")
+    # Witnesses from the issue #47 fuzz: two of the pairs are not reachable
+    # from the seed-47 stream, so add all four explicitly (PointSet dedups).
+    for wa, wb, wx in R4SEAM_WITNESSES:
+        ps.add(wa, wb, wx, keep_if_saturated=True, tag="r4seam-witness")
+    print(f"  r4seam family: {len(ps.pts) - n0} points", file=sys.stderr)
+
+
+# ============================================================================
 # --r4huge-append: incremental certification of the r4huge-corner family
 # alone, same pattern as --corner-append (see its docstring): own checkpoint
 # file/signature, same small_side_direct protocol and self-checks, splice
@@ -3225,6 +3289,80 @@ def subsub_append():
     return rc
 
 
+# --r4seam-append: incremental certification of the R4 widened-window seam
+# family (issue #47), same pattern as --subsub-append.
+CKPT_R4SEAM_PATH = os.path.join(tempfile.gettempdir(),
+                                f"corvus_beta_ref_ckpt_r4seam_{SEED}.tsv")
+
+
+def r4seam_append():
+    t_all = time.time()
+    ps = PointSet()
+    gen_r4seam_corner(ps)
+    print(f"r4seam point set: {len(ps.pts)} distinct points", file=sys.stderr)
+
+    # Point-bits digest signature (NUMERICAL-DOCTRINE.md's binding rule: a
+    # grid edit that preserves N would otherwise replay stale checkpoint
+    # values under new point identities).
+    import hashlib
+    dig = hashlib.sha256()
+    for a, b, x, _, _ in ps.pts:
+        dig.update(struct.pack("<QQQ", as_bits(a), as_bits(b), as_bits(x)))
+    rows, region_hist, done = compute_all(
+        ps, ckpt_path=CKPT_R4SEAM_PATH,
+        sig_ver=f"v1-r4seam-{dig.hexdigest()[:16]}")
+    if not done:
+        print("\nPARTIAL RUN: re-invoke with --r4seam-append to continue "
+              "(checkpoint saved).", file=sys.stderr)
+        return 3
+    print(f"  r4seam region histogram: {region_hist}", file=sys.stderr)
+
+    rc = 0
+    rc |= check_p_plus_q(rows)
+    rc |= check_small_side_direct(rows)
+
+    # Witnesses must be present as emitted rows, and are force-included in
+    # the cross-check sample below.
+    wit_idx = []
+    for wa, wb, wx in R4SEAM_WITNESSES:
+        hits = [i for i, r in enumerate(rows)
+                if as_bits(r[0]) == as_bits(wa) and as_bits(r[1]) == as_bits(wb)
+                and as_bits(r[2]) == as_bits(wx)]
+        if not hits:
+            print(f"  FAILED: witness row ({wa:.17g}, {wb:.17g}, {wx:.17e}) "
+                  f"missing from the r4seam set.", file=sys.stderr)
+            rc = 1
+        else:
+            wit_idx.append(hits[0])
+            r = rows[hits[0]]
+            print(f"  witness ({wa:.9g}, {wb:.9g}, {wx:.17e}): P={r[3]:.17e} "
+                  f"Q={r[4]:.17g}", file=sys.stderr)
+
+    xcheck_ok, xcheck_summary = run_cross_check(rows, n=60,
+                                                force_idx=tuple(wit_idx))
+    if not xcheck_ok:
+        print("\nPARTIAL RUN: cross-check incomplete, re-invoke with "
+              "--r4seam-append to continue (checkpoint saved).",
+              file=sys.stderr)
+        return 3
+    if xcheck_summary is not None and \
+            xcheck_summary["worst"] > float(CROSS_CHECK_TARGET):
+        print(f"  FAILED: cross-check worst disagreement "
+              f"{xcheck_summary['worst']:.3e} exceeds target "
+              f"{float(CROSS_CHECK_TARGET):.0e}.", file=sys.stderr)
+        rc = 1
+
+    if rc:
+        print("\nSelf-checks FAILED -- not touching reference files.",
+              file=sys.stderr)
+        return rc
+
+    rc = _splice_corner(rows)
+    print(f"\nr4seam-append runtime: {time.time() - t_all:.1f}s",
+          file=sys.stderr)
+    return rc
+
+
 if __name__ == "__main__":
     _parser = argparse.ArgumentParser(
         allow_abbrev=False,  # '--ful' must ERROR, not prefix-match --full (#11)
@@ -3258,6 +3396,13 @@ if __name__ == "__main__":
              "#59 non-FMA DdDivDd) into the existing reference files, own "
              "checkpoint/cross-check, resumable by re-invoking with this "
              "same flag. Same append pattern as --r4huge-append.")
+    _parser.add_argument(
+        "--r4seam-append", action="store_true",
+        help="Incrementally certify and splice ONLY the R4 widened-window "
+             "seam family (gen_r4seam_corner -- tiny shape pairs at the "
+             "boundary, issue #47) into the existing reference files, own "
+             "checkpoint/cross-check, resumable by re-invoking with this "
+             "same flag. Same append pattern as --subsub-append.")
     _args = _parser.parse_args()
     if _args.corner_append:
         sys.exit(corner_append())
@@ -3265,4 +3410,6 @@ if __name__ == "__main__":
         sys.exit(r4huge_append())
     if _args.subsub_append:
         sys.exit(subsub_append())
+    if _args.r4seam_append:
+        sys.exit(r4seam_append())
     sys.exit(main())

@@ -8,7 +8,72 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-10-18
+## Status [DERIVED] — 2026-10-19
+
+**Order row 5 (#47 + #51) DONE 2026-10-19 on Z.** Full ctest 35/35, 0
+warnings, at AVX3_ZEN4, SSE4 and SSE2 (clang-cl); CI owed at the push.
+#47's inverse half is DECIDED [user]: option (b), below. #47 is closed
+on the forward fix, with a comment pointing to #55. Next pickup: row 6,
+#56 gamma R1/R2 ridge + #57 Temme z.lo (frontier; K, M1, Z).
+- **#51** (`src/gamma-inl.h`, `GammaSmallQ`): a value-safe sign clamp
+  sends q.hi <= 0 to +0 (signed zero included). The true Q is positive
+  but far below denorm_min there, so the clamp only fires where the
+  answer rounds to +0. `gamma_q(2^-1074, 2)` now returns +0.
+  - Guards: the #51 band is deleted; strict mode demanded it after the
+    fix, 0 failures. Fail-first: the band's 21 failures before the fix.
+  - Rows: none. The issue's guard is the sign/range sweep, already in
+    the harness.
+- **#47** (`src/beta-inl.h` router): R4's widened window is now R2's
+  own orientation predicate, R4 taking the lane iff
+  `(x < thr) != (b < a)`. The old window evaluated the same boundary
+  as (tau+1)/(tau+B+2) in the tiny-first frame, rounded differently, so
+  for b < a a point within an ulp or so of the boundary fell to neither
+  region. Non-sw4 lanes are bit-identical, since the old expression was
+  the same arithmetic as `thr`.
+  - `tests/test_beta_ulp.cpp` and `tests/bench_beta.cpp` re-derive the
+    router and are changed identically. `tools/gen_beta_data.py`
+    `route_final` is left alone: it compares in exact arithmetic,
+    where the two expressions are equal.
+  - Guards: both #47 bands deleted (strict mode demanded it).
+  - Rows: `gen_beta_reference.py --r4seam-append` (new mode, seed 47),
+    1,414 certified rows per file (+1414/-0; regions R4 725 / R2 689;
+    cross-check worst 1.2e-51). The subagent's two deviations are
+    accepted: x below 0.5 is not mirrored where 1 - x is inexact, and
+    the issue's witnesses are added explicitly.
+  - Fail-first: with the old window, `beta_ulp` R4 direct fails at
+    8.3e18 ULP and the monotonicity post-pass flags the seam, on
+    AVX3_ZEN4 and SSE4. With the fix, every pinned cell is unchanged.
+    Witnesses: `beta_p(1e-100, 1e-140, 0.5)` = 1.0e-40 and
+    `beta_p(0.1, 1e-100, fl(1.1/2.1))` = 1.0016443244658398e-99, both
+    matching mpmath.
+- **DECIDED 2026-10-19 [user]: option (b).** #47 closes on its forward
+  fix. The inverse symptom moves to #55 (the orientation pass, row 9),
+  and #60 gets the contract gap; comments posted on both. The harness's
+  inverse bracket gains 1,500 seeded both-tiny pairs, drawn LAST so the
+  other grids keep their points, under a strict band tagged #55:
+  `a <= 1e-16 && b < a*1e-32`. It holds 373 failures (265 `beta_q_inv`,
+  108 `beta_p_inv`), identical at AVX3_ZEN4, SSE4 and SSE2; every one
+  has a > b, a <= 2.8e-17 and b/a <= 1.6e-33. Row 9 deletes both #55
+  bands. The record as found:
+  `beta_q_inv(1e-20, 1e-70, q)` still returns 0.5 for small q, and
+  0.0039 / 0.998 at q = 0.9 / 0.5; the true root is 1 for every q < 1.
+  A bracket probe over 4,000 pairs with both shapes in [1e-300, 1e-16]
+  fails 326 `beta_p_inv` and 743 `beta_q_inv` calls. Nearly all are
+  strongly skewed pairs (min/max < 1e-10), and most return exactly 0.5,
+  the orientation probe's fallback. The guard harness does not reach
+  this: its random beta grid stops at 1e-20. It is the backward-error
+  regime's orientation design, which is row 9's (#55 orientation probe,
+  #60 contract). Options:
+  (a) keep #47 open, with its inverse half moving to row 9, and add
+      harness coverage for both-tiny pairs as a strict band tagged #47;
+  (b) close #47 on the forward fix and track the inverse in #55/#60
+      (a comment on each), with the band tagged #55;
+  (c) as (a) or (b), but without harness coverage until row 9.
+  Taken: (b), with the band.
+- `bench_beta.cpp` builds as part of the full run. #50/#55 band counts
+  now read 324/101, against row 2's 322/111. That is row 4's #49 grid
+  shifting the shared RNG stream ahead of the beta grids, not a
+  behaviour change.
 
 **Order row 4 (#58 + #49; #45 not taken) DONE 2026-10-19 (Z).** Full
 ctest 35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2 (clang-cl); CI owed
@@ -455,7 +520,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 2 | ~~#53 guard harness (bracket check, seam/x=½ symmetry, sign/range, scalar=span, ulp_utils UB)~~ DONE 2026-10-18 (Z; CI green; native M1 owed) | fail-first guards for 3–10; strict known-defect bands, each fix deletes its own | mid | yes — new CI tests | K, CI |
 | 3 | #59 non-FMA DdDivDd floor (+ DdSqrt policy) — DONE 2026-10-18 (Z): DdDivDd floor fixed, DdSqrt floor documented | core primitive; local prescale | small | subnormal rows; capped legs | K capped, CI |
 | 4 | #58 Expm1Dd + #49 one-arg Log1pmxDd (+ #45 after) — DONE 2026-10-19 (Z) | one file, one hazard rule; ungated dd specials get gates | small–mid | test_dd_special gates; rows | K |
-| 5 | #47 beta_p R4 seam; #51 gamma_q −denorm_min | one comparison; one sign clamp | small | #53 symmetry, sign sweep | K, CI tiers |
+| 5 | #47 beta_p R4 seam; #51 gamma_q −denorm_min — DONE 2026-10-19 (Z; #47's inverse half moved to #55, row 9) | one comparison; one sign clamp | small | #53 symmetry, sign sweep | K, CI tiers |
 | 6 | #56 gamma R1/R2 ridge + #57 Temme z.lo | forward before #48; same TU | frontier + small | near-ridge rows | K, M1, Z |
 | 7 | #48 gammainv small-a seeds | after #56 | frontier | rows + bracket band | K, M1, Z |
 | 8 | #54 beta gamma-limit slice (+ R2 below 2^59 policy) | forward before #55/#50; new ₂F₁ oracle | frontier | rows b∈[2^58,1e30] | K, M1, Z |
