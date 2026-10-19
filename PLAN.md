@@ -10,8 +10,9 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-19
 
-**Order row 6 (#56 + #57) DONE 2026-10-19 on Z.** Full ctest 35/35, 0
-warnings, at AVX3_ZEN4, SSE4 and SSE2; CI owed at the push. #56 and #57
+**Order row 6 (#56 + #57) DONE 2026-10-19 on Z**, `7f0e18a`. Full ctest
+35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2; CI GREEN (run
+39194078196, all three jobs; NEON holds the re-pinned gamma cells). #56 and #57
 are closed with their fix commit and guards. Decisions this row [user,
 2026-10-19]: accept #56's cost; land #57 partially and split the rest
 into #64.
