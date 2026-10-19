@@ -52,6 +52,8 @@ any visible way.
   `docs/ARCHITECTURE.md` (band diagram + layer-by-layer notes). VISUAL
   REFERENCE ONLY: it restates the Architecture section below in picture
   form and adds no constraint the non-negotiables do not already carry.
+  Update `docs/architecture-layers.svg` when a band is added, removed, or
+  moved; file names in it are examples, not an inventory.
 
 ## Architecture
 - `include/corvus/corvus.h` — public API: `std::span` in/out, std-only,
