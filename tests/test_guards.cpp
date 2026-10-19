@@ -79,12 +79,6 @@ struct Band {
 bool Is(const char* fn, const char* name) { return std::strcmp(fn, name) == 0; }
 
 Band g_bands[] = {
-    // #48: gammainv diverges for small a in the upper tail.
-    {48, "inverse bracket",
-     [](const char* fn, double a, double, double x) {
-       return a < 0.5 && ((Is(fn, "gamma_p_inv") && x > 0.5) ||
-                          (Is(fn, "gamma_q_inv") && x < 0.5));
-     }},
     // #50: betainv off by up to ~2e9 ulp for a moderate shape and a tiny one,
     // p below the tiny one (beta_q_inv: the shapes swapped). Measured to big
     // in [20, 1.8e4], small <= 5.4e-6 -- wider than the issue's b <~ 1e-8.
@@ -567,6 +561,17 @@ void CheckBracket() {
     for (int i = 0; i < 600; ++i) {
       a.push_back(19.0 + 9.0 * rng.Unit());
       s.push_back(rng.LogU(kDmin, 1e-150));
+    }
+    // #48's band: small a on the upper tail, q/a from 0.01 to 100 -- where
+    // no seed applied and ~25% of inputs diverged. Own generator, so the
+    // grids above and below keep their points. Both sides: q itself (the
+    // Q-side call) and 1 - q (the P-side call, skipped where it rounds to 1).
+    Rng rng48{4848};
+    for (int i = 0; i < 1200; ++i) {
+      const double ai = rng48.LogU(1e-20, 0.5);
+      const double qi = std::fmin(ai * rng48.LogU(0.01, 100.0), 0.5);
+      a.push_back(ai);
+      s.push_back(rng48.Unit() < 0.5 ? qi : 1.0 - qi);
     }
     BracketGamma(&c, a, s);
   }

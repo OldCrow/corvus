@@ -66,7 +66,9 @@
 // objective the steps then reduce, so seed choice and refinement cannot
 // disagree about what "closer" means. The winner's forward evaluation is
 // REUSED as the first step's, so three candidates cost three forward
-// evaluations and the three steps cost three more.
+// evaluations and the three steps cost three more. Between the two sits
+// a bracketed phase (#48) for lanes whose seed is still far off -- no seed
+// covers small a on the upper tail -- see GammaInvVec.
 //
 // DEEP-SMALL CLOSED FORM. Where the correction factor e^-x * Sum(a,x) is
 // below the resolution of a double, the equation collapses to
@@ -151,6 +153,33 @@ inline constexpr double kGammaInvTinyAScale = 0x1.0p+200;
 // Residual below which a Newton step is taken on trust rather than tested
 // against the previous one. See the step loop.
 inline constexpr double kGammaInvTrustResid = 0.5;
+
+// The bracketed phase (#48; see GammaInvVec). Tol: the log-x step below
+// which a lane hands over to the three quadratic steps (2^-10 -> 2^-80 in
+// three). MaxStep: the cap on a doubling step while only one side of the
+// root is known (e^64), so the ramp spans the whole log range in a handful
+// of steps and bisection cleans up any overshoot. YMin/YMax: log of the
+// double range, so the iterate always maps back to a finite positive x.
+inline constexpr double kGammaInvBracketTol = 0x1.0p-10;
+// Entry: a lane's first Newton step must be at least this in log x (or its
+// slope have stalled). The lanes #48 lost started orders of magnitude off;
+// every seed the three steps already handled starts well inside a factor of
+// e, so it keeps HEAD's path bit for bit and pays nothing. A lower bar
+// (kGammaInvBracketTol itself) cost 20-40% in the small-a mid, flip and
+// q-side deep-small bands (Zen 4, indicative) for no accuracy.
+inline constexpr double kGammaInvBracketEntry = 0x1.0p-7;
+inline constexpr double kGammaInvBracketMaxStep = 64.0;
+inline constexpr double kGammaInvBracketYMin = -744.0;  // ~ log(denorm_min)
+inline constexpr double kGammaInvBracketYMax = 709.0;   // ~ log(DBL_MAX)
+// Iteration cap: a full-range bisection (1453 wide in log x) reaches 2^-10
+// in ~21 halvings; the cap leaves room for the one-sided ramp before it.
+inline constexpr int kGammaInvBracketN = 40;
+// A residual above this with a Newton step below kGammaInvBracketTol is a
+// stalled slope, not convergence (see the phase's STALL note).
+inline constexpr double kGammaInvBracketRStall = 1.0;
+// The phase runs only below this a: beyond-resolution (a >~ 3e34) must keep
+// its seed (see the phase's entry note), and 1e16 is far below that band.
+inline constexpr double kGammaInvBracketAMax = 1e16;
 
 // Scrub value for the CF's a: j*(j-a) overflows to -inf for a above ~4e306.
 // No R2 lane with a that large is ever live (a*phi is hundreds of thousands
@@ -786,6 +815,124 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
       cur = GammaInvForward(d, a, xn_state, i_wp, lga, lna);
       rbest = op::Abs(GammaInvResid(d, cur, mt));
     }
+    // --- bracketed phase (#48): get every lane to within 2^-10 in log x ----
+    // The three steps below converge quadratically from a good seed, and
+    // only from one. Where no seed covers the input -- small a on the upper
+    // tail, where S1 is barred (a < kGammaInvS1AMin), S3's far-tail gate
+    // declines and S2's Picard iteration (contraction ~1/a there) runs away
+    // to 1e100-class values -- the old kernel kept S2 anyway (its domain flag
+    // is always set) and three steps clamped at -0.9 could only shrink it
+    // 1000-fold: gamma_p_inv(0.1, 0.99) returned 7.9e106 for 1.588.
+    //
+    // m(x) is monotone increasing in x on both orientations, so each
+    // evaluation tells which side of the root it sits on. The phase works in
+    // y = log x (w is exactly dy/dm) and keeps a sign bracket [lo, hi] in y,
+    // with rtsafe's acceptance rule: a Newton step is taken only if it lands
+    // inside what is known and is at most half the previous step. Otherwise
+    // the step is a bisection once both sides are known, and a DOUBLING of
+    // the previous step toward the root while only one side is -- which is
+    // what crosses an exponential tail, where Newton in y crawls at ~1 per
+    // step (log Q ~ -x, w ~ 1/x). A tiny Newton step against a large
+    // residual is a slope that has underflowed, not convergence, and is
+    // treated as slow. An iterate whose forward is unusable (NaN) is not
+    // adopted; the next step from the old point is a quarter as long.
+    //
+    // A lane enters only if its first Newton step is at least
+    // kGammaInvBracketTol in y and leaves once an applied step is below it;
+    // well-seeded lanes never enter, and a vector of them costs one
+    // comparison. Beyond-resolution lanes (w -> 0 there IS the answer) never
+    // enter either.
+    {
+      const auto ninf = op::Set(d, -std::numeric_limits<double>::infinity());
+      const auto tol = op::Set(d, kGammaInvBracketTol);
+      const auto cap = op::Set(d, kGammaInvBracketMaxStep);
+      const auto rstall = op::Set(d, kGammaInvBracketRStall);
+      const auto ylo_dom = op::Set(d, kGammaInvBracketYMin);
+      const auto yhi_dom = op::Set(d, kGammaInvBracketYMax);
+      // A seed whose forward is unusable (NaN residual -- a tiny-a S2 that ran
+      // off to ~1e18) carries no direction at all: restart such a lane from
+      // x = 1, an ordinary interior point, rather than leave it on the seed.
+      auto r = GammaInvResid(d, cur, mt);
+      {
+        // Deep-small lanes are overwritten by the closed form at the end:
+        // never spend a forward on them.
+        const auto bad0 = IndMask(
+            d, op::Mul(Ind(d, op::IsNaN(r)), IndNot(d, Ind(d, m_ds))));
+        if (!op::AllFalse(d, bad0)) {
+          xn_state = op::IfThenElse(bad0, one, xn_state);
+          const auto f1 = GammaInvForward(d, a, xn_state, i_wp, lga, lna);
+          cur.m = Dd<D>{op::IfThenElse(bad0, f1.m.hi, cur.m.hi),
+                        op::IfThenElse(bad0, f1.m.lo, cur.m.lo)};
+          cur.w = op::IfThenElse(bad0, f1.w, cur.w);
+          r = GammaInvResid(d, cur, mt);
+        }
+      }
+      auto y = OutlinedLogDd(d, xn_state).hi;
+      auto lo = ninf;
+      auto hi = inf;
+      auto dxold = inf;  // |previous applied step|
+      // Entry: a large Newton step, OR a large residual whose slope has
+      // underflowed (w ~ 0 at a seed far out in a tail -- the same stall the
+      // loop handles). Only below kGammaInvBracketAMax: in the
+      // beyond-resolution band (a >~ 3e34) w -> 0 with a sizable residual IS
+      // the converged state, and the seed is the answer.
+      auto live = op::Mul(
+          op::Mul(op::Max(Ind(d, op::Ge(op::Abs(op::Mul(cur.w, r)),
+                                        op::Set(d, kGammaInvBracketEntry))),
+                          Ind(d, op::Gt(op::Abs(r), rstall))),
+                  Ind(d, op::Gt(op::Set(d, kGammaInvBracketAMax), a))),
+          op::Mul(IndNot(d, Ind(d, op::IsNaN(r))), IndNot(d, Ind(d, m_ds))));
+      for (int it = 0; it < kGammaInvBracketN; ++it) {
+        const auto m_live = IndMask(d, live);
+        if (op::AllFalse(d, m_live)) break;
+        // Bracket update from the residual's sign at y.
+        lo = op::IfThenElse(
+            m_live, op::IfThenElse(op::Lt(r, zero), op::Max(lo, y), lo), lo);
+        hi = op::IfThenElse(
+            m_live, op::IfThenElse(op::Gt(r, zero), op::Min(hi, y), hi), hi);
+        const auto both =
+            op::Mul(Ind(d, op::Gt(lo, ninf)), Ind(d, op::Lt(hi, inf)));
+
+        const auto sn = op::Neg(op::Mul(cur.w, r));  // Newton step in y
+        const auto ynewt = op::Add(y, sn);
+        const auto stall = op::Mul(Ind(d, op::Gt(tol, op::Abs(sn))),
+                                   Ind(d, op::Gt(op::Abs(r), rstall)));
+        const auto inside = op::Mul(Ind(d, op::Gt(ynewt, lo)),
+                                    Ind(d, op::Gt(hi, ynewt)));
+        const auto fast = Ind(d, op::Ge(op::Mul(dxold, half), op::Abs(sn)));
+        const auto take_newton =
+            op::Mul(op::Mul(inside, fast), IndNot(d, stall));
+        // Not Newton: bisect a two-sided bracket, else double toward the root.
+        const auto dir = op::CopySign(one, op::Neg(r));
+        const auto grow = op::Min(op::Mul(op::Min(dxold, cap), op::Set(d, 2.0)), cap);
+        const auto ygrow = op::Add(y, op::Mul(dir, op::Max(grow, tol)));
+        const auto ybis = op::Mul(op::Add(lo, hi), half);
+        auto yn = op::IfThenElse(IndMask(d, take_newton), ynewt,
+                                 op::IfThenElse(IndMask(d, both), ybis, ygrow));
+        yn = op::Min(op::Max(yn, ylo_dom), yhi_dom);
+        const auto applied = op::Abs(op::Sub(yn, y));
+
+        const auto xb = OutlinedExp(d, yn);
+        const auto fb = GammaInvForward(d, a, xb, i_wp, lga, lna);
+        const auto rb = GammaInvResid(d, fb, mt);
+        const auto ok = op::Mul(live, IndNot(d, Ind(d, op::IsNaN(rb))));
+        const auto m_ok = IndMask(d, ok);
+        y = op::IfThenElse(m_ok, yn, y);
+        xn_state = op::IfThenElse(m_ok, xb, xn_state);
+        cur.m = Dd<D>{op::IfThenElse(m_ok, fb.m.hi, cur.m.hi),
+                      op::IfThenElse(m_ok, fb.m.lo, cur.m.lo)};
+        cur.w = op::IfThenElse(m_ok, fb.w, cur.w);
+        r = op::IfThenElse(m_ok, rb, r);
+        // A rejected (NaN) iterate shrinks the next step instead.
+        dxold = op::IfThenElse(m_ok, applied,
+                               op::IfThenElse(m_live, op::Mul(op::Min(dxold, cap),
+                                                              op::Set(d, 0.25)),
+                                              dxold));
+        live = op::Mul(live, IndNot(d, Ind(d, op::Gt(tol, applied))));
+      }
+      rbest = op::Abs(GammaInvResid(d, cur, mt));
+    }
+
     auto scale = one;
     for (int k = 0; k < detail::kGammaInvStepsN; ++k) {
       const auto resid = GammaInvResid(d, cur, mt);

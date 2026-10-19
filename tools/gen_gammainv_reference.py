@@ -1058,10 +1058,18 @@ def cross_check_25(rows_p, rows_q, rng, fit2):
         sample = rng.sample(all_rows, 25)
     failures = []
     n_failed = 0
+    n_ok = 0
+    n_skipped = 0
+    n_info = 0
     for a, s, xd, side in sample:
+        conv = True
         with mp.workdps(80):
             if a <= 1e4:
-                if xd >= a:
+                # Route by x: the continued fraction does not converge for
+                # tiny a with a < x << 1 (found on band48: a~1e-10..1e-16,
+                # x~1e-10..1e-13), and its `conv` flag was ignored. For
+                # xd < 1 the series converges for any a, so use it there.
+                if xd >= a and xd >= 1:
                     K, conv = cf_K_mp(a, xd, dps=80)
                     lg = mp.mpf(a) * mp.log(xd) - xd - mp.loggamma(mp.mpf(a))
                     Qv = mp.e ** lg / K
@@ -1080,10 +1088,18 @@ def cross_check_25(rows_p, rows_q, rng, fit2):
                 else:
                     Pv, Qv = temme_pq(mp.mpf(a), lam, phi, fit2, dps=80)
                 method = "route2 exact-asymptotic"
+        if not conv:
+            # Neither route converged: no independent forward exists for
+            # this row. Counted as SKIPPED, never as OK.
+            n_skipped += 1
+            print(f"  a={a:.6e} {side}={s:.6e} xd={xd!r} [{method}] "
+                  f"SKIPPED (forward route did not converge)", file=sys.stderr)
+            continue
         got = Pv if side == "p" else Qv
         rel = float(abs(got - mp.mpf(s)))
 
         if xd == 0.0:
+            n_info += 1
             print(f"  a={a:.6e} {side}={s:.6e} xd=0.0 [{method}] "
                   f"|forward(xd)-s|={rel:.3e} (round-to-zero row -- pdf-bound "
                   f"gate not applicable, see certify_deep_small)", file=sys.stderr)
@@ -1114,6 +1130,7 @@ def cross_check_25(rows_p, rows_q, rng, fit2):
                   f"|forward(xd)-s|={rel:.3e} (beyond-resolution row -- "
                   f"bound {boundf:.3e} exceeds the probability scale, "
                   f"informational only)", file=sys.stderr)
+            n_info += 1
             continue
         print(f"  a={a:.6e} {side}={s:.6e} xd={xd!r} [{method}] "
               f"|forward(xd)-s|={rel:.3e} bound={boundf:.3e} "
@@ -1121,6 +1138,11 @@ def cross_check_25(rows_p, rows_q, rng, fit2):
         if not passed:
             n_failed += 1
             failures.append((a, s, xd, side, method, rel, boundf))
+        else:
+            n_ok += 1
+    print(f"  cross-check summary: OK={n_ok} skipped={n_skipped} "
+          f"failed={n_failed} informational={n_info} (sample {len(sample)})",
+          file=sys.stderr)
     return n_failed, failures
 
 
@@ -1335,6 +1357,125 @@ def ridge56_append(fit1, fit2):
     return 0
 
 
+# ============================================================================
+# Part 13: incremental append of the #48 small-a family (gamma_p_inv /
+# gamma_q_inv diverged for small a on the upper tail; a in [1e-20, 0.47]).
+# Own RNG (Random(4849)); the main seed stream is never touched. Both sides
+# are certified; existing lines stay byte-identical (rows are appended, each
+# file's existing line ending is preserved). q-side: q = min(a*r, 0.5);
+# p-side: same kind of draw with p = 1 - q in double (draws where 1 - q
+# rounds to 1.0 are skipped).
+# ============================================================================
+BAND48_SEED = 4849
+BAND48_N = 200
+BAND48_CKPT_PATH = os.path.join(tempfile.gettempdir(),
+                                f"corvus_gammainv_ref_ckpt_band48_{BAND48_SEED}.tsv")
+BAND48_WITNESSES = (
+    ("p", 0.1, 0.99),
+    ("q", 0.1, 0.0081835764484083223),
+    ("q", 1e-5, 5.8252e-7),
+    ("q", float.fromhex("0x1.7c73accd7c283p-4"), float.fromhex("0x1.61979119e3041p-7")),
+    ("q", 1e-20, 1.2173827277396614e-20),
+)
+BAND48_SKIPPED = [0]
+
+
+def build_band48_point_set():
+    rng = random.Random(BAND48_SEED)
+    ps = PointSet()
+    for side, a, s in BAND48_WITNESSES:
+        ps.add(a, s, side, "band48-witness")
+    for side in ("q", "p"):
+        n_added = 0
+        while n_added < BAND48_N:
+            a = 10.0 ** rng.uniform(-20.0, math.log10(0.47))
+            if not (1e-20 <= a <= 0.47):
+                continue
+            r = 10.0 ** rng.uniform(-2.0, math.log10(50.0))
+            q = min(a * r, 0.5)
+            if side == "q":
+                s = q
+            else:
+                s = 1.0 - q
+                if s >= 1.0:
+                    BAND48_SKIPPED[0] += 1
+                    continue
+            before = len(ps.pts)
+            ps.add(a, s, side, "band48")
+            n_added += 1 if len(ps.pts) > before else 0
+    return ps
+
+
+def band48_append(fit1, fit2):
+    t0 = time.time()
+    ps = build_band48_point_set()
+    print(f"  band48 point set: {len(ps.pts)} points "
+          f"(p-side draws skipped, 1-q == 1.0: {BAND48_SKIPPED[0]})", file=sys.stderr)
+    result, done = compute_all(ps, fit1, fit2, ckpt_path=BAND48_CKPT_PATH,
+                               sig_tag="band48-v1",
+                               seed_label=f"band48:{BAND48_SEED}")
+    if not done:
+        print("\nPARTIAL RUN: re-invoke with --band48-append to continue "
+              "(checkpoint saved).", file=sys.stderr)
+        return 3
+    rows_p, rows_q = result
+    got = {("p", a, s) for a, s, _ in rows_p} | {("q", a, s) for a, s, _ in rows_q}
+    declined = [(side, a, s) for a, s, side, _t in ps.pts if (side, a, s) not in got]
+    for side, a, s in declined:
+        print(f"  DECLINED (not emitted): side={side} a={a!r} ({hexd(a)}) "
+              f"s={s!r} ({hexd(s)})", file=sys.stderr)
+    for w in BAND48_WITNESSES:
+        if w not in got:
+            print(f"\nFAILED: witness {w!r} was not certified -- nothing written.",
+                  file=sys.stderr)
+            return 5
+    n_failed, failures = cross_check_25(rows_p, rows_q,
+                                        random.Random(BAND48_SEED ^ 0x51A7), fit2)
+    if n_failed:
+        print(f"\nFAILED: {n_failed} cross-check row(s) exceeded their bound "
+              f"-- nothing written:", file=sys.stderr)
+        for a, s, xd, side, method, rel, bound in failures:
+            print(f"  a={a!r} s={s!r} xd={xd!r} side={side} rel={rel:.3e} "
+                  f"bound={bound:.3e}", file=sys.stderr)
+        return 4
+
+    plan = []
+    for name, rows in (("gammainv_p_reference.txt", rows_p),
+                       ("gammainv_q_reference.txt", rows_q)):
+        path = os.path.join(REPO, "tests", "data", name)
+        with open(path, "rb") as f:
+            old = f.read()
+        if old and not old.endswith(b"\n"):
+            print(f"\nFAILED: {name} lacks a trailing newline -- nothing written.",
+                  file=sys.stderr)
+            return 6
+        eol = b"\r\n" if b"\r\n" in old else b"\n"
+        present = set()
+        for ln in old.decode().splitlines():
+            t = ln.split()
+            if len(t) == 3:
+                present.add((t[0], t[1]))
+        new = []
+        for a, s, xd in rows:
+            if (hexd(a), hexd(s)) in present:
+                print(f"  already present, skipped: {name} a={hexd(a)} s={hexd(s)}",
+                      file=sys.stderr)
+                continue
+            new.append(f"{hexd(a)} {hexd(s)} {hexd(xd)}".encode() + eol)
+        plan.append((name, path, old, new))
+    for name, path, old, new in plan:
+        with open(path, "wb") as f:
+            f.write(old + b"".join(new))
+        print(f"  appended {len(new)} rows to {name}", file=sys.stderr)
+    for side, a, s in BAND48_WITNESSES:
+        rows = rows_p if side == "p" else rows_q
+        xd = next(x for aa, ss, x in rows if (aa, ss) == (a, s))
+        print(f"  witness {side} a={a!r} s={s!r} -> x={xd!r} ({hexd(xd)})",
+              file=sys.stderr)
+    print(f"band48 runtime (this invocation): {time.time()-t0:.1f}s", file=sys.stderr)
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0],
                                      allow_abbrev=False)
@@ -1343,6 +1484,9 @@ def main():
                              "p-side rows to tests/data/gammainv_p_reference.txt")
     parser.add_argument("--ridge56-append", action="store_true",
                         help="certify only the #56 ridge family and append its "
+                             "p- and q-side rows to tests/data/gammainv_{p,q}_reference.txt")
+    parser.add_argument("--band48-append", action="store_true",
+                        help="certify only the #48 small-a family and append its "
                              "p- and q-side rows to tests/data/gammainv_{p,q}_reference.txt")
     args = parser.parse_args()
     t_all = time.time()
@@ -1359,6 +1503,8 @@ def main():
         return band49_append(fit1, fit2)
     if args.ridge56_append:
         return ridge56_append(fit1, fit2)
+    if args.band48_append:
+        return band48_append(fit1, fit2)
 
     rng = random.Random(SEED)
     print("\nbuilding point set ...", file=sys.stderr)

@@ -10,6 +10,60 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-19
 
+**Order row 7 (#48) DONE 2026-10-19 on Z.** Full ctest 35/35, 0
+warnings, at AVX3_ZEN4, SSE4 and SSE2; CI owed at the push. #48 is
+closed with its fix commit and guards.
+Design [DECIDED 2026-10-19, user]: a bracketed Newton phase, not a new
+seed.
+- Diagnosis was wider than the issue's text. A 6,000-pair probe (a in
+  [1e-20, 0.5], q/a in [0.01, 100]) failed 1,648 on the Q side and 1,498
+  on the P side.
+  - No seed covers the band. S1 is barred below a = 0.3 and S3's gate
+    declines. S2's Picard iteration (contraction ~1/a) runs away, yet
+    wins anyway, since its domain flag is always set and x = a only
+    competes when every candidate is rejected.
+  - Three steps clamped at -0.9 then shrink 1e109 to 1e106.
+  - Two hypotheses were tested and rejected before this: the trust
+    clause's step size, and a relaxed S3 gate (it helps but leaves
+    ~1,458 failures and 30-ulp results).
+- Fix (`src/gammainv-inl.h`): a bracketed phase between seed selection
+  and the three steps. Newton in y = log x with w = dy/dm, inside a sign
+  bracket of the monotone logit, using rtsafe's rule (Newton only if
+  inside and at most half the previous step, else bisect if two-sided,
+  else double toward the root, cap 64).
+  - Stalls (|step| < 2^-10 with |r| > 1, w underflowed) count as slow.
+  - A NaN-forward iterate is rejected and the next step quartered; a NaN
+    seed restarts from x = 1. Deep-small lanes are excluded.
+  - Exit: an applied step below 2^-10, then the three steps.
+  - Entry: first step >= 2^-7 in log x, or a stall, and a < 1e16 (keeps
+    beyond-resolution on its seed). 2^-7 is analytic: the three steps
+    take s to ~s^8, below 2^-53 only from s <= 2^-7.
+  - Sweep (probe Q/P failures, harness, cost): 1 -> 492/12, 47; 1/4 ->
+    228/2, 26; 1/16 -> 33/0, 6; 1/64 and 2^-7 -> 0/0, 0. 2^-10 also
+    gave 0, but at +20-40%.
+- INDICATIVE cost at 2^-7 (Zen 4): +17% in the small-a mid (q) and flip
+  (p) bench bands, ~+9% q-side deep-small, flat elsewhere. Lanes below
+  the entry keep the old path bit for bit, and every pre-existing
+  gammainv cell is unchanged.
+- Guards:
+  - The #48 band is deleted (strict mode demanded it).
+  - test_guards gains a 1,200-point small-a upper-tail grid with its own
+    Rng(4848), so the other grids keep their points. It fails 211 points
+    on HEAD and 0 now.
+  - Rows: `gen_gammainv_reference.py --band48-append` (new, seed 4849):
+    184 p + 204 q certified rows, +N/-0, with all five witnesses (bit for
+    bit corvus's new outputs). 17 p-side points with p within 1e-15 to
+    2e-4 of 1 were declined, not emitted. On HEAD the rows fail all four
+    small-a buckets, at up to 4e18 ULP.
+  - Generator fix found en route: `cross_check_25` routed tiny-a
+    q-side rows with a <= x < 1 to the CF, ignoring its `conv` flag. It
+    now honours `conv`, uses the series for x < 1, and counts unconverged
+    rows as skipped, never OK. Only a <= 1e4, a <= xd < 1 rows change
+    route.
+- Witnesses: gamma_p_inv(0.1, 0.99) = 1.5884778179295045 (was 7.9e106),
+  plus #48's other four; all match their certified values.
+- Next pickup: row 8, #54 beta gamma-limit slice (frontier).
+
 **Order row 6 (#56 + #57) DONE 2026-10-19 on Z**, `7f0e18a`. Full ctest
 35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2; CI GREEN (run
 39194078196, all three jobs; NEON holds the re-pinned gamma cells). #56 and #57
@@ -578,7 +632,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 4 | #58 Expm1Dd + #49 one-arg Log1pmxDd (+ #45 after) — DONE 2026-10-19 (Z) | one file, one hazard rule; ungated dd specials get gates | small–mid | test_dd_special gates; rows | K |
 | 5 | #47 beta_p R4 seam; #51 gamma_q −denorm_min — DONE 2026-10-19 (Z; #47's inverse half moved to #55, row 9) | one comparison; one sign clamp | small | #53 symmetry, sign sweep | K, CI tiers |
 | 6 | #56 gamma R1/R2 ridge + #57 Temme z.lo — DONE 2026-10-19 (Z; #57 remainder → #64) | forward before #48; same TU | frontier + small | near-ridge rows | K, M1, Z |
-| 7 | #48 gammainv small-a seeds | after #56 | frontier | rows + bracket band | K, M1, Z |
+| 7 | #48 gammainv small-a seeds — DONE 2026-10-19 (Z; bracketed phase) | after #56 | frontier | rows + bracket band | K, M1, Z |
 | 8 | #54 beta gamma-limit slice (+ R2 below 2^59 policy) | forward before #55/#50; new ₂F₁ oracle | frontier | rows b∈[2^58,1e30] | K, M1, Z |
 | 9 | #55 betainv a ≳ 1e17 orientation; #50 tiny b (to a≈2.6e4); #60 betainv gates/contract | inverse after #47/#54; one design pass for orientation, seeds, convergence check | frontier | swap-identity guard, rows, non-circular gate | K, M1, Z |
 | 10 | #52 Bessel tail double rounding | independent; can run parallel to 3–9 | small (fix known) | tail sweep, rows | all tiers |

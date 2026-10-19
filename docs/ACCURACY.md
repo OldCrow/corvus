@@ -884,22 +884,42 @@ subnormals of both signs → +inf.
 
 ## gamma_p_inv and gamma_q_inv
 
-**Bounds, measured on the 15,310-row certified reference set and
+**Bounds, measured on the 15,698-row certified reference set and
 identical on every validated leg** — clang-cl AVX3_ZEN4 native, the
 capped AVX2/SSE4/SSSE3/SSE2 sweep, Linux CI, NEON, and MSVC AVX2 —
 including not-CR tallies and worst-case points (the 82 #49 band rows of
-2026-10-18 and the 302 #56 near-median rows of 2026-10-19 are validated
-on Zen 4 at AVX3_ZEN4, SSE4 and SSE2, the other legs at CI):
+2026-10-18, and the 302 #56 near-median and 388 #48 small-a upper-tail
+rows of 2026-10-19, are validated on Zen 4 at AVX3_ZEN4, SSE4 and SSE2,
+the other legs at CI):
 
 | Regime | Bound | not-CR (p / q) |
 |---|---|---|
 | deep-small closed form (x·(1+a) < 2⁻⁶⁰) | **0 ULP — correctly rounded** | 0.00% |
-| small-a seeds (a < 20), tail targets | 1 ULP | 0.51% / 0.00% |
+| small-a seeds (a < 20), tail targets | 1 ULP | 0.28% / 0.09% |
 | small-a seeds, near-median targets | 1 ULP (measured 0) | 0.00% / 0.00% |
 | Temme seed (20 ≤ a ≲ 3·10³⁴) | 1 ULP | 0.16% / 0.38% |
 | beyond-resolution (a ≳ 3·10³⁴) | 1 ULP | 0.08% / 0.08% |
 | large-side inputs (s > ½, exact flip) | 1 ULP (measured 0) | 0.00% / 0.00% |
 | subnormal and zero results | **0 ULP — correctly rounded** | 0.00% |
+
+**Small a on the upper tail, closed (#48).** For a below ~0.5 and
+targets with q/a between ~0.01 and ~100 no seed applied: S1 is barred
+below a = 0.3, S3's far-tail gate declined, and S2's Picard iteration —
+whose contraction factor there is ~1/a — ran away, yet won by default
+because its domain flag is always set. Three steps clamped at a tenth per
+step could not recover: gamma_p_inv(0.1, 0.99) returned 7.9·10¹⁰⁶ for
+1.588, and a 6,000-pair probe of the band failed 1,648. A bracketed phase
+now runs between the seeds and the three steps, on lanes whose first
+Newton step exceeds 2⁻⁷ in log x (or whose slope has underflowed): Newton
+in log x inside a sign bracket of the monotone logit, rtsafe's
+halving rule, bisection once both sides are known and a doubling ramp
+while only one is. 2⁻⁷ is the bar because the three steps carry a
+log-step s to ~s⁸, which is below a double's resolution only from s ≤ 2⁻⁷;
+every lane below it keeps the old path bit for bit. The probe now fails
+0 of 6,000; the 388 certified band rows read up to 4·10¹⁸ ULP on the old
+kernel and within the 1-ULP gates now. INDICATIVE cost (Zen 4): +17% in
+the small-a mid (q) and large-side flip (p) bench bands, ~+9% q-side
+deep-small, flat elsewhere.
 
 The small-a rows dropped from 4.3% not-CR to none on 2026-10-19 without
 touching the inverse: they had inherited the forward's R1/R2 rounding
