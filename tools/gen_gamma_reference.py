@@ -35,10 +35,15 @@ Usage:
     python3 tools/gen_gamma_reference.py
 """
 
+import argparse
+import hashlib
 import math
+import os
 import random
 import struct
 import sys
+import tempfile
+import time
 
 import mpmath as mp
 
@@ -567,7 +572,237 @@ def gen_dd_special_reference(rng):
     return len(rows)
 
 
+# --- incremental append of the #56 ridge / #57 Temme-tail families ------------
+# Own RNG (Random(5657)); the main SEED stream is never touched. Only the new
+# family is certified (same oracle_pq, same finite / saturation-prune /
+# min-subnormal row filters as compute_and_write, preceded by the same
+# extraction + oracle-overlap self-check main() runs), then the rows are
+# appended to both data files, leaving every existing line byte-identical.
+# Ordering convention: file order == point-set insertion order, so new rows
+# go at the end. Rows whose (a, x) is already present are skipped.
+RIDGE56_SEED = 5657
+RIDGE56_N = 600
+RIDGE56_STEP_A = 60
+TAIL57_N = 300
+TAIL57_PHI_MIN = 36.5
+RIDGE56_WITNESSES = (
+    (15.171008041303773, 14.337519187856447),
+    (1.5964951531210116, 2.355985895630986),
+    (14.580163310119733, 15.71328391163746),
+    (14.509912867374792, 15.54067538287069),
+)
+TAIL57_WITNESSES = (
+    (221.53038557579066, 436.1874278050619),
+    (2293.9196984916325, 4212.8856201041035),
+    (4493.060743078933, 2958.983641334607),
+)
+RIDGE56_CKPT_PATH = os.path.join(tempfile.gettempdir(),
+                                 f"corvus_gamma_ref_ckpt_ridge56_{RIDGE56_SEED}.tsv")
+
+
+def build_ridge56_point_set():
+    """Returns (PointSet, tags) with tags[(abits, xbits)] -> family label."""
+    rng = random.Random(RIDGE56_SEED)
+    ps = PointSet()
+    tags = {}
+
+    def add(a, x, tag, keep_sat):
+        n = len(ps.pts)
+        ps.add(a, x, keep_if_saturated=keep_sat)
+        if len(ps.pts) > n:
+            tags[(as_bits(float(a)), as_bits(float(x)))] = tag
+            return True
+        return False
+
+    for a, x in RIDGE56_WITNESSES:
+        add(a, x, "ridge-witness", True)
+    for a, x in TAIL57_WITNESSES:
+        add(a, x, "tail-witness", True)
+    lo, hi = math.log10(1.5), math.log10(20.0)
+    a_ridge = []
+    while len(a_ridge) < RIDGE56_N:
+        a = 10.0 ** rng.uniform(lo, hi)
+        if not (1.5 <= a < 20.0):
+            continue
+        x = a * rng.uniform(0.8, 1.25)
+        if add(a, x, "ridge", True):
+            a_ridge.append(a)
+    for a in rng.sample(a_ridge, RIDGE56_STEP_A):
+        x = a + 1.0
+        xs = {0: x}
+        up = dn = x
+        for k in (1, 2, 3):
+            up = math.nextafter(up, math.inf)
+            dn = math.nextafter(dn, -math.inf)
+            xs[k], xs[-k] = up, dn
+        for k in range(-3, 4):
+            add(a, xs[k], "ridge", True)
+    n_tail = 0
+    lo, hi = math.log10(20.0), math.log10(3000.0)
+    while n_tail < TAIL57_N:
+        a = 10.0 ** rng.uniform(lo, hi)
+        lam = rng.uniform(0.5, 2.0)
+        if not (20.0 <= a <= 3000.0 and 0.5 < lam < 2.0):
+            continue
+        if a * (lam - 1.0 - math.log(lam)) <= TAIL57_PHI_MIN:
+            continue
+        if add(a, a * lam, "tail", False):
+            n_tail += 1
+    return ps, tags
+
+
+def ridge56_append():
+    t0 = time.time()
+    print("extracting full-degree Temme fits for the a>1e4 oracle ...",
+          file=sys.stderr)
+    fits = extract_temme_full()
+    print("self-check: oracle overlap on a in [5e3,1e4] ...", file=sys.stderr)
+    worst, worst_at = check_oracle_overlap(fits)
+    print(f"  worst rel diff {float(worst):.3e} "
+          f"(2^{float(mp.log(worst, 2)):.2f}) at (a,lam)={worst_at}, "
+          f"target 2^-60", file=sys.stderr)
+    if worst > mp.mpf(2) ** -60:
+        print("  FAILED: oracle overlap exceeds 2^-60 -- aborting.",
+              file=sys.stderr)
+        return 1
+
+    ps, tags = build_ridge56_point_set()
+    total = len(ps.pts)
+    dig = hashlib.sha256()
+    for a, x, _k, _m in ps.pts:
+        dig.update(struct.pack("<QQ", as_bits(a), as_bits(x)))
+    sig = f"ridge56-v1-{dig.hexdigest()[:16]} SEED={RIDGE56_SEED} N={total}"
+    print(f"  ridge56/tail57 point set: {total} points", file=sys.stderr)
+
+    done = {}
+    mode = "w"
+    if os.path.exists(RIDGE56_CKPT_PATH):
+        with open(RIDGE56_CKPT_PATH, "r") as f:
+            if f.readline().strip() == sig:
+                mode = "a"
+                for line in f:
+                    parts = line.rstrip("\n").split("\t")
+                    if len(parts) >= 2:
+                        done[int(parts[0])] = parts[1:]
+            else:
+                print("  checkpoint signature mismatch -- starting fresh.",
+                      file=sys.stderr)
+    print(f"  checkpoint: {len(done)}/{total} points already computed",
+          file=sys.stderr)
+    with open(RIDGE56_CKPT_PATH, mode) as fh:
+        if mode == "w":
+            fh.write(sig + "\n")
+            fh.flush()
+        for idx, (a, x, _k, _m) in enumerate(ps.pts):
+            if idx in done:
+                continue
+            try:
+                P, Q = oracle_pq(a, x, fits)
+                if not (mp.isfinite(P) and mp.isfinite(Q)):
+                    raise ValueError("non-finite oracle value")
+                if abs(P + Q - 1) > mp.mpf(10) ** -80:
+                    print(f"\nFAILED: P+Q != 1 at a={a!r} x={x!r}: "
+                          f"P={float(P)!r} Q={float(Q)!r} -- nothing written.",
+                          file=sys.stderr)
+                    return 7
+                Pf, Qf = round_to_double(P), round_to_double(Q)
+                if not (math.isfinite(Pf) and math.isfinite(Qf)):
+                    raise ValueError("non-finite rounded value")
+                rec = [hexd(Pf), hexd(Qf)]
+            except Exception as e:
+                rec = ["FAILED", f"{type(e).__name__}:{e}"]
+            fh.write(str(idx) + "\t" + "\t".join(rec) + "\n")
+            fh.flush()
+            if (idx + 1) % 100 == 0:
+                print(f"    ... {idx + 1}/{total} ({time.time() - t0:.0f}s)",
+                      file=sys.stderr)
+        # reload
+    done = {}
+    with open(RIDGE56_CKPT_PATH, "r") as f:
+        f.readline()
+        for line in f:
+            parts = line.rstrip("\n").split("\t")
+            done[int(parts[0])] = parts[1:]
+
+    rows = []
+    n_pruned = 0
+    n_min_sub = 0
+    declined = []
+    for idx, (a, x, keep_sat, avoid_min_sub) in enumerate(ps.pts):
+        rec = done[idx]
+        if rec[0] == "FAILED":
+            declined.append((a, x, rec[1]))
+            continue
+        Pf, Qf = float.fromhex(rec[0]), float.fromhex(rec[1])
+        if not keep_sat and Pf in (0.0, 1.0) and Qf in (0.0, 1.0):
+            n_pruned += 1
+            continue
+        if avoid_min_sub and (Pf == MIN_SUBNORMAL or Qf == MIN_SUBNORMAL):
+            n_min_sub += 1
+            continue
+        rows.append((a, x, Pf, Qf))
+    for a, x, why in declined:
+        print(f"  DECLINED (not emitted): a={a!r} x={x!r} ({why})", file=sys.stderr)
+    got = {(a, x): (Pf, Qf) for a, x, Pf, Qf in rows}
+    for w in RIDGE56_WITNESSES + TAIL57_WITNESSES:
+        if w not in got:
+            print(f"\nFAILED: witness {w!r} was not certified -- nothing written.",
+                  file=sys.stderr)
+            return 5
+    print(f"  certified {len(rows)} rows; {len(declined)} declined, "
+          f"{n_pruned} incidental saturations pruned, {n_min_sub} min-subnormal",
+          file=sys.stderr)
+
+    plan = []
+    for name, col in (("gamma_p_reference.txt", 2), ("gamma_q_reference.txt", 3)):
+        path = os.path.join("tests", "data", name)
+        with open(path, "rb") as f:
+            old = f.read()
+        if old and not old.endswith(b"\n"):
+            print(f"\nFAILED: {name} lacks a trailing newline -- nothing written.",
+                  file=sys.stderr)
+            return 6
+        eol = b"\r\n" if b"\r\n" in old else b"\n"
+        present = set()
+        for ln in old.decode().splitlines():
+            t = ln.split()
+            if len(t) == 4:
+                present.add((t[0], t[1]))
+        new = []
+        counts = {}
+        for a, x, Pf, Qf in rows:
+            if (hexd(a), hexd(x)) in present:
+                print(f"  already present, skipped: {name} a={hexd(a)} x={hexd(x)}",
+                      file=sys.stderr)
+                continue
+            new.append(f"{hexd(a)} {hexd(x)} {hexd(Pf)} {hexd(Qf)}".encode() + eol)
+            fam = tags[(as_bits(a), as_bits(x))].split("-")[0]
+            counts[fam] = counts.get(fam, 0) + 1
+        plan.append((name, path, old, new, counts))
+    for name, path, old, new, counts in plan:
+        with open(path, "wb") as f:
+            f.write(old + b"".join(new))
+        print(f"  appended {len(new)} rows to {name} (by family: {counts})",
+              file=sys.stderr)
+    for a, x in RIDGE56_WITNESSES + TAIL57_WITNESSES:
+        Pf, Qf = got[(a, x)]
+        print(f"  witness a={a!r} x={x!r} -> P={Pf!r} ({hexd(Pf)}) "
+              f"Q={Qf!r} ({hexd(Qf)})", file=sys.stderr)
+    print(f"ridge56 runtime (this invocation): {time.time()-t0:.1f}s",
+          file=sys.stderr)
+    return 0
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0],
+                                     allow_abbrev=False)
+    parser.add_argument("--ridge56-append", action="store_true",
+                        help="certify only the #56 ridge / #57 Temme-tail "
+                             "families and append them to "
+                             "tests/data/gamma_{p,q}_reference.txt")
+    args = parser.parse_args()
+    if args.ridge56_append:
+        return ridge56_append()
     rng = random.Random(SEED)
 
     print("extracting full-degree Temme fits for the a>1e4 oracle ...",

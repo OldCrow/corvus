@@ -508,18 +508,37 @@ note under the validation matrix).
 
 | Region (direct side) | gamma_p | gamma_q |
 |---|---|---|
-| R1 series (P direct) | **2 ULP** (1.8% not-CR) | complement: 4 ULP |
-| R2 continued fraction (Q direct) | complement: 1 ULP | **2 ULP** (27% not-CR) |
+| R1 series (P direct) | **1 ULP** (0.02% not-CR) | complement: 1 ULP (0.10%) |
+| R2 continued fraction (Q direct) | complement: **0 ULP** (CR) | **1 ULP** (0.04% not-CR) |
 | R3 Temme ridge (smaller side direct) | **2 ULP** | **2 ULP** |
 | R3 complement | 1 ULP | 1 ULP |
 | R4 small-a (Q direct) | complement: **0 ULP** (CR) | **1 ULP** |
 
-Every complement is ≥ ~0.4 by the routing's construction, so all bounds
-above are relative — there is no absolute-error band anywhere in the
-domain. The no-FMA tiers moved exactly two not-CR counts by one point each
-(R1/P 132→131 of 7366, R3/Q 44→45 of 365) with every max ULP unchanged —
-the lgamma-class signature of a design that accumulates in double-double
-and rounds once.
+**R1/R2 re-measured 2026-10-19 (#56).** The table's R1 and R2 rows above
+used to read 2 / 4 / 2 / 1 ULP (R1 P, R1 Q complement, R2 Q, R2 P
+complement), and the reference set never sampled the ridge below a = 20
+densely enough to show they were not true: 1,024 ridge rows added for
+#56 measured 3 / 6 / 3 / 2 on the old kernel. The cause was plain-double
+R1 series terms and R2 CF steps, whose rounding rides into every later
+term (not "attenuated", as the derivation claimed) and is not decaying
+near the ridge. Both now carry dd (R1 every term, R2 its last four CF
+steps). Validated on Zen 4 (clang-cl) at AVX3_ZEN4, SSE4 and SSE2; the
+other legs at CI, the native NEON leg owed by the M1.
+
+A complement is NOT always large: in R1 with a just above 3/2 and x near
+a+1, Q is ~0.13, where 1 ⊖ P amplifies P's error ~5×. That premise ("every
+complement ≥ ~0.4") was the second false claim #56 found. What holds the
+R1 Q complement to 1 ULP is that the complement is taken from the direct
+side's dd before any rounding, and that dd is now accurate far below a
+double ulp. All bounds above are relative — there is no absolute-error
+band anywhere in the domain.
+
+**R3 Temme tail (a·φ > 36), #57.** The tail dropped z.lo and formed
+G/(2z) as a rounded double, reading 3 ULP on tail rows; with the z.lo
+slope folded in and G/(2z) a dd product it reads 2 ULP (302 tail rows
+added). Its real error still reaches 2.34 ulp because the erfc tail factor
+G is plain double: within the integer 2-ULP bound with 0.16 ulp of margin
+(#64 tracks a dd G).
 
 Method: four regions on λ = x/a with a_T = 20 — a power series for P
 (fixed cap 64, per-lane freeze), a **backward** fixed-depth (44) evaluation
@@ -865,22 +884,28 @@ subnormals of both signs → +inf.
 
 ## gamma_p_inv and gamma_q_inv
 
-**Bounds, measured on the 15,008-row certified reference set and
+**Bounds, measured on the 15,310-row certified reference set and
 identical on every validated leg** — clang-cl AVX3_ZEN4 native, the
 capped AVX2/SSE4/SSSE3/SSE2 sweep, Linux CI, NEON, and MSVC AVX2 —
-including not-CR tallies and worst-case points (the 82 #49 band rows
-added 2026-10-18 are validated on Zen 4 at AVX3_ZEN4, SSE4 and SSE2,
-the other legs at the next CI run):
+including not-CR tallies and worst-case points (the 82 #49 band rows of
+2026-10-18 and the 302 #56 near-median rows of 2026-10-19 are validated
+on Zen 4 at AVX3_ZEN4, SSE4 and SSE2, the other legs at CI):
 
 | Regime | Bound | not-CR (p / q) |
 |---|---|---|
 | deep-small closed form (x·(1+a) < 2⁻⁶⁰) | **0 ULP — correctly rounded** | 0.00% |
-| small-a seeds (a < 20), tail targets | 1 ULP | 0.51% / 0.94% |
-| small-a seeds, near-median targets | 1 ULP | 4.29% / 4.22% |
+| small-a seeds (a < 20), tail targets | 1 ULP | 0.51% / 0.00% |
+| small-a seeds, near-median targets | 1 ULP (measured 0) | 0.00% / 0.00% |
 | Temme seed (20 ≤ a ≲ 3·10³⁴) | 1 ULP | 0.16% / 0.38% |
 | beyond-resolution (a ≳ 3·10³⁴) | 1 ULP | 0.08% / 0.08% |
-| large-side inputs (s > ½, exact flip) | 1 ULP | 0.84% / 0.73% |
+| large-side inputs (s > ½, exact flip) | 1 ULP (measured 0) | 0.00% / 0.00% |
 | subnormal and zero results | **0 ULP — correctly rounded** | 0.00% |
+
+The small-a rows dropped from 4.3% not-CR to none on 2026-10-19 without
+touching the inverse: they had inherited the forward's R1/R2 rounding
+(#56), and the forward's series and CF are now dd. #56's witness
+gamma_p_inv(7.151707517755251, 0.6176099837213445) — 2 ulp off before —
+returns the certified 0x1.e84a372567c6cp+2.
 
 **Both sides of the median carry the full relative bound.** An input
 s > ½ is replaced by 1 − s, exact by Sterbenz, so the kernel always

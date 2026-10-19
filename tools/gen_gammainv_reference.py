@@ -1231,12 +1231,119 @@ def band49_append(fit1, fit2):
     return 0
 
 
+# ============================================================================
+# Part 12: incremental append of the #56 ridge family (near-median targets,
+# a in [1.5, 20)). Own RNG (Random(5658)); the main seed stream is never
+# touched. Both sides (gamma_p_inv -> gammainv_p_reference.txt, gamma_q_inv ->
+# gammainv_q_reference.txt) are certified; existing lines stay byte-identical
+# (rows are appended, each file's existing line ending is preserved).
+# ============================================================================
+RIDGE56_SEED = 5658
+RIDGE56_N = 150
+RIDGE56_CKPT_PATH = os.path.join(tempfile.gettempdir(),
+                                 f"corvus_gammainv_ref_ckpt_ridge56_{RIDGE56_SEED}.tsv")
+RIDGE56_WITNESSES = (
+    ("p", 7.151707517755251, 0.6176099837213445),
+    ("q", 15.336106112411676, 0.5402675857765477),
+)
+
+
+def build_ridge56_point_set():
+    rng = random.Random(RIDGE56_SEED)
+    ps = PointSet()
+    for side, a, s in RIDGE56_WITNESSES:
+        ps.add(a, s, side, "ridge56-witness")
+    for side in ("p", "q"):
+        n_added = 0
+        while n_added < RIDGE56_N:
+            a = 10.0 ** rng.uniform(math.log10(1.5), math.log10(20.0))
+            if not (1.5 <= a < 20.0):
+                continue
+            s = rng.uniform(0.3, 0.7)
+            before = len(ps.pts)
+            ps.add(a, s, side, "ridge56")
+            n_added += 1 if len(ps.pts) > before else 0
+    return ps
+
+
+def ridge56_append(fit1, fit2):
+    t0 = time.time()
+    ps = build_ridge56_point_set()
+    print(f"  ridge56 point set: {len(ps.pts)} points", file=sys.stderr)
+    result, done = compute_all(ps, fit1, fit2, ckpt_path=RIDGE56_CKPT_PATH,
+                               sig_tag="ridge56-v1",
+                               seed_label=f"ridge56:{RIDGE56_SEED}")
+    if not done:
+        print("\nPARTIAL RUN: re-invoke with --ridge56-append to continue "
+              "(checkpoint saved).", file=sys.stderr)
+        return 3
+    rows_p, rows_q = result
+    got = {("p", a, s) for a, s, _ in rows_p} | {("q", a, s) for a, s, _ in rows_q}
+    declined = [(side, a, s) for a, s, side, _t in ps.pts if (side, a, s) not in got]
+    for side, a, s in declined:
+        print(f"  DECLINED (not emitted): side={side} a={a!r} ({hexd(a)}) "
+              f"s={s!r} ({hexd(s)})", file=sys.stderr)
+    for w in RIDGE56_WITNESSES:
+        if w not in got:
+            print(f"\nFAILED: witness {w!r} was not certified -- nothing written.",
+                  file=sys.stderr)
+            return 5
+    n_failed, failures = cross_check_25(rows_p, rows_q,
+                                        random.Random(RIDGE56_SEED ^ 0x51A7), fit2)
+    if n_failed:
+        print(f"\nFAILED: {n_failed} cross-check row(s) exceeded their bound "
+              f"-- nothing written:", file=sys.stderr)
+        for a, s, xd, side, method, rel, bound in failures:
+            print(f"  a={a!r} s={s!r} xd={xd!r} side={side} rel={rel:.3e} "
+                  f"bound={bound:.3e}", file=sys.stderr)
+        return 4
+
+    plan = []
+    for name, rows in (("gammainv_p_reference.txt", rows_p),
+                       ("gammainv_q_reference.txt", rows_q)):
+        path = os.path.join(REPO, "tests", "data", name)
+        with open(path, "rb") as f:
+            old = f.read()
+        if old and not old.endswith(b"\n"):
+            print(f"\nFAILED: {name} lacks a trailing newline -- nothing written.",
+                  file=sys.stderr)
+            return 6
+        eol = b"\r\n" if b"\r\n" in old else b"\n"
+        present = set()
+        for ln in old.decode().splitlines():
+            t = ln.split()
+            if len(t) == 3:
+                present.add((t[0], t[1]))
+        new = []
+        for a, s, xd in rows:
+            if (hexd(a), hexd(s)) in present:
+                print(f"  already present, skipped: {name} a={hexd(a)} s={hexd(s)}",
+                      file=sys.stderr)
+                continue
+            new.append(f"{hexd(a)} {hexd(s)} {hexd(xd)}".encode() + eol)
+        plan.append((name, path, old, new))
+    for name, path, old, new in plan:
+        with open(path, "wb") as f:
+            f.write(old + b"".join(new))
+        print(f"  appended {len(new)} rows to {name}", file=sys.stderr)
+    for side, a, s in RIDGE56_WITNESSES:
+        rows = rows_p if side == "p" else rows_q
+        xd = next(x for aa, ss, x in rows if (aa, ss) == (a, s))
+        print(f"  witness {side} a={a!r} s={s!r} -> x={xd!r} ({hexd(xd)})",
+              file=sys.stderr)
+    print(f"ridge56 runtime (this invocation): {time.time()-t0:.1f}s", file=sys.stderr)
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0],
                                      allow_abbrev=False)
     parser.add_argument("--band49-append", action="store_true",
                         help="certify only the #49 band family and append its "
                              "p-side rows to tests/data/gammainv_p_reference.txt")
+    parser.add_argument("--ridge56-append", action="store_true",
+                        help="certify only the #56 ridge family and append its "
+                             "p- and q-side rows to tests/data/gammainv_{p,q}_reference.txt")
     args = parser.parse_args()
     t_all = time.time()
     fit1, fit2 = build_fits()
@@ -1250,6 +1357,8 @@ def main():
 
     if args.band49_append:
         return band49_append(fit1, fit2)
+    if args.ridge56_append:
+        return ridge56_append(fit1, fit2)
 
     rng = random.Random(SEED)
     print("\nbuilding point set ...", file=sys.stderr)

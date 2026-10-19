@@ -11,16 +11,23 @@
 // THE ONE RULE THE WHOLE DESIGN TURNS ON: always compute the SMALLER of the
 // pair directly, and get the other one as 1 (-) it, as a double-double
 // subtraction rounded once. A directly computed side keeps full relative
-// accuracy however tiny it gets; the complement is by construction >= ~0.4,
-// where 1 (-) small costs nothing. Computing the large side directly and
-// subtracting would be the opposite trade and is never done.
+// accuracy however tiny it gets. The complement is NOT always large: in R1
+// with a just above 3/2 and x near a+1, Q is ~0.13 (#56), which amplifies
+// P's error ~5x. What keeps it correctly rounded is that the complement is
+// taken from the direct side's DD, before any rounding -- so the direct
+// side's dd must be accurate to well below a double ulp, which is why R1's
+// terms and R2's last CF steps are carried in dd. Computing the large side
+// directly and subtracting would be the opposite trade and is never done.
 //
 // REGIONS (lambda = x/a, a_T = kGammaAT = 20)
 //   R1  series, P-direct   {a < 20, x <= a+1} u {a >= 20, lambda <= 1/2}
 //       P = e^E' * sum_{n>=0} x^n / ((a+1)...(a+n)),  E' = E - log a.
-//       Fixed cap kGammaSeriesN with a per-lane freeze mask; terms are
-//       plain double (each is a factor of the next, so their rounding is
-//       attenuated by the tail they head), the sum is dd.
+//       Fixed cap kGammaSeriesN with a per-lane freeze mask; terms AND sum
+//       are dd (#56). A plain-double term's rounding is NOT attenuated:
+//       each term is a factor of the next, so a rounding at step k rides
+//       into every later term, and near the ridge (x/(a+n) ~ 1) those
+//       terms do not decay -- the plain form measured 3.11 ulp on P and 6.08
+//       on its complement.
 //   R2  backward CF, Q-direct  {a < 20, x > a+1} u {a >= 20, lambda >= 2}
 //       Legendre's continued fraction run BACKWARD from a fixed depth
 //       kGammaCfN with NO convergence test. Backward is not a stylistic
@@ -103,6 +110,14 @@ inline constexpr double kGammaR4AMax = detail::kLgammaZoneHi - 1.0;  // 3/2
 // Per-lane freeze threshold for the two summed series: a term below this
 // times the running sum cannot move the dd result.
 inline constexpr double kGammaFreezeEps = 0x1.0p-60;
+// GammaCfRecip's double-double tail (#56): the last kGammaCfDdSteps steps of
+// the backward CF run in dd, the deeper ones in double. The recurrence
+// contracts the deep steps' rounding, so only the last few reach the
+// answer: 2 steps left R2 at 0.66 ulp on a 6,000-point ridge probe, 4
+// steps are correctly rounded there and bit-identical to 8 on all but 9 of
+// 20,000 R2 probe points (all half-ulp ties, both within 0.51 ulp), at ~3%
+// cost against 8's ~25% (Zen 4, indicative).
+inline constexpr int kGammaCfDdSteps = 4;
 
 // Temme core/tail split, exact: a*phi = 36 <=> z = sqrt(a*phi) = 6, the same
 // threshold erfc's own core/tail split uses, so the two halves of this
@@ -169,9 +184,10 @@ struct GammaVal {
 //   v  = ScaleTwo(round(m), e): the direct answer, ONE rounding even when the
 //        result lands in the subnormal band.
 //   dd = the scaled pair, for the complement. Where the complement is taken
-//        the result is >= ~0.4 and the scaling is exact, so the pair is a
-//        faithful dd there; where it is not, the complement rounds to 1
-//        regardless.
+//        the direct side is at most ~0.87 (Q ~ 0.13 at worst, #56) and far
+//        from the subnormal band, so the scaling is exact and the pair is a
+//        faithful dd; where the direct side is subnormal the complement
+//        rounds to 1 regardless.
 template <class D>
 HWY_INLINE GammaVal<D> GammaScale(D d, Dd<D> m, op::V<op::SignedTag<D>> e) {
   return {ScaleTwo(d, DdToDouble(m), e),
@@ -211,7 +227,10 @@ HWY_INLINE GammaExpArg<D> GammaClampE(D d, op::V<D> eh, op::V<D> el) {
 // Every term is positive and t_n / t_{n-1} = x/(a+n) <= 1 on the whole
 // region (x <= a+1 in the small-a band, x <= a/2 in the large-a band), so
 // the terms are non-increasing and the freeze mask below is monotone by
-// construction. The cap kGammaSeriesN is a worst-case bound from the
+// construction. Terms and ratio are dd (#56): a+n is an exact TwoSum and
+// x/(a+n) = x * DdRecipDd(a+n), so no step adds a double's rounding to the
+// chain every later term inherits (the cost: ~40% on R1, Zen 4,
+// indicative). The cap kGammaSeriesN is a worst-case bound from the
 // generator's self-check (d), not a guess: the deepest point in the region
 // (a -> 20-, x = a+1) needs 52 terms.
 //
@@ -247,15 +266,16 @@ HWY_NOINLINE Dd<D> GammaSeriesSum(D d, op::V<D> a, op::V<D> x) {
   const auto eps = op::Set(d, kGammaFreezeEps);
   const auto xc = op::Min(x, op::Add(a, one));
 
-  auto t = one;
+  Dd<D> t{one, zero};
   Dd<D> s{one, zero};
   auto live = one;
   for (int n = 1; n <= detail::kGammaSeriesN; ++n) {
-    t = op::Mul(t, op::Div(xc, op::Add(a, op::Set(d, static_cast<double>(n)))));
+    const auto apn = TwoSum(d, a, op::Set(d, static_cast<double>(n)));  // exact
+    t = DdMul(d, t, DdMulD(d, DdRecipDd(d, apn), xc));
     const auto lm = op::Gt(live, half);
-    const auto sn = DdAddD(d, s, t);
+    const auto sn = DdAdd(d, s, t);
     s = Dd<D>{op::IfThenElse(lm, sn.hi, s.hi), op::IfThenElse(lm, sn.lo, s.lo)};
-    live = op::IfThenElse(op::Lt(t, op::Mul(s.hi, eps)), zero, live);
+    live = op::IfThenElse(op::Lt(t.hi, op::Mul(s.hi, eps)), zero, live);
     if (op::AllTrue(d, op::Eq(live, zero))) break;
   }
   return s;
@@ -267,21 +287,34 @@ HWY_NOINLINE Dd<D> GammaSeriesSum(D d, op::V<D> a, op::V<D> x) {
 //
 // Started from the bare tail K_N = x + 2N + 1 - a and walked down to j = 1
 // at a FIXED depth, with no convergence test at all -- see the file header
-// for why a test is worse than useless here. 1/K is taken as a dd because Q
-// is directly proportional to it, so a rounded reciprocal would put its own
-// half ulp straight into the answer.
+// for why a test is worse than useless here. The last kGammaCfDdSteps steps
+// run in dd (#56): the recurrence contracts what the deep steps round, but
+// the last few each put a plain double's half ulp into K, which is worth
+// ~2 ulp on Q near the ridge. j - a and x + 2j - 1 - a are formed as exact
+// TwoSums for the same reason. 1/K is a dd (DdRecipDd) because Q is
+// directly proportional to it.
 template <class D>
 HWY_NOINLINE Dd<D> GammaCfRecip(D d, op::V<D> a, op::V<D> x) {
-  auto k = op::Sub(
+  const auto ma = op::Neg(a);
+  auto kd = op::Sub(
       op::Add(x, op::Set(d, static_cast<double>(2 * detail::kGammaCfN + 1))), a);
-  for (int j = detail::kGammaCfN; j >= 1; --j) {
+  for (int j = detail::kGammaCfN; j > kGammaCfDdSteps; --j) {
     const auto jv = op::Set(d, static_cast<double>(j));
     const auto num = op::Mul(jv, op::Sub(jv, a));
     const auto den =
         op::Sub(op::Add(x, op::Set(d, static_cast<double>(2 * j - 1))), a);
-    k = op::Sub(den, op::Div(num, k));
+    kd = op::Sub(den, op::Div(num, kd));
   }
-  return DdRecip(d, k);
+  Dd<D> k{kd, op::Zero(d)};
+  for (int j = kGammaCfDdSteps; j >= 1; --j) {
+    const auto jv = op::Set(d, static_cast<double>(j));
+    const auto num = DdMulD(d, TwoSum(d, jv, ma), jv);  // j*(j-a)
+    const auto den = DdAddD(
+        d, TwoSum(d, x, op::Set(d, static_cast<double>(2 * j - 1))), ma);
+    const auto q = DdMul(d, num, DdRecipDd(d, k));
+    k = DdAdd(d, den, Dd<D>{op::Neg(q.hi), op::Neg(q.lo)});
+  }
+  return DdRecipDd(d, k);
 }
 
 // R4: Q(a,x) for 0 < a <= 3/2, 0 < x <= 4, computed DIRECTLY.
@@ -491,9 +524,32 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
   const auto core = DdAdd(d, half_erfc, DdMul(d, brk_core, exd));
 
   // --- tail, a*phi > 36 ---------------------------------------------------
+  // gt = G/(2z) = 1/2 erfc(z) e^{z^2} at z.hi, as a dd (#57: it was a
+  // rounded double, and z.lo was dropped). z.lo enters through the slope:
+  // with f(z) = 1/2 erfc(z) e^{z^2}, f' = 2z f - 1/sqrt(pi), so
+  // f(z.hi + z.lo) = gt - z.lo (1/sqrt(pi) - 2 z gt) + O(z.lo^2) -- the same
+  // first-order fold the core applies to its own erfc term.
+  //
+  // ONLY ON UNSATURATED LANES (a*phi <= -kGammaExpFloor = 800, i.e.
+  // z <= 28.3). The bracket 1/sqrt(pi) - 2z*gt is ~1/(2 sqrt(pi) z^2) but
+  // is formed by a subtraction carrying ~2^-53 absolute, so the computed
+  // correction's error relative to gt is ~2^-105 z^2: 2^-94 at z = 28.3,
+  // and garbage for the huge z of a saturated lane (z ~ 1e50 at a ~ 1e172),
+  // where it kept brk_tail from underflowing to zero. The forward forces
+  // those lanes to an exact 0/1 anyway, but gammainv takes the LOG of this
+  // dd on every R3 lane, and a nonzero garbage tail there returned a wrong
+  // root (beyond-resolution bucket, 1.9e15 ULP).
   const auto uz = op::Div(one, zs);
-  const auto gt = op::Div(ErfcTailGFromU(d, zs, uz), op::Add(zs, zs));
-  const auto brk_tail = DdAddD(d, s_rv, gt);
+  const auto two_z = op::Add(zs, zs);
+  const auto gtd = DdMulD(d, DdRecip(d, two_z), ErfcTailGFromU(d, zs, uz));
+  const auto live_tail =
+      op::Ge(op::Set(d, -detail::kGammaExpFloor), aphi.hi);
+  const auto zlo_corr = op::IfThenElse(
+      live_tail,
+      op::Mul(z.lo, op::Sub(op::Set(d, detail::kGammaInvSqrtPiHi),
+                            op::Mul(two_z, gtd.hi))),
+      zero);
+  const auto brk_tail = DdAdd(d, s_rv, DdAddD(d, gtd, op::Neg(zlo_corr)));
   const auto exf = ExpDdFrac(d, ea.hi, ea.lo);
   const auto tail = GammaScale(d, DdMul(d, exf.m, brk_tail), exf.e);
 

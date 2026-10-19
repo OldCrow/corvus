@@ -10,6 +10,59 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-19
 
+**Order row 6 (#56 + #57) DONE 2026-10-19 on Z.** Full ctest 35/35, 0
+warnings, at AVX3_ZEN4, SSE4 and SSE2; CI owed at the push. #56 and #57
+are closed with their fix commit and guards. Decisions this row [user,
+2026-10-19]: accept #56's cost; land #57 partially and split the rest
+into #64.
+- **#56** (`src/gamma-inl.h`): `GammaSeriesSum` now carries terms and
+  ratio in dd (a + n by exact TwoSum, x * DdRecipDd(a + n)).
+  `GammaCfRecip` runs the deep steps in double and the last
+  `kGammaCfDdSteps = 4` in dd.
+  - Tail length: 2 steps measured 0.66 ulp; 4 matches 8 on all 82 gate
+    cells and bit for bit on 20,000 R2 probe points except 9 half-ulp
+    ties.
+  - INDICATIVE cost (Zen 4 laptop): R1 77.6 -> ~108 ns/el (+~40%), R2
+    61 -> ~63 (+~3%); R3 and R4 are unchanged.
+  - Both cores are shared, so beta's gamma-limit slice, betainv's transfer
+    and gammainv's forward inherit the fix: the gammainv small-a seed
+    cells went 1 -> 0 ULP, with no inverse change.
+  - Comments corrected, the two false derivation claims #56 named:
+    "attenuated" rounding, and "complement >= ~0.4" (Q is ~0.13 in R1).
+  - Routing change ("gamma_q via R2 for x >= a"): NOT needed. The dd
+    direct side makes the complement correctly rounded on its own.
+- **#57**: the Temme tail folds z.lo through f' = 2z*f - 1/sqrt(pi) and
+  forms gt as a dd product. In the contract metric (integer ULP from
+  correctly rounded) the tail goes 3 -> 2, inside the bound. Real error
+  2.34 ulp remains, from plain-double G (erfc tail): filed as
+  OldCrow/corvus#64, corrected the same day to a margin issue (0.16 ulp
+  to the 2.5 where a point would read 3), not a violation.
+  - REGRESSION FOUND AND FIXED before landing: unguarded, the z.lo slope
+    corrupted SATURATED lanes. Its bracket subtraction is ~2^-53 noise
+    against a true ~1/z^2, at z ~ 1e50, so brk_tail stopped underflowing
+    to 0. gammainv takes the log of that dd on every R3 lane, so
+    `gamma_p_inv` beyond-resolution read 1.9e15 ULP. The slope now
+    applies only where a*phi <= 800. Tail probe bit-identical,
+    gammainv_ulp back to 1.
+  - Guard gap: test_guards' gamma bracket grid stops at a = 1e20, so the
+    harness could not see this; gammainv_ulp did.
+- **Rows** (append modes, +N/-0):
+  - `gen_gamma_reference.py --ridge56-append` (new, seed 5657): 1,326
+    rows per file, 1,024 ridge rows for a < 20 (including x bit-stepped
+    at a+1) and 302 Temme-tail rows, plus all seven witnesses.
+  - `gen_gammainv_reference.py --ridge56-append` (seed 5658): 151 rows
+    per side (near-median), plus both witnesses.
+- **Fail-first** (HEAD's gamma-inl.h on the new rows): five gamma cells
+  fail. R1 P 3 (gate 2), R2 P complement 2 (gate 1), R1 Q complement 6
+  (gate 4), R2 Q 3 (gate 2), R3 Q 3 (gate 2).
+- **Re-pinned** (house rule, measured, identical at AVX3_ZEN4, SSE4 and
+  SSE2): R1 P 2 -> 1, R1 Q complement 4 -> 1, R2 Q 2 -> 1, R2 P
+  complement 1 -> 0. R3 stays 2. ACCURACY's gamma and gammainv tables are
+  updated; NEON is at CI, the native M1 leg owed.
+- Next pickup: row 7, #48 gammainv small-a seeds (frontier; it measures
+  against this forward, which is why #56 came first). The #48 band
+  stays.
+
 **Order row 5 (#47 + #51) DONE 2026-10-19 on Z**, `50961b3`. Full ctest
 35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2 (clang-cl); CI GREEN (run
 39178966625, all three jobs; NEON confirms the new #55 band holds there).
@@ -523,7 +576,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 3 | #59 non-FMA DdDivDd floor (+ DdSqrt policy) — DONE 2026-10-18 (Z): DdDivDd floor fixed, DdSqrt floor documented | core primitive; local prescale | small | subnormal rows; capped legs | K capped, CI |
 | 4 | #58 Expm1Dd + #49 one-arg Log1pmxDd (+ #45 after) — DONE 2026-10-19 (Z) | one file, one hazard rule; ungated dd specials get gates | small–mid | test_dd_special gates; rows | K |
 | 5 | #47 beta_p R4 seam; #51 gamma_q −denorm_min — DONE 2026-10-19 (Z; #47's inverse half moved to #55, row 9) | one comparison; one sign clamp | small | #53 symmetry, sign sweep | K, CI tiers |
-| 6 | #56 gamma R1/R2 ridge + #57 Temme z.lo | forward before #48; same TU | frontier + small | near-ridge rows | K, M1, Z |
+| 6 | #56 gamma R1/R2 ridge + #57 Temme z.lo — DONE 2026-10-19 (Z; #57 remainder → #64) | forward before #48; same TU | frontier + small | near-ridge rows | K, M1, Z |
 | 7 | #48 gammainv small-a seeds | after #56 | frontier | rows + bracket band | K, M1, Z |
 | 8 | #54 beta gamma-limit slice (+ R2 below 2^59 policy) | forward before #55/#50; new ₂F₁ oracle | frontier | rows b∈[2^58,1e30] | K, M1, Z |
 | 9 | #55 betainv a ≳ 1e17 orientation; #50 tiny b (to a≈2.6e4); #60 betainv gates/contract | inverse after #47/#54; one design pass for orientation, seeds, convergence check | frontier | swap-identity guard, rows, non-circular gate | K, M1, Z |

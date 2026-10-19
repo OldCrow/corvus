@@ -6,9 +6,10 @@
 // The split matters more here than in the other ULP tests. Every region
 // computes the smaller of the pair directly and gets the other by
 // subtraction from one; the direct side is the one carrying a relative
-// accuracy claim down to the subnormal band, while the complement is always
-// >= ~0.4 and its bound is a different (easier) statement. Reporting them
-// together would average a hard claim with an easy one.
+// accuracy claim down to the subnormal band, while the complement is a
+// different statement: usually large, but as small as ~0.13 in R1 (#56),
+// where it inherits the direct side's error amplified ~5x. Reporting them
+// together would average two different claims.
 //
 // The routing below is re-derived from the same src/gamma_data.h constants
 // the kernel reads, so the two cannot drift apart silently.
@@ -33,21 +34,26 @@ using corvus_test::ParseDouble;
 using corvus_test::SameBits;
 using corvus_test::UlpDiff;
 
-// Gates pinned to the values measured on AVX2 native plus the
-// SSE4/SSSE3/SSE2 caps (Kaby Lake, AppleClang) -- max ULP was identical in
-// every cell on all four tiers; only two not-CR counts moved by 1. No
-// margin, per house rule. Indexed [region][0 = direct, 1 = complement];
-// cells that hold no points for a function carry 0 so any routing change
-// that populates them trips the gate and forces a re-measure.
+// Gates pinned to the values measured, no margin, per house rule. Indexed
+// [region][0 = direct, 1 = complement]; cells that hold no points for a
+// function carry 0 so any routing change that populates them trips the gate
+// and forces a re-measure. R1 and R2 re-pinned 2026-10-19 (#56: dd series
+// terms and dd CF tail; the reference set gained 1,024 ridge rows for
+// a < 20 and 302 Temme-tail rows for #57), measured on Zen 4 clang-cl at
+// AVX3_ZEN4, SSE4 and SSE2: R1 P 2 -> 1, R1 Q complement 4 -> 1 (was 6 on
+// the new rows), R2 Q 2 -> 1, R2 P complement 1 -> 0. R3 Q stays 2: the
+// new tail rows read 3 before #57's z.lo fix and 2 after (#64 tracks the
+// remaining real-error margin). Earlier pins: Kaby Lake, AppleClang, AVX2
+// plus the SSE4/SSSE3/SSE2 caps.
 constexpr uint64_t kGateP[4][2] = {
-    {2, 0},  // R1: direct P max 2
-    {0, 1},  // R2: complement P max 1
+    {1, 0},  // R1: direct P max 1
+    {0, 0},  // R2: complement P max 0 (correctly rounded)
     {2, 1},  // R3
     {0, 0},  // R4: complement P max 0 (correctly rounded)
 };
 constexpr uint64_t kGateQ[4][2] = {
-    {0, 4},  // R1: complement Q max 4 (worst a=1.5+ulp, x=2.25)
-    {2, 0},  // R2: direct Q max 2
+    {0, 1},  // R1: complement Q max 1
+    {1, 0},  // R2: direct Q max 1
     {2, 1},  // R3
     {1, 0},  // R4: direct Q max 1
 };
