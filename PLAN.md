@@ -10,14 +10,31 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-19
 
-**Order row 8 (#54): ANALYSIS DONE, implementation waits for row 7's CI
-[user].** Probe: 1,400 huge-parameter points, both orientations, against
+**Order row 8 (#54): defect 1 FIXED 2026-10-19 on Z; defects 2 and 3
+open.** Probe: 1,400 huge-parameter points, both orientations, against
 the ₂F₁ closed form with precision raised until 1 − I resolves.
 - Defect 1 (the slice, N >= 2^59): P small up to 11,592 ulp (huge second)
-  and 529 (huge first). The fix t = (N + (s−1)/2)·L in dd is checked
-  against the oracle: 1.7e-11 -> < 5e-26 relative for s <= 1e4.
-  [DECIDED, user]: do it next, mirror it in the generator's
-  `gamma_corner_value`, and add ₂F₁-certified rows.
+  and 529 (huge first). FIXED: `BetaGlT` (src/beta-inl.h) forms
+  t = −(N + (s−1)/2)·log1p(−w) in dd. The slice and betainv's gamma-limit
+  transfer both use it.
+  - The prefactor stays at the full dd t. The series and CF factors are
+    corrected through their t-derivatives. A first cut applied t.lo as a
+    relative correction to a t.hi prefactor, and that broke for
+    |t.lo| ≳ 1 (betainv iterates t ~ 1e18): it added 79 #55-band
+    failures, now back to HEAD's count.
+  - Generator: `gamma_corner_value` mirrors the shift. The new
+    `--gl54-append` (seed 5454) adds 195 rows certified by a ₂F₁ oracle
+    with a doubled-dps check (worst disagreement 1e-53). 189 rows are
+    huge-second and 6 huge-first; 381 of 400 huge-first draws were lost
+    to y = 1 − x rounding to 1. The witness is included.
+  - HEAD reads the new rows at up to 11,592 ULP. The fix reads 0 in all
+    four cells on AVX3_ZEN4, SSE4 and SSE2, and the gates are re-pinned
+    1/1 -> 0/0. Full ctest passes 35/35 on all three tiers with 0
+    warnings, and the local MSVC /W4 /WX build is clean. Guard bands are
+    unchanged: #50 324, #55 101/373.
+  - [OPEN] `tools/gen_beta_data.py:573` still self-checks with the bare
+    t = −β·log1p(−ξ). It is not a gate, but it should get the shift.
+  - Native M1 run owed (NEON); CI macOS covers the gates meanwhile.
 - Defect 2 (R2 just below 2^59): 2.2-2.4 ulp, as filed. A policy call,
   DEFERRED [user] until #65 is diagnosed: lowering B_GL would move the
   strip into the corrected slice, but it also lowers R3's ridge floor
@@ -27,9 +44,13 @@ the ₂F₁ closed form with precision raised until 1 − I resolves.
   over 1 ulp, worst 1.08e8 ulp. Routing was verified with the test
   router, and the gates miss it for lack of rows.
 
-**Order row 7 (#48) DONE 2026-10-19 on Z.** Full ctest 35/35, 0
-warnings, at AVX3_ZEN4, SSE4 and SSE2; CI owed at the push. #48 is
-closed with its fix commit and guards.
+**Order row 7 (#48) DONE 2026-10-19 on Z**, `07ca2f6` + `8dc5623`. Full
+ctest 35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2. CI: the first run
+(39202993833) FAILED on Windows MSVC, because the phase's local `m_ok`
+shadowed GammaInvVec's input mask (C4456 under /W4 /WX; clang-cl and GCC
+are silent). It was renamed to `m_adopt` and verified with a local MSVC
+/WX build (0 diagnostics); CI GREEN at `8dc5623` (run 39205868784, all
+three jobs). #48 is closed with its fix commit and guards.
 Design [DECIDED 2026-10-19, user]: a bracketed Newton phase, not a new
 seed.
 - Diagnosis was wider than the issue's text. A 6,000-pair probe (a in
@@ -79,7 +100,7 @@ seed.
     route.
 - Witnesses: gamma_p_inv(0.1, 0.99) = 1.5884778179295045 (was 7.9e106),
   plus #48's other four; all match their certified values.
-- Next pickup: row 8, #54 beta gamma-limit slice (frontier).
+- Next pickup after row 7 was row 8; see above.
 
 **Order row 6 (#56 + #57) DONE 2026-10-19 on Z**, `7f0e18a`. Full ctest
 35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2; CI GREEN (run

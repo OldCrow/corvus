@@ -260,6 +260,53 @@ HWY_INLINE Dd<D> Log1pDdWide(D d, Dd<D> w) {
   return DdSub(d, w, Log1pmxDd(d, w));
 }
 
+// The gamma-limit slice's t, shared by the forward and betainv's transfer:
+//   t = -(N + (s-1)/2) * lx,   N = the huge parameter, s = the small one,
+//   lx = log of the huge side's own x-argument = log1p(-w), w the TINY
+//   complement of that argument (w = xi for huge second, yv for huge first;
+//   xi + yv = 1 exactly, so this is an identity, not an approximation).
+// For w < 1/2, lx is formed as log1p(-w) (Log1pDdWide, relative to the
+// result), NEVER as the log of the near-one pair: a log near 1 is accurate
+// in ABSOLUTE terms (~2^-110), which is only ~2^-61 relative to an lx of
+// ~1e-15, and P's sensitivity to t is (s - t) -- 1200 at the #54 witness,
+// where that cost 7 ulp after the (s-1)/2 fix below. For w >= 1/2 the
+// argument itself is <= 1/2, not near 1, and its own log lv (which the
+// caller has) is the accurate one; log1p(-w) there would form 1 - w by
+// cancellation (dd_special-inl.h's HAZARD RULE). The forward's live slice
+// lanes always have tiny w, but betainv evaluates this at arbitrary
+// iterates (its orientation probe sits at 1/2), and the log1p-only form
+// sent 79 of its #55-band lanes to the 0.5 fallback.
+// The (s-1)/2 shift is the whole point (#54). With t = -N*lx alone,
+// I_x(s, N) ~ P_gamma(s, t) carries a relative error ~ s^2/(2N), so it is
+// not "O(1/N)" once s = N*x is large: 1.7e-11 at N = 2^59, s = 1e4, and
+// 11,592 ulp at the #54 witness (2000, 2^59, 1.39e-15). With the shift it is
+// below 5e-26 for s <= 1e4 at N >= 2^59 (2F1 closed form at dps 80/120).
+// N + (s-1)/2 is not representable, so it is carried as an exact dd: s - 1
+// by TwoSum, the halving exact. The huge-parameter prescale is the one the
+// sites used before: N above ops::ProdLow's 2^996 non-FMA Dekker ceiling is
+// taken down by an exact power of two (both terms of the sum alike) and the
+// product scaled back.
+template <class D>
+HWY_INLINE Dd<D> BetaGlT(D d, op::V<D> huge, op::V<D> ss, Dd<D> w, Dd<D> lv) {
+  const auto small_w = op::Lt(w.hi, op::Set(d, 0.5));
+  const auto l1p = Log1pDdWide(
+      d, Dd<D>{op::IfThenElse(small_w, op::Neg(w.hi), op::Zero(d)),
+               op::IfThenElse(small_w, op::Neg(w.lo), op::Zero(d))});
+  const Dd<D> lx{op::IfThenElse(small_w, l1p.hi, lv.hi),
+                 op::IfThenElse(small_w, l1p.lo, lv.lo)};
+  const auto one = op::Set(d, 1.0);
+  const auto half = op::Set(d, 0.5);
+  const auto gbig = op::Gt(huge, op::Set(d, kBetaScaleAbove));
+  const auto gdn = op::IfThenElse(gbig, op::Set(d, kBetaScaleDown), one);
+  const auto gup = op::IfThenElse(gbig, op::Set(d, kBetaScaleUp), one);
+  const auto sm1 = TwoSum(d, ss, op::Neg(one));  // s - 1, exact
+  const auto hs = op::Mul(half, gdn);             // exact power of two
+  auto neff = TwoSum(d, op::Mul(huge, gdn), op::Mul(sm1.hi, hs));
+  neff = DdAddD(d, neff, op::Mul(sm1.lo, hs));
+  const auto tds = DdMul(d, lx, Dd<D>{op::Neg(neff.hi), op::Neg(neff.lo)});
+  return Dd<D>{op::Mul(tds.hi, gup), op::Mul(tds.lo, gup)};
+}
+
 // --- indicator helpers ----------------------------------------------------
 // The ops facade deliberately exposes no mask AND/OR, and the region map is a
 // boolean expression over a dozen comparisons. Carrying predicates as 1.0/0.0
@@ -1557,10 +1604,12 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // own CF divides by zero at working precision), so
   // the lane goes through the gamma limit: with s = the small routed
   // parameter and t = -(huge)*(ln of the huge side's own x-argument), dd:
-  //   huge SECOND: I_xi(s, huge) ~ P_gamma(s, t),      t = -(huge)ln(1-xi)
-  //   huge FIRST : I_xi(huge, s) ~ 1 - P_gamma(s, t),  t = -(huge)ln(xi)
-  // relative correction O(1/huge), 2^-49-class at the B_GL pin (generator
-  // overlap probe; gated as its own ULP row -- gammalim).
+  //   huge SECOND: I_xi(s, huge) ~ P_gamma(s, t),  t = -(huge + (s-1)/2)ln(1-xi)
+  //   huge FIRST : I_xi(huge, s) ~ 1 - P_gamma(s, t),  t = -(huge + (s-1)/2)ln(xi)
+  // The (s-1)/2 shift matters (#54): without it the relative correction is
+  // ~ s^2/(2*huge), not O(1/huge) -- 11,592 ulp at s = 2000 on the pin.
+  // With it, < 5e-26 for s <= 1e4 at huge >= 2^59 (BetaGlT; gated as its
+  // own ULP row -- gammalim).
   // The sub-map mirrors gamma-inl.h's own routing verbatim (series for
   // s < kGammaAT and t <= s+1, or s >= kGammaAT and s >= 2t; CF otherwise;
   // gamma's in-band Temme case cannot occur here, those lanes are R3's).
@@ -1587,24 +1636,38 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     const auto i_hf = BetaInd(d, hf);
     const auto ss = op::IfThenElse(m_gl, op::IfThenElse(hf, beta, alpha), one);
     const auto huge = op::IfThenElse(hf, alpha, beta);
-    const Dd<D> lx_gl =
+    // The huge side's argument is xi (huge first) or 1 - xi = yv (huge
+    // second); BetaGlT takes its tiny complement: yv or xi respectively.
+    const Dd<D> w_gl{op::IfThenElse(hf, yv.hi, xi.hi),
+                     op::IfThenElse(hf, yv.lo, xi.lo)};
+    // The argument's own log, for the w >= 1/2 case (never reached by a
+    // live slice lane here; kept identical to betainv's call).
+    const auto lv_gl =
         OutlinedLogDd(d, Dd<D>{op::IfThenElse(hf, xi.hi, yv.hi),
                                op::IfThenElse(hf, xi.lo, yv.lo)});
-    // t > 0, dd. Same huge-parameter exact prescale as l1/l2 above: huge
-    // exceeds ops::ProdLow's 2^996 non-FMA Dekker ceiling on the corner
-    // rows' b = 1e307 gammalim lanes (bit-identical below 2^900).
-    const auto gbig = op::Gt(huge, op::Set(d, kBetaScaleAbove));
-    const auto gdn = op::IfThenElse(gbig, op::Set(d, kBetaScaleDown), one);
-    const auto gup = op::IfThenElse(gbig, op::Set(d, kBetaScaleUp), one);
-    const auto tds = DdMulD(d, lx_gl, op::Neg(op::Mul(huge, gdn)));
-    const Dd<D> t_dd{op::Mul(tds.hi, gup), op::Mul(tds.lo, gup)};
-    // E_g = s*ln t - t - lgamma(s); all the e^-t argument sensitivity is
-    // absorbed HERE, in dd -- the cores below only see t.hi, whose 2^-53
-    // relative slack enters their series/CF factors with O(1) sensitivity.
+    // t > 0, dd, with the (s-1)/2 shift (#54), the log1p-form lx and the
+    // huge-parameter prescale -- see BetaGlT.
+    const auto t_dd = BetaGlT(d, huge, ss, w_gl, lv_gl);
+    // PREFACTOR AT THE FULL dd t, FACTOR CORRECTED FOR t.lo (#54). E_g =
+    // s*ln t - t - lgamma(s) takes t as a dd, which carries the e^-t
+    // sensitivity exactly however large t.lo is in absolute terms (betainv
+    // evaluates this at iterates with t ~ 1e18, t.lo ~ 100). The gamma cores
+    // take t as a double, so their factor is evaluated at t.hi and corrected
+    // to first order in t.lo/t through its own derivative, which the
+    // density identity gives in closed form:
+    //   series (P = e^E_s * Sum):  Sum' = s/t - (s/t - 1)*Sum
+    //           => Sum += (t.lo/t) * (s - (s - t)*Sum)
+    //   CF (Q = e^E_g * R, R = 1/K):  R' = -1/t - (s/t - 1)*R
+    //           => R   -= (t.lo/t) * (1 + (s - t)*R)
+    // Both brackets stay O(s) where their path is used (series: t <~ s; CF:
+    // R ~ 1/t, so the bracket -> s/t), so the first order is valid
+    // everywhere. Without it the cores' t.hi cost the slice up to 1.8 ulp
+    // near t ~ s, where the series' sensitivity is its mean term index.
     auto e_g = DdMulD(d, OutlinedLogDd(d, t_dd), ss);
     e_g = DdSub(d, e_g, t_dd);
     e_g = DdSub(d, e_g, LgammaPosDd(d, ss));
     const auto th = t_dd.hi;
+    const auto tlr = op::Div(t_dd.lo, th);  // t.lo / t.hi, |.| <= 2^-53
     const auto i_ser = op::Max(
         op::Mul(BetaInd(d, op::Lt(ss, op::Set(d, detail::kGammaAT))),
                 BetaInd(d, op::Ge(op::Add(ss, one), th))),
@@ -1619,8 +1682,13 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     const auto t_c = op::IfThenElse(ea.sat, op::Set(d, kBetaGlSatT),
                                     op::Min(th, op::Set(d, kBetaGlTCap)));
     const auto ex = ExpDdFrac(d, ea.hi, ea.lo);
-    const auto ser = GammaSeriesSum(d, s_c, t_c);
-    const auto cfr = GammaCfRecip(d, s_c, t_c);
+    const auto sum0 = GammaSeriesSum(d, s_c, t_c);
+    const auto rk0 = GammaCfRecip(d, s_c, t_c);
+    const auto smt = op::Sub(s_c, t_c);
+    const auto ser = DdAddD(
+        d, sum0, op::Mul(tlr, op::Sub(s_c, op::Mul(smt, sum0.hi))));
+    const auto cfr = DdAddD(
+        d, rk0, op::Neg(op::Mul(tlr, op::MulAdd(smt, rk0.hi, one))));
     const Dd<D> fac{op::IfThenElse(m_ser, ser.hi, cfr.hi),
                     op::IfThenElse(m_ser, ser.lo, cfr.lo)};
     auto gl = BetaScale(d, DdMul(d, ex.m, fac), ex.e);

@@ -771,20 +771,28 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
     const auto i_hf = BetaInd(d, hf);
     const auto ss = op::IfThenElse(m_gl, op::IfThenElse(hf, rb, ra), one);
     const auto huge = op::IfThenElse(hf, ra, rb);
-    const Dd<D> lx_gl{op::IfThenElse(hf, lrxi.hi, lryv.hi),
+    // BetaGlT takes the TINY complement of the huge side's argument: the
+    // routed yv (huge first) or the routed xi (huge second). The routed yv
+    // mirrors rxi (y and its exact complement yc swap with the orientation).
+    const Dd<D> ryv{op::IfThenElse(m_sw, y, yc.hi),
+                    op::IfThenElse(m_sw, zero, yc.lo)};
+    const Dd<D> w_gl{op::IfThenElse(hf, ryv.hi, rxi.hi),
+                     op::IfThenElse(hf, ryv.lo, rxi.lo)};
+    // t > 0, dd: the forward's own gamma-limit t -- shift (#54), log1p-form
+    // lx and prescale included (beta-inl.h, BetaGlT) -- the inverse must
+    // solve against the forward it is gated with.
+    // The argument's own log (the old lx), used where w >= 1/2: iterates
+    // and the orientation probe sit anywhere in (0, 1).
+    const Dd<D> lv_gl{op::IfThenElse(hf, lrxi.hi, lryv.hi),
                       op::IfThenElse(hf, lrxi.lo, lryv.lo)};
-    // t > 0, dd. Same huge-parameter exact prescale as l1/l2 above (and
-    // as the forward's own gammalim t): huge exceeds the 2^996 non-FMA
-    // Dekker ceiling on corner lanes; bit-identical below the threshold.
-    const auto gbig = op::Gt(huge, op::Set(d, kBetaScaleAbove));
-    const auto gdn = op::IfThenElse(gbig, op::Set(d, kBetaScaleDown), one);
-    const auto gup = op::IfThenElse(gbig, op::Set(d, kBetaScaleUp), one);
-    const auto tds = DdMulD(d, lx_gl, op::Neg(op::Mul(huge, gdn)));
-    const Dd<D> t_dd{op::Mul(tds.hi, gup), op::Mul(tds.lo, gup)};
+    const auto t_dd = BetaGlT(d, huge, ss, w_gl, lv_gl);
+    // Prefactor at the full dd t, factor corrected for t.lo, exactly as the
+    // forward's slice does (beta-inl.h, "PREFACTOR AT THE FULL dd t").
     auto e_g = DdMulD(d, OutlinedLogDd(d, t_dd), ss);
     e_g = DdSub(d, e_g, t_dd);
     e_g = DdSub(d, e_g, LgammaPosDd(d, ss));
     const auto th = t_dd.hi;
+    const auto tlr = op::Div(t_dd.lo, th);  // t.lo / t.hi
     const auto i_ser = op::Max(
         op::Mul(BetaInd(d, op::Lt(ss, op::Set(d, detail::kGammaAT))),
                 BetaInd(d, op::Ge(op::Add(ss, one), th))),
@@ -799,8 +807,13 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
     const auto s_c = op::IfThenElse(gsat, one, ss);
     const auto t_c = op::IfThenElse(gsat, op::Set(d, kBetaGlSatT),
                                     op::Min(th, op::Set(d, kBetaGlTCap)));
-    const auto ser = GammaSeriesSum(d, s_c, t_c);
-    const auto cfr = GammaCfRecip(d, s_c, t_c);
+    const auto sum0 = GammaSeriesSum(d, s_c, t_c);
+    const auto rk0 = GammaCfRecip(d, s_c, t_c);
+    const auto smt = op::Sub(s_c, t_c);
+    const auto ser = DdAddD(
+        d, sum0, op::Mul(tlr, op::Sub(s_c, op::Mul(smt, sum0.hi))));
+    const auto cfr = DdAddD(
+        d, rk0, op::Neg(op::Mul(tlr, op::MulAdd(smt, rk0.hi, one))));
     const Dd<D> fac{op::IfThenElse(m_ser, ser.hi, cfr.hi),
                     op::IfThenElse(m_ser, ser.lo, cfr.lo)};
     const auto l = DdAdd(d, e_pick, OutlinedLogDd(d, fac));

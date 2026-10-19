@@ -64,7 +64,10 @@ constexpr uint64_t kGateR2Dir = 1, kGateR2Cmp = 0;
 constexpr uint64_t kGateR3Dir = 3, kGateR3Cmp = 1;
 constexpr uint64_t kGateR4Dir = 2, kGateR4Cmp = 0;
 constexpr uint64_t kGatePrDir = 1, kGatePrCmp = 0;
-constexpr uint64_t kGateGlDir = 1, kGateGlCmp = 1;
+// Gl 1/1 -> 0/0 at #54 defect 1: the slice forms t = -(N + (s-1)/2) *
+// log1p(-w) in dd, and 195 2F1-certified rows (--gl54-append) read 0 on
+// every tier; HEAD's bare t = -N*log(x) reads up to 11592 ulp on them.
+constexpr uint64_t kGateGlDir = 0, kGateGlCmp = 0;
 
 struct Region {
   const char* name;

@@ -608,7 +608,7 @@ margin.
 | R3 Temme ridge | **3 ULP** (12–19% not-CR at 1–2) | 1 ULP |
 | R4 tiny-min corner | **2 ULP** (≤1.3% not-CR) | 0 ULP (CR) |
 | R4 near-one post-route | **1 ULP** | 0 ULP (CR) |
-| R2 gamma-limit slice | **1 ULP** (1.4% not-CR) | 1 ULP |
+| R2 gamma-limit slice | **0 ULP** (CR) | 0 ULP (CR) |
 
 R2-direct moved 0 → 1 ULP at the v0.6.0 single-rounding regeneration:
 the reference fix corrected one subnormal-Q row
@@ -617,6 +617,24 @@ kernel — unchanged — agrees with the old row, so its true error there is
 1 ULP (1 of 2948 R2-direct rows; re-verified against mpmath betainc at
 dps 400, true value 0.60 ULP above the old row). The previous 0 was an
 artifact of the reference's own rounding.
+
+**Gamma-limit slice, #54 defect 1, fixed 2026-10-19.** The slice
+(max(a,b) ≥ 2⁵⁹) took I_x(s, N) ≈ P(s, t) with the bare t = −N·ln x. That
+form drops the (s−1)/2 shift, whose relative weight is s/N, and loses
+digits from ln x near 1. The slice now forms
+t = −(N + (s−1)/2)·log1p(−w) in double-double (`BetaGlT`). It evaluates the
+prefactor at the full dd t and corrects the series and CF factors through
+their t-derivatives. The gamma-limit transfer in betainv shares the
+helper. 195 new rows (`--gl54-append`, seed 5454) are certified against a
+₂F₁ series with a doubled-dps agreement check, not against mpmath
+betainc. They span N ∈ [2⁵⁹, 1e30], s ∈ [1, 1e4], and t/s on both sides
+of the ridge, plus the witness
+I(2000, 2⁵⁹, 1.3877787807814447e-15) = 2.7883412344207463e-277. HEAD read
+them at up to 11592 ULP (direct P) and 1774 ULP (direct Q). They now read
+0 ULP in every cell, and the 1.4% not-CR rate of the old 1-ULP cell is
+gone. The gates are pinned to 0/0. Still open under #54: the R2 lanes
+just below 2⁵⁹ (defect 2, 2.2–2.4 ULP), routed after the #65 R3
+diagnosis.
 
 **u → −1 corner, fixed 2026-08-12** (the defect pair disclosed in the
 v0.1.0–v0.3.0 release notes, plus a third found by the fix's own

@@ -1113,6 +1113,10 @@ def _cf_small(aa, bb, xx, dps):
 #     t'=-aa*log1p(-(1-xx))=-aa*log(xx) EXACTLY (log1p(xx-1)=log(xx), no
 #     near-1 subtraction needed since xx itself, not 1-xx, feeds the log).
 #     So I_xx(aa,bb) = 1-P(bb,t') = Q(bb,t').
+# ISSUE #54: the gamma limit I_x(s, N) ~ P_gamma(s, t) needs the SHIFTED
+# t = -(N + (s-1)/2) * log1p(-x); the bare t = -N*log1p(-x) carries a
+# relative error ~ s^2/(2N) (1.7e-11 at N = 2^59, s = 1e4). The near-one
+# argument's log is formed as log1p(-w) of its tiny complement w = 1-xx.
 def gamma_corner_value(aa, bb, xx, dps):
     old = mp.mp.dps
     mp.mp.dps = dps
@@ -1125,10 +1129,11 @@ def gamma_corner_value(aa, bb, xx, dps):
         aa_m, bb_m = mp.mpf(aa), mp.mpf(bb)
         xx_m = xx if isinstance(xx, mp.mpf) else mp.mpf(xx)
         if bb_m >= aa_m:
-            t = -bb_m * mp.log1p(-xx_m)
+            t = -(bb_m + (aa_m - 1) / 2) * mp.log1p(-xx_m)  # #54 shift
             return mp.gammainc(aa_m, 0, t, regularized=True)  # P(aa,t)
         else:
-            t = -aa_m * mp.log(xx_m)
+            w = 1 - xx_m
+            t = -(aa_m + (bb_m - 1) / 2) * mp.log1p(-w)  # #54 shift
             return mp.gammainc(bb_m, t, mp.inf, regularized=True)  # Q(bb,t)
     finally:
         mp.mp.dps = old
@@ -1149,11 +1154,12 @@ def gamma_corner_value_signed(aa, bb, xx, dps):
         aa_m, bb_m = mp.mpf(aa), mp.mpf(bb)
         xx_m = xx if isinstance(xx, mp.mpf) else mp.mpf(xx)
         if bb_m >= aa_m:
-            t = -bb_m * mp.log1p(-xx_m)
+            t = -(bb_m + (aa_m - 1) / 2) * mp.log1p(-xx_m)  # #54 shift
             P = mp.gammainc(aa_m, 0, t, regularized=True)
             Q = mp.gammainc(aa_m, t, mp.inf, regularized=True)
         else:
-            t = -aa_m * mp.log(xx_m)
+            w = 1 - xx_m
+            t = -(aa_m + (bb_m - 1) / 2) * mp.log1p(-w)  # #54 shift
             Pgb = mp.gammainc(bb_m, 0, t, regularized=True)  # P(bb,t)
             Q = mp.gammainc(bb_m, t, mp.inf, regularized=True)  # Q(bb,t) = P(aa,bb,xx)-frame's P
             P = Pgb
@@ -2159,13 +2165,16 @@ def existing_checkpoint_sig(path):
         return f0.readline().strip()
 
 
-def compute_all(ps, ckpt_path=CKPT_PATH, sig_ver="v2"):
+def compute_all(ps, ckpt_path=CKPT_PATH, sig_ver="v2", oracle=None):
     """Resumable oracle pass over every point in ps.pts. Returns
     (rows, region_hist, done) where done is True iff every point in ps.pts
     has a checkpoint entry (rows/region_hist are only meaningful when
     done is True -- callers must check). ckpt_path/sig_ver default to the
     full-run values; --corner-append passes its own so the two checkpoint
-    families can never be confused for one another."""
+    families can never be confused for one another. oracle (default None =
+    small_side_direct) replaces the per-point evaluator; a custom oracle
+    also skips the betainc-rescue prewarm (--gl54-append, issue #54: its
+    rows must never fall back to the generator's own methods)."""
     total = len(ps.pts)
     sig = f"{sig_ver} SEED={SEED} N={total}"
     done_map = load_checkpoint(ckpt_path, sig)
@@ -2183,7 +2192,8 @@ def compute_all(ps, ckpt_path=CKPT_PATH, sig_ver="v2"):
         if mode == "w":
             fh.write(sig + "\n")
             fh.flush()
-        prewarm_betainc_rescue_checkpoint(ps, done_map, fh)
+        if oracle is None:
+            prewarm_betainc_rescue_checkpoint(ps, done_map, fh)
     # Reload: the prewarm pass above wrote new entries via a SEPARATE file
     # handle lifetime (its own append_checkpoint calls flushed already,
     # but this process's done_map dict was built before those writes) --
@@ -2206,7 +2216,7 @@ def compute_all(ps, ckpt_path=CKPT_PATH, sig_ver="v2"):
                       f"{idx}/{total} ({newly_done} computed this run) -- "
                       f"re-run this script to continue.", file=sys.stderr)
                 return None, None, False
-            P, Q, which, escalated, failed = small_side_direct(a, b, x)
+            P, Q, which, escalated, failed = (oracle or small_side_direct)(a, b, x)
             if failed:
                 append_checkpoint(fh, idx, ["FAILED"])
             else:
@@ -3363,6 +3373,274 @@ def r4seam_append():
     return rc
 
 
+# ============================================================================
+# --gl54-append (issue #54): gamma-limit slice, max(a,b) >= 2^59. The kernel
+# dropped the (s-1)/2 shift of t; a generator certifying with its own gamma
+# formula hid it. This family is certified by an INDEPENDENT oracle, the 2F1
+# closed form
+#   I_x(s, N) = x^s (1-x)^N / (s B(s, N)) * 2F1(s+N, 1; s+1; x),
+# summed directly (series converges: ratio (s+N+k) x/(s+1+k) -> x), with a
+# second evaluation at doubled dps that must agree to 1e-40 relative on the
+# small side (hard check: failing rows are declined, never emitted). Own RNG
+# (seed 5454), never the main SEED stream.
+# ============================================================================
+GL54_SEED = 5454
+GL54_WITNESS = (2000.0, 2.0 ** 59, 1.3877787807814447e-15)
+GL54_WITNESS_P = 2.7883412344207464e-277
+GL54_DPS0 = 95            # 60 + 35: loggamma(N) ~ 7e31 loses ~32 digits
+GL54_AGREE = mp.mpf("1e-40")
+GL54_STATS = {"agree_worst": mp.mpf(0)}
+GL54_DECLINED = []
+
+
+def _gl54_log_small_est(s, t):
+    """ln of the small side of I(s, N) ~ P(s, t) to O(1): the leading term
+    of the gamma tail; used only to drop draws that clearly underflow."""
+    if t < s:
+        return s * math.log(t) - t - math.lgamma(s + 1.0)
+    return (s - 1.0) * math.log(t) - t - math.lgamma(s)
+
+
+def gen_gl54_corner(ps):
+    n0 = len(ps.pts)
+    rng = random.Random(GL54_SEED)
+    st = GL54_STATS
+    for k in ("draws", "skip_underflow_est", "skip_y_is_1", "skip_route",
+              "added", "added_second", "added_first"):
+        st[k] = 0
+    st["route_tags"] = {}
+    lo_n, hi_n = 2.0 ** 59, 1e30
+    ln_floor = math.log(1e-300) - 3.0
+
+    def loguni(lo, hi):
+        return math.exp(rng.uniform(math.log(lo), math.log(hi)))
+
+    def route_tag(a, b, x):
+        return route_final(mp.mpf(a), mp.mpf(b), mp.mpf(x))[3]
+
+    ps.add(*GL54_WITNESS, keep_if_saturated=True, tag="gl54-witness")
+    if not route_tag(*GL54_WITNESS).endswith("-gammalim"):
+        raise RuntimeError("gl54 witness does not route to the gamma-limit "
+                           "slice")
+    st["added"] += 1
+    st["added_second"] += 1
+    for orient in ("second", "first"):
+        for i in range(400):
+            n_ = max(loguni(lo_n, hi_n), lo_n)
+            s_ = loguni(1.0, 1e4)
+            r_ = rng.uniform(0.05, 0.45) if i % 2 == 0 else \
+                rng.uniform(2.2, 6.0)
+            st["draws"] += 1
+            x = (r_ * s_) / n_
+            if orient == "second":
+                a, b, xo, xs = s_, n_, x, x
+            else:
+                y = 1.0 - x
+                if not (y < 1.0):
+                    st["skip_y_is_1"] += 1
+                    continue
+                xs = 1.0 - y
+                a, b, xo = n_, s_, y
+            if _gl54_log_small_est(s_, n_ * xs) < ln_floor:
+                st["skip_underflow_est"] += 1
+                continue
+            tag = route_tag(a, b, xo)
+            st["route_tags"][tag] = st["route_tags"].get(tag, 0) + 1
+            if not tag.endswith("-gammalim"):
+                st["skip_route"] += 1
+                continue
+            n_before = len(ps.pts)
+            ps.add(a, b, xo, keep_if_saturated=True, tag="gl54-" + orient)
+            if len(ps.pts) > n_before:
+                st["added"] += 1
+                st["added_" + orient] += 1
+    print(f"  gl54 family: {len(ps.pts) - n0} points; stats "
+          f"{ {k: v for k, v in st.items() if k != 'agree_worst'} }",
+          file=sys.stderr)
+
+
+def _gl54_J(s, n_, xs, dps):
+    """I_xs(s, N) by the 2F1 closed form at dps; xs a python float."""
+    old = mp.mp.dps
+    mp.mp.dps = dps
+    try:
+        sm, nm, xm = mp.mpf(s), mp.mpf(n_), mp.mpf(xs)
+        lnb = mp.loggamma(sm) + mp.loggamma(nm) - mp.loggamma(sm + nm)
+        lnpref = (sm * mp.log(xm) + nm * mp.log1p(-xm) - mp.log(sm) - lnb)
+        sn = sm + nm
+        eps = mp.mpf(10) ** (-(dps + 3))
+        term = mp.mpf(1)
+        tot = mp.mpf(1)
+        k = 0
+        while True:
+            ratio = (sn + k) * xm / (sm + 1 + k)
+            term = term * ratio
+            tot += term
+            k += 1
+            if ratio < 1 and term <= tot * eps:
+                break
+            if k > 5000000:
+                raise RuntimeError("2F1 series did not converge")
+        return mp.exp(lnpref) * tot
+    finally:
+        mp.mp.dps = old
+
+
+def _gl54_small(J, dps):
+    """(small, small_is_J, K) with K = 1 - J formed at dps."""
+    old = mp.mp.dps
+    mp.mp.dps = dps
+    try:
+        K = 1 - J
+        return (J, True, K) if J <= K else (K, False, K)
+    finally:
+        mp.mp.dps = old
+
+
+def gl54_oracle(a, b, x):
+    """Drop-in for small_side_direct: (P, Q, which, escalated, failed).
+    2F1 closed-form oracle with a doubled-dps second evaluation (hard
+    agreement 1e-40 on the small side). Never calls the gamma-limit
+    formula."""
+    from fractions import Fraction
+    if a >= b:      # huge FIRST: I_y(N, s) = 1 - I_{1-y}(s, N)
+        s_, n_, first = b, a, True
+        xs = 1.0 - x
+        if Fraction(1) - Fraction(x) != Fraction(xs):
+            GL54_DECLINED.append((a, b, x, "1-y not exact"))
+            return None, None, "P", False, True
+    else:
+        s_, n_, first = a, b, False
+        xs = x
+    dps = GL54_DPS0
+    while True:
+        J = _gl54_J(s_, n_, xs, dps)
+        small, small_is_J, K = _gl54_small(J, dps)
+        old = mp.mp.dps
+        mp.mp.dps = dps
+        try:
+            L = float("inf") if K <= 0 else float(-mp.log10(K))
+        finally:
+            mp.mp.dps = old
+        if L <= dps - 80:
+            break
+        dps *= 2
+        if dps > 3000:
+            GL54_DECLINED.append((a, b, x, "complement unresolved at 3000"))
+            return None, None, "P", False, True
+    dps2 = 2 * dps
+    J2 = _gl54_J(s_, n_, xs, dps2)
+    small2, small2_is_J, K2 = _gl54_small(J2, dps2)
+    old = mp.mp.dps
+    mp.mp.dps = dps2
+    try:
+        if small2_is_J != small_is_J or small2 == 0:
+            rel = mp.mpf("inf")
+        else:
+            rel = abs(small - small2) / small2
+        agree_ok = rel <= GL54_AGREE
+        if rel != mp.mpf("inf") and rel > GL54_STATS["agree_worst"]:
+            GL54_STATS["agree_worst"] = rel
+    finally:
+        mp.mp.dps = old
+    if not agree_ok:
+        GL54_DECLINED.append((a, b, x, f"dps {dps} vs {dps2} disagree "
+                              f"{float(rel):.3e} (>1e-40)"))
+        return None, None, "P", False, True
+    # emit the doubled-dps values
+    if first:       # P = 1 - J, Q = J
+        P, Q = K2, J2
+        which = "Q" if small2_is_J else "P"
+    else:           # P = J, Q = 1 - J
+        P, Q = J2, K2
+        which = "P" if small2_is_J else "Q"
+    return P, Q, which, dps > GL54_DPS0, False
+
+
+CKPT_GL54_PATH = os.path.join(tempfile.gettempdir(),
+                              f"corvus_beta_ref_ckpt_gl54_{SEED}.tsv")
+
+
+def gl54_append():
+    t_all = time.time()
+    ps = PointSet()
+    gen_gl54_corner(ps)
+    print(f"gl54 point set: {len(ps.pts)} distinct points", file=sys.stderr)
+
+    import hashlib
+    dig = hashlib.sha256()
+    for a, b, x, _, _ in ps.pts:
+        dig.update(struct.pack("<QQQ", as_bits(a), as_bits(b), as_bits(x)))
+    rows, region_hist, done = compute_all(
+        ps, ckpt_path=CKPT_GL54_PATH,
+        sig_ver=f"v1-gl54-{dig.hexdigest()[:16]}", oracle=gl54_oracle)
+    if not done:
+        print("\nPARTIAL RUN: re-invoke with --gl54-append to continue "
+              "(checkpoint saved).", file=sys.stderr)
+        return 3
+    print(f"  gl54 region histogram: {region_hist}", file=sys.stderr)
+
+    rc = 0
+    if region_hist.get("R2-gammalim", 0) != len(rows):
+        print(f"  FAILED: {len(rows)} rows but only "
+              f"{region_hist.get('R2-gammalim', 0)} route to the gamma-limit "
+              f"slice.", file=sys.stderr)
+        rc = 1
+    n_all = len(rows)
+    rows = [r for r in rows if min(r[3], r[4]) >= 1e-300]
+    n_uf = n_all - len(rows)
+    print(f"  dropped {n_uf} rows whose small side is below 1e-300",
+          file=sys.stderr)
+
+    rc |= check_p_plus_q(rows)
+    rc |= check_small_side_direct(rows)
+
+    wa, wb, wx = GL54_WITNESS
+    hits = [r for r in rows if as_bits(r[0]) == as_bits(wa)
+            and as_bits(r[1]) == as_bits(wb) and as_bits(r[2]) == as_bits(wx)]
+    if not hits:
+        print("  FAILED: gl54 witness row missing.", file=sys.stderr)
+        rc = 1
+    else:
+        r = hits[0]
+        print(f"  witness ({wa}, 2^59, {wx:.17e}): P={r[3]:.17e} "
+              f"Q={r[4]:.17g} (expected P ~ {GL54_WITNESS_P:.17e})",
+              file=sys.stderr)
+        if abs(r[3] - GL54_WITNESS_P) > 1e-12 * GL54_WITNESS_P:
+            print("  FAILED: witness P differs from expected.",
+                  file=sys.stderr)
+            rc = 1
+
+    n_first = sum(1 for r in rows if r[0] >= r[1])
+    n_series = n_cf = 0
+    for a, b, x, P, Q in rows:
+        s_, n_ = (b, a) if a >= b else (a, b)
+        xs = 1.0 - x if a >= b else x
+        if n_ * xs < s_:
+            n_series += 1
+        else:
+            n_cf += 1
+    print(f"  rows: {len(rows)} (huge-second {len(rows) - n_first}, "
+          f"huge-first {n_first}; series/P-small {n_series}, "
+          f"CF/Q-small {n_cf})", file=sys.stderr)
+    print(f"  declined: {len(GL54_DECLINED)}", file=sys.stderr)
+    for d in GL54_DECLINED:
+        print(f"    DECLINED a={d[0]!r} b={d[1]!r} x={d[2]!r}: {d[3]}",
+              file=sys.stderr)
+    print(f"  worst dps-agreement (small side, rel): "
+          f"{float(GL54_STATS['agree_worst']):.3e}", file=sys.stderr)
+
+    if rc:
+        print("\nSelf-checks FAILED -- not touching reference files.",
+              file=sys.stderr)
+        return rc
+
+    rc = _splice_corner(rows)
+    print(f"\ngl54-append runtime: {time.time() - t_all:.1f}s",
+          file=sys.stderr)
+    return rc
+
+
 if __name__ == "__main__":
     _parser = argparse.ArgumentParser(
         allow_abbrev=False,  # '--ful' must ERROR, not prefix-match --full (#11)
@@ -3403,6 +3681,14 @@ if __name__ == "__main__":
              "boundary, issue #47) into the existing reference files, own "
              "checkpoint/cross-check, resumable by re-invoking with this "
              "same flag. Same append pattern as --subsub-append.")
+    _parser.add_argument(
+        "--gl54-append", action="store_true",
+        help="Incrementally certify and splice ONLY the gamma-limit-slice "
+             "family (gen_gl54_corner -- max(a,b) >= 2^59, issue #54) into "
+             "the existing reference files. Certified by the independent "
+             "2F1 closed-form oracle with a doubled-dps agreement check, "
+             "NOT the generator's gamma-limit formula; own checkpoint, "
+             "resumable by re-invoking with this same flag.")
     _args = _parser.parse_args()
     if _args.corner_append:
         sys.exit(corner_append())
@@ -3412,4 +3698,6 @@ if __name__ == "__main__":
         sys.exit(subsub_append())
     if _args.r4seam_append:
         sys.exit(r4seam_append())
+    if _args.gl54_append:
+        sys.exit(gl54_append())
     sys.exit(main())
