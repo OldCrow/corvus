@@ -10,6 +10,23 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-19
 
+**Order row 8 (#54): ANALYSIS DONE, implementation waits for row 7's CI
+[user].** Probe: 1,400 huge-parameter points, both orientations, against
+the ₂F₁ closed form with precision raised until 1 − I resolves.
+- Defect 1 (the slice, N >= 2^59): P small up to 11,592 ulp (huge second)
+  and 529 (huge first). The fix t = (N + (s−1)/2)·L in dd is checked
+  against the oracle: 1.7e-11 -> < 5e-26 relative for s <= 1e4.
+  [DECIDED, user]: do it next, mirror it in the generator's
+  `gamma_corner_value`, and add ₂F₁-certified rows.
+- Defect 2 (R2 just below 2^59): 2.2-2.4 ulp, as filed. A policy call,
+  DEFERRED [user] until #65 is diagnosed: lowering B_GL would move the
+  strip into the corrected slice, but it also lowers R3's ridge floor
+  into #65's regime.
+- NEW, OldCrow/corvus#65: R3 (Temme) in the gamma-limit band, Q side,
+  t/s in [1, 2], N in [1e20, 1e29], s ~ 150-2,200. 45 of 464 points
+  over 1 ulp, worst 1.08e8 ulp. Routing was verified with the test
+  router, and the gates miss it for lack of rows.
+
 **Order row 7 (#48) DONE 2026-10-19 on Z.** Full ctest 35/35, 0
 warnings, at AVX3_ZEN4, SSE4 and SSE2; CI owed at the push. #48 is
 closed with its fix commit and guards.

@@ -915,16 +915,17 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
         const auto xb = OutlinedExp(d, yn);
         const auto fb = GammaInvForward(d, a, xb, i_wp, lga, lna);
         const auto rb = GammaInvResid(d, fb, mt);
-        const auto ok = op::Mul(live, IndNot(d, Ind(d, op::IsNaN(rb))));
-        const auto m_ok = IndMask(d, ok);
-        y = op::IfThenElse(m_ok, yn, y);
-        xn_state = op::IfThenElse(m_ok, xb, xn_state);
-        cur.m = Dd<D>{op::IfThenElse(m_ok, fb.m.hi, cur.m.hi),
-                      op::IfThenElse(m_ok, fb.m.lo, cur.m.lo)};
-        cur.w = op::IfThenElse(m_ok, fb.w, cur.w);
-        r = op::IfThenElse(m_ok, rb, r);
+        // (Not m_ok: that name is GammaInvVec's input mask -- MSVC C4456.)
+        const auto i_adopt = op::Mul(live, IndNot(d, Ind(d, op::IsNaN(rb))));
+        const auto m_adopt = IndMask(d, i_adopt);
+        y = op::IfThenElse(m_adopt, yn, y);
+        xn_state = op::IfThenElse(m_adopt, xb, xn_state);
+        cur.m = Dd<D>{op::IfThenElse(m_adopt, fb.m.hi, cur.m.hi),
+                      op::IfThenElse(m_adopt, fb.m.lo, cur.m.lo)};
+        cur.w = op::IfThenElse(m_adopt, fb.w, cur.w);
+        r = op::IfThenElse(m_adopt, rb, r);
         // A rejected (NaN) iterate shrinks the next step instead.
-        dxold = op::IfThenElse(m_ok, applied,
+        dxold = op::IfThenElse(m_adopt, applied,
                                op::IfThenElse(m_live, op::Mul(op::Min(dxold, cap),
                                                               op::Set(d, 0.25)),
                                               dxold));
