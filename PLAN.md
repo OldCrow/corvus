@@ -34,7 +34,9 @@ the ₂F₁ closed form with precision raised until 1 − I resolves.
     unchanged: #50 324, #55 101/373.
   - [OPEN] `tools/gen_beta_data.py:573` still self-checks with the bare
     t = −β·log1p(−ξ). It is not a gate, but it should get the shift.
-  - Native M1 run owed (NEON); CI macOS covers the gates meanwhile.
+  - Committed as `e376460`. CI is GREEN (run 39211865183, all three jobs,
+    NEON included), and #54 has a progress comment. A native M1 run is
+    still owed.
 - Defect 2 (R2 just below 2^59): 2.2-2.4 ulp, as filed. A policy call,
   DEFERRED [user] until #65 is diagnosed: lowering B_GL would move the
   strip into the corrected slice, but it also lowers R3's ridge floor
