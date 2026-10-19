@@ -10,8 +10,10 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-19
 
-**Order row 5 (#47 + #51) DONE 2026-10-19 on Z.** Full ctest 35/35, 0
-warnings, at AVX3_ZEN4, SSE4 and SSE2 (clang-cl); CI owed at the push.
+**Order row 5 (#47 + #51) DONE 2026-10-19 on Z**, `50961b3`. Full ctest
+35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2 (clang-cl); CI GREEN (run
+39178966625, all three jobs; NEON confirms the new #55 band holds there).
+#47, #51, #59, #58 and #49 are closed, each with its fix commit and guard.
 #47's inverse half is DECIDED [user]: option (b), below. #47 is closed
 on the forward fix, with a comment pointing to #55. Next pickup: row 6,
 #56 gamma R1/R2 ridge + #57 Temme z.lo (frontier; K, M1, Z).
@@ -76,8 +78,8 @@ on the forward fix, with a comment pointing to #55. Next pickup: row 6,
   behaviour change.
 
 **Order row 4 (#58 + #49; #45 not taken) DONE 2026-10-19 (Z).** Full
-ctest 35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2 (clang-cl); CI owed
-at the push. The Log1pmxDd pin question is DECIDED [user]: option (a)
+ctest 35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2 (clang-cl);
+`c42f7e3`, CI GREEN (run 39172873272). The Log1pmxDd pin question is DECIDED [user]: option (a)
 now, (b) folded into row 12.
 - **#49** (`src/gammainv-inl.h`): `GammaInvForward`'s Stirling-side E
   runs on every a >= 20 lane whatever x is; a tiny-p root puts
