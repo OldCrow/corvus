@@ -20,9 +20,9 @@ inline constexpr double kBetaZetaMax = 0x1.0508e55795f63p+0;
 // kBetaGammaLim (B_GL), 'gamma-limit slice':
 // max(alpha,beta) >= this, on the CF-oriented triple, routes R2 to
 // the gamma-limit path instead of the backward CF (which is
-// structurally degenerate up there -- see the derivation/deviation
-// comment at _derive_gamma_lim in this generator).
-inline constexpr double kBetaGammaLim = 0x1.0000000000000p+59;
+// ill-conditioned up there -- see the derivation comment at
+// _derive_gamma_lim in this generator).
+inline constexpr double kBetaGammaLim = 0x1.0000000000000p+47;
 // kBetaNearOne (near-one post-route bar): after the R1 pass,
 // any lane whose R1 dd value EXCEEDS this folds into the R4
 // core's lane set in the SAME orientation (R4's analytic

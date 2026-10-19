@@ -418,7 +418,11 @@ int SeamSweeps() {
       {"R2->R3  nu=TRidge    [a]", 1, 0.0, 100.0, 0.4, 40.0, 55.0, false},
       {"R1->Pr->R2 near-one  [x]", 0, 0.5, 100.0, 0.0, 0.03, 0.10, false},
       {"Pr->R1  bar in a     [a]", 1, 0.0, 20.0, 0.4, 0.2, 3.0, false},
-      {"R2->Gl  bmax=2^59    [b]", 2, 0.5, 0.0, 1e-16, 0x1p58, 0x1p60, true},
+      // Keyed to the constant (#54 moved it from 2^59); fx holds t = b*x
+      // at ~57.6 on the seam, well past R1's B1 = 8 across the whole line.
+      {"R2->Gl  bmax=B_GL    [b]", 2, 0.5, 0.0,
+       57.6 / corvus::detail::kBetaGammaLim, corvus::detail::kBetaGammaLim / 2,
+       corvus::detail::kBetaGammaLim * 2, true},
       {"R1->Gl ser->Gl cf    [x]", 0, 10.0, 0x1p60, 0.0, 7.0 / 0x1p60,
        14.0 / 0x1p60, false},
       {"Gl->R3  nu=GlMin     [a]", 1, 0.0, 0x1p60, 1.735e-17, 15.0, 26.0,

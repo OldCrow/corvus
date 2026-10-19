@@ -10,8 +10,8 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-19
 
-**Order row 8 (#54): defect 1 FIXED 2026-10-19 on Z; defects 2 and 3
-open.** Probe: 1,400 huge-parameter points, both orientations, against
+**Order row 8 (#54): defect 1 FIXED 2026-10-19 on Z; #65 closed (not a
+defect); defect 2 FIX IMPLEMENTED (option B), uncommitted.** Probe: 1,400 huge-parameter points, both orientations, against
 the ₂F₁ closed form with precision raised until 1 − I resolves.
 - Defect 1 (the slice, N >= 2^59): P small up to 11,592 ulp (huge second)
   and 529 (huge first). FIXED: `BetaGlT` (src/beta-inl.h) forms
@@ -32,19 +32,93 @@ the ₂F₁ closed form with precision raised until 1 − I resolves.
     1/1 -> 0/0. Full ctest passes 35/35 on all three tiers with 0
     warnings, and the local MSVC /W4 /WX build is clean. Guard bands are
     unchanged: #50 324, #55 101/373.
-  - [OPEN] `tools/gen_beta_data.py:573` still self-checks with the bare
-    t = −β·log1p(−ξ). It is not a gate, but it should get the shift.
+  - `tools/gen_beta_data.py`'s downward B_GL probe now uses the shifted t
+    (defect 2 work below).
   - Committed as `e376460`. CI is GREEN (run 39211865183, all three jobs,
     NEON included), and #54 has a progress comment. A native M1 run is
     still owed.
-- Defect 2 (R2 just below 2^59): 2.2-2.4 ulp, as filed. A policy call,
-  DEFERRED [user] until #65 is diagnosed: lowering B_GL would move the
-  strip into the corrected slice, but it also lowers R3's ridge floor
-  into #65's regime.
-- NEW, OldCrow/corvus#65: R3 (Temme) in the gamma-limit band, Q side,
-  t/s in [1, 2], N in [1e20, 1e29], s ~ 150-2,200. 45 of 464 points
-  over 1 ulp, worst 1.08e8 ulp. Routing was verified with the test
-  router, and the gates miss it for lack of rows.
+- #65 CLOSED 2026-10-19 as not a defect [user]. The probe's ₂F₁ oracle
+  ran at dps 60 and missed the ~31 digits lost in loggamma(N) −
+  loggamma(s+N). At dps 120/240 it agrees with an independent shifted
+  gamma limit, and the kernel is within 0.03-1.7 ulp on the "1.08e8"
+  points. Re-scored with doubled-dps agreement, R3 above 2^59 reads 3 ulp
+  integer worst (its gate), the same as below. Probe lesson: any huge-N
+  oracle must budget the loggamma cancellation, or check doubled dps.
+- Defect 2 DIAGNOSED (probes: 3,800 + 2,000 points, N in [2^36, 2^59),
+  scored against a doubled-dps ₂F₁ oracle, integer ulp from CR). The
+  filed 2.2-2.4 ulp was the tip. HEAD reads up to 7 ulp (off-band R2,
+  s >= 1), 10 (R2, s in [0.02, 1]), 3 (in-band R2, nu in [20, 32)) and
+  2 (R1, s >= 10) at 2^56-59, and 1 at 2^52-55. Two causes:
+  - (a) PREFACTOR LOG NEAR 1. The R1/R2 prefactor takes OutlinedLogDd
+    of xi or y = 1 − xi when it sits within ~1e-16 of 1. A dd log there
+    is ~2^-106 ABSOLUTE, and alpha or beta ~ 2^58 multiplies it into E.
+    R1 meets it on PB lanes (E subtracts l2 explicitly). Fix: log of the
+    smaller of (xi, y), and log1p(−smaller) for the larger: BetaGlT's
+    rule. Prototyped: R1 2 -> 0, off-band R2 7 -> 1; 24 of 3,800 probe
+    outputs change; all gates and guards pass. betainv's forward
+    (lny/lnyc) has the same hazard; its fix moves the inverse's worst at
+    2^56-59 from 1.12 to 0.44 ulp (1,210-point inverse probe).
+  - (b) CF CONDITIONING. F ~ beta/20 (the generator's own upward probe),
+    so the dd CF carries ~F·2^-106: 2 ulp at 2^56-59 for s < 1, 3 ulp
+    in-band at nu in [20, 32). Only routing away from the CF cures it.
+  - Why B_GL is 2^59: the generator pinned it at the midpoint of the
+    CF ceiling and the gamma-form floor, at a DEVIATED 2^-49 target,
+    because the unshifted gamma form erred by ~t(1−s)/(2N). With the
+    #54 shift its error is ~0.3·s³/N² (measured). Re-run on the
+    generator's own oracle, plus the slice's real s range (unsaturated
+    off-band small sides need s ≲ 3,860), the 2^-60 floor is j ≈ 45
+    (worst s = 2000 at t/s = 2.05) and the ceiling is j ≈ 50.3: a
+    5.3-binade overlap at the LITERAL target, midpoint pin 2^48.
+  - Prototyped (a) + B_GL = 2^48: every probe cell <= 1 ulp (R1, R2,
+    slice, in-band now R3). The reference set moves 21 rows from R2 to
+    the slice, all 0 ulp; every gate passes except the hardcoded
+    'R2->Gl bmax=2^59' seam sweep. 2^52 measured the same.
+  - Gate gap: gen_beta_reference.py:709 has NO rows with b in
+    [1e12, 1e30] below 2^59, so the gates have never seen this band.
+    Some slice lanes read 1 ulp at 2^48-55 against the 0/0 gammalim pin
+    (row 8, unreleased; the released bound is 1).
+  - Regeneration is cheap: gen_beta_data.py runs in 11 min and
+    reproduces beta_data.h bit-identically (checked 2026-10-19). The R3
+    extension rows are fitted at P_EXT_GL = 2^-20, independent of B_GL.
+  - [DECIDED 2026-10-20, user] Option B: (a) + re-derive B_GL in the
+    generator (rejected: A, the log fix alone, leaves (b); C, a
+    hand-pinned 2^52, would disagree with its generator).
+  - IMPLEMENTED 2026-10-20 on Z, UNCOMMITTED (awaiting review):
+    - src/beta-inl.h: l1/l2 from log of the smaller of (xi, y) and
+      log1p(−smaller); 2^59 comments updated. src/betainv-inl.h: the same
+      rule for lny/lnyc.
+    - tools/gen_beta_data.py: the downward probe uses the shifted t
+      (closes the [OPEN] item above); a slice-range grid (s 10..3800 at
+      t = r·s, r in {0.45, 0.49, 2.05, 2.2, 3.0}, bxi > B1 only); a finer
+      j grid; the literal 2^-60 target with the deviation removed. It
+      derives ceiling 49.60, floor 45.00, PINNED B_GL = 2^47 (margin
+      2.00/2.60 binades). src/beta_data.h regenerated (10 min); only the
+      constant and one comment changed, every table bit-identical.
+    - tools/gen_beta_reference.py `--gl54b-append` (seed 5455): 1,098 rows
+      per file in N in [2^40, 2^59), certified by a ₂F₁ oracle with
+      doubled-dps agreement at 1e-40 on I and 1 − I, start dps
+      100 + log10(N ln N). The families are off-band 242, small-alpha 317,
+      in-band low-nu 316 and R1 with s >= 10 223, both orientations.
+      None were declined. Draws with clear underflow were pre-skipped
+      (RNG stream unchanged).
+    - tests/test_beta_ulp.cpp: the R2->Gl seam sweep is keyed to
+      kBetaGammaLim, with x holding t at 57.6 on the seam.
+    - Native (AVX3_ZEN4): every beta/betainv gate passes and the guard
+      bands are unchanged (#50 324, #55 101/373). Gammalim cells grow to
+      774/533 rows and stay at 0 ulp (the 0/0 pin holds). Fail-first on
+      HEAD's three kernel files with the new rows fails 5 cells: R2 dir
+      8 ulp (Q) and 2 (P), R1 dir 2, and both R2 cmp cells at 1 against
+      a gate of 0.
+  - Full ctest passes 35/35 on AVX3_ZEN4, SSE4 and SSE2 with 0 warnings,
+    and the local MSVC /W4 /WX build is clean (0 diagnostics), all
+    2026-10-20. The ACCURACY.md defect-2 paragraph is drafted;
+    USER-GUIDE.md cites no 2^59.
+  - NEXT: user review of the uncommitted diff (src/beta-inl.h,
+    src/betainv-inl.h, src/beta_data.h, tools/gen_beta_data.py,
+    tools/gen_beta_reference.py, both beta data files,
+    tests/test_beta_ulp.cpp, docs/ACCURACY.md, PLAN.md), then commit and
+    push, CI, close #54 (fix commits e376460 + the new one; guards: the
+    gl54 and gl54b rows and the 0/0 gammalim pin). Native M1 run owed.
 
 **Order row 7 (#48) DONE 2026-10-19 on Z**, `07ca2f6` + `8dc5623`. Full
 ctest 35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2. CI: the first run

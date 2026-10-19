@@ -175,7 +175,7 @@ inline constexpr double kBetaBinetZClamp = 0x1.0p+500;
 // fires, killing the early break and costing every call the full
 // kGammaSeriesN iterations). LIVE gammalim lanes sit at t <~ 1e20 -- a
 // non-saturated lane needs E_g = s ln t - t - lgamma(s) above the
-// underflow floor, which bounds t by ~s ln s at s < 2^59 -- so any cap in
+// underflow floor, which bounds t by ~s ln s at s < B_GL -- so any cap in
 // [~1e21, ~1e308) is behavior-identical on kept lanes; 4e306 keeps ~45x
 // headroom under DBL_MAX. betainv-inl.h consumes THESE constants (it
 // includes this header), which is what keeps its twin call site in
@@ -280,7 +280,9 @@ HWY_INLINE Dd<D> Log1pDdWide(D d, Dd<D> w) {
 // I_x(s, N) ~ P_gamma(s, t) carries a relative error ~ s^2/(2N), so it is
 // not "O(1/N)" once s = N*x is large: 1.7e-11 at N = 2^59, s = 1e4, and
 // 11,592 ulp at the #54 witness (2000, 2^59, 1.39e-15). With the shift it is
-// below 5e-26 for s <= 1e4 at N >= 2^59 (2F1 closed form at dps 80/120).
+// ~0.3*s^3/N^2: below 2^-60 from N = 2^45 for every s whose off-band small
+// side is representable (s <~ 3860), which is what lets B_GL sit at 2^47
+// (gen_beta_data.py's _derive_gamma_lim).
 // N + (s-1)/2 is not representable, so it is carried as an exact dd: s - 1
 // by TwoSum, the halving exact. The huge-parameter prescale is the one the
 // sites used before: N above ops::ProdLow's 2^996 non-FMA Dekker ceiling is
@@ -1418,9 +1420,23 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     const auto ua = op::IfThenElse(pba, op::Set(d, kBetaScaleUp), one);
     const auto sb = op::IfThenElse(pbb, op::Set(d, kBetaScaleDown), one);
     const auto ub = op::IfThenElse(pbb, op::Set(d, kBetaScaleUp), one);
-    const auto l1s = DdMulD(d, OutlinedLogDd(d, xi), op::Mul(alpha, sa));
+    // ln xi and ln y FROM THE SMALLER OF THE PAIR (#54 defect 2). A dd log
+    // of an argument near 1 is accurate to ~2^-106 ABSOLUTE, not relative,
+    // and the huge parameter multiplies it: at beta ~ 2^58 with y = 1 - 1e-16
+    // that is ~2^-50 absolute in E, several ulp. xi + yv = 1 exactly, so the
+    // larger one's log is log1p(-smaller), relative to itself.
+    const auto xsm = op::Ge(half, xi.hi);
+    const Dd<D> sml{op::IfThenElse(xsm, xi.hi, yv.hi),
+                    op::IfThenElse(xsm, xi.lo, yv.lo)};
+    const auto lsm = OutlinedLogDd(d, sml);
+    const auto lbg = Log1pDdWide(d, Dd<D>{op::Neg(sml.hi), op::Neg(sml.lo)});
+    const Dd<D> lxi{op::IfThenElse(xsm, lsm.hi, lbg.hi),
+                    op::IfThenElse(xsm, lsm.lo, lbg.lo)};
+    const Dd<D> lyv{op::IfThenElse(xsm, lbg.hi, lsm.hi),
+                    op::IfThenElse(xsm, lbg.lo, lsm.lo)};
+    const auto l1s = DdMulD(d, lxi, op::Mul(alpha, sa));
     const Dd<D> l1{op::Mul(l1s.hi, ua), op::Mul(l1s.lo, ua)};
-    const auto l2s = DdMulD(d, OutlinedLogDd(d, yv), op::Mul(beta, sb));
+    const auto l2s = DdMulD(d, lyv, op::Mul(beta, sb));
     const Dd<D> l2{op::Mul(l2s.hi, ub), op::Mul(l2s.lo, ub)};
     const auto la = OutlinedLogDd(d, alpha);
 
@@ -1599,17 +1615,17 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
 
   // --- (C) gamma-limit slice: R2's off-band remainder above B_GL -----------
   // (In-band traffic above B_GL went to R3 via the lowered ridge floor
-  // kBetaGlRidgeMin.) One routed parameter is >= kBetaGammaLim = 2^59; the
-  // beta CF is structurally degenerate there (d1 -> -(1 - tiny); mpmath's
-  // own CF divides by zero at working precision), so
+  // kBetaGlRidgeMin.) One routed parameter is >= kBetaGammaLim = 2^47; the
+  // beta CF is ill-conditioned there (d1 -> -(1 - tiny), F ~ huge/20, so
+  // the dd recurrence carries ~F*2^-106 -- up to 10 ulp by 2^59, #54), so
   // the lane goes through the gamma limit: with s = the small routed
   // parameter and t = -(huge)*(ln of the huge side's own x-argument), dd:
   //   huge SECOND: I_xi(s, huge) ~ P_gamma(s, t),  t = -(huge + (s-1)/2)ln(1-xi)
   //   huge FIRST : I_xi(huge, s) ~ 1 - P_gamma(s, t),  t = -(huge + (s-1)/2)ln(xi)
   // The (s-1)/2 shift matters (#54): without it the relative correction is
   // ~ s^2/(2*huge), not O(1/huge) -- 11,592 ulp at s = 2000 on the pin.
-  // With it, < 5e-26 for s <= 1e4 at huge >= 2^59 (BetaGlT; gated as its
-  // own ULP row -- gammalim).
+  // With it, < 2^-60 at huge >= 2^45 for every unsaturated s (BetaGlT;
+  // gated as its own ULP row -- gammalim).
   // The sub-map mirrors gamma-inl.h's own routing verbatim (series for
   // s < kGammaAT and t <= s+1, or s >= kGammaAT and s >= 2t; CF otherwise;
   // gamma's in-band Temme case cannot occur here, those lanes are R3's).

@@ -498,8 +498,19 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   const auto alpha = cx.alpha;
   const auto beta = cx.beta;
   const auto yc = TwoSum(d, one, op::Neg(y));  // 1 - y, EXACT as a dd pair
-  const auto lny = OutlinedLogDd(d, Dd<D>{y, zero});
-  const auto lnyc = OutlinedLogDd(d, yc);
+  // Both logs FROM THE SMALLER OF (y, 1 - y), beta-inl.h's prefactor rule
+  // (#54 defect 2): the larger one is log1p(-smaller), relative to itself,
+  // never a dd log near 1 (accurate only to ~2^-106 absolute, which the
+  // huge parameter then multiplies).
+  const auto ysm = op::Ge(half, y);
+  const Dd<D> ysml{op::IfThenElse(ysm, y, yc.hi),
+                   op::IfThenElse(ysm, zero, yc.lo)};
+  const auto lsm = OutlinedLogDd(d, ysml);
+  const auto lbg = Log1pDdWide(d, Dd<D>{op::Neg(ysml.hi), op::Neg(ysml.lo)});
+  const Dd<D> lny{op::IfThenElse(ysm, lsm.hi, lbg.hi),
+                  op::IfThenElse(ysm, lsm.lo, lbg.lo)};
+  const Dd<D> lnyc{op::IfThenElse(ysm, lbg.hi, lsm.hi),
+                   op::IfThenElse(ysm, lbg.lo, lsm.lo)};
 
   // --- routing: beta's route_final with (a, b, x) = (alpha, beta, y) --------
   // Every predicate is written so an overflowing intermediate still decides

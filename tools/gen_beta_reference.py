@@ -3641,6 +3641,204 @@ def gl54_append():
     return rc
 
 
+# ============================================================================
+# --gl54b-append (issue #54 defect 2): the band N in [2^40, 2^59), just below
+# the gamma-limit slice. Same independent 2F1 oracle as --gl54-append
+# (_gl54_J), but with a start dps that covers the loggamma(N) -
+# loggamma(s+N) cancellation at ANY N (log10(N ln N) digits) plus the digits
+# the complement 1 - I needs, and a doubling escalation (up to dps 6000)
+# until dps d and 2d agree to 1e-40 relative on BOTH I and 1 - I; a row that
+# never agrees is declined. No kernel-route filter (routing thresholds move);
+# route tags are reported only. Own RNG (seed 5455), checkpoint, signature.
+# ============================================================================
+GL54B_SEED = 5455
+GL54B_AGREE = mp.mpf("1e-40")
+GL54B_DPS_MAX = 6000
+GL54B_STATS = {"agree_worst": mp.mpf(0), "dps_min": None, "dps_max": 0}
+GL54B_DECLINED = []
+GL54B_FAMILY = {}      # (a, b, x) bits -> "F1-second" etc., provenance only
+
+
+def gen_gl54b_corner(ps):
+    rng = random.Random(GL54B_SEED)
+    st = GL54B_STATS
+    st["draws"] = {}
+    st["skip_y_is_1"] = {}
+    st["skip_underflow_est"] = {}
+    lo_n, hi_n = 2.0 ** 40, 2.0 ** 59
+    ln_floor = math.log(1e-300) - 3.0   # est is O(1)-accurate; 3 nats slack
+
+    def loguni(lo, hi):
+        return math.exp(rng.uniform(math.log(lo), math.log(hi)))
+
+    def draw(fam):
+        n_ = min(max(loguni(lo_n, hi_n), lo_n), math.nextafter(hi_n, 0.0))
+        if fam == "F1":
+            s_ = loguni(1.0, 3000.0)
+            r_ = rng.uniform(0.05, 0.45) if rng.random() < 0.5 else \
+                rng.uniform(2.2, 6.0)
+            t_ = r_ * s_
+        elif fam == "F2":
+            s_ = loguni(0.02, 1.0)
+            t_ = loguni(8.0, 700.0)
+        elif fam == "F3":
+            s_ = rng.uniform(20.0, 32.0)
+            t_ = rng.uniform(0.55, 1.9) * s_
+        else:
+            s_ = rng.uniform(10.0, 40.0)
+            t_ = rng.uniform(1.0, 8.0)
+        return n_, s_, t_ / n_
+
+    for fam, ndraw in (("F1", 160), ("F2", 160), ("F3", 160), ("F4", 120)):
+        for orient in ("second", "first"):
+            key = fam + "-" + orient
+            st["draws"][key] = 0
+            st["skip_y_is_1"][key] = 0
+            st["skip_underflow_est"][key] = 0
+            for _ in range(ndraw):
+                n_, s_, x = draw(fam)
+                st["draws"][key] += 1
+                # clear underflow of the small side: would be dropped after
+                # certification anyway, and a Q ~ 1e-3000 costs dps ~ 6000
+                if _gl54_log_small_est(s_, n_ * x) < ln_floor:
+                    st["skip_underflow_est"][key] += 1
+                    continue
+                if orient == "second":
+                    a, b, xo = s_, n_, x
+                else:
+                    y = 1.0 - x
+                    if not (y < 1.0):
+                        st["skip_y_is_1"][key] += 1
+                        continue
+                    a, b, xo = n_, s_, y
+                n_before = len(ps.pts)
+                ps.add(a, b, xo, keep_if_saturated=True, tag="gl54b-" + key)
+                if len(ps.pts) > n_before:
+                    GL54B_FAMILY[(as_bits(a), as_bits(b), as_bits(xo))] = key
+    print(f"  gl54b family: {len(ps.pts)} points; draws {st['draws']}; "
+          f"y==1 skips {st['skip_y_is_1']}; underflow-estimate skips "
+          f"{st['skip_underflow_est']}", file=sys.stderr)
+
+
+def _gl54b_rel(u, v):
+    return mp.mpf("inf") if v == 0 else abs(u - v) / abs(v)
+
+
+def gl54b_oracle(a, b, x):
+    """Drop-in for small_side_direct: (P, Q, which, escalated, failed)."""
+    from fractions import Fraction
+    if a >= b:      # huge FIRST: I_y(N, s) = 1 - I_{1-y}(s, N)
+        s_, n_, first = b, a, True
+        xs = 1.0 - x
+        if Fraction(1) - Fraction(x) != Fraction(xs):
+            GL54B_DECLINED.append((a, b, x, "1-y not exact"))
+            return None, None, "P", False, True
+    else:
+        s_, n_, first = a, b, False
+        xs = x
+    cancel = math.ceil(math.log10(n_ * math.log(n_)))   # loggamma(N) terms
+    dps0 = 50 + cancel + 50     # 50 result digits + cancellation + 1-I room
+    dps = dps0
+    while True:
+        J = _gl54_J(s_, n_, xs, dps)
+        old = mp.mp.dps
+        mp.mp.dps = dps
+        try:
+            K = 1 - J
+            Lj = float("inf") if J <= 0 else float(-mp.log10(J))
+            Lk = float("inf") if K <= 0 else float(-mp.log10(K))
+        finally:
+            mp.mp.dps = old
+        ok = False
+        if min(Lj, Lk) + cancel + 50 <= dps:       # the small side is resolved
+            dps2 = 2 * dps
+            J2 = _gl54_J(s_, n_, xs, dps2)
+            old = mp.mp.dps
+            mp.mp.dps = dps2
+            try:
+                K2 = 1 - J2
+                rel = max(_gl54b_rel(J, J2), _gl54b_rel(K, K2))
+                ok = rel <= GL54B_AGREE
+                if rel != mp.mpf("inf") and rel > GL54B_STATS["agree_worst"]:
+                    GL54B_STATS["agree_worst"] = rel
+            finally:
+                mp.mp.dps = old
+        if ok:
+            break
+        dps *= 2
+        if dps > GL54B_DPS_MAX:
+            GL54B_DECLINED.append((a, b, x, f"dps {dps // 2} vs "
+                                   f"{dps} never agree (<=1e-40 on I and "
+                                   f"1-I) by dps {GL54B_DPS_MAX}"))
+            return None, None, "P", False, True
+    st = GL54B_STATS
+    st["dps_min"] = dps if st["dps_min"] is None else min(st["dps_min"], dps)
+    st["dps_max"] = max(st["dps_max"], dps2)
+    small_is_J = J2 <= K2
+    if first:       # P = 1 - J, Q = J
+        P, Q = K2, J2
+        which = "Q" if small_is_J else "P"
+    else:           # P = J, Q = 1 - J
+        P, Q = J2, K2
+        which = "P" if small_is_J else "Q"
+    return P, Q, which, dps > dps0, False
+
+
+CKPT_GL54B_PATH = os.path.join(tempfile.gettempdir(),
+                               f"corvus_beta_ref_ckpt_gl54b_{SEED}.tsv")
+
+
+def gl54b_append():
+    t_all = time.time()
+    ps = PointSet()
+    gen_gl54b_corner(ps)
+    print(f"gl54b point set: {len(ps.pts)} distinct points", file=sys.stderr)
+
+    import hashlib
+    dig = hashlib.sha256()
+    for a, b, x, _, _ in ps.pts:
+        dig.update(struct.pack("<QQQ", as_bits(a), as_bits(b), as_bits(x)))
+    rows, region_hist, done = compute_all(
+        ps, ckpt_path=CKPT_GL54B_PATH,
+        sig_ver=f"v1-gl54b-{dig.hexdigest()[:16]}", oracle=gl54b_oracle)
+    if not done:
+        print("\nPARTIAL RUN: re-invoke with --gl54b-append to continue "
+              "(checkpoint saved).", file=sys.stderr)
+        return 3
+    print(f"  gl54b route-tag counts (information only): {region_hist}",
+          file=sys.stderr)
+
+    n_all = len(rows)
+    rows = [r for r in rows if min(r[3], r[4]) >= 1e-300]
+    print(f"  dropped {n_all - len(rows)} rows whose small side is below "
+          f"1e-300", file=sys.stderr)
+    rc = check_p_plus_q(rows)
+    rc |= check_small_side_direct(rows)
+
+    per = {}
+    for r in rows:
+        k = GL54B_FAMILY[(as_bits(r[0]), as_bits(r[1]), as_bits(r[2]))]
+        per[k] = per.get(k, 0) + 1
+    print(f"  rows: {len(rows)}; per family/orientation: "
+          f"{dict(sorted(per.items()))}", file=sys.stderr)
+    st = GL54B_STATS
+    print(f"  declined: {len(GL54B_DECLINED)}", file=sys.stderr)
+    for d in GL54B_DECLINED:
+        print(f"    DECLINED a={d[0]!r} b={d[1]!r} x={d[2]!r}: {d[3]}",
+              file=sys.stderr)
+    print(f"  worst dps-agreement (I and 1-I, rel): "
+          f"{float(st['agree_worst']):.3e}; dps range {st['dps_min']}.."
+          f"{st['dps_max']}", file=sys.stderr)
+    if rc:
+        print("\nSelf-checks FAILED -- not touching reference files.",
+              file=sys.stderr)
+        return rc
+    rc = _splice_corner(rows)
+    print(f"\ngl54b-append runtime: {time.time() - t_all:.1f}s",
+          file=sys.stderr)
+    return rc
+
+
 if __name__ == "__main__":
     _parser = argparse.ArgumentParser(
         allow_abbrev=False,  # '--ful' must ERROR, not prefix-match --full (#11)
@@ -3689,6 +3887,13 @@ if __name__ == "__main__":
              "2F1 closed-form oracle with a doubled-dps agreement check, "
              "NOT the generator's gamma-limit formula; own checkpoint, "
              "resumable by re-invoking with this same flag.")
+    _parser.add_argument(
+        "--gl54b-append", action="store_true",
+        help="Incrementally certify and splice ONLY the N in [2^40, 2^59) "
+             "family just below the gamma-limit slice (gen_gl54b_corner, "
+             "issue #54 defect 2) into the existing reference files. "
+             "Independent 2F1 oracle, doubling-dps agreement on I and 1-I; "
+             "own seed/checkpoint, resumable by re-invoking.")
     _args = _parser.parse_args()
     if _args.corner_append:
         sys.exit(corner_append())
@@ -3700,4 +3905,6 @@ if __name__ == "__main__":
         sys.exit(r4seam_append())
     if _args.gl54_append:
         sys.exit(gl54_append())
+    if _args.gl54b_append:
+        sys.exit(gl54b_append())
     sys.exit(main())

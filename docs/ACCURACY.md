@@ -632,9 +632,30 @@ of the ridge, plus the witness
 I(2000, 2⁵⁹, 1.3877787807814447e-15) = 2.7883412344207463e-277. HEAD read
 them at up to 11592 ULP (direct P) and 1774 ULP (direct Q). They now read
 0 ULP in every cell, and the 1.4% not-CR rate of the old 1-ULP cell is
-gone. The gates are pinned to 0/0. Still open under #54: the R2 lanes
-just below 2⁵⁹ (defect 2, 2.2–2.4 ULP), routed after the #65 R3
-diagnosis.
+gone. The gates are pinned to 0/0.
+
+**Huge-parameter band below the slice, #54 defect 2, fixed 2026-10-20.**
+The reference set had no rows with max(a, b) between 1e12 and the old
+slice threshold 2⁵⁹, and two defects lived there. A ₂F₁-scored probe
+read up to 10 ULP in R2 and 2 ULP in R1 between 2⁵² and 2⁵⁹.
+- The R1/R2 prefactor took a double-double log of ξ or y = 1 − ξ within
+  ~1e-16 of 1. That log is accurate only to ~2⁻¹⁰⁶ absolute, and the huge
+  parameter multiplies it into E. Both logs now come from the smaller of
+  the pair, with log1p of minus the smaller for the larger. betainv's
+  forward takes the same rule.
+- The backward CF's conditioning F grows like β/20, so its dd recurrence
+  carries ~F·2⁻¹⁰⁶. The slice threshold is now derived at the literal
+  2⁻⁶⁰ target from the shifted gamma form: the CF ceiling is 2^49.6 and
+  the gamma-form floor 2^45.0, over the whole unsaturated slice range
+  s ≲ 3,860. The derived pin is 2⁴⁷, where it had been 2⁵⁹. It lowers
+  R3's ν ≥ 20 ridge floor to the same line.
+
+1,098 new rows (`--gl54b-append`, seed 5455) span N ∈ [2⁴⁰, 2⁵⁹) and are
+₂F₁-certified with a doubled-dps check. They cover off-band R2, small
+α, in-band ν ∈ [20, 32) and R1 with s ≥ 10. On them, the previous kernel
+failed R2 direct at 8 ULP and R1 direct at 2, and read 1 ULP in both R2
+complement cells. Every cell now holds its existing gate, and the
+gamma-limit cells, now 774/533 rows, stay at 0 ULP.
 
 **u → −1 corner, fixed 2026-08-12** (the defect pair disclosed in the
 v0.1.0–v0.3.0 release notes, plus a third found by the fix's own
@@ -714,7 +735,7 @@ p-edge depth extension), the tiny-min log-space assembly
 Q̃ = −expm1(τ·lnξ + lgΔ − lg1 + log1p(τΣ)) whose every component is
 individually dd-relative, a near-one post-route folding R1 lanes whose
 value exceeds 1 − 2⁻¹¹ into that assembly, and a gamma-limit slice
-(one parameter ≥ 2⁵⁹) routed through the incomplete-gamma limit. Region
+(one parameter ≥ 2⁴⁷) routed through the incomplete-gamma limit. Region
 map and seams: the derivation blocks in src/beta-inl.h; the
 correction-by-correction history is in the repository's git record.
 
