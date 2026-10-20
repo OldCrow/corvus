@@ -47,7 +47,9 @@ gammainv region map.
   attribution G -1.15, division -0.66, z.lo -0.54 ulp; a 20k prescreen
   predicts up to +3.78 ulp, so a >3 ULP break is likely. Unconfirmed: the
   adversarial and broad sweeps were unfinished; re-run the adversarial set
-  with capped workers if they never report.
+  with capped workers (<= 6) if they never report. Stopped for shutdown
+  2026-10-21; scripts, point sets, harnesses and a RESTART.md are staged at
+  ~/Development/corvus-scratch/beta-tail-2026-10-21/ (outside the repo).
 
 **Order row 12b (#64): DONE 2026-10-21 on Z**, `d0fb2e1`. CI GREEN via run
 39477235960 on 991a700 (macOS re-run after a runner shortage); #64 closed. As implemented:
