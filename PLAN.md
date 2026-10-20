@@ -1053,6 +1053,20 @@ profiling trigger is #30 and the work is #31.)
   email via the GitHub API. The enabling push itself passed the rule.
 - [OPEN] AGENTS.md is ~7.5 KB vs the ~4 KB core budget set 2026-08-09
   (Decisions); trim or re-budget.
+- [OPEN] NEON_BF16 equivalence (raised 2026-10-21). The macos-latest pool
+  mixes M1 hosts with BF16-capable ones (M2+), whose native dispatch is
+  NEON_BF16; run 39452466261 failed its NEON assertion that way. Fixed in
+  `b3f1b4a`: the macOS job's native build runs the gates unasserted and
+  logs `FEAT_BF16`; a `(HWY_NEON-1)`-capped build feeds the NEON row.
+  NEON_BF16 adds only bf16/fp16/int8 instructions, so f64 results should
+  be bit-identical to NEON, but that is unverified (fleet has only the
+  M1). CLOSE when a CI run shows `FEAT_BF16: 1` and native dispatch
+  `NEON_BF16`, with the native build's ULP-gate output identical to the
+  capped NEON build's. Then note in ACCURACY.md that the NEON row covers
+  NEON_BF16 — no new column. Gap: the native step runs plain `ctest`,
+  which hides passing output, so its ULP numbers are not in the log yet;
+  the check needs `ctest -V` there, or the ULP-report gates run against
+  `build-native`.
 - [ILLUSTRATIVE] Possible future consumers: C++ port of multi-agent_sim
   (batch distance/trig), zeekhmm training pipelines.
 - AGENTS.md context trim, assessed and declined (~410 B, smallest in the fleet).
