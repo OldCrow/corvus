@@ -1043,6 +1043,9 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
       d, s_rv, op::Neg(op::Mul(z.lo, op::Set(d, kBetaInvSqrtPiHi))));
   const auto core = DdAdd(d, half_erfc, DdMul(d, brk_core, exd));
 
+  // TWIN: gamma-inl.h GammaTemme tail (a*phi > 36). Copied 2026-08-01;
+  // gamma has since gained the z.lo fold and a dd G/(2z) (#57) and a dd G
+  // (GammaTailG, #64). Not yet applied here: #69.
   // --- tail, cpsi > 36 ----------------------------------------------------
   const auto uz = op::Div(one, zs);
   const auto gt = op::Div(ErfcTailGFromU(d, zs, uz), op::Add(zs, zs));
@@ -1287,6 +1290,8 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // which for tau <= eps_R4 is 1 - O(tau) -- the near-one member of the
   // pair, so the complement it hands back is pure noise.
   //
+  // TWIN: betainv-inl.h BetaInvForward reproduces this router and the four
+  // region cores in log space; mirror any routing or region fix there.
   // The window is stated as R2's OWN predicate (#47): R4 claims the lane
   // iff R2's orientation would be the tiny-first one, i.e.
   // (x < thr) != (b < a). It used to be xi_tau < thr_t with thr_t =

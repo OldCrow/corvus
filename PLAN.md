@@ -31,8 +31,21 @@ performance.**
   still worked only if their gate opens, which keeps v1.1.0 a pure
   correctness release.
 
-**Order row 12b (#64): IMPLEMENTED 2026-10-21 on Z (opus subagent; re-run
-here), uncommitted, awaiting user review.**
+**Twin-drift rule [DECIDED 2026-10-21, user] — uncommitted at write time.**
+NUMERICAL-DOCTRINE.md hazard rules gain "copied code has twins; a fix
+reaches every twin": `// TWIN:` markers at both ends of every copy, and a
+fix commit greps and disposes of each twin. Incidents: #47 -> #55
+(BetaInvForward's router copy), #57/#64 -> beta's Temme tail (#69). Markers
+added (comment-only): gamma Temme tail <-> beta Temme tail; beta router <->
+BetaInvForward; gamma prescale <-> gammainv prescale; gamma region map <->
+gammainv region map.
+- **#69 [OPEN]** beta R3 Temme tail still has the 2026-08-01 form (plain G,
+  rounded G/(2z), no z.lo). A read-only dense two-oracle re-score is
+  running (scratchpad beta-tail/). Breaks 3 ULP -> v1.1.0 order row;
+  within 3 -> tightening, v1.2.0.
+
+**Order row 12b (#64): DONE 2026-10-21 on Z**, `d0fb2e1` (CI run
+39473592624 queued at write time; #64 to close on green). As implemented:
 - Fix: gamma-private dd erfc tail factor GammaTailG (CORVUS_OUTLINE), one
   interval z in [6, 28.5] (live max sqrt(800) = 28.28), degree 15 in
   s = u - C with u = 2*DdRecip(2z) (dd), Horner in double to c3 and the

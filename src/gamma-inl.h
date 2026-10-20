@@ -539,6 +539,8 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
 
   const auto xma = op::Sub(x, a);  // exact by Sterbenz on this region
   const auto sgn = op::CopySign(one, xma);
+  // TWIN: gammainv-inl.h repeats this prescale for its own forward (search
+  // kGammaScaleAbove there).
   // Dekker-ceiling prescale (kGammaScaleAbove): u and phi are computed in
   // the scaled frame, a*phi scaled back with two exact multiplies. A
   // DISCARDED tiny-x lane's x*dn can underflow inexactly; such a lane fed
@@ -608,6 +610,8 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
       d, s_rv, op::Neg(op::Mul(z.lo, op::Set(d, detail::kGammaInvSqrtPiHi))));
   const auto core = DdAdd(d, half_erfc, DdMul(d, brk_core, exd));
 
+  // TWIN: beta-inl.h BetaTemme tail (cpsi > 36), a 2026-08-01 copy of this
+  // block that lacks #57 and #64 (#69).
   // --- tail, a*phi > 36 ---------------------------------------------------
   // gt = G/(2z) = 1/2 erfc(z) e^{z^2} at z.hi, as a dd (#57: it was a
   // rounded double, and z.lo was dropped; #64: G itself is now a dd, and
@@ -691,6 +695,8 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
     x = op::IfThenElse(m, safe_x, x);
   }
 
+  // TWIN: gammainv-inl.h repeats this region map ("region map: GammaVec's");
+  // a routing change here must be mirrored there.
   // --- region map ---------------------------------------------------------
   // lambda <= 1/2 and lambda >= 2 are tested as 2x <= a and x >= 2a: the
   // doublings are exact, and where one overflows to inf the comparison is

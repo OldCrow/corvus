@@ -106,6 +106,22 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
 - FP contraction is OFF project-wide (`CORVUS_FP_FLAGS`): the dd exactness
   proofs assume IEEE ops as written; fusion is requested in source
   (`ops::MulAdd`), never inferred by the compiler.
+- **Copied code has twins; a fix reaches every twin** [2026-10-21, user].
+  Several kernels carry deliberate copies of another's logic, and a copy
+  passes its own gates while it drifts: each family's gates measure only
+  that family's bound. Two rules:
+  1. Every copied site carries `// TWIN: <file> <function or block>`
+     naming its source, and the source names each copy back the same way.
+     A call into shared code (gammainv's forward calling GammaTemme) is not
+     a twin; a re-implementation of the same steps is.
+  2. A fix commit greps the changed pattern and the TWIN markers, then
+     either fixes each twin in the same change or files an issue naming it.
+     The commit message lists the twins and what happened to each.
+  Incidents: #47's R4 seam fix (beta-inl.h, order row 5) missed
+  BetaInvForward's copy of the router until #55 traced a betainv failure
+  to it (row 9). #57's z.lo fold and #64's dd G (gamma's Temme tail) missed
+  beta's copy of that tail, which still has the 2026-08-01 form; beta's
+  3-ULP R3 bound absorbed it (row 12b).
 
 ## Test doctrine
 

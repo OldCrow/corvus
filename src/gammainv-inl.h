@@ -455,6 +455,7 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
     // from zero, and a subnormal a among the discarded lanes would otherwise
     // reach them.
     const auto ac = op::Max(a, at);
+    // TWIN: gamma-inl.h GammaTemme's prescale.
     // Dekker-ceiling prescale, GammaTemme's twin site (kGammaScaleAbove,
     // gamma-inl.h): without it a >= 2^997 NaN'd the forward through
     // ProdLow's non-FMA split and every Newton candidate was rejected.
@@ -493,6 +494,7 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
   e = Dd<D>{op::IfThenElse(m_big, e_big.hi, e_small.hi),
             op::IfThenElse(m_big, e_big.lo, e_small.lo)};
 
+  // TWIN: gamma-inl.h GammaVec's region map; mirror any routing change.
   // --- region map: GammaVec's, with kP carried per lane --------------------
   const auto i_small = Ind(d, op::Lt(a, at));
   const auto i_xle = Ind(d, op::Ge(op::Add(a, one), x));

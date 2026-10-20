@@ -98,6 +98,9 @@
 // the uniform case alpha = beta = 1, where m = ln y - ln(1-y) gives
 // w = 1 - y exactly and the formula reproduces it.
 //
+// TWIN: beta-inl.h route_final and its four region cores. A routing or
+// region fix there must be mirrored here (#47 was not, until #55).
+//
 // THE FORWARD IS beta's OWN ROUTER, IN LOG SPACE. BetaInvForward reproduces
 // route_final and the four region cores of src/beta-inl.h, but returns
 // ln(one side) + which side it is, never a probability:
