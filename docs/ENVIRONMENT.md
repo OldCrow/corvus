@@ -303,8 +303,15 @@ surface lean and justify every runner:
 - Linux x86-64 (cheap): sequential tier sweep AVX2->SSE2 in ONE job
   (Highway builds once; a matrix would multiply setup and Highway builds),
   plus ASan+UBSan Debug build in the same job.
-- macOS arm64 (expensive class): single config — the only runner producing
-  new information (native NEON silicon; counts as real-silicon validation).
+- macOS arm64 (expensive class): the only runner producing new information
+  (native NEON silicon; counts as real-silicon validation). Two builds in
+  one job, because hosted Apple silicon is not guaranteed: the same image
+  ran on an M1 and on a BF16-capable core that dispatched NEON_BF16
+  (2026-10-20). A native build keeps NEON_BF16 compiling under `-Werror`
+  and runs the gates unasserted; a build capped with
+  `CORVUS_DISABLED_TARGETS="(HWY_NEON-1)"` and asserted with
+  `CORVUS_EXPECT_TARGET=NEON` feeds the ULP report and ACCURACY.md's NEON
+  row.
 - Windows x86-64 / MSVC: **toolchain coverage, explicitly not tier
   coverage.** It
   is the only job that sees MSVC-only diagnostics (`/W4 /WX`) and the only
