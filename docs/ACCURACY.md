@@ -1020,20 +1020,22 @@ propagates from either argument (payload preserved).
 
 ## beta_p_inv and beta_q_inv
 
-**Bounds, measured on the 16,883-row certified reference set and
+**Bounds, measured on the 17,609-row certified reference set and
 identical on every validated leg** — clang-cl AVX3_ZEN4 native, the
-capped AVX2/SSE4/SSSE3/SSE2 sweep, Linux CI, NEON, and MSVC AVX2:
+capped AVX2/SSE4/SSSE3/SSE2 sweep, Linux CI, NEON, and MSVC AVX2 (row
+9's 693 rows and the certified intervals: AVX3_ZEN4, SSE4 and SSE2 on
+2026-10-20; the other legs at the next CI run):
 
 | Regime | Bound |
 |---|---|
-| deep-small closed form, both ends | **0 ULP — correctly rounded** |
+| deep-small closed form, both ends | 1 ULP (erratum, see below) |
 | small-parameter seeds (series / closed-form / logit-normal) | 1 ULP |
 | Temme ridge | 1 ULP |
 | gamma-limit transfer (max(a,b) ≳ 10⁶) | 1 ULP |
 | huge-ν band (ν = ab/(a+b) ≥ 10³¹) | 1 ULP |
 | beyond-resolution rows (transition < 1 ulp of x) | ≤ 2 ULP vs the certified answer (neighbour semantics) |
-| conditioning-limited band (κ > 2¹⁸, see below) | backward error ≤ 1 ulp(p) — measured 0.000 |
-| subnormal x and x = 1 results | **0 ULP — correctly rounded** |
+| conditioning-limited band (κ > 2¹⁸, see below) | backward error ≤ 1 ulp(p), true forward — 752/752 inside certified intervals |
+| subnormal x and x = 1 results | 1 ULP (erratum, see below) |
 
 **Both ends of [0, 1] are lossless.** The input side is flipped
 exactly (s = min(p, 1−p), Sterbenz), and the *output* end is chosen by
@@ -1050,8 +1052,53 @@ zero across the whole interior, and the quantile's condition number
 can pin x to 1 ulp there. Above κ ≈ 2¹⁸ the kernel's guarantee
 switches to **backward error**: the returned x is the exact quantile
 of a probability within one ulp of the input — the statistically
-meaningful contract — and the measured worst case is 0.000 ulp.
-Below that κ the normal 1-ULP forward bound applies everywhere.
+meaningful contract. Below that κ the normal 1-ULP forward bound
+applies everywhere. The same κ > 2¹⁸ line is the regime the public
+header states (it once said "both shapes below ~1e-16", which the
+regime always contains but does not end at).
+
+**Row 9 (2026-10-20): #55, #50 and the #60 contract.**
+- *Orientation (#55).* The kernel picks which end to solve for with
+  one forward probe at ½. Two defects broke it.
+  - *Huge a.* The probe's dead band was measured through the slope w,
+    which is cancellation noise at a ≳ 10¹⁶. Roots at 1 stayed in the
+    wrong frame and came back as ~½. The band is now in the logit
+    itself (2⁻⁴⁰ relative), so w no longer enters.
+  - *Both shapes tiny with b ≪ a.* The inverse's own log-space forward
+    still routed x = ½ exactly the way the public forward did before
+    #47 was fixed (row 5): for tiny pairs both region thresholds round
+    to ½, so ½ fell into neither region and the continued fraction
+    ran on its divergent side. The logit came back ~−1500 where it is
+    ~ln(b/a), but only at the probe's own point. The router now
+    mirrors the forward's #47 predicate. Doing the probe correctly
+    costs ~0.3 µs per element on joint-tiny pairs (the bench's
+    plateau band, +58%), whose old midpoint evaluation was cheap
+    because it was wrong.
+- *Convergence (#50).* For a moderate shape against a tiny one at p
+  below it, the seeds land far out and the fixed four steps stopped
+  1e6–2e9 ulp short. Up to four more steps now run while any lane in
+  the vector is still moving, so converged vectors pay nothing.
+- *Guards.* The #53 harness's three strict bands for these defects
+  (798 failures) are gone, and a forward-free swap-identity check
+  (x = 1 − beta_q_inv(b, a, p)) now covers the same grids; on the
+  previous kernel it fails 140 points.
+- *Errata.* Two rows of the table above once read "0 ULP — correctly
+  rounded": the deep-small closed form and subnormal/x = 1 results.
+  No release met that: the gate was always 1 ULP and 1 ULP is what
+  was measured (the two-rounding subnormal assembly). The table now
+  states the bound that shipped. The κ row's "measured 0.000" was
+  scored through corvus's own forward, so it could not see an error.
+  It is now scored against certified intervals: for each of the 752
+  rows carrying the backward contract, `--backward-intervals` finds by
+  bit-pattern bisection in mpmath the doubles whose *true* forward is
+  within 1 ulp(σ) of σ, and the kernel's x must land inside. All 752
+  do (the previous kernel too: those rows were never wrong, only
+  unverified).
+- *Rows.* 693 new certified rows (`--row9-append`, seed 909) cover the
+  three bands: huge a, skewed tiny pairs, and #50's moderate-against-
+  tiny shapes. On them the previous kernel fails four cells, up to
+  5·10¹⁶ ulp in deep-small (#55's roots at 1 returned as ~½) and
+  3·10⁹ ulp in the remainder (#50).
 
 Method: per-lane analytic seed — five candidates (a beta-Temme
 normal-quantile ridge inversion through the 1-ULP erfcinv core; the
@@ -1060,7 +1107,8 @@ end via the swap; a gamma-limit transfer that reuses the shipped
 inverse-gamma seed machinery; an exact-lnB closed form that owns the
 joint-tiny plateau; and a logit-normal form built on the kernel's own
 digamma/trigamma cores), scored by one cheap forward residual — then
-four safeguarded Newton steps on the **logit** m = ln P − ln Q, which
+four safeguarded Newton steps, plus up to four more while any lane in
+the vector is still moving, on the **logit** m = ln P − ln Q, which
 saturates nowhere and is antisymmetric under both the input flip and
 the orientation swap, so one code path serves all four (side, end)
 combinations. The forward is assembled unrounded from the forward
@@ -1070,7 +1118,8 @@ the whole underflow range stays live out to parameters at 10³⁰⁸.
 Results below the closed-form cut (whose boundary correctly involves
 the *other* side's parameter) are assembled in double-double with the
 power-of-two scaling last — two roundings into the subnormals (mantissa,
-then grid); measured correctly rounded on every reference row there.
+then grid), so a result there can land 1 ULP from the correctly rounded
+value (measured: 1 ULP, 12 of 3,116 p-side rows).
 
 For ν ≳ 10³⁵ the entire transition happens inside one ulp of the mean
 a/(a+b), so the mean is the correctly rounded answer for every

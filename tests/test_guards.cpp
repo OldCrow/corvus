@@ -76,38 +76,12 @@ struct Band {
   size_t hits = 0;
 };
 
-bool Is(const char* fn, const char* name) { return std::strcmp(fn, name) == 0; }
-
-Band g_bands[] = {
-    // #50: betainv off by up to ~2e9 ulp for a moderate shape and a tiny one,
-    // p below the tiny one (beta_q_inv: the shapes swapped). Measured to big
-    // in [20, 1.8e4], small <= 5.4e-6 -- wider than the issue's b <~ 1e-8.
-    {50, "inverse bracket",
-     [](const char* fn, double a, double b, double x) {
-       const bool p = Is(fn, "beta_p_inv");
-       if (!p && !Is(fn, "beta_q_inv")) return false;
-       const double big = p ? a : b, small = p ? b : a;
-       return big >= 10.0 && big <= 3e4 && small <= 1e-5 && x < small;
-     }},
-    // #55: betainv returns ~0.5 for a >~ 1e17 with the root near 1. Capped
-    // at the grid's 1e20: c85e4de's witness points at a = 1e100 must stay
-    // outside every band, or a revert of its clamp would pass as #55.
-    {55, "inverse bracket",
-     [](const char* fn, double a, double, double) {
-       return (Is(fn, "beta_p_inv") || Is(fn, "beta_q_inv")) && a >= 1e16 &&
-              a <= 1e20;
-     }},
-    // #55 (found under #47): both shapes tiny -- the backward-error regime
-    // -- with a >> b, where the orientation probe falls back to 0.5
-    // (beta_q_inv(1e-20, 1e-70, q) = 0.5; the root is 1). Measured on
-    // AVX3_ZEN4/SSE4/SSE2, identical: a <= 2.8e-17, b/a <= 1.6e-33, never
-    // a < b. Row 9's orientation pass deletes it.
-    {55, "inverse bracket",
-     [](const char* fn, double a, double b, double) {
-       return (Is(fn, "beta_p_inv") || Is(fn, "beta_q_inv")) && a <= 1e-16 &&
-              b < a * 1e-32;
-     }},
-};
+// No band is open. Row 9 deleted the last three: #50 (betainv's fixed step
+// count, 324 failures) and both #55 bands (the orientation probe's
+// w-measured dead band, 101 at a in [1e16, 1e20] and 373 with both shapes
+// tiny and b << a). Add a band here, tagged, when a grid reaches a newly
+// filed defect.
+std::vector<Band> g_bands;
 
 // ---------------------------------------------------------------------------
 // Failure accounting. Every check reports through Fail(); a failure inside a
@@ -623,6 +597,66 @@ void CheckBracket() {
   Report(c);
 }
 
+// ---------------------------------------------------------------------------
+// 6. Inverse swap identity (#55).
+//
+// I_x(a, b) = 1 - I_{1-x}(b, a), so x = beta_p_inv(a, b, p) and
+// y = beta_q_inv(b, a, p) are the same root seen from the two ends:
+// x = 1 - y. Whichever of the two lies in the upper half is compared with 1
+// minus the other, which is the accurate one there. Unlike the bracket check
+// this needs no forward call, so it holds even where the forward's own slack
+// would hide a wrong root. Grids: the three bands row 9 closed -- huge a
+// (#55), both shapes tiny with b << a (#55, the root is 1), and a moderate
+// shape against a tiny one at p below it (#50). Own seed, so the grids above
+// keep their points.
+
+constexpr uint64_t kSwapUlp = 4;
+
+void CheckInverseSwap() {
+  Check c{"inverse swap identity"};
+  Rng rng{5555};
+  std::vector<double> a, b, s;
+  for (int i = 0; i < 1000; ++i) {
+    a.push_back(rng.LogU(1e16, 1e20));
+    b.push_back(rng.LogU(1e-200, 50.0));
+    const double t = rng.LogU(1e-300, 0.5);
+    s.push_back(rng.Unit() < 0.5 ? t : 1.0 - t);
+  }
+  for (int i = 0; i < 1000; ++i) {
+    const double ai = rng.LogU(1e-300, 1e-16);
+    const double bi = ai * std::pow(10.0, -(33.0 + 67.0 * rng.Unit()));
+    if (bi == 0.0) continue;
+    a.push_back(ai);
+    b.push_back(bi);
+    const double t = rng.LogU(1e-300, 0.5);
+    s.push_back(rng.Unit() < 0.5 ? t : 1.0 - t);
+  }
+  for (int i = 0; i < 1000; ++i) {
+    const double bi = rng.LogU(1e-200, 1e-5);
+    a.push_back(rng.LogU(10.0, 3e4));
+    b.push_back(bi);
+    s.push_back(bi * rng.LogU(1e-100, 0.1));
+  }
+  const size_t n = a.size();
+  std::vector<double> x(n), y(n);
+  corvus::beta_p_inv(a, b, s, x);
+  corvus::beta_q_inv(b, a, s, y);
+  for (size_t i = 0; i < n; ++i) {
+    ++c.n;
+    if (std::isnan(x[i]) || std::isnan(y[i])) {
+      Fail(&c, "beta_p_inv", a[i], b[i], s[i], x[i], "NaN root");
+      continue;
+    }
+    const bool upper = x[i] >= 0.5;
+    const double hi = upper ? x[i] : y[i];
+    const double other = 1.0 - (upper ? y[i] : x[i]);
+    if (UlpDiff(hi, other) > kSwapUlp)
+      Fail(&c, "beta_p_inv", a[i], b[i], s[i], x[i],
+           "x != 1 - beta_q_inv(b, a, p)");
+  }
+  Report(c);
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -633,6 +667,7 @@ int main(int argc, char** argv) {
   CheckRange();
   CheckSymmetry();
   CheckBracket();
+  CheckInverseSwap();
   ReportBands();
   if (g_fail) {
     std::printf("FAIL: %d check(s) failed\n", g_fail);

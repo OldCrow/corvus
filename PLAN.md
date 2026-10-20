@@ -8,7 +8,63 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-10-19
+## Status [DERIVED] — 2026-10-20
+
+**Order row 9 (#55, #50, #60): IMPLEMENTED 2026-10-20 on Z, uncommitted,
+awaiting user review.** Full ctest 35/35 at AVX3_ZEN4, SSE4 and SSE2 with
+0 warnings; local MSVC /W4 /WX clean.
+[DECIDED 2026-10-20, user]: a convergence-checked loop (not a fixed 6
+steps, not a new seed); kappa > 2^18 as the single backward-error regime
+in header, test and ACCURACY; the two 0-ULP ACCURACY claims corrected to
+1 ULP as an erratum (no release met 0; the gate was always 1), not MAJOR.
+Diagnosis used a one-lane traced copy of BetaInvVec generated from source
+(scratchpad probe/trace/mk_trace.py).
+- #55, huge a: the orientation probe's dead band was |w*d_half| > 2^-10,
+  and w at y = 1/2 is cancellation noise there (`wl` subtracts two ~1e17
+  high words). FIX: the band is in the logit, d_half < -2^-40 (1 + |m_t|)
+  (kBetaInvTieBand). The tie example (20, 1, 2^-20) has d_half = -7.9e-23
+  and stays unswapped, returning exactly 1/2; a pure sign test would swap.
+- #55, both tiny with b << a: NOT a band problem. BetaInvForward still
+  routed y = 1/2 exactly by the pre-#47 thr_t rule (row 5 fixed it only in
+  beta-inl.h): for tiny pairs both thresholds round to 1/2, so y = 1/2 fell
+  into neither region and R2's CF ran on its divergent side (logit -1500
+  where it is ~ln(b/a)), only at the probe's own point. FIX: the router
+  mirrors beta-inl.h's (y < thr) != (beta < alpha) window.
+  - A probe at 1/2 + 2^-11 was tried first: it also cleared both bands,
+    but by stepping around the seam, not fixing it.
+  - COST [user to confirm]: the correct midpoint forward costs ~0.3 us per
+    element more on joint-tiny pairs (bench plateau band +58%; HEAD's was
+    cheap because it was wrong). Every other bench band is within +-5%
+    (quiet A/B, best of two).
+- #50: four steps are too few from the tiny-alpha frame's seeds. FIX: a
+  tail of up to kBetaInvStepsExtra = 4 steps, exiting when every lane's
+  last step was < 2^-30 (quadratic), or it was rejected three times
+  running (beyond resolution), or it is deep-small. An exit test on the
+  PROPOSED step (< half an ulp) never fired: a converged lane's step is
+  forward noise (~1e-16), which cost 20-50%.
+- #60: a non-circular gate. CheckIntervals in test_betainv_ulp reads
+  tests/data/betainv_backward_reference.txt: for each of the 752 rows
+  that carry the backward contract, the doubles whose TRUE forward is
+  within 1 ulp(sigma), found by bit-pattern bisection in mpmath. 752/752
+  inside, on HEAD's kernel too. The file is in all gating lists (CMake,
+  three ci.yml jobs, sweep_tiers). The forward-scored figures are
+  report-only. Bucketize uses the kernel's real frame (x > 1/2). The
+  header states kappa > 2^18. ACCURACY has the errata, a row 9 paragraph
+  and 17,609 rows. Also a = b, s = 1/2 returns exactly 1/2.
+- Guards: all three strict bands deleted (g_bands is an empty vector). A
+  forward-free swap-identity check (2,856 points) fails 140 on HEAD and 0
+  now. The bracket check goes 798 -> 0. Smoke tests are extended to
+  1e17/1e19 (wiring only).
+- Rows (tools/gen_betainv_reference.py, subagent): `--row9-append` (seed
+  909) adds 693 N rows (huge a 196, skewed tiny 197, #50 300), each
+  certified by a positive-term 2F1 certifier with sign checks to 4x an
+  error bound. Every huge-a row is also cross-checked by a shifted
+  gamma-limit sign. `--backward-intervals` writes the interval file.
+  - Fail-first: HEAD's kernel fails four cells on the new rows (deep-small
+    to 5e16 ulp, remainder to 3e9).
+  - The inverse ULP table on the existing rows is unchanged.
+- NEXT: user review, then commit and push, CI, close #55, #50 and #60,
+  and update the standards workplan. A native M1 run is still owed.
 
 **Order row 8 (#54) DONE 2026-10-20 on Z**, `e376460` + `a82fd0e`; #54
 and #65 closed. Probe: 1,400 huge-parameter points, both orientations, against

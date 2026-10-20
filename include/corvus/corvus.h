@@ -351,11 +351,15 @@ void gamma_q_inv(std::span<const double> a, std::span<const double> q,
 /// use that form; it is exactly what the kernel does internally.
 ///
 /// Two named regimes carry a weaker guarantee, both by the nature of the
-/// problem rather than by the method. Where BOTH a and b are below ~1e-16 the
-/// distribution's interior density is ~4 min(a, b), so an interior x is not
-/// resolvable to 1 ULP by any double-precision inverse; there the returned x
-/// satisfies a BACKWARD-error contract instead (its forward value is within a
-/// few ulp of the requested probability). Where the effective sample size
+/// problem rather than by the method. Where the inversion's condition number
+/// kappa = sigma / (x f(x)) exceeds 2^18 (sigma the smaller of p and 1 - p, f
+/// the Beta density), a double-double forward cannot pin x to 1 ULP: its own
+/// ~2^-70 relative error, multiplied by kappa, already exceeds an ulp of x.
+/// There the returned x satisfies a BACKWARD-error contract instead: its true
+/// forward value is within 1 ulp of the requested probability. The regime
+/// always contains pairs with BOTH a and b below ~1e-16, whose interior
+/// density is ~4 min(a, b); it also reaches some small pairs (shapes near
+/// 1e-8) at interior targets. Where the effective sample size
 /// nu = ab/(a+b) is huge (audited band nu >= ~1e31; full collapse for
 /// nu >~ 1e35) the entire transition from I = 0 to I = 1 happens inside one
 /// or two ulp of x, so every interior probability has effectively the same

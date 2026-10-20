@@ -233,7 +233,8 @@ target_include_directories(test_betainv_ulp PRIVATE ${PROJECT_SOURCE_DIR})
 add_test(NAME betainv_ulp
   COMMAND test_betainv_ulp
   ${CMAKE_CURRENT_SOURCE_DIR}/data/betainv_p_reference.txt
-  ${CMAKE_CURRENT_SOURCE_DIR}/data/betainv_q_reference.txt)
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/betainv_q_reference.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/betainv_backward_reference.txt)
 
 add_executable(bench_betainv bench_betainv.cpp)
 corvus_test_target(bench_betainv)

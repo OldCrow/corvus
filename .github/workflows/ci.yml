@@ -105,7 +105,8 @@ jobs:
             tests/data/gammainv_q_reference.txt
           ./build/tests/test_betainv_ulp \
             tests/data/betainv_p_reference.txt \
-            tests/data/betainv_q_reference.txt
+            tests/data/betainv_q_reference.txt \
+            tests/data/betainv_backward_reference.txt
           ./build/tests/test_bessel_ulp \
             tests/data/i0_reference.txt tests/data/i1_reference.txt \
             tests/data/i0e_reference.txt tests/data/i1e_reference.txt
@@ -277,7 +278,8 @@ jobs:
             tests/data/gammainv_q_reference.txt
           ./build/tests/Release/test_betainv_ulp.exe \
             tests/data/betainv_p_reference.txt \
-            tests/data/betainv_q_reference.txt
+            tests/data/betainv_q_reference.txt \
+            tests/data/betainv_backward_reference.txt
           ./build/tests/Release/test_bessel_ulp.exe \
             tests/data/i0_reference.txt tests/data/i1_reference.txt \
             tests/data/i0e_reference.txt tests/data/i1e_reference.txt
@@ -386,7 +388,8 @@ jobs:
             tests/data/gammainv_q_reference.txt
           ./build/tests/test_betainv_ulp \
             tests/data/betainv_p_reference.txt \
-            tests/data/betainv_q_reference.txt
+            tests/data/betainv_q_reference.txt \
+            tests/data/betainv_backward_reference.txt
           ./build/tests/test_bessel_ulp \
             tests/data/i0_reference.txt tests/data/i1_reference.txt \
             tests/data/i0e_reference.txt tests/data/i1e_reference.txt

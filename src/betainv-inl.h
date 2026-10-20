@@ -268,12 +268,28 @@ inline constexpr double kBetaInvSqrt2 = 0x1.6a09e667f3bcdp+0;
 inline constexpr double kBetaInvPaScaleMax = 0x1.0p+40;
 inline constexpr double kBetaInvPsiTMin = 0x1.0p-30;
 
-// Dead band on the orientation probe: how far from 1/2 the root must be
-// before the swap is worth taking. Inside it BOTH orientations give a value
-// within 2^-10 of 1/2, where 1 (-) y is exact by Sterbenz -- so the tie goes
-// to the cheaper orientation rather than to the forward's last bits. See the
-// probe in BetaInvVec for why ties must go to "no swap".
-inline constexpr double kBetaInvSwapBand = 0x1.0p-10;
+// The orientation probe's dead band, in LOGIT units: swap only when
+// m(1/2) - m_t < -kBetaInvTieBand * (1 + |m_t|). A tie (root at 1/2 to the
+// forward's last bits) then stays unswapped, as it must; see the probe in
+// BetaInvVec. The band may not be measured through the slope w (#55): w at
+// the probe is cancellation noise at huge a and genuinely ~1e-305 for
+// skewed tiny pairs. Nor may the probe move off 1/2 to make the band
+// structural: y = 1/2 + 2^-11 was tried and is correct, but the forward
+// there costs ~55% more on joint-tiny pairs, whose y = 1/2 forward is cheap.
+inline constexpr double kBetaInvTieBand = 0x1.0p-40;
+
+// CONVERGENCE-CHECKED TAIL (#50). After the replay-pinned kBetaInvStepsN
+// steps, up to kBetaInvStepsExtra more run, but only while some lane in the
+// vector is still moving: a lane is done once the relative step it just took
+// is below kBetaInvConvStep = 2^-30 (convergence is quadratic there, so the
+// next step would be ~2^-60) or the noise freeze has zeroed it. A converged
+// lane's step is not zero but forward noise (~1e-16), which is why the test
+// cannot be "below half an ulp". The tiny-alpha frame's seeds can land a logit
+// residual of ~200 out (#50: (300, 1e-100, 1e-192) needs 6 steps), and the
+// fixed count returned those lanes silently unconverged. Measured on the #53
+// harness: 5 steps leave 26 of #50's 324 failures, 6 clear them all.
+inline constexpr int kBetaInvStepsExtra = 4;
+inline constexpr double kBetaInvConvStep = 0x1.0p-30;
 
 // ------------------------------------------------------------------------
 // Small shared helpers.
@@ -527,14 +543,25 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
 
   const auto xi1 = op::Set(d, detail::kBetaXi1);
   const auto b1v = op::Set(d, detail::kBetaB1);
-  const auto thr_t = op::Div(
-      one, op::Add(one, op::Div(op::Add(bmax, one), op::Add(tau, one))));
+  // R2's orientation threshold, and R4's window stated as R2's OWN
+  // predicate, beta-inl.h's #47 fix mirrored: R4 claims the lane iff R2's
+  // orientation would be the tiny-first one, (y < thr) != (beta < alpha).
+  // This router kept the old xi_tau < thr_t with thr_t = (tau+1)/(tau+B+2)
+  // in the tiny-first frame, equal to R2's boundary in exact arithmetic but
+  // rounded differently: for tiny pairs both round to exactly 1/2, so y = 1/2
+  // fell to neither region and R2 ran its CF on the divergent side. The
+  // logit came back ~-1500 where it is ~ln(b/a), but ONLY at y = 1/2 -- which
+  // is the orientation probe's point, so every skewed tiny pair (b/a below
+  // ~1e-32) swapped the wrong way and returned ~1/2 (#55's second shape).
+  const auto thr = op::Div(
+      one, op::Add(one, op::Div(op::Add(beta, one), op::Add(alpha, one))));
+  const auto r2_tiny_first =
+      op::Abs(op::Sub(BetaInd(d, op::Lt(y, thr)), BetaInd(d, sw4)));
   const auto i_r4 = op::Mul(
       BetaInd(d, op::Ge(op::Set(d, detail::kBetaEpsR4), tau)),
       op::Mul(BetaInd(d, op::Ge(op::Set(d, detail::kBetaLn2),
                                 op::Mul(tau, op::Abs(lxt.hi)))),
-              op::Mul(op::Max(BetaInd(d, op::Ge(xi1, xt.hi)),
-                              BetaInd(d, op::Lt(xt.hi, thr_t))),
+              op::Mul(op::Max(BetaInd(d, op::Ge(xi1, xt.hi)), r2_tiny_first),
                       BetaInd(d, op::Ge(b1v, op::Mul(bmax, xt.hi))))));
 
   const auto r1n = op::Mul(BetaInd(d, op::Ge(xi1, y)),
@@ -561,8 +588,6 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
               band),
       op::Mul(BetaIndNot(d, i_r4), BetaIndNot(d, i_r1)));
 
-  const auto thr = op::Div(
-      one, op::Add(one, op::Div(op::Add(beta, one), op::Add(alpha, one))));
   const auto i_r2 = op::Mul(BetaIndNot(d, i_r4),
                             op::Mul(BetaIndNot(d, i_r1), BetaIndNot(d, i_r3)));
 
@@ -1282,21 +1307,23 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
   // frame answers it in closed form (beta = 1 makes I_x = x^alpha, so the
   // deep-small route is exact) while the swapped one has to iterate there from
   // a 0.85-residual seed and lands 4e-12 out. Ties therefore go to "no swap".
+  // The dead band is measured in the LOGIT (kBetaInvTieBand), never through
+  // the slope. It was once |w*(m - m_t)| > 2^-10, i.e. the probe's own
+  // relative step (#55): w there is cancellation noise at huge a (the high
+  // words of ln u and E are ~1e17 apart from the ~40 that survives) and
+  // genuinely ~1e-305 when both shapes are tiny with b << a, so roots at 1
+  // were kept unswapped and returned ~1/2. The sign of m - m_t was right in
+  // both cases. A logit band only has to separate a tie from a decision:
+  // inside it the root sits within w * 2^-40 of 1/2, i.e. within 2^-30 for
+  // any lane whose w is ordinary, where both orientations are equally good;
+  // a lane with huge w is on a plateau, where either answer meets the
+  // backward-error contract.
   const auto cx0 = BetaInvPrepare(d, a, b);
   const auto f_half = BetaInvForward(d, cx0, half);
   const auto d_half = DdToDouble(DdSub(d, f_half.m, mt0));
-  // The dead band is measured in the PROBE'S OWN STEP, not in the residual:
-  // w*(m - m_t) is the relative distance from 1/2 to the root, so requiring it
-  // to exceed kBetaInvSwapBand says "swap only when the answer is genuinely
-  // away from the midpoint". Inside the band both orientations return a value
-  // within 2^-10 of 1/2, where 1 (-) y is Sterbenz-exact and neither
-  // orientation can lose anything -- so the tie may safely go to the cheaper
-  // one, and the criterion needs no assumption about the forward's accuracy.
-  const auto step_half = op::Abs(op::Mul(f_half.w, d_half));
-  const auto m_swap = BetaIndMask(
-      d, op::Mul(BetaInd(d, op::Lt(d_half, zero)),
-                 BetaInd(d, op::Gt(step_half,
-                                   op::Set(d, kBetaInvSwapBand)))));
+  const auto tie = op::Mul(op::Set(d, kBetaInvTieBand),
+                           op::Add(one, op::Abs(mt0.hi)));
+  const auto m_swap = BetaIndMask(d, BetaInd(d, op::Lt(d_half, op::Neg(tie))));
   const auto i_swap = BetaInd(d, m_swap);
   const auto cx = BetaInvSwapCtx(d, cx0, m_swap);
   const auto alpha = cx.alpha;
@@ -1521,7 +1548,7 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
       rbest = op::Abs(BetaInvResid(d, cur, mt));
     }
     auto scale = one;
-    for (int k = 0; k < detail::kBetaInvStepsN; ++k) {
+    for (int k = 0; k < detail::kBetaInvStepsN + kBetaInvStepsExtra; ++k) {
       const auto resid = BetaInvResid(d, cur, mt);
       auto ls = op::Neg(op::Mul(op::Mul(scale, cur.w), resid));
       ls = op::Max(ls, op::Set(d, -0.9));
@@ -1550,7 +1577,28 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
                     op::IfThenElse(acc, f.m.lo, cur.m.lo)};
       cur.w = op::IfThenElse(acc, f.w, cur.w);
       cur.unc = op::IfThenElse(acc, f.unc, cur.unc);
+      // The tail (see kBetaInvStepsExtra) stops once every lane's last step
+      // was below kBetaInvConvStep: convergence is quadratic there, so the
+      // step it would take next is ~kBetaInvConvStep^2, far below an ulp.
+      // The test reads the step just TAKEN, never one about to be skipped.
+      // A rejected step leaves scale < 1 and the lane is not done -- unless it
+      // has been rejected three times running (scale <= 2^-9): that is the
+      // beyond-resolution signature, where the forward's noise dwarfs any
+      // step and the seed is the answer (HEAD's fixed count stopped those
+      // lanes at four steps; without this they would always run the tail).
+      // Deep-small lanes count as done: they iterate here only because the
+      // vector does, and their answer is the closed form selected below.
       scale = op::IfThenElse(acc, one, op::Mul(scale, op::Set(d, 0.125)));
+      if (k + 1 >= detail::kBetaInvStepsN) {
+        const auto conv = op::Mul(
+            BetaInd(d, op::Lt(op::Abs(ls), op::Set(d, kBetaInvConvStep))),
+            BetaInd(d, op::Eq(scale, one)));
+        const auto stuck = BetaInd(d, op::Ge(op::Set(d, 0x1.0p-9), scale));
+        if (op::AllTrue(d, BetaIndMask(d, op::Max(op::Max(conv, stuck),
+                                                  BetaInd(d, m_ds))))) {
+          break;
+        }
+      }
     }
     y = op::IfThenElse(m_ds, y_ds, yn);
   }
@@ -1560,6 +1608,15 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
   // a double x near 1 can carry, and exactly why the public header documents
   // the swap identity as the lossless route for the other end.
   auto res = op::IfThenElse(m_swap, op::Sub(one, y), y);
+  // SYMMETRY: I_{1/2}(a, a) = 1/2 exactly, so the median of a symmetric pair
+  // is 1/2 exactly. The iteration cannot always find it: where both shapes
+  // are tiny the forward is flat at 1/2 to far below an ulp (a plateau), and
+  // (1e-300, 1e-300, 1/2) returned 1/2 + 2^-10 -- backward-correct but not
+  // the exact answer the identity gives for free (#60).
+  res = op::IfThenElse(
+      BetaIndMask(d, op::Mul(BetaInd(d, op::Eq(a, b)),
+                             BetaInd(d, op::Eq(s, half)))),
+      half, res);
 
   // --- specials (beta's own table, read as quantiles) -----------------------
   // Applied last, in increasing priority. One degenerate parameter puts all

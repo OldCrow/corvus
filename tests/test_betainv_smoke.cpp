@@ -311,8 +311,10 @@ void ClosedForm() {
 // disagreement means the frame is wrong rather than that a double ran out of
 // bits.
 void SwapIdentity() {
-  const double kAs[] = {0.03, 0.5, 1.5, 4.0, 30.0, 1e4};
-  const double kBs[] = {0.07, 0.9, 2.0, 11.0, 500.0, 1e6};
+  // 1e17 and 1e19 reach #55's band (a >~ 1e17, root near 1), where the
+  // orientation probe once kept the lane unswapped and returned ~1/2.
+  const double kAs[] = {0.03, 0.5, 1.5, 4.0, 30.0, 1e4, 1e17, 1e19};
+  const double kBs[] = {0.07, 0.9, 2.0, 11.0, 500.0, 1e6, 1e17, 1e19};
   const double kPs[] = {0.05, 0.2, 0.5, 0.8, 0.95};
   for (const double a : kAs) {
     for (const double b : kBs) {
@@ -347,8 +349,8 @@ void SwapIdentity() {
 // bound would report on the conditioning rather than on either kernel.
 void RoundTrip() {
   std::vector<double> as, bs, ss;
-  for (const double a : {1e-3, 0.1, 0.5, 1.0, 2.5, 19.0, 100.0, 1e4}) {
-    for (const double b : {1e-3, 0.1, 0.7, 1.0, 3.0, 21.0, 400.0, 1e6}) {
+  for (const double a : {1e-3, 0.1, 0.5, 1.0, 2.5, 19.0, 100.0, 1e4, 1e17}) {
+    for (const double b : {1e-3, 0.1, 0.7, 1.0, 3.0, 21.0, 400.0, 1e6, 1e19}) {
       for (const double s : {1e-30, 1e-8, 1e-3, 0.1, 0.3, 0.5, 0.7, 0.9}) {
         as.push_back(a);
         bs.push_back(b);

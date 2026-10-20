@@ -197,14 +197,17 @@ double LogKappa(double a, double b, double y, double s) {
   return std::log(s) - std::log(y) - ln_f;
 }
 
-// The kernel's internal frame, re-derived here from the same rule the driver
-// applies: sigma = min(s, 1-s) and the orientation swap is the same bit as
-// "sigma is the Q of (a, b)". The deep-small cut is only meaningful in that
-// frame -- stating it on the caller's (a, b, x) would be exactly that
-// b-independent mistake.
-int Bucketize(const Row& r, bool want_q) {
-  const bool flip = r.s > 0.5;
-  const bool swap = want_q ? !flip : flip;
+// The kernel's internal frame, re-derived here from the rule the driver
+// actually applies: it swaps to y = 1 - x exactly when the root lies above
+// its midpoint probe, I_{1/2}(a, b) < P, i.e. x > 1/2 (outside a logit tie
+// band of 2^-40, whose rows sit within ~2^-30 of 1/2 and bucket the same
+// either way). That is a question about the distribution, not about which
+// side sigma is -- "swap iff sigma is the Q" is the frame the kernel header
+// documents as WRONG (#60), and this function used it until row 9. The
+// deep-small cut is only meaningful in the kernel's frame -- stating it on
+// the caller's (a, b, x) would be exactly that b-independent mistake.
+int Bucketize(const Row& r, bool /*want_q*/) {
+  const bool swap = r.x > 0.5;
   const double alpha = swap ? r.b : r.a;
   const double beta = swap ? r.a : r.b;
   const double y = swap ? 1.0 - r.x : r.x;
@@ -350,7 +353,8 @@ int Measure(const char* label, bool want_q, const std::vector<Row>& rows,
     rc = 1;
   }
   std::printf(
-      "%-30s n=%6zu  worst |fwd(x) - sigma| = %.3f ulp(sigma) (gate %.1f)  "
+      "%-30s n=%6zu  worst |fwd(x) - sigma| = %.3f ulp(sigma) (corvus forward, "
+      "report only; the gate is the certified intervals at %.1f)  "
       "worst a=%.17g b=%.17g s=%.17g\n",
       "P rows (backward error)", n_p, worst_back, kMaxBackwardUlp, back_a,
       back_b, back_s);
@@ -361,12 +365,9 @@ int Measure(const char* label, bool want_q, const std::vector<Row>& rows,
                  label);
     rc = 1;
   }
-  if (n_p > 0 && worst_back > kMaxBackwardUlp) {
-    std::fprintf(stderr, "FAIL: %s plateau backward-error contract\n", label);
-    rc = 1;
-  }
   std::printf(
-      "%-30s n=%6zu  worst |fwd(x) - sigma| = %.3f ulp(sigma) (gate %.1f)  "
+      "%-30s n=%6zu  worst |fwd(x) - sigma| = %.3f ulp(sigma) (corvus forward, "
+      "report only; the gate is the certified intervals at %.1f)  "
       "worst a=%.17g b=%.17g s=%.17g\n",
       "kappa > 2^18 (backward)", n_ill, worst_ill, kMaxBackwardUlp, ill_a,
       ill_b, ill_s);
@@ -374,11 +375,6 @@ int Measure(const char* label, bool want_q, const std::vector<Row>& rows,
     std::fprintf(stderr,
                  "FAIL: %s kappa > 2^18 (backward) bucket is empty (n=0) -- "
                  "vacuous gate\n",
-                 label);
-    rc = 1;
-  }
-  if (n_ill > 0 && worst_ill > kMaxBackwardUlp) {
-    std::fprintf(stderr, "FAIL: %s ill-conditioned backward-error contract\n",
                  label);
     rc = 1;
   }
@@ -419,6 +415,75 @@ int Run(const char* label, bool want_q, const char* path) {
 
 }  // namespace
 
+// THE BACKWARD-ERROR GATE, NON-CIRCULAR (#60). Every row that carries the
+// backward contract (marker P, or kappa > 2^18) has a certified interval in
+// tools/gen_betainv_reference.py --backward-intervals: [xlo, xhi] is the set
+// of doubles x whose TRUE forward is within 1 ulp(sigma) of sigma, found by
+// bit-pattern bisection in mpmath with doubled-dps agreement on each sign.
+// The kernel passes iff its x lies inside. Nothing corvus computes enters the
+// verdict. The per-bucket "|fwd(x) - sigma|" figures above use corvus's own
+// beta_p and are kept as a report only: the forward can share the inverse's
+// blind spot, which is how that number read 0.000 while it gated nothing.
+int CheckIntervals(const char* path) {
+  const std::vector<corvus_test::RefRow> rows =
+      corvus_test::LoadRef(path, 6, 100);
+  std::vector<double> a[2], b[2], s[2], lo[2], hi[2];
+  for (const auto& r : rows) {
+    const double side = corvus_test::ParseDouble(r.tok[0], path, r.line);
+    if (side != 0.0 && side != 1.0) {
+      std::fprintf(stderr, "%s:%zu: side must be 0 or 1\n", path, r.line);
+      return 2;
+    }
+    const int k = side == 0.0 ? 0 : 1;
+    a[k].push_back(corvus_test::ParseDouble(r.tok[1], path, r.line));
+    b[k].push_back(corvus_test::ParseDouble(r.tok[2], path, r.line));
+    s[k].push_back(corvus_test::ParseDouble(r.tok[3], path, r.line));
+    lo[k].push_back(corvus_test::ParseDouble(r.tok[4], path, r.line));
+    hi[k].push_back(corvus_test::ParseDouble(r.tok[5], path, r.line));
+  }
+  int rc = 0;
+  for (int k = 0; k < 2; ++k) {
+    const char* label = k == 0 ? "beta_p_inv" : "beta_q_inv";
+    const size_t n = a[k].size();
+    std::vector<double> got(n);
+    if (n > 0) {
+      SplitCall(k == 0 ? SpanFn(corvus::beta_p_inv)
+                       : SpanFn(corvus::beta_q_inv),
+                got, a[k], b[k], s[k]);
+    }
+    size_t bad = 0;
+    uint64_t worst = 0;
+    double wa = 0.0, wb = 0.0, ws = 0.0;
+    for (size_t i = 0; i < n; ++i) {
+      if (got[i] >= lo[k][i] && got[i] <= hi[k][i]) continue;
+      ++bad;
+      const uint64_t u = got[i] < lo[k][i] ? UlpDiff(got[i], lo[k][i])
+                                           : UlpDiff(got[i], hi[k][i]);
+      if (u > worst || std::isnan(got[i])) {
+        worst = u;
+        wa = a[k][i];
+        wb = b[k][i];
+        ws = s[k][i];
+      }
+    }
+    std::printf(
+        "%s %-24s n=%6zu  outside certified interval: %zu (worst %llu ulp "
+        "outside, a=%.17g b=%.17g s=%.17g)\n",
+        label, "backward (certified)", n, bad,
+        static_cast<unsigned long long>(worst), wa, wb, ws);
+    if (n == 0) {
+      std::fprintf(stderr, "FAIL: %s certified backward rows empty -- "
+                           "vacuous gate\n", label);
+      rc = 1;
+    }
+    if (bad > 0) {
+      std::fprintf(stderr, "FAIL: %s backward-error contract\n", label);
+      rc = 1;
+    }
+  }
+  return rc;
+}
+
 int main(int argc, char* const* argv) {
   // Before doing any work: a wrong tier makes every number below meaningless.
   if (!corvus_test::ReportAndCheckTarget()) return 2;
@@ -427,10 +492,13 @@ int main(int argc, char* const* argv) {
       argc > 1 ? argv[1] : "tests/data/betainv_p_reference.txt";
   const char* q_path =
       argc > 2 ? argv[2] : "tests/data/betainv_q_reference.txt";
+  const char* w_path =
+      argc > 3 ? argv[3] : "tests/data/betainv_backward_reference.txt";
 
   int rc = 0;
   rc |= Run("beta_p_inv", false, p_path);
   rc |= Run("beta_q_inv", true, q_path);
+  rc |= CheckIntervals(w_path);
   if (rc == 0) std::printf("PASS: all buckets within gates\n");
   return rc;
 }
