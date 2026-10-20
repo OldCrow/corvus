@@ -513,10 +513,23 @@ note under the validation matrix).
 | Region (direct side) | gamma_p | gamma_q |
 |---|---|---|
 | R1 series (P direct) | **1 ULP** (0.02% not-CR) | complement: 1 ULP (0.10%) |
-| R2 continued fraction (Q direct) | complement: **0 ULP** (CR) | **1 ULP** (0.04% not-CR) |
-| R3 Temme ridge (smaller side direct) | **2 ULP** | **2 ULP** |
+| R2 continued fraction (Q direct) | complement: **1 ULP** (erratum; ~0.4% not-CR near x = a+1) | **1 ULP** (0.04% not-CR) |
+| R3 Temme ridge (smaller side direct) | **2 ULP** | **2 ULP** (3 measured near x = 2a; #64, row 12b) |
 | R3 complement | 1 ULP | 1 ULP |
-| R4 small-a (Q direct) | complement: **0 ULP** (CR) | **1 ULP** |
+| R4 small-a (Q direct) | complement: **1 ULP** (erratum; ~0.2% not-CR) | **1 ULP** (4 measured for a in [0.25, 0.5]; #67, row 12a) |
+
+**Erratum and open violations (row 12, 2026-10-20).** A dense re-score
+with two independent mpmath forms (AVX3_ZEN4) found that the R2 and R4
+complement cells, documented as correctly rounded (0 ULP), miss by 1 ulp
+on 0.2–0.4% of dense rows near the seams; the reference set never
+sampled them. The cause is the direct side's dd error (R2: the CF's dd
+steps and LgammaPosDd, ~2^-60; R4: lgamma(1+a)), not the complement
+rounding itself. The bound for both is now 1 ULP: an erratum, as at row 9,
+since no release met 0 there. The same re-score found two cells above
+their published bound, which v1.1.0 fixes rather than relaxes: gamma_q R3
+near x = 2a (3 ULP vs 2, the plain-double erfc factor G, #64, order row
+12b) and gamma_q R4 for a in [0.25, 0.5] (4 ULP vs 1, lgamma(1+a)'s
+centre-1 zone amplified by 1/Q, #67, order row 12a).
 
 **R1/R2 re-measured 2026-10-19 (#56).** The table's R1 and R2 rows above
 used to read 2 / 4 / 2 / 1 ULP (R1 P, R1 Q complement, R2 Q, R2 P

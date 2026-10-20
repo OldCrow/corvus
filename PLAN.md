@@ -12,8 +12,8 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 **Release split [DECIDED 2026-10-20, user]: v1.1.0 = correctness, v1.2.0 =
 performance.**
-- v1.1.0 ships order rows 2–12 (the correctness block). After row 12 work
-  PAUSES for the native M1 and Kaby Lake runs owed for rows 2–12 and the
+- v1.1.0 ships order rows 2–12b (the correctness block; 12a/12b added 2026-10-20 [user]). After row 12b work
+  PAUSES for the native M1 and Kaby Lake runs owed for rows 2–12b and the
   rest of the release tail. Then a PR from `dev/v1.1.0` to `main` (merge
   `main`'s Dependabot commits first), the tag and the release.
 - Milestones renamed [user]: 5 is "v1.1.0 — Correctness hardening"; 7 is
@@ -53,7 +53,7 @@ performance.**
   dps 120/240]. AVX3_ZEN4 only; two mpmath forms per family. #53's table
   rows 1, 2, 5, 6 are within bound now (the old kernel's errors are
   gone); P+Q <= 0.5 ulp(max(P, Q)) (ACCURACY wording updated).
-- **[OPEN, user decision] New contract findings from the re-score.** The
+- **[DECIDED 2026-10-20, user] New contract findings from the re-score:**
   checked-in gates miss all of these:
   - gamma_q R3 Temme tail, x just below 2a, a ~ 1150-1320 (a*phi ~ 360):
     3 ULP vs the 2-ULP bound. `gamma_q(0x1.271e222aab03cp+10,
@@ -952,6 +952,8 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 10 | #52 Bessel tail double rounding | independent; can run parallel to 3–9 | small (fix known) | tail sweep, rows | all tiers |
 | 11 | #61 generator self-check hardening | before regeneration | recipe–mid | generator checks | K |
 | 12 | #53 remainder: regenerate band rows, ACCURACY counts and claims, doc drift, sweep_tiers smoke gap; widen `dd_special_reference.txt`'s large-\|u\| coverage (it comes from gen_gamma_reference.py) and unify test_dd_special's two Log1pmxDd cells at the true worst (row 4 decision (b)) | once, after 3–11 | recipe | generators | K, Z (sweep) |
+| 12a | #67 gamma_q R4 small-a (4 ULP vs 1): lgamma(1+a) for a <= 1/2 as centre-2 zone at t = a minus dd log1p(a), private to GammaSmallQ [ADDED 2026-10-20, user] | after 12; independent of 12b | mid (design settled) | certified band rows (fail first); gammainv gates re-measured | K, CI |
+| 12b | #64 gamma R3 Temme tail (3 ULP vs 2): gamma-private dd erfc factor G, refit to ~2^-60 [ADDED 2026-10-20, user] | after 12; independent of 12a (both touch gamma-inl.h: run in sequence) | frontier (fit + budget) | certified x ~ 2a rows (fail first); gammainv gates re-measured | K, CI |
 | 13 | #42 lever 1 (per-element cost); weigh #44 first | after 5–9: same region cores; guards protect it | frontier | early-exit lane-mix tests | M1, K, Z |
 | 14 | #45 export span expm1, log1pmx | after 4; off the milestone if it would hold the release | mid (new family) | generator, four gating lists | K, M1, Z |
 | 15 | #31 lgamma table band | beta/gamma consume lgamma | frontier | generator + regen | K, Z, M1 |
@@ -963,9 +965,9 @@ user]: #18 (no filed need), #20 (libstats #62), #21 (no filed need; shared
 exp_dd core; #60 touches its contract wording), #19 (need filed; frontier
 oracle; libstats mitigates locally). #28 off every milestone; #44
 unmilestoned research, weighed in #42 lever 1 [user]. SPLIT 2026-10-20
-[user]: rows 2–12 are v1.1.0; rows 13–17 are v1.2.0 (milestone 7), branched
+[user]: rows 2–12b are v1.1.0; rows 13–17 are v1.2.0 (milestone 7), branched
 off `main` after the v1.1.0 tag (see Status). v1.1.0 release tail: native
-M1 + Kaby Lake runs for rows 2–12, RELEASING.md checklist, M1 + Zen 4
+M1 + Kaby Lake runs for rows 2–12b, RELEASING.md checklist, M1 + Zen 4
 tier checks at the freeze head. Moved to v1.2.0: the PERFORMANCE.md
 §4/§8.2 re-run and the libstats pin note (scalar entry points replace
 their deducing wrapper). Scale: the correctness block carries five
