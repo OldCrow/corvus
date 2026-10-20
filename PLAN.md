@@ -44,8 +44,8 @@ gammainv region map.
   running (scratchpad beta-tail/). Breaks 3 ULP -> v1.1.0 order row;
   within 3 -> tightening, v1.2.0.
 
-**Order row 12b (#64): DONE 2026-10-21 on Z**, `d0fb2e1` (CI run
-39473592624 queued at write time; #64 to close on green). As implemented:
+**Order row 12b (#64): DONE 2026-10-21 on Z**, `d0fb2e1`. CI GREEN via run
+39477235960 on 991a700 (macOS re-run after a runner shortage); #64 closed. As implemented:
 - Fix: gamma-private dd erfc tail factor GammaTailG (CORVUS_OUTLINE), one
   interval z in [6, 28.5] (live max sqrt(800) = 28.28), degree 15 in
   s = u - C with u = 2*DdRecip(2z) (dd), Horner in double to c3 and the
