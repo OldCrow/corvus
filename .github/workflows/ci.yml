@@ -345,14 +345,29 @@ jobs:
       - name: Install Highway
         run: brew install highway
 
-      # Native dispatch, but the tier is still asserted: this job is the sole
-      # source of the NEON row in docs/ACCURACY.md, so if a runner-image change
-      # ever moves dispatch (e.g. to NEON_BF16 on newer cores) that must fail
-      # loudly and be revalidated, not silently relabel the audit record.
-      - name: Build and test
+      # Hosted Apple silicon is not guaranteed: one runner image can land on
+      # an M1 (dispatches NEON) or a BF16-capable core (dispatches NEON_BF16),
+      # as run 39452466261 did. So two builds, like the Windows clang-cl leg.
+      # This one keeps every arm64 target Highway compiles (NEON_BF16
+      # included) under -Werror, and runs the gates on whatever tier the host
+      # dispatches, unasserted. It validates no tier.
+      - name: Build and test (native dispatch)
+        run: |
+          sysctl -n machdep.cpu.brand_string
+          sysctl hw.optional.arm.FEAT_BF16 || true
+          cmake -B build-native -G Ninja -DCORVUS_WERROR=ON \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix)"
+          cmake --build build-native
+          ctest --test-dir build-native --output-on-failure
+
+      # The sole source of the NEON row in docs/ACCURACY.md. (HWY_NEON-1)
+      # disables every target better than NEON, so dispatch is NEON on any
+      # host; the assertion still catches a cap that fails to take effect.
+      - name: Build and test (capped at NEON)
         run: |
           cmake -B build -G Ninja -DCORVUS_WERROR=ON \
-            -DCMAKE_PREFIX_PATH="$(brew --prefix)"
+            -DCMAKE_PREFIX_PATH="$(brew --prefix)" \
+            -DCORVUS_DISABLED_TARGETS="(HWY_NEON-1)"
           cmake --build build
           CORVUS_EXPECT_TARGET=NEON \
             ctest --test-dir build --output-on-failure
