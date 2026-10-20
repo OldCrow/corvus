@@ -34,7 +34,7 @@
 //   log1p tail rounding   ~2^-70   (r^3*q evaluated in plain double)
 //   table representation  2^-107.5 dd split of -log(R_j)
 //   dd assembly           ~2^-104
-// Total ~2^-70 relative, matching exp_dd's ~2^-68.
+// Total ~2^-70 relative, matching exp_dd's ~2^-70.
 //
 // DOMAIN
 //   x must be a POSITIVE NORMAL double. Zero, negatives, Inf and NaN are the

@@ -55,6 +55,7 @@ Oracle rules (both hard requirements):
 Usage:
     python3 tools/gen_gamma_reference.py               # full regeneration
     python3 tools/gen_gamma_reference.py --check-only  # self-checks only, writes nothing
+    python3 tools/gen_gamma_reference.py --dd-special-append  # row-12 Log1pmxDd rows
 """
 
 import argparse
@@ -752,6 +753,158 @@ def gen_dd_special_reference(rng):
     return len(rows)
 
 
+# --- incremental append: Log1pmxDd's LogDdAny branch (row 12) ------------------
+# The base set above samples |u| > 1/16 at 700 points per side over wide
+# ranges and never landed near u = 0.1166, where #58's nonzero-u.lo set found
+# the primitive's worst (2^-71.41; the same u.hi with u.lo = 0 measures the
+# same). This mode appends dense LogDdAny-branch rows from its OWN rng, so the
+# main SEED stream -- and every gamma_{p,q} and existing dd_special row -- is
+# untouched; existing lines stay byte-identical and rows already present are
+# skipped (a re-run appends nothing). Same oracle and format as
+# gen_dd_special_reference: phi = u - log1p(u) at dps 60, rounded to a dd.
+#
+# Strata (u.lo = 0, as the whole file):
+#   near-cut   u in (1/16, 1/4], uniform -- the 2/u amplification is largest
+#   pos        u in (1/4, 1], uniform
+#   pos-wide   u in (1, 100], log-uniform
+#   neg        u in [-1/2, -1/16), uniform
+#   neg-deep   t = 1 + u log-uniform in [2^-52, 1/2], u = fl(t - 1); with
+#              u in [-1, -1/2], 1 + u is exact (Sterbenz), so the 1-arg
+#              form's w is exact -- its hazard near -1 is u.lo, which is 0
+#   worst-nbhd the #58 worst u.hi = 0.11658359198367813 +- 256 ulps
+#              bit-stepped, plus 400 uniform in +-2^-12 relative around it
+#
+# Self-checks (exit non-zero, file untouched):
+#   (a) re-verify: every row recomputed at dps 120 must round to the SAME dd
+#       pair, bit for bit;
+#   (b) every want pair is normalized: |lo| <= ulp(hi)/2 and hi + lo == hi;
+#   (c) negative control: a want pair with lo moved by one ulp(lo) -- the
+#       smallest change a dd can express, ~2^-106 relative -- must fail (a);
+#   (d) every appended u is in the LogDdAny branch (|u| > 1/16), and the
+#       stratum counts meet the plan (no silent shrinkage).
+DDSPEC12_SEED = 1212
+DDSPEC12_WORST = 0.11658359198367813
+DDSPEC12_PLAN = (("near-cut", 1500), ("pos", 800), ("pos-wide", 200),
+                 ("neg", 800), ("neg-deep", 300), ("worst-nbhd", 913))
+DD_SPECIAL_PATH = os.path.join("tests", "data", "dd_special_reference.txt")
+
+
+def build_ddspec12_points():
+    """Returns [(u, stratum)] in file order, duplicates within the list removed."""
+    rng = random.Random(DDSPEC12_SEED)
+    cut = 1.0 / 16.0
+    pts = []
+    for _ in range(1500):
+        pts.append((rng.uniform(cut, 0.25), "near-cut"))
+    for _ in range(800):
+        pts.append((rng.uniform(0.25, 1.0), "pos"))
+    for _ in range(200):
+        pts.append((10.0 ** rng.uniform(0.0, 2.0), "pos-wide"))
+    for _ in range(800):
+        pts.append((-rng.uniform(cut, 0.5), "neg"))
+    # Near t = 2^-52 the 2^-53 grid of u collapses draws; draw to 300 distinct.
+    deep = set()
+    while len(deep) < 300:
+        u = 2.0 ** rng.uniform(-52.0, -1.0) - 1.0
+        if u not in deep:
+            deep.add(u)
+            pts.append((u, "neg-deep"))
+    up = dn = DDSPEC12_WORST
+    pts.append((DDSPEC12_WORST, "worst-nbhd"))
+    for _ in range(256):
+        up = math.nextafter(up, math.inf)
+        dn = math.nextafter(dn, -math.inf)
+        pts.append((up, "worst-nbhd"))
+        pts.append((dn, "worst-nbhd"))
+    for _ in range(400):
+        pts.append((DDSPEC12_WORST * (1.0 + rng.uniform(-2.0 ** -12, 2.0 ** -12)),
+                    "worst-nbhd"))
+    out, seen = [], set()
+    for u, tag in pts:
+        b = as_bits(u)
+        if b not in seen:
+            seen.add(b)
+            out.append((u, tag))
+    return out
+
+
+def phi_dd(u, dps):
+    with mp.workdps(dps):
+        um = mp.mpf(u)
+        phi = um - mp.log1p(um)
+        hi = round_to_double(phi)
+        lo = round_to_double(phi - mp.mpf(hi))
+    return hi, lo
+
+
+def dd_normalized(hi, lo):
+    return abs(lo) <= math.ulp(hi) / 2 and hi + lo == hi
+
+
+def ddspec12_append():
+    pts = build_ddspec12_points()
+    with open(DD_SPECIAL_PATH, "rb") as f:
+        old = f.read()
+    if old and not old.endswith(b"\n"):
+        print("FAILED: dd_special_reference.txt lacks a trailing newline -- "
+              "nothing written.", file=sys.stderr)
+        return 6
+    eol = b"\r\n" if b"\r\n" in old else b"\n"
+    present = {ln.split()[0] for ln in old.decode().splitlines() if ln.split()}
+
+    bad = 0
+    rows, counts, skipped = [], {}, 0
+    for u, tag in pts:
+        if not (abs(u) > 1.0 / 16.0 and u > -1.0 and math.isfinite(u)):
+            print(f"  FAILED (d): u={u!r} ({tag}) outside the LogDdAny branch",
+                  file=sys.stderr)
+            bad += 1
+            continue
+        if hexd(u) in present:
+            skipped += 1
+            continue
+        hi, lo = phi_dd(u, 60)
+        if (hi, lo) != phi_dd(u, 120):
+            print(f"  FAILED (a): u={u!r} dps 60/120 dd pairs differ",
+                  file=sys.stderr)
+            bad += 1
+            continue
+        if not dd_normalized(hi, lo):
+            print(f"  FAILED (b): u={u!r} want pair not normalized",
+                  file=sys.stderr)
+            bad += 1
+            continue
+        rows.append((u, hi, lo))
+        counts[tag] = counts.get(tag, 0) + 1
+
+    # (c) negative control on the middle row: one ulp of lo must be caught.
+    if rows:
+        u, hi, lo = rows[len(rows) // 2]
+        if (hi, math.nextafter(lo, math.inf)) == phi_dd(u, 120):
+            print("  FAILED (c): 1-ulp(lo) perturbation not rejected",
+                  file=sys.stderr)
+            bad += 1
+    # (d) plan sizes, unless this is a re-run that found everything present.
+    if skipped == 0:
+        for tag, want in DDSPEC12_PLAN:
+            if counts.get(tag, 0) < want:
+                print(f"  FAILED (d): stratum {tag} has {counts.get(tag, 0)} "
+                      f"rows < {want}", file=sys.stderr)
+                bad += 1
+    if bad:
+        print(f"Self-checks FAILED ({bad}) -- nothing written.", file=sys.stderr)
+        return 1
+
+    new = [f"{hexd(u)} {hexd(hi)} {hexd(lo)}".encode() + eol
+           for u, hi, lo in rows]
+    with open(DD_SPECIAL_PATH, "wb") as f:
+        f.write(old + b"".join(new))
+    print(f"  appended {len(new)} rows to dd_special_reference.txt "
+          f"({skipped} already present); by stratum: {counts}; "
+          f"self-checks (a)-(d) passed", file=sys.stderr)
+    return 0
+
+
 # --- incremental append of the #56 ridge / #57 Temme-tail families ------------
 # Own RNG (Random(5657)); the main SEED stream is never touched. Only the new
 # family is certified (same oracle_pq, same finite / saturation-prune /
@@ -977,9 +1130,15 @@ def main():
     parser.add_argument("--check-only", action="store_true",
                         help="extract the Temme fits and run the oracle "
                              "self-checks only; write no files")
+    parser.add_argument("--dd-special-append", action="store_true",
+                        help="append the row-12 LogDdAny-branch rows to "
+                             "tests/data/dd_special_reference.txt (own rng; "
+                             "no Temme work, gamma files untouched)")
     args = parser.parse_args()
     if args.ridge56_append:
         return ridge56_append()
+    if args.dd_special_append:
+        return ddspec12_append()
     rng = random.Random(SEED)
 
     print("extracting full-degree Temme fits for the a>1e4 oracle ...",

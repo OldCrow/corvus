@@ -85,7 +85,7 @@ void erfc(std::span<const double> in, std::span<double> out) noexcept;
 /// split is documented.
 ///
 /// Specials: lgamma(1) = lgamma(2) = +0; +inf at every pole (x = 0 and the
-/// negative integers), on overflow (x above ~2.556e305), and at both
+/// negative integers), on overflow (x above ~2.5599833e305), and at both
 /// infinities; NaN propagates (payload preserved).
 void lgamma(std::span<const double> in, std::span<double> out) noexcept;
 

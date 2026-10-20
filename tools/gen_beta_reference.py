@@ -2790,12 +2790,72 @@ def check_small_side_direct(rows):
     return 0 if n_fail == 0 else 1
 
 
+EXACT_LINE_MAX_EXP = 4096
+
+
+def exact_line_value(a, b, x):
+    """(P, Q) as doubles from EXACT rational arithmetic on the closed-form
+    lines I_x(a, 1) = x^a and I_x(1, b) = 1 - (1-x)^b with an integer
+    exponent, else None. A double x is rational, so these values are exact
+    and Python's float(Fraction) rounds them ties-to-even. An mpf oracle
+    cannot: where the exact value IS a rounding midpoint (e.g. Q(2, 1,
+    1-2^-53) = 2^-52 - 2^-106), an error of 1e-60 decides the tie, and five
+    rows of the v1.0.x set stored the odd neighbour (#53, order row 12)."""
+    from fractions import Fraction
+    if not all(math.isfinite(v) for v in (a, b, x)) or not 0.0 <= x <= 1.0:
+        return None
+    if b == 1.0 and a == int(a) and 1 <= a <= EXACT_LINE_MAX_EXP:
+        p = Fraction(x) ** int(a)
+        return float(p), float(1 - p)
+    if a == 1.0 and b == int(b) and 1 <= b <= EXACT_LINE_MAX_EXP:
+        q = (1 - Fraction(x)) ** int(b)
+        return float(1 - q), float(q)
+    return None
+
+
 def write_rows(rows):
     for path in ("tests/data/beta_p_reference.txt", "tests/data/beta_q_reference.txt"):
         with open(path, "w") as f:
             for a, b, x, P, Q in rows:
+                exact = exact_line_value(a, b, x)
+                if exact is not None:
+                    P, Q = exact
                 f.write(f"{hexd(a)} {hexd(b)} {hexd(x)} {hexd(P)} {hexd(Q)}\n")
         print(f"  wrote {path}: {len(rows)} points", file=sys.stderr)
+
+
+def exact_ties_fix():
+    """--exact-ties-fix: rewrite, in place, every checked-in row on an
+    exact closed-form line (exact_line_value) whose stored P or Q differs
+    from the exact ties-to-even rounding. Every other row is untouched. A
+    difference larger than one ulp is NOT a tie: abort without writing."""
+    total = 0
+    for path in ("tests/data/beta_p_reference.txt", "tests/data/beta_q_reference.txt"):
+        with open(path) as f:
+            lines = f.read().split("\n")
+        changed = 0
+        for i, line in enumerate(lines):
+            t = line.split()
+            if len(t) != 5:
+                continue
+            a, b, x, P, Q = (float.fromhex(v) for v in t)
+            exact = exact_line_value(a, b, x)
+            if exact is None or exact == (P, Q):
+                continue
+            for got, want in zip((P, Q), exact):
+                if got != want and math.nextafter(got, want) != want:
+                    print(f"  ABORT {path}:{i + 1}: stored {got.hex()} is more "
+                          f"than one ulp from exact {want.hex()}", file=sys.stderr)
+                    return 1
+            print(f"  {path}:{i + 1}: ({t[3]}, {t[4]}) -> "
+                  f"({hexd(exact[0])}, {hexd(exact[1])})", file=sys.stderr)
+            lines[i] = f"{t[0]} {t[1]} {t[2]} {hexd(exact[0])} {hexd(exact[1])}"
+            changed += 1
+        with open(path, "w") as f:
+            f.write("\n".join(lines))
+        print(f"  {path}: {changed} row(s) corrected", file=sys.stderr)
+        total += changed
+    return 0
 
 
 # ============================================================================
@@ -3894,7 +3954,14 @@ if __name__ == "__main__":
              "issue #54 defect 2) into the existing reference files. "
              "Independent 2F1 oracle, doubling-dps agreement on I and 1-I; "
              "own seed/checkpoint, resumable by re-invoking.")
+    _parser.add_argument(
+        "--exact-ties-fix", action="store_true",
+        help="Rewrite in place only the rows on exact closed-form lines "
+             "(I_x(a,1) = x^a, I_x(1,b) = 1-(1-x)^b, integer exponent) whose "
+             "stored value is not the exact ties-to-even rounding (#53).")
     _args = _parser.parse_args()
+    if _args.exact_ties_fix:
+        sys.exit(exact_ties_fix())
     if _args.corner_append:
         sys.exit(corner_append())
     if _args.r4huge_append:

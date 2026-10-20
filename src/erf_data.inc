@@ -2,7 +2,8 @@
 // regenerate with tools/gen_erf_table.py.
 // Method independently derived (local Taylor expansion about grid points,
 // Hermite-polynomial derivatives of exp(-x^2)); see libstats
-// docs/NEON_ERF_DERIVATION.md (same author). mpmath used only as a
+// https://github.com/OldCrow/libstats/blob/main/docs/NEON_ERF_DERIVATION.md
+// (same author). mpmath used only as a
 // high-precision oracle for values.
 // Grid r_j = j/256, j = 0..1536 (covers [0, 6]). Flat layout, 3 doubles
 // per entry: {E_hi, S, E_lo}. E_hi = RN(erf(r_j)); E_lo = RN(erf(r_j) - E_hi);

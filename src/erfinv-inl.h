@@ -164,7 +164,8 @@ HWY_INLINE op::V<D> HalleyMid(D d, op::V<D> x0, op::V<D> s) {
   // gather index round(ac*256) only stays at 0 because |x0| < 1/512 --
   // a 7.2x rounding margin enforced nowhere until this Max. The clamp is
   // provably a no-op on live lanes (x0 > 0) and runs after the NaN scrub,
-  // so Max never sees a NaN.
+  // so Max never sees a NaN. The 2026-10-10 defect hunt (#53) found no
+  // reachable effect over 220k points: a guard, not a fix.
   const auto x0s = op::Max(
       op::IfThenElse(op::IsNaN(x0), op::Zero(d), x0), op::Zero(d));
   const auto e = ErfcCoreDd(d, x0s, x0s);  // x0 > 0 on live lanes

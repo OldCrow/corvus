@@ -189,6 +189,9 @@ if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND MSVC_VERSION LESS 1930
     "breaks the double-double layer's exactness proofs (MSVC_VERSION is "
     "${MSVC_VERSION}). Use VS 2022, clang-cl, or GCC/Clang.")
 endif()
+# Contraction is OFF project-wide. GCC defaults to -ffp-contract=fast for
+# non-ISO modes, and Clang defaults to "on" (contract within a statement), so
+# both need the explicit flag; real MSVC gets no flag (the version floor above).
 set(CORVUS_FP_FLAGS "")
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND MSVC)
   list(APPEND CORVUS_FP_FLAGS /clang:-ffp-contract=off)  # clang-cl driver

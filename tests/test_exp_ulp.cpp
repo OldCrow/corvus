@@ -40,7 +40,8 @@ void SplitCall(const std::vector<double>& in, std::vector<double>& out) {
 // every NORMAL result in the set is correctly rounded (the core's ~2^-17
 // ulp tie window never bites on these rows -- gate 0), and the subnormal
 // band's fl(m.hi+m.lo)-then-ScaleTwo composition measures 1 (design bound
-// ~0.51 ulp in the output's own ulp).
+// ~0.75 ulp in the output's own ulp; 0.7495 measured in the top subnormal
+// binade, see docs/ACCURACY.md).
 constexpr uint64_t kGateNormal = 0;
 constexpr uint64_t kGateSubnormal = 1;
 

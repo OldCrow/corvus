@@ -587,7 +587,9 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
   // before exp_dd sees it: exp_dd's Cody-Waite reduction assumes |x| in
   // the exp over/underflow range, and an astronomically negative log
   // walks it to NaN (betainv's u-site derives the hazard; exp(-800) is
-  // already an exact 0, so the clamp is value-identical for u).
+  // already an exact 0, so the clamp is value-identical for u). The
+  // 2026-10-10 defect hunt (#53) found no reachable effect over 3e5 points:
+  // the clamp is unreachable from the API or a provable no-op.
   const auto lnf_u = op::Max(lnf.hi, op::Set(d, -800.0));
   const auto lnf_ul = op::IfThenElse(op::Eq(lnf_u, lnf.hi), lnf.lo, zero);
   const auto u = OutlinedExpDd(d, lnf_u, lnf_ul);
@@ -768,18 +770,12 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
     GammaInvConsider(d, a, x3, i_ok3, i_wp, lga, lna, mt, &best_x, &best_r,
                      &best_f);
 
-    // --- log-residual Newton, kGammaInvStepsN steps -----------------------
-    // The step is Delta log x = -+ w*(ln F (-) ln t), applied MULTIPLICATIVELY
-    // through expm1: x1 = x + x*expm1(step). Two reasons, and the first is
-    // exactness, not robustness. For |step| below the expm1 series cut,
-    // expm1(step) IS step to the last bit, so the converged step is the same
-    // single rounding the additive form would have made -- nothing is given
-    // up where it matters. Away from convergence the multiplicative form is
-    // the correct one: ln F is close to linear in ln x in every tail (a*log x
-    // in R1, -x in R2), and x*exp(step) cannot walk through zero, which
-    // x*(1 - step) does the moment w*resid exceeds 1 -- a p-side deep-tail
-    // seed with a residual of 40 does exactly that, and the positivity guard
-    // would then strand the lane on its seed forever.
+    // --- Newton, kGammaInvStepsN steps ------------------------------------
+    // The step is ADDITIVE in x: x1 = x*(1 + ls), ls = -scale*w*resid,
+    // floored at ls >= -0.9 (no expm1; the loop below explains the form). The
+    // floor keeps a runaway step, where w*resid exceeds 1, from reaching zero
+    // or a negative x, which the positivity guard would then strand on the
+    // seed.
     //
     // EVERY STEP IS SAFEGUARDED: it is accepted only if it does not increase
     // |ln F (-) ln t|, and a rejected step is retried from the same point at

@@ -357,7 +357,7 @@ same-magnitude terms — at 2^−53 absolute.
 Special values: lgamma(1) = lgamma(2) = +0 (the `+0.0` at the end of the
 kernel is load-bearing: t·B(t) at t = 0 carries the sign of B, which is
 negative at x = 1); +inf at every pole, on overflow above
-0x1.754d9278b51a7p+1014 ≈ 2.556e305, and at both infinities; NaN
+0x1.754d9278b51a7p+1014 ≈ 2.5599833e305, and at both infinities; NaN
 propagates with payload.
 
 **One tier-specific defect, found by the sweep and worth recording**:
@@ -496,7 +496,7 @@ diagonal rows
 (a ∈ {2^996, 2^997, 2^1000, DBL_MAX}, x = a ± 3 ulp: exact-diagonal
 P = Q = 0.5, saturated exact (1, +0)/(+0, 1) neighbours).
 
-**Bounds, measured on the 16,734-point reference set and identical
+**Bounds, measured on the 18,085-point reference set and identical
 (max ULP cell for cell) on AVX2, SSE4, SSSE3, SSE2, NEON and AVX-512.**
 x86: Kaby Lake native + capping, AppleClang, 2026-07-28. NEON:
 Apple-silicon CI runner (run 30412061002, 2026-07-29), point-identical to
@@ -588,8 +588,13 @@ and SSE2 (Zen 4, 2026-10-18); the R4 cell is unchanged at 1 ULP.
 
 Specials (SciPy limit conventions, exercised by the smoke test): x<0, a<0,
 (0,0) and (∞,∞) → NaN, payload preserved; (x=0, a>0) → P=+0, Q=1;
-(a=0, x>0) → P=1, Q=+0; x=+∞ → P=1; a=+∞ → Q=1. P+Q = 1 holds within
-1 ULP everywhere. Results underflow gradually; deep-tail lanes saturate to
+(a=0, x>0) → P=1, Q=+0; x=+∞ → P=1; a=+∞ → Q=1. P+Q = 1 is not
+a separate bound: each output carries its own ULP bound above, so the sum
+could in principle exceed 1 ULP. Measured exactly from the returned
+doubles over dense sweeps of R1–R4 (row 12, 2026-10-20, AVX3_ZEN4):
+|P + Q − 1| ≤ 0.5 ulp(max(P, Q)). The 2026-10-10 hunt's "1.45 ulp(P)"
+did not reproduce; ulp(P) is the wrong unit where P is tiny, since
+P + Q = 1 is an absolute statement. Results underflow gradually; deep-tail lanes saturate to
 the exact 0/1 pair below e^-800. A probability is never negative, signed
 zero included: R4's small-a assembly cancels three O(a) terms, and for a
 subnormal a (gamma_q(2⁻¹⁰⁷⁴, 2), true value 2.4e-325) their rounding
@@ -598,7 +603,7 @@ residue came out as −denorm_min; a value-safe clamp now returns +0 there
 
 ## beta_p and beta_q
 
-**Bounds, measured on the 37,885-point reference set (+251 specials) and
+**Bounds, measured on the 40,845-point reference set (+251 specials) and
 identical (max ULP cell for cell) on AVX3_ZEN4, AVX2, SSE4, SSSE3, SSE2
 and NEON.** x86: Ryzen 7445HS, clang-cl, 2026-08-05, re-measured
 2026-08-12 with the u → −1 corner rows (below) — `AVX3_ZEN4` native
@@ -794,7 +799,7 @@ parameters (a or b ∈ {0, +∞}) take their point-mass limits — except when
 the degenerate parameter *meets the x-boundary its own mass sits on*
 (e.g. a = 0 at x = 0, b = 0 at x = 1, a = +∞ at x = 1, both parameters
 degenerate), which is 0·∞ and → NaN. P + Q = 1 holds within 1 ULP on all
-37,885 points. Results underflow gradually; fully-saturated pairs return
+40,845 points. Results underflow gradually; fully-saturated pairs return
 the exact 0/1 doubles, each certified against a rigorous log-space bound
 in the harness.
 
@@ -1321,7 +1326,7 @@ ln B implementation.
 **Bound: max 1 ULP over the FULL double range, both functions, every
 region, every validated tier — including the non-FMA tiers.** Gate
 pinned at 1 with no margin, in four buckets per function (small/huge ×
-sign; 14,374 rows per function shared row-for-row). The donor kernel's
+sign; 14,630 rows per function shared row-for-row). The donor kernel's
 own SSE2 tier gates at 2 ULP; corvus holds 1 there because the
 reduction's exactness is structural (30-bit split parts make every
 n·part product exact without FMA), so only the polynomial ladders feel

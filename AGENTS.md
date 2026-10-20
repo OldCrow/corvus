@@ -122,8 +122,8 @@ capping recipes, sweep scripts: `docs/ENVIRONMENT.md`.
   and the `$gates` array in tools/sweep_tiers.ps1. ctest auto-discovers;
   the other three silently omit. A fifth, non-gating list — the default
   `-Targets` array in tools/quiet_bench.ps1 and the TARGETS default in
-  tools/quiet_bench.sh — enumerate the benches the
-  same way and needs the family's `bench_*` too.
+  tools/quiet_bench.sh — list every family bench (component benches
+  excepted, see docs/PERFORMANCE.md) and need the family's `bench_*` too.
 - Assert the tier, never assume it: validate under
   `CORVUS_EXPECT_TARGET=<tier>` and confirm the active target before
   trusting any tier result. Windows validation numbers come from clang-cl

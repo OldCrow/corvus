@@ -6,7 +6,7 @@
 //          budget certified by tools/gen_log_table.py's self-check) with its
 //          2^600 subnormal prescale -- then one final rounding fl(hi + lo).
 //          Total <= 0.5 + ~2^-17 ulp.
-//   log1p: two regimes, split at |x| <= 2^-30 (kLog1pTinyCut).
+//   log1p: two regimes, split at |x| <= 2^-30 (the 0x1p-30 literal in the kernel).
 //          MAIN: s = TwoSum(1, x) captures 1 + x EXACTLY for every double x
 //          (Sterbenz makes 1 + x itself exact on [-1, -1/2]; elsewhere the
 //          residual carries what the sum rounded away), then LogDdAny's dd

@@ -89,9 +89,9 @@ constexpr double kKappaMaxPar = 1e12;
 // Gamma-limit transfer territory, the kernel's own S3 availability gate.
 constexpr double kGammaLimit = 0x1.0p+20;
 
-// #14 N4: masked-tail split. betainv_p_reference.txt is 8752 rows -- a
-// multiple of 8, so a single whole-set call never exercises the masked-tail
-// path on any validated tier today. Splitting into subspans [0, n-3) and
+// #14 N4: masked-tail split. betainv_p_reference.txt was 8752 rows when #14
+// added this -- a multiple of 8, so a single whole-set call never exercised
+// the masked-tail path on any validated tier. Splitting into subspans [0, n-3) and
 // [n-3, n) makes neither half a lane multiple regardless of what n is;
 // each call is independently masked and stateless, so this is row-for-row
 // identical to one call.
@@ -161,7 +161,8 @@ struct Row {
   char marker;
 };
 
-bool LoadReference(const char* path, std::vector<Row>* rows) {
+// LoadRef exits on a missing, malformed or short file, so this cannot fail.
+void LoadReference(const char* path, std::vector<Row>* rows) {
   const auto raw = corvus_test::LoadRef(path, 5, 4000);
   rows->reserve(raw.size());
   for (const auto& row : raw) {
@@ -173,7 +174,6 @@ bool LoadReference(const char* path, std::vector<Row>* rows) {
     r.marker = row.tok[4].empty() ? '?' : row.tok[4][0];
     rows->push_back(r);
   }
-  return true;
 }
 
 enum : int {
@@ -395,7 +395,7 @@ int Measure(const char* label, bool want_q, const std::vector<Row>& rows,
 
 int Run(const char* label, bool want_q, const char* path) {
   std::vector<Row> rows;
-  if (!LoadReference(path, &rows)) return 2;
+  LoadReference(path, &rows);
   const size_t n = rows.size();
   std::vector<double> a(n), bb(n), s(n), got(n), fwd(n);
   for (size_t i = 0; i < n; ++i) {

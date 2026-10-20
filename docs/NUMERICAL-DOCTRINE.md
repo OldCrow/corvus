@@ -38,7 +38,12 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   outlining LgammaLog alone met the build-time goal (193 s → 72 s) and
   stopped there deliberately; erf/erfc carry no HWY_NOINLINE at all —
   they are the cheapest TUs in the library and have never shown a
-  build-time problem. Either exemption is void the moment its TU shows up
+  build-time problem; the elementary family's Vec wrappers (ExpVec,
+  LogVec, Log1pVec, CosVec, SinVec; TrigVec under Cos/Sin) stay HWY_INLINE
+  too, because each is a thin composition (fast path, AllTrue check, dd
+  fallback) and the heavy regions it calls (ExpFast, LogFast, ExpDdVec,
+  LogDdVec, OutlinedLogDd, TrigReduce, TrigCores, TrigReducePh) are the
+  outlined ones. Each exemption is void the moment its TU shows up
   in a slow-build report. The per-family DRIVER loop lives in
   src/driver-inl.h (DriveUnary/Binary/Ternary): each family's exported
   Impl is a dispatch-table root that is never inlined, so every

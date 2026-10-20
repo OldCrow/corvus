@@ -31,8 +31,82 @@ performance.**
   still worked only if their gate opens, which keeps v1.1.0 a pure
   correctness release.
 
-**Order row 11 (#61): IMPLEMENTED 2026-10-20 on Z, uncommitted, awaiting
-user review.** Four subagents, disjoint files; results re-run here.
+**Order row 12 (#53 remainder): IN PROGRESS 2026-10-20 on Z, uncommitted.**
+- Beta exact ties [DONE]: five rows per beta_{p,q} file on the closed-form
+  lines (I_x(a,1) = x^a, I_x(1,b) = 1-(1-x)^b, integer exponent) are exact
+  rounding midpoints, and the mpf oracle stored the odd neighbour (lines
+  32428, 32580, 32606, 33363, 33389). gen_beta_reference.py now rounds
+  those lines from exact rationals (exact_line_value, used by write_rows)
+  and `--exact-ties-fix` corrected the 10 checked-in rows in place (one
+  ulp each, to the even neighbour). test_beta_ulp passes, gates unchanged.
+- Doc/comment drift [DONE, subagent; facts re-checked]: lgamma threshold
+  2.5599833e305 (code was right: kLgammaMaxArg); ACCURACY counts gamma
+  18,085, beta 40,845 in-domain, cos/sin 14,630; quiet_bench "fifteen";
+  log-inl kLog1pTinyCut; NUMERICAL-DOCTRINE HWY_INLINE wrappers; libstats
+  URLs (erf_data.inc regenerates identically); test/src comment drift;
+  gamma P+Q wording (not a separate bound); unreachable-clamp notes;
+  AGENTS quiet_bench wording; sweep_tiers now runs the 15 smoke/lane-mix
+  tests. Historical row counts in test comments marked as #14-era.
+- Dead LoadReference branches [DONE]: the wrappers are void (LoadRef
+  exits on failure), five tests.
+- Seam excesses re-scored [DONE, subagent; reproducers re-verified here at
+  dps 120/240]. AVX3_ZEN4 only; two mpmath forms per family. #53's table
+  rows 1, 2, 5, 6 are within bound now (the old kernel's errors are
+  gone); P+Q <= 0.5 ulp(max(P, Q)) (ACCURACY wording updated).
+- **[OPEN, user decision] New contract findings from the re-score.** The
+  checked-in gates miss all of these:
+  - gamma_q R3 Temme tail, x just below 2a, a ~ 1150-1320 (a*phi ~ 360):
+    3 ULP vs the 2-ULP bound. `gamma_q(0x1.271e222aab03cp+10,
+    0x1.271e222aab038p+11)` = ...88cp-530, CR ...88fp-530. 45/48,008 rows.
+    Likely the plain-double erfc factor G (#64's "0.16 margin" is wrong).
+  - gamma_q R4 small-a direct, a in ~[0.25, 0.5], x in [2.5, 4]: 4 ULP vs
+    the 1-ULP bound. `gamma_q(0x1.ba7604d78e820p-2, 0x1.fe069bd940a0ap+1)`
+    = ...dbdp-9, CR ...db9p-9. 696/30k rows >= 2 ulp. Stops at a = 1/2;
+    suspect GammaSmallQ's c1 zone polynomial amplified by cancellation.
+  - Cells documented correctly rounded measure 1 ulp on 0.1-0.4% of dense
+    rows: gamma_p R2 complement, gamma_p R4 complement, beta gamma-limit
+    slice (P and Q).
+  - Diagnosis [DONE, read-only opus; harness reproduces library bits;
+    scratchpad row12-diag/]:
+    - R3 Q: plain-double erfc factor G (~1.7 x 2^-53 relative: fit 0.81 +
+      Horner 0.89) weighted 1.28 near lambda = 2 contributes -2.10 of the
+      -2.90 ulp. The 2-ULP bound was never achievable with a double G.
+      Options: (a) #64, a gamma-private dd G refit to ~2^-60 (+40-60 flops
+      on R3-tail lanes, ~+10% indicative; band worst 2.33 -> 0.86 real;
+      touches gamma R3 tail and gammainv's forward); (b) erratum R3 Q to 3.
+    - R4 Q: lgamma(1+a)'s centre-1 zone (a <= 1/2, ~2^-57 abs) amplified by
+      1/Q contributes 3.26 of 3.72 ulp; 1 ULP unachievable that way.
+      Recommended fix: for a <= 1/2, lgamma(1+a) = centre-2 zone at t = a
+      minus a dd log1p(a) (TwoSum(1, a), LogDdAny + l/h); band 3.76 -> 0.68
+      real, ~+3-5% of R4; private to GammaSmallQ (gamma R4 and gammainv's
+      forward), lgamma untouched. Alternative: erratum to 4 (not advised).
+    - CR claims: R2 complement misses come from the CF's 4 dd steps (3.9e-18)
+      plus LgammaPosDd (~2^-60); CR needs 8 dd steps (~25% of R2) AND a
+      lgamma-wide change, so recommended: document "1 ULP, ~0.4% not CR".
+      R4 complement: same cause as R4 Q; after that fix ~0.08% not CR,
+      document "1 ULP, <= 0.1% not CR". Beta gamma-limit slice CR claim
+      (0.1% not CR) not yet diagnosed.
+    - Any kernel change re-measures gammainv's gates (its forward residual
+      runs through GammaTemme and GammaSmallQ).
+  - Choices per finding: fix in v1.1.0 (new order rows), erratum the bound
+    (row 9 precedent), or defer to v1.2.0.
+- **[OPEN, user decision] Log1pmxDd near the 1/16 cut.** Widening
+  dd_special_reference.txt's LogDdAny coverage (`gen_gamma_reference.py
+  --dd-special-append`, seed 1212, 4,513 rows; mode kept, rows NOT
+  appended; widened copy in scratchpad row12-ddspecial/) shows the
+  primitive is worse than recorded: 2^-69.00 at u = 0.062565 in the file,
+  2^-67.63 at u = 0.0625809 under 100k-point probes, identical on three
+  tiers; the recorded/pinned worst is 2^-71.41 (u.lo != 0 cell) and the
+  u.lo = 0 gate is 71.64. Likely log_dd's ~2^-72.6 amplified ~2/u near
+  the cut. Consumer estimate (unmeasured): ~2^-58 relative on e^{-a*phi},
+  ~0.03 ULP. Options: (i) pin at a dense-probe floor (~67.6) with the
+  (1/16, 0.064] band sampled densely; (ii) fix the kernel near the cut
+  (raise kPhiCut with more series terms, or improve LogDdAny near 1), then
+  re-measure and unify the cells. Row 4's decision (b) waits on this.
+
+**Order row 11 (#61): DONE 2026-10-20 on Z**, `ae51623`. CI GREEN (run
+39375275542, all three jobs); #61 closed. Four subagents, disjoint files;
+results re-run here.
 - Bessel (gen_bessel_data.py): tail replay over fused/unfused x
   scaled/unscaled (the unscaled exp_dd fold modelled as a 2^-70
   perturbation of either sign), ~20.5k full-mantissa points each, worst

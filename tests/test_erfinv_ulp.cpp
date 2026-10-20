@@ -36,14 +36,14 @@ struct Region {
   double worst_x = 0.0;
 };
 
-bool LoadReference(const char* path, std::vector<double>* in,
+// LoadRef exits on a missing, malformed or short file, so this cannot fail.
+void LoadReference(const char* path, std::vector<double>* in,
                    std::vector<double>* want) {
   const auto rows = corvus_test::LoadRef(path, 2, 5000);
   for (const auto& row : rows) {
     in->push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
     want->push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
   }
-  return true;
 }
 
 int ReportRegions(const char* label, const Region* regions, int n_regions) {
@@ -81,7 +81,7 @@ int main(int argc, char* const* argv) {
   // --- erfinv: C (|y| <= 1/2) vs T (1/2 < |y| < 1); T never reaches "far" ---
   {
     std::vector<double> in, want;
-    if (!LoadReference(erfinv_path, &in, &want)) return 2;
+    LoadReference(erfinv_path, &in, &want);
     std::vector<double> got(in.size());
     // Two calls, not one: the second covers only the last 3 rows, a length
     // below every lane count, forcing the masked tail path on every tier
@@ -136,7 +136,7 @@ int main(int argc, char* const* argv) {
   // --- erfcinv: C ([1/2,3/2]) vs T-mid (|x|<6) vs T-far (|x|>=6) ---
   {
     std::vector<double> in, want;
-    if (!LoadReference(erfcinv_path, &in, &want)) return 2;
+    LoadReference(erfcinv_path, &in, &want);
     std::vector<double> got(in.size());
     // Two calls, not one: the second covers only the last 3 rows, a length
     // below every lane count, forcing the masked tail path on every tier

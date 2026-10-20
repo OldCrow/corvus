@@ -183,9 +183,9 @@ int Route(double a, double b, double x, double pref, double qref,
   return kR2;
 }
 
-// #14 N4: masked-tail split. beta_p_reference.txt/beta_q_reference.txt are
-// both 38100 rows -- a multiple of 4, so a single whole-set call never
-// exercises the masked-tail path below AVX-512. Splitting into subspans
+// #14 N4: masked-tail split. beta_p_reference.txt/beta_q_reference.txt were
+// both 38100 rows when #14 added this -- a multiple of 4, so a single
+// whole-set call never exercised the masked-tail path below AVX-512. Splitting into subspans
 // [0, n-3) and [n-3, n) makes neither half a lane multiple regardless of
 // what n is, so the tail path always runs; each call is independently
 // masked and stateless, so this is row-for-row identical to one call.
@@ -204,7 +204,8 @@ void SplitCall(Fn fn, std::vector<double>& out, const In&... in) {
      std::span<double>(out).subspan(split));
 }
 
-bool LoadReference(const char* path, std::vector<double>* a,
+// LoadRef exits on a missing, malformed or short file, so this cannot fail.
+void LoadReference(const char* path, std::vector<double>* a,
                    std::vector<double>* b, std::vector<double>* x,
                    std::vector<double>* p, std::vector<double>* q) {
   const auto rows = corvus_test::LoadRef(path, 5, 10000);
@@ -220,7 +221,6 @@ bool LoadReference(const char* path, std::vector<double>* a,
     p->push_back(corvus_test::ParseDouble(row.tok[3], path, row.line));
     q->push_back(corvus_test::ParseDouble(row.tok[4], path, row.line));
   }
-  return true;
 }
 
 int ReportRegions(const char* label, const Region* r, int n, bool want_p) {
@@ -499,7 +499,7 @@ int main(int argc, char* const* argv) {
   int rc = 0;
   {
     std::vector<double> a, b, x, p, q;
-    if (!LoadReference(p_path, &a, &b, &x, &p, &q)) return 2;
+    LoadReference(p_path, &a, &b, &x, &p, &q);
     std::vector<double> got(a.size());
     SplitCall(SpanFn(corvus::beta_p), got, a, b, x);
     rc |= Measure("beta_p", true, a, b, x, p, q, got, p);
@@ -508,7 +508,7 @@ int main(int argc, char* const* argv) {
   }
   {
     std::vector<double> a, b, x, p, q;
-    if (!LoadReference(q_path, &a, &b, &x, &p, &q)) return 2;
+    LoadReference(q_path, &a, &b, &x, &p, &q);
     std::vector<double> got(a.size());
     SplitCall(SpanFn(corvus::beta_q), got, a, b, x);
     rc |= Measure("beta_q", false, a, b, x, p, q, got, q);

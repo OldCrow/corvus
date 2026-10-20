@@ -124,7 +124,7 @@ HWY_INLINE Dd<D> ZoneBracket(D d, op::V<D> t, M c1) {
 // Grouped as x*(log x - 1) - log(x)/2 + ..., NOT as the textbook
 // (x - 1/2)*log x - x. The two are algebraically identical but the textbook
 // form computes a product that exceeds the result by x, and near the overflow
-// threshold (x ~ 2.556e305) that is enough to send the intermediate to
+// threshold (x ~ 2.5599833e305) that is enough to send the intermediate to
 // infinity -- and its dd residual to NaN -- while the true lgamma is still
 // finite, over a band ~0.1% wide in x. Grouped this way the intermediate
 // exceeds the result by only ~log(x)/2, which is ~351 against an ulp of
@@ -314,7 +314,7 @@ HWY_INLINE op::V<D> LgammaVec(D d, op::V<D> x) {
 
   // lgamma(+-0) = +inf, and so is every pole. The magnitude test covers three
   // cases at once and is written on |x| deliberately: +inf and overflow above
-  // ~2.556e305, and the whole negative range below -2.556e305, where every
+  // ~2.5599833e305, and the whole negative range below -2.5599833e305, where every
   // double is an integer and therefore a pole (so -inf lands right too). NaN
   // propagates with its payload, matching erf/erfc.
   out = op::IfThenElse(op::Eq(x, zero), inf, out);

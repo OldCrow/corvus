@@ -4,7 +4,7 @@
 Ported from libstats scripts/gen_neon_erf_table.py (same author). The method
 was INDEPENDENTLY DERIVED from first principles -- local Taylor expansion
 about uniform grid points, with Hermite-polynomial derivatives of exp(-x^2);
-see libstats docs/NEON_ERF_DERIVATION.md. No third-party erf implementation
+see https://github.com/OldCrow/libstats/blob/main/docs/NEON_ERF_DERIVATION.md. No third-party erf implementation
 was consulted; mpmath is used only as a high-precision oracle for VALUES.
 
     erf(a) = erf(r) + S * ( d + c2 d^2 + ... + c5 d^5 ),   d = a - r,
@@ -121,7 +121,8 @@ def main():
     print("// regenerate with tools/gen_erf_table.py.")
     print("// Method independently derived (local Taylor expansion about grid points,")
     print("// Hermite-polynomial derivatives of exp(-x^2)); see libstats")
-    print("// docs/NEON_ERF_DERIVATION.md (same author). mpmath used only as a")
+    print("// https://github.com/OldCrow/libstats/blob/main/docs/NEON_ERF_DERIVATION.md")
+    print("// (same author). mpmath used only as a")
     print("// high-precision oracle for values.")
     print(f"// Grid r_j = j/{1 << LOG2_INV_H}, j = 0..{n} (covers [0, 6]). Flat layout, 3 doubles")
     print("// per entry: {E_hi, S, E_lo}. E_hi = RN(erf(r_j)); E_lo = RN(erf(r_j) - E_hi);")

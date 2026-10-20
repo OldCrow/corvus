@@ -3,8 +3,11 @@
 small-argument region (|x| <= 2^23).
 
 PORT of libstats scripts/gen_trig_cleanroom_table.py (same owner, MIT,
-clean-room derived -- see libstats docs/NEON_TRIG_DERIVATION.md for the
-mathematics and docs/NEON_TRIG_DIVERGENCE_AUDIT.md for the point-by-point
+clean-room derived -- see
+https://github.com/OldCrow/libstats/blob/main/docs/NEON_TRIG_DERIVATION.md
+for the mathematics and
+https://github.com/OldCrow/libstats/blob/main/docs/NEON_TRIG_DIVERGENCE_AUDIT.md
+for the point-by-point
 comparison against ARM optimized-routines advsimd sin.c/cos.c confirming no
 shared expression; no third-party source). The math here is byte-for-byte
 that generator's math -- same precision, same splits, same fits -- so the

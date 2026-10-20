@@ -29,8 +29,9 @@
 //   structural, not FMA-dependent; part 3's product rounding (~2^-124
 //   absolute) sits below the reduction's ~2^-60 floor. On non-FMA tiers the
 //   MulAdd ladders in the cores fall back to mul+add; the donor gates that
-//   exact form at 2 ULP (its SSE2 tier), which is this kernel's expected
-//   non-FMA bound too.
+//   exact form at 2 ULP (its SSE2 tier), but this kernel holds 1 ULP on the
+//   non-FMA tiers too (gate and docs/ACCURACY.md), because the reduction is
+//   exact and only the polynomial ladders feel the missing fusion.
 //
 // LARGE REGION (|x| > 2^23): Payne-Hanek over per-exponent windows
 //   W_e = (2^(e-52) * 2/pi) mod 4 as four 53-bit chunks c0..c3 at fixed
@@ -224,8 +225,8 @@ CORVUS_OUTLINE void TrigCores(D d, op::V<D> r, op::V<D> rlo, op::V<D>& s_core,
   const auto one = op::Set(d, 1.0);
   const auto half = op::Set(d, 0.5);
   const auto nu = op::Neg(u);
-  const auto h = op::MulAdd(nu, half, one);                  // 1 - u/2, exact
-  const auto hl = op::MulAdd(nu, half, op::Sub(one, h));     // (1-h) - u/2, exact
+  const auto h = op::MulAdd(nu, half, one);                  // 1 - u/2, rounded
+  const auto hl = op::MulAdd(nu, half, op::Sub(one, h));     // its residual; (h, hl) is exact
   auto mc = op::MulAdd(op::Mul(u, u), pc, hl);
   mc = op::MulAdd(op::Neg(r), rlo, mc);  // first-order effect of rlo on cos
   c_core = op::Add(h, mc);

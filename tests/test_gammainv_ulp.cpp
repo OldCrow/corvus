@@ -92,7 +92,8 @@ void Report(const Bucket& b, bool gated) {
 }
 
 // Rows are three hex doubles: a, s, x.
-bool LoadReference(const char* path, std::vector<double>* a,
+// LoadRef exits on a missing, malformed or short file, so this cannot fail.
+void LoadReference(const char* path, std::vector<double>* a,
                    std::vector<double>* s, std::vector<double>* x) {
   const auto rows = LoadRef(path, 3, 5000);
   for (const auto& row : rows) {
@@ -100,7 +101,6 @@ bool LoadReference(const char* path, std::vector<double>* a,
     s->push_back(ParseDouble(row.tok[1], path, row.line));
     x->push_back(ParseDouble(row.tok[2], path, row.line));
   }
-  return true;
 }
 
 enum : int { kDeep = 0, kBeyond = 1, kS1 = 2, kSmallTail = 3, kSmallMid = 4 };
@@ -119,9 +119,9 @@ int Bucketize(double a, double s, double x) {
 
 // N4: split every whole-reference-set call into [0, n-3) and [n-3, n) so the
 // trailing 3-row group always runs a masked tail, independent of whether n
-// itself happens to be a lane multiple on the tier under test. gamma's
-// 16734 rows are even (no tail on any 2-lane tier today) and gammainv-q's
-// 6520 rows are a multiple of 8 (no tail on any tier at all) -- exactly the
+// itself happens to be a lane multiple on the tier under test. when #14 added it,
+// gamma's 16734 rows were even (no tail on any 2-lane tier) and gammainv-q's
+// 6520 rows were a multiple of 8 (no tail on any tier at all) -- exactly the
 // coverage gap this closes. Downstream per-row loops are untouched: they
 // only see the fully populated `got` vector.
 void CallSplit(void (*fn)(std::span<const double>, std::span<const double>,
@@ -219,14 +219,14 @@ int main(int argc, char* const* argv) {
   int rc = 0;
   {
     std::vector<double> a, s, x;
-    if (!LoadReference(p_path, &a, &s, &x)) return 2;
+    LoadReference(p_path, &a, &s, &x);
     std::vector<double> got(a.size());
     CallSplit(corvus::gamma_p_inv, a, s, got);
     rc |= Measure("gamma_p_inv", false, a, s, x, got);
   }
   {
     std::vector<double> a, s, x;
-    if (!LoadReference(q_path, &a, &s, &x)) return 2;
+    LoadReference(q_path, &a, &s, &x);
     std::vector<double> got(a.size());
     CallSplit(corvus::gamma_q_inv, a, s, got);
     rc |= Measure("gamma_q_inv", true, a, s, x, got);

@@ -226,7 +226,7 @@ inline constexpr double kBetaInvS3Min = 0x1.0p+20;
 // Sentinel replacing a non-finite log anywhere in the forward. Only lanes
 // astronomically far from any root can reach one (alpha*ln y overflows to
 // -inf for alpha past ~2.5e305 with |ln y| > 2, and lgamma(min) overflows
-// past 2.556e305): such a lane must not poison its neighbours, must LOSE the
+// past 2.5599833e305): such a lane must not poison its neighbours, must LOSE the
 // seed comparison, and must freeze rather than step. A huge finite log does
 // all three -- the residual it produces is enormous, and the w clamp below
 // bounds the step it could ask for.
