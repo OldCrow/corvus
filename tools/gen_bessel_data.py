@@ -98,7 +98,7 @@ mp.mp.dps = 60
 X_S = 8.0                    # kBesselSplit
 FIT_TOL = mpf(2) ** -60      # both regimes' truncation target (design's stated budget)
 ULP_TARGET_SERIES = 1.0
-ULP_TARGET_TAIL = 2.0        # doctrine allowance; measured floor is tighter
+ULP_TARGET_TAIL = 1.0        # the published bound (#52: 2.0 hid a ~1.5 ULP kernel)
 TAIL_FIT_REL_TARGET = 2.5e-16  # dense-verification gate for the RAW fitted
 # polynomial's double-precision evaluation (erfc_tail's own REL_TARGET,
 # gen_erfc_tail_poly.py's exact choice, reused): this is a ~1.5 ULP
@@ -461,13 +461,20 @@ def series_assemble_sim(nu, coeffs_hi, coeffs_lo, dcoef_desc, klead, x,
     return unscaled, sch + scl
 
 
-def tail_ive_sim(coeffs_desc, scale, shift, x):
+def tail_ive_sim(coeffs_desc, scale, shift, x, fused=True):
+    # Mirrors BesselTailIveDd: plain-double Horner down to c1, then the last
+    # step c0 + s*acc in dd (TwoProd + DdAddD, #52), divided by the exact
+    # sqrt(2*pi*x) (the kernel's dd 1/sqrt is ~2^-104, below this model).
     u_hi = 1.0 / x
-    s = mul_d(u_hi, scale) + shift
-    poly = horner_plain(coeffs_desc, s)
+    s = _mafold(u_hi, scale, shift, fused)
+    acc = coeffs_desc[0]
+    for c in coeffs_desc[1:-1]:
+        acc = _mafold(acc, s, c, fused)
+    ph, pl = two_prod(acc, s)
+    poly_h, poly_l = dd_addd_f(ph, pl, coeffs_desc[-1])
     two_pi_x = 2 * mp.pi * mp.mpf(x)
     denom = mp.sqrt(two_pi_x)
-    return float(mp.mpf(poly) / denom)
+    return float((mp.mpf(poly_h) + mp.mpf(poly_l)) / denom)
 
 
 def truth_ive(nu, x, dps=70):
@@ -657,11 +664,12 @@ def main():
         worst = -1.0
         worst_pt = None
         for p in pts:
-            got = tail_ive_sim(coeffs_desc, scale, shift, p)
             truth = truth_ive(nu, p)
-            u = ulp_distance_pos(truth, got)
-            if u > worst:
-                worst, worst_pt = u, p
+            for fused in (True, False):  # FMA tiers and SSE4/SSSE3/SSE2
+                got = tail_ive_sim(coeffs_desc, scale, shift, p, fused)
+                u = ulp_distance_pos(truth, got)
+                if u > worst:
+                    worst, worst_pt = u, p
         print(f"[gen_bessel_data]   nu={nu}: worst {worst:.3f} ULP @ x={worst_pt!r} "
               f"(target <= {ULP_TARGET_TAIL})", file=sys.stderr)
         if worst > ULP_TARGET_TAIL:

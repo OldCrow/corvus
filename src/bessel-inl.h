@@ -32,10 +32,11 @@
 // TAIL REGIME, ax > kBesselSplit. i_nu_e(x) = f_nu(t)/sqrt(2*pi*x), t = 1/x,
 // f_nu a Chebyshev refit in normalized s = t*Scale + Shift (own nodes and
 // budget, clean-room -- A&S coefficients were NOT ported).
-// Plain-double Horner: t is flat/well-conditioned there and klead 0/1/2
-// were measured to land at the same floor (erfc-tail precedent). The
-// divide-by-sqrt(2*pi*x) is dd-assisted (DdSqrt then DdRecipDd), so the
-// scaled result rounds exactly once; 2*pi itself is carried as a dd pair
+// Plain-double Horner except the LAST step, c0 + s*acc, which is dd
+// (TwoProd + DdAddD): f_nu stays unrounded into the dd multiply by
+// 1/sqrt(2*pi*x) (DdSqrt then DdRecipDd), so the scaled result rounds once.
+// Until #52 the poly was rounded to a double first; that second rounding
+// cost up to ~0.5 ulp more (i0 1.56 ulp measured). 2*pi is carried as a dd pair
 // (kBesselTwoPiHi/Lo below) so its own double-rounding cannot spend any of
 // that budget -- this is a kernel-internal MATH constant, not fitted table
 // data, so it lives here rather than in the generated src/bessel_data.h.
@@ -158,9 +159,9 @@ HWY_INLINE Dd<D> BesselLeadTailScalar(D d, op::V<D> t, const double* lead_hi,
 }
 
 // Plain-double Horner, ascending-degree coefficients, PLAIN DOUBLE argument
-// and result: used both for the series' derivative correction (dcoef[k] =
-// (k+1)*coef[k+1], the termwise derivative of the series in q) and for the
-// tail's Chebyshev fit itself.
+// and result: used for the series' derivative correction (dcoef[k] =
+// (k+1)*coef[k+1], the termwise derivative of the series in q). The tail's
+// fit has its own inline Horner, whose last step is dd (#52).
 template <class D>
 HWY_INLINE op::V<D> BesselPoly(D d, op::V<D> t, const double* coef, int n) {
   auto s = op::Set(d, coef[n - 1]);
@@ -196,16 +197,23 @@ HWY_NOINLINE Dd<D> BesselTailIveDd(D d, op::V<D> ax, const double* coef,
   const auto one = op::Set(d, 1.0);
   const auto t = op::Div(one, ax);  // plain double: flat/well-conditioned
   const auto s = op::MulAdd(t, op::Set(d, scale), op::Set(d, shift));
-  const auto poly = BesselPoly(d, s, coef, n_coef);
+  // #52: the last Horner step is dd, so f_nu is never rounded to a double
+  // before the dd multiply. Only the high part (sum k >= 1 of c_k s^k, a few
+  // percent of f_nu over the tail) carries plain-double rounding.
+  auto acc = op::Set(d, coef[n_coef - 1]);
+  for (int k = n_coef - 2; k >= 1; --k) {
+    acc = op::MulAdd(acc, s, op::Set(d, coef[k]));
+  }
+  const auto poly = DdAddD(d, TwoProd(d, acc, s), op::Set(d, coef[0]));
 
   const Dd<D> twopi{op::Set(d, kBesselTwoPiHi), op::Set(d, kBesselTwoPiLo)};
   const auto ax_ds = op::Mul(ax, op::Set(d, kBesselSqrtPrescale));  // exact
   const auto twopix = DdMulD(d, twopi, ax_ds);  // dd, safely bounded
-  const auto denom_ds = DdSqrt(d, twopix);      // dd sqrt(2*pi*ax) * 2^-4
+  const auto denom_ds = DdSqrt(d, twopix);      // dd sqrt(2*pi*ax) * 2^-16
   const auto denom =
       DdMulD(d, denom_ds, op::Set(d, kBesselSqrtPostscale));  // exact rescale
   const auto recip = DdRecipDd(d, denom);    // dd 1/sqrt(2*pi*ax)
-  return DdMulD(d, recip, poly);
+  return DdMul(d, recip, poly);
 }
 
 // --- per-nu drivers ----------------------------------------------------
@@ -327,7 +335,9 @@ HWY_NOINLINE BesselPair<D> BesselNu1(D d, op::V<D> x) {
       detail::kBesselI1SeriesLeadLo, detail::kBesselI1SeriesLead,
       detail::kBesselI1SeriesCoef, detail::kBesselI1SeriesNCoef,
       detail::kBesselI1SeriesDCoef, kBesselI1SeriesNDCoef);
-  const auto half_ax = op::Mul(ax_s, half);  // exact: *0.5 is a power of 2
+  // Exact for normal ax; for subnormal ax the halving rounds, so i1 there is
+  // within 1 ulp but not always correctly rounded (i1(0x1p-1074) = +0).
+  const auto half_ax = op::Mul(ax_s, half);
   const auto mag_series = DdMulD(d, s1, half_ax);  // unscaled |I1|, dd
   const auto exp_neg = OutlinedExpDd(d, op::Neg(ax_s), zero);
   const auto i1e_series = DdMul(d, mag_series, exp_neg);

@@ -1179,12 +1179,20 @@ handling.)
 **Bound: max 1 ULP over the full real axis, every function, every
 region, every tier** — the first family since erf with a single
 uniform bound and no conditioning caveats. Gate pinned at 1 with no
-margin; the doctrine's 2-ULP tail allowance was not needed.
+margin.
+
+**Erratum (#52, order row 10, v1.1.0).** Through v1.0.x the tail did
+not meet this bound: it rounded the fitted polynomial to a double
+before the dd division, so i0 reached 1.56 ulp, i0e 1.39 and i1/i1e
+about 1.2. The original sets held about 190 tail rows each, too few to
+see it, and the generator's 2-ULP tail target hid it from the replay.
+The kernel now carries the polynomial's last Horner step in dd, the
+replay targets 1 ULP, and a dense tail sweep (below) gates it.
 
 | Region | Bound | Notes |
 |---|---|---|
 | series, \|x\| ≤ 8 (all four) | 1 ULP | ≤ 5% not-CR, worst at the split seam |
-| tail, \|x\| > 8 (all four) | 1 ULP | i0e/i1e verified through DBL_MAX |
+| tail, \|x\| > 8 (all four) | 1 ULP | ≤ 16% not-CR; i0e/i1e verified through DBL_MAX |
 | overflow boundary (i0/i1) | exact | last finite double → finite; one ulp above → ±inf, 220 bit-stepped rows exact-match |
 
 Method: two regimes on ax = \|x\| split at x = 8. Series side: the
@@ -1193,8 +1201,9 @@ all-positive power series in q = x²/4 with q captured **exactly**
 alone costs (x/2)·I1/I0 ≈ 3.7 ULP at the split), four dd lead
 coefficients, remainder in plain double. Tail side: clean-room
 Chebyshev refit of e^−x I_ν(x)·√(2πx) in 1/x (degree 26, own nodes
-and budgets, truncation < 2^−60), divided by a dd
-√(2πx) with an exact 2^−32 power-of-two prescale sized to the
+and budgets, truncation < 2^−60), Horner in plain double except the
+last step c₀ + s·acc, which is dd (#52), then multiplied by a dd
+1/√(2πx) with an exact 2^−32 power-of-two prescale sized to the
 non-FMA tiers' Dekker-split operand bound, not merely DBL_MAX.
 Unscaled forms assemble as iνe·e^{\|x\|} through exp_dd's
 mantissa+exponent form, scaling last, saturating at the exact
@@ -1212,10 +1221,21 @@ Dekker-split overflow past x ≈ 4·10³⁰²; both fixed, all tiers
 re-validated at 1 ULP).
 
 Oracle: mpmath `besseli` at layered dps (40/80, escalation to 150;
-zero disagreements, zero declined rows across 9,732 reference rows),
+zero disagreements, zero declined rows across 18,462 reference rows),
 independently cross-checked by an own-series/own-asymptotic route
 and an independent 52-row spot-check; overflow boundaries derived
 three times independently (dps 40/50/50), bit-identical.
+
+Tail sweep (row 10, `gen_bessel_reference.py --tail-append`, seed
+1010): 8,730 rows, about 1,500 log-uniform positive points per
+function in (8, 700], 40% replayed at −x, plus the #52 witnesses and,
+for i0e/i1e, 120 points in (700, 10³⁰⁰]. Rows within 10⁻⁶ ulp of a
+rounding midpoint are declined (none were). The own-route cross-check
+now runs at the routes' dps: at mpmath's default 15 digits its
+subtraction and the negative-axis negation had floored it near 10⁻¹⁶,
+which the full generator's 10⁻¹⁴ threshold had hidden; it now agrees to
+≤ 3·10⁻²⁶. The previous kernel fails this sweep (i0 and i0e positive
+tails at 2 ULP; 37% of i0 tail rows not correctly rounded, now 7.6%).
 
 Consumer notes (von Mises): log I0(κ) composes as
 `log(i0e(x)) + x` — relative error < 1 ulp for x ≳ 2 and absolute

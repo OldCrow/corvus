@@ -15,8 +15,8 @@
 //
 // SUSPICIOUSLY-SMALL THRESHOLD. House ULP tests hard-code `size < 10000` as
 // a sanity check against a truncated or empty reference file; the Bessel
-// references are deliberately 2351-2515 rows, so this file uses 2000
-// instead.
+// references are 4593-4625 rows (about half of them row 10's dense tail
+// sweep, #52), so this file uses 2000 instead.
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

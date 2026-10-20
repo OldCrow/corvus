@@ -31,6 +31,29 @@ performance.**
   still worked only if their gate opens, which keeps v1.1.0 a pure
   correctness release.
 
+**Order row 10 (#52): IMPLEMENTED 2026-10-20 on Z, uncommitted, awaiting
+user review.**
+- Cause: the tail rounded f_nu(s) to a double, then multiplied by the dd
+  1/sqrt(2*pi*x): two roundings (i0 1.56 ulp). FIX (BesselTailIveDd): plain
+  Horner down to c1, then c0 + s*acc as TwoProd + DdAddD, and DdMul by the
+  reciprocal. Fit and src/bessel_data.h unchanged (regenerated
+  byte-identical).
+- Generator: gen_bessel_data.py's tail replay mirrors the new kernel under
+  fused AND unfused semantics; ULP_TARGET_TAIL 2.0 -> 1.0 (the published
+  bound); passes at 1.0. Both generators' broader hardening is #61 (row 11).
+- Guard: `gen_bessel_reference.py --tail-append` (seed 1010) appends 8,730
+  oracle rows to the four reference files (log-uniform (8, 700], 40% at -x,
+  the #52 witnesses, a far stratum for i0e/i1e; halfway guard; none
+  declined). HEAD fails: i0 and i0e positive tails at 2 ULP, 37% of i0 tail
+  rows not CR (now 7.6%). The sweep surfaced a generator defect, fixed:
+  cross_check_sample's rescale/subtraction and own_cross_check's negation
+  ran at mpmath's default 15 digits (floor ~1e-16, hidden by the 1e-14
+  threshold); now <= 3e-26.
+- Docs: ACCURACY erratum (the bound was never met through v1.0.x; the
+  "2-ULP allowance was not needed" line removed), method text, row counts
+  18,462. Header claim (1 ULP) now true; unchanged. Minor comments fixed:
+  half_ax is inexact for subnormal ax; the sqrt scale comment says 2^-16.
+
 **Order row 9 (#55, #50, #60): DONE 2026-10-20 on Z**, `0915989`. CI GREEN
 (run 39369063011, all three jobs, NEON included); #55, #50, #60 closed with
 the fix commit and their guards. A native M1 run is still owed. Next: row
