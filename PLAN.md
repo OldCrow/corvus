@@ -10,8 +10,31 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-20
 
-**Order row 9 (#55, #50, #60): IMPLEMENTED 2026-10-20 on Z, uncommitted,
-awaiting user review.** Full ctest 35/35 at AVX3_ZEN4, SSE4 and SSE2 with
+**Release split [DECIDED 2026-10-20, user]: v1.1.0 = correctness, v1.2.0 =
+performance.**
+- v1.1.0 ships order rows 2–12 (the correctness block). After row 12 work
+  PAUSES for the native M1 and Kaby Lake runs owed for rows 2–12 and the
+  rest of the release tail. Then a PR from `dev/v1.1.0` to `main` (merge
+  `main`'s Dependabot commits first), the tag and the release.
+- Milestones renamed [user]: 5 is "v1.1.0 — Correctness hardening"; 7 is
+  "v1.2.0 — Throughput & new exports".
+- Rows 13–17 move to milestone 7 (#42, #45, #31, #22; #37 is closed), on
+  a branch cut from
+  `main` after the v1.1.0 tag. Measuring performance against a tagged,
+  guarded baseline keeps every speedup's accuracy check to one diff.
+- Fleet: libstats' release gate (libstats #156, retitled) and both
+  consumer pin bumps target v1.2.0. libhmm adopts and spikes (#106)
+  against the same release as libstats (fleet coherence rule). Recorded
+  in the standards workplan, libstats and libhmm PLAN.md.
+- The gated issues #18 (erfcx), #19 (von Mises complement), #20 (Hurwitz
+  zeta) and #21 (exp_dd kappa horizon) moved to v1.2.0 [user]. They are
+  still worked only if their gate opens, which keeps v1.1.0 a pure
+  correctness release.
+
+**Order row 9 (#55, #50, #60): DONE 2026-10-20 on Z**, `0915989`. CI GREEN
+(run 39369063011, all three jobs, NEON included); #55, #50, #60 closed with
+the fix commit and their guards. A native M1 run is still owed. Next: row
+10 (#52, Bessel tail double rounding). Full ctest 35/35 at AVX3_ZEN4, SSE4 and SSE2 with
 0 warnings; local MSVC /W4 /WX clean.
 [DECIDED 2026-10-20, user]: a convergence-checked loop (not a fixed 6
 steps, not a new seed); kappa > 2^18 as the single backward-error regime
@@ -32,7 +55,7 @@ Diagnosis used a one-lane traced copy of BetaInvVec generated from source
   mirrors beta-inl.h's (y < thr) != (beta < alpha) window.
   - A probe at 1/2 + 2^-11 was tried first: it also cleared both bands,
     but by stepping around the seam, not fixing it.
-  - COST [user to confirm]: the correct midpoint forward costs ~0.3 us per
+  - COST [ACCEPTED 2026-10-20, user]: the correct midpoint forward costs ~0.3 us per
     element more on joint-tiny pairs (bench plateau band +58%; HEAD's was
     cheap because it was wrong). Every other bench band is within +-5%
     (quiet A/B, best of two).
@@ -172,8 +195,7 @@ the ₂F₁ closed form with precision raised until 1 − I resolves.
   - Committed as `a82fd0e` after user review. CI GREEN (run 39318081144,
     all three jobs, NEON included). #54 closed with both fix commits and
     their guards. A native M1 run is still owed.
-- Next pickup: row 9 (#55 betainv orientation, #50 tiny b, #60 betainv
-  gates/contract; frontier).
+- Next pickup was row 9; it is DONE (above).
 
 **Order row 7 (#48) DONE 2026-10-19 on Z**, `07ca2f6` + `8dc5623`. Full
 ctest 35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2. CI: the first run
@@ -817,12 +839,14 @@ Gated, stay in v1.1.0, worked only if the gate opens [DECIDED 2026-10-10,
 user]: #18 (no filed need), #20 (libstats #62), #21 (no filed need; shared
 exp_dd core; #60 touches its contract wording), #19 (need filed; frontier
 oracle; libstats mitigates locally). #28 off every milestone; #44
-unmilestoned research, weighed in #42 lever 1 [user]. Release tail:
-PERFORMANCE.md §4/§8.2 re-run, libstats pin note (scalar entry points
-replace their deducing wrapper), RELEASING.md checklist, M1 + Zen 4 tier
-checks at the freeze head. Scale: the correctness block (rows 2–12) is
-the bulk of v1.1.0 and carries five frontier designs (#48, #50/#55, #54,
-#56); libstats v2.5.0 should plan on #43 first and #42 lever 1 late.
+unmilestoned research, weighed in #42 lever 1 [user]. SPLIT 2026-10-20
+[user]: rows 2–12 are v1.1.0; rows 13–17 are v1.2.0 (milestone 7), branched
+off `main` after the v1.1.0 tag (see Status). v1.1.0 release tail: native
+M1 + Kaby Lake runs for rows 2–12, RELEASING.md checklist, M1 + Zen 4
+tier checks at the freeze head. Moved to v1.2.0: the PERFORMANCE.md
+§4/§8.2 re-run and the libstats pin note (scalar entry points replace
+their deducing wrapper). Scale: the correctness block carries five
+frontier designs (#48, #50/#55, #54, #56).
 
 ## Status [DERIVED] — 2026-10-02
 
