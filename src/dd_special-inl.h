@@ -84,11 +84,14 @@ inline constexpr int kPhiLead = 6;
 // LARGE |u|: no cancellation to protect against (phi >= 2^-9 while u <= 1),
 // so the direct difference is used, with 1 + u handed to LogDdAny as a dd.
 // At the cut this inherits log_dd's error amplified by 2/u; log_dd near
-// argument 1 is far better than its ~2^-68 global bound (the table's L_j is
-// exact to 2^-107 and log1p(r) is relative to itself), which is what keeps
-// the seam continuous in accuracy as well as in value. Measured worst for
-// the whole primitive: 2^-71.41 relative, in this branch (u = 0.1166;
-// tests/test_dd_special.cpp, #58).
+// argument 1 is better than its ~2^-68 global bound (the table's L_j is
+// exact to 2^-107 and log1p(r) is relative to itself), but not enough to
+// make the seam continuous in accuracy. Measured worst for the whole
+// primitive: ~2^-67.6 relative, just above the cut (2^-67.78 at
+// u = 0.0625098 on the reference rows, 2^-67.63 near u = 0.0625809 in
+// 100k-point probes; tests/test_dd_special.cpp, row 12). The 2^-71.41
+// recorded at #58 came from rows that never sampled (1/16, 0.064]. A fix
+// near the cut is tracked for v1.2.0.
 //
 // TWO SPELLINGS OF 1 + u. The 2-arg overload takes w = 1 + u from the
 // CALLER, for use where the caller owns an exact closed form (beta's

@@ -773,6 +773,8 @@ def gen_dd_special_reference(rng):
 #              form's w is exact -- its hazard near -1 is u.lo, which is 0
 #   worst-nbhd the #58 worst u.hi = 0.11658359198367813 +- 256 ulps
 #              bit-stepped, plus 400 uniform in +-2^-12 relative around it
+#   cut-dense  u in (1/16, 0.064] (4000) and [-0.064, -1/16) (1000), uniform,
+#              plus 0.0625809 +- 128 ulps: the true worst sits here (row 12)
 #
 # Self-checks (exit non-zero, file untouched):
 #   (a) re-verify: every row recomputed at dps 120 must round to the SAME dd
@@ -784,8 +786,10 @@ def gen_dd_special_reference(rng):
 #       stratum counts meet the plan (no silent shrinkage).
 DDSPEC12_SEED = 1212
 DDSPEC12_WORST = 0.11658359198367813
+DDSPEC12_CUT_PEAK = 0.0625809
 DDSPEC12_PLAN = (("near-cut", 1500), ("pos", 800), ("pos-wide", 200),
-                 ("neg", 800), ("neg-deep", 300), ("worst-nbhd", 913))
+                 ("neg", 800), ("neg-deep", 300), ("worst-nbhd", 913),
+                 ("cut-dense", 5257))
 DD_SPECIAL_PATH = os.path.join("tests", "data", "dd_special_reference.txt")
 
 
@@ -819,6 +823,20 @@ def build_ddspec12_points():
     for _ in range(400):
         pts.append((DDSPEC12_WORST * (1.0 + rng.uniform(-2.0 ** -12, 2.0 ** -12)),
                     "worst-nbhd"))
+    # cut-dense (drawn last, so the strata above keep their draws): the
+    # error peaks just above the cut, where log_dd's error is amplified by
+    # ~2/u; 100k-point probes found 2^-67.63 near u = 0.0625809.
+    for _ in range(4000):
+        pts.append((rng.uniform(cut, 0.064), "cut-dense"))
+    for _ in range(1000):
+        pts.append((-rng.uniform(cut, 0.064), "cut-dense"))
+    up = dn = DDSPEC12_CUT_PEAK
+    pts.append((DDSPEC12_CUT_PEAK, "cut-dense"))
+    for _ in range(128):
+        up = math.nextafter(up, math.inf)
+        dn = math.nextafter(dn, -math.inf)
+        pts.append((up, "cut-dense"))
+        pts.append((dn, "cut-dense"))
     out, seen = [], set()
     for u, tag in pts:
         b = as_bits(u)

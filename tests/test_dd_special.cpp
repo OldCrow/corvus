@@ -109,31 +109,29 @@ static const char* UtilTargetName() {
 
 namespace {
 
-// Gates pinned to MEASURED (#17): worst rel 2^-71.65 and worst abs
-// 2^-187.00, identical on native AVX3_ZEN4 and the AVX2/SSE4/SSSE3/SSE2
-// capped tiers (clang-cl, 2026-08-29 sweep). Pinned at the printed
-// measurement floored to the printout's resolution, so a regression
-// larger than the print quantum trips here rather than surfacing under a
-// consumer's name. The old values (2^-63, 2^-100) were the PROVISIONAL
-// design budget and left 8.65 / 87 bits of dead slack.
-constexpr double kMinRelExp = 71.64;    // |u| >= 2^-40, relative
+// Gates pinned to MEASURED (#17), floored to the print quantum, so a
+// regression larger than the print quantum trips here rather than surfacing
+// under a consumer's name. Absolute (|u| < 2^-40): 2^-187.00.
+//
+// Relative, ONE cell for every |u| >= 2^-40 row of both sets (u.lo = 0 here
+// and #58's u.lo != 0 set) [row 12, 2026-10-20, user: option (i)]: 2^-67.78
+// at u = 0.0625098, identical on AVX3_ZEN4, SSE4 and SSE2. The worst sits
+// just above the 1/16 cut, where log_dd's error (~2^-72.6) is amplified by
+// ~2/u. The earlier pins (71.64 here, 71.40 for u.lo != 0) held only
+// because no row sampled (1/16, 0.064]; row 12 added 5,257 there. 100k-point
+// probes reach 2^-67.63 (u ~ 0.0625809), so the primitive's true worst is
+// ~2^-67.6, slightly below this pin's rows. A kernel fix near the cut is
+// tracked for v1.2.0.
+constexpr double kMinRelLog1pmx = 67.77;  // |u| >= 2^-40, relative, all u.lo
 constexpr double kMaxAbs = 0x1.0p-186;  // |u| <  2^-40, absolute
 constexpr double kSplit = 0x1.0p-40;
 
-// #58's two sets (tools/gen_dd_special_gates.py), relative, in bits. PIN:
+// #58's Expm1Dd set (tools/gen_dd_special_gates.py), relative, in bits. PIN:
 // measured, floored to the print quantum, same rule as above; identical on
-// AVX3_ZEN4, SSE4 and SSE2 (clang-cl, 2026-10-18).
-//   Expm1Dd: 2^-64.34 at w = -0.0187, the exponential branch just above
-//   kExpm1Cut = 2^-6 (before #58's fix, cut 2^-10: 2^-61.41 at w = -0.003).
-//   Log1pmxDd with u.lo != 0: 2^-71.41 at u = 0.1166, the LogDdAny branch
-//   -- a separate cell, 0.23 bits below the u.lo = 0 cell's 71.64. NOT
-//   u.lo's doing: the same u.hi with u.lo = 0 measures 2^-71.41 too; the
-//   u.lo = 0 set never sampled that point. So the primitive's measured
-//   worst is 2^-71.41, and the 71.64 cell is exact for its own rows only.
-//   [DECIDED 2026-10-19, user: two cells now; row 12's regeneration
-//   widens dd_special_reference.txt's large-|u| coverage and unifies them.]
+// AVX3_ZEN4, SSE4 and SSE2 (clang-cl, 2026-10-18): 2^-64.34 at w = -0.0187,
+// the exponential branch just above kExpm1Cut = 2^-6 (before #58's fix, cut
+// 2^-10: 2^-61.41 at w = -0.003).
 constexpr double kMinRelExpm1 = 64.33;  // Expm1Dd, whole range
-constexpr double kMinRelUlo = 71.40;    // Log1pmxDd, nonzero u.lo
 
 using DdFn = void (*)(const double*, const double*, double*, double*, size_t);
 
@@ -198,8 +196,8 @@ int main(int argc, char* const* argv) {
   // Two calls, not one: the second covers only the last 3 rows, a length
   // below every lane count, so the masked LoadN/StoreN tail path inside
   // Log1pmxTestImpl runs on every tier. Without this split the reference
-  // set's own length (3416, a multiple of 8) meant the tail branch never
-  // ran on the AVX-512 tier at all (#14 N4).
+  // set's length when #14 added it (3416, a multiple of 8) meant the tail
+  // branch never ran on the AVX-512 tier at all (#14 N4).
   const size_t n = u.size();
   const size_t split = n - 3;
   corvus::Log1pmxTest(u.data(), ulo.data(), hi.data(), lo.data(), split);
@@ -239,8 +237,8 @@ int main(int argc, char* const* argv) {
   std::printf(
       "Log1pmxDd |u|>=2^-40  n=%6zu  worst rel=2^-%.2f (gate 2^-%.2f)  "
       "worst u=%.17g\n",
-      n_big, rel_bits, kMinRelExp, worst_rel_u);
-  if (rel_bits < kMinRelExp) {
+      n_big, rel_bits, kMinRelLog1pmx, worst_rel_u);
+  if (rel_bits < kMinRelLog1pmx) {
     std::fprintf(stderr, "FAIL: Log1pmxDd relative error exceeds gate\n");
     rc = 1;
   }
@@ -267,8 +265,8 @@ int main(int argc, char* const* argv) {
   std::printf(
       "Log1pmxDd u.lo != 0   n=%6zu  worst rel=2^-%.2f (gate 2^-%.2f)  "
       "worst u=%.17g\n",
-      n_ulo, ulo_bits, kMinRelUlo, w_ulo);
-  if (ulo_bits < kMinRelUlo) {
+      n_ulo, ulo_bits, kMinRelLog1pmx, w_ulo);
+  if (ulo_bits < kMinRelLog1pmx) {
     std::fprintf(stderr, "FAIL: Log1pmxDd (u.lo != 0) exceeds gate\n");
     rc = 1;
   }

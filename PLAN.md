@@ -31,7 +31,9 @@ performance.**
   still worked only if their gate opens, which keeps v1.1.0 a pure
   correctness release.
 
-**Order row 12 (#53 remainder): IN PROGRESS 2026-10-20 on Z, uncommitted.**
+**Order row 12 (#53 remainder): DONE 2026-10-20 on Z**, `825cc60` +
+`1433978`. CI GREEN (run 39394886129); #53 closed. Next: row 12a (#67), then
+12b (#64); the Log1pmxDd option (i) change below awaits commit.
 - Beta exact ties [DONE]: five rows per beta_{p,q} file on the closed-form
   lines (I_x(a,1) = x^a, I_x(1,b) = 1-(1-x)^b, integer exponent) are exact
   rounding midpoints, and the mpf oracle stored the odd neighbour (lines
@@ -90,7 +92,11 @@ performance.**
       runs through GammaTemme and GammaSmallQ).
   - Choices per finding: fix in v1.1.0 (new order rows), erratum the bound
     (row 9 precedent), or defer to v1.2.0.
-- **[OPEN, user decision] Log1pmxDd near the 1/16 cut.** Widening
+- **[DECIDED 2026-10-20, user: option (i) now, (ii) as #68 in v1.2.0]
+  Log1pmxDd near the 1/16 cut.** DONE (uncommitted at write time): 9,770
+  rows appended (incl. 5,257 cut-dense in (1/16, 0.064]), one unified
+  relative cell kMinRelLog1pmx = 67.77 (measured 2^-67.78 at u = 0.0625098,
+  three tiers), dd_special-inl.h states ~2^-67.6. Record as found: Widening
   dd_special_reference.txt's LogDdAny coverage (`gen_gamma_reference.py
   --dd-special-append`, seed 1212, 4,513 rows; mode kept, rows NOT
   appended; widened copy in scratchpad row12-ddspecial/) shows the
