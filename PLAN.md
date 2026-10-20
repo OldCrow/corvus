@@ -43,6 +43,11 @@ gammainv region map.
   rounded G/(2z), no z.lo). A read-only dense two-oracle re-score is
   running (scratchpad beta-tail/). Breaks 3 ULP -> v1.1.0 order row;
   within 3 -> tightening, v1.2.0.
+  PARTIAL (2026-10-21, posted on #69): smoke 300 rows reach 2 ULP direct;
+  attribution G -1.15, division -0.66, z.lo -0.54 ulp; a 20k prescreen
+  predicts up to +3.78 ulp, so a >3 ULP break is likely. Unconfirmed: the
+  adversarial and broad sweeps were unfinished; re-run the adversarial set
+  with capped workers if they never report.
 
 **Order row 12b (#64): DONE 2026-10-21 on Z**, `d0fb2e1`. CI GREEN via run
 39477235960 on 991a700 (macOS re-run after a runner shortage); #64 closed. As implemented:
