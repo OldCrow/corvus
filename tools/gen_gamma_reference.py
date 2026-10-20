@@ -1138,6 +1138,122 @@ def ridge56_append():
     return 0
 
 
+# ---------------------------------------------------------------------------
+# --r4band-append (#67, order row 12a): gamma_q's R4 small-a band, where
+# lgamma(1+a)'s centre-1 zone error is amplified by 1/Q (a in ~[0.25, 0.5],
+# x in [2.5, 4]); plus a sparse small-a stratum and the a > 1/2 side of the
+# seam. Own rng; existing rows untouched. Certified by TWO forms that share
+# no code: mpmath gammainc (regularized), and an own power series for P
+#     P = x^a e^-x / Gamma(a+1) * sum_{n>=0} x^n / ((a+1)...(a+n)),
+# with Q = 1 - P at a dps that keeps Q's digits (Q >= ~3e-3 here). Both run
+# at dps 60 and must agree to 1e-45 relative on P and on Q; a value within
+# 1e-6 ulp of a rounding midpoint is declined. Negative control: a stored Q
+# nudged by one ulp must fail the re-check.
+R4BAND_SEED = 6767
+R4BAND_WITNESS = (float.fromhex("0x1.ba7604d78e820p-2"),
+                  float.fromhex("0x1.fe069bd940a0ap+1"))
+
+
+def build_r4band_points():
+    rng = random.Random(R4BAND_SEED)
+    pts = [R4BAND_WITNESS]
+    for _ in range(1200):
+        pts.append((rng.uniform(0.2, 0.5), rng.uniform(2.5, 4.0)))
+    for _ in range(300):
+        pts.append((10.0 ** rng.uniform(-6.0, math.log10(0.2)),
+                    rng.uniform(0.5, 4.0)))
+    for _ in range(200):
+        pts.append((rng.uniform(0.5, 0.75), rng.uniform(2.5, 4.0)))
+    out, seen = [], set()
+    for a, x in pts:
+        k = (as_bits(a), as_bits(x))
+        if k not in seen:
+            seen.add(k)
+            out.append((a, x))
+    return out
+
+
+def r4band_series_pq(a, x, dps):
+    with mp.workdps(dps):
+        am, xm = mp.mpf(a), mp.mpf(x)
+        term, s, n = mp.mpf(1), mp.mpf(1), 0
+        while True:
+            n += 1
+            term = term * xm / (am + n)
+            s += term
+            if term < s * mp.mpf(10) ** (-dps - 5):
+                break
+        P = mp.exp(am * mp.log(xm) - xm - mp.loggamma(am + 1)) * s
+        return P, 1 - P
+
+
+def r4band_halfway_ulps(v, y):
+    up = math.nextafter(y, math.inf)
+    dn = math.nextafter(y, -math.inf)
+    mid = (mp.mpf(y) + mp.mpf(up if v >= y else dn)) / 2
+    return abs(v - mid) / abs(mp.mpf(up) - mp.mpf(y))
+
+
+def r4band_append():
+    t0 = time.time()
+    pts = build_r4band_points()
+    rows, declined = [], 0
+    for a, x in pts:
+        with mp.workdps(60):
+            Qm = mp.gammainc(mp.mpf(a), mp.mpf(x), mp.inf, regularized=True)
+            Pm = 1 - Qm
+        Ps, Qs = r4band_series_pq(a, x, 60)
+        with mp.workdps(60):
+            ok = (abs(Ps - Pm) <= abs(Pm) * mp.mpf(10) ** -45
+                  and abs(Qs - Qm) <= abs(Qm) * mp.mpf(10) ** -45)
+        if not ok:
+            print(f"  DECLINED (forms disagree): a={a!r} x={x!r}", file=sys.stderr)
+            declined += 1
+            continue
+        Pf, Qf = round_to_double(Pm), round_to_double(Qm)
+        if (r4band_halfway_ulps(Pm, Pf) < mp.mpf("1e-6")
+                or r4band_halfway_ulps(Qm, Qf) < mp.mpf("1e-6")):
+            declined += 1
+            continue
+        rows.append((a, x, Pf, Qf))
+    if (R4BAND_WITNESS[0], R4BAND_WITNESS[1]) not in {(r[0], r[1]) for r in rows}:
+        print("FAILED: #67 witness not certified -- nothing written.", file=sys.stderr)
+        return 5
+    # Re-check a sample at doubled dps by the series form, and prove the
+    # re-check is load-bearing with a one-ulp nudge.
+    rng = random.Random(R4BAND_SEED + 1)
+
+    def recheck(a, x, Pf, Qf):
+        P2, Q2 = r4band_series_pq(a, x, 120)
+        return round_to_double(P2) == Pf and round_to_double(Q2) == Qf
+
+    sample = rng.sample(rows, min(200, len(rows)))
+    bad = [r for r in sample if not recheck(*r)]
+    a, x, Pf, Qf = rows[0]
+    caught = not recheck(a, x, Pf, math.nextafter(Qf, math.inf))
+    print(f"  r4band: {len(rows)} certified, {declined} declined; re-check "
+          f"{len(sample)}: {len(bad)} mismatches; negative control "
+          f"{'CAUGHT' if caught else 'NOT CAUGHT'}", file=sys.stderr)
+    if bad or not caught:
+        print("FAILED: self-check -- nothing written.", file=sys.stderr)
+        return 3
+    if len(rows) % 2:
+        rows.pop()  # both files are odd-length; appending an even count keeps them so
+    for name in ("gamma_p_reference.txt", "gamma_q_reference.txt"):
+        path = os.path.join("tests", "data", name)
+        with open(path, "rb") as f:
+            old = f.read()
+        eol = b"\r\n" if b"\r\n" in old else b"\n"
+        present = {tuple(ln.split()[:2]) for ln in old.decode().splitlines()}
+        new = [f"{hexd(a)} {hexd(x)} {hexd(Pf)} {hexd(Qf)}".encode() + eol
+               for a, x, Pf, Qf in rows if (hexd(a), hexd(x)) not in present]
+        with open(path, "wb") as f:
+            f.write(old + b"".join(new))
+        print(f"  appended {len(new)} rows to {name}", file=sys.stderr)
+    print(f"r4band runtime: {time.time() - t0:.1f}s", file=sys.stderr)
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0],
                                      allow_abbrev=False)
@@ -1152,7 +1268,12 @@ def main():
                         help="append the row-12 LogDdAny-branch rows to "
                              "tests/data/dd_special_reference.txt (own rng; "
                              "no Temme work, gamma files untouched)")
+    parser.add_argument("--r4band-append", action="store_true",
+                        help="append #67's R4 small-a band rows (two-form "
+                             "certified) to tests/data/gamma_{p,q}_reference.txt")
     args = parser.parse_args()
+    if args.r4band_append:
+        return r4band_append()
     if args.ridge56_append:
         return ridge56_append()
     if args.dd_special_append:

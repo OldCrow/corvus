@@ -355,9 +355,35 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   a = op::Min(a, op::Set(d, kGammaR4AMax));
   x = op::Min(x, op::Set(d, kGammaR4XMax));
 
+  // lgamma(1+a), always from the CENTRE-2 zone (#67): t = a - 1 (Sterbenz)
+  // for a > 1/2, and for a <= 1/2 t = a with lgamma(1+a) = lgamma(2+a) -
+  // log(1+a). The centre-1 zone is ~2^-57 relative; Q's error is lg1a's
+  // ABSOLUTE error over Q, and Q reaches ~3e-3 in this box, so centre-1
+  // cost up to 4 ulp at a ~ 0.43, x ~ 4. Centre-2 is 50-100x tighter there.
+  // log(1+a) must be RELATIVE-accurate to dd: for tiny a the O(a) terms of
+  // num cancel to Q ~ a*E1(x), so a 2^-53 relative error in log(1+a) costs
+  // ~100 ulp. For a <= 2^-7 it is Log1pDd(a) (dd, relative to itself). Above,
+  // 1 + a is exact as TwoSum(1, a) and LogDd of that dd is accurate: its
+  // plain-double l/h correction is <= 2^-53 against a result >= 2^-7. Then
+  // lg1a = a*(B2(a) - 1) keeps its relative accuracy down to subnormal a
+  // (the cancellation is ~1.7x).
   const auto c1 = op::Ge(op::Set(d, detail::kLgammaZoneLo), a);  // a <= 1/2
   const auto t = op::IfThenElse(c1, a, op::Sub(a, one));
-  const auto lg1a = DdMulD(d, ZoneBracket(d, t, c1), t);  // lgamma(1+a)
+  const auto centre2 = op::Gt(zero, one);  // all false: centre-2 coefficients
+  auto lg1a = DdMulD(d, ZoneBracket(d, t, centre2), t);  // lgamma(2+t)
+  if (!op::AllFalse(d, c1)) {
+    const auto r_cut = op::Set(d, 0x1.0p-7);  // Log1pDd's domain
+    const auto tiny = op::Ge(r_cut, a);
+    Dd<D> l1a = LogDd(d, TwoSum(d, one, op::Max(a, r_cut)));  // 1+a exact
+    if (!op::AllFalse(d, tiny)) {
+      const auto ls = Log1pDd(d, Dd<D>{op::Min(a, r_cut), zero});
+      l1a = Dd<D>{op::IfThenElse(tiny, ls.hi, l1a.hi),
+                  op::IfThenElse(tiny, ls.lo, l1a.lo)};
+    }
+    const auto sub = DdAdd(d, lg1a, Dd<D>{op::Neg(l1a.hi), op::Neg(l1a.lo)});
+    lg1a = Dd<D>{op::IfThenElse(c1, sub.hi, lg1a.hi),
+                 op::IfThenElse(c1, sub.lo, lg1a.lo)};
+  }
   const auto g1a_m1 = Expm1Dd(d, lg1a);                   // Gamma(1+a) - 1
   const auto g1a = DdAddD(d, g1a_m1, one);
 

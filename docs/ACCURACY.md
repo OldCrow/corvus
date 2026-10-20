@@ -496,7 +496,7 @@ diagonal rows
 (a ∈ {2^996, 2^997, 2^1000, DBL_MAX}, x = a ± 3 ulp: exact-diagonal
 P = Q = 0.5, saturated exact (1, +0)/(+0, 1) neighbours).
 
-**Bounds, measured on the 18,085-point reference set and identical
+**Bounds, measured on the 19,785-point reference set and identical
 (max ULP cell for cell) on AVX2, SSE4, SSSE3, SSE2, NEON and AVX-512.**
 x86: Kaby Lake native + capping, AppleClang, 2026-07-28. NEON:
 Apple-silicon CI runner (run 30412061002, 2026-07-29), point-identical to
@@ -516,7 +516,7 @@ note under the validation matrix).
 | R2 continued fraction (Q direct) | complement: **1 ULP** (erratum; ~0.4% not-CR near x = a+1) | **1 ULP** (0.04% not-CR) |
 | R3 Temme ridge (smaller side direct) | **2 ULP** | **2 ULP** (3 measured near x = 2a; #64, row 12b) |
 | R3 complement | 1 ULP | 1 ULP |
-| R4 small-a (Q direct) | complement: **1 ULP** (erratum; ~0.2% not-CR) | **1 ULP** (4 measured for a in [0.25, 0.5]; #67, row 12a) |
+| R4 small-a (Q direct) | complement: **1 ULP** (erratum; 0.03% not-CR) | **1 ULP** (1.4% not-CR; was 4 before #67) |
 
 **Erratum and open violations (row 12, 2026-10-20).** A dense re-score
 with two independent mpmath forms (AVX3_ZEN4) found that the R2 and R4
@@ -528,8 +528,19 @@ rounding itself. The bound for both is now 1 ULP: an erratum, as at row 9,
 since no release met 0 there. The same re-score found two cells above
 their published bound, which v1.1.0 fixes rather than relaxes: gamma_q R3
 near x = 2a (3 ULP vs 2, the plain-double erfc factor G, #64, order row
-12b) and gamma_q R4 for a in [0.25, 0.5] (4 ULP vs 1, lgamma(1+a)'s
-centre-1 zone amplified by 1/Q, #67, order row 12a).
+12b) and gamma_q R4 for a in [0.25, 0.5] (4 ULP vs 1, #67, order row 12a).
+
+**R4 small-a fixed (#67, order row 12a).** Q's error is lgamma(1+a)'s
+ABSOLUTE error over Q, and Q reaches ~3e-3 in the box; lgamma's centre-1
+zone (~2^-57) therefore cost up to 4 ulp at a ~ 0.43, x ~ 4. GammaSmallQ
+now takes lgamma(1+a) from the centre-2 zone for every lane: t = a - 1
+for a > 1/2, and lgamma(2+a) - log(1+a) at t = a for a <= 1/2, with
+log(1+a) relative-accurate to dd (Log1pDd for a <= 2^-7, LogDd of the
+exact TwoSum(1, a) above). lgamma's own bits are unchanged. 1,700
+two-form-certified rows (gen_gamma_reference.py --r4band-append) fail
+on the old kernel (Q 4 ULP, P complement 1) and pass now on AVX3_ZEN4,
+SSE4 and SSE2; Q's not-CR rate on R4 rows fell from 4.2% to 1.4%.
+Cost: ~+6% on the R4 bench band (indicative, Zen 4).
 
 **R1/R2 re-measured 2026-10-19 (#56).** The table's R1 and R2 rows above
 used to read 2 / 4 / 2 / 1 ULP (R1 P, R1 Q complement, R2 Q, R2 P

@@ -31,6 +31,27 @@ performance.**
   still worked only if their gate opens, which keeps v1.1.0 a pure
   correctness release.
 
+**Order row 12a (#67): IMPLEMENTED 2026-10-21 on Z, uncommitted, awaiting
+user review.**
+- Fix (GammaSmallQ): lgamma(1+a) from the centre-2 zone on every lane;
+  a <= 1/2 takes lgamma(2+a) - log(1+a) at t = a. log(1+a) must be
+  relative-accurate to dd: the first cut used LogDd(TwoSum(1, a)), whose
+  plain-double l/h correction is the whole result when 1+a rounds to 1,
+  and gamma_q(1e-16, 4) went to 104 ulp (Q ~ a*E1(x) cancels the O(a)
+  terms). Now Log1pDd(a) for a <= 2^-7, LogDd(TwoSum) above. lgamma
+  untouched.
+- Guard: `gen_gamma_reference.py --r4band-append` (seed 6767): 1,700 rows,
+  two independent forms (mpmath gammainc; own P series with Q = 1 - P),
+  1e-45 agreement, halfway guard, dps-120 re-check + one-ulp control.
+  HEAD fails (Q R4 4 ULP vs gate 1; P R4 complement 1 vs gate 0).
+- Result: Q R4 1 ULP (not-CR 4.2% -> 1.4%); P R4 complement 1 ULP on 2
+  rows (gate 0 -> 1, matching row 12's erratum). AVX3_ZEN4, SSE4, SSE2
+  identical; 35/35 each (gammainv gates within pins); MSVC /W4 /WX clean.
+- Cost: ~+6% on bench_gamma's R4 band (66.7 -> 70.8 ns/el, best of two,
+  INDICATIVE).
+- Not changed: gammainv-inl.h:702's deep-small closed form shares the
+  centre-1 use but is not amplified (~0.03 ulp); left as is.
+
 **Order row 12 (#53 remainder): DONE 2026-10-20 on Z**, `825cc60` +
 `1433978`. CI GREEN (run 39394886129); #53 closed. Next: row 12a (#67), then
 12b (#64); the Log1pmxDd option (i) change below awaits commit.

@@ -44,12 +44,16 @@ using corvus_test::UlpDiff;
 // the new rows), R2 Q 2 -> 1, R2 P complement 1 -> 0. R3 Q stays 2: the
 // new tail rows read 3 before #57's z.lo fix and 2 after (#64 tracks the
 // remaining real-error margin). Earlier pins: Kaby Lake, AppleClang, AVX2
-// plus the SSE4/SSSE3/SSE2 caps.
+// plus the SSE4/SSSE3/SSE2 caps. Row 12a (#67, 2026-10-20): 1,700 rows in
+// R4's small-a band; R4 Q 4 -> 1 with lgamma(1+a) from the centre-2 zone,
+// and R4 P complement 0 -> 1 (2 rows, 0.03%; the published bound is 1 ULP
+// since row 12's erratum). R2 P complement still measures 0 on these rows,
+// but its published bound is also 1 ULP (dense seam rows miss by 1).
 constexpr uint64_t kGateP[4][2] = {
     {1, 0},  // R1: direct P max 1
-    {0, 0},  // R2: complement P max 0 (correctly rounded)
+    {0, 0},  // R2: complement P max 0 on these rows (bound 1 ULP)
     {2, 1},  // R3
-    {0, 0},  // R4: complement P max 0 (correctly rounded)
+    {0, 1},  // R4: complement P max 1
 };
 constexpr uint64_t kGateQ[4][2] = {
     {0, 1},  // R1: complement Q max 1
