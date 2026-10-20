@@ -354,7 +354,9 @@ jobs:
       # as run 39452466261 did. So two builds, like the Windows clang-cl leg.
       # This one keeps every arm64 target Highway compiles (NEON_BF16
       # included) under -Werror, and runs the gates on whatever tier the host
-      # dispatches, unasserted. It validates no tier.
+      # dispatches, unasserted. It validates no tier. -V prints the measured
+      # ULP numbers even on success, for comparison with the capped build's
+      # ULP report on a NEON_BF16 host (PLAN.md, NEON_BF16 equivalence).
       - name: Build and test (native dispatch)
         run: |
           sysctl -n machdep.cpu.brand_string
@@ -362,7 +364,7 @@ jobs:
           cmake -B build-native -G Ninja -DCORVUS_WERROR=ON \
             -DCMAKE_PREFIX_PATH="$(brew --prefix)"
           cmake --build build-native
-          ctest --test-dir build-native --output-on-failure
+          ctest --test-dir build-native -V
 
       # The sole source of the NEON row in docs/ACCURACY.md. (HWY_NEON-1)
       # disables every target better than NEON, so dispatch is NEON on any
