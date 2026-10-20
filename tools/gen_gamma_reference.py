@@ -15,8 +15,13 @@ Oracle rules (both hard requirements):
 
   ORACLE TRAP: mpmath's lower-gammainc path (hyp1f1) genuinely hangs/fails
   to converge for large a (measured: NoConvergence for a>=1e7 near the
-  ridge; multi-minute hangs for a~1e250 even AWAY from the ridge). Use
-  mpmath only for a<=1e4. For a>1e4: if a*phi(lambda) > 800 the small side
+  ridge; multi-minute hangs for a~1e250 even AWAY from the ridge). mpmath
+  gammainc is called in exactly two places: (1) oracle_pq evaluates rows
+  with a<=1e4 directly; (2) the Temme coefficient extraction (r_exact /
+  extract_c) evaluates it at the 15 nodes a = 512*2^j, j=0..14 (512 ..
+  8388608 ~ 8.4e6), on the 33 Chebyshev eta nodes of the fitted band
+  [eta(1/2), eta(2)] only -- every such call converges (a < 1e7). No row
+  with a>1e4 ever calls gammainc. For a>1e4: if a*phi(lambda) > 800 the small side
   has already underflowed past any double's representable range (e^-800 <<
   the smallest subnormal, e^-745ish) -- return the exact saturated pair
   (0,1)/(1,0) with no further computation. Otherwise (a>1e4, a*phi<=800)
@@ -24,15 +29,32 @@ Oracle rules (both hard requirements):
   800/1e4=0.08 bounds it), safely inside the Temme fit's validated band
   [1/2, 2] -- use the exact-arithmetic Temme oracle: mpf evaluation of
   1/2*erfc(+-eta*sqrt(a/2)) +- e^{-a*phi}/sqrt(2*pi*a)*sum_{k<11} c_k(eta)/a^k
-  with FULL-DEGREE (untruncated) Chebyshev fits, dps>=100. Truncation
-  error at a>1e4 is bounded by |c_11|*a^-11 <~ 2e-3 * 1e-44 << 1e-40 (c_11
-  was the first coefficient this generator's own extraction drops at the
-  2^-60 tail cut, and every extracted |c_k| for k<=11 stays under 2e-3 --
-  see gen_gamma_data.py's stderr degree/coefficient report). Self-checked
-  below on the a in [5e3,1e4] overlap band against mpmath directly.
+  with FULL-DEGREE (untruncated) Chebyshev fits, dps>=100. The k<11
+  truncation alone is bounded at a>1e4 by |c_11|*a^-11 <~ 2e-3 * 1e-44
+  (every extracted |c_k| for k<=11 stays under 2e-3 -- see
+  gen_gamma_data.py's stderr degree/coefficient report), but it is not the
+  dominant term: the measured total oracle error, which includes the
+  extraction and 33-node Chebyshev fit error, is ~1e-35 relative on the
+  small side (still ~19 decimal orders below double resolution).
+
+  Self-checks (every mode, exit non-zero on a miss; run_oracle_self_checks):
+  - overlap: Temme vs mpmath on a in [5e3,1e4] -- shows the switch has no
+    seam, but those a lie between the extraction's own nodes, so it does
+    not by itself certify the a>1e4 oracle;
+  - certification: at off-node a in (1e4, 1e8] (past the last extraction
+    node, 8.4e6), the small side from oracle_pq is compared with an
+    independent route that never calls gammainc -- own power series for P
+    (x<a), own Legendre continued fraction for Q (x>=a), at two working
+    precisions that must agree with each other -- to tolerance 2^-100.
+    a>1e8 is not certified directly (series/CF cost grows as sqrt(a)); it
+    rests on the same fits with every c_k/a^k (k>=1) term smaller still;
+  - negative control: the certification must reject an oracle whose c_0
+    fit is perturbed by a relative 2^-40, a shift that moves the small side
+    by more than 2^-53 at some certified point.
 
 Usage:
-    python3 tools/gen_gamma_reference.py
+    python3 tools/gen_gamma_reference.py               # full regeneration
+    python3 tools/gen_gamma_reference.py --check-only  # self-checks only, writes nothing
 """
 
 import argparse
@@ -219,6 +241,164 @@ def check_oracle_overlap(fits):
             if rel > worst:
                 worst, worst_at = rel, (float(a), float(lam))
     return worst, worst_at
+
+
+# --- independent certification of the a > 1e4 Temme oracle --------------------
+# Off-node a (the extraction nodes are 512*2^j; 8388608 is the last one and is
+# kept as the endpoint) spanning (1e4, 1e8]. Per a, x is placed at a*phi in
+# CERT_APHI on both sides of the ridge (0 = the ridge itself), so every point
+# routes through temme_pq, never through saturation.
+CERT_A = (12345.678, 3.7e4, 1e5, 5e5, 2e6, 8388608.0, 8.4e6, 3e7, 1e8)
+CERT_APHI = (0, 1, 36, 300, 700)
+CERT_DPS = (130, 160)
+CERT_CONV_TOL = mp.mpf(10) ** -110  # the two precisions must agree this well
+CERT_TOL = mp.mpf(2) ** -100        # oracle vs independent route
+NEGCTL_K = 0                        # perturb c_0's fit ...
+NEGCTL_REL = mp.mpf(2) ** -40       # ... by this relative amount
+DOUBLE_RES = mp.mpf(2) ** -53
+
+
+def indep_small_side(a, x, dps):
+    """Small side of (P, Q) without gammainc: P by the power series
+    P = x^a e^-x / Gamma(a+1) * sum_n x^n / ((a+1)...(a+n))   (x < a),
+    Q by the Legendre continued fraction (modified Lentz)
+    Q = x^a e^-x / Gamma(a) * 1/(x+1-a- 1(1-a)/(x+3-a- 2(2-a)/(x+5-a- ...)))
+    (x >= a). Stops when the next term / CF factor changes the result by
+    less than 10^-(dps-5). Returns (value, iterations)."""
+    with mp.workdps(dps):
+        a, x = mp.mpf(a), mp.mpf(x)
+        eps = mp.mpf(10) ** -(dps - 5)
+        cap = 10 ** 7
+        if x >= a:
+            tiny = mp.mpf(10) ** -(2 * dps)
+            b = x + 1 - a
+            c = 1 / tiny
+            d = 1 / b
+            h = d
+            n = 0
+            while True:
+                n += 1
+                an = -n * (n - a)
+                b += 2
+                d = an * d + b
+                if d == 0:
+                    d = tiny
+                c = b + an / c
+                if c == 0:
+                    c = tiny
+                d = 1 / d
+                delta = d * c
+                h *= delta
+                if abs(delta - 1) < eps:
+                    break
+                if n > cap:
+                    raise RuntimeError(f"CF did not converge at a={a} x={x}")
+            pref = mp.exp(a * mp.log(x) - x - mp.loggamma(a))
+            return +(pref * h), n
+        term = mp.mpf(1)
+        s = mp.mpf(1)
+        n = 0
+        while True:
+            n += 1
+            term *= x / (a + n)
+            s += term
+            # x < a + n: terms are strictly decreasing from here on.
+            if term < s * eps and x < a + n:
+                break
+            if n > cap:
+                raise RuntimeError(f"series did not converge at a={a} x={x}")
+        pref = mp.exp(a * mp.log(x) - x - mp.loggamma(a + 1))
+        return +(pref * s), n
+
+
+def build_temme_cert_set():
+    """(a, x, is_q_side, indep_value) per certification point, plus the
+    worst two-precision disagreement. Raises if a point fails to converge
+    or the two precisions disagree beyond CERT_CONV_TOL."""
+    pts = []
+    worst_conv = mp.mpf(0)
+    for a in CERT_A:
+        for tgt in CERT_APHI:
+            for sgn in ((1,) if tgt == 0 else (1, -1)):
+                lam = lam_of_eta(sgn * mp.sqrt(2 * mp.mpf(tgt) / a))
+                x = float(lam * a)
+                v_lo, _ = indep_small_side(a, x, CERT_DPS[0])
+                v_hi, _ = indep_small_side(a, x, CERT_DPS[1])
+                conv = abs((v_hi - v_lo) / v_hi)
+                if conv > CERT_CONV_TOL:
+                    raise RuntimeError(
+                        f"independent route unconverged at a={a!r} x={x!r}: "
+                        f"dps {CERT_DPS} disagree by {float(conv):.3e}")
+                worst_conv = max(worst_conv, conv)
+                pts.append((a, x, mp.mpf(x) >= mp.mpf(a), v_hi))
+    return pts, worst_conv
+
+
+def temme_cert_worst(pts, fits):
+    """Worst relative small-side gap between oracle_pq(fits) and the
+    independent values. Asserts each point actually takes the Temme path."""
+    worst = mp.mpf(0)
+    worst_at = None
+    for a, x, q_side, ref in pts:
+        a_m, x_m = mp.mpf(a), mp.mpf(x)
+        assert a_m > A_SWITCH and a_m * phi_lam(x_m / a_m) <= APHI_SAT
+        P, Q = oracle_pq(a, x, fits)
+        got = Q if q_side else P
+        rel = abs((got - ref) / ref)
+        if rel > worst:
+            worst, worst_at = rel, (a, x)
+    return worst, worst_at
+
+
+def run_oracle_self_checks(fits):
+    """Overlap check, independent a>1e4 certification, and its negative
+    control. Returns 0 on success, else a non-zero exit code."""
+    t0 = time.time()
+    print("self-check: oracle overlap on a in [5e3,1e4] ...", file=sys.stderr)
+    worst, worst_at = check_oracle_overlap(fits)
+    print(f"  worst rel diff {float(worst):.3e} "
+          f"(2^{float(mp.log(worst, 2)):.2f}) at (a,lam)={worst_at}, "
+          f"target 2^-60", file=sys.stderr)
+    if worst > mp.mpf(2) ** -60:
+        print("  FAILED: oracle overlap exceeds 2^-60 -- aborting.",
+              file=sys.stderr)
+        return 1
+
+    print(f"self-check: independent certification of the a>1e4 Temme oracle "
+          f"(own series/CF, dps {CERT_DPS}) ...", file=sys.stderr)
+    pts, worst_conv = build_temme_cert_set()
+    worst, worst_at = temme_cert_worst(pts, fits)
+    print(f"  {len(pts)} points, a in {CERT_A}; independent route "
+          f"self-agreement {float(worst_conv):.3e}", file=sys.stderr)
+    print(f"  worst rel diff {float(worst):.3e} "
+          f"(2^{float(mp.log(worst, 2)):.2f}) at (a,x)={worst_at}, "
+          f"target 2^-100", file=sys.stderr)
+    if worst > CERT_TOL:
+        print("  FAILED: Temme oracle misses the independent route -- aborting.",
+              file=sys.stderr)
+        return 3
+
+    bad = [list(row) for row in fits]
+    bad[NEGCTL_K][0] *= 1 + NEGCTL_REL
+    shift = mp.mpf(0)
+    for a, x, q_side, _ref in pts:
+        P0, Q0 = oracle_pq(a, x, fits)
+        P1, Q1 = oracle_pq(a, x, bad)
+        s0, s1 = (Q0, Q1) if q_side else (P0, P1)
+        shift = max(shift, abs((s1 - s0) / s0))
+    bad_worst, bad_at = temme_cert_worst(pts, bad)
+    print(f"  negative control: c_{NEGCTL_K} fit perturbed by rel "
+          f"2^{float(mp.log(NEGCTL_REL, 2)):.0f} -> max small-side shift "
+          f"{float(shift):.3e} (double resolution 2^-53 = "
+          f"{float(DOUBLE_RES):.3e}); certification gap {float(bad_worst):.3e} "
+          f"at (a,x)={bad_at}", file=sys.stderr)
+    if shift <= DOUBLE_RES or bad_worst <= CERT_TOL:
+        print("  FAILED: negative control not flagged (or perturbation "
+              "below double resolution) -- aborting.", file=sys.stderr)
+        return 4
+    print(f"  negative control rejected as required; self-checks "
+          f"{time.time() - t0:.1f}s", file=sys.stderr)
+    return 0
 
 
 # --- helpers -----------------------------------------------------------------
@@ -576,7 +756,7 @@ def gen_dd_special_reference(rng):
 # Own RNG (Random(5657)); the main SEED stream is never touched. Only the new
 # family is certified (same oracle_pq, same finite / saturation-prune /
 # min-subnormal row filters as compute_and_write, preceded by the same
-# extraction + oracle-overlap self-check main() runs), then the rows are
+# extraction + oracle self-checks main() runs), then the rows are
 # appended to both data files, leaving every existing line byte-identical.
 # Ordering convention: file order == point-set insertion order, so new rows
 # go at the end. Rows whose (a, x) is already present are skipped.
@@ -656,15 +836,9 @@ def ridge56_append():
     print("extracting full-degree Temme fits for the a>1e4 oracle ...",
           file=sys.stderr)
     fits = extract_temme_full()
-    print("self-check: oracle overlap on a in [5e3,1e4] ...", file=sys.stderr)
-    worst, worst_at = check_oracle_overlap(fits)
-    print(f"  worst rel diff {float(worst):.3e} "
-          f"(2^{float(mp.log(worst, 2)):.2f}) at (a,lam)={worst_at}, "
-          f"target 2^-60", file=sys.stderr)
-    if worst > mp.mpf(2) ** -60:
-        print("  FAILED: oracle overlap exceeds 2^-60 -- aborting.",
-              file=sys.stderr)
-        return 1
+    rc = run_oracle_self_checks(fits)
+    if rc:
+        return rc
 
     ps, tags = build_ridge56_point_set()
     total = len(ps.pts)
@@ -800,6 +974,9 @@ def main():
                         help="certify only the #56 ridge / #57 Temme-tail "
                              "families and append them to "
                              "tests/data/gamma_{p,q}_reference.txt")
+    parser.add_argument("--check-only", action="store_true",
+                        help="extract the Temme fits and run the oracle "
+                             "self-checks only; write no files")
     args = parser.parse_args()
     if args.ridge56_append:
         return ridge56_append()
@@ -809,15 +986,9 @@ def main():
           file=sys.stderr)
     fits = extract_temme_full()
 
-    print("self-check: oracle overlap on a in [5e3,1e4] ...", file=sys.stderr)
-    worst, worst_at = check_oracle_overlap(fits)
-    print(f"  worst rel diff {float(worst):.3e} "
-          f"(2^{float(mp.log(worst, 2)):.2f}) at (a,lam)={worst_at}, "
-          f"target 2^-60", file=sys.stderr)
-    if worst > mp.mpf(2) ** -60:
-        print("  FAILED: oracle overlap exceeds 2^-60 -- aborting.",
-              file=sys.stderr)
-        return 1
+    rc = run_oracle_self_checks(fits)
+    if rc or args.check_only:
+        return rc
 
     print("generating region point sets ...", file=sys.stderr)
     ps = PointSet()

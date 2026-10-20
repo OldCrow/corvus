@@ -82,10 +82,9 @@ inline constexpr double kBesselI1SeriesDCoef[21] = {
 
 // TAIL regime, x >= kBesselSplit. i_nu_e(x) = f_nu(t)/sqrt(2*pi*x),
 // t = 1/x, f_nu Chebyshev-refit (own nodes/budget) in normalized
-// s = t*Scale + Shift, s in [-1,1]. Plain-double Horner (erfc_tail
-// precedent: t is flat/well-conditioned, no dd promotion needed --
-// measured, klead 0/1/2 land at the same floor); the surrounding
-// divide-by-sqrt is dd-assisted (DdSqrt then one rounding).
+// s = t*Scale + Shift, s in [-1,1]. Plain-double Horner down to c1,
+// then the last step c0 + s*acc in dd (#52), times the dd
+// 1/sqrt(2*pi*x) (DdSqrt, DdRecipDd), so the result rounds once.
 
 inline constexpr int kBesselI0TailNCoef = 27;
 inline constexpr double kBesselI0TailScale = 0x1.0000000000000p+4;

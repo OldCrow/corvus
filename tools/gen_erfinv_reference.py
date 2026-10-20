@@ -25,10 +25,17 @@ what is fragile:
   - erfinv NEVER reaches the far tail (max |erfinv| = erfcinv(2^-53) < 6),
     so far-tail coverage comes only through erfcinv, by construction here
 
+Self-check (erfinv rows, issue #61): every row is re-solved independently at
+dps 120 (Newton on erf, log-space Newton on erfc -- not mp.erfinv) and the
+stored double must be its correct rounding; a negative control nudges stored
+values by one ulp and requires each nudge to be flagged. Failure exits
+non-zero before any file is written.
+
 Usage:
     python3 tools/gen_erfinv_reference.py
 """
 
+import math
 import random
 import struct
 import sys
@@ -83,44 +90,137 @@ def erfcinv_mp(s):
     return mp.findroot(lambda x: mp.log(mp.erfc(x)) - mp.log(s), x0)
 
 
-def emit(path, points, oracle, in_domain):
+HP_DPS = 120
+_NUDGE_ROWS = 6
+
+
+def erfinv_hp(y):
+    """x with erf(x) = y, solved at HP_DPS by Newton from a double guess.
+
+    Independent of the generator's oracle (mp.erfinv): plain Newton on
+    erf(x) - y for |y| <= 1/2, and log-space Newton on log(erfc(x)) -
+    log(1 - y) for |y| > 1/2 (1 - |y| is exact at this precision, and the
+    log form keeps the iteration well scaled in the far tail). Returns
+    None if it does not converge.
+    """
+    with mp.workdps(HP_DPS):
+        yy = mp.mpf(y)
+        if yy == 0:
+            return mp.mpf(0)
+        neg = yy < 0
+        a = abs(yy)
+        c = 2 / mp.sqrt(mp.pi)
+        # Seed: sqrt(pi)/2 * a is exact enough for small a; for a > 1/2
+        # start from the asymptotic w - log(pi*w)/2 with w = -log(1 - a).
+        if a <= mp.mpf("0.5"):
+            x = a * mp.sqrt(mp.pi) / 2
+            for _ in range(200):
+                dx = (mp.erf(x) - a) / (c * mp.exp(-x * x))
+                x -= dx
+                if abs(dx) <= mp.mpf(10) ** (-(HP_DPS - 20)) * abs(x):
+                    return -x if neg else x
+            return None
+        s = 1 - a
+        w = -mp.log(s)
+        x = mp.sqrt(max(w - mp.log(mp.pi * w) / 2, mp.mpf(1) / 4))
+        ls = mp.log(s)
+        for _ in range(200):
+            ec = mp.erfc(x)
+            dx = (mp.log(ec) - ls) / (-c * mp.exp(-x * x) / ec)
+            x -= dx
+            if abs(dx) <= mp.mpf(10) ** (-(HP_DPS - 20)) * abs(x):
+                return -x if neg else x
+        return None
+
+
+def erfinv_row_ok(y, xs):
+    """True iff double xs is the correct rounding of erfinv(y)."""
+    if y == 0.0:
+        return as_bits(xs) == as_bits(y)
+    r = erfinv_hp(y)
+    if r is None:
+        return False
+    with mp.workdps(HP_DPS):
+        return as_bits(round_to_double(r)) == as_bits(xs)
+
+
+def erfinv_self_check(rows):
+    """Re-solve every erfinv row at HP_DPS and require the stored double to
+    be the correct rounding (issue #61), then prove the check can fail: nudge
+    sampled stored values by one ulp (math.nextafter) and require each
+    nudged row to be flagged. Returns True on success."""
+    bad = [(x, yf) for x, yf in rows if not erfinv_row_ok(x, yf)]
+    if bad:
+        for x, yf in bad[:20]:
+            print(f"erfinv self-check MISMATCH: y={x.hex()} stored={yf.hex()}",
+                  file=sys.stderr)
+        print(f"erfinv self-check: {len(bad)} of {len(rows)} rows FAILED",
+              file=sys.stderr)
+        return False
+    # Negative control: evenly spread nonzero rows, nudged up and down.
+    nz = [(x, yf) for x, yf in rows if yf != 0.0]
+    step = max(1, len(nz) // _NUDGE_ROWS)
+    picks = nz[::step][:_NUDGE_ROWS]
+    # Always include the smallest-|y| (subnormal) and the largest-|y| rows.
+    picks += [min(nz, key=lambda r: abs(r[0])), max(nz, key=lambda r: abs(r[0]))]
+    missed = 0
+    for x, yf in picks:
+        for direction in (math.inf, -math.inf):
+            if erfinv_row_ok(x, math.nextafter(yf, direction)):
+                missed += 1
+                print(f"erfinv negative control NOT flagged: y={x.hex()} "
+                      f"nudged from {yf.hex()} toward {direction}",
+                      file=sys.stderr)
+    if missed:
+        return False
+    print(f"erfinv self-check: {len(rows)} rows re-solved at dps={HP_DPS}: OK; "
+          f"negative control: {2 * len(picks)} one-ulp nudges all flagged",
+          file=sys.stderr)
+    return True
+
+
+def emit(path, points, oracle, in_domain, check=None):
     seen = set()
-    n = 0
+    rows = []
+    for x in points:
+        if not isinstance(x, float) or x != x or abs(x) == float("inf"):
+            continue
+        if not in_domain(x):
+            # Bit-neighbourhoods of the domain endpoints deliberately
+            # step OUTSIDE the domain (x just past +-1, z just past 2);
+            # the old blanket try/except dropped them as a side effect.
+            # An explicit filter keeps the drop intentional while a
+            # non-converged findroot inside the domain stays FATAL.
+            continue
+        b = as_bits(x)
+        if b in seen:
+            continue
+        seen.add(b)
+        # No try/except here (issue #13 N14.2): a non-converged
+        # mp.findroot must abort the run, not silently drop the point.
+        y = oracle(x)
+        if y is None or not mp.isfinite(y):
+            # Legitimate infinite oracle values at domain endpoints
+            # (erfinv(+-1) = +-inf), not a convergence failure.
+            continue
+        yf = round_to_double(y)
+        if x == 0.0:
+            # mpmath's erfinv(mpf(-0.0)) loses the sign (-> mpf(0)); the
+            # double input carries it, and corvus.h promises
+            # erfinv(+-0) = +-0.
+            yf = x
+        if not math.isfinite(yf):
+            continue
+        rows.append((x, yf))
+    # Verify before writing, so a failed check leaves the checked-in file
+    # untouched.
+    if check is not None and not check(rows):
+        return -1
     with open(path, "w") as f:
-        for x in points:
-            if not isinstance(x, float) or x != x or abs(x) == float("inf"):
-                continue
-            if not in_domain(x):
-                # Bit-neighbourhoods of the domain endpoints deliberately
-                # step OUTSIDE the domain (x just past +-1, z just past 2);
-                # the old blanket try/except dropped them as a side effect.
-                # An explicit filter keeps the drop intentional while a
-                # non-converged findroot inside the domain stays FATAL.
-                continue
-            b = as_bits(x)
-            if b in seen:
-                continue
-            seen.add(b)
-            # No try/except here (issue #13 N14.2): a non-converged
-            # mp.findroot must abort the run, not silently drop the point.
-            y = oracle(x)
-            if y is None or not mp.isfinite(y):
-                # Legitimate infinite oracle values at domain endpoints
-                # (erfinv(+-1) = +-inf), not a convergence failure.
-                continue
-            yf = round_to_double(y)
-            if x == 0.0:
-                # mpmath's erfinv(mpf(-0.0)) loses the sign (-> mpf(0)); the
-                # double input carries it, and corvus.h promises
-                # erfinv(+-0) = +-0.
-                yf = x
-            import math
-            if not math.isfinite(yf):
-                continue
+        for x, yf in rows:
             f.write(f"{x.hex()} {yf.hex()}\n")
-            n += 1
-    print(f"{path}: emitted {n} points", file=sys.stderr)
-    return n
+    print(f"{path}: emitted {len(rows)} points", file=sys.stderr)
+    return len(rows)
 
 
 def gen_erfinv():
@@ -164,7 +264,8 @@ def gen_erfinv():
     # +-inf and fall to the non-finite filter as before.
     return emit("tests/data/erfinv_reference.txt", pts,
                 lambda x: mp.erfinv(mp.mpf(x)),
-                in_domain=lambda x: -1.0 <= x <= 1.0)
+                in_domain=lambda x: -1.0 <= x <= 1.0,
+                check=erfinv_self_check)
 
 
 def gen_erfcinv():
@@ -204,6 +305,8 @@ def gen_erfcinv():
 
 def main():
     n1 = gen_erfinv()
+    if n1 < 0:
+        return 1
     n2 = gen_erfcinv()
     return 0 if (n1 > 5000 and n2 > 5000) else 1
 

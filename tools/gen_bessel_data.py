@@ -32,13 +32,13 @@ frontier probe (PROBE-RECORD.md):
       f_nu(t) = e^{-x} I_nu(x) sqrt(2*pi*x), t = 1/x, on [0, 1/kBesselSplit],
       converted to monomial-in-normalized-s Horner coefficients
       (gen_erfc_tail_poly.py's own pattern, reused structurally). Evaluated
-      as PLAIN double Horner (erfc_tail precedent: t is flat/well-
-      conditioned, no squaring hazard, no dd promotion needed -- measured,
-      not assumed: klead sweep 0/1/2 all land at the SAME floor). The
-      dd-assisted step is the surrounding assembly: i_nu_e = poly /
-      sqrt(2*pi*x), sqrt computed to dd precision (DdSqrt) so the divide
-      rounds only once at the very end, matching erfc_core-inl.h's own
-      DdRecip-then-DdMulD discipline.
+      as plain-double Horner except the LAST step c0 + s*acc, which is dd
+      (TwoProd + DdAddD, #52), so the poly is never rounded to a double.
+      (t is flat/well-conditioned, no squaring hazard; this generator does
+      not sweep deeper dd promotion for the tail.) Assembly: i_nu_e =
+      DdMul(1/sqrt(2*pi*x), poly) with the reciprocal sqrt in dd (DdSqrt,
+      DdRecipDd), rounded once; unscaled i_nu = that dd times exp_dd(+x)
+      in ExpDdFrac's mantissa+exponent form, scaled by 2^e last.
 
   OVERFLOW BOUNDARIES: last-finite doubles for unscaled i0/i1, bisected
       independently against the round-to-inf threshold 2^1024*(1-2^-54)
@@ -53,27 +53,33 @@ emit nothing):
       nu.
   (b) tail Chebyshev truncation: measured dense-sample relative error
       of the fitted monomial polynomial < FIT_TOL, both nu.
-  (c) end-to-end replay: simulates the PLANNED kernel arithmetic (exact-q
-      TwoProd + derivative correction + dd-lead Horner on the series
-      side; plain-double Horner + dd-assisted divide on the tail side;
-      exp_dd modeled with an injected +/-2^-70 relative perturbation,
-      never assumed exact) over a dense edge-refined, bit-stepped sample
-      -- log-spaced coverage, bit-stepped refinement at the split seam
-      (both sides) and near the overflow boundary, tiny-x/subnormal
-      probes, q-extremes -- and measures the worst-case ULP floor
+  (c) end-to-end replay: simulates the kernel arithmetic of
+      src/bessel-inl.h (exact-q TwoProd + derivative correction + dd-lead
+      Horner on the series side; Horner with a dd last step + DdMul by a
+      dd 1/sqrt(2*pi*x), then the ExpDdFrac fold for unscaled, on the tail
+      side) under fused AND unfused MulAdd, for BOTH the scaled and the
+      unscaled assembly. exp_dd is modeled with an injected +/-2^-70
+      relative perturbation, never assumed exact. Series sample: log-
+      spaced coverage, bit-stepped refinement below the split, tiny-x/
+      subnormal probes. Tail sample: 20k full-mantissa points in
+      (kBesselSplit, min overflow boundary] (both assemblies), 1k log-
+      uniform points above it up to DBL_MAX (scaled only), plus anchors
+      (bit-stepped above the split and around both overflow boundaries).
+      The replay measures the worst-case ULP floor
       (magnitude ULP distance against the correctly-rounded mpmath
       truth; NOT relative-error bits, which artificially blow up near
       the subnormal floor even when the double result IS the correctly
       rounded nearest value, which relative error would wrongly flag near
-      the subnormal floor). Series target 1 ULP, tail target 2 ULP (erfc precedent;
-      measured tighter here at 1 ULP, gate pinned to what's measured
-      per doctrine, not forced).
-  (d) negative control: corrupt one dd-lead coefficient's lo word and
-      confirm the self-check's own floor measurement explodes (proves
-      the dd machinery is load-bearing, not a no-op) -- exit nonzero if
-      the corruption is NOT caught.
-  (e) seam continuity: series and tail routes agree at x=kBesselSplit
-      exactly (both formulas evaluated there; measured 0 ULP apart).
+      the subnormal floor). Series and tail targets are both 1 ULP
+      (ULP_TARGET_SERIES, ULP_TARGET_TAIL).
+  (d) negative controls: corrupt one dd-lead coefficient's lo word and
+      confirm the series floor measurement explodes (proves the dd
+      machinery is load-bearing, not a no-op); add 4 ulp to the tail's c0
+      and confirm the tail replay exceeds ULP_TARGET_TAIL (proves it
+      resolves a few-ulp defect). Exit nonzero if either is NOT caught.
+  (e) seam check: both routes evaluated at x=kBesselSplit, each within
+      its own ULP target of the truth (they need not agree bit-for-bit;
+      the kernel sends x=kBesselSplit to the series).
   (f) independent oracle cross-check: OWN high-dps series-sum (the
       literal mathematical definition, dps=80, NOT mpmath's internal
       besseli algorithm) vs mp.besseli at a handful of points, layered
@@ -461,10 +467,18 @@ def series_assemble_sim(nu, coeffs_hi, coeffs_lo, dcoef_desc, klead, x,
     return unscaled, sch + scl
 
 
-def tail_ive_sim(coeffs_desc, scale, shift, x, fused=True):
-    # Mirrors BesselTailIveDd: plain-double Horner down to c1, then the last
-    # step c0 + s*acc in dd (TwoProd + DdAddD, #52), divided by the exact
-    # sqrt(2*pi*x) (the kernel's dd 1/sqrt is ~2^-104, below this model).
+def tail_ive_dd_sim(coeffs_desc, scale, shift, x, fused=True):
+    """Mirrors BesselTailIveDd and returns its UNROUNDED dd result: t =
+    fl(1/x), s = MulAdd(t, scale, shift), plain-double Horner down to c1,
+    then the last step c0 + s*acc in dd (TwoProd + DdAddD, #52), then
+    DdMul(recip, poly).
+
+    MODEL ASSUMPTION: recip = 1/sqrt(2*pi*x) enters as the correctly rounded
+    dd of the exact value. The kernel builds it from a dd 2*pi, an exact
+    power-of-two prescale, DdSqrt and DdRecipDd, each ~2^-104 relative; that
+    chain is not replayed op-for-op, on the argument that its error sits
+    ~2^-50 ulp below the result's rounding. The final DdMul IS replayed
+    (fused or unfused), since its lo-word MulAdds differ between tiers."""
     u_hi = 1.0 / x
     s = _mafold(u_hi, scale, shift, fused)
     acc = coeffs_desc[0]
@@ -472,9 +486,51 @@ def tail_ive_sim(coeffs_desc, scale, shift, x, fused=True):
         acc = _mafold(acc, s, c, fused)
     ph, pl = two_prod(acc, s)
     poly_h, poly_l = dd_addd_f(ph, pl, coeffs_desc[-1])
-    two_pi_x = 2 * mp.pi * mp.mpf(x)
-    denom = mp.sqrt(two_pi_x)
-    return float((mp.mpf(poly_h) + mp.mpf(poly_l)) / denom)
+    rh, rl = round_to_dd(1 / mp.sqrt(2 * mp.pi * mp.mpf(x)))
+    return dd_mul_f(rh, rl, poly_h, poly_l, fused)
+
+
+def tail_ive_sim(coeffs_desc, scale, shift, x, fused=True):
+    """Scaled tail assembly: the kernel's Add(ive_tail.hi, ive_tail.lo)."""
+    h, l = tail_ive_dd_sim(coeffs_desc, scale, shift, x, fused)
+    return h + l
+
+
+EXP_INV_L = float(128 / mp.log(2))   # exp_dd's N/ln2, N = 2^kExpLog2N = 128
+
+
+def exp_dd_frac_sim(x, sign):
+    """Model ExpDdFrac(x, 0) as (m_hi, m_lo, e) with exp(x) = m * 2^e.
+
+    The exponent split mirrors the kernel (k = round(x*N/ln2), e = k >> 7,
+    m ~ [1, 2)); with no over/underflow inside ScaleTwo the split cannot
+    change the result, since every scaling by 2^e is exact.
+
+    MODEL ASSUMPTION: m is the correctly rounded dd of exp(x)*(1 +
+    sign*2^-70)/2^e. That is, exp_dd's whole error is a FIXED-SIGN relative
+    perturbation at its documented budget bound (exp_dd-inl.h header,
+    ~2^-70), replayed at both signs. The real table/polynomial error varies
+    in sign and magnitude below that bound; it is not reproduced."""
+    k = int(round(x * EXP_INV_L))
+    e = k >> 7
+    pert = mp.exp(mp.mpf(x)) * (1 + sign * mp.mpf(2) ** -70)
+    return round_to_dd(pert / mp.mpf(2) ** e) + (e,)
+
+
+def scale_two(v, e):
+    """ScaleTwo: v * 2^floor(e/2) * 2^(e - floor(e/2)), two IEEE multiplies
+    (Python float * overflows to inf exactly as the kernel's Mul does)."""
+    e1 = e >> 1
+    return (v * 2.0 ** e1) * 2.0 ** (e - e1)
+
+
+def tail_iv_sim(ive_dd, x, exp_sign, fused):
+    """Unscaled tail assembly of BesselNu0/BesselNu1: prod = DdMul(ive_tail,
+    parts.m), each word scaled by ScaleTwo(., parts.e), then ONE Add -- the
+    scaling is last, so a result near the overflow boundary rounds once."""
+    mh, ml, e = exp_dd_frac_sim(x, exp_sign)
+    ph, pl = dd_mul_f(ive_dd[0], ive_dd[1], mh, ml, fused)
+    return scale_two(ph, e) + scale_two(pl, e)
 
 
 def truth_ive(nu, x, dps=70):
@@ -483,6 +539,18 @@ def truth_ive(nu, x, dps=70):
     try:
         xm = mpf(x)
         return mp.besseli(nu, xm) * mp.exp(-xm)
+    finally:
+        mp.mp.dps = old
+
+
+def truth_iv_ive(nu, x, dps=70):
+    """(I_nu(x), e^-x I_nu(x)) from one besseli evaluation at dps."""
+    old = mp.mp.dps
+    mp.mp.dps = dps
+    try:
+        xm = mpf(x)
+        iv = mp.besseli(nu, xm)
+        return iv, iv * mp.exp(-xm)
     finally:
         mp.mp.dps = old
 
@@ -526,6 +594,34 @@ def tail_sample_points(x_s, n=300, seed=20260811):
         for k in range(-30, 30):
             pts.append(bits_to_float(b2 + k))
     return sorted(set(p for p in pts if p >= x_s and math.isfinite(p)))
+
+
+def tail_replay_points(x_s, x_hi, n_value=10000, n_bits=10000, n_large=1000,
+                       seed=20261020):
+    """Full-mantissa tail replay sample (#61).
+
+    dense: points in (x_s, x_hi], half uniform in value (low 20 mantissa
+        bits re-drawn so every bit is random), half uniform in bit pattern
+        (equal weight per binade, so the 8..64 end is not thinned out).
+        x_hi is the smaller unscaled overflow boundary, so every dense point
+        is valid for BOTH assemblies.
+    large: scaled-only points above x_hi, uniform in bit pattern (log-
+        uniform) up to DBL_MAX, plus DBL_MAX and its neighbours."""
+    rng = random.Random(seed)
+    b_lo, b_hi = struct_bits(x_s) + 1, struct_bits(x_hi)
+    dense = set()
+    while len(dense) < n_value:
+        x0 = x_s + rng.random() * (x_hi - x_s)
+        x = bits_to_float((struct_bits(x0) & ~0xFFFFF) | rng.getrandbits(20))
+        if x_s < x <= x_hi:
+            dense.add(x)
+    while len(dense) < n_value + n_bits:
+        dense.add(bits_to_float(rng.randint(b_lo, b_hi)))
+    b_max = struct_bits(sys.float_info.max)
+    large = set(bits_to_float(b_max - k) for k in range(4))
+    while len(large) < n_large:
+        large.add(bits_to_float(rng.randint(b_hi + 1, b_max)))
+    return sorted(dense), sorted(large)
 
 
 # ============================================================================
@@ -655,28 +751,57 @@ def main():
     if not ok:
         return 1
 
-    print("[gen_bessel_data] replay: tail regime", file=sys.stderr)
+    # Tail replay (#61): fused/unfused x scaled/unscaled. Unscaled points
+    # stop at the nu's own overflow boundary (the kernel saturates past it);
+    # the unscaled exp_dd fold is replayed at both noise signs.
+    print("[gen_bessel_data] replay: tail regime "
+          "(fused+unfused x unscaled+scaled)", file=sys.stderr)
+    t_tail = time.time()
+    dense, large = tail_replay_points(X_S, min(I0_BOUND_CACHE, I1_BOUND_CACHE))
+    anchors = tail_sample_points(X_S)
+    tail_pts = sorted(set(dense) | set(anchors) | set(large))
     for nu in (0, 1):
         mono_d = tail[nu]["mono"]
         scale, shift = tail[nu]["scale"], tail[nu]["shift"]
         coeffs_desc = list(reversed(mono_d))
-        pts = tail_sample_points(X_S)
-        worst = -1.0
-        worst_pt = None
-        for p in pts:
-            truth = truth_ive(nu, p)
+        bound = I0_BOUND_CACHE if nu == 0 else I1_BOUND_CACHE
+        worst = {}
+        count = {"unscaled": 0, "scaled": 0}
+        for p in tail_pts:
+            unscaled_ok = p <= bound
+            if unscaled_ok:
+                truth_u, truth_e = truth_iv_ive(nu, p)
+            else:
+                truth_e = truth_ive(nu, p)
+            count["scaled"] += 1
+            count["unscaled"] += unscaled_ok
             for fused in (True, False):  # FMA tiers and SSE4/SSSE3/SSE2
-                got = tail_ive_sim(coeffs_desc, scale, shift, p, fused)
-                u = ulp_distance_pos(truth, got)
-                if u > worst:
-                    worst, worst_pt = u, p
-        print(f"[gen_bessel_data]   nu={nu}: worst {worst:.3f} ULP @ x={worst_pt!r} "
-              f"(target <= {ULP_TARGET_TAIL})", file=sys.stderr)
-        if worst > ULP_TARGET_TAIL:
+                ive = tail_ive_dd_sim(coeffs_desc, scale, shift, p, fused)
+                got = [("scaled", ulp_distance_pos(truth_e, ive[0] + ive[1]))]
+                if unscaled_ok:
+                    for sign in (1.0, -1.0):
+                        un = tail_iv_sim(ive, p, sign, fused)
+                        got.append(("unscaled", ulp_distance_pos(truth_u, un)))
+                for asm, u in got:
+                    key = (asm, fused)
+                    if key not in worst or u > worst[key][0]:
+                        worst[key] = (u, p)
+        nu_worst = -1.0
+        for asm in ("unscaled", "scaled"):
+            for fused in (True, False):
+                u, p = worst[(asm, fused)]
+                nu_worst = max(nu_worst, u)
+                print(f"[gen_bessel_data]   nu={nu} {asm:8s} "
+                      f"{'fused  ' if fused else 'unfused'}: worst {u:.3f} ULP "
+                      f"@ x={p!r} over {count[asm]} pts "
+                      f"(target <= {ULP_TARGET_TAIL})", file=sys.stderr)
+        if nu_worst > ULP_TARGET_TAIL:
             print(f"[gen_bessel_data] FAILED: tail nu={nu} exceeds ULP target",
                   file=sys.stderr)
             ok = False
-        tail[nu]["worst_ulp"] = worst
+        tail[nu]["worst_ulp"] = nu_worst
+    print(f"[gen_bessel_data]   tail replay time {time.time()-t_tail:.0f}s",
+          file=sys.stderr)
 
     # ---- (seam continuity) ----
     print("[gen_bessel_data] seam continuity at x=kBesselSplit", file=sys.stderr)
@@ -722,6 +847,35 @@ def main():
         if not caught:
             print("[gen_bessel_data] FAILED: negative control not caught -- the dd "
                   "machinery is not load-bearing as implemented", file=sys.stderr)
+            ok = False
+
+    # Tail negative control: c0 + TAIL_NEG_ULPS*ulp(c0) must push the tail
+    # replay past ULP_TARGET_TAIL, or the replay cannot see a few-ulp
+    # coefficient defect. Every 20th dense point, both semantics and both
+    # assemblies (one noise sign), to keep it cheap.
+    TAIL_NEG_ULPS = 4
+    print(f"[gen_bessel_data] negative control: tail c0 + {TAIL_NEG_ULPS} ulp",
+          file=sys.stderr)
+    for nu in (0, 1):
+        bad = list(reversed(tail[nu]["mono"]))
+        bad[-1] += TAIL_NEG_ULPS * math.ulp(bad[-1])
+        worst_bad = -1.0
+        for p in dense[::20]:
+            truth_u, truth_e = truth_iv_ive(nu, p)
+            for fused in (True, False):
+                ive = tail_ive_dd_sim(bad, tail[nu]["scale"], tail[nu]["shift"],
+                                      p, fused)
+                worst_bad = max(worst_bad,
+                                ulp_distance_pos(truth_e, ive[0] + ive[1]),
+                                ulp_distance_pos(truth_u,
+                                                 tail_iv_sim(ive, p, 1.0, fused)))
+        caught = worst_bad > ULP_TARGET_TAIL
+        print(f"[gen_bessel_data]   nu={nu}: corrupted tail floor {worst_bad:.3f} "
+              f"ULP ({'CAUGHT' if caught else 'NOT CAUGHT'})", file=sys.stderr)
+        if not caught:
+            print("[gen_bessel_data] FAILED: tail negative control not caught -- "
+                  "the tail replay cannot resolve a few-ulp defect",
+                  file=sys.stderr)
             ok = False
 
     # ---- (independent oracle cross-check) ----
@@ -838,10 +992,9 @@ def main():
     print()
     print("// TAIL regime, x >= kBesselSplit. i_nu_e(x) = f_nu(t)/sqrt(2*pi*x),")
     print("// t = 1/x, f_nu Chebyshev-refit (own nodes/budget) in normalized")
-    print("// s = t*Scale + Shift, s in [-1,1]. Plain-double Horner (erfc_tail")
-    print("// precedent: t is flat/well-conditioned, no dd promotion needed --")
-    print("// measured, klead 0/1/2 land at the same floor); the surrounding")
-    print("// divide-by-sqrt is dd-assisted (DdSqrt then one rounding).")
+    print("// s = t*Scale + Shift, s in [-1,1]. Plain-double Horner down to c1,")
+    print("// then the last step c0 + s*acc in dd (#52), times the dd")
+    print("// 1/sqrt(2*pi*x) (DdSqrt, DdRecipDd), so the result rounds once.")
     for nu in (0, 1):
         tag = f"I{nu}"
         mono_d = tail[nu]["mono"]

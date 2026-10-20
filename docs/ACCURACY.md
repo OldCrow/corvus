@@ -213,8 +213,12 @@ reaches AppleClang, whose default is `on`.
 
 ## erf
 
-**Bound: max 1 ULP over the full domain** (~98.5% correctly rounded on the
-14,594-point reference).
+**Bound: max 1 ULP over the full domain** (~98.7% correctly rounded on the
+17,595-point reference). Until row 11 (#61) the reference held no
+subnormal x (smallest |x| ~1.7e-300), so the bound was ungated there;
+`gen_erf_reference.py --subnormal-append` added 3,001 subnormal rows
+(both signs, the smallest subnormals and the 2^-1022 boundary), which
+pass at 1 ULP.
 
 Method: 1537-entry table on the grid r = j/256 over [0, 6], each entry
 {E_hi, S, E_lo} with E_hi + E_lo a compensated erf(r) and S = erf'(r);
@@ -563,7 +567,12 @@ oracle, not by the original reference set, which under-sampled that band
 (it now covers it). And the reference oracle itself: mpmath's regularized
 lower gammainc silently fails (or hangs) for large a near the ridge, so
 references above a = 1e4 come from exact-arithmetic Temme evaluation at
-100+ digits with full-degree fits (truncation there < 1e-40); for η < 0
+100+ digits with full-degree fits. Row 11 (#61) certifies that oracle
+independently (own power series for P, own Legendre CF for Q, at 81
+points with a from 1.2e4 to 1e8, off the fit nodes): it agrees to
+≤ 9e-36, not the < 1e-40 once stated, and still ~19 orders below double
+resolution; a perturbed-coefficient control is rejected. a > 1e8 is not
+certified directly (series/CF cost grows as √a). For η < 0
 the coefficient extraction must run on the P-side identity — the Q-side
 difference is a 1-minus-tiny cancellation that needs thousands of digits.
 
@@ -767,7 +776,16 @@ validation machinery and each a lesson with reach beyond beta:
    sharing no code with the generator) that carries a mandatory
    negative control — four confirmed-bad rows from an earlier oracle
    round must be rejected, and their corrections accepted, before any
-   row is judged.
+   row is judged. Since row 11 (#61) a row passes only if the
+   independent value lies inside the stored double's round-to-nearest
+   interval (it accepted ~2 ULP before); every certified row's one-ulp
+   neighbours must be rejected; the gamma-limit stratum uses the
+   kernel's 2^47 boundary (it had drifted at 2^59) and adds fresh points
+   with no stored row. Rows within 1e-30 of a midpoint are declined, not
+   passed: two of the four declined are a genuine defect, Q at
+   (2, 1, 1−2^-53) and P at its mirror (1, 2, 2^-53) store the odd
+   neighbour of the exact midpoint 2^-52 − 2^-106 (row 12 regenerates
+   them).
 
 Specials (gamma-consistent doctrine, exercised by the smoke test's full
 251-row table): x = 0 → P = +0, Q = 1 and x = 1 → P = 1, Q = +0 at any

@@ -31,8 +31,34 @@ performance.**
   still worked only if their gate opens, which keeps v1.1.0 a pure
   correctness release.
 
-**Order row 10 (#52): IMPLEMENTED 2026-10-20 on Z, uncommitted, awaiting
-user review.**
+**Order row 11 (#61): IMPLEMENTED 2026-10-20 on Z, uncommitted, awaiting
+user review.** Four subagents, disjoint files; results re-run here.
+- Bessel (gen_bessel_data.py): tail replay over fused/unfused x
+  scaled/unscaled (the unscaled exp_dd fold modelled as a 2^-70
+  perturbation of either sign), ~20.5k full-mantissa points each, worst
+  1.000 ULP everywhere (no margin; all just above the split); tail
+  negative control (c0 + 4 ulp) caught. Stale header comment fixed;
+  src/bessel_data.h regenerated, comment-only diff. Runtime 11 s -> 56 s.
+- Beta (verify_beta_reference.py): pass = independent value inside the
+  stored double's round-to-nearest interval (was ~2 ULP); 1-ULP negative
+  controls on all 3,727 certified rows; gamma-limit stratum at the
+  kernel's 2^47 (had drifted at 2^59) plus fresh unstored points. 0
+  failures, 4 declined midpoint rows. FINDING [OPEN, row 12]: Q(2, 1,
+  1-2^-53) and P(1, 2, 2^-53) (beta_{p,q}_reference.txt lines 32606 and
+  33363) store the odd neighbour of the exact midpoint 2^-52 - 2^-106.
+- Temme (gen_gamma_reference.py): independent P series / Q CF
+  certification at 81 points, a in (1.2e4, 1e8]; worst 8.9e-36 (the
+  "< 1e-40" claim was wrong; still ~19 orders below double resolution);
+  perturbed-c0 control rejected; new --check-only; data byte-identical.
+  a > 1e8 not certified directly.
+- Recipe: per-arm re-verify in gen_erfc/exp_dd/log_dd_reference (caps
+  removed; outputs identical); erfinv oracle self-check (dps 120 own
+  Newton re-solve of all 10,267 rows + 1-ulp control; outputs identical);
+  erf subnormal stratum, 3,001 rows appended (17,595), gate 1 ULP.
+
+**Order row 10 (#52): DONE 2026-10-20 on Z**, `806b330`. CI GREEN (run
+39373321299, all three jobs); #52 closed. A native M1 run is still owed.
+**Row 10 detail (was IMPLEMENTED, uncommitted):**
 - Cause: the tail rounded f_nu(s) to a double, then multiplied by the dd
   1/sqrt(2*pi*x): two roundings (i0 1.56 ulp). FIX (BesselTailIveDd): plain
   Horner down to c1, then c0 + s*acc as TwoProd + DdAddD, and DdMul by the
