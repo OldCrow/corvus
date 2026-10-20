@@ -51,6 +51,22 @@ inline constexpr int kGammaCfN = 44;
 inline constexpr int kGammaR4N = 36;
 inline constexpr double kGammaExpFloor = -0x1.9000000000000p+9;
 
+// Gamma-private erfc tail factor G(z) = z e^{z^2} erfc(z) (#64), for
+// z in [6.0, 28.5]: monomial coefficients (ascending) in
+// s = 1/z - kGammaTailC; the first kGammaTailNDd are dd
+// (kGammaTailCoef holds the high words, kGammaTailCoefLo the low).
+inline constexpr double kGammaTailZLo = 0x1.8000000000000p+2;
+inline constexpr double kGammaTailZHi = 0x1.c800000000000p+4;
+inline constexpr double kGammaTailC = 0x1.9d31674c59d31p-4;
+inline constexpr int kGammaTailNCoef = 16;
+inline constexpr int kGammaTailNDd = 3;
+inline constexpr double kGammaTailCoef[16] = {
+    0x1.1f6acbfc258e9p-1, -0x1.c48603b03e690p-5, -0x1.07fccbd3a8a51p-2, 0x1.353d54ef36530p-3, 0x1.24184752abeaap-2, -0x1.dbd745b283c3cp-2, -0x1.2aec0dff76728p-2, 0x1.855b090756f33p+0, -0x1.47a342bf0c421p-1, -0x1.282d2a974d7adp+2, 0x1.095980ad8055dp+3, 0x1.12d00978ec769p+3, -0x1.9a86eb3c01310p+5, 0x1.2923fa5aa99cfp+5, 0x1.a2add9217c541p+7, -0x1.05584349d62c8p+9,
+};
+inline constexpr double kGammaTailCoefLo[3] = {
+    -0x1.0b5c703608eadp-55, -0x1.c92ce561b6ed3p-59, 0x1.aeba2c6ef0b20p-58,
+};
+
 }  // namespace corvus::detail
 
 #endif  // CORVUS_GAMMA_DATA_H_

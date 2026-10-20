@@ -31,8 +31,43 @@ performance.**
   still worked only if their gate opens, which keeps v1.1.0 a pure
   correctness release.
 
-**Order row 12a (#67): IMPLEMENTED 2026-10-21 on Z, uncommitted, awaiting
-user review.**
+**Order row 12b (#64): IMPLEMENTED 2026-10-21 on Z (opus subagent; re-run
+here), uncommitted, awaiting user review.**
+- Fix: gamma-private dd erfc tail factor GammaTailG (CORVUS_OUTLINE), one
+  interval z in [6, 28.5] (live max sqrt(800) = 28.28), degree 15 in
+  s = u - C with u = 2*DdRecip(2z) (dd), Horner in double to c3 and the
+  last 3 steps dd (1/2/3/4 dd steps measured 58.6/60.9/65.4/67.3 bits).
+  gtd = DdMul(GammaTailG(r), r); the z.lo fold and DdRecip(2z) are kept.
+  erfc_tail_data.h / ErfcTailGFromU untouched (erfc, erfinv bits same).
+- Generator: gen_gamma_data.py self-check (g) replays the evaluator and
+  G/(2z) op for op, fused and unfused, over 4,580 points: 2^-65.29 both
+  (target 2^-63, exits non-zero above); negative control (c0 low word
+  dropped, 2^-54.09) rejected. src/gamma_data.h gains kGammaTail*.
+- Guard: `gen_gamma_reference.py --r3tail-append` (seed 6464), 1,584 rows
+  (x = 2a - k ulp, k 1..8, 150 a; lambda in [1.6, 2.4] with a*phi in
+  (36, 800]; the reproducer), mpmath vs own Lentz CF at dps 70, 1e-45
+  agreement; dps-140 re-check, one-ulp control. HEAD: R3 Q 3 (gate 2) on
+  three tiers.
+- Result (identical on AVX3_ZEN4, SSE4, SSE2): R3 P direct 2 -> 1, R3 Q
+  direct 3 -> 1; complements 1. Gates R3 {2,1} -> {1,1} (tightened). The
+  published bound stays 2. gammainv gate output byte-identical.
+- Cost: +3% (n = 1e4) / +7% (n = 1e6) on bench_gamma R3, best of 5,
+  machine NOT quiet (~50% ambient): INDICATIVE, re-run quiet if needed.
+- [OPEN] beta sibling: src/beta-inl.h:1048 uses the plain-double
+  ErfcTailGFromU G with no z.lo fold in its tail; likely the same exposure.
+  GammaTailG could be reused. Not investigated.
+
+**CI: macOS NEON_BF16 guard integrated 2026-10-21** (`f85aa37`, cherry-pick
+of `b3f1b4a` from `ci/macos-neon-cap`). Hosted macos-26-arm64 runners can
+land on a BF16-capable core, which dispatches NEON_BF16 and fails every
+CORVUS_EXPECT_TARGET=NEON assertion (run 39452466261, the push of
+dependabot #66 to main). The macOS job now builds twice: native (keeps
+NEON_BF16 compiling under -Werror, gates unasserted) and capped with
+`(HWY_NEON-1)` (asserted NEON gates and the ULP report). The other session
+merges `ci/macos-neon-cap` to main itself.
+
+**Order row 12a (#67): DONE 2026-10-21 on Z**, `cefaf95` CI GREEN via run 39469860824 on
+f85aa37 (the cefaf95 run was cancelled by that dispatch); #67 closed. Detail as implemented:
 - Fix (GammaSmallQ): lgamma(1+a) from the centre-2 zone on every lane;
   a <= 1/2 takes lgamma(2+a) - log(1+a) at t = a. log(1+a) must be
   relative-accurate to dd: the first cut used LogDd(TwoSum(1, a)), whose

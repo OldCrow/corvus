@@ -431,6 +431,64 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
                op::IfThenElse(nonpos, zero, q.lo)};
 }
 
+// R3 tail factor: G(z) = z e^{z^2} erfc(z) as a dd, for z = 1/u in
+// [kGammaTailZLo, kGammaTailZHi] = [6, 28.5], from r = 1/(2z) as a dd
+// (the caller's DdRecip, which it also needs for G/(2z)).
+//
+// WHY A PRIVATE FIT (#64). The tail used erfc's own plain-double G
+// (ErfcTailGFromU): ~1.7 x 2^-53 relative (fit 0.81 + Horner rounding 0.89).
+// G's relative error reaches the small side at weight (lambda-1)/eta, which
+// is 1.28 at lambda = 2 (s_rv < 0 there, so the bracket is smaller than G's
+// term), and with a result mantissa near 2 that read 3 ulp at x = 2a - 4 ulp
+// (a ~ 1180). The 2-ULP bound was never reachable with a double G. This fit
+// is gamma's alone: erfc_tail_data.h and ErfcTailGFromU are untouched, so
+// erfc's and erfinv's bits do not move.
+//
+// METHOD (tools/gen_gamma_data.py, block "Tail G" and self-check (g)). One
+// Chebyshev interpolant in u = 1/z over the whole live range (a*phi in
+// (36, 800] puts z in (6, 28.29]; 28.5 is margin), degree 15, re-expanded
+// exactly into monomials in the UNSCALED shift s = u - kGammaTailC. s is a
+// dd formed by one DdAddD from the dd u = 2r, so no scale constant rounds.
+// Horner runs in double on s.hi for coefficients 15..3, then the last three
+// steps in dd with dd coefficients 2..0 (the first of them as an exact
+// TwoProd with s.hi). The counts are measured, not guessed: with c0 alone
+// dd the replay reads 2^-58.6, with two dd steps 2^-60.9 (the double
+// step-2 rounding, |s q_2|/G ~ 2^-10, is the floor), with three 2^-65.3;
+// degree 14 at three steps reads 2^-62.8. The generator replays this exact
+// op sequence and the caller's G/(2z) product under fused AND unfused
+// MulAdd (SSE2/SSSE3/SSE4 have no FMA) over uniform and edge-bit-stepped
+// arms, and refuses to emit above 2^-63 (measured 2^-65.29 under both,
+// worst at z = 6). At weight 1.28 that is ~0.001 ulp of gamma_q.
+//
+// One interval means no per-lane coefficient selects. The caller clamps z
+// into [6, 28.5] first; that is a no-op on every live tail lane and keeps
+// discarded lanes (core lanes, saturated lanes with huge z, NaN-scrubbed
+// z = 0) finite. Hot per-vector region inside the outlined
+// GammaTemme, so CORVUS_OUTLINE (AGENTS.md).
+template <class D>
+CORVUS_OUTLINE Dd<D> GammaTailG(D d, Dd<D> r) {
+  const auto two = op::Set(d, 2.0);
+  const Dd<D> u{op::Mul(r.hi, two), op::Mul(r.lo, two)};  // exact
+  const auto s = DdAddD(d, u, op::Set(d, -detail::kGammaTailC));
+  const double* c = detail::kGammaTailCoef;
+  constexpr int kN = detail::kGammaTailNCoef;
+  constexpr int kDd = detail::kGammaTailNDd;
+  auto q = op::Set(d, c[kN - 1]);
+  for (int k = kN - 2; k >= kDd; --k) {
+    q = op::MulAdd(q, s.hi, op::Set(d, c[k]));
+  }
+  Dd<D> g = DdAdd(d,
+                  Dd<D>{op::Set(d, c[kDd - 1]),
+                        op::Set(d, detail::kGammaTailCoefLo[kDd - 1])},
+                  TwoProd(d, s.hi, q));
+  for (int k = kDd - 2; k >= 0; --k) {
+    g = DdAdd(d,
+              Dd<D>{op::Set(d, c[k]), op::Set(d, detail::kGammaTailCoefLo[k])},
+              DdMul(d, s, g));
+  }
+  return g;
+}
+
 // R3: Temme's uniform asymptotic expansion on the ridge.
 //
 // With lambda = x/a and phi(lambda) = lambda - 1 - log(lambda) >= 0, the
@@ -458,8 +516,9 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
 //     6 -- erfc's own split. Below it ErfcCoreDd supplies 1/2*erfc(z) as a
 //     dd and nothing underflows. Above it the whole expression carries the
 //     factor e^{-a*phi}, so erfc is taken in its tail form
-//     e^{-z^2} G(1/z)/z (REUSING erfc_tail_data's G -- z <= sqrt(800) ~ 28.3
-//     stays inside its fitted range) and the power-of-two scaling is applied
+//     e^{-z^2} G(1/z)/z (G from gamma's own dd fit, GammaTailG -- erfc's
+//     plain-double G cost up to 2.1 ulp here, #64) and the power-of-two
+//     scaling is applied
 //     last, which is what keeps the subnormal band a*phi in [700, 760] at a
 //     single rounding.
 template <class D>
@@ -551,7 +610,9 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
 
   // --- tail, a*phi > 36 ---------------------------------------------------
   // gt = G/(2z) = 1/2 erfc(z) e^{z^2} at z.hi, as a dd (#57: it was a
-  // rounded double, and z.lo was dropped). z.lo enters through the slope:
+  // rounded double, and z.lo was dropped; #64: G itself is now a dd, and
+  // GammaTailG's comment covers the z clamp below). z.lo enters through the
+  // slope:
   // with f(z) = 1/2 erfc(z) e^{z^2}, f' = 2z f - 1/sqrt(pi), so
   // f(z.hi + z.lo) = gt - z.lo (1/sqrt(pi) - 2 z gt) + O(z.lo^2) -- the same
   // first-order fold the core applies to its own erfc term.
@@ -565,9 +626,11 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
   // those lanes to an exact 0/1 anyway, but gammainv takes the LOG of this
   // dd on every R3 lane, and a nonzero garbage tail there returned a wrong
   // root (beyond-resolution bucket, 1.9e15 ULP).
-  const auto uz = op::Div(one, zs);
-  const auto two_z = op::Add(zs, zs);
-  const auto gtd = DdMulD(d, DdRecip(d, two_z), ErfcTailGFromU(d, zs, uz));
+  const auto zt = op::Min(op::Max(zs, op::Set(d, detail::kGammaTailZLo)),
+                          op::Set(d, detail::kGammaTailZHi));
+  const auto two_z = op::Add(zt, zt);
+  const auto r2z = DdRecip(d, two_z);
+  const auto gtd = DdMul(d, GammaTailG(d, r2z), r2z);
   const auto live_tail =
       op::Ge(op::Set(d, -detail::kGammaExpFloor), aphi.hi);
   const auto zlo_corr = op::IfThenElse(

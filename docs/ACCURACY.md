@@ -496,7 +496,7 @@ diagonal rows
 (a ∈ {2^996, 2^997, 2^1000, DBL_MAX}, x = a ± 3 ulp: exact-diagonal
 P = Q = 0.5, saturated exact (1, +0)/(+0, 1) neighbours).
 
-**Bounds, measured on the 19,785-point reference set and identical
+**Bounds, measured on the 21,369-point reference set and identical
 (max ULP cell for cell) on AVX2, SSE4, SSSE3, SSE2, NEON and AVX-512.**
 x86: Kaby Lake native + capping, AppleClang, 2026-07-28. NEON:
 Apple-silicon CI runner (run 30412061002, 2026-07-29), point-identical to
@@ -514,7 +514,7 @@ note under the validation matrix).
 |---|---|---|
 | R1 series (P direct) | **1 ULP** (0.02% not-CR) | complement: 1 ULP (0.10%) |
 | R2 continued fraction (Q direct) | complement: **1 ULP** (erratum; ~0.4% not-CR near x = a+1) | **1 ULP** (0.04% not-CR) |
-| R3 Temme ridge (smaller side direct) | **2 ULP** | **2 ULP** (3 measured near x = 2a; #64, row 12b) |
+| R3 Temme ridge (smaller side direct) | **2 ULP** (1 measured since #64) | **2 ULP** (1 measured since #64; was 3 near x = 2a) |
 | R3 complement | 1 ULP | 1 ULP |
 | R4 small-a (Q direct) | complement: **1 ULP** (erratum; 0.03% not-CR) | **1 ULP** (1.4% not-CR; was 4 before #67) |
 
@@ -528,7 +528,7 @@ rounding itself. The bound for both is now 1 ULP: an erratum, as at row 9,
 since no release met 0 there. The same re-score found two cells above
 their published bound, which v1.1.0 fixes rather than relaxes: gamma_q R3
 near x = 2a (3 ULP vs 2, the plain-double erfc factor G, #64, order row
-12b) and gamma_q R4 for a in [0.25, 0.5] (4 ULP vs 1, #67, order row 12a).
+12b, fixed below) and gamma_q R4 for a in [0.25, 0.5] (4 ULP vs 1, #67, order row 12a).
 
 **R4 small-a fixed (#67, order row 12a).** Q's error is lgamma(1+a)'s
 ABSOLUTE error over Q, and Q reaches ~3e-3 in the box; lgamma's centre-1
@@ -564,9 +564,21 @@ band anywhere in the domain.
 **R3 Temme tail (a·φ > 36), #57.** The tail dropped z.lo and formed
 G/(2z) as a rounded double, reading 3 ULP on tail rows; with the z.lo
 slope folded in and G/(2z) a dd product it reads 2 ULP (302 tail rows
-added). Its real error still reaches 2.34 ulp because the erfc tail factor
-G is plain double: within the integer 2-ULP bound with 0.16 ulp of margin
-(#64 tracks a dd G).
+added). Its real error still reached 2.34 ulp because the erfc tail factor
+G was plain double, and the "0.16 ulp of margin" recorded then was wrong:
+row 12's re-score found 3 ULP just below x = 2a (G's ~1.7 x 2^-53 relative
+error, weighted 1.28 where s_rv < 0).
+
+**R3 Temme tail fixed (#64, order row 12b).** gamma now carries its own dd
+G (GammaTailG; erfc's and erfinv's bits are unchanged): one interval
+z in [6, 28.5], degree 15 in s = 1/z - C, plain-double Horner down to c3
+and the last three steps in dd. The generator replays it op for op, fused
+and unfused, at 2^-65.29 (target 2^-63; negative control rejected).
+1,584 two-form-certified rows (gen_gamma_reference.py --r3tail-append) read
+3 ULP on the old kernel; R3 P and Q direct now both measure 1 ULP on
+AVX3_ZEN4, SSE4 and SSE2 (gates tightened 2 -> 1; the published bound
+stays 2). gammainv's gate output is byte-identical. Cost: +3-7% on the R3
+bench band (indicative; the machine was not quiet).
 
 Method: four regions on λ = x/a with a_T = 20 — a power series for P
 (fixed cap 64, per-lane freeze), a **backward** fixed-depth (44) evaluation

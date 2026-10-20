@@ -56,6 +56,8 @@ Usage:
     python3 tools/gen_gamma_reference.py               # full regeneration
     python3 tools/gen_gamma_reference.py --check-only  # self-checks only, writes nothing
     python3 tools/gen_gamma_reference.py --dd-special-append  # row-12 Log1pmxDd rows
+    python3 tools/gen_gamma_reference.py --r4band-append      # #67 R4 band rows
+    python3 tools/gen_gamma_reference.py --r3tail-append      # #64 R3 tail rows
 """
 
 import argparse
@@ -1254,6 +1256,131 @@ def r4band_append():
     return 0
 
 
+# ---------------------------------------------------------------------------
+# --r3tail-append (#64, order row 12b): gamma_q's R3 Temme TAIL near
+# lambda = 2, where the erfc tail factor G carries weight ~1.28 in the
+# bracket and a plain-double G read 3 ulp (the witness: x = 2a - 4 ulp).
+# Strata, all a in [20, 3000] with a*phi in (36, 800] (the tail's live band):
+#   edge:  x = 2a - k ulp, k = 1..8 (the R3 side of the R3/R2 seam);
+#   band:  lambda uniform in [1.6, 2.4] (both sides of the seam).
+# Own rng; existing rows untouched. Certified by TWO forms that share no
+# code: mpmath gammainc (regularized upper) and the own modified-Lentz
+# Legendre CF of indep_small_side, both at dps 70, agreeing to 1e-45
+# relative on Q (x > a, so Q is the small side; P = 1 - Q). A value within
+# 1e-6 ulp of a rounding midpoint is declined; a Q that rounds to 0 is a
+# saturated pair and is pruned. Re-check: a sample at dps 140 by the CF
+# form; negative control: a stored Q nudged by one ulp must fail it.
+R3TAIL_SEED = 6464
+R3TAIL_WITNESS = (float.fromhex("0x1.271e222aab03cp+10"),
+                  float.fromhex("0x1.271e222aab038p+11"))
+R3TAIL_EDGE_A = 150
+R3TAIL_BAND_N = 400
+
+
+def r3tail_live(a, x):
+    am, xm = mp.mpf(a), mp.mpf(x)
+    aphi = am * phi_lam(xm / am)
+    return 36 < aphi <= 800
+
+
+def build_r3tail_points():
+    rng = random.Random(R3TAIL_SEED)
+    pts = [R3TAIL_WITNESS]
+    lo, hi = math.log10(20.0), math.log10(3000.0)
+    n_a = 0
+    while n_a < R3TAIL_EDGE_A:
+        a = 10.0 ** rng.uniform(lo, hi)
+        if not r3tail_live(a, 2.0 * a):
+            continue
+        n_a += 1
+        x = 2.0 * a
+        for _ in range(8):
+            x = math.nextafter(x, -math.inf)
+            pts.append((a, x))
+    n_b = 0
+    while n_b < R3TAIL_BAND_N:
+        a = 10.0 ** rng.uniform(lo, hi)
+        x = a * rng.uniform(1.6, 2.4)
+        if not r3tail_live(a, x):
+            continue
+        n_b += 1
+        pts.append((a, x))
+    out, seen = [], set()
+    for a, x in pts:
+        k = (as_bits(a), as_bits(x))
+        if k not in seen:
+            seen.add(k)
+            out.append((a, x))
+    return out
+
+
+def r3tail_append():
+    t0 = time.time()
+    pts = build_r3tail_points()
+    rows, declined, pruned = [], 0, 0
+    tol = mp.mpf(10) ** -45
+    for a, x in pts:
+        with mp.workdps(70):
+            Qm = mp.gammainc(mp.mpf(a), mp.mpf(x), mp.inf, regularized=True)
+            Pm = 1 - Qm
+        Qc, _ = indep_small_side(a, x, 70)
+        with mp.workdps(70):
+            ok = Qm > 0 and abs(Qc - Qm) <= Qm * tol
+        if not ok:
+            print(f"  DECLINED (forms disagree): a={a!r} x={x!r}", file=sys.stderr)
+            declined += 1
+            continue
+        Pf, Qf = round_to_double(Pm), round_to_double(Qm)
+        if Qf == 0.0:
+            pruned += 1
+            continue
+        if (r4band_halfway_ulps(Pm, Pf) < mp.mpf("1e-6")
+                or r4band_halfway_ulps(Qm, Qf) < mp.mpf("1e-6")):
+            declined += 1
+            continue
+        rows.append((a, x, Pf, Qf))
+    if R3TAIL_WITNESS not in {(r[0], r[1]) for r in rows}:
+        print("FAILED: #64 witness not certified -- nothing written.", file=sys.stderr)
+        return 5
+    rng = random.Random(R3TAIL_SEED + 1)
+
+    def recheck(a, x, Pf, Qf):
+        Q2, _ = indep_small_side(a, x, 140)
+        with mp.workdps(140):
+            return round_to_double(1 - Q2) == Pf and round_to_double(Q2) == Qf
+
+    sample = rng.sample(rows, min(200, len(rows)))
+    bad = [r for r in sample if not recheck(*r)]
+    a, x, Pf, Qf = rows[0]
+    caught = not recheck(a, x, Pf, math.nextafter(Qf, math.inf))
+    print(f"  r3tail: {len(rows)} certified, {declined} declined, {pruned} "
+          f"saturated pruned; re-check {len(sample)}: {len(bad)} mismatches; "
+          f"negative control {'CAUGHT' if caught else 'NOT CAUGHT'}",
+          file=sys.stderr)
+    if bad or not caught:
+        print("FAILED: self-check -- nothing written.", file=sys.stderr)
+        return 3
+    if len(rows) % 2:
+        rows.pop()  # both files are odd-length; appending an even count keeps them so
+    for name in ("gamma_p_reference.txt", "gamma_q_reference.txt"):
+        path = os.path.join("tests", "data", name)
+        with open(path, "rb") as f:
+            old = f.read()
+        eol = b"\r\n" if b"\r\n" in old else b"\n"
+        present = {tuple(ln.split()[:2]) for ln in old.decode().splitlines()}
+        new = [f"{hexd(a)} {hexd(x)} {hexd(Pf)} {hexd(Qf)}".encode() + eol
+               for a, x, Pf, Qf in rows if (hexd(a), hexd(x)) not in present]
+        if len(new) % 2:
+            print(f"FAILED: odd append count to {name} -- nothing written.",
+                  file=sys.stderr)
+            return 6
+        with open(path, "wb") as f:
+            f.write(old + b"".join(new))
+        print(f"  appended {len(new)} rows to {name}", file=sys.stderr)
+    print(f"r3tail runtime: {time.time() - t0:.1f}s", file=sys.stderr)
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0],
                                      allow_abbrev=False)
@@ -1271,7 +1398,13 @@ def main():
     parser.add_argument("--r4band-append", action="store_true",
                         help="append #67's R4 small-a band rows (two-form "
                              "certified) to tests/data/gamma_{p,q}_reference.txt")
+    parser.add_argument("--r3tail-append", action="store_true",
+                        help="append #64's R3 Temme-tail rows near lambda = 2 "
+                             "(two-form certified) to "
+                             "tests/data/gamma_{p,q}_reference.txt")
     args = parser.parse_args()
+    if args.r3tail_append:
+        return r3tail_append()
     if args.r4band_append:
         return r4band_append()
     if args.ridge56_append:

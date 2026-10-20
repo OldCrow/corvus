@@ -49,16 +49,20 @@ using corvus_test::UlpDiff;
 // and R4 P complement 0 -> 1 (2 rows, 0.03%; the published bound is 1 ULP
 // since row 12's erratum). R2 P complement still measures 0 on these rows,
 // but its published bound is also 1 ULP (dense seam rows miss by 1).
+// Row 12b (#64, 2026-10-21): 1,584 Temme-tail rows near lambda = 2 (x = 2a -
+// k ulp, k = 1..8, and lambda in [1.6, 2.4]); R3 Q direct read 3 on them
+// with erfc's plain-double tail G. With gamma's own dd G (GammaTailG) R3 Q
+// direct 2 -> 1 and R3 P direct 2 -> 1, at AVX3_ZEN4, SSE4 and SSE2.
 constexpr uint64_t kGateP[4][2] = {
     {1, 0},  // R1: direct P max 1
     {0, 0},  // R2: complement P max 0 on these rows (bound 1 ULP)
-    {2, 1},  // R3
+    {1, 1},  // R3
     {0, 1},  // R4: complement P max 1
 };
 constexpr uint64_t kGateQ[4][2] = {
     {0, 1},  // R1: complement Q max 1
     {1, 0},  // R2: direct Q max 1
-    {2, 1},  // R3
+    {1, 1},  // R3
     {1, 0},  // R4: direct Q max 1
 };
 
