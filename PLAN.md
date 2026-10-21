@@ -31,8 +31,10 @@ performance.**
   still worked only if their gate opens, which keeps v1.1.0 a pure
   correctness release.
 
-**Order row 12c (#69): IMPLEMENTED 2026-10-22 on Z (opus subagent; re-run
-here), uncommitted, awaiting user review.**
+**Order row 12c (#69): DONE 2026-10-22 on Z**, `87ef42d`. CI GREEN (run
+39664514966, all three jobs, NEON first try); #69 closed. The v1.1.0
+correctness rows (2-12c) are complete; next is the PAUSE for native M1 and
+Kaby Lake runs, then PR dev/v1.1.0 -> main, tag, release.
 - Verdict that opened it: adversarial re-score, 3,000/3,000 certified (own
   tanh-sinh quad + own Lentz CF, 1.3e-45), P and Q direct 4 ULP vs the
   published 3. The scorer's B-series cost guard was broken (float lgamma
