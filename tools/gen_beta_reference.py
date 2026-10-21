@@ -3899,6 +3899,399 @@ def gl54b_append():
     return rc
 
 
+# ============================================================================
+# --r3tail-append (issue #69): R3 Temme TAIL (cpsi > 36) at high G weight.
+# Beta's tail took G = z e^{z^2} erfc(z) from erfc's plain double fit, formed
+# G/(2z) as a rounded double, and dropped z.lo -- gamma's twin had all three
+# fixed (#57, #64). The error scales with the G weight
+#   w = (erfc(sqrt(cpsi))/2) / small,
+# which approaches 1.28 where the small side's parameter ratio sits at the
+# band edge (y/q -> 2 with a >> b, or x/p -> 2 with a << b) -- the gamma
+# limit's lambda = 2. The v1.0 set held no such rows: the kernel read 4 ulp
+# there against a 3-ULP gate.
+#
+# Strata (own RNG, seed 6969; no kernel input in the selection):
+#   witness  the two worst rows of the #69 adversarial scoring
+#   hiw-P    a > b, y = s*q, s in [1.5, 2) edge-biased  (P is the small side)
+#   hiw-Q    a < b, x = s*p, same                       (Q is the small side)
+#   broad    any skew, any of the four band edges, edge-biased
+# z = sqrt(cpsi) is drawn uniformly in (6, sqrt(800)), so the subnormal band
+# and the underflow-to-zero lanes below the -800 clamp are covered too.
+#
+# Oracle: two INDEPENDENT forms of the small side, both in mpmath at
+# dps = 45 + log10(c):
+#   C  tanh-sinh quadrature of the integrand, taken relative to the endpoint
+#      (s = xi - t) so nothing cancels inside it, with the prefactor
+#      xi^(al-1) (1-xi)^(be-1) / B(al, be) applied outside;
+#   D  own modified-Lentz continued fraction (DLMF 8.17.22), capped.
+# They must agree to R3TAIL_AGREE relative, else the row is declined. The
+# emitted value is C. Halfway guard: a P or Q within R3TAIL_HALFWAY ulp of a
+# rounding midpoint is declined. After the oracle pass, every emitted row is
+# re-derived by form D at dps + 25 (dps re-check: the stored P and Q must be
+# its rounding), and a one-ulp nudge of every stored small side must FAIL
+# that same check (negative control). Appended count is kept even.
+# ============================================================================
+R3TAIL_SEED = 6969
+R3TAIL_AGREE = mp.mpf("1e-30")
+R3TAIL_HALFWAY = mp.mpf("1e-6")
+R3TAIL_CF_CAP = 200000      # Lentz iterations; a row that needs more declines
+R3TAIL_WITNESS = (
+    (float.fromhex("0x1.60e68a83ac337p+53"), float.fromhex("0x1.9ffbb946bc7cfp+8"),
+     float.fromhex("0x1.ffffffffffddcp-1")),
+    (float.fromhex("0x1.f6bdc2431d81fp+9"), float.fromhex("0x1.83e635a0b76fbp+23"),
+     float.fromhex("0x1.4a82afffedb34p-13")),
+)
+R3TAIL_STATS = {"agree_worst": mp.mpf(0), "halfway_declined": 0,
+                "disagree_declined": 0, "cf_declined": 0}
+R3TAIL_DECLINED = []
+R3TAIL_FAMILY = {}
+
+
+def _r3tail_phi(t):
+    """t - log1p(t), cancellation-free near 0 (sampling only)."""
+    if abs(t) < 1e-3:
+        return t * t * (0.5 - t / 3 + t * t / 4 - t ** 3 / 5)
+    return t - math.log1p(t)
+
+
+def gen_r3tail_corner(ps):
+    rng = random.Random(R3TAIL_SEED)
+    n0 = len(ps.pts)
+    for a, b, x in R3TAIL_WITNESS:
+        n_before = len(ps.pts)
+        ps.add(a, b, x, keep_if_saturated=True, tag="r3tail-witness")
+        if len(ps.pts) > n_before:
+            R3TAIL_FAMILY[(as_bits(a), as_bits(b), as_bits(x))] = "witness"
+    zmax = math.sqrt(800.0)
+    draws = {}
+    kept = {}
+    for fam, want in (("hiw-P", 950), ("hiw-Q", 950), ("broad", 300)):
+        draws[fam] = 0
+        kept[fam] = 0
+        while kept[fam] < want and draws[fam] < 40 * want:
+            draws[fam] += 1
+            if fam == "broad":
+                lr = rng.uniform(-14.0, 14.0)
+                edge = rng.randrange(4)
+            else:
+                lr = rng.uniform(0.5, 14.0)
+                if fam == "hiw-Q":
+                    lr = -lr
+                edge = 3 if fam == "hiw-P" else 1
+            r = 10.0 ** lr                          # a/b
+            p, q = r / (1.0 + r), 1.0 / (1.0 + r)
+            t = 1.0 - rng.random() ** 2             # edge-biased in [0, 1)
+            # edges: 0 x = p(1 - t/2), 1 x = p(1 + t), 2 y = q(1 - t/2),
+            # 3 y = q(1 + t); the hiw strata hold s = 1 + t in [1.5, 2).
+            if fam != "broad":
+                t = 0.5 + 0.5 * t
+            if edge == 0:
+                x = p * (1.0 - 0.5 * t)
+            elif edge == 1:
+                x = p * (1.0 + t)
+            elif edge == 2:
+                x = 1.0 - q * (1.0 - 0.5 * t)
+            else:
+                x = 1.0 - q * (1.0 + t)
+            if not 0.0 < x < 1.0:
+                continue
+            a1, b1 = 1.0 + r, (1.0 + r) / r         # nu = 1
+            lam = a1 - (a1 + b1) * x
+            f1 = a1 * _r3tail_phi(-lam / a1) + b1 * _r3tail_phi(lam / b1)
+            if not f1 > 0.0:
+                continue
+            z = rng.uniform(6.0, zmax)
+            nu = z * z / f1
+            a, b = nu * a1, nu * b1
+            if not (math.isfinite(a) and math.isfinite(b)):
+                continue
+            tag = route_final(mp.mpf(a), mp.mpf(b), mp.mpf(x))[3]
+            if not tag.startswith("R3"):
+                continue
+            cp = _r3tail_cpsi(a, b, x)
+            if not 36.0 < cp <= 800.0:
+                continue
+            n_before = len(ps.pts)
+            ps.add(a, b, x, keep_if_saturated=True, tag="r3tail-" + fam)
+            if len(ps.pts) > n_before:
+                R3TAIL_FAMILY[(as_bits(a), as_bits(b), as_bits(x))] = fam
+                kept[fam] += 1
+    print(f"  r3tail family: {len(ps.pts) - n0} points; draws {draws}; "
+          f"kept {kept}", file=sys.stderr)
+
+
+def _r3tail_cpsi(a, b, x, dps=40):
+    """cpsi = a*phi(-lam/a) + b*phi(lam/b), lam = a - c*x, at dps (exact
+    inputs; phi via log1p)."""
+    lc = int(math.log10(a + b)) + 1
+    with mp.workdps(dps + lc):
+        A, B, X = mp.mpf(a), mp.mpf(b), mp.mpf(x)
+        lam = A - (A + B) * X
+        u, v = -lam / A, lam / B
+        return float(A * (u - mp.log1p(u)) + B * (v - mp.log1p(v)))
+
+
+def _r3tail_orient(a, b, x, dps):
+    """(al, be, xi, small_is_p) at dps: the small side is I_xi(al, be)."""
+    with mp.workdps(dps):
+        A, B, X = mp.mpf(a), mp.mpf(b), mp.mpf(x)
+        lam = A - (A + B) * X
+        if lam > 0:
+            return A, B, X, True
+        return B, A, 1 - X, False     # 1 - x is exact at this dps
+
+
+def _r3tail_quad(al, be, xi, dps):
+    """Form C: the small side by tanh-sinh quadrature relative to the
+    endpoint, I = xi^(al-1) (1-xi)^(be-1) / B(al, be) * int_0^xi
+    (1 - s/xi)^(al-1) (1 + s/(1-xi))^(be-1) ds. The integrand decays from 1
+    at s = 0 at rate k = (al-1)/xi - (be-1)/(1-xi) > 0 (small side); the
+    break points double from 1/(8k) until it is below e^-(2.31 dps + 30)."""
+    with mp.workdps(dps):
+        y = 1 - xi
+        a1, b1 = al - 1, be - 1
+        g = lambda s: mp.exp(a1 * mp.log1p(-s / xi) + b1 * mp.log1p(s / y))
+        k = a1 / xi - b1 / y
+        if k <= 0:
+            return None
+        cut = dps * 2.31 + 30
+        pts = [mp.mpf(0)]
+        h = 1 / k / 8
+        for _ in range(4000):   # h doubles: bounded far below this
+            s = pts[-1] + h
+            if s >= xi:
+                pts.append(xi)
+                break
+            pts.append(s)
+            if a1 * mp.log1p(-s / xi) + b1 * mp.log1p(s / y) < -cut:
+                break
+            h *= 2
+        else:
+            return None
+        integral = mp.quad(g, pts)
+        lb = mp.loggamma(al) + mp.loggamma(be) - mp.loggamma(al + be)
+        return mp.exp(a1 * mp.log(xi) + b1 * mp.log1p(-xi) - lb) * integral
+
+
+def _r3tail_cf(al, be, xi, dps, cap=R3TAIL_CF_CAP):
+    """Form D: own modified-Lentz CF for I_xi(al, be) (DLMF 8.17.22);
+    None if it has not converged within cap iterations."""
+    with mp.workdps(dps):
+        al, be, xi = mp.mpf(al), mp.mpf(be), mp.mpf(xi)
+        eps = mp.mpf(2) ** (-mp.mp.prec - 6)
+        tiny = mp.mpf(10) ** (-(dps + 300))
+        c = mp.mpf(1)
+        d = 1 - (al + be) * xi / (al + 1)
+        d = tiny if d == 0 else d
+        d = 1 / d
+        h = d
+        for m in range(1, cap):
+            aa = m * (be - m) * xi / ((al + 2 * m - 1) * (al + 2 * m))
+            d = 1 + aa * d
+            d = tiny if d == 0 else d
+            c = 1 + aa / c
+            c = tiny if c == 0 else c
+            d = 1 / d
+            h *= d * c
+            aa = -(al + m) * (al + be + m) * xi / ((al + 2 * m) * (al + 2 * m + 1))
+            d = 1 + aa * d
+            d = tiny if d == 0 else d
+            c = 1 + aa / c
+            c = tiny if c == 0 else c
+            d = 1 / d
+            de = d * c
+            h *= de
+            if abs(de - 1) < eps:
+                break
+        else:
+            return None
+        lb = mp.loggamma(al) + mp.loggamma(be) - mp.loggamma(al + be)
+        return mp.exp(al * mp.log(xi) + be * mp.log1p(-xi) - lb) / al * h
+
+
+def _r3tail_dps(a, b):
+    return 45 + int(math.log10(a + b))
+
+
+def _r3tail_halfway_ulps(v, y):
+    """Distance of mpf v from the nearest rounding midpoint around the double
+    y = round(v), in ulps of y's upper spacing (exact neighbours)."""
+    up, dn = math.nextafter(y, math.inf), math.nextafter(y, -math.inf)
+    with mp.workprec(mp.mp.prec + 128):
+        mu = (mp.mpf(y) + mp.mpf(up)) / 2
+        md = (mp.mpf(y) + mp.mpf(dn)) / 2
+        return min(abs(v - mu), abs(v - md)) / (mp.mpf(up) - mp.mpf(y))
+
+
+def r3tail_oracle(a, b, x):
+    """Drop-in for small_side_direct: (P, Q, which, escalated, failed)."""
+    dps = _r3tail_dps(a, b)
+    al, be, xi, small_is_p = _r3tail_orient(a, b, x, dps + 10)
+    vc = _r3tail_quad(al, be, xi, dps)
+    vd = _r3tail_cf(al, be, xi, dps)
+    if vc is None or vd is None or vc <= 0:
+        R3TAIL_STATS["cf_declined"] += 1
+        R3TAIL_DECLINED.append((a, b, x, "form C or D did not converge"))
+        return None, None, "P", False, True
+    with mp.workdps(dps):
+        rel = abs(vc - vd) / vc
+        if rel > R3TAIL_STATS["agree_worst"]:
+            R3TAIL_STATS["agree_worst"] = rel
+        if rel > R3TAIL_AGREE:
+            R3TAIL_STATS["disagree_declined"] += 1
+            R3TAIL_DECLINED.append((a, b, x, f"C vs D rel {float(rel):.2e}"))
+            return None, None, "P", False, True
+        small, big = vc, 1 - vc
+        for v in (small, big):
+            if _r3tail_halfway_ulps(v, round_to_double(v)) < R3TAIL_HALFWAY:
+                R3TAIL_STATS["halfway_declined"] += 1
+                R3TAIL_DECLINED.append((a, b, x, "halfway"))
+                return None, None, "P", False, True
+    if small_is_p:
+        return small, big, "P", False, False
+    return big, small, "Q", False, False
+
+
+def _r3tail_in_cell(v, y):
+    """True iff mpf v lies in the rounding cell of the double y (between the
+    midpoints to its two neighbours) -- an interval test independent of
+    round_to_double."""
+    up, dn = math.nextafter(y, math.inf), math.nextafter(y, -math.inf)
+    with mp.workprec(mp.mp.prec + 128):
+        mu = (mp.mpf(y) + mp.mpf(up)) / 2
+        md = (mp.mpf(y) + mp.mpf(dn)) / 2
+        return md <= v <= mu
+
+
+def _r3tail_recheck(rows):
+    """dps re-check + negative control on every emitted row: form D at
+    dps + 25 must lie in the rounding cell of the stored P and of the stored
+    Q, and must lie OUTSIDE the cell of the stored small side nudged by one
+    ulp either way. Returns the failure count."""
+    bad = 0
+    nc_missed = 0
+    worst_half = None
+    t0 = time.time()
+    for i, (a, b, x, P, Q) in enumerate(rows):
+        dps = _r3tail_dps(a, b) + 25
+        al, be, xi, small_is_p = _r3tail_orient(a, b, x, dps + 10)
+        v = _r3tail_cf(al, be, xi, dps)
+        if v is None:
+            bad += 1
+            print(f"    RECHECK no convergence a={a!r} b={b!r} x={x!r}",
+                  file=sys.stderr)
+            continue
+        with mp.workdps(dps):
+            small, big = v, 1 - v
+            sp, sq = (small, big) if small_is_p else (big, small)
+            if not (_r3tail_in_cell(sp, P) and _r3tail_in_cell(sq, Q)):
+                bad += 1
+                print(f"    RECHECK mismatch a={a!r} b={b!r} x={x!r}",
+                      file=sys.stderr)
+                continue
+            stored = P if small_is_p else Q
+            h = _r3tail_halfway_ulps(small, stored)
+            worst_half = h if worst_half is None else min(worst_half, h)
+            for nudged in (math.nextafter(stored, math.inf),
+                           math.nextafter(stored, -math.inf)):
+                if _r3tail_in_cell(small, nudged):
+                    nc_missed += 1
+        if (i + 1) % 500 == 0:
+            print(f"    recheck {i + 1}/{len(rows)} ({time.time() - t0:.0f}s)",
+                  file=sys.stderr)
+    print(f"  dps re-check (form D at dps+25): {len(rows) - bad}/{len(rows)} "
+          f"rows round to the stored P and Q; nearest small side to a "
+          f"midpoint {float(worst_half or 0):.3e} ulp", file=sys.stderr)
+    print(f"  negative control: {2 * len(rows)} one-ulp nudges, "
+          f"{nc_missed} accepted (must be 0)", file=sys.stderr)
+    return bad + nc_missed
+
+
+CKPT_R3TAIL_PATH = os.path.join(tempfile.gettempdir(),
+                                f"corvus_beta_ref_ckpt_r3tail_{SEED}.tsv")
+
+
+def r3tail_append():
+    t_all = time.time()
+    ps = PointSet()
+    gen_r3tail_corner(ps)
+    print(f"r3tail point set: {len(ps.pts)} distinct points", file=sys.stderr)
+
+    import hashlib
+    dig = hashlib.sha256()
+    for a, b, x, _, _ in ps.pts:
+        dig.update(struct.pack("<QQQ", as_bits(a), as_bits(b), as_bits(x)))
+    rows, region_hist, done = compute_all(
+        ps, ckpt_path=CKPT_R3TAIL_PATH,
+        sig_ver=f"v1-r3tail-{dig.hexdigest()[:16]}", oracle=r3tail_oracle)
+    print(f"  this invocation: worst C-vs-D rel {float(R3TAIL_STATS['agree_worst']):.3e}; "
+          f"declined: halfway {R3TAIL_STATS['halfway_declined']}, C/D disagree "
+          f"{R3TAIL_STATS['disagree_declined']}, no convergence "
+          f"{R3TAIL_STATS['cf_declined']}", file=sys.stderr)
+    for d in R3TAIL_DECLINED:
+        print(f"    DECLINED a={d[0]!r} b={d[1]!r} x={d[2]!r}: {d[3]}",
+              file=sys.stderr)
+    if not done:
+        print("\nPARTIAL RUN: re-invoke with --r3tail-append to continue "
+              "(checkpoint saved).", file=sys.stderr)
+        return 3
+    print(f"  r3tail route-tag counts: {region_hist}", file=sys.stderr)
+    rc = 0
+    for a, b, x, P, Q in rows:
+        if not route_final(mp.mpf(a), mp.mpf(b), mp.mpf(x))[3].startswith("R3"):
+            print(f"  FAILED: non-R3 row a={a!r} b={b!r} x={x!r}", file=sys.stderr)
+            rc = 1
+    rc |= check_p_plus_q(rows)
+    rc |= check_small_side_direct(rows)
+    rc |= _r3tail_recheck(rows)
+
+    # exact_line_value: no R3 row lies on an exact closed-form line (nu >=
+    # 20 there), but keep the same override write_rows applies.
+    fixed = []
+    for a, b, x, P, Q in rows:
+        exact = exact_line_value(a, b, x)
+        fixed.append((a, b, x) + (exact if exact is not None else (P, Q)))
+    rows = fixed
+
+    # Even appended count keeps both files' length parity. Rows already in
+    # the files belong to their earlier family (as _splice_corner skips them),
+    # so parity is decided on the NEW rows; the last non-witness row goes.
+    with open("tests/data/beta_p_reference.txt") as f:
+        have = {tuple(ln.split()[:3]) for ln in f if ln.strip()}
+    rows = [r for r in rows if (hexd(r[0]), hexd(r[1]), hexd(r[2])) not in have]
+    if len(rows) % 2:
+        for i in range(len(rows) - 1, -1, -1):
+            k = (as_bits(rows[i][0]), as_bits(rows[i][1]), as_bits(rows[i][2]))
+            if R3TAIL_FAMILY.get(k) != "witness":
+                del rows[i]
+                break
+
+    per = {}
+    wbins = {}
+    for r in rows:
+        k = R3TAIL_FAMILY[(as_bits(r[0]), as_bits(r[1]), as_bits(r[2]))]
+        per[k] = per.get(k, 0) + 1
+        small = min(r[3], r[4])
+        if small > 0:
+            cp = _r3tail_cpsi(r[0], r[1], r[2])
+            with mp.workdps(30):
+                w = float(mp.erfc(mp.sqrt(cp)) / 2 / small)
+            wbins[round(w, 1)] = wbins.get(round(w, 1), 0) + 1
+    n_p = sum(1 for r in rows if r[3] <= r[4])
+    print(f"  new rows: {len(rows)}; per stratum {dict(sorted(per.items()))}; "
+          f"P small {n_p}, Q small {len(rows) - n_p}", file=sys.stderr)
+    print(f"  G-weight w histogram (rows with a nonzero small side): "
+          f"{dict(sorted(wbins.items()))}", file=sys.stderr)
+    if rc:
+        print("\nSelf-checks FAILED -- not touching reference files.",
+              file=sys.stderr)
+        return rc
+    rc = _splice_corner(rows)
+    print(f"\nr3tail-append runtime: {time.time() - t_all:.1f}s",
+          file=sys.stderr)
+    return rc
+
+
 if __name__ == "__main__":
     _parser = argparse.ArgumentParser(
         allow_abbrev=False,  # '--ful' must ERROR, not prefix-match --full (#11)
@@ -3955,6 +4348,14 @@ if __name__ == "__main__":
              "Independent 2F1 oracle, doubling-dps agreement on I and 1-I; "
              "own seed/checkpoint, resumable by re-invoking.")
     _parser.add_argument(
+        "--r3tail-append", action="store_true",
+        help="Incrementally certify and splice ONLY the R3 Temme-tail family "
+             "at high G weight (gen_r3tail_corner, issue #69) into the "
+             "existing reference files. Two independent oracle forms "
+             "(endpoint-relative quadrature, own Lentz CF), halfway guard, "
+             "dps re-check and one-ulp negative control; own seed/"
+             "checkpoint, resumable by re-invoking.")
+    _parser.add_argument(
         "--exact-ties-fix", action="store_true",
         help="Rewrite in place only the rows on exact closed-form lines "
              "(I_x(a,1) = x^a, I_x(1,b) = 1-(1-x)^b, integer exponent) whose "
@@ -3974,4 +4375,6 @@ if __name__ == "__main__":
         sys.exit(gl54_append())
     if _args.gl54b_append:
         sys.exit(gl54b_append())
+    if _args.r3tail_append:
+        sys.exit(r3tail_append())
     sys.exit(main())

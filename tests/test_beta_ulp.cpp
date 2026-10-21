@@ -61,7 +61,14 @@ using corvus_test::UlpDiff;
 // artifact of the reference's own double rounding, not a kernel change.
 constexpr uint64_t kGateR1Dir = 1, kGateR1Cmp = 1;
 constexpr uint64_t kGateR2Dir = 1, kGateR2Cmp = 0;
-constexpr uint64_t kGateR3Dir = 3, kGateR3Cmp = 1;
+// R3-dir 3 -> 1 at #69 (order row 12c): the Temme tail (cpsi > 36) took
+// erfc's plain-double G, a rounded G/(2z) and no z.lo fold; gamma's twin
+// had all three fixed (#57, #64). 2202 --r3tail-append rows at G weight
+// up to 1.28 read 4 ulp on P and Q direct at HEAD on all three tiers; with
+// the shared dd GammaTailG, dd G/(2z) and the guarded fold every R3 row
+// reads <= 1 (AVX3_ZEN4, SSE4, SSE2 alike). The old 3-ULP rows were tail
+// rows too.
+constexpr uint64_t kGateR3Dir = 1, kGateR3Cmp = 1;
 constexpr uint64_t kGateR4Dir = 2, kGateR4Cmp = 0;
 constexpr uint64_t kGatePrDir = 1, kGatePrCmp = 0;
 // Gl 1/1 -> 0/0 at #54 defect 1: the slice forms t = -(N + (s-1)/2) *

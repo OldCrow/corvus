@@ -12,8 +12,8 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 **Release split [DECIDED 2026-10-20, user]: v1.1.0 = correctness, v1.2.0 =
 performance.**
-- v1.1.0 ships order rows 2–12b (the correctness block; 12a/12b added 2026-10-20 [user]). After row 12b work
-  PAUSES for the native M1 and Kaby Lake runs owed for rows 2–12b and the
+- v1.1.0 ships order rows 2–12c (the correctness block; 12a/12b added 2026-10-20, 12c 2026-10-22 [user]). After row 12c work
+  PAUSES for the native M1 and Kaby Lake runs owed for rows 2–12c and the
   rest of the release tail. Then a PR from `dev/v1.1.0` to `main` (merge
   `main`'s Dependabot commits first), the tag and the release.
 - Milestones renamed [user]: 5 is "v1.1.0 — Correctness hardening"; 7 is
@@ -31,6 +31,30 @@ performance.**
   still worked only if their gate opens, which keeps v1.1.0 a pure
   correctness release.
 
+**Order row 12c (#69): IMPLEMENTED 2026-10-22 on Z (opus subagent; re-run
+here), uncommitted, awaiting user review.**
+- Verdict that opened it: adversarial re-score, 3,000/3,000 certified (own
+  tanh-sinh quad + own Lentz CF, 1.3e-45), P and Q direct 4 ULP vs the
+  published 3. The scorer's B-series cost guard was broken (float lgamma
+  at a ~ 1e17), which is what left yesterday's pools pinned; fixed.
+- Fix: GammaTailG hoisted byte-for-byte into the new src/erfc_tail_dd-inl.h
+  (gamma's bits proven identical: 50k-point span dump hashes, and
+  gamma/gammainv gate output line-identical on three tiers); beta's tail
+  now uses it with a dd G/(2z) product and the z.lo fold on unsaturated
+  lanes (beta's z <= sqrt(800) is inside the [6, 28.5] fit). TWIN markers
+  updated: the copies now match. gamma_data.h regenerated, comment-only.
+- Guard: `gen_beta_reference.py --r3tail-append` (seed 6969), 2,202 rows,
+  C/D two-form certified (1.8e-46), dps+25 re-check, one-ulp control. HEAD
+  reads 4 vs gate 3 on three tiers. (The beta files are even-length,
+  41,096 -> 43,298; the test's n-3 split exercises the tail regardless.)
+- Result (re-run here, three tiers): beta R3 P/Q direct 1 ULP, complement
+  <= 1; kGateR3Dir 3 -> 1; published bound stays 3. betainv: every gated
+  max unchanged, certified backward intervals 0 outside (p 371, q 381),
+  p-side B rows 1 -> 2 (within gate 2), huge-nu not-CR fell, ridge
+  backward error halved. 35/35 x3, MSVC /W4 /WX clean.
+- Cost ~+1.2% on bench_beta R3 (indicative, ~21% ambient load).
+- Commit note (twin rule): twin gamma <-> beta tail now in step.
+
 **Twin-drift rule [DECIDED 2026-10-21, user] — uncommitted at write time.**
 NUMERICAL-DOCTRINE.md hazard rules gain "copied code has twins; a fix
 reaches every twin": `// TWIN:` markers at both ends of every copy, and a
@@ -39,7 +63,10 @@ fix commit greps and disposes of each twin. Incidents: #47 -> #55
 added (comment-only): gamma Temme tail <-> beta Temme tail; beta router <->
 BetaInvForward; gamma prescale <-> gammainv prescale; gamma region map <->
 gammainv region map.
-- **#69 [OPEN]** beta R3 Temme tail still has the 2026-08-01 form (plain G,
+- **#69 -> order row 12c [DECIDED 2026-10-22: adversarial re-score, 3,000/3,000
+  certified (C/D forms, 1.3e-45), P and Q direct reach 4 ULP vs the published 3;
+  user pre-approved this fork]. Subagent implementing; verdict on #69.** It
+  still has the 2026-08-01 form (plain G,
   rounded G/(2z), no z.lo). A read-only dense two-oracle re-score is
   running (scratchpad beta-tail/). Breaks 3 ULP -> v1.1.0 order row;
   within 3 -> tightening, v1.2.0.
@@ -1036,6 +1063,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 12 | #53 remainder: regenerate band rows, ACCURACY counts and claims, doc drift, sweep_tiers smoke gap; widen `dd_special_reference.txt`'s large-\|u\| coverage (it comes from gen_gamma_reference.py) and unify test_dd_special's two Log1pmxDd cells at the true worst (row 4 decision (b)) | once, after 3–11 | recipe | generators | K, Z (sweep) |
 | 12a | #67 gamma_q R4 small-a (4 ULP vs 1): lgamma(1+a) for a <= 1/2 as centre-2 zone at t = a minus dd log1p(a), private to GammaSmallQ [ADDED 2026-10-20, user] | after 12; independent of 12b | mid (design settled) | certified band rows (fail first); gammainv gates re-measured | K, CI |
 | 12b | #64 gamma R3 Temme tail (3 ULP vs 2): gamma-private dd erfc factor G, refit to ~2^-60 [ADDED 2026-10-20, user] | after 12; independent of 12a (both touch gamma-inl.h: run in sequence) | frontier (fit + budget) | certified x ~ 2a rows (fail first); gammainv gates re-measured | K, CI |
+| 12c | #69 beta R3 Temme tail (4 ULP vs 3): propagate gamma's #57/#64 tail fixes to beta's copy (shared dd G, dd G/(2z), z.lo fold) [ADDED 2026-10-22, user pre-approved on a >3 ULP verdict] | after 12b; touches betainv's forward (log of brk) | frontier | certified R3-tail rows (fail first); betainv ULP + interval gates re-measured | K, CI |
 | 13 | #42 lever 1 (per-element cost); weigh #44 first | after 5–9: same region cores; guards protect it | frontier | early-exit lane-mix tests | M1, K, Z |
 | 14 | #45 export span expm1, log1pmx | after 4; off the milestone if it would hold the release | mid (new family) | generator, four gating lists | K, M1, Z |
 | 15 | #31 lgamma table band | beta/gamma consume lgamma | frontier | generator + regen | K, Z, M1 |
@@ -1047,9 +1075,9 @@ user]: #18 (no filed need), #20 (libstats #62), #21 (no filed need; shared
 exp_dd core; #60 touches its contract wording), #19 (need filed; frontier
 oracle; libstats mitigates locally). #28 off every milestone; #44
 unmilestoned research, weighed in #42 lever 1 [user]. SPLIT 2026-10-20
-[user]: rows 2–12b are v1.1.0; rows 13–17 are v1.2.0 (milestone 7), branched
+[user]: rows 2–12c are v1.1.0; rows 13–17 are v1.2.0 (milestone 7), branched
 off `main` after the v1.1.0 tag (see Status). v1.1.0 release tail: native
-M1 + Kaby Lake runs for rows 2–12b, RELEASING.md checklist, M1 + Zen 4
+M1 + Kaby Lake runs for rows 2–12c, RELEASING.md checklist, M1 + Zen 4
 tier checks at the freeze head. Moved to v1.2.0: the PERFORMANCE.md
 §4/§8.2 re-run and the libstats pin note (scalar entry points replace
 their deducing wrapper). Scale: the correctness block carries five

@@ -639,7 +639,7 @@ residue came out as −denorm_min; a value-safe clamp now returns +0 there
 
 ## beta_p and beta_q
 
-**Bounds, measured on the 40,845-point reference set (+251 specials) and
+**Bounds, measured on the 43,047-point reference set (+251 specials) and
 identical (max ULP cell for cell) on AVX3_ZEN4, AVX2, SSE4, SSSE3, SSE2
 and NEON.** x86: Ryzen 7445HS, clang-cl, 2026-08-05, re-measured
 2026-08-12 with the u → −1 corner rows (below) — `AVX3_ZEN4` native
@@ -655,7 +655,7 @@ margin.
 |---|---|---|
 | R1 power series | **1 ULP** (0.02% not-CR) | 1 ULP |
 | R2 continued fraction | **1 ULP** (0.03% not-CR) | 0 ULP (CR) |
-| R3 Temme ridge | **3 ULP** (12–19% not-CR at 1–2) | 1 ULP |
+| R3 Temme ridge | **3 ULP** published; 1 measured since #69 (8–10% not-CR) | 1 ULP |
 | R4 tiny-min corner | **2 ULP** (≤1.3% not-CR) | 0 ULP (CR) |
 | R4 near-one post-route | **1 ULP** | 0 ULP (CR) |
 | R2 gamma-limit slice | **0 ULP** (CR) | 0 ULP (CR) |
@@ -667,6 +667,23 @@ kernel — unchanged — agrees with the old row, so its true error there is
 1 ULP (1 of 2948 R2-direct rows; re-verified against mpmath betainc at
 dps 400, true value 0.60 ULP above the old row). The previous 0 was an
 artifact of the reference's own rounding.
+
+**R3 Temme tail fixed (#69, order row 12c).** Beta's tail (cpsi > 36) was
+a 2026-08-01 copy of gamma's and never received gamma's #57 (z.lo fold, dd
+G/(2z)) or #64 (dd G). An adversarial re-score (3,000 rows certified by an
+own tanh-sinh quadrature and an own Lentz CF, agreeing to 1.3e-45) found
+P and Q direct at **4 ULP**, above the published 3: G's plain-double error
+(~1.7 x 2^-53), the rounded division and the dropped z.lo each cost about
+1/2 to 1 ulp, weighted up to 1.3 where the Temme sum is negative. The tail
+now matches gamma's: the dd G is shared through src/erfc_tail_dd-inl.h
+(gamma's bits unchanged), G/(2z) is a dd product, and z.lo is folded on
+unsaturated lanes. 2,202 two-form-certified rows
+(gen_beta_reference.py --r3tail-append) read 4 ULP on the old kernel; R3 P
+and Q direct now measure 1 ULP on AVX3_ZEN4, SSE4 and SSE2 (gate 3 -> 1;
+the published bound stays 3). betainv, whose forward takes the log of this
+tail, keeps every gated maximum and its certified backward intervals; its
+huge-nu not-CR count fell and the ridge backward error halved. Cost: ~+1%
+on the R3 bench band (indicative).
 
 **Gamma-limit slice, #54 defect 1, fixed 2026-10-19.** The slice
 (max(a,b) ≥ 2⁵⁹) took I_x(s, N) ≈ P(s, t) with the bare t = −N·ln x. That
@@ -835,7 +852,7 @@ parameters (a or b ∈ {0, +∞}) take their point-mass limits — except when
 the degenerate parameter *meets the x-boundary its own mass sits on*
 (e.g. a = 0 at x = 0, b = 0 at x = 1, a = +∞ at x = 1, both parameters
 degenerate), which is 0·∞ and → NaN. P + Q = 1 holds within 1 ULP on all
-40,845 points. Results underflow gradually; fully-saturated pairs return
+43,047 points. Results underflow gradually; fully-saturated pairs return
 the exact 0/1 doubles, each certified against a rigorous log-space bound
 in the harness.
 

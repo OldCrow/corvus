@@ -60,6 +60,11 @@ using corvus_test::UlpDiff;
 // the kappa bucket. The backward gate is 1.0 ulp(sigma) -- the smallest
 // robust bound above the (display-rounded) measured maximum; the design
 // contract stated ~2, the kernel beats it.
+// Re-measured at #69 (beta's R3 tail now forms brk_tail with the dd G,
+// dd G/(2z) and z.lo fold; the forward takes its log on every R3 tail
+// lane): every gate cell unchanged on AVX3_ZEN4, SSE4 and SSE2, the
+// certified backward intervals still 0 outside; only the p-side B rows
+// moved 1 -> 2 ULP, inside their gate and equal to the q side.
 constexpr uint64_t kMaxUlp = 1;
 constexpr uint64_t kMaxUlpHugeNu = 1;
 constexpr double kMaxBackwardUlp = 1.0;  // P and kappa rows, in ulp of sigma

@@ -84,6 +84,7 @@
 #include "src/dd-inl.h"
 #include "src/dd_special-inl.h"
 #include "src/erfc_core-inl.h"
+#include "src/erfc_tail_dd-inl.h"  // GammaTailG for the R3 tail (#69)
 #include "src/exp_dd-inl.h"
 // gamma-inl.h: ONLY for the gamma-limit slice's two template cores
 // (GammaSeriesSum, GammaCfRecip) -- templates instantiate what is called,
@@ -123,8 +124,8 @@ namespace op = ops;
 inline constexpr double kBetaFreezeEps = 0x1.0p-105;
 
 // R3 core/tail split, exact: cpsi = 36 <=> z = sqrt(cpsi) = 6, the same
-// threshold erfc's own core/tail split uses, so the two halves of this region
-// consume exactly the two halves of erfc's machinery.
+// threshold erfc's own core/tail split uses: the core consumes erfc's
+// ErfcCoreDd, the tail the dd G fit shared with gamma (GammaTailG, #69).
 inline constexpr double kBetaZ2Split = 36.0;
 
 // Ceiling on nu when forming 1/sqrt(2*pi*nu): 2*pi*nu overflows above ~2.9e307
@@ -907,9 +908,11 @@ HWY_NOINLINE Dd<D> BetaR2Cf(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi) {
 //     folds into the same bracket S already multiplies.
 //  5. The core/tail split is on cpsi against an exact 36, i.e. z against 6 --
 //     erfc's own split. Above it the whole expression carries e^{-cpsi}, so
-//     erfc is taken in its tail form e^{-z^2}G(1/z)/z (reusing
-//     erfc_tail_data's G; z <= sqrt(800) ~ 28.3 stays inside its fitted range)
-//     and the power-of-two scaling is applied LAST.
+//     erfc is taken in its tail form e^{-z^2}G(1/z)/z (G from the dd fit
+//     GammaTailG shared with gamma, #69 -- erfc's plain-double G cost up to
+//     ~1.2 ulp here; z <= sqrt(800) ~ 28.3 stays inside its [6, 28.5] fit,
+//     and the z.lo fold of item 4 applies in the tail too) and the
+//     power-of-two scaling is applied LAST.
 //
 // WHICH SIDE R3 COMPUTES IS DECIDED BY lambda, NOT BY THE ROUTER. The router
 // orients on xi/p <= 1, which is the same predicate as lambda >= 0 in exact
@@ -1043,13 +1046,40 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
       d, s_rv, op::Neg(op::Mul(z.lo, op::Set(d, kBetaInvSqrtPiHi))));
   const auto core = DdAdd(d, half_erfc, DdMul(d, brk_core, exd));
 
-  // TWIN: gamma-inl.h GammaTemme tail (a*phi > 36). Copied 2026-08-01;
-  // gamma has since gained the z.lo fold and a dd G/(2z) (#57) and a dd G
-  // (GammaTailG, #64). Not yet applied here: #69.
+  // TWIN: gamma-inl.h GammaTemme tail (a*phi > 36). Matches it since #69
+  // (dd G from the shared GammaTailG, dd G/(2z), z.lo fold with its
+  // live-lane guard); keep the two in step.
   // --- tail, cpsi > 36 ----------------------------------------------------
-  const auto uz = op::Div(one, zs);
-  const auto gt = op::Div(ErfcTailGFromU(d, zs, uz), op::Add(zs, zs));
-  const auto brk_tail = DdAddD(d, s_rv, gt);
+  // gt = G/(2z) = 1/2 erfc(z) e^{z^2} at z.hi, as a dd. Until #69 this was
+  // erfc's plain-double G divided in double with z.lo dropped: at G weight
+  // w = (1/2 erfc(z))/small ~ 1.2-1.28 (the small side's parameter ratio at
+  // the band edge, y/q or x/p -> 2) those three terms read 4 ulp against
+  // the 3-ULP bound. G is now GammaTailG's dd fit (src/erfc_tail_dd-inl.h;
+  // live tail z = sqrt(cpsi) is in (6, 28.29] under kBetaExpFloor = -800,
+  // inside its [6, 28.5] fit; the clamp below only keeps discarded lanes
+  // finite). z.lo enters through the slope: with f(z) = 1/2 erfc(z) e^{z^2},
+  // f' = 2z f - 1/sqrt(pi), so f(z.hi + z.lo) = gt - z.lo (1/sqrt(pi) -
+  // 2 z gt) + O(z.lo^2) -- the fold the core applies to its own erfc term.
+  //
+  // ONLY ON UNSATURATED LANES (cpsi <= -kBetaExpFloor = 800). The bracket
+  // 1/sqrt(pi) - 2z*gt is formed by a subtraction carrying ~2^-53 absolute,
+  // so the correction's error relative to gt is ~2^-105 z^2, garbage for
+  // the huge z of a saturated lane. The forward forces those lanes to an
+  // exact 0/1, but betainv's forward takes the LOG of brk_tail on every R3
+  // tail lane (src/betainv-inl.h), so the guard is load-bearing there.
+  const auto zt = op::Min(op::Max(zs, op::Set(d, detail::kGammaTailZLo)),
+                          op::Set(d, detail::kGammaTailZHi));
+  const auto two_z = op::Add(zt, zt);
+  const auto r2z = DdRecip(d, two_z);
+  const auto gtd = DdMul(d, GammaTailG(d, r2z), r2z);
+  const auto live_tail =
+      op::Ge(op::Set(d, -detail::kBetaExpFloor), ps.cpsi.hi);
+  const auto zlo_corr = op::IfThenElse(
+      live_tail,
+      op::Mul(z.lo, op::Sub(op::Set(d, kBetaInvSqrtPiHi),
+                            op::Mul(two_z, gtd.hi))),
+      zero);
+  const auto brk_tail = DdAdd(d, s_rv, DdAddD(d, gtd, op::Neg(zlo_corr)));
   const auto exf = ExpDdFrac(d, ea.hi, ea.lo);
   const auto tail = BetaScale(d, DdMul(d, exf.m, brk_tail), exf.e);
 
