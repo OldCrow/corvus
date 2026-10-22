@@ -83,6 +83,18 @@ performance.**
       argument.
     - Still open in 12-T: T1, T3, T6 and T7, and the T2 coordinate
       mapping and false-gap handling.
+    - **T4 scope [DECIDED 2026-10-22, user]:**
+      - 12-T writes `// FLOOR:` arguments only at the sites whose operands
+        can reach the ProdLow floor.
+      - Each fix row argues the functions it changes.
+      - #86 (v1.2.0) argues the rest, then CI runs the lint `--strict`.
+      - The rule and phasing are in NUMERICAL-DOCTRINE.md (hazard rules)
+        and the floor_lint.py docstring, so the intent outlives this
+        session.
+    - **Order of the rest of 12-T [proposed 2026-10-22]:** T1 (residual
+      column + real-error gates; the fix rows' fail-first gates need it) →
+      T3 → T7 (before the fixes, to find any further #84-class route
+      defects) → T2 completion → T6 (by 12j) → T4 phase 1.
   - Pilot results 2026-10-22, no new defects:
     - Subnormal inputs in 13 unary families are clean.
     - `beta_p_inv`/`beta_q_inv` at subnormal targets: CR where certified.

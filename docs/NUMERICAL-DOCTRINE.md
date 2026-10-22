@@ -103,6 +103,26 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   has the floor documented, not prescaled [DECIDED 2026-10-18, user]: no
   caller reaches it, so a new caller that can is the one that adds the
   prescale.
+- **Every Dekker-product site states its floor argument** [2026-10-22,
+  user; #82 T4]. The two bullets above say what a caller must do, but
+  nothing checked that callers did. M-5/#73 is the incident: erfinv fed
+  subnormal y through DdMulD with no prescale, 2 ULP on SSE4/SSE2. Every
+  call of TwoProd, DdMul, DdMulD or ProdLow/SquareLow outside
+  dd-inl.h/ops-inl.h carries
+  `// FLOOR: <operand range, and the predicate, clamp or prescale that
+  guarantees it>`, on the call or once at the head of its function.
+  "Operands are O(1)" counts only when it names the predicate that bounds
+  them. An argument that turns out false is a finding: fix it in the same
+  change or file it. `tools/hunt/floor_lint.py` lists every site without
+  one; there were 136 at `cbd1373`. Phasing:
+  1. Row 12-T (v1.1.0) argues every site whose operands can reach the
+     floor: subnormal or tiny inputs, tiny-a/tiny-shape paths, subnormal
+     results formed through a product. These are the no-FMA tiers' gross
+     cases.
+  2. Each fix row argues every site in the functions it changes.
+  3. #86 (v1.2.0) argues the rest. Until then the lint is report-only. At
+     zero, CI runs it with `--strict` and new sites cannot land without
+     an argument.
 - FP contraction is OFF project-wide (`CORVUS_FP_FLAGS`): the dd exactness
   proofs assume IEEE ops as written; fusion is requested in source
   (`ops::MulAdd`), never inferred by the compiler.

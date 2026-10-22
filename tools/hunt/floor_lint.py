@@ -14,6 +14,13 @@ at the head of the enclosing function (between the previous function's end and
 this function's signature) to cover every site in it. The lint lists every
 uncovered site; --strict exits non-zero when any remain.
 
+The rule, what counts as an argument, and the phasing live in
+docs/NUMERICAL-DOCTRINE.md (hazard rules, "Every Dekker-product site states
+its floor argument"). In short: row 12-T argues the sites that can reach the
+floor, each fix row argues the functions it changes, and #86 (v1.2.0) argues
+the rest. The lint stays report-only until it reaches zero; then CI runs it
+--strict.
+
   python tools/hunt/floor_lint.py [--strict] [--summary]
 """
 from __future__ import annotations
