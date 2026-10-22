@@ -91,6 +91,41 @@ performance.**
       - The rule and phasing are in NUMERICAL-DOCTRINE.md (hazard rules)
         and the floor_lint.py docstring, so the intent outlives this
         session.
+    - **NEXT (session after the 2026-10-22 compaction, ~7 h on Z): T1.**
+      Then close the session. T7 and T6 get sessions of their own later
+      [user, 2026-10-22]. T1 design [proposed]:
+      1. Format: an optional tagged last token `r=<residual>`, with
+         residual = (exact − CR)/ulp(CR binade) in [−½, ½], 4–6
+         significant digits. `LoadRef` (tests/ulp_utils.h, which today
+         requires an exact column count) accepts it as an optional extra
+         field and stores NaN when absent. Files therefore convert one
+         family at a time, and the gates opt in.
+      2. `tools/hunt/annotate.py` reuses the hunt family oracles
+         (oracle2 where present, ≤ 6 recycled workers, checkpointed) to
+         append `r=` to every reference row. Rows stay byte-identical
+         apart from the token.
+         - |r| > ½ means the stored CR value is wrong, a finding to fix
+           in the generator.
+         - Cheap families first (unary, elementary, Bessel); then lbeta;
+           then gamma, beta and the inverses (long compute; run in
+           background).
+         - Inverse rows: the residual of the stored root, from the
+           bracket.
+      3. `ulp_utils.h`: RealErr(out, cr, r) = signed ULP distance from CR
+         minus r, in ulps of CR's binade (handle binade edges).
+         - Each gate prints max real error per region next to max ULP.
+         - Two ceilings per region and tier class (FMA, no-FMA):
+           - contract ceiling: bound + ½ − 0.25 (safety);
+           - regression pin: measured + small δ.
+         - A cell whose measured value already exceeds the contract
+           ceiling is pinned at the measured value and names its issue.
+           The fix row lowers that pin; this is the fail-first hook for
+           12d–12k.
+         - Pins come from AVX3_ZEN4, SSE4 and SSE2 on Z; NEON from CI's
+           ULP report.
+      4. Done when every reference file carries r=, every gate enforces
+         both ceilings, ctest 35/35 passes on three tiers, and CI is
+         green.
     - **Order of the rest of 12-T [proposed 2026-10-22]:** T1 (residual
       column + real-error gates; the fix rows' fail-first gates need it) →
       T3 → T7 (before the fixes, to find any further #84-class route
