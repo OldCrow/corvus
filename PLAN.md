@@ -26,10 +26,53 @@ performance.**
   "contradictions" (they agree with ACCURACY), and M-17's floor percentages.
   **`a8525a7` is no longer the freeze head; R1/R2 are ON HOLD** until R0 is
   re-run after 12j.
-- [OPEN] **Tooling assessment before 12d [user, 2026-10-22]:** these
+- **Tooling assessment before 12d [user, 2026-10-22]:** these
   defects passed our generators and gates, so before any fix: decide what
   changes in the reference/gate tooling (fail-first gates for each band,
-  and a systematic hunt for defects the review did not reach). Then a PR from `dev/v1.1.0` to `main` (merge
+  and a systematic hunt for defects the review did not reach).
+  DECIDED 2026-10-22 [user]: all of T1–T6 as row 12-T (#82) before 12d,
+  then the hunt campaign before 12d. Assessment 2026-10-22 [DERIVED]:
+  - **Root causes.**
+    1. Gates count integer ULPs against CR-only reference files; no file
+       stores the exact value. An integer bound B fails only when real
+       error passes B + 0.5, which happens on about 2 rows per 1e6 (i0).
+       A real-error profile flags the same bands with 300–4,000 rows:
+       erfinv SSE4 reads 1.36, i0 SSE4 reads 1.12.
+    2. Strata are ±k-ulp seam brackets plus random or log fill. No
+       generator fills the band just inside a seam: gamma R3 has 1 row
+       for a·phi in [30, 36). Extremes are not crossed: no subnormal p
+       with a ≥ 100, no subnormal a. Many kernel constants have no
+       stratum at all.
+    3. No near-tie stratum exists; four appends reject near-midpoint
+       rows. So 0-ULP cells cannot fail, and several CR claims are gated
+       at 1.
+    4. Populations are not designed for no-FMA tiers; the replay rule
+       binds table generators only.
+    5. One-form oracles in 9 families; no oracle check runs in CI.
+    6. Docs, gates and claims have no single source.
+  - **Proposed tooling row before 12d (T1–T6):**
+    - T1: a residual column (exact − CR, in ulps) added to every
+      reference file by an annotation pass, two forms where available.
+      Real-error gates per region and per FMA/no-FMA tier class.
+    - T2: a seam registry and audit (every kernel threshold → bit-stepped
+      rows plus a full-mantissa band on each side).
+    - T3: shared strata in refgen_common: seam, inside-band, subnormal
+      in/out, extreme cross-products, near-tie; per-stratum counts;
+      exact row counts in the tests.
+    - T4: a lint over TwoProd/ProdLow callers for the prescale or
+      floor argument.
+    - T5: an in-repo hunt harness (probe evaluator + oracles, ≤ 6
+      workers, real-error profiles per stratum and tier).
+    - T6: a claims check: README/USER-GUIDE/corvus.h against one bound
+      table that the gates also read.
+    - Then a hunt campaign over every family, seam band and subnormal
+      band on three tiers.
+  - Pilot results 2026-10-22, no new defects:
+    - Subnormal inputs in 13 unary families are clean.
+    - `beta_p_inv`/`beta_q_inv` at subnormal targets: CR where certified.
+    - gammainv with normal tail and median targets, a from 2.5 to 1e9:
+      ≤ 0.5 ulp.
+    - i1 SSE4 reads 1.19 real on [6.6, 8], a thin margin; covered by 12i. Then a PR from `dev/v1.1.0` to `main` (merge
   `main`'s Dependabot commits first), the tag and the release.
 - Milestones renamed [user]: 5 is "v1.1.0 — Correctness hardening"; 7 is
   "v1.2.0 — Throughput & new exports".
@@ -1084,6 +1127,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 12a | #67 gamma_q R4 small-a (4 ULP vs 1): lgamma(1+a) for a <= 1/2 as centre-2 zone at t = a minus dd log1p(a), private to GammaSmallQ [ADDED 2026-10-20, user] | after 12; independent of 12b | mid (design settled) | certified band rows (fail first); gammainv gates re-measured | K, CI |
 | 12b | #64 gamma R3 Temme tail (3 ULP vs 2): gamma-private dd erfc factor G, refit to ~2^-60 [ADDED 2026-10-20, user] | after 12; independent of 12a (both touch gamma-inl.h: run in sequence) | frontier (fit + budget) | certified x ~ 2a rows (fail first); gammainv gates re-measured | K, CI |
 | 12c | #69 beta R3 Temme tail (4 ULP vs 3): propagate gamma's #57/#64 tail fixes to beta's copy (shared dd G, dd G/(2z), z.lo fold) [ADDED 2026-10-22, user pre-approved on a >3 ULP verdict] | after 12b; touches betainv's forward (log of brk) | frontier | certified R3-tail rows (fail first); betainv ULP + interval gates re-measured | K, CI |
+| 12-T | #82 tooling: T1 residual column + real-error gates, T2 seam registry/audit, T3 shared strata + exact row counts, T4 floor lint, T5 hunt harness, T6 claims check; then the hunt campaign (three tiers), each finding filed before 12d [ADDED 2026-10-22, user] | before 12d: the fix rows' fail-first gates use it | frontier (design) + mid | annotation pass, gates, generators, CI report | Z, CI |
 | 12d | #70 gamma_q R3 core (3 ULP vs 2) below the cpsi = 36 split: ErfcCoreDd consumed as dd; probe and mark beta's twin core [ADDED 2026-10-22, user; review M-1] | after the tooling assessment; gamma forward first | frontier | certified cpsi ∈ [34, 36) rows (fail first) | CI tiers |
 | 12e | #71 gamma_q R4 subnormal a (3 ULP, no-FMA): prescale GammaSmallQ's assembly [ADDED 2026-10-22, user; review M-2] | after 12d (same TU) | small–mid | subnormal-a rows (fail first on SSE4/SSE2) | CI tiers |
 | 12f | #72 gammainv deep-subnormal targets (5e10 ulp at a ≳ 4.5e3) + double-rounded subnormal results [ADDED 2026-10-22, user; review H-1, M-6] | after 12d/12e (inverse after forward) | frontier | subnormal p,q × a ∈ [20, 1e6] stratum (fail first) | CI tiers |
