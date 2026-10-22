@@ -30,6 +30,10 @@ endfunction()
 # erfinv reuses erfc's core and tail; gamma reuses all of them plus
 # Log1pmxDd/Expm1Dd from dd_special).
 
+# tools/hunt's evaluator (#82, T5): a public-API probe, not a test.
+add_executable(hunt_probe hunt_probe.cpp)
+corvus_test_target(hunt_probe)
+
 # #36: the Windows toolchain verdicts, in script mode so every leg runs them.
 add_test(NAME toolchain_guard
   COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchain_guard_test.cmake)
