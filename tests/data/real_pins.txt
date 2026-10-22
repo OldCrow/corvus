@@ -63,7 +63,7 @@ beta_q|R2 gammalim d|fma|0.50
 beta_q|R2 gammalim d|nofma|0.50
 beta_q|R3 temme  cmp|fma|0.56
 beta_q|R3 temme  cmp|nofma|0.57
-beta_q|R3 temme  dir|fma|1.38|#82 T1 finding: 1.356 vs 1.25, FMA only; owner TBD (#70 beta twin?)
+beta_q|R3 temme  dir|fma|1.38|#80
 beta_q|R3 temme  dir|nofma|1.13
 beta_q|R4 postrt cmp|fma|0.48
 beta_q|R4 postrt cmp|nofma|0.48

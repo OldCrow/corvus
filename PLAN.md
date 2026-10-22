@@ -81,7 +81,7 @@ performance.**
       unmapped.
     - T4 floor lint: 136 Dekker-product sites, 0 with a `// FLOOR:`
       argument.
-    - Still open in 12-T: T1, T3, T6 and T7, and the T2 coordinate
+    - Still open in 12-T: T3, T6 and T7, and the T2 coordinate
       mapping and false-gap handling.
     - **T4 scope [DECIDED 2026-10-22, user]:**
       - 12-T writes `// FLOOR:` arguments only at the sites whose operands
@@ -91,78 +91,34 @@ performance.**
       - The rule and phasing are in NUMERICAL-DOCTRINE.md (hazard rules)
         and the floor_lint.py docstring, so the intent outlives this
         session.
-    - **T1 IN PROGRESS (2026-10-22, uncommitted) [DERIVED]:**
-      - Built: `r=` token in LoadRef; RealErr, RealMax, CheckReal and
-        TierClass in tests/ulp_utils.h; all 15 public ULP gates wired
-        per region; `tools/hunt/annotate.py` (checkpoints under
-        corvus-scratch/annotate/); `tools/hunt/pins.py` writes
-        `tests/data/real_pins.txt`; ACCURACY.md methodology and the
-        doctrine test rule.
-      - Out of scope by design: the five internal dd files and the
-        betainv backward intervals (their gates measure a continuous
-        error already); absolute-error bands and exact-match rows.
-      - Found by annotation: refgen_common.round_to_double re-rounded
-        its argument to the caller's ambient precision, so 13 trigamma
-        rows near x = 1e308 were stored 1 ulp off. Fixed with a
-        fail-first self-test; trigamma reference regenerated (13 rows).
-      - Found (hunt oracles, tooling only): the gamma oracles refuse
-        a > 1e7 off saturation, and inv_root returns roots 1 ulp off for
-        a ≳ 1e35; beta_inv_root fails at a, b ~ 1e-94/1e-189 and at
-        a, b ≥ 1e41 near the median. annotate.py routes those rows to the
-        gammainv generator's Temme fits (1e7 < a < 2^130), forward
-        bisection, or the normal median form; each was checked against an
-        independent closed form.
-      - Found (reference data): betainv_q row a=1, b=1/2, σ=fl(1/√2)
-        stores 1/2 − 2 ulp; the root is 1/2 − 1.23 ulp (closed form), so
-        CR is 1/2 − 1 ulp. Generator defect [OPEN: issue to file]; the
-        row is in annotate.py KNOWN_BAD and carries its true r.
-      - All 25 public reference files annotated; pins written
-        (228 cells). Two cells sit above their contract ceiling:
-        - erfinv C, no-FMA: 1.345 vs 1.25 → #73.
-        - beta_q R3 Temme dir, FMA only: 1.356 vs 1.25 (no-FMA 1.10).
-          Pinned under #82 [OPEN: owner — #70's beta twin, or a new
-          issue].
-      - ctest 35/35 on AVX3_ZEN4, SSE4, SSE2. Negative controls fire: a
-        tightened pin, a missing r=, a pin above contract with no issue.
-      - Remaining: commit (awaits user), CI; NEON/AVX2 pins from the CI
-        log (`pins.py --log <log> --write`) if CI's FMA tiers differ.
-    - T1 design (as approved; kept for the reasoning). T7 and T6 get
-      sessions of their own later [user, 2026-10-22]:
-      1. Format: an optional tagged last token `r=<residual>`, with
-         residual = (exact − CR)/ulp(CR binade) in [−½, ½], 4–6
-         significant digits. `LoadRef` (tests/ulp_utils.h, which today
-         requires an exact column count) accepts it as an optional extra
-         field and stores NaN when absent. Files therefore convert one
-         family at a time, and the gates opt in.
-      2. `tools/hunt/annotate.py` reuses the hunt family oracles
-         (oracle2 where present, ≤ 6 recycled workers, checkpointed) to
-         append `r=` to every reference row. Rows stay byte-identical
-         apart from the token.
-         - |r| > ½ means the stored CR value is wrong, a finding to fix
-           in the generator.
-         - Cheap families first (unary, elementary, Bessel); then lbeta;
-           then gamma, beta and the inverses (long compute; run in
-           background).
-         - Inverse rows: the residual of the stored root, from the
-           bracket.
-      3. `ulp_utils.h`: RealErr(out, cr, r) = signed ULP distance from CR
-         minus r, in ulps of CR's binade (handle binade edges).
-         - Each gate prints max real error per region next to max ULP.
-         - Two ceilings per region and tier class (FMA, no-FMA):
-           - contract ceiling: bound + ½ − 0.25 (safety);
-           - regression pin: measured + small δ.
-         - A cell whose measured value already exceeds the contract
-           ceiling is pinned at the measured value and names its issue.
-           The fix row lowers that pin; this is the fail-first hook for
-           12d–12k.
-         - Pins come from AVX3_ZEN4, SSE4 and SSE2 on Z; NEON from CI's
-           ULP report.
-      4. Done when every reference file carries r=, every gate enforces
-         both ceilings, ctest 35/35 passes on three tiers, and CI is
-         green.
-    - **Order of the rest of 12-T [proposed 2026-10-22]:** T1 (residual
-      column + real-error gates; the fix rows' fail-first gates need it) →
-      T3 → T7 (before the fixes, to find any further #84-class route
+    - **T1 DONE 2026-10-22** (`3083620`, `0d4cb46`; CI 39763726024
+      green on NEON, Linux sweep + sanitizers, Windows). Design and
+      method: ACCURACY.md (Methodology, "Real error") and the doctrine
+      test rule; summary on #82. [DERIVED]
+      - All 25 public reference files carry `r=`; 15 gates enforce the
+        contract ceiling and a regression pin per region and tier class
+        (`tests/data/real_pins.txt`, 228 cells). Out of scope by design:
+        the dd files, the betainv backward intervals, absolute bands and
+        exact-match rows.
+      - Pins above their ceiling, each lowered by its fix row:
+        - erfinv C, no-FMA, 1.37 → #73 (row 12g).
+        - beta_q R3 at the gamma-limit ridge entry, FMA, 1.38 → #80
+          (v1.2.0; within the 1-ULP bound, dense probe max 1.24;
+          re-measure after #84 in row 12k).
+      - Reference data: refgen double rounding fixed (13 trigamma rows);
+        betainv_q a=1, b=1/2 row not CR → #87 (v1.2.0; annotate.py
+        KNOWN_BAD; any betainv regeneration must fix it first). #76 (12j)
+        is told to name both reference exceptions.
+      - Every fix row 12d–12k: after its fix, run the gates, lower its
+        cell's pin with `pins.py --write`, and review the pin diff.
+      - Tooling gaps for T2/T3, worked around in annotate.py only:
+        - hunt gamma oracles refuse a > 1e7 off saturation;
+        - inv_root is 1 ulp off for a ≳ 1e35;
+        - beta_inv_root fails at extreme tiny a, b and at a, b ≥ 1e41;
+        - no hunt strata on the R3 gamma-limit ridge entry.
+    - **Order of the rest of 12-T [proposed 2026-10-22]:** T1 (done) →
+      **NEXT: T3**, folding in the hunt-oracle gaps above → T7 (before
+      the fixes, to find any further #84-class route
       defects) → T2 completion → T6 (by 12j) → T4 phase 1.
   - Pilot results 2026-10-22, no new defects:
     - Subnormal inputs in 13 unary families are clean.

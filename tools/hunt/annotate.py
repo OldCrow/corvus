@@ -96,7 +96,7 @@ FILES = {
 KNOWN_BAD = {
     ("betainv_q", "0x1.0000000000000p+0 0x1.0000000000000p-1 "
                   "0x1.6a09e667f3bcdp-1 0x1.ffffffffffffep-2"):
-        "a=1, b=1/2: root is 1/2 - 1.23 ulp, stored 1/2 - 2 ulp; generator, #82 T1",
+        "a=1, b=1/2: root is 1/2 - 1.23 ulp, stored 1/2 - 2 ulp; generator, #87",
 }
 HALF_SLACK = mpf("1e-9")  # |r| <= 1/2 + this is a correct row
 with mp.workprec(64):  # 2^1024 - 2^970 needs 54 bits
