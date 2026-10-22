@@ -21,8 +21,16 @@ def round_to_double(v):
     by 2^1074 (exact — pure exponent shift in binary fp), round to an
     integer once (ties-to-even, matching IEEE), ldexp back (exact: the
     integer is <= 2^52).
+
+    Precision-independent (#82 T1): v keeps every bit it carries, whatever
+    the caller's ambient precision. mp.mpf(v) on an mpf re-rounds it to the
+    working precision, so a caller back at dps 15 got a 53-bit v here and
+    the subnormal path rounded twice -- 13 trigamma rows near x = 1e308
+    were stored 1 ulp off.
     """
-    v = mp.mpf(v)
+    if not isinstance(v, mp.mpf):
+        with mp.workprec(2200):  # ints and floats convert exactly
+            v = mp.mpf(v)
     if not mp.isfinite(v):
         return float(v)
     if v == 0:
@@ -35,7 +43,7 @@ def round_to_double(v):
     # t's mantissa spans <= prec bits below an MSB <= 2^51, so the
     # fractional part needs < prec bits — no bits are dropped, and the
     # tie comparison against exactly 0.5 is therefore decisive.
-    with mp.workprec(mp.mp.prec + 64):
+    with mp.workprec(max(mp.mp.prec, int(v.man).bit_length()) + 64):
         t = abs(v) * mp.mpf(2) ** 1074
         n = int(mp.floor(t))
         frac = t - n
@@ -79,6 +87,10 @@ def _self_test():
     assert round_to_double(u) == math.ldexp(17.0, -1074)
     assert float(u) == math.ldexp(16.0, -1074), \
         "float(mpf) no longer double-rounds; round_to_double may be droppable"
+    # #82 T1: the same value handed over at the default 53-bit precision
+    # (a generator that restored mp.dps before rounding) must not re-round.
+    with mp.workprec(53):
+        assert round_to_double(u) == math.ldexp(17.0, -1074)
 
 
 # #35 M1: run under explicit precision -- module import happens BEFORE the
