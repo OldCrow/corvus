@@ -12,9 +12,24 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 **Release split [DECIDED 2026-10-20, user]: v1.1.0 = correctness, v1.2.0 =
 performance.**
-- v1.1.0 ships order rows 2–12c (the correctness block; 12a/12b added 2026-10-20, 12c 2026-10-22 [user]). After row 12c work
-  PAUSES for the native M1 and Kaby Lake runs owed for rows 2–12c and the
-  rest of the release tail. Then a PR from `dev/v1.1.0` to `main` (merge
+- v1.1.0 ships order rows 2–12j (the correctness block; 12a/12b added 2026-10-20, 12c 2026-10-22, 12d–12j 2026-10-22 from the
+  external adversarial review of `a8525a7` [user]). After row 12j work
+  PAUSES for the native M1 and Kaby Lake runs owed for rows 2–12j and the
+  rest of the release tail.
+- **Adversarial review of `a8525a7` (2026-10-22) [DECIDED, user]:** every
+  finding was re-verified on Z (three tiers, own two-form oracles). Fix in
+  v1.1.0: H-1 and M-1 to M-5 (rows 12d–12i, #70–#75), plus the contract
+  text and gates row 12j (#76). The rest went to v1.2.0 as #77–#81. Review
+  errors found: M-9's `beta_q` half (it is CR), M-6's +0 witness (a tie
+  miss at ~2e-17 ulp), H-1's "from a ≈ 20" (clean to a = 1000; gross only
+  for a ≳ 4.5e3 with p ≲ 2^-1054), M-14's README gammainv/trigamma/lbeta
+  "contradictions" (they agree with ACCURACY), and M-17's floor percentages.
+  **`a8525a7` is no longer the freeze head; R1/R2 are ON HOLD** until R0 is
+  re-run after 12j.
+- [OPEN] **Tooling assessment before 12d [user, 2026-10-22]:** these
+  defects passed our generators and gates, so before any fix: decide what
+  changes in the reference/gate tooling (fail-first gates for each band,
+  and a systematic hunt for defects the review did not reach). Then a PR from `dev/v1.1.0` to `main` (merge
   `main`'s Dependabot commits first), the tag and the release.
 - Milestones renamed [user]: 5 is "v1.1.0 — Correctness hardening"; 7 is
   "v1.2.0 — Throughput & new exports".
@@ -1069,6 +1084,13 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 12a | #67 gamma_q R4 small-a (4 ULP vs 1): lgamma(1+a) for a <= 1/2 as centre-2 zone at t = a minus dd log1p(a), private to GammaSmallQ [ADDED 2026-10-20, user] | after 12; independent of 12b | mid (design settled) | certified band rows (fail first); gammainv gates re-measured | K, CI |
 | 12b | #64 gamma R3 Temme tail (3 ULP vs 2): gamma-private dd erfc factor G, refit to ~2^-60 [ADDED 2026-10-20, user] | after 12; independent of 12a (both touch gamma-inl.h: run in sequence) | frontier (fit + budget) | certified x ~ 2a rows (fail first); gammainv gates re-measured | K, CI |
 | 12c | #69 beta R3 Temme tail (4 ULP vs 3): propagate gamma's #57/#64 tail fixes to beta's copy (shared dd G, dd G/(2z), z.lo fold) [ADDED 2026-10-22, user pre-approved on a >3 ULP verdict] | after 12b; touches betainv's forward (log of brk) | frontier | certified R3-tail rows (fail first); betainv ULP + interval gates re-measured | K, CI |
+| 12d | #70 gamma_q R3 core (3 ULP vs 2) below the cpsi = 36 split: ErfcCoreDd consumed as dd; probe and mark beta's twin core [ADDED 2026-10-22, user; review M-1] | after the tooling assessment; gamma forward first | frontier | certified cpsi ∈ [34, 36) rows (fail first) | CI tiers |
+| 12e | #71 gamma_q R4 subnormal a (3 ULP, no-FMA): prescale GammaSmallQ's assembly [ADDED 2026-10-22, user; review M-2] | after 12d (same TU) | small–mid | subnormal-a rows (fail first on SSE4/SSE2) | CI tiers |
+| 12f | #72 gammainv deep-subnormal targets (5e10 ulp at a ≳ 4.5e3) + double-rounded subnormal results [ADDED 2026-10-22, user; review H-1, M-6] | after 12d/12e (inverse after forward) | frontier | subnormal p,q × a ∈ [20, 1e6] stratum (fail first) | CI tiers |
+| 12g | #73 erfinv subnormal input (2 ULP, no-FMA): prescale before ProdLow [ADDED 2026-10-22, user; review M-5] | independent | small | subnormal-input rows (fail first on SSE4/SSE2) | CI tiers |
+| 12h | #74 erfc top subnormal binade (2 ULP vs 1): single rounding of the scaled tail [ADDED 2026-10-22, user; review M-4] | independent | small–mid | dense x ∈ [26.543, 26.6] stratum (fail first) | CI tiers |
+| 12i | #75 i0/i1/i0e/i1e series near \|x\| ≈ 7.4 (2 ULP, no-FMA) [ADDED 2026-10-22, user; review M-3] | independent | mid | dense [6, 8] strata, four functions (fail first on SSE4/SSE2) | CI tiers |
+| 12j | #76 contract text and gates: false CR claims, stale text, VERSIONING errata clause [ADDED 2026-10-22, user; review M-6..M-10, M-13..M-15, L-1, L-2, L-6, L-8..L-17, I-1] | last: quotes the final numbers of 12d–12i | recipe | witness rows; gates set to the documented cells | CI |
 | 13 | #42 lever 1 (per-element cost); weigh #44 first | after 5–9: same region cores; guards protect it | frontier | early-exit lane-mix tests | M1, K, Z |
 | 14 | #45 export span expm1, log1pmx | after 4; off the milestone if it would hold the release | mid (new family) | generator, four gating lists | K, M1, Z |
 | 15 | #31 lgamma table band | beta/gamma consume lgamma | frontier | generator + regen | K, Z, M1 |
@@ -1080,7 +1102,7 @@ user]: #18 (no filed need), #20 (libstats #62), #21 (no filed need; shared
 exp_dd core; #60 touches its contract wording), #19 (need filed; frontier
 oracle; libstats mitigates locally). #28 off every milestone; #44
 unmilestoned research, weighed in #42 lever 1 [user]. SPLIT 2026-10-20
-[user]: rows 2–12c are v1.1.0; rows 13–17 are v1.2.0 (milestone 7), branched
+[user]: rows 2–12j are v1.1.0 (12d–12j added 2026-10-22); rows 13–17 are v1.2.0 (milestone 7), branched
 off `main` after the v1.1.0 tag (see Status). v1.1.0 release tail: native
 M1 + Kaby Lake runs for rows 2–12c, RELEASING.md checklist, M1 + Zen 4
 tier checks at the freeze head. Moved to v1.2.0: the PERFORMANCE.md
