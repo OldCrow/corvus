@@ -13,7 +13,7 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 **Release split [DECIDED 2026-10-20, user]: v1.1.0 = correctness, v1.2.0 =
 performance.**
 - v1.1.0 ships order rows 2–12j (the correctness block; 12a/12b added 2026-10-20, 12c 2026-10-22, 12d–12j 2026-10-22 from the
-  external adversarial review of `a8525a7` [user]). After row 12j work
+  external adversarial review of `a8525a7`, 12-T and 12k from the hunt campaign; 12j runs last [user]). After row 12j work
   PAUSES for the native M1 and Kaby Lake runs owed for rows 2–12j and the
   rest of the release tail.
 - **Adversarial review of `a8525a7` (2026-10-22) [DECIDED, user]:** every
@@ -67,6 +67,22 @@ performance.**
       table that the gates also read.
     - Then a hunt campaign over every family, seam band and subnormal
       band on three tiers.
+  - **Hunt campaign 2026-10-22 [DERIVED]:** about 728k rows on AVX3_ZEN4,
+    SSE4 and SSE2, all certified, 0 uncertified; summary on #82.
+    - New defects: #83 (gamma_q_inv tiny/subnormal a, 9–1633 ULP),
+      #84 (beta gamma-limit ridge sliver, 391 ULP) and #85 (beta_q
+      post-route τ cap, 2 ULP vs 1). Wider bands are recorded on #71 and
+      #72; near-tie, slice-subnormal and lbeta evidence on #76. betainv is
+      clean.
+    - The harness (`tools/hunt`, `tests/hunt_probe`) is uncommitted and
+      awaits user review.
+    - T2 seam audit: 157 of 236 mapped seams have an empty reference
+      bucket (some false: zero-valued seams, domain edges); 41 seams are
+      unmapped.
+    - T4 floor lint: 136 Dekker-product sites, 0 with a `// FLOOR:`
+      argument.
+    - Still open in 12-T: T1, T3, T6 and T7, and the T2 coordinate
+      mapping and false-gap handling.
   - Pilot results 2026-10-22, no new defects:
     - Subnormal inputs in 13 unary families are clean.
     - `beta_p_inv`/`beta_q_inv` at subnormal targets: CR where certified.
@@ -1134,6 +1150,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 12g | #73 erfinv subnormal input (2 ULP, no-FMA): prescale before ProdLow [ADDED 2026-10-22, user; review M-5] | independent | small | subnormal-input rows (fail first on SSE4/SSE2) | CI tiers |
 | 12h | #74 erfc top subnormal binade (2 ULP vs 1): single rounding of the scaled tail [ADDED 2026-10-22, user; review M-4] | independent | small–mid | dense x ∈ [26.543, 26.6] stratum (fail first) | CI tiers |
 | 12i | #75 i0/i1/i0e/i1e series near \|x\| ≈ 7.4 (2 ULP, no-FMA) [ADDED 2026-10-22, user; review M-3] | independent | mid | dense [6, 8] strata, four functions (fail first on SSE4/SSE2) | CI tiers |
+| 12k | #84 beta gamma-limit slice sliver ν < 20 ≤ s takes the CF at the ridge (391 ULP vs 0) + #85 beta_q R4 near-one post-route 2 ULP vs 1 at τ ≈ 2.5 [ADDED 2026-10-22; hunt campaign] | after 12d (beta R3 core twin); before 12j | frontier (#84 routing) + mid | bit-stepped s = 20 × N ≥ 2^47 stratum; dense τ ≈ 2.5 post-route stratum (fail first) | CI tiers |
 | 12j | #76 contract text and gates: false CR claims, stale text, VERSIONING errata clause [ADDED 2026-10-22, user; review M-6..M-10, M-13..M-15, L-1, L-2, L-6, L-8..L-17, I-1] | last: quotes the final numbers of 12d–12i | recipe | witness rows; gates set to the documented cells | CI |
 | 13 | #42 lever 1 (per-element cost); weigh #44 first | after 5–9: same region cores; guards protect it | frontier | early-exit lane-mix tests | M1, K, Z |
 | 14 | #45 export span expm1, log1pmx | after 4; off the milestone if it would hold the release | mid (new family) | generator, four gating lists | K, M1, Z |
@@ -1146,7 +1163,7 @@ user]: #18 (no filed need), #20 (libstats #62), #21 (no filed need; shared
 exp_dd core; #60 touches its contract wording), #19 (need filed; frontier
 oracle; libstats mitigates locally). #28 off every milestone; #44
 unmilestoned research, weighed in #42 lever 1 [user]. SPLIT 2026-10-20
-[user]: rows 2–12j are v1.1.0 (12d–12j added 2026-10-22); rows 13–17 are v1.2.0 (milestone 7), branched
+[user]: rows 2–12j are v1.1.0 (12-T, 12d–12k added 2026-10-22; 12j last); rows 13–17 are v1.2.0 (milestone 7), branched
 off `main` after the v1.1.0 tag (see Status). v1.1.0 release tail: native
 M1 + Kaby Lake runs for rows 2–12c, RELEASING.md checklist, M1 + Zen 4
 tier checks at the freeze head. Moved to v1.2.0: the PERFORMANCE.md
