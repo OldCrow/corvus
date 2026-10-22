@@ -60,6 +60,7 @@ struct Region {
   size_t n = 0;
   size_t miss = 0;  // not correctly rounded
   double worst_x = 0.0;
+  corvus_test::RealMax real{};  // #82 T1
 };
 
 void Accumulate(Region& r, double x, uint64_t u) {
@@ -92,14 +93,17 @@ int RunOne(const char* label, const char* path, Fn fn, bool has_inf) {
 
   std::vector<double> in;
   std::vector<double> want;
+  std::vector<double> res;
   std::vector<bool> want_inf;
   in.reserve(rows.size());
   want.reserve(rows.size());
+  res.reserve(rows.size());
   want_inf.reserve(rows.size());
   for (const auto& row : rows) {
     in.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
     const double w = corvus_test::ParseDouble(row.tok[1], path, row.line);
     want.push_back(w);
+    res.push_back(corvus_test::Residual(row, 0));
     want_inf.push_back(std::isinf(w));
   }
 
@@ -145,10 +149,12 @@ int RunOne(const char* label, const char* path, Fn fn, bool has_inf) {
       u = UlpDiff(got[i], want[i]);
     }
     const bool series = std::fabs(x) <= corvus::detail::kBesselSplit;
-    if (x >= 0.0) {
-      Accumulate(series ? pos_series : pos_tail, x, u);
-    } else {
-      Accumulate(series ? neg_series : neg_tail, x, u);
+    Region& r = x >= 0.0 ? (series ? pos_series : pos_tail)
+                         : (series ? neg_series : neg_tail);
+    Accumulate(r, x, u);
+    // Exact-zero rows are bit-exact checked above; they carry no real gate.
+    if (want[i] != 0.0) {
+      r.real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
     }
   }
 
@@ -157,6 +163,13 @@ int RunOne(const char* label, const char* path, Fn fn, bool has_inf) {
   Report(neg_series);
   Report(pos_tail);
   Report(neg_tail);
+  int rc = 0;
+  // #82 T1: real error per bucket (inf boundary rows are exact-match only).
+  for (const Region* r : {&pos_series, &neg_series, &pos_tail, &neg_tail}) {
+    if (r->n != 0) {
+      rc |= corvus_test::CheckReal(path, label, r->name, kMaxUlp, r->real);
+    }
+  }
   if (has_inf) {
     std::printf("  %-16s n=%6zu  exact-match fails=%zu\n", "boundary (inf)",
                inf_n, inf_fail);
@@ -170,7 +183,6 @@ int RunOne(const char* label, const char* path, Fn fn, bool has_inf) {
                  label, inf_n);
   }
 
-  int rc = 0;
   for (const Region* r : {&pos_series, &neg_series, &pos_tail, &neg_tail}) {
     // #14 N10: a bucket that never accumulated a row is a gate that never
     // ran -- the four series/tail x sign combinations are all populated by

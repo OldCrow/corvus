@@ -91,9 +91,43 @@ performance.**
       - The rule and phasing are in NUMERICAL-DOCTRINE.md (hazard rules)
         and the floor_lint.py docstring, so the intent outlives this
         session.
-    - **NEXT (session after the 2026-10-22 compaction, ~7 h on Z): T1.**
-      Then close the session. T7 and T6 get sessions of their own later
-      [user, 2026-10-22]. T1 design [proposed]:
+    - **T1 IN PROGRESS (2026-10-22, uncommitted) [DERIVED]:**
+      - Built: `r=` token in LoadRef; RealErr, RealMax, CheckReal and
+        TierClass in tests/ulp_utils.h; all 15 public ULP gates wired
+        per region; `tools/hunt/annotate.py` (checkpoints under
+        corvus-scratch/annotate/); `tools/hunt/pins.py` writes
+        `tests/data/real_pins.txt`; ACCURACY.md methodology and the
+        doctrine test rule.
+      - Out of scope by design: the five internal dd files and the
+        betainv backward intervals (their gates measure a continuous
+        error already); absolute-error bands and exact-match rows.
+      - Found by annotation: refgen_common.round_to_double re-rounded
+        its argument to the caller's ambient precision, so 13 trigamma
+        rows near x = 1e308 were stored 1 ulp off. Fixed with a
+        fail-first self-test; trigamma reference regenerated (13 rows).
+      - Found (hunt oracles, tooling only): the gamma oracles refuse
+        a > 1e7 off saturation, and inv_root returns roots 1 ulp off for
+        a ≳ 1e35; beta_inv_root fails at a, b ~ 1e-94/1e-189 and at
+        a, b ≥ 1e41 near the median. annotate.py routes those rows to the
+        gammainv generator's Temme fits (1e7 < a < 2^130), forward
+        bisection, or the normal median form; each was checked against an
+        independent closed form.
+      - Found (reference data): betainv_q row a=1, b=1/2, σ=fl(1/√2)
+        stores 1/2 − 2 ulp; the root is 1/2 − 1.23 ulp (closed form), so
+        CR is 1/2 − 1 ulp. Generator defect [OPEN: issue to file]; the
+        row is in annotate.py KNOWN_BAD and carries its true r.
+      - All 25 public reference files annotated; pins written
+        (228 cells). Two cells sit above their contract ceiling:
+        - erfinv C, no-FMA: 1.345 vs 1.25 → #73.
+        - beta_q R3 Temme dir, FMA only: 1.356 vs 1.25 (no-FMA 1.10).
+          Pinned under #82 [OPEN: owner — #70's beta twin, or a new
+          issue].
+      - ctest 35/35 on AVX3_ZEN4, SSE4, SSE2. Negative controls fire: a
+        tightened pin, a missing r=, a pin above contract with no issue.
+      - Remaining: commit (awaits user), CI; NEON/AVX2 pins from the CI
+        log (`pins.py --log <log> --write`) if CI's FMA tiers differ.
+    - T1 design (as approved; kept for the reasoning). T7 and T6 get
+      sessions of their own later [user, 2026-10-22]:
       1. Format: an optional tagged last token `r=<residual>`, with
          residual = (exact − CR)/ulp(CR binade) in [−½, ½], 4–6
          significant digits. `LoadRef` (tests/ulp_utils.h, which today

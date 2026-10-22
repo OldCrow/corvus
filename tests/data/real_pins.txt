@@ -1,0 +1,231 @@
+# Real-error regression pins (#82 T1), read by CheckReal in tests/ulp_utils.h.
+# gate|region|tier class|pin[|issue]. Regenerate with tools/hunt/pins.py;
+# a pin above the contract ceiling names the issue that tracks it.
+beta_p_inv|B rows (neighbour semantics)|fma|1.05
+beta_p_inv|B rows (neighbour semantics)|nofma|1.05
+beta_p_inv|deep-small closed form|fma|0.77
+beta_p_inv|deep-small closed form|nofma|0.77
+beta_p_inv|gamma-limit transfer|fma|0.72
+beta_p_inv|gamma-limit transfer|nofma|0.72
+beta_p_inv|huge-nu (formula bucket)|fma|0.98
+beta_p_inv|huge-nu (formula bucket)|nofma|0.98
+beta_p_inv|ridge (S1 territory)|fma|0.76
+beta_p_inv|ridge (S1 territory)|nofma|0.76
+beta_p_inv|small-parameter remainder|fma|0.77
+beta_p_inv|small-parameter remainder|nofma|0.77
+beta_p|R1 series cmp|fma|0.52
+beta_p|R1 series cmp|nofma|0.52
+beta_p|R1 series dir|fma|0.53
+beta_p|R1 series dir|nofma|0.53
+beta_p|R2 cf     cmp|fma|0.50
+beta_p|R2 cf     cmp|nofma|0.50
+beta_p|R2 cf     dir|fma|0.52
+beta_p|R2 cf     dir|nofma|0.52
+beta_p|R2 gammalim c|fma|0.50
+beta_p|R2 gammalim c|nofma|0.50
+beta_p|R2 gammalim d|fma|0.50
+beta_p|R2 gammalim d|nofma|0.50
+beta_p|R3 temme  cmp|fma|0.52
+beta_p|R3 temme  cmp|nofma|0.56
+beta_p|R3 temme  dir|fma|1.21
+beta_p|R3 temme  dir|nofma|1.18
+beta_p|R4 postrt cmp|fma|0.50
+beta_p|R4 postrt cmp|nofma|0.50
+beta_p|R4 postrt dir|fma|0.58
+beta_p|R4 postrt dir|nofma|0.58
+beta_p|R4 tiny   cmp|fma|0.50
+beta_p|R4 tiny   cmp|nofma|0.50
+beta_p|R4 tiny   dir|fma|0.54
+beta_p|R4 tiny   dir|nofma|0.54
+beta_q_inv|B rows (neighbour semantics)|fma|0.97
+beta_q_inv|B rows (neighbour semantics)|nofma|0.97
+beta_q_inv|deep-small closed form|fma|0.47
+beta_q_inv|deep-small closed form|nofma|0.47
+beta_q_inv|gamma-limit transfer|fma|0.73
+beta_q_inv|gamma-limit transfer|nofma|0.73
+beta_q_inv|huge-nu (formula bucket)|fma|1.03
+beta_q_inv|huge-nu (formula bucket)|nofma|1.03
+beta_q_inv|ridge (S1 territory)|fma|0.76
+beta_q_inv|ridge (S1 territory)|nofma|0.76
+beta_q_inv|small-parameter remainder|fma|0.77
+beta_q_inv|small-parameter remainder|nofma|0.77
+beta_q|R1 series cmp|fma|0.52
+beta_q|R1 series cmp|nofma|0.87
+beta_q|R1 series dir|fma|0.52
+beta_q|R1 series dir|nofma|0.52
+beta_q|R2 cf     cmp|fma|0.50
+beta_q|R2 cf     cmp|nofma|0.50
+beta_q|R2 cf     dir|fma|0.63
+beta_q|R2 cf     dir|nofma|0.63
+beta_q|R2 gammalim c|fma|0.50
+beta_q|R2 gammalim c|nofma|0.50
+beta_q|R2 gammalim d|fma|0.50
+beta_q|R2 gammalim d|nofma|0.50
+beta_q|R3 temme  cmp|fma|0.56
+beta_q|R3 temme  cmp|nofma|0.57
+beta_q|R3 temme  dir|fma|1.38|#82 T1 finding: 1.356 vs 1.25, FMA only; owner TBD (#70 beta twin?)
+beta_q|R3 temme  dir|nofma|1.13
+beta_q|R4 postrt cmp|fma|0.48
+beta_q|R4 postrt cmp|nofma|0.48
+beta_q|R4 postrt dir|fma|1.25
+beta_q|R4 postrt dir|nofma|1.25
+beta_q|R4 tiny   cmp|fma|0.50
+beta_q|R4 tiny   cmp|nofma|0.50
+beta_q|R4 tiny   dir|fma|1.64
+beta_q|R4 tiny   dir|nofma|1.38
+cos|neg huge|fma|0.61
+cos|neg huge|nofma|0.61
+cos|neg small|fma|0.74
+cos|neg small|nofma|0.74
+cos|pos huge|fma|0.61
+cos|pos huge|nofma|0.61
+cos|pos small|fma|0.79
+cos|pos small|nofma|0.79
+digamma|neg abs(psi)>=1|fma|0.53
+digamma|neg abs(psi)>=1|nofma|0.53
+digamma|pos (0,1)|fma|0.55
+digamma|pos (0,1)|nofma|0.56
+digamma|pos asym|fma|0.56
+digamma|pos asym|nofma|0.56
+digamma|pos walk|fma|0.66
+digamma|pos walk|nofma|0.66
+digamma|pos zone|fma|0.65
+digamma|pos zone|nofma|0.65
+erfcinv|C|fma|0.55
+erfcinv|C|nofma|0.55
+erfcinv|T-far|fma|0.53
+erfcinv|T-far|nofma|0.53
+erfcinv|T-mid|fma|1.06
+erfcinv|T-mid|nofma|1.06
+erfc|core abs(x)<=6|fma|0.91
+erfc|core abs(x)<=6|nofma|0.91
+erfc|tail normal|fma|2.12
+erfc|tail normal|nofma|2.12
+erfc|tail subnormal|fma|1.04
+erfc|tail subnormal|nofma|1.04
+erfinv|C|fma|0.94
+erfinv|C|nofma|1.37|#73
+erfinv|T|fma|0.53
+erfinv|T|nofma|0.53
+erf|all|fma|0.98
+erf|all|nofma|0.98
+exp|normal|fma|0.50
+exp|normal|nofma|0.50
+exp|subnormal|fma|0.73
+exp|subnormal|nofma|0.73
+gamma_p_inv|S1 (a_T..3e34)|fma|0.55
+gamma_p_inv|S1 (a_T..3e34)|nofma|0.55
+gamma_p_inv|beyond-resolution|fma|0.65
+gamma_p_inv|beyond-resolution|nofma|0.65
+gamma_p_inv|deep-small closed form|fma|0.52
+gamma_p_inv|deep-small closed form|nofma|0.52
+gamma_p_inv|small-a mid seed|fma|0.52
+gamma_p_inv|small-a mid seed|nofma|0.52
+gamma_p_inv|small-a tail seed|fma|0.53
+gamma_p_inv|small-a tail seed|nofma|0.53
+gamma_p|R1 series dir|fma|0.53
+gamma_p|R1 series dir|nofma|0.53
+gamma_p|R2 cf     cmp|fma|0.50
+gamma_p|R2 cf     cmp|nofma|0.50
+gamma_p|R3 temme  cmp|fma|0.53
+gamma_p|R3 temme  cmp|nofma|0.53
+gamma_p|R3 temme  dir|fma|0.75
+gamma_p|R3 temme  dir|nofma|0.75
+gamma_p|R4 smalla cmp|fma|0.53
+gamma_p|R4 smalla cmp|nofma|0.53
+gamma_q_inv|S1 (a_T..3e34)|fma|0.76
+gamma_q_inv|S1 (a_T..3e34)|nofma|0.76
+gamma_q_inv|beyond-resolution|fma|0.97
+gamma_q_inv|beyond-resolution|nofma|0.97
+gamma_q_inv|deep-small closed form|fma|0.48
+gamma_q_inv|deep-small closed form|nofma|0.48
+gamma_q_inv|small-a mid seed|fma|0.52
+gamma_q_inv|small-a mid seed|nofma|0.52
+gamma_q_inv|small-a tail seed|fma|0.53
+gamma_q_inv|small-a tail seed|nofma|0.53
+gamma_q|R1 series cmp|fma|0.53
+gamma_q|R1 series cmp|nofma|0.53
+gamma_q|R2 cf     dir|fma|0.70
+gamma_q|R2 cf     dir|nofma|0.70
+gamma_q|R3 temme  cmp|fma|0.56
+gamma_q|R3 temme  cmp|nofma|0.56
+gamma_q|R3 temme  dir|fma|0.95
+gamma_q|R3 temme  dir|nofma|0.96
+gamma_q|R4 smalla dir|fma|0.72
+gamma_q|R4 smalla dir|nofma|0.72
+i0e|neg series|fma|0.76
+i0e|neg series|nofma|0.78
+i0e|neg tail|fma|0.61
+i0e|neg tail|nofma|0.61
+i0e|pos series|fma|0.84
+i0e|pos series|nofma|0.78
+i0e|pos tail|fma|0.63
+i0e|pos tail|nofma|0.63
+i0|neg series|fma|0.74
+i0|neg series|nofma|0.93
+i0|neg tail|fma|0.62
+i0|neg tail|nofma|0.62
+i0|pos series|fma|0.74
+i0|pos series|nofma|0.93
+i0|pos tail|fma|0.62
+i0|pos tail|nofma|0.62
+i1e|neg series|fma|0.75
+i1e|neg series|nofma|0.75
+i1e|neg tail|fma|0.73
+i1e|neg tail|nofma|0.73
+i1e|pos series|fma|0.75
+i1e|pos series|nofma|0.75
+i1e|pos tail|fma|0.73
+i1e|pos tail|nofma|0.73
+i1|neg series|fma|0.78
+i1|neg series|nofma|0.78
+i1|neg tail|fma|0.73
+i1|neg tail|nofma|0.73
+i1|pos series|fma|1.07
+i1|pos series|nofma|1.07
+i1|pos tail|fma|0.73
+i1|pos tail|nofma|0.73
+lbeta|big band|fma|0.50
+lbeta|big band|nofma|0.50
+lbeta|relative|fma|0.50
+lbeta|relative|nofma|0.50
+lgamma|neg abs(lg)>=1|fma|0.53
+lgamma|neg abs(lg)>=1|nofma|0.53
+lgamma|pos big|fma|0.50
+lgamma|pos big|nofma|0.50
+lgamma|pos mid|fma|0.53
+lgamma|pos mid|nofma|0.53
+lgamma|pos small|fma|0.53
+lgamma|pos small|nofma|0.53
+lgamma|pos zone|fma|0.63
+lgamma|pos zone|nofma|0.62
+log1p|corner|fma|0.50
+log1p|corner|nofma|0.50
+log1p|general|fma|0.50
+log1p|general|nofma|0.50
+log1p|near-0|fma|0.50
+log1p|near-0|nofma|0.50
+log|general|fma|0.50
+log|general|nofma|0.50
+log|near-1|fma|0.50
+log|near-1|nofma|0.50
+log|subnormal-in|fma|0.50
+log|subnormal-in|nofma|0.50
+sin|neg huge|fma|0.76
+sin|neg huge|nofma|0.76
+sin|neg small|fma|0.81
+sin|neg small|nofma|0.67
+sin|pos huge|fma|0.76
+sin|pos huge|nofma|0.76
+sin|pos small|fma|0.77
+sin|pos small|nofma|0.77
+trigamma|negative|fma|0.53
+trigamma|negative|nofma|0.53
+trigamma|pos (0,1)|fma|0.52
+trigamma|pos (0,1)|nofma|0.53
+trigamma|pos asym [8,inf)|fma|0.59
+trigamma|pos asym [8,inf)|nofma|0.59
+trigamma|pos walk [2,8)|fma|0.71
+trigamma|pos walk [2,8)|nofma|0.83
+trigamma|pos zone [1,2)|fma|0.55
+trigamma|pos zone [1,2)|nofma|0.56

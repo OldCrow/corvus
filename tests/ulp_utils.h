@@ -28,7 +28,10 @@
 #include <cstring>
 #include <fstream>
 #include <string>
+#include <utility>
 #include <vector>
+
+#include "corvus/corvus.h"
 
 namespace corvus_test {
 
@@ -79,17 +82,28 @@ inline double ParseDouble(const std::string& tok, const char* path,
 
 // One reference row: its whitespace-separated tokens plus the 1-based source
 // line, kept so a later ParseDouble failure can name where it came from.
+// `res` holds the row's residuals (#82 T1) when the file carries them: the
+// optional last token `r=<r0>[,<r1>...]`, one per output column, where
+// r = (exact - stored CR value) / ulp(stored value's binade), |r| <= 1/2.
+// tools/hunt/annotate.py writes it. Empty when the row has none.
 struct RefRow {
   std::vector<std::string> tok;
   size_t line;
+  std::vector<double> res;
 };
+
+// Residual k of a row, NaN when the file is not annotated.
+inline double Residual(const RefRow& row, size_t k) {
+  return k < row.res.size() ? row.res[k] : std::nan("");
+}
 
 // Line-based reference loader. Whole-line tokenization with a per-row field
 // count check replaces the old `while (f >> a >> b)` pattern, under which a
 // truncated row silently shifted every following column by one. Blank lines
 // and '#' comment lines are skipped (the dd reference files carry a comment
 // header). Any malformed row -- wrong field count -- or a suspiciously small
-// file is exit 2, never a silently shorter gate.
+// file is exit 2, never a silently shorter gate. A trailing `r=` token is
+// split off into RefRow::res and does not count toward ncols.
 inline std::vector<RefRow> LoadRef(const char* path, size_t ncols,
                                    size_t min_rows) {
   std::ifstream f(path);
@@ -118,6 +132,14 @@ inline std::vector<RefRow> LoadRef(const char* path, size_t ncols,
     }
     if (row.tok.empty()) continue;           // blank line
     if (row.tok[0][0] == '#') continue;      // comment header
+    if (row.tok.back().rfind("r=", 0) == 0) {
+      std::string list = row.tok.back().substr(2) + ",";
+      row.tok.pop_back();
+      for (size_t at = 0, comma; (comma = list.find(',', at)) != std::string::npos;
+           at = comma + 1) {
+        row.res.push_back(ParseDouble(list.substr(at, comma - at), path, lineno));
+      }
+    }
     if (row.tok.size() != ncols) {
       std::fprintf(stderr, "%s:%zu: expected %zu fields, found %zu\n", path,
                    lineno, ncols, row.tok.size());
@@ -131,6 +153,193 @@ inline std::vector<RefRow> LoadRef(const char* path, size_t ncols,
     std::exit(2);
   }
   return rows;
+}
+
+// ---- real error (#82 T1) ----------------------------------------------------
+// An integer bound B fails only once the real error |out - exact| passes
+// B + 1/2, which a finite reference set reaches rarely; the real error's
+// maximum shows the erosion long before. With the residual r of the stored
+// correctly rounded value cr, exact = cr + r * u, u = ulp(cr's binade), so
+//   out - exact = (out - cr) / u - r     ulps of cr's binade,
+// rescaled to ulps of exact's binade: exact sits one binade lower when cr
+// is a power of two and r points toward zero (above the subnormal range).
+// Returns NaN when the row carries no residual, +inf for a non-finite
+// mismatch, 0 for a matching non-finite pair.
+inline double RealErr(double out, double cr, double r) {
+  if (std::isnan(r)) return r;
+  if (!std::isfinite(cr) || !std::isfinite(out)) {
+    return (SameBits(out, cr) || (std::isnan(out) && std::isnan(cr)))
+               ? 0.0
+               : HUGE_VAL;
+  }
+  int e;
+  const double m = std::frexp(cr, &e);  // |m| in [1/2, 1), or 0
+  const int ue = (cr == 0.0 ? -1074 : (e - 1 < -1022 ? -1022 : e - 1) - 52);
+  // Power-of-two scaling is exact; the subtraction is exact for nearby out.
+  const double d = std::ldexp(out, -ue) - std::ldexp(cr, -ue) - r;
+  const bool lower = std::fabs(m) == 0.5 && e - 1 > -1022 && r * cr < 0.0;
+  return std::fabs(d) * (lower ? 2.0 : 1.0);
+}
+
+// Running maximum of RealErr over a region; rows without a residual count
+// as missing, which fails the region (a gate that opted in must see every
+// row).
+struct RealMax {
+  double max = 0.0;
+  size_t n = 0, missing = 0;
+  size_t worst = 0;  // caller's row index of the maximum
+  void Add(double e, size_t row) {
+    if (std::isnan(e)) {
+      ++missing;
+      return;
+    }
+    ++n;
+    if (e > max) {
+      max = e;
+      worst = row;
+    }
+  }
+};
+
+// Tier class for the pins: the 128-bit x86 tiers and the emulated ones have
+// no FMA, so their dd products take the Dekker path with its own error.
+inline const char* TierClass() {
+  const char* t = corvus::active_target();
+  static const char* const kNoFma[] = {"SSE2", "SSSE3", "SSE4", "EMU128",
+                                       "SCALAR"};
+  for (const char* n : kNoFma) {
+    if (std::strcmp(t, n) == 0) return "nofma";
+  }
+  return "fma";
+}
+
+// The two real-error ceilings of a region (#82 T1), from tests/data/
+// real_pins.txt, rows `gate|region|class|pin[|issue]`:
+//   * contract ceiling: B + 1/2 - 1/4 for an integer bound B >= 1 (a quarter
+//     ulp of safety below where the integer gate itself would fail); 1/2 for
+//     a correctly rounded cell, where the integer gate is already exact.
+//   * regression pin: the measured maximum over the tier class plus a small
+//     margin (tools/hunt/pins.py). It catches drift long before the contract.
+// A pin above the contract ceiling must name its issue: that cell is a known
+// defect, and the fix row lowers the pin (the fail-first hook for 12d-12k).
+// Every call prints `PIN gate|region|class|measured|contract`, so a local run
+// or a CI log feeds pins.py. CORVUS_REAL_PIN_REPORT=1 (pins.py sets it) also
+// stops a missing or exceeded pin from failing the gate.
+struct Pin {
+  double pin;
+  std::string issue;
+};
+
+inline const std::vector<std::pair<std::string, Pin>>& Pins(
+    const char* ref_path) {
+  static std::vector<std::pair<std::string, Pin>> pins;
+  static bool loaded = false;
+  if (loaded) return pins;
+  loaded = true;
+  std::string p(ref_path);
+  const size_t slash = p.find_last_of("/\\");
+  p = (slash == std::string::npos ? std::string() : p.substr(0, slash + 1)) +
+      "real_pins.txt";
+  std::ifstream f(p);
+  if (!f) {
+    std::fprintf(stderr, "cannot open pin file: %s\n", p.c_str());
+    std::exit(2);
+  }
+  std::string line;
+  size_t lineno = 0;
+  while (std::getline(f, line)) {
+    ++lineno;
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    if (line.empty() || line[0] == '#') continue;
+    std::vector<std::string> fld;
+    for (size_t at = 0;;) {
+      const size_t bar = line.find('|', at);
+      fld.push_back(line.substr(at, bar - at));
+      if (bar == std::string::npos) break;
+      at = bar + 1;
+    }
+    if (fld.size() < 4 || fld.size() > 5) {
+      std::fprintf(stderr, "%s:%zu: expected gate|region|class|pin[|issue]\n",
+                   p.c_str(), lineno);
+      std::exit(2);
+    }
+    pins.push_back({fld[0] + "|" + fld[1] + "|" + fld[2],
+                    {ParseDouble(fld[3], p.c_str(), lineno),
+                     fld.size() == 5 ? fld[4] : std::string()}});
+  }
+  return pins;
+}
+
+inline bool PinReport() {
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996)  // one read, see expect_target.h
+#endif
+  const char* v = std::getenv("CORVUS_REAL_PIN_REPORT");
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
+  return v != nullptr && v[0] != '\0' && v[0] != '0';
+}
+
+// Prints the region's real-error line and enforces both ceilings. Returns
+// 0 on pass, 1 on failure. `ref_path` locates real_pins.txt beside it.
+inline int CheckReal(const char* ref_path, const char* gate, const char* region,
+                     uint64_t bound, const RealMax& m) {
+  const char* cls = TierClass();
+  if (std::strchr(gate, '|') != nullptr || std::strchr(region, '|') != nullptr) {
+    std::fprintf(stderr, "%s / %s: '|' separates pin-file fields\n", gate,
+                 region);
+    std::exit(2);
+  }
+  const std::string key = std::string(gate) + "|" + region + "|" + cls;
+  const double contract =
+      bound == 0 ? 0.5 : static_cast<double>(bound) + 0.25;
+  const bool report = PinReport();
+  std::printf("PIN %s|%.6f|%.2f\n", key.c_str(), m.max, contract);
+  const Pin* pin = nullptr;
+  for (const auto& kv : Pins(ref_path)) {
+    if (kv.first == key) pin = &kv.second;
+  }
+  char pin_s[32] = "none";
+  if (pin) std::snprintf(pin_s, sizeof(pin_s), "%.2f", pin->pin);
+  std::printf("  real %-32s max=%.4f  contract %.2f  pin %s%s%s\n", region,
+              m.max, contract, pin_s,
+              pin && !pin->issue.empty() ? "  known: " : "",
+              pin ? pin->issue.c_str() : "");
+  int rc = 0;
+  if (m.missing) {
+    std::fprintf(stderr, "FAIL: %s %s: %zu rows carry no residual (r=)\n",
+                 gate, region, m.missing);
+    rc = 1;
+  }
+  if (report) return rc;
+  if (pin == nullptr) {
+    std::fprintf(stderr, "FAIL: %s: no real-error pin in real_pins.txt\n",
+                 key.c_str());
+    return 1;
+  }
+  // pins.py writes "?" where a person still has to name the issue.
+  const bool named = !pin->issue.empty() && pin->issue != "?";
+  if (pin->pin > contract && !named) {
+    std::fprintf(stderr,
+                 "FAIL: %s: pin %.4f is above the contract ceiling %.2f and "
+                 "names no issue\n",
+                 key.c_str(), pin->pin, contract);
+    rc = 1;
+  }
+  if (m.max > pin->pin) {
+    std::fprintf(stderr, "FAIL: %s: real error %.4f exceeds pin %.4f\n",
+                 key.c_str(), m.max, pin->pin);
+    rc = 1;
+  }
+  if (m.max > contract && !named) {
+    std::fprintf(stderr,
+                 "FAIL: %s: real error %.4f exceeds contract ceiling %.2f\n",
+                 key.c_str(), m.max, contract);
+    rc = 1;
+  }
+  return rc;
 }
 
 }  // namespace corvus_test

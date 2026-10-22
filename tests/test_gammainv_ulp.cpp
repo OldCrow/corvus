@@ -62,6 +62,7 @@ struct Bucket {
   size_t miss = 0;  // not correctly rounded
   double worst_a = 0.0;
   double worst_s = 0.0;
+  corvus_test::RealMax real{};  // #82 T1
 };
 
 void Accumulate(Bucket& b, double a, double s, uint64_t u) {
@@ -94,12 +95,14 @@ void Report(const Bucket& b, bool gated) {
 // Rows are three hex doubles: a, s, x.
 // LoadRef exits on a missing, malformed or short file, so this cannot fail.
 void LoadReference(const char* path, std::vector<double>* a,
-                   std::vector<double>* s, std::vector<double>* x) {
+                   std::vector<double>* s, std::vector<double>* x,
+                   std::vector<double>* res) {
   const auto rows = LoadRef(path, 3, 5000);
   for (const auto& row : rows) {
     a->push_back(ParseDouble(row.tok[0], path, row.line));
     s->push_back(ParseDouble(row.tok[1], path, row.line));
     x->push_back(ParseDouble(row.tok[2], path, row.line));
+    res->push_back(corvus_test::Residual(row, 0));
   }
 }
 
@@ -138,9 +141,10 @@ void CallSplit(void (*fn)(std::span<const double>, std::span<const double>,
      std::span<double>(out).subspan(split));
 }
 
-int Measure(const char* label, bool want_q, const std::vector<double>& a,
-            const std::vector<double>& s, const std::vector<double>& want,
-            const std::vector<double>& got) {
+int Measure(const char* path, const char* label, bool want_q,
+            const std::vector<double>& a, const std::vector<double>& s,
+            const std::vector<double>& want, const std::vector<double>& got,
+            const std::vector<double>& res) {
   Bucket b[5] = {
       {"deep-small closed form"}, {"beyond-resolution"}, {"S1 (a_T..3e34)"},
       {"small-a tail seed"},      {"small-a mid seed"},
@@ -168,7 +172,13 @@ int Measure(const char* label, bool want_q, const std::vector<double>& a,
     } else {
       u = UlpDiff(got[i], want[i]);
     }
-    Accumulate(b[Bucketize(a[i], s[i], want[i])], a[i], s[i], u);
+    Bucket& bk = b[Bucketize(a[i], s[i], want[i])];
+    Accumulate(bk, a[i], s[i], u);
+    // Exact-zero rows are bit-exact checked above and the report-only
+    // cross-cuts are ungated; neither carries a real gate.
+    if (want[i] != 0.0) {
+      bk.real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
+    }
     if (s[i] > 0.5) Accumulate(cross[0], a[i], s[i], u);
     if (want[i] > 0.0 && want[i] < (std::numeric_limits<double>::min)()) {
       Accumulate(cross[1], a[i], s[i], u);
@@ -188,6 +198,9 @@ int Measure(const char* label, bool want_q, const std::vector<double>& a,
       std::fprintf(stderr, "FAIL: %s %s bucket is empty (n=0)\n", label,
                    r.name);
       std::exit(1);
+    }
+    if (r.n > 0) {
+      rc |= corvus_test::CheckReal(path, label, r.name, kMaxUlp, r.real);
     }
     if (r.n > 0 && r.max_ulp > kMaxUlp) {
       std::fprintf(stderr, "FAIL: %s %s exceeds gate\n", label, r.name);
@@ -218,18 +231,18 @@ int main(int argc, char* const* argv) {
 
   int rc = 0;
   {
-    std::vector<double> a, s, x;
-    LoadReference(p_path, &a, &s, &x);
+    std::vector<double> a, s, x, res;
+    LoadReference(p_path, &a, &s, &x, &res);
     std::vector<double> got(a.size());
     CallSplit(corvus::gamma_p_inv, a, s, got);
-    rc |= Measure("gamma_p_inv", false, a, s, x, got);
+    rc |= Measure(p_path, "gamma_p_inv", false, a, s, x, got, res);
   }
   {
-    std::vector<double> a, s, x;
-    LoadReference(q_path, &a, &s, &x);
+    std::vector<double> a, s, x, res;
+    LoadReference(q_path, &a, &s, &x, &res);
     std::vector<double> got(a.size());
     CallSplit(corvus::gamma_q_inv, a, s, got);
-    rc |= Measure("gamma_q_inv", true, a, s, x, got);
+    rc |= Measure(q_path, "gamma_q_inv", true, a, s, x, got, res);
   }
 
   if (rc == 0) std::printf("PASS: all buckets within gates\n");

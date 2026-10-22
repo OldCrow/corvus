@@ -16,7 +16,11 @@ the kernel under test carries more than working precision
 double-rounds (a hazard noted 2026-08-21 and closed by the v0.6.0
 single-rounding regeneration: the predicted 6/642 erfc and 9/931 exp_dd
 1-ulp subnormal rows were corrected exactly, plus 2 exp_dd `lo`
-components, 6 erfinv rows, and one beta_q and one gamma row). Reference
+components, 6 erfinv rows, and one beta_q and one gamma row). The helper
+re-rounded its argument to the caller's ambient precision until #82 T1:
+a generator that restored `mp.dps` before rounding still double-rounded,
+and 13 trigamma rows near x = 1e308 (subnormal results) were stored 1 ulp
+off until the 2026-10-22 regeneration. Reference
 files are checked in (`tests/data/`); each point-selection strategy is
 documented in its generator and deliberately includes the worst cases for
 the method under test (grid residual extremes, region boundaries at the
@@ -26,6 +30,22 @@ bit level, cancellation-prone ranges, subnormal-result bands).
 monotonic integer), so adjacent doubles differ by 1 everywhere including
 across ±0 and into the subnormals. "not-CR" = fraction of results that are
 not the correctly rounded double.
+
+**Real error (#82 T1).** An integer bound B fails only once the real error
+|result − exact| passes B + ½, which a finite reference set seldom reaches;
+the real error's maximum shows erosion first. Every public-function
+reference row therefore carries its residual `r=` (exact − stored value,
+in ulps; `tools/hunt/annotate.py`, which also refuses a file with any
+|r| > ½ — a generator defect). Each gate region prints its maximum real
+error and enforces two ceilings per tier class (FMA, no-FMA):
+- the contract ceiling, B + ¼ (½ for a correctly rounded cell);
+- a regression pin, the measured maximum + 0.02
+  (`tests/data/real_pins.txt`, written by `tools/hunt/pins.py`).
+
+A pin above its contract ceiling names the issue that tracks the defect;
+the fix lowers it. The internal double-double files and the betainv
+backward intervals carry no residual: their gates already measure a
+continuous error.
 
 **Gates.** `test_*_ulp` enforce the measured bounds with no margin; any
 regression trips CI. Bounds are claimed only for tiers validated on native

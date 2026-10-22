@@ -83,6 +83,7 @@ struct Region {
   size_t n = 0;
   size_t miss = 0;
   double wa = 0.0, wb = 0.0, wx = 0.0;
+  corvus_test::RealMax real{};  // #82 T1; the specials cells never feed it
 };
 
 enum : int { kR1 = 0, kR2 = 1, kR3 = 2, kR4 = 3, kSp = 4, kPr = 5, kGl = 6 };
@@ -214,23 +215,29 @@ void SplitCall(Fn fn, std::vector<double>& out, const In&... in) {
 // LoadRef exits on a missing, malformed or short file, so this cannot fail.
 void LoadReference(const char* path, std::vector<double>* a,
                    std::vector<double>* b, std::vector<double>* x,
-                   std::vector<double>* p, std::vector<double>* q) {
+                   std::vector<double>* p, std::vector<double>* q,
+                   std::vector<double>* rp, std::vector<double>* rq) {
   const auto rows = corvus_test::LoadRef(path, 5, 10000);
   a->reserve(rows.size());
   b->reserve(rows.size());
   x->reserve(rows.size());
   p->reserve(rows.size());
   q->reserve(rows.size());
+  rp->reserve(rows.size());
+  rq->reserve(rows.size());
   for (const auto& row : rows) {
     a->push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
     b->push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
     x->push_back(corvus_test::ParseDouble(row.tok[2], path, row.line));
     p->push_back(corvus_test::ParseDouble(row.tok[3], path, row.line));
     q->push_back(corvus_test::ParseDouble(row.tok[4], path, row.line));
+    rp->push_back(corvus_test::Residual(row, 0));  // residual 0 belongs to P
+    rq->push_back(corvus_test::Residual(row, 1));  // residual 1 to Q
   }
 }
 
-int ReportRegions(const char* label, const Region* r, int n, bool want_p) {
+int ReportRegions(const char* path, const char* label, const Region* r, int n,
+                  bool want_p) {
   int rc = 0;
   for (int i = 0; i < n; ++i) {
     std::printf(
@@ -259,14 +266,20 @@ int ReportRegions(const char* label, const Region* r, int n, bool want_p) {
       std::fprintf(stderr, "FAIL: %s %s exceeds gate\n", label, r[i].name);
       rc = 1;
     }
+    // #82 T1: the specials cells (8, 9) are exact-match, no real gate.
+    if (i != 8 && i != 9) {
+      rc |= corvus_test::CheckReal(path, label, r[i].name, r[i].bound,
+                                   r[i].real);
+    }
   }
   return rc;
 }
 
-int Measure(const char* label, bool want_p, const std::vector<double>& a,
-            const std::vector<double>& b, const std::vector<double>& x,
-            const std::vector<double>& pref, const std::vector<double>& qref,
-            const std::vector<double>& got, const std::vector<double>& want) {
+int Measure(const char* path, const char* label, bool want_p,
+            const std::vector<double>& a, const std::vector<double>& b,
+            const std::vector<double>& x, const std::vector<double>& pref,
+            const std::vector<double>& qref, const std::vector<double>& got,
+            const std::vector<double>& want, const std::vector<double>& res) {
   Region reg[14] = {
       {"R1 series dir", kGateR1Dir}, {"R1 series cmp", kGateR1Cmp},
       {"R2 cf     dir", kGateR2Dir}, {"R2 cf     cmp", kGateR2Cmp},
@@ -305,6 +318,9 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
       u = ok ? 0 : ~uint64_t{0};
     } else {
       u = UlpDiff(got[i], want[i]);
+      // Only these rows are judged by integer ULP against the stored value;
+      // specials, NaN and zero-reference rows are exact-match, no real gate.
+      r.real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
     }
     ++r.n;
     if (u > 0) ++r.miss;
@@ -333,7 +349,7 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
       r.wx = x[i];
     }
   }
-  return ReportRegions(label, reg, 14, want_p);
+  return ReportRegions(path, label, reg, 14, want_p);
 }
 
 // ---- Post-pass (i): monotonicity in x over the reference set -------------
@@ -505,20 +521,20 @@ int main(int argc, char* const* argv) {
 
   int rc = 0;
   {
-    std::vector<double> a, b, x, p, q;
-    LoadReference(p_path, &a, &b, &x, &p, &q);
+    std::vector<double> a, b, x, p, q, rp, rq;
+    LoadReference(p_path, &a, &b, &x, &p, &q, &rp, &rq);
     std::vector<double> got(a.size());
     SplitCall(SpanFn(corvus::beta_p), got, a, b, x);
-    rc |= Measure("beta_p", true, a, b, x, p, q, got, p);
+    rc |= Measure(p_path, "beta_p", true, a, b, x, p, q, got, p, rp);
     rc |= MonoPostPass(a, b, x, p, got);
     rc |= SeamSweeps();
   }
   {
-    std::vector<double> a, b, x, p, q;
-    LoadReference(q_path, &a, &b, &x, &p, &q);
+    std::vector<double> a, b, x, p, q, rp, rq;
+    LoadReference(q_path, &a, &b, &x, &p, &q, &rp, &rq);
     std::vector<double> got(a.size());
     SplitCall(SpanFn(corvus::beta_q), got, a, b, x);
-    rc |= Measure("beta_q", false, a, b, x, p, q, got, q);
+    rc |= Measure(q_path, "beta_q", false, a, b, x, p, q, got, q, rq);
   }
 
   if (rc == 0) std::printf("PASS: all regions within G4 pinned gates\n");

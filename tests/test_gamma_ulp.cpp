@@ -74,6 +74,7 @@ struct Region {
   size_t miss = 0;
   double worst_a = 0.0;
   double worst_x = 0.0;
+  corvus_test::RealMax real{};  // #82 T1
 };
 
 // Region codes, in the kernel's own order.
@@ -112,13 +113,16 @@ int Route(double a, double x, bool want_p, bool* direct_is_p) {
 // LoadRef exits on a missing, malformed or short file, so this cannot fail.
 void LoadReference(const char* path, std::vector<double>* a,
                    std::vector<double>* x, std::vector<double>* p,
-                   std::vector<double>* q) {
+                   std::vector<double>* q, std::vector<double>* rp,
+                   std::vector<double>* rq) {
   const auto rows = LoadRef(path, 4, 10000);
   for (const auto& row : rows) {
     a->push_back(ParseDouble(row.tok[0], path, row.line));
     x->push_back(ParseDouble(row.tok[1], path, row.line));
     p->push_back(ParseDouble(row.tok[2], path, row.line));
     q->push_back(ParseDouble(row.tok[3], path, row.line));
+    rp->push_back(corvus_test::Residual(row, 0));
+    rq->push_back(corvus_test::Residual(row, 1));
   }
 }
 
@@ -129,8 +133,8 @@ void LoadReference(const char* path, std::vector<double>* a,
 // -- that is the "cells that hold no points for a function carry 0" case the
 // gate table above already documents, not a regression. R3's direct side
 // varies with (a, x), so both of its cells are always live.
-int ReportRegions(const char* label, const Region* r, const bool* live,
-                  int n) {
+int ReportRegions(const char* path, const char* label, const Region* r,
+                  const bool* live, int n) {
   int rc = 0;
   for (int i = 0; i < n; ++i) {
     std::printf(
@@ -143,6 +147,12 @@ int ReportRegions(const char* label, const Region* r, const bool* live,
                      static_cast<double>(r[i].n)
                : 0.0,
         r[i].worst_a, r[i].worst_x);
+    // #82 T1: real error for every cell that received rows (exact-zero
+    // reference rows are bit-exact checked and carry no real gate).
+    if (r[i].n > 0) {
+      rc |= corvus_test::CheckReal(path, label, r[i].name, r[i].bound,
+                                   r[i].real);
+    }
     // N10: a LIVE bucket that never received a row passes every gate above
     // vacuously -- a routing or reference-set regression, not a clean run.
     if (live[i] && r[i].n == 0) {
@@ -179,9 +189,10 @@ void CallSplit(void (*fn)(std::span<const double>, std::span<const double>,
      std::span<double>(out).subspan(split));
 }
 
-int Measure(const char* label, bool want_p, const std::vector<double>& a,
-            const std::vector<double>& x, const std::vector<double>& got,
-            const std::vector<double>& want) {
+int Measure(const char* path, const char* label, bool want_p,
+            const std::vector<double>& a, const std::vector<double>& x,
+            const std::vector<double>& got, const std::vector<double>& want,
+            const std::vector<double>& res) {
   // Index [region][0 = direct side, 1 = complement].
   const auto& g = want_p ? kGateP : kGateQ;
   Region reg[8] = {
@@ -214,6 +225,7 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
       u = 0;
     } else {
       u = UlpDiff(got[i], want[i]);
+      r.real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
     }
     ++r.n;
     if (u > 0) ++r.miss;
@@ -233,7 +245,7 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
   live[want_p ? 1 : 0] = false;  // R1: the side Route() never fires here
   live[want_p ? 2 : 3] = false;  // R2: ditto
   live[want_p ? 6 : 7] = false;  // R4: ditto
-  return ReportRegions(label, reg, live, 8) | signed_zero_fail;
+  return ReportRegions(path, label, reg, live, 8) | signed_zero_fail;
 }
 
 }  // namespace
@@ -246,18 +258,18 @@ int main(int argc, char* const* argv) {
 
   int rc = 0;
   {
-    std::vector<double> a, x, p, q;
-    LoadReference(p_path, &a, &x, &p, &q);
+    std::vector<double> a, x, p, q, rp, rq;
+    LoadReference(p_path, &a, &x, &p, &q, &rp, &rq);
     std::vector<double> got(a.size());
     CallSplit(corvus::gamma_p, a, x, got);
-    rc |= Measure("gamma_p", true, a, x, got, p);
+    rc |= Measure(p_path, "gamma_p", true, a, x, got, p, rp);
   }
   {
-    std::vector<double> a, x, p, q;
-    LoadReference(q_path, &a, &x, &p, &q);
+    std::vector<double> a, x, p, q, rp, rq;
+    LoadReference(q_path, &a, &x, &p, &q, &rp, &rq);
     std::vector<double> got(a.size());
     CallSplit(corvus::gamma_q, a, x, got);
-    rc |= Measure("gamma_q", false, a, x, got, q);
+    rc |= Measure(q_path, "gamma_q", false, a, x, got, q, rq);
   }
 
   if (rc == 0) std::printf("PASS: all regions within gates\n");

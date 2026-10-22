@@ -178,6 +178,13 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   failure outside the bands and on a band that stops failing, so a fix
   deletes its own band in the same commit. Never widen a band to absorb
   a new failure; file an issue.
+- **Every public ULP gate also gates real error** (#82 T1; method in
+  ACCURACY.md, Methodology). Regenerating a reference file means
+  re-annotating it (`python tools/hunt/annotate.py <key>`, which fails on
+  any row that is not correctly rounded) and re-measuring its pins
+  (`python tools/hunt/pins.py --write`, then review the diff). Never raise
+  a pin to absorb a regression: a pin above the contract ceiling names its
+  issue, and only the fix row lowers it.
 - Where the kernel carries more than working precision, the reference file
   carries a double-double pair and the test measures relative error below
   the last bit of a double; rounding first would hide what is being

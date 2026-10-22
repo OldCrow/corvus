@@ -54,9 +54,11 @@ struct Region {
   size_t n = 0;
   size_t miss = 0;
   double worst_x = 0.0;
+  corvus_test::RealMax real{};
 };
 
-void Accumulate(Region& r, double x, uint64_t u) {
+void Accumulate(Region& r, double x, uint64_t u, double real_err, size_t row) {
+  r.real.Add(real_err, row);
   ++r.n;
   if (u > 0) ++r.miss;
   if (u > r.max_ulp) {
@@ -84,12 +86,14 @@ int main(int argc, char* const* argv) {
   const char* path = argc > 1 ? argv[1] : "tests/data/exp_reference.txt";
   const auto rows = corvus_test::LoadRef(path, 2, 10000);
 
-  std::vector<double> in, want;
+  std::vector<double> in, want, res;
   in.reserve(rows.size());
   want.reserve(rows.size());
+  res.reserve(rows.size());
   for (const auto& row : rows) {
     in.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
     want.push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
+    res.push_back(corvus_test::Residual(row, 0));
   }
 
   std::vector<double> got(in.size());
@@ -127,7 +131,9 @@ int main(int argc, char* const* argv) {
       continue;
     }
     const uint64_t u = UlpDiff(got[i], w);
-    Accumulate(w < kMinNormal ? subnormal : normal, x, u);
+    // The +inf and +0 rows above are exact-match checks and carry no real gate.
+    Accumulate(w < kMinNormal ? subnormal : normal, x, u,
+               corvus_test::RealErr(got[i], w, res[i]), i);
   }
 
   std::printf("exp (%s):\n", path);
@@ -150,6 +156,10 @@ int main(int argc, char* const* argv) {
       std::fprintf(stderr, "FAIL: exp %s max ULP %llu exceeds gate %llu\n",
                    r->name, static_cast<unsigned long long>(r->max_ulp),
                    static_cast<unsigned long long>(r->gate));
+      rc = 1;
+    }
+    // #82 T1: real error against the contract ceiling and the regression pin.
+    if (corvus_test::CheckReal(path, "exp", r->name, r->gate, r->real) != 0) {
       rc = 1;
     }
   }

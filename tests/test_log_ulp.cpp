@@ -52,9 +52,11 @@ struct Region {
   size_t n = 0;
   size_t miss = 0;
   double worst_x = 0.0;
+  corvus_test::RealMax real{};
 };
 
-void Accumulate(Region& r, double x, uint64_t u) {
+void Accumulate(Region& r, double x, uint64_t u, double real_err, size_t row) {
+  r.real.Add(real_err, row);
   ++r.n;
   if (u > 0) ++r.miss;
   if (u > r.max_ulp) {
@@ -74,7 +76,8 @@ void Report(const Region& r) {
       r.worst_x);
 }
 
-int Gate(const char* label, std::initializer_list<const Region*> regions) {
+int Gate(const char* path, const char* label,
+         std::initializer_list<const Region*> regions) {
   int rc = 0;
   for (const Region* r : regions) {
     Report(*r);
@@ -91,16 +94,21 @@ int Gate(const char* label, std::initializer_list<const Region*> regions) {
                    static_cast<unsigned long long>(kMaxUlp));
       rc = 1;
     }
+    // #82 T1: real error against the contract ceiling and the regression pin.
+    if (corvus_test::CheckReal(path, label, r->name, kMaxUlp, r->real) != 0) {
+      rc = 1;
+    }
   }
   return rc;
 }
 
 int RunLog(const char* path) {
   const auto rows = corvus_test::LoadRef(path, 2, 10000);
-  std::vector<double> in, want;
+  std::vector<double> in, want, res;
   for (const auto& row : rows) {
     in.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
     want.push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
+    res.push_back(corvus_test::Residual(row, 0));
   }
   std::vector<double> got(in.size());
   SplitCall(corvus::log, in, got);
@@ -114,6 +122,7 @@ int RunLog(const char* path) {
   for (size_t i = 0; i < in.size(); ++i) {
     const double x = in[i];
     uint64_t u;
+    double re = 0.0;  // exact-zero rows are bit-exact checks: no real gate
     if (want[i] == 0.0) {
       // log(1) = +0 exactly; bit identity, not ULP distance (#14 N6).
       ++zero_rows;
@@ -127,18 +136,19 @@ int RunLog(const char* path) {
       u = ok ? 0 : ~uint64_t{0};
     } else {
       u = UlpDiff(got[i], want[i]);
+      re = corvus_test::RealErr(got[i], want[i], res[i]);
     }
     if (x < kMinNormal) {
-      Accumulate(sub, x, u);
+      Accumulate(sub, x, u, re, i);
     } else if (std::fabs(x - 1.0) <= 0.0625) {
-      Accumulate(near1, x, u);
+      Accumulate(near1, x, u, re, i);
     } else {
-      Accumulate(general, x, u);
+      Accumulate(general, x, u, re, i);
     }
   }
 
   std::printf("log (%s):\n", path);
-  rc |= Gate("log", {&sub, &near1, &general});
+  rc |= Gate(path, "log", {&sub, &near1, &general});
   if (zero_rows == 0) {
     std::fprintf(stderr,
                  "FAIL: log exact-zero row (x=1) missing from reference -- "
@@ -150,10 +160,11 @@ int RunLog(const char* path) {
 
 int RunLog1p(const char* path) {
   const auto rows = corvus_test::LoadRef(path, 2, 10000);
-  std::vector<double> in, want;
+  std::vector<double> in, want, res;
   for (const auto& row : rows) {
     in.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
     want.push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
+    res.push_back(corvus_test::Residual(row, 0));
   }
   std::vector<double> got(in.size());
   SplitCall(corvus::log1p, in, got);
@@ -166,6 +177,7 @@ int RunLog1p(const char* path) {
   for (size_t i = 0; i < in.size(); ++i) {
     const double x = in[i];
     uint64_t u;
+    double re = 0.0;  // exact-zero rows are bit-exact checks: no real gate
     if (want[i] == 0.0) {
       // No exact-zero row exists today (x = 0 is excluded); guard the next
       // regen (#14 N6).
@@ -179,18 +191,19 @@ int RunLog1p(const char* path) {
       u = ok ? 0 : ~uint64_t{0};
     } else {
       u = UlpDiff(got[i], want[i]);
+      re = corvus_test::RealErr(got[i], want[i], res[i]);
     }
     if (x <= -0.5) {
-      Accumulate(corner, x, u);
+      Accumulate(corner, x, u, re, i);
     } else if (std::fabs(x) <= 0x1p-10) {
-      Accumulate(near0, x, u);
+      Accumulate(near0, x, u, re, i);
     } else {
-      Accumulate(general, x, u);
+      Accumulate(general, x, u, re, i);
     }
   }
 
   std::printf("log1p (%s):\n", path);
-  rc |= Gate("log1p", {&corner, &near0, &general});
+  rc |= Gate(path, "log1p", {&corner, &near0, &general});
   return rc;
 }
 

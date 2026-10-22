@@ -130,6 +130,7 @@ struct Bucket {
   double worst_a = 0.0;
   double worst_b = 0.0;
   double worst_s = 0.0;
+  corvus_test::RealMax real{};  // #82 T1; only the y-gated buckets feed it
 };
 
 // Every bucket carries BOTH numbers, because for an inverse they answer
@@ -163,6 +164,7 @@ void Report(const Bucket& bk, const char* gate) {
 
 struct Row {
   double a, b, s, x;
+  double res;  // residual of the stored root x (NaN when unannotated)
   char marker;
 };
 
@@ -176,6 +178,7 @@ void LoadReference(const char* path, std::vector<Row>* rows) {
     r.b = corvus_test::ParseDouble(row.tok[1], path, row.line);
     r.s = corvus_test::ParseDouble(row.tok[2], path, row.line);
     r.x = corvus_test::ParseDouble(row.tok[3], path, row.line);
+    r.res = corvus_test::Residual(row, 0);
     r.marker = row.tok[4].empty() ? '?' : row.tok[4][0];
     rows->push_back(r);
   }
@@ -245,8 +248,9 @@ int Bucketize(const Row& r, bool /*want_q*/) {
   return kRest;
 }
 
-int Measure(const char* label, bool want_q, const std::vector<Row>& rows,
-            const std::vector<double>& got, const std::vector<double>& fwd) {
+int Measure(const char* label, bool want_q, const char* path,
+            const std::vector<Row>& rows, const std::vector<double>& got,
+            const std::vector<double>& fwd) {
   Bucket b[kNBuckets] = {
       {"deep-small closed form"},   {"huge-nu (formula bucket)"},
       {"kappa > 2^18 (backward)"},  {"ridge (S1 territory)"},
@@ -289,11 +293,15 @@ int Measure(const char* label, bool want_q, const std::vector<Row>& rows,
     const double bk_rel =
         r.s > 0.0 ? std::fabs(fwd[i] - r.s) / r.s : std::fabs(fwd[i]);
     const double bk_err = std::fabs(fwd[i] - r.s) / UlpOf(r.s);
+    const double re = corvus_test::RealErr(got[i], r.x, r.res);
     if (r.marker == 'B') {
       Accumulate(beyond, r.a, r.b, r.s, u, bk_rel);
+      beyond.real.Add(re, i);
     } else {
       const int bk = Bucketize(r, want_q);
       Accumulate(b[bk], r.a, r.b, r.s, u, bk_rel);
+      // The kappa bucket is held to the backward contract: no real gate.
+      if (bk != kIllCond) b[bk].real.Add(re, i);
       if (bk == kIllCond) {
         ++n_ill;
         if (bk_err > worst_ill) {
@@ -341,6 +349,7 @@ int Measure(const char* label, bool want_q, const std::vector<Row>& rows,
       std::fprintf(stderr, "FAIL: %s %s exceeds gate\n", label, b[k].name);
       rc = 1;
     }
+    rc |= corvus_test::CheckReal(path, label, b[k].name, lim, b[k].real);
   }
   char gateb[24];
   std::snprintf(gateb, sizeof(gateb), "gate %llu",
@@ -357,6 +366,10 @@ int Measure(const char* label, bool want_q, const std::vector<Row>& rows,
                  label);
     rc = 1;
   }
+  rc |= corvus_test::CheckReal(path, label, beyond.name, kMaxUlpBeyond,
+                               beyond.real);
+  // P rows (marker P) and the kappa bucket carry the backward contract, and
+  // the cross buckets are report only: none of them has a real-error gate.
   std::printf(
       "%-30s n=%6zu  worst |fwd(x) - sigma| = %.3f ulp(sigma) (corvus forward, "
       "report only; the gate is the certified intervals at %.1f)  "
@@ -415,7 +428,7 @@ int Run(const char* label, bool want_q, const char* path) {
     SplitCall(SpanFn(corvus::beta_p_inv), got, a, bb, s);
     SplitCall(SpanFn(corvus::beta_p), fwd, a, bb, got);
   }
-  return Measure(label, want_q, rows, got, fwd);
+  return Measure(label, want_q, path, rows, got, fwd);
 }
 
 }  // namespace

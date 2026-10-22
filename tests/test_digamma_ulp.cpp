@@ -43,6 +43,7 @@ struct Region {
   size_t n = 0;
   size_t miss = 0;  // not correctly rounded
   double worst_x = 0.0;
+  corvus_test::RealMax real{};
 };
 
 }  // namespace
@@ -54,10 +55,11 @@ int main(int argc, char* const* argv) {
   const char* path = argc > 1 ? argv[1] : "tests/data/digamma_reference.txt";
   const auto rows = corvus_test::LoadRef(path, 2, 10000);
 
-  std::vector<double> in, want;
+  std::vector<double> in, want, res;
   for (const auto& row : rows) {
     in.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
     want.push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
+    res.push_back(corvus_test::Residual(row, 0));
   }
 
   std::vector<double> got(in.size());
@@ -76,7 +78,7 @@ int main(int argc, char* const* argv) {
 
   Region regions[] = {
       {"pos (0,1)"},   {"pos zone"},     {"pos walk"},
-      {"pos asym"},    {"neg |psi|>=1"},
+      {"pos asym"},    {"neg abs(psi)>=1"},
   };
   double neg_small_abs = 0.0;
   double neg_small_worst_x = 0.0;
@@ -89,6 +91,7 @@ int main(int argc, char* const* argv) {
     // past 1 within ~1/8 of the way to either neighbouring pole), so this one
     // test reproduces the per-zero band membership the design describes
     // without carrying a table of zeros the kernel does not have either.
+    // The neg |psi|<1 band is gated on absolute error, so it carries no real gate.
     if (x < 0.0 && std::abs(want[i]) < 1.0) {
       ++neg_small_n;
       if (want[i] == 0.0) {
@@ -126,6 +129,8 @@ int main(int argc, char* const* argv) {
     // only positive zero, x ~ 1.4616, is irrational, so no sampled reference
     // row lands exactly on 0.0); the check exists for the next regen.
     const bool zero_ref = want[i] == 0.0;
+    // Zero-reference rows are judged bit-exact, so they carry no real gate.
+    if (!zero_ref) r.real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
     const uint64_t u = zero_ref ? (SameBits(got[i], want[i]) ? 0 : UINT64_MAX)
                                  : UlpDiff(got[i], want[i]);
     if (zero_ref && u != 0) {
@@ -166,6 +171,11 @@ int main(int argc, char* const* argv) {
         r.worst_x);
     if (r.max_ulp > kMaxUlpRel) {
       std::fprintf(stderr, "FAIL: %s exceeds gate\n", r.name);
+      rc = 1;
+    }
+    // #82 T1: real error against the contract ceiling and the regression pin.
+    if (corvus_test::CheckReal(path, "digamma", r.name, kMaxUlpRel, r.real) !=
+        0) {
       rc = 1;
     }
   }

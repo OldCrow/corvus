@@ -61,7 +61,7 @@ int main(int argc, char* const* argv) {
   const char* path = argc > 1 ? argv[1] : "tests/data/lbeta_reference.txt";
   const auto rows = corvus_test::LoadRef(path, 3, 2000);
 
-  std::vector<double> a, b, want;
+  std::vector<double> a, b, want, res;
   a.reserve(rows.size());
   b.reserve(rows.size());
   want.reserve(rows.size());
@@ -69,6 +69,7 @@ int main(int argc, char* const* argv) {
     a.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
     b.push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
     want.push_back(corvus_test::ParseDouble(row.tok[2], path, row.line));
+    res.push_back(corvus_test::Residual(row, 0));
   }
 
   std::vector<double> got(a.size());
@@ -81,6 +82,7 @@ int main(int argc, char* const* argv) {
   size_t abs_n = 0;
   double abs_worst_a = 0, abs_worst_b = 0;
   size_t inf_n = 0, inf_fail = 0;
+  corvus_test::RealMax rel_real, big_real;
 
   for (size_t i = 0; i < a.size(); ++i) {
     if (std::isinf(want[i])) {
@@ -96,6 +98,7 @@ int main(int argc, char* const* argv) {
       const uint64_t u = UlpDiff(got[i], want[i]);
       ++big_n;
       if (u > 0) ++big_miss;
+      big_real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
       if (u > big_max) {
         big_max = u;
         big_worst_a = a[i];
@@ -105,12 +108,15 @@ int main(int argc, char* const* argv) {
       const uint64_t u = UlpDiff(got[i], want[i]);
       ++rel_n;
       if (u > 0) ++rel_miss;
+      rel_real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
       if (u > rel_max) {
         rel_max = u;
         rel_worst_a = a[i];
         rel_worst_b = b[i];
       }
     } else {
+      // The absolute band is judged in absolute units, so it carries no
+      // real gate (nor do the exact-match -inf rows above).
       const double e = std::fabs(got[i] - want[i]) * 0x1.0p+53;
       ++abs_n;
       if (e > abs_max) {
@@ -121,6 +127,7 @@ int main(int argc, char* const* argv) {
     }
   }
 
+  int rc = 0;
   std::printf("lbeta (%s):\n", path);
   std::printf("  relative (|lnB|>=1) n=%6zu  max ULP=%3llu (gate %llu)  "
               "not-CR: %zu (%.2f%%)  worst a=%.17g b=%.17g\n",
@@ -130,18 +137,24 @@ int main(int argc, char* const* argv) {
                           static_cast<double>(rel_n)
                     : 0.0,
               rel_worst_a, rel_worst_b);
+  // #82 T1: real error per ULP-judged band.
+  if (rel_n != 0) {
+    rc |= corvus_test::CheckReal(path, "lbeta", "relative", kMaxUlp, rel_real);
+  }
   std::printf("  big band (m>2^990)  n=%6zu  max ULP=%3llu (gate %llu)  "
               "not-CR: %zu  worst a=%.17g b=%.17g\n",
               big_n, static_cast<unsigned long long>(big_max),
               static_cast<unsigned long long>(kMaxUlp), big_miss, big_worst_a,
               big_worst_b);
+  if (big_n != 0) {
+    rc |= corvus_test::CheckReal(path, "lbeta", "big band", kMaxUlp, big_real);
+  }
   std::printf("  abs band (|lnB|<1)  n=%6zu  max abs=%.3f x 2^-53 (gate "
               "%.1f)  worst a=%.17g b=%.17g\n",
               abs_n, abs_max, kMaxAbs53, abs_worst_a, abs_worst_b);
   std::printf("  -inf boundary       n=%6zu  exact-match fails=%zu\n", inf_n,
               inf_fail);
 
-  int rc = 0;
   // #14 N10: a band that never accumulated a row is a gate that never ran --
   // every one of these four bands is populated by design in the certified
   // reference set (docs/ACCURACY.md), so n=0 here means a coverage gap.

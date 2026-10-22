@@ -55,9 +55,11 @@ struct Region {
   size_t n = 0;
   size_t miss = 0;  // not correctly rounded
   double worst_x = 0.0;
+  corvus_test::RealMax real{};
 };
 
-void Accumulate(Region& r, double x, uint64_t u) {
+void Accumulate(Region& r, double x, uint64_t u, double real_err, size_t row) {
+  r.real.Add(real_err, row);
   ++r.n;
   if (u > 0) ++r.miss;
   if (u > r.max_ulp) {
@@ -82,11 +84,14 @@ int RunOne(const char* label, const char* path, Fn fn) {
 
   std::vector<double> in;
   std::vector<double> want;
+  std::vector<double> res;
   in.reserve(rows.size());
   want.reserve(rows.size());
+  res.reserve(rows.size());
   for (const auto& row : rows) {
     in.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
     want.push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
+    res.push_back(corvus_test::Residual(row, 0));
   }
 
   std::vector<double> got(in.size());
@@ -101,6 +106,7 @@ int RunOne(const char* label, const char* path, Fn fn) {
   for (size_t i = 0; i < in.size(); ++i) {
     const double x = in[i];
     uint64_t u;
+    double re = 0.0;  // exact-zero rows are bit-exact checks: no real gate
     if (want[i] == 0.0) {
       // #14 N6: UlpDiff maps +0 and -0 to one point, so an exact-zero
       // reference row is held to bit identity. No row rounds to zero today
@@ -116,12 +122,13 @@ int RunOne(const char* label, const char* path, Fn fn) {
       u = ok ? 0 : ~uint64_t{0};
     } else {
       u = UlpDiff(got[i], want[i]);
+      re = corvus_test::RealErr(got[i], want[i], res[i]);
     }
     const bool small = std::fabs(x) <= corvus::detail::kTrigDMax;
     if (x >= 0.0) {
-      Accumulate(small ? pos_small : pos_huge, x, u);
+      Accumulate(small ? pos_small : pos_huge, x, u, re, i);
     } else {
-      Accumulate(small ? neg_small : neg_huge, x, u);
+      Accumulate(small ? neg_small : neg_huge, x, u, re, i);
     }
   }
 
@@ -140,6 +147,10 @@ int RunOne(const char* label, const char* path, Fn fn) {
                    label, r->name,
                    static_cast<unsigned long long>(r->max_ulp),
                    static_cast<unsigned long long>(r->gate));
+      rc = 1;
+    }
+    // #82 T1: real error against the contract ceiling and the regression pin.
+    if (corvus_test::CheckReal(path, label, r->name, r->gate, r->real) != 0) {
       rc = 1;
     }
   }
