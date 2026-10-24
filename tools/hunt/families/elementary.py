@@ -523,3 +523,12 @@ def strata():
     out = _exp_strata() + _log_strata() + _log1p_strata()
     out += _trig_strata("cos") + _trig_strata("sin")
     return out
+
+
+# ---- seam-audit fields (#82 T2; tools/hunt/seam_audit.py docstring) ----------
+_AUDIT = {
+    (fn, "dbl_max"): {"sides": "below"} for fn in ("log", "log1p", "cos", "sin")
+}
+_AUDIT[("log1p", "minus_one")] = {"sides": "above"}  # x < -1 is outside the domain
+for _s in SEAMS:
+    _s.update(_AUDIT.get((_s["fn"], _s["name"]), {}))

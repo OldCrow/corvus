@@ -123,8 +123,8 @@ gamma_p_inv|small-a mid seed|fma|0.53
 gamma_p_inv|small-a mid seed|nofma|0.53
 gamma_p_inv|small-a tail seed|fma|0.53
 gamma_p_inv|small-a tail seed|nofma|0.53
-gamma_p|R1 series dir|fma|0.60
-gamma_p|R1 series dir|nofma|0.60
+gamma_p|R1 series dir|fma|0.77
+gamma_p|R1 series dir|nofma|0.77
 gamma_p|R2 cf     cmp|fma|0.50
 gamma_p|R2 cf     cmp|nofma|0.50
 gamma_p|R3 temme  cmp|fma|0.53
@@ -135,8 +135,8 @@ gamma_p|R4 smalla cmp|fma|0.53
 gamma_p|R4 smalla cmp|nofma|0.53
 gamma_q_inv|S1 (a_T..3e34)|fma|0.76
 gamma_q_inv|S1 (a_T..3e34)|nofma|0.76
-gamma_q_inv|beyond-resolution|fma|0.97
-gamma_q_inv|beyond-resolution|nofma|0.97
+gamma_q_inv|beyond-resolution|fma|1.01
+gamma_q_inv|beyond-resolution|nofma|1.01
 gamma_q_inv|deep-small closed form|fma|1.36|#83
 gamma_q_inv|deep-small closed form|nofma|1.51|#83
 gamma_q_inv|small-a mid seed|fma|0.54

@@ -226,4 +226,36 @@ def strata():
         log_uniform(r, 1e-3, 1e6), log_uniform(r, 1e-3, 1e6))), 6000))
     S.append(_st("witness", g_witness, 17, None,
                  "lbeta(0x1.5c788bfb641a0p+1, 0x1.5f0d82e6d1d90p+0) 1 ULP vs 0"))
+    # T2 completion (#82): bucket gaps the audit found.
+    for k in (3.0, 4.0, 6.0, 7.0, 8.0):  # g_walk_bits steps 10, 9, 5, 2, 1 only
+        S.append(_st(f"seam:walk_{int(k)}:bits", lambda rng, n, k=k: _take(rng, [
+            (m, x) for m in (0.3, 0.9 * k, 1e-5) for x in neighbours(k, 16)], n), 3 * 33, "walk"))
+    a0 = _neg_inf_a0()
+    S.append(_st("seam:neg_inf:band", lambda rng, n: [(lambda a: (a, a))(full_mantissa(rng, a0 * 0.95, a0 * 1.05))
+                                                    for _ in range(n)], 300, "neg_inf"))
+
+    def _b_for_lnB(a, target):  # ln B(a, b) decreases in b
+        lo, hi = 1e-300, 1e300
+        for _ in range(400):
+            mid = math.sqrt(lo * hi)
+            v = math.lgamma(a) + math.lgamma(mid) - math.lgamma(a + mid)
+            if v > target:
+                lo = mid
+            else:
+                hi = mid
+        return math.sqrt(lo * hi)
+    ab = [(a, _b_for_lnB(a, t)) for a in (0.3, 2.0, 7.0) for t in (1.0, -1.0)]
+    S.append(_st("seam:abs_band:bits", lambda rng, n: _take(rng, [
+        (a, b) for a, b0 in ab for b in neighbours(b0, 12)], n), 6 * 25, "abs_band",
+        "|ln B| = 1, the absolute-band edge"))
     return S
+
+
+# ---- seam-audit fields (#82 T2; tools/hunt/seam_audit.py docstring) ----------
+_AUDIT = {
+    "neg_inf": {"audit_f": lambda r: r["a"] if r["a"] == r["b"] else None,
+                "audit_value": _neg_inf_a0()},
+    "abs_band": {"audit_f": lambda r: abs(r["lnB"])},
+}
+for _s in SEAMS:
+    _s.update(_AUDIT.get(_s["name"], {}))

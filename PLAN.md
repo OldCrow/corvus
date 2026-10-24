@@ -206,8 +206,38 @@ performance.**
           route.
       - [OPEN] Running the census in CI. It needs a census build leg,
         about one extra configure.
-    - **Order of the rest of 12-T [proposed 2026-10-22]:** T1, T3, T7
-      (done) → **NEXT: T2 completion** → T6 (by 12j) → T4 phase 1.
+    - **T2 DONE 2026-10-24** (uncommitted at write time; 35/35 on
+      AVX3_ZEN4, SSE4, SSE2, MSVC AVX2 and the census build).
+      `tools/hunt/seam_audit.py` exits 0. It covers 294 seam thresholds:
+      0 empty buckets, 0 unmapped, and 9 covered by the census or stated
+      as internal. The rule is in the doctrine test rule; the field
+      semantics are in the audit docstring. [DERIVED]
+      - Mapping: SEAMS entries gain audit-only fields:
+        - `audit_f` / `audit_value`: router orientation, region
+          membership, ratios to expression-valued seams;
+        - `sides`: domain edges;
+        - `window`: coordinates coarser than 64 ulp;
+        - `route` / `internal`: loop-internal thresholds.
+        Unary families only gain `sides`, so their strata are unchanged.
+      - Real gaps filled by new strata, 2,099 appended rows:
+        - betainv bit neighbourhoods (fwd_xi1, fwd_b1, fwd_z2split,
+          s3_min, s1_nu_min, huge_nu, fwd_gl_ridge), with targets from
+          the exact forward so the root stays within 64 ulp;
+        - gamma: tail_zhi bits, twopi_a_clamp band, out_min_normal;
+        - gammainv: cf_amax band, beyond_resolution bits and band;
+        - beta: two_pi_nu_clamp band;
+        - lbeta: walk steps 3/4/6/7/8, neg_inf band, abs_band bits.
+        No new deferred row, no pin above its ceiling, and the census is
+        unchanged.
+      - strata_append certification: the two forms must agree to 1e-4
+        ulp (was 1e-6) and the residual must sit inside the rounding cell
+        by that margin, so the side of the midpoint is still certain. The
+        large-a Temme fits agree to about 3e-6 ulp (1e-22 relative).
+        gamma and gammainv now drop no row; betainv still drops about 370
+        rows where its second form is badly wrong (residuals 1e287 to
+        1e311).
+    - **Order of the rest of 12-T [proposed 2026-10-22]:** T1, T3, T7, T2
+      (done) → **NEXT: T6** (claims check, by 12j) → T4 phase 1.
   - Pilot results 2026-10-22, no new defects:
     - Subnormal inputs in 13 unary families are clean.
     - `beta_p_inv`/`beta_q_inv` at subnormal targets: CR where certified.

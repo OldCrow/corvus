@@ -410,4 +410,68 @@ def strata():
     add("witness:route_r2_nan_exponent",
         lambda r, n: [(a, x) for a, x0 in rw for x in neighbours(x0, 8)], 17,
         note="gamma/R2/nan_exponent: E = a log x - x - lgamma(a) is NaN at a ~ 4e305")
+    # 13. T2 completion (#82): seam buckets the audit found empty.
+    def _x_for_aphi(a, target, upper):
+        lo, hi = (a, a * 1e6) if upper else (a * 1e-300, a)
+        for _ in range(400):
+            mid = math.sqrt(lo * hi)
+            v = a * (mid / a - 1.0 - math.log(mid / a))
+            if (v < target) == upper:
+                lo = mid
+            else:
+                hi = mid
+        return math.sqrt(lo * hi)
+    zhi = [_x_for_aphi(a, 812.25, up) for a in (50.0, 500.0, 5e4) for up in (False, True)]
+    zhi_a = [a for a in (50.0, 500.0, 5e4) for _ in (0, 1)]
+    add("seam:tail_zhi:bits",
+        lambda r, n: [(a, x) for a, x0 in zip(zhi_a, zhi) for x in neighbours(x0, 12)], 6 * 25,
+        "tail_zhi", note="a*phi = 812.25 inside saturation: results 0 / subnormal")
+    tpa = 8.452712498170644e+270
+    add("seam:twopi_a_clamp:band",
+        lambda r, n: [(lambda a: (a, neighbours(a, 8)[r.randint(0, 16)]))(full_mantissa(r, tpa * 0.95, tpa * 1.05))
+                      for _ in range(n)], 400, "twopi_a_clamp",
+        note="x within 8 ulp of a keeps a*phi small at a ~ 8e270")
+
+    def _x_for_p(a, t):  # P ~ x^a / Gamma(1+a) for tiny x
+        return math.exp((math.log(t) + math.lgamma(1.0 + a)) / a)
+    mn = 2.0 ** -1022
+    add("seam:out_min_normal:bits",
+        lambda r, n: [(a, x) for a in (1.0, 0.98, 1.02) for x in neighbours(_x_for_p(a, mn), 24)], 3 * 49,
+        "out_min_normal", note="P at the min-normal output edge (a ~ 1: one x-ulp moves P one ulp)")
+    add("seam:out_min_normal:band",
+        lambda r, n: [(lambda a: (a, _x_for_p(a, mn * r.uniform(0.95, 1.05))))(r.uniform(0.97, 1.03))
+                      for _ in range(n)], 400, "out_min_normal")
     return out
+
+
+# ---- seam-audit fields (#82 T2; tools/hunt/seam_audit.py docstring) ----------
+def _audit_E(r):
+    """E = a log x - x - lgamma(a), the R1/R2 prefactor exponent (float)."""
+    a, x = r["a"], r["x"]
+    if not (a > 0 and x > 0):
+        return None
+    return a * math.log(x) - x - math.lgamma(a)
+
+
+def _result(r):
+    """The smaller side, the one the output-band seams are about."""
+    v = min(r["P"], r["Q"])
+    return v if math.isfinite(v) and v >= 0 else None
+
+
+_AUDIT = {
+    "x_eq_a_plus_1": {"audit_f": lambda r: r["x"] / (r["a"] + 1.0) if r["a"] < A_T else None,
+                      "audit_value": 1.0},
+    "expfloor_r1": {"audit_f": lambda r: (_audit_E(r) - math.log(r["a"]))
+                    if region(r["a"], r["x"]) == "R1" and _audit_E(r) is not None else None,
+                    "audit_value": -800.0},
+    "expfloor_r2": {"audit_f": lambda r: _audit_E(r) if region(r["a"], r["x"]) == "R2" else None,
+                    "audit_value": -800.0},
+    "out_min_normal": {"audit_f": _result},
+    "out_zero": {"audit_f": _result, "sides": "above"},
+    "freeze_eps": {"internal": "per-term freeze on term/sum inside the series and CF loops; "
+                               "the census routes gamma/R1 and gamma/R2 cover the loops"},
+    "loop_shapes": {"internal": "fixed iteration depths, no threshold on any input"},
+}
+for _s in SEAMS:
+    _s.update(_AUDIT.get(_s["name"], {}))

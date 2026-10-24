@@ -935,4 +935,79 @@ def strata():
                "R2 moderate shapes around the mean; complement 0-ULP cell (#76)")
     S += _pair("witness:r2_complement", g_witness, 33, None,
                "beta_p(0x1.7ebfd5597637bp+4, 0x1.390d72284b741p+4, 0x1.1e9d7495b0b32p-1) 1 ULP in a 0 cell")
+    # T2 completion (#82): two_pi_nu_clamp had bits only. a = b = 2 nu at
+    # x = 1/2 puts lambda at 0, so the band stays out of saturation.
+    S += _pair("seam:two_pi_nu_clamp:band",
+               lambda rng, n: [(lambda a: (a, a, 0.5))(2.0 * full_mantissa(rng, TWO_PI_NU_CLAMP * 0.95,
+                                                                             TWO_PI_NU_CLAMP * 1.05))
+                               for _ in range(n)], 200, "two_pi_nu_clamp")
     return S
+
+
+# ---- seam-audit fields (#82 T2; tools/hunt/seam_audit.py docstring) ----------
+def _regions(r):
+    try:
+        return dict(route(r["a"], r["b"], r["x"]))
+    except (ZeroDivisionError, ValueError, OverflowError):
+        return {}
+
+
+def _nu(r):
+    return 1.0 / (1.0 / r["a"] + 1.0 / r["b"])
+
+
+def _r4_window(r):
+    a, b, x = r["a"], r["b"], r["x"]
+    tau = min(a, b)
+    xt = 1.0 - x if b < a else x
+    return tau * abs(math.log(xt)) if tau <= EPS_R4 and 0 < xt < 1 else None
+
+
+def _r1_frame(r):
+    """(alpha, R1 value) in R1's own frame, for R1 rows only."""
+    reg = _regions(r)
+    if "R1" not in reg:
+        return None
+    a, b, x = r["a"], r["b"], r["x"]
+    return (b, approx_I(b, a, 1.0 - x)) if reg["R1"] else (a, approx_I(a, b, x))
+
+
+def _gl(r):
+    """(s, N, x_s) for gamma-limit-slice rows: s the small shape."""
+    a, b, x = r["a"], r["b"], r["x"]
+    if not (max(a, b) >= GAMMA_LIM > min(a, b)):
+        return None
+    return (a, b, x) if a < b else (b, a, 1.0 - x)
+
+
+def _gl_t(r):
+    g = _gl(r)
+    if g is None or g[0] >= GAMMA_AT:
+        return None
+    s, N, xs = g
+    return xs * (N + (s - 1.0) / 2.0) / (s + 1.0)
+
+
+_AUDIT = {
+    "r4_ln2": {"audit_f": _r4_window},
+    "r2_thr": {"audit_f": lambda r: r["x"] / ((r["a"] + 1.0) / (r["a"] + r["b"] + 2.0)),
+               "audit_value": 1.0},
+    "near_one": {"audit_f": lambda r: (_r1_frame(r) or (None, None))[1]},
+    "pr_tau_max": {"audit_f": lambda r: (_r1_frame(r) or (None, None))[0]},
+    "r4_tau1": {"audit_f": lambda r: (_r1_frame(r) or (None, None))[0]},
+    "tridge_nu": {"audit_f": _nu},
+    "two_pi_nu_clamp": {"audit_f": _nu},
+    "band_rat1_lo": {"audit_f": lambda r: r["x"] * (r["a"] + r["b"]) / r["a"]},
+    "band_rat1_hi": {"audit_f": lambda r: r["x"] * (r["a"] + r["b"]) / r["a"]},
+    "band_rat2_lo": {"audit_f": lambda r: (1.0 - r["x"]) * (r["a"] + r["b"]) / r["b"]},
+    "band_rat2_hi": {"audit_f": lambda r: (1.0 - r["x"]) * (r["a"] + r["b"]) / r["b"]},
+    "z2split": {"audit_f": lambda r: cpsi_f(r["a"], r["b"], r["x"])},
+    "r3_sat": {"audit_f": lambda r: cpsi_f(r["a"], r["b"], r["x"])},
+    "gl_ridge": {"audit_f": lambda r: _nu(r) if max(r["a"], r["b"]) >= GAMMA_LIM else None},
+    "gl_ser_cf": {"audit_f": _gl_t, "audit_value": 1.0},
+    "gl_at": {"audit_f": lambda r: (_gl(r) or (None,))[0]},
+    "gl_sat": {"route": "beta/GL/saturated"},
+    "b_tiny_cut": {"audit_f": lambda r: max(r["a"], r["b"]) if "R4" in _regions(r) else None},
+}
+for _s in SEAMS:
+    _s.update(_AUDIT.get(_s["name"], {}))

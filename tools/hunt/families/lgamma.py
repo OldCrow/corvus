@@ -163,3 +163,10 @@ def strata():
     ]
     return out
 
+
+# ---- seam-audit fields (#82 T2; tools/hunt/seam_audit.py docstring) ----------
+for _s in SEAMS:
+    if _s["name"] == "max_arg":
+        # Above it the result is +inf by construction, an exact-match special
+        # (route lgamma/special/overflow, exercised by the census grid).
+        _s["sides"] = "below"

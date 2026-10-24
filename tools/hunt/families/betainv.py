@@ -30,7 +30,7 @@ from mpmath import mpf
 from core import Stratum, full_mantissa, log_uniform, neighbours, subnormal
 from ._beta_oracles import (approx_I, beta_inv_root, betainc_pq_cf, ln_beta)
 from .beta import (B1, GAMMA_LIM, GL_RIDGE_MIN, NEAR_ONE, XI1, ln_I_left,
-                   shapes_nu_ratio, x_for_cpsi)
+                   cpsi_f, shapes_nu_ratio, x_for_cpsi)
 
 DEEP_SMALL_CUT = 2.0 ** -60          # kBetaInvDeepSmallCut (betainv_data.h)
 S3_MIN = 2.0 ** 20                   # kBetaInvS3Min
@@ -375,4 +375,109 @@ def strata():
                  "huge-nu tail-p rows")
     S += _pstrat("dense:huge_nu_mid", d_huge_nu(1e20, 1e40, False), 150, "huge_nu")
     S += _pstrat("dense:moderate", d_moderate, 1200)
+    return S + _t2_strata()
+
+
+# ---- T2 completion strata (#82): bit neighbourhoods the audit found empty ----
+def _exact_target(a, b, x, fn):
+    """The rounded p or q whose root is x to within an ulp or so: the target
+    from the exact forward (the float approx_I cannot hold a root to 64 ulp)."""
+    from ._beta_oracles import betainc_pq
+    with mp.workdps(40):
+        P, Q = betainc_pq(a, b, x, 30)
+        t = float(P if fn == "beta_p_inv" else Q)
+    return t if 0 < t < 1 else None
+
+
+def _root_bits(points):
+    """points: [(a, b, x0)] -> per-fn generator of (a, b, target) rows whose
+    roots step through x0's bit neighbourhood."""
+    def per_fn(fn):
+        def g(rng, n):
+            rows = []
+            for a, b, x0 in points:
+                for x in neighbours(x0, 12):
+                    t = _exact_target(a, b, x, fn)
+                    if t is not None:
+                        rows.append((a, b, t))
+            return _take(rng, rows, n)
+        return g
+    return per_fn
+
+
+def _shape_bits(shapes, targets):
+    """[(a, b)] stepped by the caller -> rows crossed with fixed targets."""
+    return lambda rng, n: _take(rng, [(a, b, s) for a, b in shapes for s in targets], n)
+
+
+def _t2_strata():
+    S = []
+    S += _pstrat("seam:fwd_xi1:bits", _root_bits([(2.0, 5.0, XI1), (0.7, 3.0, XI1), (5.0, 12.0, XI1)]),
+                 3 * 25, "fwd_xi1", per_fn=True, raw=True)
+    S += _pstrat("seam:fwd_b1:bits", _root_bits([(1.5, 16.0, 0.5), (3.0, 20.0, 0.4), (1.2, 40.0, 0.2)]),
+                 3 * 25, "fwd_b1", per_fn=True, raw=True)
+    z2 = [(a, b, x_for_cpsi(a, b, 36.0, up)) for a, b, up in ((40.0, 60.0, False), (200.0, 90.0, True),
+                                                             (1e4, 3e4, False))]
+    S += _pstrat("seam:fwd_z2split:bits", _root_bits(z2), 3 * 25, "fwd_z2split", per_fn=True, raw=True)
+    tg = (1e-5, 0.3, 0.7)
+    S += _pstrat("seam:s3_min:bits",
+                 _shape_bits([(m, w) for w in (0.5, 30.0) for m in neighbours(2.0 ** 20, 16)]
+                             + [(w, m) for w in (1e4,) for m in neighbours(2.0 ** 20, 16)], tg),
+                 3 * 99, "s3_min", raw=True)
+    S += _pstrat("seam:s1_nu_min:bits",
+                 _shape_bits([(a, 4.0) for a in neighbours(4.0, 16)]
+                             + [(a, 6.0) for a in neighbours(3.0, 16)], tg),
+                 3 * 66, "s1_nu_min", raw=True)
+    S += _pstrat("seam:huge_nu:bits",
+                 _shape_bits([(a, 2e31) for a in neighbours(2e31, 16)], (0.3, 0.5, 1e-5)),
+                 3 * 33, "huge_nu", raw=True)
+    a20 = 20.0 / (1.0 - 20.0 / 2.0 ** 60)
+    S += _pstrat("seam:fwd_gl_ridge:bits",
+                 _shape_bits([(a, 2.0 ** 60) for a in neighbours(a20, 16)], (1e-5, 0.3, 0.7)),
+                 3 * 33, "fwd_gl_ridge", raw=True)
     return S
+
+
+# ---- seam-audit fields (#82 T2; tools/hunt/seam_audit.py docstring) ----------
+def _nu_r(r):
+    return 1.0 / (1.0 / r["a"] + 1.0 / r["b"])
+
+
+def _p_of(r):
+    """The lower-tail target of a reference row (betainv_q files store q)."""
+    return 1.0 - r["s"] if r["file"].endswith("_q") else r["s"]
+
+
+def _tie(r):
+    """|target - side(1/2)|; float first, the exact forward near the seam
+    (the float approx_I cannot resolve 64 ulp of 9e-13)."""
+    a, b = r["a"], r["b"]
+    if a + b > 1e7:
+        return None
+    side_q = r["file"].endswith("_q")
+    c = abs(r["s"] - (1.0 - approx_I(a, b, 0.5) if side_q else approx_I(a, b, 0.5)))
+    if abs(c - TIE_BAND) > 1e-11:
+        return c
+    from ._beta_oracles import betainc_pq
+    with mp.workdps(40):
+        P, Q = betainc_pq(a, b, 0.5, 30)
+        return float(abs(mp.mpf(r["s"]) - (Q if side_q else P)))
+
+
+_AUDIT = {
+    "fwd_r2_thr": {"audit_f": lambda r: r["root x"] / ((r["a"] + 1.0) / (r["a"] + r["b"] + 2.0)),
+                   "audit_value": 1.0},
+    "fwd_z2split": {"audit_f": lambda r: cpsi_f(r["a"], r["b"], r["root x"])},
+    "fwd_gl_ridge": {"audit_f": lambda r: _nu_r(r) if max(r["a"], r["b"]) >= GAMMA_LIM else None},
+    "deep_small": {"route": "betainv/deep-small"},
+    "s1_nu_min": {"audit_f": _nu_r},
+    "huge_nu": {"audit_f": _nu_r},
+    # The coordinate moves in steps of ulp(p) ~ 2^-53 near 1/2, far coarser
+    # than 64 ulp of 2^-40: the bits window is 64 of those steps.
+    "tie_band": {"audit_f": _tie, "window": 64 * 2.0 ** -53},
+    "near_one_log": {"route": "betainv/fwd/near-one"},
+    "pa_scale": {"internal": "max(|E|, |ln B|) is a prescale test inside the forward's "
+                             "PA assembly; the census marks the PA form, not this threshold"},
+}
+for _s in SEAMS:
+    _s.update(_AUDIT.get(_s["name"], {}))

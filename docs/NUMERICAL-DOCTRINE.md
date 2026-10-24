@@ -198,6 +198,17 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   breaks a published bound sits in a `deferred:#NN` section that names
   its issue: counted, not gated, until the fix row deletes the section
   header and shows the gate failing first with `CORVUS_REF_DEFERRED=1`.
+- **Every kernel threshold is a registered seam with populated buckets**
+  (#82 T2). Each threshold a kernel compares against (a data-table
+  constant, a region edge, a saturation or clamp level) is a SEAMS entry
+  in its hunt family. `tools/hunt/seam_audit.py` must report rows within
+  64 ulp of it and in a 5% band on each side. A seam whose coordinate
+  needs the router's orientation or an expression carries `audit_f`. A
+  domain edge names the one side that exists (`sides`). A threshold on a
+  loop-internal quantity names the census route that marks it (`route`)
+  or, failing that, states why no row can carry it (`internal`). A new
+  kernel constant gets its SEAMS entry and strata in the same commit, and
+  the audit exits 0.
 - **Every kernel route carries a census marker** (#82 T7,
   `src/route_census.h`). A router region, a sub-map branch, a rare-path
   block, a saturation or clamp, or a special-value fixup gets

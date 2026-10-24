@@ -204,3 +204,9 @@ def strata():
         _st("erfcinv", "subnormal", lambda r, n: [(subnormal(r),) for _ in range(n)], 3000),
     ]
     return out
+
+
+# ---- seam-audit fields (#82 T2; tools/hunt/seam_audit.py docstring) ----------
+for _s in SEAMS:
+    if _s["name"] in ("y_to_1", "z_to_2"):
+        _s["sides"] = "below"  # |y| <= 1 and z <= 2: the domain ends there

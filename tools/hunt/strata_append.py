@@ -17,7 +17,8 @@ The per-stratum counts go to tests/data/ref_counts.txt, which LoadRef
 
 Every row is certified: the first oracle at 40 digits gives the correctly
 rounded value; the second form (or the first at 80 digits) must round to the
-same double, with residuals agreeing to 1e-6 ulp. A row that fails is dropped
+same double, with residuals agreeing to 1e-4 ulp and inside the rounding cell
+by that margin. A row that fails is dropped
 and counted. The kernel is then run through tests/hunt_probe on every tier
 in core.TIERS; a row whose integer ULP error exceeds its stratum's published
 bound on any tier moves to `# stratum deferred:?`. LoadRef fails on `?`:
@@ -60,6 +61,7 @@ DATA = REPO / "tests" / "data"
 COUNTS = DATA / "ref_counts.txt"
 CKPT_DIR = REPO.parent / "corvus-scratch" / "strata"
 SEED = 20261023
+AGREE = mpf("1e-4")   # two-form agreement that certifies a row, in ulps
 TIE = 1 / 32          # near_tie: distance to the rounding midpoint, in ulps
 TIE_ROWS, TIE_POOL = 128, 1024
 CAPS = {"bits": 48, "band": 80, "other": 120}  # rows per hunt stratum
@@ -125,7 +127,12 @@ def _exact(fn, args):
         r2 = annotate._residual(v2, cr)
     if r1 is None or r2 is None:
         return None, None, "special-value disagreement"
-    if abs(r1 - r2) > mpf("1e-6") or abs(r2) > mpf(0.5) + annotate.HALF_SLACK:
+    # Certified when the forms agree to AGREE ulp and the residual stays
+    # inside the rounding cell by that margin: then the side of the midpoint
+    # is known. (The two Temme fits for large a agree to ~3e-6 ulp, 1e-22
+    # relative, which the old 1e-6 cut dropped.)
+    tol = abs(r1 - r2)
+    if tol > AGREE or abs(r2) + tol > mpf(0.5) + annotate.HALF_SLACK:
         return None, None, f"forms disagree: r {mp.nstr(r1, 8)} vs {mp.nstr(r2, 8)}"
     return cr, float(r2), form
 

@@ -175,3 +175,9 @@ def strata():
                 lambda r, n: [(_signed(r, log_uniform(r, 720.0, DBL_MAX)),) for _ in range(n)],
                 600, own=False))
     return out
+
+
+# ---- seam-audit fields (#82 T2; tools/hunt/seam_audit.py docstring) ----------
+for _s in SEAMS:
+    if _s["name"] == "dbl_max":
+        _s["sides"] = "below"  # no double above DBL_MAX

@@ -268,4 +268,52 @@ def strata():
           (float.fromhex("0x1.d0b296b5b1b25p-4"), float.fromhex("0x1.d8620a769c840p-7"))]
     add("witness:route_reject_nan", lambda r, n: list(rw), len(rw),
         note="gammainv/bracket/reject_nan at ordinary shapes (correctly rounded)")
+    # 12. T2 completion (#82): seam buckets the audit found empty.
+    cfa = 6.696928794914171e+299
+    add("seam:cf_amax:band",
+        lambda r, n: [(full_mantissa(r, cfa * 0.95, cfa * 1.05), s_mixed(r)) for _ in range(n)], 400,
+        seam="cf_amax")
+    add("seam:beyond_resolution:bits",
+        lambda r, n: [(a, s) for a in neighbours(3e34, 16) for s in (0.3, 1e-5, 0.7)], 3 * 33,
+        seam="beyond_resolution")
+    add("seam:beyond_resolution:band",
+        lambda r, n: [(full_mantissa(r, 3e34 * 0.95, 3e34 * 1.05), s_mixed(r)) for _ in range(n)], 400,
+        seam="beyond_resolution")
     return out
+
+
+# ---- seam-audit fields (#82 T2; tools/hunt/seam_audit.py docstring) ----------
+def _q_of(r):
+    """The Q-side target of a reference row (gammainv_q files store q)."""
+    return r["s"] if r["file"].endswith("_q") else 1.0 - r["s"]
+
+
+def _s3_ratio(r):
+    a, q = r["a"], _q_of(r)
+    if not (0 < q and a > 0 and a != 1.0):
+        return None
+    L = -(math.log(q) + math.lgamma(a))
+    return L / abs(a - 1.0)
+
+
+def _eta0(r):
+    a, q = r["a"], _q_of(r)
+    if not (0 < q < 1 and a > 0):
+        return None
+    import mpmath as mp
+    with mp.workdps(30):
+        return abs(float(mp.erfinv(1 - 2 * mp.mpf(q)) * mp.sqrt(2 / mp.mpf(a))))
+
+
+_AUDIT = {
+    "s3_gate": {"audit_f": _s3_ratio},
+    "eta_max": {"audit_f": _eta0},
+    "eta_series_cut": {"audit_f": _eta0},  # the S1 seed's eta, as the kernel cuts
+    "out_zero": {"sides": "above"},
+    "bracket_entry": {"route": "gammainv/bracket"},
+    "shallow": {"internal": "emitted by the generator, not read by the kernel"},
+    "bracket_ylim": {"internal": "the bracket's log-x limits; the bracket is barred for "
+                                 "a >= 1e16, and a root near e^709 needs a ~ 1e308"},
+}
+for _s in SEAMS:
+    _s.update(_AUDIT.get(_s["name"], {}))
