@@ -180,6 +180,8 @@ int main(int argc, char* const* argv) {
                         static_cast<double>(neg_small_n)
                   : 0.0,
       neg_small_worst_x);
+  rc |= corvus_test::CheckBound(path, "lgamma", "neg abs(lg)<1", "abs53",
+                                kMaxAbsNegSmall / 0x1p-53);
   if (neg_small_abs > kMaxAbsNegSmall) {
     std::fprintf(stderr, "FAIL: neg |lg|<1 exceeds absolute gate\n");
     rc = 1;

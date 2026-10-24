@@ -36,6 +36,16 @@ corvus_test_target(hunt_probe)
 # src/route_census.h in a census build (#82 T7).
 target_include_directories(hunt_probe PRIVATE ${PROJECT_SOURCE_DIR})
 
+# #82 T6: the docs' bound claims against tests/data/bounds.txt, the table the
+# ULP gates are held to (CheckBound in ulp_utils.h).
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+  add_test(NAME claims_check
+    COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/claims_check.py)
+else()
+  message(STATUS "corvus: no Python 3 interpreter; the claims_check test is skipped")
+endif()
+
 # #36: the Windows toolchain verdicts, in script mode so every leg runs them.
 add_test(NAME toolchain_guard
   COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchain_guard_test.cmake)

@@ -188,6 +188,8 @@ int main(int argc, char* const* argv) {
                         static_cast<double>(neg_small_n)
                   : 0.0,
       neg_small_worst_x);
+  rc |= corvus_test::CheckBound(path, "digamma", "neg abs(psi)<1", "abs53",
+                                kMaxAbsUnits);
   if (neg_small_abs > kMaxAbsUnits * kAbsUnit) {
     std::fprintf(stderr, "FAIL: neg |psi|<1 exceeds absolute gate\n");
     rc = 1;

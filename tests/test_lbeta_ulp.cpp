@@ -184,6 +184,7 @@ int main(int argc, char* const* argv) {
     std::fprintf(stderr, "FAIL: big band exceeds gate\n");
     rc = 1;
   }
+  rc |= corvus_test::CheckBound(path, "lbeta", "absolute", "abs53", kMaxAbs53);
   if (abs_max > kMaxAbs53) {
     std::fprintf(stderr, "FAIL: absolute band exceeds gate\n");
     rc = 1;

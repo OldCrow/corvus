@@ -374,8 +374,74 @@ inline bool PinReport() { return EnvFlag("CORVUS_REAL_PIN_REPORT"); }
 
 // Prints the region's real-error line and enforces both ceilings. Returns
 // 0 on pass, 1 on failure. `ref_path` locates real_pins.txt beside it.
+// ---- bound table (#82 T6) ---------------------------------------------------
+// tests/data/bounds.txt, `gate|region|unit|gate|published|claim[|issue]`, is
+// the one statement of every gated bound: the gates must pass exactly its
+// gate field (CheckBound), and tools/claims_check.py holds the docs to its
+// published field. A gate change that does not edit the table fails here.
+struct BoundRow {
+  std::string unit;
+  double gate;
+};
+
+inline const std::vector<std::pair<std::string, BoundRow>>& Bounds(
+    const char* ref_path) {
+  static std::vector<std::pair<std::string, BoundRow>> rows;
+  static bool loaded = false;
+  if (loaded) return rows;
+  loaded = true;
+  const std::string p = SiblingPath(ref_path, "bounds.txt");
+  std::ifstream f(p);
+  if (!f) {
+    std::fprintf(stderr, "cannot open bound table: %s\n", p.c_str());
+    std::exit(2);
+  }
+  std::string line;
+  size_t lineno = 0;
+  while (std::getline(f, line)) {
+    ++lineno;
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    if (line.empty() || line[0] == '#') continue;
+    std::vector<std::string> fld;
+    for (size_t at = 0;;) {
+      const size_t bar = line.find('|', at);
+      fld.push_back(line.substr(at, bar - at));
+      if (bar == std::string::npos) break;
+      at = bar + 1;
+    }
+    if (fld.size() < 6 || fld.size() > 7) {
+      std::fprintf(stderr, "%s:%zu: expected gate|region|unit|gate|published|claim[|issue]\n",
+                   p.c_str(), lineno);
+      std::exit(2);
+    }
+    rows.emplace_back(fld[0] + "|" + fld[1],
+                      BoundRow{fld[2], ParseDouble(fld[3], p.c_str(), lineno)});
+  }
+  return rows;
+}
+
+// 0 when (gate, region) is in the bound table with this unit and gate value.
+inline int CheckBound(const char* ref_path, const char* gate, const char* region,
+                      const char* unit, double bound) {
+  const std::string key = std::string(gate) + "|" + region;
+  std::printf("BOUND %s|%s|%g\n", key.c_str(), unit, bound);
+  for (const auto& kv : Bounds(ref_path)) {
+    if (kv.first != key) continue;
+    if (kv.second.unit == unit && kv.second.gate == bound) return 0;
+    std::fprintf(stderr,
+                 "FAIL: %s: the gate enforces %g %s, tests/data/bounds.txt says "
+                 "%g %s\n",
+                 key.c_str(), bound, unit, kv.second.gate, kv.second.unit.c_str());
+    return 1;
+  }
+  std::fprintf(stderr, "FAIL: %s: no row in tests/data/bounds.txt\n", key.c_str());
+  return 1;
+}
+
 inline int CheckReal(const char* ref_path, const char* gate, const char* region,
                      uint64_t bound, const RealMax& m) {
+  const int bound_rc =
+      CheckBound(ref_path, gate, region, "ulp", static_cast<double>(bound));
   const char* cls = TierClass();
   if (std::strchr(gate, '|') != nullptr || std::strchr(region, '|') != nullptr) {
     std::fprintf(stderr, "%s / %s: '|' separates pin-file fields\n", gate,
@@ -397,7 +463,7 @@ inline int CheckReal(const char* ref_path, const char* gate, const char* region,
               m.max, contract, pin_s,
               pin && !pin->issue.empty() ? "  known: " : "",
               pin ? pin->issue.c_str() : "");
-  int rc = 0;
+  int rc = bound_rc;
   if (m.missing) {
     std::fprintf(stderr, "FAIL: %s %s: %zu rows carry no residual (r=)\n",
                  gate, region, m.missing);

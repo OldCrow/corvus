@@ -236,8 +236,37 @@ performance.**
         gamma and gammainv now drop no row; betainv still drops about 370
         rows where its second form is badly wrong (residuals 1e287 to
         1e311).
-    - **Order of the rest of 12-T [proposed 2026-10-22]:** T1, T3, T7, T2
-      (done) → **NEXT: T6** (claims check, by 12j) → T4 phase 1.
+    - **T6 DONE 2026-10-24** (uncommitted at write time; 36/36 on
+      AVX3_ZEN4, SSE4 and SSE2; the new test is `claims_check`). Rule: the
+      doctrine test rule ("every bound has one statement"); table semantics
+      in the `tests/data/bounds.txt` header. [DERIVED]
+      - `tests/data/bounds.txt` has 117 rows. Each holds gate|region, unit
+        (ulp or abs53), the enforced gate bound, the published contract and
+        a claim id. It was generated from the gates' own PIN lines plus the
+        three absolute bands.
+      - CheckReal / CheckBound fail on any bound the table does not hold.
+        Negative controls fire: a changed gate value, a missing row, a
+        changed absolute band.
+      - `tools/claims_check.py` (ctest `claims_check`) covers 38 claims,
+        with 95 markers across README, USER-GUIDE, corvus.h and
+        ACCURACY.md. Every claim is marked in ACCURACY.md, and every
+        "max N ULP" phrase in the contract docs is marked. Negative
+        controls fire: a wrong number, a changed published value, a
+        removed marker.
+      - Known mismatches, all #76 and corrected in 12j:
+        - gammainv deep-small and subnormal results claimed CR, gate 1
+          (M-6);
+        - trigamma on (0, 1) claimed CR, gate 1 (M-8);
+        - README's "continued-fraction ... correctly rounded" for beta,
+          where R2's direct side is 1;
+        - USER-GUIDE's stale "gamma_q: 4 in one band" (R4 has been 1
+          since #67).
+        Row 12j removes each #76 tag as it corrects the text.
+      - USER-GUIDE wording: "2 in erfc's far tail" now reads "2 ULP in
+        erfc's far tail" (unit only, so the checker can read it).
+    - **Order of the rest of 12-T [proposed 2026-10-22]:** T1, T3, T7, T2,
+      T6 (done) → **NEXT: T4 phase 1** (FLOOR: arguments where operands
+      reach the ProdLow floor) → the 12d–12k fix rows.
   - Pilot results 2026-10-22, no new defects:
     - Subnormal inputs in 13 unary families are clean.
     - `beta_p_inv`/`beta_q_inv` at subnormal targets: CR where certified.

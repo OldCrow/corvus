@@ -45,6 +45,13 @@ error and enforces two ceilings per tier class (FMA, no-FMA):
 A pin above its contract ceiling names the issue that tracks the defect;
 the fix lowers it.
 
+**One bound table (#82 T6).** Every gated region's enforced bound and its
+published contract live in `tests/data/bounds.txt`. The gates fail on a
+bound the table does not hold, and the `claims_check` test holds every
+marked bound statement in this file, README.md, USER-GUIDE.md and
+corvus.h to the table's published value. Statements already known to be
+wrong carry #76, the row that corrects them.
+
 **Strata (#82 T3).** Beyond each generator's own population, every public
 reference file carries an appendix drawn from the hunt strata: each kernel
 seam's bit-neighbourhood and a full-mantissa band on each side, subnormal
@@ -244,7 +251,7 @@ reaches AppleClang, whose default is `on`.
 
 ## erf
 
-**Bound: max 1 ULP over the full domain** (~98.7% correctly rounded on the
+<!-- claim: erf --> **Bound: max 1 ULP over the full domain** (~98.7% correctly rounded on the
 17,595-point reference). Until row 11 (#61) the reference held no
 subnormal x (smallest |x| ~1.7e-300), so the bound was ungated there;
 `gen_erf_reference.py --subnormal-append` added 3,001 subnormal rows
@@ -277,7 +284,7 @@ no-FMA tiers.
 
 ## erfc
 
-**Bounds: max 1 ULP for |x| ≤ 6; max 1 ULP for subnormal results; max
+**Bounds: <!-- claim: erfc.core --> max 1 ULP for |x| ≤ 6; <!-- claim: erfc.subnormal --> max 1 ULP for subnormal results; <!-- claim: erfc.tail --> max
 2 ULP for normal results with x > 6** (measured identical on every
 validated tier).
 
@@ -332,12 +339,12 @@ validated tier:**
 
 | Region | Bound | not-CR |
 |---|---|---|
-| 0 < x < ½ (one log shift) | 1 ULP | 0.04% |
-| ½ ≤ x ≤ 5/2 (the zeros) | 1 ULP | 0.78% |
-| 5/2 < x < 8 (recurrence) | 1 ULP | 0.11% |
-| x ≥ 8 (Stirling) | **0 ULP — correctly rounded** | 0.00% |
-| x < 0, \|lgamma\| ≥ 1 | 1 ULP | 0.03% |
-| x < 0, \|lgamma\| < 1 | 2^−53 **absolute** | 1.25% |
+| 0 < x < ½ (one log shift) | <!-- claim: lgamma.pos --> 1 ULP | 0.04% |
+| ½ ≤ x ≤ 5/2 (the zeros) | <!-- claim: lgamma.pos --> 1 ULP | 0.78% |
+| 5/2 < x < 8 (recurrence) | <!-- claim: lgamma.pos --> 1 ULP | 0.11% |
+| x ≥ 8 (Stirling) | <!-- claim: lgamma.stirling --> **0 ULP — correctly rounded** | 0.00% |
+| x < 0, \|lgamma\| ≥ 1 | <!-- claim: lgamma.neg --> 1 ULP | 0.03% |
+| x < 0, \|lgamma\| < 1 | <!-- claim: lgamma.neg_abs --> 2^−53 **absolute** | 1.25% |
 
 The last row is the only one not stated in ULP, and the reason is
 structural rather than a shortfall. On the positive axis lgamma has exactly
@@ -405,7 +412,7 @@ build, and both compilers were all green.
 
 ## erfinv and erfcinv
 
-**Bound: max 1 ULP everywhere on all five validated x86 tiers and NEON**,
+<!-- claim: erfinv --> **Bound: max 1 ULP everywhere on all five validated x86 tiers and NEON**,
 including the far tail down to the smallest subnormal `erfcinv` result and
 the bit-neighbourhood of `erfcinv`'s zero crossing at z = 1. NEON
 reproduces the x86 FMA-tier numbers point-for-point — same not-CR counts,
@@ -543,11 +550,11 @@ note under the validation matrix).
 
 | Region (direct side) | gamma_p | gamma_q |
 |---|---|---|
-| R1 series (P direct) | **1 ULP** (0.02% not-CR) | complement: 1 ULP (0.10%) |
-| R2 continued fraction (Q direct) | complement: **1 ULP** (erratum; ~0.4% not-CR near x = a+1) | **1 ULP** (0.04% not-CR) |
-| R3 Temme ridge (smaller side direct) | **2 ULP** (1 measured since #64) | **2 ULP** (1 measured since #64; was 3 near x = 2a) |
-| R3 complement | 1 ULP | 1 ULP |
-| R4 small-a (Q direct) | complement: **1 ULP** (erratum; 0.03% not-CR) | **1 ULP** (1.4% not-CR; was 4 before #67) |
+| R1 series (P direct) | <!-- claim: gamma.R1 --> **1 ULP** (0.02% not-CR) | complement: <!-- claim: gamma.R1 --> 1 ULP (0.10%) |
+| R2 continued fraction (Q direct) | complement: <!-- claim: gamma.R2 --> **1 ULP** (erratum; ~0.4% not-CR near x = a+1) | <!-- claim: gamma.R2 --> **1 ULP** (0.04% not-CR) |
+| R3 Temme ridge (smaller side direct) | <!-- claim: gamma.R3.dir --> **2 ULP** (1 measured since #64) | <!-- claim: gamma.R3.dir --> **2 ULP** (1 measured since #64; was 3 near x = 2a) |
+| R3 complement | <!-- claim: gamma.R3.cmp --> 1 ULP | <!-- claim: gamma.R3.cmp --> 1 ULP |
+| R4 small-a (Q direct) | complement: <!-- claim: gamma.R4 --> **1 ULP** (erratum; 0.03% not-CR) | <!-- claim: gamma.R4 --> **1 ULP** (1.4% not-CR; was 4 before #67) |
 
 **Erratum and open violations (row 12, 2026-10-20).** A dense re-score
 with two independent mpmath forms (AVX3_ZEN4) found that the R2 and R4
@@ -684,12 +691,12 @@ margin.
 
 | Region (direct side) | max ULP (dir) | complement |
 |---|---|---|
-| R1 power series | **1 ULP** (0.02% not-CR) | 1 ULP |
-| R2 continued fraction | **1 ULP** (0.03% not-CR) | 0 ULP (CR) |
-| R3 Temme ridge | **3 ULP** published; 1 measured since #69 (8–10% not-CR) | 1 ULP |
-| R4 tiny-min corner | **2 ULP** (≤1.3% not-CR) | 0 ULP (CR) |
-| R4 near-one post-route | **1 ULP** | 0 ULP (CR) |
-| R2 gamma-limit slice | **0 ULP** (CR) | 0 ULP (CR) |
+| R1 power series | <!-- claim: beta.R1 --> **1 ULP** (0.02% not-CR) | <!-- claim: beta.R1 --> 1 ULP |
+| R2 continued fraction | <!-- claim: beta.R2.dir --> **1 ULP** (0.03% not-CR) | <!-- claim: beta.R2.cmp --> 0 ULP (CR) |
+| R3 Temme ridge | <!-- claim: beta.R3.dir --> **3 ULP** published; 1 measured since #69 (8–10% not-CR) | <!-- claim: beta.R3.cmp --> 1 ULP |
+| R4 tiny-min corner | <!-- claim: beta.R4.dir --> **2 ULP** (≤1.3% not-CR) | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
+| R4 near-one post-route | <!-- claim: beta.R4pr.dir --> **1 ULP** | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
+| R2 gamma-limit slice | <!-- claim: beta.GL --> **0 ULP** (CR) | <!-- claim: beta.GL --> 0 ULP (CR) |
 
 R2-direct moved 0 → 1 ULP at the v0.6.0 single-rounding regeneration:
 the reference fix corrected one subnormal-Q row
@@ -895,12 +902,12 @@ counts, and the no-FMA capped tiers move only those counts by a few rows):
 
 | Region | Bound | not-CR |
 |---|---|---|
-| 0 < x < 1 (one up-step) | 1 ULP | 0.23% |
-| 1 ≤ x < 2 (the positive root) | 1 ULP | 5.28% |
-| 2 ≤ x < 8 (recurrence) | 1 ULP | 2.16% |
-| x ≥ 8 (asymptotic) | 1 ULP | 0.13% |
-| x < 0, \|ψ\| ≥ 1 | 1 ULP | 0.27% |
-| x < 0, \|ψ\| < 1 | 2^−53 **absolute** | 32.8% |
+| 0 < x < 1 (one up-step) | <!-- claim: digamma --> 1 ULP | 0.23% |
+| 1 ≤ x < 2 (the positive root) | <!-- claim: digamma --> 1 ULP | 5.28% |
+| 2 ≤ x < 8 (recurrence) | <!-- claim: digamma --> 1 ULP | 2.16% |
+| x ≥ 8 (asymptotic) | <!-- claim: digamma --> 1 ULP | 0.13% |
+| x < 0, \|ψ\| ≥ 1 | <!-- claim: digamma --> 1 ULP | 0.27% |
+| x < 0, \|ψ\| < 1 | <!-- claim: digamma.neg_abs --> 2^−53 **absolute** | 32.8% |
 
 The absolute band is lgamma's negative-axis doctrine, but the two axes
 trade places structurally. On the positive axis digamma's only zero,
@@ -967,11 +974,11 @@ counts; the capped no-FMA tiers move only those tallies):
 
 | Region | Bound | not-CR |
 |---|---|---|
-| 0 < x < 1 (one up-step) | **0 ULP — correctly rounded** | 0.00% |
-| 1 ≤ x < 2 (zone) | 1 ULP | 0.58% |
-| 2 ≤ x < 8 (recurrence) | 1 ULP | 2.97% |
-| x ≥ 8 (asymptotic) | 1 ULP | 0.69% |
-| x < 0 | 1 ULP | 0.22% |
+| 0 < x < 1 (one up-step) | <!-- claim: trigamma.pos01 --> **0 ULP — correctly rounded** | 0.00% |
+| 1 ≤ x < 2 (zone) | <!-- claim: trigamma --> 1 ULP | 0.58% |
+| 2 ≤ x < 8 (recurrence) | <!-- claim: trigamma --> 1 ULP | 2.97% |
+| x ≥ 8 (asymptotic) | <!-- claim: trigamma --> 1 ULP | 0.69% |
+| x < 0 | <!-- claim: trigamma --> 1 ULP | 0.22% |
 
 **One metric, everywhere.** ψ₁(x) = Σ 1/(x+n)² is a sum of squares —
 positive wherever finite — so unlike lgamma and digamma there is no
@@ -1040,13 +1047,13 @@ the other legs at CI):
 
 | Regime | Bound | not-CR (p / q) |
 |---|---|---|
-| deep-small closed form (x·(1+a) < 2⁻⁶⁰) | **0 ULP — correctly rounded** | 0.00% |
-| small-a seeds (a < 20), tail targets | 1 ULP | 0.28% / 0.09% |
-| small-a seeds, near-median targets | 1 ULP (measured 0) | 0.00% / 0.00% |
-| Temme seed (20 ≤ a ≲ 3·10³⁴) | 1 ULP | 0.16% / 0.38% |
-| beyond-resolution (a ≳ 3·10³⁴) | 1 ULP | 0.08% / 0.08% |
-| large-side inputs (s > ½, exact flip) | 1 ULP (measured 0) | 0.00% / 0.00% |
-| subnormal and zero results | **0 ULP — correctly rounded** | 0.00% |
+| deep-small closed form (x·(1+a) < 2⁻⁶⁰) | <!-- claim: gammainv.deep_small --> **0 ULP — correctly rounded** | 0.00% |
+| small-a seeds (a < 20), tail targets | <!-- claim: gammainv --> 1 ULP | 0.28% / 0.09% |
+| small-a seeds, near-median targets | <!-- claim: gammainv --> 1 ULP (measured 0) | 0.00% / 0.00% |
+| Temme seed (20 ≤ a ≲ 3·10³⁴) | <!-- claim: gammainv --> 1 ULP | 0.16% / 0.38% |
+| beyond-resolution (a ≳ 3·10³⁴) | <!-- claim: gammainv --> 1 ULP | 0.08% / 0.08% |
+| large-side inputs (s > ½, exact flip) | <!-- claim: gammainv --> 1 ULP (measured 0) | 0.00% / 0.00% |
+| subnormal and zero results | <!-- claim: gammainv.deep_small --> **0 ULP — correctly rounded** | 0.00% |
 
 **Small a on the upper tail, closed (#48).** For a below ~0.5 and
 targets with q/a between ~0.01 and ~100 no seed applied: S1 is barred
@@ -1135,14 +1142,14 @@ capped AVX2/SSE4/SSSE3/SSE2 sweep, Linux CI, NEON, and MSVC AVX2 (row
 
 | Regime | Bound |
 |---|---|
-| deep-small closed form, both ends | 1 ULP (erratum, see below) |
-| small-parameter seeds (series / closed-form / logit-normal) | 1 ULP |
-| Temme ridge | 1 ULP |
-| gamma-limit transfer (max(a,b) ≳ 10⁶) | 1 ULP |
-| huge-ν band (ν = ab/(a+b) ≥ 10³¹) | 1 ULP |
-| beyond-resolution rows (transition < 1 ulp of x) | ≤ 2 ULP vs the certified answer (neighbour semantics) |
+| deep-small closed form, both ends | <!-- claim: betainv --> 1 ULP (erratum, see below) |
+| small-parameter seeds (series / closed-form / logit-normal) | <!-- claim: betainv --> 1 ULP |
+| Temme ridge | <!-- claim: betainv --> 1 ULP |
+| gamma-limit transfer (max(a,b) ≳ 10⁶) | <!-- claim: betainv --> 1 ULP |
+| huge-ν band (ν = ab/(a+b) ≥ 10³¹) | <!-- claim: betainv --> 1 ULP |
+| beyond-resolution rows (transition < 1 ulp of x) | <!-- claim: betainv.B --> ≤ 2 ULP vs the certified answer (neighbour semantics) |
 | conditioning-limited band (κ > 2¹⁸, see below) | backward error ≤ 1 ulp(p), true forward — 752/752 inside certified intervals |
-| subnormal x and x = 1 results | 1 ULP (erratum, see below) |
+| subnormal x and x = 1 results | <!-- claim: betainv --> 1 ULP (erratum, see below) |
 
 **Both ends of [0, 1] are lossless.** The input side is flipped
 exactly (s = min(p, 1−p), Sterbenz), and the *output* end is chosen by
@@ -1283,7 +1290,7 @@ handling.)
 
 ## i0, i1, i0e, i1e
 
-**Bound: max 1 ULP over the full real axis, every function, every
+<!-- claim: bessel --> **Bound: max 1 ULP over the full real axis, every function, every
 region, every tier** — the first family since erf with a single
 uniform bound and no conditioning caveats. Gate pinned at 1 with no
 margin.
@@ -1362,13 +1369,13 @@ underflow on finite doubles (minimum ≈ 3·10⁻¹⁵⁵ at DBL_MAX).
 
 ## lbeta
 
-**Bound: CORRECTLY ROUNDED on every measured row of every band** — the
+<!-- claim: lbeta.relative --> **Bound: CORRECTLY ROUNDED on every measured row of every band** — the
 strongest result in the library. Relative metric where |ln B| ≥ 1:
 max 0 ULP (4,801 rows, gate pinned at 0; 232 of them the both-subnormal
 family added with #59's `DdDivDd` floor, which took SSE4 from 65,836 ULP
 there to 0). The band around ln B's zero
 curve through (1,1), where the result itself is relative-ill-conditioned:
-max 0.500·2^−53 absolute — the final rounding itself (gate 0.5·2^−53).
+<!-- claim: lbeta.abs --> max 0.500·2^−53 absolute — the final rounding itself (gate 0.5·2^−53).
 Both-parameters-huge band (min > 2^990): 0 ULP. True values below
 −DBL_MAX round to −inf exactly (44 bit-stepped boundary rows).
 
@@ -1407,7 +1414,7 @@ ln B implementation.
 
 ## cos and sin
 
-**Bound: max 1 ULP over the FULL double range, both functions, every
+<!-- claim: trig --> **Bound: max 1 ULP over the FULL double range, both functions, every
 region, every validated tier — including the non-FMA tiers.** Gate
 pinned at 1 with no margin, in four buckets per function (small/huge ×
 sign; 14,630 rows per function shared row-for-row). The donor kernel's
@@ -1450,9 +1457,9 @@ every lane position (smoke-asserted per position).
 
 ## exp, log, log1p
 
-**Bound: correctly rounded on every reference row for log and log1p
-(gate pinned at 0 ULP); exp correctly rounded on every normal-result
-row (gate 0) and max 1 ULP in the subnormal-output band, with both
+<!-- claim: log --> **Bound: correctly rounded on every reference row for log and log1p
+(gate pinned at 0 ULP); <!-- claim: exp.normal --> exp correctly rounded on every normal-result
+row (gate 0) and <!-- claim: exp.subnormal --> max 1 ULP in the subnormal-output band, with both
 saturation boundaries exact** — measured identically (bucket-for-
 bucket, row-for-row) on AVX3_ZEN4 native and the SSE2 cap. These are
 the tightest gates in the library; the theoretical statement behind

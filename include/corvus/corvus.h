@@ -58,14 +58,14 @@ inline constexpr int kVersionPatch = 0;
 
 /// \brief out[i] = erf(in[i]).
 ///
-/// Max 1 ULP over the full domain on validated tiers. Specials: erf(+/-0)
+/// <!-- claim: erf --> Max 1 ULP over the full domain on validated tiers. Specials: erf(+/-0)
 /// = +/-0, erf(+/-inf) = +/-1, NaN propagates (payload preserved).
 void erf(std::span<const double> in, std::span<double> out) noexcept;
 
 /// \brief out[i] = erfc(in[i]).
 ///
-/// Accuracy on validated tiers: max 1 ULP for |x| <= 6 and for subnormal
-/// results; max 2 ULP for normal-result x > 6 (bounded by the tail
+/// Accuracy on validated tiers: <!-- claim: erfc.core erfc.subnormal --> max 1 ULP for |x| <= 6 and for subnormal
+/// results; <!-- claim: erfc.tail --> max 2 ULP for normal-result x > 6 (bounded by the tail
 /// polynomial fit; see docs/ACCURACY.md). Specials: erfc(-inf) = 2,
 /// erfc(+inf) = 0, results underflow gradually past x ~ 26.5, NaN
 /// propagates (payload preserved).
@@ -220,8 +220,8 @@ void beta_q(std::span<const double> a, std::span<const double> b,
 /// them.) Computed through the same double-double lgamma-difference
 /// machinery as beta_p/beta_q's prefactor, so the a+b cancellation that
 /// costs a plain three-lgamma assembly its accuracy for large parameters
-/// is removed analytically. Accuracy: CORRECTLY ROUNDED on every measured
-/// row of every band and tier — 0 ULP where |ln B| >= 1, half-ulp
+/// is removed analytically. Accuracy: <!-- claim: lbeta.relative --> CORRECTLY ROUNDED on every measured
+/// row of every band and tier — 0 ULP where |ln B| >= 1, <!-- claim: lbeta.abs --> half-ulp
 /// absolute in the band around ln B's zero curve through (1,1), where the
 /// result itself is ill-conditioned (docs/ACCURACY.md). Symmetric in
 /// (a, b); saturates to -inf
@@ -241,7 +241,7 @@ void lbeta(std::span<const double> a, std::span<const double> b,
 /// reproduces by construction. On the negative axis psi also has a zero
 /// between every consecutive pair of poles -- infinitely many points with no
 /// closed form -- so there the bound is relative where |psi| >= 1 and
-/// ABSOLUTE, of order 2^-53, inside the bands around those zeros; the
+/// <!-- claim: digamma.neg_abs --> ABSOLUTE, of order 2^-53, inside the bands around those zeros; the
 /// measured split is documented.
 ///
 /// Specials: psi(+0) = -inf and psi(-0) = +inf (signed-zero pole
@@ -414,7 +414,7 @@ void beta_q_inv(std::span<const double> a, std::span<const double> b,
 ///
 /// Method: a truncated power series in q = x^2/4 for |x| <= 8 (all terms
 /// positive, well conditioned), and a Chebyshev fit in 1/x times
-/// exp(|x|)/sqrt(2*pi*|x|) for |x| > 8. Accuracy: max 1 ULP over the full
+/// exp(|x|)/sqrt(2*pi*|x|) for |x| > 8. Accuracy: <!-- claim: bessel --> max 1 ULP over the full
 /// real axis, measured and gate-pinned on every SIMD tier
 /// (docs/ACCURACY.md).
 ///
@@ -427,7 +427,7 @@ void i0(std::span<const double> in, std::span<double> out) noexcept;
 ///   kind, order 1 (SciPy's `iv(1, .)` / `i1`).
 ///
 /// Same method as i0, on the ODD series/fit pair: I1 is odd, so the sign of
-/// a nonzero result matches the sign of the input. Accuracy: max 1 ULP
+/// a nonzero result matches the sign of the input. Accuracy: <!-- claim: bessel --> max 1 ULP
 /// over the full real axis, measured and gate-pinned on every SIMD tier
 /// (docs/ACCURACY.md).
 ///
@@ -445,7 +445,7 @@ void i1(std::span<const double> in, std::span<double> out) noexcept;
 /// this stays finite over the whole real axis. A(kappa) = i1e(kappa) /
 /// i0e(kappa) is the exact mean resultant length of a von Mises(kappa)
 /// distribution, computed without ever forming the unscaled I0/I1.
-/// Accuracy: max 1 ULP over the full real axis, measured and gate-pinned
+/// Accuracy: <!-- claim: bessel --> max 1 ULP over the full real axis, measured and gate-pinned
 /// on every SIMD tier (docs/ACCURACY.md).
 ///
 /// Specials: i0e(0) = 1; i0e(+-inf) = +0; NaN propagates (payload
@@ -458,7 +458,7 @@ void i0e(std::span<const double> in, std::span<double> out) noexcept;
 ///   order 1 (SciPy's `ive(1, .)`).
 ///
 /// Same scaling rationale as i0e, on the odd pair; see i0e's doc for the von
-/// Mises mean-resultant-length identity. Accuracy: max 1 ULP over the full
+/// Mises mean-resultant-length identity. Accuracy: <!-- claim: bessel --> max 1 ULP over the full
 /// real axis, measured and gate-pinned on every SIMD tier
 /// (docs/ACCURACY.md).
 ///
@@ -471,10 +471,10 @@ void i1e(std::span<const double> in, std::span<double> out) noexcept;
 ///
 /// Assembled from corvus's internal double-double exp core (audited at
 /// 2^-68.4 relative before the final rounding), so the result is the
-/// correctly rounded exp except within ~2^-15 ulp of a rounding tie.
+/// <!-- claim: exp.normal --> correctly rounded exp except within ~2^-15 ulp of a rounding tie.
 /// Subnormal results take ONE extra rounding through the two-step
 /// power-of-two scaling (worst construction bound ~0.75 ulp of the
-/// output, within the 1-ULP gate). Accuracy: measured and gate-pinned
+/// output, within the <!-- claim: exp.subnormal --> 1-ULP gate). Accuracy: measured and gate-pinned
 /// per SIMD tier
 /// (docs/ACCURACY.md). Overflow to +inf and gradual underflow through the
 /// subnormals to 0 cross at the correctly rounded thresholds.

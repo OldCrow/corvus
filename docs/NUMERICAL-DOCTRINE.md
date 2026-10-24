@@ -198,6 +198,17 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   breaks a published bound sits in a `deferred:#NN` section that names
   its issue: counted, not gated, until the fix row deletes the section
   header and shows the gate failing first with `CORVUS_REF_DEFERRED=1`.
+- **Every bound has one statement** (#82 T6). `tests/data/bounds.txt`
+  carries each gated region's enforced bound and its published contract.
+  The gates fail on any bound the table does not hold (CheckBound in
+  tests/ulp_utils.h). The `claims_check` ctest (`tools/claims_check.py`)
+  fails when a marked claim in README, USER-GUIDE, corvus.h or
+  ACCURACY.md states anything but the published value, or when a
+  "max N ULP" phrase carries no `<!-- claim: id -->` marker. So a gate
+  change edits the table, and a contract change edits the table and every
+  marked statement, in one commit. A known wrong statement names its
+  issue on the marker or row (`#76`) and stays reported until that row
+  corrects it.
 - **Every kernel threshold is a registered seam with populated buckets**
   (#82 T2). Each threshold a kernel compares against (a data-table
   constant, a region edge, a saturation or clamp level) is a SEAMS entry
