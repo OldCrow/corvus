@@ -43,7 +43,18 @@ error and enforces two ceilings per tier class (FMA, no-FMA):
   (`tests/data/real_pins.txt`, written by `tools/hunt/pins.py`).
 
 A pin above its contract ceiling names the issue that tracks the defect;
-the fix lowers it. The internal double-double files and the betainv
+the fix lowers it.
+
+**Strata (#82 T3).** Beyond each generator's own population, every public
+reference file carries an appendix drawn from the hunt strata: each kernel
+seam's bit-neighbourhood and a full-mantissa band on each side, subnormal
+inputs and outputs, dense fills, near-tie rows and extreme
+cross-products. Every appended row is certified by two oracle forms (or
+one form at two precisions). The per-stratum row counts are fixed in
+`tests/data/ref_counts.txt` and checked exactly. Rows on which a kernel
+breaks its published bound are held in sections named after the issue
+that tracks the defect; they are counted but not gated until the fix
+lands. The internal double-double files and the betainv
 backward intervals carry no residual: their gates already measure a
 continuous error.
 

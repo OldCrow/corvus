@@ -86,11 +86,79 @@ inline double ParseDouble(const std::string& tok, const char* path,
 // optional last token `r=<r0>[,<r1>...]`, one per output column, where
 // r = (exact - stored CR value) / ulp(stored value's binade), |r| <= 1/2.
 // tools/hunt/annotate.py writes it. Empty when the row has none.
+// `stratum` names the `# stratum <name>` section the row sits in (#82 T3);
+// rows before the first such line are stratum "base".
 struct RefRow {
   std::vector<std::string> tok;
   size_t line;
   std::vector<double> res;
+  std::string stratum;
 };
+
+// True when environment variable `name` is set to something other than
+// empty or "0".
+inline bool EnvFlag(const char* name) {
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996)  // one read, see expect_target.h
+#endif
+  const char* v = std::getenv(name);
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
+  return v != nullptr && v[0] != '\0' && v[0] != '0';
+}
+
+// A file beside the reference file `ref_path` (tests/data/<name>).
+inline std::string SiblingPath(const char* ref_path, const char* name) {
+  std::string p(ref_path);
+  const size_t slash = p.find_last_of("/\\");
+  return (slash == std::string::npos ? std::string() : p.substr(0, slash + 1)) +
+         name;
+}
+
+// Exact row counts (#82 T3): tests/data/ref_counts.txt holds
+// `file|stratum|rows` for every reference file a gate loads. A file whose
+// strata or counts differ -- a truncated file, a dropped or renamed stratum,
+// a regenerated population of another size -- is exit 2, never a quietly
+// different gate. tools/hunt/strata_append.py writes the entries.
+inline void CheckCounts(const char* ref_path,
+                        const std::vector<std::pair<std::string, size_t>>& got) {
+  const std::string p = SiblingPath(ref_path, "ref_counts.txt");
+  std::string base(ref_path);
+  const size_t slash = base.find_last_of("/\\");
+  if (slash != std::string::npos) base = base.substr(slash + 1);
+  std::ifstream f(p);
+  if (!f) {
+    std::fprintf(stderr, "cannot open row-count file: %s\n", p.c_str());
+    std::exit(2);
+  }
+  std::vector<std::pair<std::string, size_t>> want;
+  std::string line;
+  while (std::getline(f, line)) {
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    if (line.empty() || line[0] == '#') continue;
+    const size_t b1 = line.find('|');
+    const size_t b2 = line.rfind('|');
+    if (b1 == std::string::npos || b1 == b2) {
+      std::fprintf(stderr, "%s: malformed line '%s'\n", p.c_str(), line.c_str());
+      std::exit(2);
+    }
+    if (line.substr(0, b1) != base) continue;
+    want.emplace_back(line.substr(b1 + 1, b2 - b1 - 1),
+                      std::strtoull(line.c_str() + b2 + 1, nullptr, 10));
+  }
+  if (want != got) {
+    std::fprintf(stderr, "%s: row counts differ from %s\n", base.c_str(), p.c_str());
+    for (const auto& w : want) {
+      std::fprintf(stderr, "  want %-40s %zu\n", w.first.c_str(), w.second);
+    }
+    for (const auto& g : got) {
+      std::fprintf(stderr, "  got  %-40s %zu\n", g.first.c_str(), g.second);
+    }
+    std::exit(2);
+  }
+}
 
 // Residual k of a row, NaN when the file is not annotated.
 inline double Residual(const RefRow& row, size_t k) {
@@ -104,6 +172,12 @@ inline double Residual(const RefRow& row, size_t k) {
 // header). Any malformed row -- wrong field count -- or a suspiciously small
 // file is exit 2, never a silently shorter gate. A trailing `r=` token is
 // split off into RefRow::res and does not count toward ncols.
+// A `# stratum <name>` line starts a stratum section (#82 T3); the per-stratum
+// counts must match ref_counts.txt exactly. Sections named `deferred:#NN`
+// hold rows that break a published bound until issue #NN's fix lands: they
+// are counted but not returned unless CORVUS_REF_DEFERRED=1, which is how
+// the fix row shows its gate failing first. `deferred:?` (no issue named)
+// is exit 2.
 inline std::vector<RefRow> LoadRef(const char* path, size_t ncols,
                                    size_t min_rows) {
   std::ifstream f(path);
@@ -114,10 +188,27 @@ inline std::vector<RefRow> LoadRef(const char* path, size_t ncols,
   std::vector<RefRow> rows;
   std::string linebuf;
   size_t lineno = 0;
+  std::string stratum = "base";
+  std::vector<std::pair<std::string, size_t>> counts{{stratum, 0}};
+  const bool with_deferred = EnvFlag("CORVUS_REF_DEFERRED");
+  size_t deferred = 0;
   while (std::getline(f, linebuf)) {
     ++lineno;
+    if (linebuf.rfind("# stratum ", 0) == 0) {
+      stratum = linebuf.substr(10);
+      while (!stratum.empty() && (stratum.back() == '\r' || stratum.back() == ' ')) {
+        stratum.pop_back();
+      }
+      if (stratum == "deferred:?") {
+        std::fprintf(stderr, "%s:%zu: deferred rows name no issue\n", path, lineno);
+        std::exit(2);
+      }
+      counts.emplace_back(stratum, 0);
+      continue;
+    }
     RefRow row;
     row.line = lineno;
+    row.stratum = stratum;
     std::string tok;
     for (size_t i = 0; i <= linebuf.size(); ++i) {
       const char c = i < linebuf.size() ? linebuf[i] : ' ';
@@ -145,7 +236,19 @@ inline std::vector<RefRow> LoadRef(const char* path, size_t ncols,
                    lineno, ncols, row.tok.size());
       std::exit(2);
     }
+    ++counts.back().second;
+    if (stratum.rfind("deferred:", 0) == 0) {
+      ++deferred;
+      if (!with_deferred) continue;
+    }
     rows.push_back(std::move(row));
+  }
+  if (counts.front().second == 0) counts.erase(counts.begin());
+  CheckCounts(path, counts);
+  if (counts.size() > 1 || deferred) {
+    std::printf("%s: %zu rows gated in %zu strata, %zu deferred%s\n", path,
+                rows.size(), counts.size(), deferred,
+                with_deferred ? " (included: CORVUS_REF_DEFERRED=1)" : "");
   }
   if (rows.size() < min_rows) {
     std::fprintf(stderr, "%s: suspiciously small: %zu rows (expected >= %zu)\n",
@@ -236,10 +339,7 @@ inline const std::vector<std::pair<std::string, Pin>>& Pins(
   static bool loaded = false;
   if (loaded) return pins;
   loaded = true;
-  std::string p(ref_path);
-  const size_t slash = p.find_last_of("/\\");
-  p = (slash == std::string::npos ? std::string() : p.substr(0, slash + 1)) +
-      "real_pins.txt";
+  const std::string p = SiblingPath(ref_path, "real_pins.txt");
   std::ifstream f(p);
   if (!f) {
     std::fprintf(stderr, "cannot open pin file: %s\n", p.c_str());
@@ -270,17 +370,7 @@ inline const std::vector<std::pair<std::string, Pin>>& Pins(
   return pins;
 }
 
-inline bool PinReport() {
-#if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4996)  // one read, see expect_target.h
-#endif
-  const char* v = std::getenv("CORVUS_REAL_PIN_REPORT");
-#if defined(_MSC_VER)
-#pragma warning(pop)
-#endif
-  return v != nullptr && v[0] != '\0' && v[0] != '0';
-}
+inline bool PinReport() { return EnvFlag("CORVUS_REAL_PIN_REPORT"); }
 
 // Prints the region's real-error line and enforces both ceilings. Returns
 // 0 on pass, 1 on failure. `ref_path` locates real_pins.txt beside it.

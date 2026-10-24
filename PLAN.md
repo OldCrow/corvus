@@ -74,8 +74,7 @@ performance.**
       post-route τ cap, 2 ULP vs 1). Wider bands are recorded on #71 and
       #72; near-tie, slice-subnormal and lbeta evidence on #76. betainv is
       clean.
-    - The harness (`tools/hunt`, `tests/hunt_probe`) is uncommitted and
-      awaits user review.
+    - The harness (`tools/hunt`, `tests/hunt_probe`) is committed (T1).
     - T2 seam audit: 157 of 236 mapped seams have an empty reference
       bucket (some false: zero-valued seams, domain edges); 41 seams are
       unmapped.
@@ -116,10 +115,54 @@ performance.**
         - inv_root is 1 ulp off for a ≳ 1e35;
         - beta_inv_root fails at extreme tiny a, b and at a, b ≥ 1e41;
         - no hunt strata on the R3 gamma-limit ridge entry.
-    - **Order of the rest of 12-T [proposed 2026-10-22]:** T1 (done) →
-      **NEXT: T3**, folding in the hunt-oracle gaps above → T7 (before
-      the fixes, to find any further #84-class route
-      defects) → T2 completion → T6 (by 12j) → T4 phase 1.
+    - **T3 DONE 2026-10-23** (uncommitted at write time; 35/35 on
+      AVX3_ZEN4, SSE4, SSE2 and MSVC AVX2, /W4 /WX clean). Design and
+      method: ACCURACY.md (Methodology, "Strata"), the doctrine test rule
+      and the `tools/hunt/strata_append.py` docstring. [DERIVED]
+      - No generator was rerun. All 25 public reference files carry an
+        appendix of hunt-strata rows: 78,768 rows in 904 stratum sections
+        on top of 403,168 base rows. It holds seam bits and bands (45k),
+        dense, subnormal and other fills, near-tie rows within 1/32 ulp of
+        a midpoint (2.8k), extreme cross-products (4.5k), and the new beta
+        `ridge:gl_entry` stratum (#80's territory; its pin did not move).
+        Every row is two-form certified; 428 rows that failed
+        certification were dropped, 402 of them in betainv.
+      - `tests/data/ref_counts.txt` fixes the rows per file and stratum
+        for all 31 reference files; LoadRef exits 2 on any difference.
+        Negative controls fire: an off-by-one count, a truncated file and
+        `deferred:?`.
+      - 147 rows that break a published bound sit in `deferred:#NN`
+        sections: #70 (2), #71 (30), #72 (57), #76 (4), #83 (37), #84 (9),
+        #88 (8). `CORVUS_REF_DEFERRED=1` fails exactly the six gates that
+        hold them.
+      - New defect #88 (v1.1.0): beta_p_inv/beta_q_inv with a shape and
+        the target both denorm_min return a root whose forward value is
+        about 0, or about 313 times the target.
+      - New pins above the ceiling: erfc tail subnormal 1.52 (#74),
+        gamma_q R3 dir 1.41 (#70), gamma_q R4 no-FMA 1.50 (#71),
+        gamma_q_inv deep-small 1.36/1.51 (#83). erfinv C no-FMA rose
+        1.37 → 1.51 (#73).
+      - Oracle gaps closed in the oracles: gamma Temme route for
+        1e7 < a < 2^130, and beta_inv normal-median for min(a, b) ≥ 1e15
+        near the median. annotate.py keeps only the bracket fallback.
+        Still open: beta inverses off the median with shapes ≥ 1e100
+        (gigabytes per row; the cross stratum stops at 1e15), and both
+        shapes tiny (I_x flat; the two forms agreed on a wrong root, so
+        cross excludes max(a, b) ≤ 1e-20).
+      - The seam audit is down to 37 empty buckets of 277 seams, from 157
+        of 236. The rest are mostly domain edges and zero-valued
+        coordinates, which is T2's false-gap handling; 41 seams are
+        unmapped.
+      - The exp(2^-53) near-tie row (2^-55 ulp from the midpoint, 1 ULP
+        on FMA) sits inside ACCURACY.md's documented ~2^-15 window. It is
+        deferred to #76, where the CR claims and the gate's tie rule are
+        decided together.
+      - Every fix row 12d–12k also deletes its `deferred:#NN` header, so
+        those rows are gated, then recounts (`strata_append.py --count`).
+        It shows the gate failing first with `CORVUS_REF_DEFERRED=1`.
+    - **Order of the rest of 12-T [proposed 2026-10-22]:** T1, T3 (done)
+      → **NEXT: T7** (before the fixes, to find any further #84-class
+      route defects) → T2 completion → T6 (by 12j) → T4 phase 1.
   - Pilot results 2026-10-22, no new defects:
     - Subnormal inputs in 13 unary families are clean.
     - `beta_p_inv`/`beta_q_inv` at subnormal targets: CR where certified.

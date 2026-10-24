@@ -185,6 +185,19 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   (`python tools/hunt/pins.py --write`, then review the diff). Never raise
   a pin to absorb a regression: a pin above the contract ceiling names its
   issue, and only the fix row lowers it.
+- **Every public reference file carries the hunt strata** (#82 T3): seam
+  bit-neighbourhoods and full-mantissa bands, subnormal inputs and
+  outputs, dense fills, near-tie rows (within 1/32 ulp of a midpoint) and
+  extreme cross-products, drawn by `tools/hunt/strata_append.py` from the
+  same strata definitions the hunt runs (point helpers in
+  `refgen_common`). A new seam or stratum goes into its hunt family and
+  reaches the gates through a `--replace` run. `tests/data/ref_counts.txt`
+  fixes every file's row count per stratum; LoadRef fails on any
+  difference, so a generator change that adds or drops rows updates the
+  counts in the same commit (`strata_append.py --count FILE`). A row that
+  breaks a published bound sits in a `deferred:#NN` section that names
+  its issue: counted, not gated, until the fix row deletes the section
+  header and shows the gate failing first with `CORVUS_REF_DEFERRED=1`.
 - Where the kernel carries more than working precision, the reference file
   carries a double-double pair and the test measures relative error below
   the last bit of a double; rounding first would hide what is being
