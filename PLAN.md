@@ -115,8 +115,8 @@ performance.**
         - inv_root is 1 ulp off for a ≳ 1e35;
         - beta_inv_root fails at extreme tiny a, b and at a, b ≥ 1e41;
         - no hunt strata on the R3 gamma-limit ridge entry.
-    - **T3 DONE 2026-10-23** (uncommitted at write time; 35/35 on
-      AVX3_ZEN4, SSE4, SSE2 and MSVC AVX2, /W4 /WX clean). Design and
+    - **T3 DONE 2026-10-23** (`aa1a97e`, `60c0ecd`; CI 40050577320
+      green on NEON, Linux sweep + sanitizers, Windows; summary on #82). Design and
       method: ACCURACY.md (Methodology, "Strata"), the doctrine test rule
       and the `tools/hunt/strata_append.py` docstring. [DERIVED]
       - No generator was rerun. All 25 public reference files carry an
