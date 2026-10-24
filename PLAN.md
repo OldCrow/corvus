@@ -206,8 +206,8 @@ performance.**
           route.
       - [OPEN] Running the census in CI. It needs a census build leg,
         about one extra configure.
-    - **T2 DONE 2026-10-24** (uncommitted at write time; 35/35 on
-      AVX3_ZEN4, SSE4, SSE2, MSVC AVX2 and the census build).
+    - **T2 DONE 2026-10-24** (`82884fa`; CI 40140431548 green on NEON,
+      Linux sweep + sanitizers, Windows; summary on #82).
       `tools/hunt/seam_audit.py` exits 0. It covers 294 seam thresholds:
       0 empty buckets, 0 unmapped, and 9 covered by the census or stated
       as internal. The rule is in the doctrine test rule; the field
