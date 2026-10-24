@@ -369,14 +369,21 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   // lg1a = a*(B2(a) - 1) keeps its relative accuracy down to subnormal a
   // (the cancellation is ~1.7x).
   const auto c1 = op::Ge(op::Set(d, detail::kLgammaZoneLo), a);  // a <= 1/2
+  CORVUS_ROUTE(d, "gamma/R4/a_le_half", c1);
+  CORVUS_ROUTE(d, "gamma/R4/a_gt_half",
+               op::Gt(a, op::Set(d, detail::kLgammaZoneLo)));
   const auto t = op::IfThenElse(c1, a, op::Sub(a, one));
   const auto centre2 = op::Gt(zero, one);  // all false: centre-2 coefficients
   auto lg1a = DdMulD(d, ZoneBracket(d, t, centre2), t);  // lgamma(2+t)
   if (!op::AllFalse(d, c1)) {
+    CORVUS_ROUTE_SCOPE(d, c1);
     const auto r_cut = op::Set(d, 0x1.0p-7);  // Log1pDd's domain
     const auto tiny = op::Ge(r_cut, a);
+    CORVUS_ROUTE(d, "gamma/R4/a_le_half/log", op::Gt(a, r_cut));
     Dd<D> l1a = LogDd(d, TwoSum(d, one, op::Max(a, r_cut)));  // 1+a exact
     if (!op::AllFalse(d, tiny)) {
+      CORVUS_ROUTE_SCOPE(d, tiny);
+      CORVUS_ROUTE(d, "gamma/R4/a_le_half/log1p", tiny);
       const auto ls = Log1pDd(d, Dd<D>{op::Min(a, r_cut), zero});
       l1a = Dd<D>{op::IfThenElse(tiny, ls.hi, l1a.hi),
                   op::IfThenElse(tiny, ls.lo, l1a.lo)};
@@ -428,6 +435,7 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   // true Q rounds to +0 anyway -- and keeps the contract that a probability
   // is never negative, signed zero included.
   const auto nonpos = op::Ge(zero, q.hi);
+  CORVUS_ROUTE(d, "gamma/R4/sign_clamp", nonpos);
   return Dd<D>{op::IfThenElse(nonpos, zero, q.hi),
                op::IfThenElse(nonpos, zero, q.lo)};
 }
@@ -482,6 +490,8 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
 
   const auto xma = op::Sub(x, a);  // exact by Sterbenz on this region
   const auto sgn = op::CopySign(one, xma);
+  CORVUS_ROUTE(d, "gamma/R3/p_direct", op::Lt(xma, zero));
+  CORVUS_ROUTE(d, "gamma/R3/q_direct", op::Ge(xma, zero));
   // TWIN: gammainv-inl.h repeats this prescale for its own forward (search
   // kGammaScaleAbove there).
   // Dekker-ceiling prescale (kGammaScaleAbove): u and phi are computed in
@@ -490,6 +500,7 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
   // these sites NaN before the prescale existed, and its z is scrubbed at
   // the gather below either way.
   const auto big = op::Gt(a, op::Set(d, kGammaScaleAbove));
+  CORVUS_ROUTE(d, "gamma/R3/prescale", big);
   const auto dn = op::IfThenElse(big, op::Set(d, kGammaScaleDown), one);
   const auto up = op::IfThenElse(big, op::Set(d, kGammaScaleUp), one);
   const auto as = op::Mul(a, dn);
@@ -591,6 +602,9 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
   const auto tail = GammaScale(d, DdMul(d, exf.m, brk_tail), exf.e);
 
   const auto tm = op::Gt(aphi.hi, op::Set(d, kGammaTemmeZ2Split));
+  CORVUS_ROUTE(d, "gamma/R3/core",
+               op::Ge(op::Set(d, kGammaTemmeZ2Split), aphi.hi));
+  CORVUS_ROUTE(d, "gamma/R3/tail", tm);
   const GammaVal<D> val{op::IfThenElse(tm, tail.v, DdToDouble(core)),
                         Dd<D>{op::IfThenElse(tm, tail.dd.hi, core.hi),
                               op::IfThenElse(tm, tail.dd.lo, core.lo)}};
@@ -671,6 +685,10 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
   const auto m_r2 = IndMask(d, i_r2);
   const auto m_r3 = IndMask(d, i_r3);
   const auto m_r4 = IndMask(d, i_r4);
+  CORVUS_ROUTE(d, "gamma/R1", m_r1);
+  CORVUS_ROUTE(d, "gamma/R2", m_r2);
+  CORVUS_ROUTE(d, "gamma/R3", m_r3);
+  CORVUS_ROUTE(d, "gamma/R4", m_r4);
 
   // --- assembled per-lane direct side -------------------------------------
   GammaVal<D> val{zero, Dd<D>{zero, zero}};
@@ -691,6 +709,7 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
     // hundreds of e-foldings ABOVE E, so sharing R2's mask would scrub live
     // R1 lanes.
     if (!op::AllFalse(d, m_r1)) {
+      CORVUS_ROUTE_SCOPE(d, m_r1);
       // (-) log a turns Gamma(a) into Gamma(a+1) without forming 1 + a and
       // without a 1/a that would be +inf for subnormal a. The two logs
       // cancel to ~0 for tiny a, but only their ABSOLUTE error matters here
@@ -699,6 +718,8 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
       const auto e1 =
           DdAdd(d, eb, Dd<D>{op::Neg(la.hi), op::Neg(la.lo)});
       const auto ea = GammaClampE(d, e1.hi, e1.lo);
+      CORVUS_ROUTE(d, "gamma/R1/saturated", ea.sat);
+      CORVUS_ROUTE(d, "gamma/R1/nan_exponent", op::IsNaN(e1.hi));
       const auto as = op::IfThenElse(ea.sat, safe_a, a);
       const auto xs = op::IfThenElse(ea.sat, safe_x, x);
       const auto ex = ExpDdFrac(d, ea.hi, ea.lo);
@@ -706,13 +727,19 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
       r1.v = op::IfThenElse(ea.sat, zero, r1.v);
       r1.dd.hi = op::IfThenElse(ea.sat, zero, r1.dd.hi);
       r1.dd.lo = op::IfThenElse(ea.sat, zero, r1.dd.lo);
+      CORVUS_ROUTE(d, "gamma/R1/subnormal",
+                   op::And(op::Lt(r1.v, op::Set(d, 0x1.0p-1022)),
+                           op::MaskNot(ea.sat)));
       val.v = op::IfThenElse(m_r1, r1.v, val.v);
       val.dd.hi = op::IfThenElse(m_r1, r1.dd.hi, val.dd.hi);
       val.dd.lo = op::IfThenElse(m_r1, r1.dd.lo, val.dd.lo);
       is_p = op::IfThenElse(m_r1, one, is_p);
     }
     if (!op::AllFalse(d, m_r2)) {
+      CORVUS_ROUTE_SCOPE(d, m_r2);
       const auto ea = GammaClampE(d, eb.hi, eb.lo);
+      CORVUS_ROUTE(d, "gamma/R2/saturated", ea.sat);
+      CORVUS_ROUTE(d, "gamma/R2/nan_exponent", op::IsNaN(eb.hi));
       const auto as = op::IfThenElse(ea.sat, safe_a, a);
       const auto xs = op::IfThenElse(ea.sat, safe_x, x);
       const auto ex = ExpDdFrac(d, ea.hi, ea.lo);
@@ -720,23 +747,34 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
       r2.v = op::IfThenElse(ea.sat, zero, r2.v);
       r2.dd.hi = op::IfThenElse(ea.sat, zero, r2.dd.hi);
       r2.dd.lo = op::IfThenElse(ea.sat, zero, r2.dd.lo);
+      CORVUS_ROUTE(d, "gamma/R2/subnormal",
+                   op::And(op::Lt(r2.v, op::Set(d, 0x1.0p-1022)),
+                           op::MaskNot(ea.sat)));
       val.v = op::IfThenElse(m_r2, r2.v, val.v);
       val.dd.hi = op::IfThenElse(m_r2, r2.dd.hi, val.dd.hi);
       val.dd.lo = op::IfThenElse(m_r2, r2.dd.lo, val.dd.lo);
     }
   }
   if (!op::AllFalse(d, m_r3)) {
+    CORVUS_ROUTE_SCOPE(d, m_r3);
     auto t = GammaTemme(d, a, x);
+    CORVUS_ROUTE(d, "gamma/R3/saturated", t.sat);
     t.val.v = op::IfThenElse(t.sat, zero, t.val.v);
     t.val.dd.hi = op::IfThenElse(t.sat, zero, t.val.dd.hi);
     t.val.dd.lo = op::IfThenElse(t.sat, zero, t.val.dd.lo);
+    CORVUS_ROUTE(d, "gamma/R3/subnormal",
+                 op::And(op::Lt(t.val.v, op::Set(d, 0x1.0p-1022)),
+                         op::MaskNot(t.sat)));
     val.v = op::IfThenElse(m_r3, t.val.v, val.v);
     val.dd.hi = op::IfThenElse(m_r3, t.val.dd.hi, val.dd.hi);
     val.dd.lo = op::IfThenElse(m_r3, t.val.dd.lo, val.dd.lo);
     is_p = op::IfThenElse(m_r3, t.is_p, is_p);
   }
   if (!op::AllFalse(d, m_r4)) {
+    CORVUS_ROUTE_SCOPE(d, m_r4);
     const auto q4 = GammaSmallQ(d, a, x);
+    CORVUS_ROUTE(d, "gamma/R4/subnormal",
+                 op::Lt(DdToDouble(q4), op::Set(d, 0x1.0p-1022)));
     val.v = op::IfThenElse(m_r4, DdToDouble(q4), val.v);
     val.dd.hi = op::IfThenElse(m_r4, q4.hi, val.dd.hi);
     val.dd.lo = op::IfThenElse(m_r4, q4.lo, val.dd.lo);
@@ -757,15 +795,25 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
   // only when both are.
   const auto p_at = kP ? one : zero;   // value at "x exhausted": P=1, Q=0
   const auto p_at0 = kP ? zero : one;  // value at "no mass yet":  P=0, Q=1
+  CORVUS_ROUTE(d, "gamma/special/x_zero", op::Eq(x_in, zero));
   res = op::IfThenElse(op::Eq(x_in, zero), p_at0, res);
+  CORVUS_ROUTE(d, "gamma/special/a_zero", op::Eq(a_in, zero));
   res = op::IfThenElse(op::Eq(a_in, zero), p_at, res);
+  CORVUS_ROUTE(d, "gamma/special/x_inf", op::Eq(x_in, inf));
   res = op::IfThenElse(op::Eq(x_in, inf), p_at, res);
+  CORVUS_ROUTE(d, "gamma/special/a_inf", op::Eq(a_in, inf));
   res = op::IfThenElse(op::Eq(a_in, inf), p_at0, res);
+  CORVUS_ROUTE(d, "gamma/special/sum_zero", op::Eq(op::Add(a_in, x_in), zero));
   res = op::IfThenElse(op::Eq(op::Add(a_in, x_in), zero), qnan, res);
+  CORVUS_ROUTE(d, "gamma/special/both_inf", op::Eq(op::Min(a_in, x_in), inf));
   res = op::IfThenElse(op::Eq(op::Min(a_in, x_in), inf), qnan, res);
+  CORVUS_ROUTE(d, "gamma/special/a_neg", op::Lt(a_in, zero));
   res = op::IfThenElse(op::Lt(a_in, zero), qnan, res);
+  CORVUS_ROUTE(d, "gamma/special/x_neg", op::Lt(x_in, zero));
   res = op::IfThenElse(op::Lt(x_in, zero), qnan, res);
+  CORVUS_ROUTE(d, "gamma/special/a_nan", op::IsNaN(a_in));
   res = op::IfThenElse(op::IsNaN(a_in), a_in, res);  // payload preserved
+  CORVUS_ROUTE(d, "gamma/special/x_nan", op::IsNaN(x_in));
   res = op::IfThenElse(op::IsNaN(x_in), x_in, res);
   return res;
 }

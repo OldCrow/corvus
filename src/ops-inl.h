@@ -28,6 +28,30 @@
 #endif
 #endif
 
+// Route census markers (#82 T7; src/route_census.h). CORVUS_ROUTE(d,
+// "family/route", mask) records the route for lane 0 in a census build.
+// CORVUS_ROUTE_SCOPE(d, region) opens a region block: a block that runs when
+// ANY lane is in the region (padded lanes included) records routes only
+// while lane 0 is in it. Both are empty otherwise. `op` is the ops alias
+// every kernel header declares.
+#ifndef CORVUS_ROUTE
+#define CORVUS_ROUTE_CAT2(a, b) a##b
+#define CORVUS_ROUTE_CAT(a, b) CORVUS_ROUTE_CAT2(a, b)
+#if defined(CORVUS_ROUTE_CENSUS)
+#include "src/route_census.h"
+#define CORVUS_ROUTE(d, name, mask) \
+  ::corvus::census::Hit(name, op::FirstLaneTrue(d, mask))
+#define CORVUS_ROUTE_SCOPE(d, region)                                  \
+  const ::corvus::census::Scope CORVUS_ROUTE_CAT(corvus_route_scope_,  \
+                                                 __LINE__)(            \
+      op::FirstLaneTrue(d, region))
+#else
+// sizeof: the mask is named, so it counts as used, but never evaluated.
+#define CORVUS_ROUTE(d, name, mask) ((void)sizeof(mask))
+#define CORVUS_ROUTE_SCOPE(d, region) ((void)sizeof(region))
+#endif
+#endif
+
 HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
@@ -123,6 +147,12 @@ template <class D, class VI> HWY_INLINE V<D> GatherIndex(D d, const double* base
 template <class M, class V> HWY_INLINE V IfThenElse(M m, V yes, V no) { return hn::IfThenElse(m, yes, no); }
 template <class D, class M> HWY_INLINE bool AllFalse(D d, M m) { return hn::AllFalse(d, m); }
 template <class D, class M> HWY_INLINE bool AllTrue(D d, M m) { return hn::AllTrue(d, m); }
+// Mask complement; the route census marks a region's other side with it.
+template <class M> HWY_INLINE M MaskNot(M m) { return hn::Not(m); }
+// Lane 0's bit of m: the route census reads the one row it evaluates there.
+template <class D, class M> HWY_INLINE bool FirstLaneTrue(D d, M m) {
+  return hn::FindFirstTrue(d, m) == 0;
+}
 
 template <class D> HWY_INLINE V<D> Exp(D d, V<D> x) { return hn::Exp(d, x); }
 

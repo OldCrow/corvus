@@ -253,4 +253,19 @@ def strata():
     wit = [(float.fromhex("0x1.1b1c756ce6137p+12"), float.fromhex("0x0.0000000000007p-1022")),
            (7.151707517755251, 0.6176099837213445), (0.1, 0.99), (20.0, 1e-300)]
     add("witness", lambda r, n: list(wit), len(wit), note="#72 (p=7 denorm, a~4508), #56, #48, #49")
+
+    # 10. Subnormal shape AND subnormal target (#82 T7, the route census):
+    # a = i * 2^-1074, s = j * 2^-1074. On the q side the forward's Q rounds
+    # to 0 above the root, the residual is NaN, and the bracket re-proposes
+    # one midpoint until its cap: roots 4-35% off (#83).
+    D = 2.0 ** -1074
+    aq = [(i * D, j * D) for i in (1, 2, 3, 5, 8, 13, 20, 34, 39, 46, 65, 77, 84, 120, 164, 240)
+          for j in (1, 2, 3, 5, 8, 20)]
+    add("witness:subnormal_aq", lambda r, n: list(aq), len(aq),
+        note="gammainv/bracket/cap and bracket/reject_nan; q side wrong (#83)")
+    # 11. Route witnesses: inputs that reach a route no other stratum reaches.
+    rw = [(float.fromhex("0x1.35e480e2883cep-3"), float.fromhex("0x1.f8dbcaf539fbdp-1")),
+          (float.fromhex("0x1.d0b296b5b1b25p-4"), float.fromhex("0x1.d8620a769c840p-7"))]
+    add("witness:route_reject_nan", lambda r, n: list(rw), len(rw),
+        note="gammainv/bracket/reject_nan at ordinary shapes (correctly rounded)")
     return out

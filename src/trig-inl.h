@@ -193,7 +193,10 @@ template <class D>
 CORVUS_OUTLINE TrigRed<D> TrigReduce(D d, op::V<D> ax) {
   TrigRed<D> red = TrigReduceSmall(d, ax);
   const auto big = op::Gt(ax, op::Set(d, detail::kTrigDMax));  // NaN: false
+  CORVUS_ROUTE(d, "trig/small", op::Ge(op::Set(d, detail::kTrigDMax), ax));
+  CORVUS_ROUTE(d, "trig/huge", big);
   if (!op::AllFalse(d, big)) {
+    CORVUS_ROUTE_SCOPE(d, big);
     const TrigRed<D> ph = TrigReducePh(d, ax);
     red.r = op::IfThenElse(big, ph.r, red.r);
     red.rlo = op::IfThenElse(big, ph.rlo, red.rlo);
@@ -270,6 +273,8 @@ HWY_INLINE op::V<D> TrigVec(D d, op::V<D> x) {
 
   const auto inf = op::Set(d, std::numeric_limits<double>::infinity());
   const auto qnan = op::Set(d, std::numeric_limits<double>::quiet_NaN());
+  CORVUS_ROUTE(d, "trig/special/inf", op::Eq(ax, inf));
+  CORVUS_ROUTE(d, "trig/special/nan", op::IsNaN(x));
   res = op::IfThenElse(op::Eq(ax, inf), qnan, res);
   res = op::IfThenElse(op::IsNaN(x), x, res);  // payload-preserving
   return res;

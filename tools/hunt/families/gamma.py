@@ -403,4 +403,11 @@ def strata():
     wit = [(float.fromhex("0x1.eb4e156a22059p+6"), float.fromhex("0x1.e35ffc4f3e367p+7")),
            (float.fromhex("0x0.0000024de7ffep-1022"), float.fromhex("0x1.db1b6d2972468p-2"))]
     add("witness", lambda r, n: list(wit), len(wit), note="#70 (R3 core 3 ULP), #71 (subnormal a, SSE4/SSE2)")
+
+    # 12. Route witnesses (#82 T7): inputs that reach a route no other stratum
+    # reaches, found by the route census; each with its x bit-neighbourhood.
+    rw = [(float.fromhex("0x1.34246eb011a58p+1015"), float.fromhex("0x1.5a3d495914276p+1021"))]
+    add("witness:route_r2_nan_exponent",
+        lambda r, n: [(a, x) for a, x0 in rw for x in neighbours(x0, 8)], 17,
+        note="gamma/R2/nan_exponent: E = a log x - x - lgamma(a) is NaN at a ~ 4e305")
     return out

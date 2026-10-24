@@ -178,6 +178,9 @@ HWY_INLINE op::V<D> HalleyMid(D d, op::V<D> x0, op::V<D> s) {
 // far: delta = -2F / (2F' + F*(2x0 + F')), F = w - x0^2 - log(x0/G(1/x0)).
 template <class D>
 HWY_INLINE op::V<D> HalleyFar(D d, op::V<D> x0, Dd<D> wneg) {
+  // Far lanes have x0 >= ~6 (seed error 2^-19); the margin keeps mid lanes
+  // evaluated alongside (mixed vectors) from recording erfc_core routes.
+  CORVUS_ROUTE_SCOPE(d, op::Ge(x0, op::Set(d, 0x1.7fp+2)));
   const auto ssq = op::Mul(x0, x0);
   const auto slo = op::ProdLow(d, x0, x0, ssq);  // exact: x0 <= ~28 << 2^996
 
@@ -212,6 +215,15 @@ HWY_NOINLINE op::V<D> ErfcInvCore(D d, op::V<D> s) {
   const auto m1 = op::Lt(t, op::Set(d, detail::kErfinvTSplit));  // t < 2
   const auto m2 = op::Lt(t, op::Set(d, detail::kErfinvTFar));    // mid overall
   const auto far = op::Ge(t, op::Set(d, detail::kErfinvTFar));
+  CORVUS_ROUTE(d, "erfinv_t/mid_lo", m1);
+  {
+    CORVUS_ROUTE_SCOPE(d, m2);
+    CORVUS_ROUTE(d, "erfinv_t/mid_hi",
+                 op::Ge(t, op::Set(d, detail::kErfinvTSplit)));
+  }
+  CORVUS_ROUTE(d, "erfinv_t/far", far);
+  CORVUS_ROUTE(d, "erfinv_t/subnormal_s",
+               op::Lt(s, op::Set(d, 0x1p-1022)));
 
   const auto u = op::Div(op::Set(d, 1.0), t);
   const auto var = op::IfThenElse(far, u, t);
@@ -246,18 +258,31 @@ HWY_NOINLINE op::V<D> ErfinvVec(D d, op::V<D> y) {
 
   const auto c_m = op::Ge(op::Set(d, detail::kErfinvYSplit), ay);  // |y|<=1/2
 
+  CORVUS_ROUTE(d, "erfinv/central", c_m);
+  {
+    CORVUS_ROUTE_SCOPE(d, op::Gt(one, ay));
+    CORVUS_ROUTE(d, "erfinv/tail", op::Gt(ay, op::Set(d, detail::kErfinvYSplit)));
+  }
+
   op::V<D> res;
   if (op::AllTrue(d, c_m)) {
     res = ErfinvCentral(d, y);
   } else if (op::AllFalse(d, c_m)) {
+    CORVUS_ROUTE_SCOPE(d, op::Gt(ay, op::Set(d, detail::kErfinvYSplit)));
+    CORVUS_ROUTE_SCOPE(d, op::Gt(one, ay));
     const auto s = op::Sub(one, ay);  // exact by Sterbenz, ay in [1/2, inf)
     res = op::CopySign(ErfcInvCore(d, s), y);
   } else {
+    CORVUS_ROUTE_SCOPE(d, op::Gt(ay, op::Set(d, detail::kErfinvYSplit)));
+    CORVUS_ROUTE_SCOPE(d, op::Gt(one, ay));
     const auto s = op::Sub(one, ay);
     res = op::IfThenElse(c_m, ErfinvCentral(d, y),
                          op::CopySign(ErfcInvCore(d, s), y));
   }
 
+  CORVUS_ROUTE(d, "erfinv/special/pm1", op::Eq(ay, one));
+  CORVUS_ROUTE(d, "erfinv/special/domain", op::Gt(ay, one));
+  CORVUS_ROUTE(d, "erfinv/special/nan", nan);
   res = op::IfThenElse(op::Eq(ay, one), op::CopySign(inf, y), res);
   res = op::IfThenElse(op::Gt(ay, one), nan_out, res);
   res = op::IfThenElse(nan, y, res);  // propagate NaN (payload preserved)
@@ -271,7 +296,14 @@ HWY_NOINLINE op::V<D> ErfinvVec(D d, op::V<D> y) {
 // evaluation, and s is exact either way so the select costs nothing extra.
 template <class D>
 HWY_INLINE op::V<D> ErfcinvTail(D d, op::V<D> z) {
+  // Tail region (|z - 1| > 1/2) restricted to the in-domain z in (0, 2).
+  CORVUS_ROUTE_SCOPE(d, op::Gt(op::Abs(op::Sub(z, op::Set(d, 1.0))),
+                               op::Set(d, 0.5)));
+  CORVUS_ROUTE_SCOPE(d, op::Gt(z, op::Zero(d)));
+  CORVUS_ROUTE_SCOPE(d, op::Lt(z, op::Set(d, 2.0)));
   const auto lo_m = op::Lt(z, op::Set(d, 0.5));
+  CORVUS_ROUTE(d, "erfcinv/tail_low", lo_m);
+  CORVUS_ROUTE(d, "erfcinv/tail_high", op::Gt(z, op::Set(d, 1.5)));
   const auto s = op::IfThenElse(lo_m, z, op::Sub(op::Set(d, 2.0), z));
   const auto x = ErfcInvCore(d, s);
   return op::IfThenElse(lo_m, x, op::Neg(x));
@@ -298,6 +330,8 @@ HWY_NOINLINE op::V<D> ErfcinvVec(D d, op::V<D> z) {
   const auto c_m = op::Ge(half, op::Abs(zm1));
   const auto one_minus_z = op::Sub(one, z);
 
+  CORVUS_ROUTE(d, "erfcinv/central", c_m);
+
   op::V<D> res;
   if (op::AllTrue(d, c_m)) {
     res = ErfinvCentral(d, one_minus_z);
@@ -312,6 +346,11 @@ HWY_NOINLINE op::V<D> ErfcinvVec(D d, op::V<D> z) {
   // for c_m: for z a tiny negative subnormal, z - 1 rounds to exactly -1
   // (the deviation is many orders of magnitude below 1's ulp), which would
   // silently swallow the very case this check exists to catch.
+  CORVUS_ROUTE(d, "erfcinv/special/z0", op::Eq(z, op::Zero(d)));
+  CORVUS_ROUTE(d, "erfcinv/special/z2", op::Eq(z, two));
+  CORVUS_ROUTE(d, "erfcinv/special/domain_neg", op::Lt(z, op::Zero(d)));
+  CORVUS_ROUTE(d, "erfcinv/special/domain_pos", op::Gt(z, two));
+  CORVUS_ROUTE(d, "erfcinv/special/nan", nan_in);
   res = op::IfThenElse(op::Eq(z, op::Zero(d)), inf, res);
   res = op::IfThenElse(op::Eq(z, two), op::Neg(inf), res);
   res = op::IfThenElse(op::Lt(z, op::Zero(d)), nan_out, res);

@@ -83,6 +83,8 @@ HWY_INLINE ExpDdParts<D> ExpDdFrac(D d, op::V<D> xh, op::V<D> xl) {
   const op::SignedTag<D> di;
 
   const auto lim = op::Set(d, detail::kExpXMax);
+  CORVUS_ROUTE(d, "exp_dd/clamp_hi", op::Gt(xh, lim));
+  CORVUS_ROUTE(d, "exp_dd/clamp_lo", op::Gt(op::Neg(lim), xh));
   xh = op::Min(op::Max(xh, op::Neg(lim)), lim);
 
   const auto kf = op::Round(op::Mul(xh, op::Set(d, detail::kExpInvL)));

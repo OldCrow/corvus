@@ -50,6 +50,9 @@ option(CORVUS_BUILD_EXAMPLES "Build corvus examples" ${PROJECT_IS_TOP_LEVEL})
 option(CORVUS_DEV_WARNINGS "Enable -Wall -Wextra -Wpedantic (dev builds)"
        ${PROJECT_IS_TOP_LEVEL})
 option(CORVUS_WERROR "Treat warnings as errors (CI)" OFF)
+# Route census (#82 T7, src/route_census.h): records the kernel route lane 0
+# takes, for tools/hunt/route_census.py. A test tool; never ship it.
+option(CORVUS_ROUTE_CENSUS "Record kernel routes (test tool)" OFF)
 
 # Compile-time target restriction, e.g. -DCORVUS_DISABLED_TARGETS="HWY_AVX3|HWY_AVX2"
 # forces dispatch to stop at the next-lower tier. Used for native per-tier
@@ -130,6 +133,11 @@ target_include_directories(corvus
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_link_libraries(corvus PRIVATE hwy::hwy)
+if(CORVUS_ROUTE_CENSUS)
+  target_sources(corvus PRIVATE src/route_census.cpp)
+  # PUBLIC: tests/hunt_probe reads the record through src/route_census.h.
+  target_compile_definitions(corvus PUBLIC CORVUS_ROUTE_CENSUS)
+endif()
 
 # Dev warnings: PRIVATE only — never exported to consumers. CORVUS_WARN_FLAGS
 # is also applied to test/bench targets in tests/CMakeLists.txt.

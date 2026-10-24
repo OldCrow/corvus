@@ -182,6 +182,7 @@ HWY_INLINE Dd<D> DdSqrt(D d, Dd<D> a) {
   const auto lo = op::Div(op::Sub(a.lo, e), op::Add(s, s));
   const auto r = Fast2Sum(d, s, lo);  // |s| >> |lo| by construction
   const auto z = op::Eq(a.hi, zero);
+  CORVUS_ROUTE(d, "dd/sqrt/zero", z);
   return Dd<D>{op::IfThenElse(z, zero, r.hi), op::IfThenElse(z, zero, r.lo)};
 }
 

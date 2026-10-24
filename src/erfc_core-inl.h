@@ -92,6 +92,16 @@ template <class D>
 HWY_INLINE op::V<D> ErfcTailGFromU(D d, op::V<D> at, op::V<D> u) {
   const auto m1 = op::Lt(at, op::Set(d, detail::kErfcTailBound1));
   const auto m2 = op::Lt(at, op::Set(d, detail::kErfcTailBound2));
+  // Callers' scopes cover their own regions; erfinv's far Halley step opens
+  // its own (shared core: erfc's tail and erfinv's HalleyFar).
+  CORVUS_ROUTE(d, "erfc_core/tail_i0", m1);
+  {
+    CORVUS_ROUTE_SCOPE(d, m2);
+    CORVUS_ROUTE(d, "erfc_core/tail_i1",
+                 op::Ge(at, op::Set(d, detail::kErfcTailBound1)));
+  }
+  CORVUS_ROUTE(d, "erfc_core/tail_i2",
+               op::Ge(at, op::Set(d, detail::kErfcTailBound2)));
   const auto scale = Sel3(d, m1, m2, detail::kErfcTailScale[0],
                           detail::kErfcTailScale[1], detail::kErfcTailScale[2]);
   const auto shift = Sel3(d, m1, m2, detail::kErfcTailShift[0],

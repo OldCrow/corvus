@@ -65,6 +65,8 @@ static HWY_INLINE op::V<D> ErfcCoreVec(D d, op::V<D> x, op::V<D> ax, M nan) {
 
 template <class D>
 static HWY_INLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
+  CORVUS_ROUTE_SCOPE(d, op::Gt(ax, op::Set(d, detail::kErfcTailLo)));
+  CORVUS_ROUTE(d, "erfc/tail_clamp", op::Gt(ax, op::Set(d, detail::kErfcTailHi)));
   const auto at = op::Min(ax, op::Set(d, detail::kErfcTailHi));
   const auto ssq = op::Mul(at, at);
   const auto sl = op::SquareLow(d, at, ssq);  // exact: at^2 = ssq + sl
@@ -75,6 +77,13 @@ static HWY_INLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
   const auto ex = ExpDdFrac(d, op::Neg(ssq), op::Neg(sl));
   const auto m = DdMul(d, ex.m, DdMulD(d, ur, poly));  // e^{-a^2} mantissa * G/a
   const auto tail_pos = ScaleTwo(d, DdToDouble(m), ex.e);
+  CORVUS_ROUTE(d, "erfc/tail_underflow", op::Eq(tail_pos, op::Zero(d)));
+  {
+    CORVUS_ROUTE_SCOPE(d, op::Gt(tail_pos, op::Zero(d)));
+    CORVUS_ROUTE(d, "erfc/tail_subnormal",
+                 op::Lt(tail_pos, op::Set(d, 0x1p-1022)));
+  }
+  CORVUS_ROUTE(d, "erfc/tail_negative", op::Lt(x, op::Zero(d)));
   return op::IfThenElse(op::Lt(x, op::Zero(d)),
                         op::Sub(op::Set(d, 2.0), tail_pos), tail_pos);
 }
@@ -89,6 +98,10 @@ static HWY_INLINE op::V<D> ErfcVec(D d, op::V<D> x) {
   // Real workloads are usually single-region per vector (Gaussian CDFs
   // essentially never leave |x| <= 6), so skip the unused path: the tail's
   // Div+Exp+Horner roughly halves core-only throughput if always computed.
+  CORVUS_ROUTE(d, "erfc/core", op::Ge(op::Set(d, detail::kErfcTailLo), ax));
+  CORVUS_ROUTE(d, "erfc/tail", tail_m);
+  CORVUS_ROUTE(d, "erfc/special/nan", nan);
+
   op::V<D> res;
   if (op::AllFalse(d, tail_m)) {
     res = ErfcCoreVec(d, x, ax, nan);

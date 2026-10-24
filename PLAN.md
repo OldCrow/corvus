@@ -160,9 +160,54 @@ performance.**
       - Every fix row 12d–12k also deletes its `deferred:#NN` header, so
         those rows are gated, then recounts (`strata_append.py --count`).
         It shows the gate failing first with `CORVUS_REF_DEFERRED=1`.
-    - **Order of the rest of 12-T [proposed 2026-10-22]:** T1, T3 (done)
-      → **NEXT: T7** (before the fixes, to find any further #84-class
-      route defects) → T2 completion → T6 (by 12j) → T4 phase 1.
+    - **T7 DONE 2026-10-23** (uncommitted at write time; 35/35 on
+      AVX3_ZEN4, SSE4, SSE2, MSVC AVX2 /W4 /WX and the census build).
+      Rule: the doctrine test rule ("every kernel route carries a census
+      marker"); recipe: ENVIRONMENT.md. [DERIVED]
+      - Mechanism: `CORVUS_ROUTE` / `CORVUS_ROUTE_SCOPE`
+        (`src/route_census.h`, `src/ops-inl.h`). Both are empty outside
+        `-DCORVUS_ROUTE_CENSUS=ON`. The census `hunt_probe` prints the
+        routes lane 0 took, and `tools/hunt/route_census.py` takes the
+        route list from the source.
+      - Census: 311 routes in 15 families. 305 are exercised: by
+        reference rows, by a special-input grid for the `*/special/*`
+        fixups, and by two witnesses in `tools/hunt/route_witnesses.txt`
+        (beta/R2/huge_c, reachable only through betainv's forward;
+        betainv/special/fwd_unusable). No gamma or beta row disagrees
+        with the hunt's router replicas, so there is no further
+        #84-class route defect in either.
+      - Argued unreachable (`// ROUTE-UNREACHABLE:` in the source):
+        gammainv seed/fallback, restart and fwd/R2/cf_a_clamp;
+        betainv/fwd/R3/neg_cpsi. The last argument is conditional on R3's
+        gated accuracy.
+      - [OPEN] Two routes neither reached nor argued:
+        gammainv/newton/floor and betainv/seed/none. Their partial
+        arguments are `// ROUTE-OPEN:` comments at the markers. Deciding
+        them means proving and deleting each branch (a kernel change, so
+        a fix row) or keeping it with a written guard rationale.
+      - Finding: the census reached gammainv/bracket/cap via
+        `gamma_q_inv(i·2^-1074, j·2^-1074)`. Q rounds to 0 above the
+        root, the residual goes NaN, and the bracket re-proposes one
+        midpoint until its cap, giving roots 4–35% off (about 1.5e15
+        ULP). This is #83's class, far worse than its recorded 1,633
+        ULP. A new gammainv stratum adds 95 rows to `deferred:#83`; the
+        #83 comment is drafted, not posted.
+      - Contract note for #76: on betainv's both-tiny-shape plateau no
+        double meets "backward ≤ 1 ulp(p)" at s + 1–2 ulp.
+      - Census limits:
+        - One tier, AVX3_ZEN4. Routes are data-dependent, not
+          tier-dependent.
+        - Routes in shared cores count hits from every caller.
+        - betainv's Newton-loop forward is unscoped, so rejected
+          candidates add forward routes.
+        - erfinv's HalleyFar scope is a heuristic (x0 ≥ 5.992).
+        - digamma and trigamma scrub specials to 1.5, which records
+          pos_zone. These limits only overstate coverage; none hides a
+          route.
+      - [OPEN] Running the census in CI. It needs a census build leg,
+        about one extra configure.
+    - **Order of the rest of 12-T [proposed 2026-10-22]:** T1, T3, T7
+      (done) → **NEXT: T2 completion** → T6 (by 12j) → T4 phase 1.
   - Pilot results 2026-10-22, no new defects:
     - Subnormal inputs in 13 unary families are clean.
     - `beta_p_inv`/`beta_q_inv` at subnormal targets: CR where certified.

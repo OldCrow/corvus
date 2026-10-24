@@ -110,6 +110,7 @@ HWY_INLINE Dd<D> LogDd(D d, op::V<D> x) {
   // condition is exactly "j >= kLogSplitSlot" and no slot straddles it --
   // which is what lets one R_j serve the whole slot.
   const auto hi_half = op::Ge(m0, op::Set(d, detail::kLogSplit));
+  CORVUS_ROUTE(d, "log_dd/upper_half", hi_half);
   const auto m = op::IfThenElse(hi_half, op::Mul(m0, op::Set(d, 0.5)), m0);
   const auto kf =
       op::Add(op::ConvertToDouble(d, k0),
@@ -159,6 +160,7 @@ HWY_INLINE Dd<D> LogDd(D d, Dd<D> x) {
 template <class D>
 HWY_INLINE Dd<D> LogDdAny(D d, Dd<D> x) {
   const auto tiny = op::Lt(x.hi, op::Set(d, 0x1p-500));
+  CORVUS_ROUTE(d, "log_dd/tiny_prescale", tiny);
   const auto s = op::IfThenElse(tiny, op::Set(d, 0x1p600), op::Set(d, 1.0));
   const auto e = op::IfThenElse(tiny, op::Set(d, -600.0), op::Zero(d));
   const Dd<D> xs{op::Mul(x.hi, s), op::Mul(x.lo, s)};  // exact: power of two

@@ -87,6 +87,10 @@ HWY_NOINLINE op::V<D> LogDdVec(D d, op::V<D> x) {
   const auto zero = op::Zero(d);
   const auto inf = op::Set(d, std::numeric_limits<double>::infinity());
   const auto qnan = op::Set(d, std::numeric_limits<double>::quiet_NaN());
+  CORVUS_ROUTE(d, "log/special/zero", op::Eq(x, zero));
+  CORVUS_ROUTE(d, "log/special/negative", op::Lt(x, zero));
+  CORVUS_ROUTE(d, "log/special/inf", op::Eq(x, inf));
+  CORVUS_ROUTE(d, "log/special/nan", op::IsNaN(x));
   res = op::IfThenElse(op::Eq(x, zero), op::Neg(inf), res);  // both zeros
   res = op::IfThenElse(op::Lt(x, zero), qnan, res);
   res = op::IfThenElse(op::Eq(x, inf), inf, res);
@@ -180,6 +184,16 @@ CORVUS_OUTLINE LogFastResult<D> LogFast(D d, op::V<D> x) {
 template <class D>
 HWY_INLINE op::V<D> LogVec(D d, op::V<D> x) {
   const LogFastResult<D> f = LogFast(d, x);
+  // Routes (census only): the fast path, and the dd fallback by cause
+  // (rounding test failed on a positive normal x; subnormal x; specials
+  // are routed inside LogDdVec).
+  CORVUS_ROUTE(d, "log/fast", f.ok);
+  CORVUS_ROUTE(d, "log/dd/round",
+               op::And(op::And(op::Ge(x, op::Set(d, 0x1p-1022)),
+                               op::Ge(op::Set(d, std::numeric_limits<double>::max()), x)),
+                       op::MaskNot(f.ok)));
+  CORVUS_ROUTE(d, "log/dd/subnormal",
+               op::And(op::Gt(x, op::Zero(d)), op::Gt(op::Set(d, 0x1p-1022), x)));
   if (op::AllTrue(d, f.ok)) return f.v;
   return op::IfThenElse(f.ok, f.v, LogDdVec(d, x));
 }
@@ -200,7 +214,10 @@ HWY_INLINE op::V<D> Log1pVec(D d, op::V<D> x) {
   // |x| <= 2^-30, via Ge (the facade carries no Le); NaN lanes compare
   // false and ride the main path into the payload-preserving blend below.
   const auto tiny = op::Ge(op::Set(d, 0x1p-30), op::Abs(x));
+  CORVUS_ROUTE(d, "log1p/tiny", tiny);
+  CORVUS_ROUTE(d, "log1p/main", op::MaskNot(tiny));
   if (!op::AllFalse(d, tiny)) {
+    CORVUS_ROUTE_SCOPE(d, tiny);
     const auto sq = TwoProd(d, x, x);
     const auto mhalf = op::Set(d, -0.5);
     const auto s1 = Fast2Sum(d, x, op::Mul(sq.hi, mhalf));
@@ -214,6 +231,11 @@ HWY_INLINE op::V<D> Log1pVec(D d, op::V<D> x) {
   const auto inf = op::Set(d, std::numeric_limits<double>::infinity());
   const auto qnan = op::Set(d, std::numeric_limits<double>::quiet_NaN());
   const auto neg1 = op::Set(d, -1.0);
+  CORVUS_ROUTE(d, "log1p/special/neg1", op::Eq(x, neg1));
+  CORVUS_ROUTE(d, "log1p/special/lt_neg1", op::Lt(x, neg1));
+  CORVUS_ROUTE(d, "log1p/special/inf", op::Eq(x, inf));
+  CORVUS_ROUTE(d, "log1p/special/zero", op::Eq(x, zero));
+  CORVUS_ROUTE(d, "log1p/special/nan", op::IsNaN(x));
   res = op::IfThenElse(op::Eq(x, neg1), op::Neg(inf), res);
   res = op::IfThenElse(op::Lt(x, neg1), qnan, res);
   res = op::IfThenElse(op::Eq(x, inf), inf, res);

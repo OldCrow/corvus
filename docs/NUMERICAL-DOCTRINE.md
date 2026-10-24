@@ -198,6 +198,19 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   breaks a published bound sits in a `deferred:#NN` section that names
   its issue: counted, not gated, until the fix row deletes the section
   header and shows the gate failing first with `CORVUS_REF_DEFERRED=1`.
+- **Every kernel route carries a census marker** (#82 T7,
+  `src/route_census.h`). A router region, a sub-map branch, a rare-path
+  block, a saturation or clamp, or a special-value fixup gets
+  `CORVUS_ROUTE(d, "family/route", mask)`. A block that runs when any lane
+  is in a region opens `CORVUS_ROUTE_SCOPE(d, region)`. Both are empty
+  outside a census build. `tools/hunt/route_census.py` must report every
+  route exercised by a reference row, or by a witness in
+  `tools/hunt/route_witnesses.txt` where no certified row can be stored,
+  and no row whose region differs from the hunt's router replica. A
+  route nothing can reach carries `// ROUTE-UNREACHABLE: <argument>` on
+  the line above, and that argument is the claim the census records.
+  "Unreachable" without an argument is a gap. A kernel change that adds,
+  removes or re-routes a branch reruns the census in the same commit.
 - Where the kernel carries more than working precision, the reference file
   carries a double-double pair and the test measures relative error below
   the last bit of a double; rounding first would hide what is being

@@ -242,6 +242,9 @@ template <class D>
 HWY_INLINE Dd<D> DdDivDd(D d, Dd<D> a, Dd<D> b) {
   const auto one = op::Set(d, 1.0);
   const auto ab = op::Abs(b.hi);
+  CORVUS_ROUTE(d, "beta/dddiv/scale_down",
+               op::Gt(ab, op::Set(d, kBetaScaleAbove)));
+  CORVUS_ROUTE(d, "beta/dddiv/scale_up", op::Lt(ab, op::Set(d, kBetaDivFloor)));
   const auto s = op::IfThenElse(
       op::Gt(ab, op::Set(d, kBetaScaleAbove)), op::Set(d, kBetaScaleDown),
       op::IfThenElse(op::Lt(ab, op::Set(d, kBetaDivFloor)),
@@ -292,6 +295,7 @@ HWY_INLINE Dd<D> Log1pDdWide(D d, Dd<D> w) {
 template <class D>
 HWY_INLINE Dd<D> BetaGlT(D d, op::V<D> huge, op::V<D> ss, Dd<D> w, Dd<D> lv) {
   const auto small_w = op::Lt(w.hi, op::Set(d, 0.5));
+  CORVUS_ROUTE(d, "beta/GL/w_large", op::MaskNot(small_w));
   const auto l1p = Log1pDdWide(
       d, Dd<D>{op::IfThenElse(small_w, op::Neg(w.hi), op::Zero(d)),
                op::IfThenElse(small_w, op::Neg(w.lo), op::Zero(d))});
@@ -300,6 +304,7 @@ HWY_INLINE Dd<D> BetaGlT(D d, op::V<D> huge, op::V<D> ss, Dd<D> w, Dd<D> lv) {
   const auto one = op::Set(d, 1.0);
   const auto half = op::Set(d, 0.5);
   const auto gbig = op::Gt(huge, op::Set(d, kBetaScaleAbove));
+  CORVUS_ROUTE(d, "beta/GL/huge_prescale", gbig);
   const auto gdn = op::IfThenElse(gbig, op::Set(d, kBetaScaleDown), one);
   const auto gup = op::IfThenElse(gbig, op::Set(d, kBetaScaleUp), one);
   const auto sm1 = TwoSum(d, ss, op::Neg(one));  // s - 1, exact
@@ -367,6 +372,7 @@ HWY_INLINE BetaExpArg<D> BetaClampE(D d, op::V<D> eh, op::V<D> el) {
   // e-foldings past the underflow point, so mapping NaN onto the floor selects
   // the answer (an exact 0) the finite arithmetic was going to give.
   const auto bad = op::IsNaN(eh);
+  CORVUS_ROUTE(d, "beta/clamp/nan_e", bad);
   eh = op::IfThenElse(bad, floorv, eh);
   el = op::IfThenElse(bad, zero, el);
   const auto sat = op::Ge(floorv, eh);
@@ -435,6 +441,8 @@ HWY_NOINLINE Dd<D> BinetDiffDd(D d, Dd<D> z, Dd<D> w) {
   const auto rho2 = op::Mul(rho, rho);
 
   const auto zc = op::Min(z.hi, op::Set(d, kBetaBinetZClamp));
+  CORVUS_ROUTE(d, "beta/binet/z_clamp",
+               op::Gt(z.hi, op::Set(d, kBetaBinetZClamp)));
   const auto rd = DdRecip(d, zc);
   const auto r = rd.hi;
   const auto r2 = op::Mul(r, r);
@@ -524,6 +532,7 @@ HWY_NOINLINE Dd<D> LgammaDiffDd(D d, op::V<D> bigm, op::V<D> smallm) {
     // remaining step is a no-op and breaking out returns the same value.
     const auto fire = op::Gt(z0, mj.hi);
     if (op::AllFalse(d, fire)) break;
+    CORVUS_ROUTE(d, "beta/lgdiff/walk", fire);
     const auto eps = DdDivDd(d, Dd<D>{smallm, zero}, mj);
     const auto sn = DdAdd(d, s, DdAdd(d, eps, DdMul(d, s, eps)));
     s = Dd<D>{op::IfThenElse(fire, sn.hi, s.hi),
@@ -535,6 +544,7 @@ HWY_NOINLINE Dd<D> LgammaDiffDd(D d, op::V<D> bigm, op::V<D> smallm) {
   // --- (b) Stirling difference at z = M + k ---
   const auto z = TwoSum(d, bigm, kf);  // exact
   const auto big = op::Gt(z.hi, op::Set(d, kBetaScaleAbove));
+  CORVUS_ROUTE(d, "beta/lgdiff/huge_z", big);
   const auto dn = op::IfThenElse(big, op::Set(d, kBetaScaleDown), one);
   const auto up = op::IfThenElse(big, op::Set(d, kBetaScaleUp), one);
   const Dd<D> zs{op::Mul(z.hi, dn), op::Mul(z.lo, dn)};
@@ -607,6 +617,7 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   const auto one = op::Set(d, 1.0);
 
   const auto big = op::Gt(op::Max(a, b), op::Set(d, kBetaScaleAbove));
+  CORVUS_ROUTE(d, "beta/psi/huge", big);
   const auto dn = op::IfThenElse(big, op::Set(d, kBetaScaleDown), one);
   const auto up = op::IfThenElse(big, op::Set(d, kBetaScaleUp), one);
   const auto as = op::Mul(a, dn);
@@ -664,6 +675,8 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   const auto mhalf = op::Set(d, -0.5);
   const auto cor_u = op::Lt(u.hi, mhalf);
   const auto cor_v = op::Lt(v.hi, mhalf);
+  CORVUS_ROUTE(d, "beta/psi/corner_u", cor_u);
+  CORVUS_ROUTE(d, "beta/psi/corner_v", cor_v);
   const auto cxi = DdMul(d, c, xi);
   const auto cyv = DdMul(d, c, y);
   const Dd<D> num_u{op::IfThenElse(cor_u, cxi.hi, as),
@@ -763,6 +776,7 @@ HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
   // subnormal xi upscales exactly). Non-big lanes multiply by 1.0 -- an
   // IEEE identity -- so every previously-validated lane is BIT-IDENTICAL.
   const auto rbig = op::Gt(b, op::Set(d, kBetaScaleAbove));
+  CORVUS_ROUTE(d, "beta/R1/huge_beta", rbig);
   const auto rdn = op::IfThenElse(rbig, op::Set(d, kBetaScaleDown), one);
   const auto rup = op::IfThenElse(rbig, op::Set(d, kBetaScaleUp), one);
   const auto bsd = op::Mul(b, rdn);
@@ -839,6 +853,7 @@ HWY_NOINLINE Dd<D> BetaR2Cf(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi) {
   const auto zero = op::Zero(d);
 
   const auto big = op::Gt(c.hi, op::Set(d, kBetaScaleAbove));
+  CORVUS_ROUTE(d, "beta/R2/huge_c", big);
   const auto sdn = op::IfThenElse(big, op::Set(d, kBetaScaleDown), one);
   const auto sup = op::IfThenElse(big, op::Set(d, kBetaScaleUp), one);
   const Dd<D> cs{op::Mul(c.hi, sdn), op::Mul(c.lo, sdn)};
@@ -967,6 +982,10 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
 
   // Table symmetry: only p <= 1/2 is stored.
   const auto pswap = op::Gt(ps.p, half);
+  CORVUS_ROUTE(d, "beta/R3/pswap", pswap);
+  CORVUS_ROUTE(d, "beta/R3/gl_ext", BetaIndMask(d, i_gl));
+  CORVUS_ROUTE(d, "beta/R3/nu_clamp",
+               op::Gt(ps.nu.hi, op::Set(d, kBetaTwoPiNuClamp)));
   const auto pe = op::IfThenElse(pswap, ps.q, ps.p);
   const auto ze = op::IfThenElse(pswap, op::Neg(ps.zeta), ps.zeta);
   const auto tsign = op::IfThenElse(pswap, op::Set(d, -1.0), one);
@@ -1084,6 +1103,7 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
   const auto tail = BetaScale(d, DdMul(d, exf.m, brk_tail), exf.e);
 
   const auto tm = op::Gt(ps.cpsi.hi, op::Set(d, kBetaZ2Split));
+  CORVUS_ROUTE(d, "beta/R3/tail", tm);
   const BetaVal<D> val{op::IfThenElse(tm, tail.v, DdToDouble(core)),
                        Dd<D>{op::IfThenElse(tm, tail.dd.hi, core.hi),
                              op::IfThenElse(tm, tail.dd.lo, core.lo)}};
@@ -1153,6 +1173,8 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
   const auto tsub = op::Gt(op::Set(d, kBetaTauSubn), tau);
   const auto btiny = op::Ge(op::Set(d, kBetaBTinyCut), bb);
   const auto tau0 = tau;  // the shortcut divides the ORIGINAL pair
+  CORVUS_ROUTE(d, "beta/R4/tau_subn", tsub);
+  CORVUS_ROUTE(d, "beta/R4/both_tiny", op::And(tsub, btiny));
   tau = op::IfThenElse(tsub, op::Mul(tau, op::Set(d, kBetaTauUp)),
                        tau);
 
@@ -1170,6 +1192,7 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
   // upscale finite; subnormal xi upscales exactly). Non-big lanes
   // multiply by 1.0 -- bit-identical.
   const auto rbig = op::Gt(bb, op::Set(d, kBetaScaleAbove));
+  CORVUS_ROUTE(d, "beta/R4/huge_b", rbig);
   const auto rdn = op::IfThenElse(rbig, op::Set(d, kBetaScaleDown), one);
   const auto rup = op::IfThenElse(rbig, op::Set(d, kBetaScaleUp), one);
   const auto bsd = op::Mul(bb, rdn);
@@ -1216,6 +1239,7 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
   // but take the analytic form too: one code path, and the walk is
   // cheap next to the N=48 series above.
   const auto gt1 = op::Gt(tau, one);
+  CORVUS_ROUTE(d, "beta/R4/lg1_shift", gt1);
   const auto lg1 = LgammaDiffDd(
       d, op::IfThenElse(gt1, op::Add(one, one), one),
       op::IfThenElse(gt1, op::Sub(tau, one), tau));
@@ -1292,6 +1316,30 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     b = op::IfThenElse(mm, safe_b, b);
     x = op::IfThenElse(mm, safe_x, x);
   }
+  CORVUS_ROUTE(d, "beta/special/nan",
+               op::Or(op::Or(op::IsNaN(a_in), op::IsNaN(b_in)),
+                      op::IsNaN(x_in)));
+  CORVUS_ROUTE(d, "beta/special/domain",
+               op::Or(op::Or(op::Lt(a_in, zero), op::Lt(b_in, zero)),
+                      op::Or(op::Lt(x_in, zero), op::Gt(x_in, one))));
+  CORVUS_ROUTE(d, "beta/special/x0", op::Eq(x_in, zero));
+  CORVUS_ROUTE(d, "beta/special/x1", op::Eq(x_in, one));
+  CORVUS_ROUTE(d, "beta/special/a0", op::Eq(a_in, zero));
+  CORVUS_ROUTE(d, "beta/special/b0", op::Eq(b_in, zero));
+  CORVUS_ROUTE(d, "beta/special/a_inf", op::Eq(a_in, inf));
+  CORVUS_ROUTE(d, "beta/special/b_inf", op::Eq(b_in, inf));
+  CORVUS_ROUTE(d, "beta/special/degenerate_edge",
+               op::Or(op::Or(op::And(op::Eq(a_in, zero), op::Eq(x_in, zero)),
+                             op::And(op::Eq(b_in, inf), op::Eq(x_in, zero))),
+                      op::Or(op::And(op::Eq(b_in, zero), op::Eq(x_in, one)),
+                             op::And(op::Eq(a_in, inf), op::Eq(x_in, one)))));
+  CORVUS_ROUTE(d, "beta/special/two_degenerate",
+               op::And(op::Or(op::Eq(a_in, zero), op::Eq(a_in, inf)),
+                       op::Or(op::Eq(b_in, zero), op::Eq(b_in, inf))));
+  // Routes below count only for lanes the specials table does not decide
+  // (no input was scrubbed), so a special row never reports a region.
+  CORVUS_ROUTE_SCOPE(d, op::And(op::And(op::Eq(a, a_in), op::Eq(b, b_in)),
+                                op::Eq(x, x_in)));
 
   const auto y0 = TwoSum(d, one, op::Neg(x));  // 1 - x, EXACT
   const auto c_raw = op::Add(a, b);            // may be +inf; only compared
@@ -1399,6 +1447,12 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   const auto m_r2 = BetaIndMask(d, i_r2);
   const auto m_r3 = BetaIndMask(d, i_r3);
   const auto m_r4 = BetaIndMask(d, i_r4);
+  CORVUS_ROUTE(d, "beta/R1", m_r1);
+  CORVUS_ROUTE(d, "beta/R3", m_r3);
+  CORVUS_ROUTE(d, "beta/R4", m_r4);
+  CORVUS_ROUTE(d, "beta/R1/swap", op::And(m_r1, m_sw));
+  CORVUS_ROUTE(d, "beta/R3/swap", op::And(m_r3, m_sw));
+  CORVUS_ROUTE(d, "beta/R4/swap", op::And(m_r4, m_sw));
 
   // The direct side is P where the native orientation was evaluated -- except
   // in R4, which computes the COMPLEMENT of its own (tiny-first) triple. R3
@@ -1425,6 +1479,14 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   BetaPsi<D> ps{Dd<D>{zero, zero}, Dd<D>{one, zero}, zero, half, half, zero};
   const bool need_psi = !op::AllFalse(d, m_psi);
   if (need_psi) {
+    CORVUS_ROUTE_SCOPE(
+        d, op::Or(m_r3,
+                  op::And(m_pb,
+                          op::MaskNot(op::And(
+                              op::And(m_r2, op::Ge(bmax, op::Set(
+                                                       d, detail::kBetaGammaLim))),
+                              op::Gt(op::Set(d, detail::kBetaGammaLim),
+                                     op::Min(alpha, beta)))))));
     const auto pa = op::IfThenElse(m_psi, alpha, safe_a);
     const auto pb = op::IfThenElse(m_psi, beta, safe_b);
     const Dd<D> px{op::IfThenElse(m_psi, xi.hi, safe_x),
@@ -1438,6 +1500,13 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   BetaVal<D> val{zero, Dd<D>{zero, zero}};
 
   if (!op::AllFalse(d, m_r1) || !op::AllFalse(d, m_r2)) {
+    CORVUS_ROUTE_SCOPE(
+        d, op::And(BetaIndMask(d, i_e),
+                   op::MaskNot(op::And(
+                       op::And(m_r2, op::Ge(bmax, op::Set(
+                                                d, detail::kBetaGammaLim))),
+                       op::Gt(op::Set(d, detail::kBetaGammaLim),
+                              op::Min(alpha, beta))))));
     // HUGE-parameter EXACT PRESCALE for the two DdMulD multiplicands
     // (companion to BetaR1Series' huge-beta prescale): alpha or beta above
     // ops::ProdLow's 2^996 non-FMA Dekker ceiling breaks the split inside
@@ -1455,12 +1524,15 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     const auto ua = op::IfThenElse(pba, op::Set(d, kBetaScaleUp), one);
     const auto sb = op::IfThenElse(pbb, op::Set(d, kBetaScaleDown), one);
     const auto ub = op::IfThenElse(pbb, op::Set(d, kBetaScaleUp), one);
+    CORVUS_ROUTE(d, "beta/pre/huge_alpha", pba);
+    CORVUS_ROUTE(d, "beta/pre/huge_beta", pbb);
     // ln xi and ln y FROM THE SMALLER OF THE PAIR (#54 defect 2). A dd log
     // of an argument near 1 is accurate to ~2^-106 ABSOLUTE, not relative,
     // and the huge parameter multiplies it: at beta ~ 2^58 with y = 1 - 1e-16
     // that is ~2^-50 absolute in E, several ulp. xi + yv = 1 exactly, so the
     // larger one's log is log1p(-smaller), relative to itself.
     const auto xsm = op::Ge(half, xi.hi);
+    CORVUS_ROUTE(d, "beta/pre/xi_large", op::MaskNot(xsm));
     const Dd<D> sml{op::IfThenElse(xsm, xi.hi, yv.hi),
                     op::IfThenElse(xsm, xi.lo, yv.lo)};
     const auto lsm = OutlinedLogDd(d, sml);
@@ -1494,12 +1566,17 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     // lgamma(min) = LgammaDiffDd(floor(min), frac) + ln((floor-1)!)
     // table.
     Dd<D> epa{zero, zero};
+    CORVUS_ROUTE(d, "beta/pre/pa", m_pa);
+    CORVUS_ROUTE(d, "beta/pre/pb", m_pb);
     if (!op::AllFalse(d, m_pa)) {
+      CORVUS_ROUTE_SCOPE(d, m_pa);
       const auto mn = op::IfThenElse(m_pa, op::Min(alpha, beta), safe_a);
       const auto mx = op::IfThenElse(m_pa, op::Max(alpha, beta), safe_b);
       const auto lo = op::Ge(op::Set(d, detail::kBetaPrTauMax), mn);
       const auto mns = op::IfThenElse(lo, mn, one);  // scrub dead lanes
       const auto gt1 = op::Gt(mns, one);
+      CORVUS_ROUTE(d, "beta/pre/pa/lgamma_small", lo);
+      CORVUS_ROUTE(d, "beta/pre/pa/lgamma_small_gt1", gt1);
       const auto lg1m = LgammaDiffDd(
           d, op::IfThenElse(gt1, op::Add(one, one), one),
           op::IfThenElse(gt1, op::Sub(mns, one), mns));
@@ -1514,6 +1591,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     // here, so c.lo is negligible in Delta and c may even be +inf (Binet -> 0).
     Dd<D> epb{zero, zero};
     if (!op::AllFalse(d, m_pb)) {
+      CORVUS_ROUTE_SCOPE(d, m_pb);
       const auto delta =
           op::Sub(op::Add(BinetVal(d, alpha), BinetVal(d, beta)),
                   BinetVal(d, c_raw));
@@ -1534,7 +1612,9 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     const auto e1 = DdSub(d, e2, l2);
 
     if (!op::AllFalse(d, m_r1)) {
+      CORVUS_ROUTE_SCOPE(d, m_r1);
       const auto ea = BetaClampE(d, e1.hi, e1.lo);
+      CORVUS_ROUTE(d, "beta/R1/saturated", ea.sat);
       const auto as = op::IfThenElse(ea.sat, safe_a, alpha);
       const auto bs = op::IfThenElse(ea.sat, safe_b, beta);
       const auto xs = op::IfThenElse(ea.sat, safe_x, xi.hi);
@@ -1548,7 +1628,9 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       val.dd.lo = op::IfThenElse(m_r1, r1.dd.lo, val.dd.lo);
     }
     if (!op::AllFalse(d, m_r2)) {
+      CORVUS_ROUTE_SCOPE(d, m_r2);
       const auto ea = BetaClampE(d, e2.hi, e2.lo);
+      CORVUS_ROUTE(d, "beta/R2/saturated", ea.sat);
       const auto as = op::IfThenElse(ea.sat, safe_a, alpha);
       const auto bs = op::IfThenElse(ea.sat, safe_b, beta);
       // c as the EXACT dd pair, per the exact-c rule: the CF's
@@ -1598,15 +1680,20 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
                     BetaInd(d, op::Ge(op::Set(d, detail::kBetaPrTauMax),
                                       alpha))));
   const auto m_pr = BetaIndMask(d, i_pr);
+  CORVUS_ROUTE(d, "beta/R1/near_one", m_pr);
   const auto i_r4x = op::Max(i_r4, i_pr);
   const auto m_r4x = BetaIndMask(d, i_r4x);
 
   if (!op::AllFalse(d, m_r3)) {
+    CORVUS_ROUTE_SCOPE(d, m_r3);
     // The depth-extension indicator is the bmax gate alone (not i_glr's
     // nu part): every R3 slice lane gets the extension rows, including
     // nu >= T_ridge ones -- safe at any nu, see BetaR3Temme's comment.
     auto t3 = BetaR3Temme(
         d, ps, BetaInd(d, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim))));
+    CORVUS_ROUTE(d, "beta/R3/saturated", t3.sat);
+    CORVUS_ROUTE(d, "beta/R3/lam_neg",
+                 op::MaskNot(BetaIndMask(d, t3.lam_pos)));
     t3.val.v = op::IfThenElse(t3.sat, zero, t3.val.v);
     t3.val.dd.hi = op::IfThenElse(t3.sat, zero, t3.val.dd.hi);
     t3.val.dd.lo = op::IfThenElse(t3.sat, zero, t3.val.dd.lo);
@@ -1623,6 +1710,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   }
 
   if (!op::AllFalse(d, m_r4x)) {
+    CORVUS_ROUTE_SCOPE(d, m_r4x);
     // R4's scrub point is its OWN interior (tau <= eps_R4), not the shared
     // (2, 3, 1/4): tau = 2 is outside this core's zones and would take
     // lgamma(1+tau) past the centre-2 edge. The mask is the EXTENDED set
@@ -1682,8 +1770,15 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       BetaInd(d, op::Gt(op::Set(d, detail::kBetaGammaLim),
                         op::Min(alpha, beta))));
   const auto m_gl = BetaIndMask(d, i_gl);
+  CORVUS_ROUTE(d, "beta/R2", op::And(m_r2, op::MaskNot(m_gl)));
+  CORVUS_ROUTE(d, "beta/R2/swap",
+               op::And(op::And(m_r2, op::MaskNot(m_gl)), m_sw));
+  CORVUS_ROUTE(d, "beta/GL", m_gl);
+  CORVUS_ROUTE(d, "beta/GL/swap", op::And(m_gl, m_sw));
   if (!op::AllFalse(d, m_gl)) {
+    CORVUS_ROUTE_SCOPE(d, m_gl);
     const auto hf = op::Ge(alpha, op::Set(d, detail::kBetaGammaLim));
+    CORVUS_ROUTE(d, "beta/GL/huge_first", hf);
     const auto i_hf = BetaInd(d, hf);
     const auto ss = op::IfThenElse(m_gl, op::IfThenElse(hf, beta, alpha), one);
     const auto huge = op::IfThenElse(hf, alpha, beta);
@@ -1725,10 +1820,12 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
         op::Mul(BetaInd(d, op::Ge(ss, op::Set(d, detail::kGammaAT))),
                 BetaInd(d, op::Ge(ss, op::Add(th, th)))));
     const auto m_ser = BetaIndMask(d, i_ser);
+    CORVUS_ROUTE(d, "beta/GL/series", m_ser);
     const auto e_s = DdSub(d, e_g, OutlinedLogDd(d, ss));  // gamma's R1 fold
     const Dd<D> e_pick{op::IfThenElse(m_ser, e_s.hi, e_g.hi),
                        op::IfThenElse(m_ser, e_s.lo, e_g.lo)};
     const auto ea = BetaClampE(d, e_pick.hi, e_pick.lo);
+    CORVUS_ROUTE(d, "beta/GL/saturated", ea.sat);
     const auto s_c = op::IfThenElse(ea.sat, one, ss);
     const auto t_c = op::IfThenElse(ea.sat, op::Set(d, kBetaGlSatT),
                                     op::Min(th, op::Set(d, kBetaGlTCap)));
@@ -1875,6 +1972,8 @@ HWY_NOINLINE op::V<D> LbetaVec(D d, op::V<D> a, op::V<D> b) {
   const auto mm_raw = op::Max(as, bs);
 
   const auto big = op::Gt(m_raw, op::Set(d, kLbetaBigMin));
+  CORVUS_ROUTE(d, "lbeta/special/bad", bad);
+  CORVUS_ROUTE(d, "lbeta/big", op::And(op::MaskNot(bad), big));
 
   // --- main band (computed on every lane; big lanes scrubbed down) -------
   // ONLY the min is clamped: the scrub exists so big-band lanes stay
@@ -1912,6 +2011,8 @@ HWY_NOINLINE op::V<D> LbetaVec(D d, op::V<D> a, op::V<D> b) {
   // push a finite sum across the rounding boundary to -inf.
   const auto inf = op::Set(d, std::numeric_limits<double>::infinity());
   const auto acc_ovf = op::Ge(acc.hi, inf);
+  CORVUS_ROUTE(d, "lbeta/big/overflow",
+               op::And(op::And(op::MaskNot(bad), big), acc_ovf));
   const Dd<D> acc_safe{op::IfThenElse(acc_ovf, one, acc.hi),
                        op::IfThenElse(acc_ovf, zero, acc.lo)};
   const auto big_dd =

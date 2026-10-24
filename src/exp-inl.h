@@ -161,6 +161,21 @@ CORVUS_OUTLINE ExpFastResult<D> ExpFast(D d, op::V<D> x) {
 template <class D>
 HWY_INLINE op::V<D> ExpVec(D d, op::V<D> x) {
   const ExpFastResult<D> f = ExpFast(d, x);
+  // Routes (census only): the fast path, the dd fallback by cause (rounding
+  // test failed inside |x| <= 708; result-range bands outside it; NaN).
+  CORVUS_ROUTE(d, "exp/fast", f.ok);
+  CORVUS_ROUTE(d, "exp/dd/round",
+               op::And(op::Ge(op::Set(d, 708.0), op::Abs(x)), op::MaskNot(f.ok)));
+  CORVUS_ROUTE(d, "exp/dd/edge",
+               op::And(op::Gt(op::Abs(x), op::Set(d, 708.0)),
+                       op::And(op::Ge(op::Set(d, 0x1.62e42fefa39efp9), x),
+                               op::Ge(x, op::Set(d, -0x1.6232bdd7abcd2p9)))));
+  CORVUS_ROUTE(d, "exp/dd/overflow", op::Gt(x, op::Set(d, 0x1.62e42fefa39efp9)));
+  CORVUS_ROUTE(d, "exp/dd/subnormal",
+               op::And(op::Gt(op::Set(d, -0x1.6232bdd7abcd2p9), x),
+                       op::Ge(x, op::Set(d, -0x1.74910d52d3051p9))));
+  CORVUS_ROUTE(d, "exp/dd/underflow", op::Gt(op::Set(d, -0x1.74910d52d3051p9), x));
+  CORVUS_ROUTE(d, "exp/special/nan", op::IsNaN(x));
   if (op::AllTrue(d, f.ok)) return f.v;
   return op::IfThenElse(f.ok, f.v, ExpDdVec(d, x));
 }

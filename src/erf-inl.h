@@ -38,6 +38,9 @@ static HWY_INLINE op::V<D> ErfVec(D d, op::V<D> x) {
   const auto core = ErfTableCore<6>(d, ac);
   auto res = op::Add(core.e_hi, core.small);
 
+  CORVUS_ROUTE(d, "erf/core", op::Lt(ax, amax));
+  CORVUS_ROUTE(d, "erf/saturated", op::Ge(ax, amax));
+  CORVUS_ROUTE(d, "erf/special/nan", nan);
   res = op::IfThenElse(op::Ge(ax, amax), one, res);
   res = op::IfThenElse(nan, x, res);      // propagate NaN (payload preserved)
   return op::CopySign(res, x);            // erf is odd; also -0 -> -0

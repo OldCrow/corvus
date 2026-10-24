@@ -5,6 +5,8 @@
 // in the same order. Unknown functions and malformed lines write "?".
 // Each line is one public span call of length 1, so the masked-tail path
 // evaluates every row; lane independence is guarded by the smoke tests.
+// A census build (CORVUS_ROUTE_CENSUS, #82 T7) appends the routes lane 0
+// took, ` <route>[,<route>...]` or ` -`, for tools/hunt/route_census.py.
 #include <corvus/corvus.h>
 
 #include <cstdint>
@@ -13,6 +15,10 @@
 #include <cstring>
 #include <span>
 #include <string_view>
+
+#if defined(CORVUS_ROUTE_CENSUS)
+#include "src/route_census.h"
+#endif
 
 namespace {
 
@@ -97,7 +103,16 @@ int main() {
     else e->t(a0, a1, a2, out);
     uint64_t bits;
     std::memcpy(&bits, &r, sizeof bits);
+#if defined(CORVUS_ROUTE_CENSUS)
+    std::printf("%016llx ", static_cast<unsigned long long>(bits));
+    const auto routes = corvus::census::Take();
+    for (size_t i = 0; i < routes.size(); ++i) {
+      std::printf("%s%s", i ? "," : "", routes[i]);
+    }
+    std::fputs(routes.empty() ? "-\n" : "\n", stdout);
+#else
     std::printf("%016llx\n", static_cast<unsigned long long>(bits));
+#endif
   }
   return 0;
 }

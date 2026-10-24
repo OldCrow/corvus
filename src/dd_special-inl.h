@@ -134,6 +134,8 @@ HWY_INLINE Dd<D> Log1pmxDd(D d, Dd<D> u, Dd<D> w) {
   const auto big = DdAdd(d, u, Dd<D>{op::Neg(lg.hi), op::Neg(lg.lo)});
 
   const auto m = op::Ge(op::Set(d, detail::kPhiCut), op::Abs(uh));
+  CORVUS_ROUTE(d, "dd_special/log1pmx_series", m);
+  CORVUS_ROUTE(d, "dd_special/log1pmx_direct", op::MaskNot(m));
   return Dd<D>{op::IfThenElse(m, ser.hi, big.hi),
                op::IfThenElse(m, ser.lo, big.lo)};
 }
@@ -184,6 +186,8 @@ HWY_INLINE Dd<D> Expm1Dd(D d, Dd<D> w) {
   const auto big = DdAddD(d, ex, op::Neg(one));
 
   const auto m = op::Ge(op::Set(d, kExpm1Cut), op::Abs(wh));
+  CORVUS_ROUTE(d, "dd_special/expm1_series", m);
+  CORVUS_ROUTE(d, "dd_special/expm1_exp", op::MaskNot(m));
   return Dd<D>{op::IfThenElse(m, ser.hi, big.hi),
                op::IfThenElse(m, ser.lo, big.lo)};
 }

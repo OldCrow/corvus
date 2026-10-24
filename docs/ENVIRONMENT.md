@@ -288,6 +288,18 @@ silently running under the AVX2 label) — the script's own
 script also documents its own single-element-splat gotcha at the top;
 read it before editing the `$gates` array handling.
 
+**Route census** (#82 T7; rule in NUMERICAL-DOCTRINE.md, test doctrine). A
+separate build with `-DCORVUS_ROUTE_CENSUS=ON` turns on the route markers;
+its `hunt_probe` prints the routes each row takes. On Windows, configure it
+from a vcvars64 shell like build-clangcl:
+```sh
+cmake --preset windows-clang-cl -B build-census -DCORVUS_ROUTE_CENSUS=ON
+cmake --build build-census --target hunt_probe
+python tools/hunt/route_census.py --build build-census
+```
+The census build's gates pass like any other, but never ship it or take
+numbers from it.
+
 Benchmarks (`bench_*`, not ctest-registered): Release build, quiet machine
 only; numbers taken on a loaded machine are indicative and must be labeled
 as such wherever they are recorded.

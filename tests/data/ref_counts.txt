@@ -474,6 +474,7 @@ gamma_p_reference.txt|generic:r1_small|120
 gamma_p_reference.txt|generic:r2_small|120
 gamma_p_reference.txt|generic:r3|120
 gamma_p_reference.txt|generic:r4|120
+gamma_p_reference.txt|witness:route_r2_nan_exponent|17
 gamma_p_reference.txt|cross|140
 gamma_p_reference.txt|near_tie|56
 gamma_p_reference.txt|deferred:#70|1
@@ -540,6 +541,7 @@ gamma_q_reference.txt|generic:r1_small|120
 gamma_q_reference.txt|generic:r2_small|120
 gamma_q_reference.txt|generic:r3|120
 gamma_q_reference.txt|generic:r4|120
+gamma_q_reference.txt|witness:route_r2_nan_exponent|17
 gamma_q_reference.txt|cross|140
 gamma_q_reference.txt|near_tie|69
 gamma_q_reference.txt|deferred:#70|1
@@ -582,7 +584,9 @@ gammainv_p_reference.txt|extreme:subnormal_a|120
 gammainv_p_reference.txt|extreme:tiny_a_q_tail|120
 gammainv_p_reference.txt|generic:small_a|120
 gammainv_p_reference.txt|generic:temme|119
-gammainv_p_reference.txt|cross|83
+gammainv_p_reference.txt|witness:subnormal_aq|96
+gammainv_p_reference.txt|witness:route_reject_nan|2
+gammainv_p_reference.txt|cross|82
 gammainv_p_reference.txt|near_tie|37
 gammainv_p_reference.txt|deferred:#72|27
 gammainv_q_reference.txt|base|6875
@@ -624,10 +628,11 @@ gammainv_q_reference.txt|extreme:tiny_a_q_tail|120
 gammainv_q_reference.txt|generic:small_a|120
 gammainv_q_reference.txt|generic:temme|117
 gammainv_q_reference.txt|witness|3
+gammainv_q_reference.txt|witness:route_reject_nan|2
 gammainv_q_reference.txt|cross|80
 gammainv_q_reference.txt|near_tie|39
 gammainv_q_reference.txt|deferred:#72|30
-gammainv_q_reference.txt|deferred:#83|37
+gammainv_q_reference.txt|deferred:#83|132
 i0_reference.txt|base|4593
 i0_reference.txt|seam:split:bits|17
 i0_reference.txt|seam:split:below|80

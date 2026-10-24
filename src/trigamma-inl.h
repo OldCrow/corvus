@@ -221,6 +221,14 @@ HWY_NOINLINE Dd<D> TrigammaLowDd(D d, op::V<D> x_in) {
       op::Min(op::Max(x_in, op::Set(d, detail::kTrigammaDeepTinyGuard)),
               op::Set(d, detail::kTrigammaX0));
   const auto lo1 = op::Lt(x, one);
+  // Clamped lanes (x_in >= X0, or x_in under the deep-tiny guard) match none.
+  const auto live = op::Ge(x_in, op::Set(d, detail::kTrigammaDeepTinyGuard));
+  CORVUS_ROUTE(d, "trigamma/pos_01", op::And(live, lo1));
+  CORVUS_ROUTE(d, "trigamma/pos_zone",
+               op::And(op::Ge(x, one), op::Lt(x, op::Set(d, 2.0))));
+  CORVUS_ROUTE(d, "trigamma/pos_walk",
+               op::And(op::Ge(x, op::Set(d, 2.0)),
+                       op::Lt(x_in, op::Set(d, detail::kTrigammaX0))));
 
   Dd<D> s{op::Zero(d), op::Zero(d)};
   auto y = x;
@@ -312,6 +320,7 @@ HWY_NOINLINE Dd<D> TrigammaAsymDd(D d, op::V<D> x) {
   const Dd<D> res = DdAdd(d, r, DdAdd(d, half, term));
 
   const auto big = op::Ge(x, cut);
+  CORVUS_ROUTE(d, "trigamma/pos_asym_recip", big);
   return Dd<D>{op::IfThenElse(big, op::Div(one, x), res.hi),
                op::IfThenElse(big, op::Zero(d), res.lo)};
 }
@@ -322,6 +331,7 @@ template <class D>
 HWY_INLINE Dd<D> TrigammaPosDd(D d, op::V<D> x) {
   const auto x0 = op::Set(d, detail::kTrigammaX0);
   const auto big = op::Ge(x, x0);
+  CORVUS_ROUTE(d, "trigamma/pos_asym", big);
 
   // Both branches are domain-clamped (TrigammaLowDd clamps its own input), so
   // whichever one a lane is not taking cannot fault or manufacture a NaN that
@@ -355,6 +365,7 @@ HWY_NOINLINE op::V<D> TrigammaRoughTetragamma(D d, op::V<D> y_in) {
   const auto floorv = op::Set(d, detail::kTrigammaRoughTetraFloor);
   for (int k = 0; k < 5; ++k) {
     const auto fire = op::Lt(y, floorv);
+    CORVUS_ROUTE(d, "trigamma/neg_tetra_walk", fire);
     if (op::AllFalse(d, fire)) break;
     const auto dec = op::Div(two, op::Mul(op::Mul(y, y), y));
     s = op::IfThenElse(fire, op::Sub(s, dec), s);
@@ -468,6 +479,10 @@ HWY_NOINLINE op::V<D> TrigammaVec(D d, op::V<D> x) {
 
   const auto u = op::Sub(xs, op::Round(xs));  // exact; |u| <= 1/2
   if (!op::AllFalse(d, neg)) {
+    // Negative integers and -inf are scrubbed to -1.5 and answered by the
+    // specials below; only non-integer negative lanes take the reflection.
+    CORVUS_ROUTE_SCOPE(d, op::And(neg, op::Or(op::Lt(x, op::Round(x)),
+                                              op::Gt(x, op::Round(x)))));
     // psi_1(1 - x) at the exact dd argument: the pipeline ran on y.hi, so the
     // residual enters as y.lo * psi_2(y.hi). Selected in rather than added
     // unconditionally -- y.lo is not zero on positive lanes (1 - x is inexact
@@ -482,6 +497,8 @@ HWY_NOINLINE op::V<D> TrigammaVec(D d, op::V<D> x) {
     const auto rf = TrigammaReflDd(d, ur);
     const auto r = DdAdd(d, rf, Dd<D>{op::Neg(gc.hi), op::Neg(gc.lo)});
     g = Dd<D>{op::IfThenElse(neg, r.hi, g.hi), op::IfThenElse(neg, r.lo, g.lo)};
+    // Lanes under the guard are answered by the scaled reciprocal-square.
+    CORVUS_ROUTE(d, "trigamma/neg", op::Ge(op::Abs(u), guard));
   }
 
   auto out = DdToDouble(g);
@@ -491,11 +508,22 @@ HWY_NOINLINE op::V<D> TrigammaVec(D d, op::V<D> x) {
   // negative-integer pole on the other. One helper serves both because the
   // reflection's sinc factor differs from 1 by less than 2^-959 there.
   const auto ta = op::IfThenElse(neg, op::Abs(u), x);
+  CORVUS_ROUTE(d, "trigamma/deep_tiny_pos",
+               op::And(op::Gt(x, zero), op::Lt(x, guard)));
+  CORVUS_ROUTE(d, "trigamma/deep_tiny_neg",
+               op::And(neg, op::And(op::Gt(ta, zero), op::Lt(ta, guard))));
+  CORVUS_ROUTE(d, "trigamma/deep_tiny_overflow",
+               op::And(op::Gt(ta, zero),
+                       op::Lt(ta, op::Set(d, 0x1.0000000000001p-512))));
   out = op::IfThenElse(op::Lt(ta, guard), TrigammaTinyRecipSq(d, ta), out);
 
   // Specials, outermost last. Every pole is a DOUBLE pole and so unsigned:
   // +inf at +-0, at every negative integer (which covers -inf and every
   // double <= -2^53), and psi_1(+inf) = +0.
+  CORVUS_ROUTE(d, "trigamma/special/zero", op::Eq(x, zero));
+  CORVUS_ROUTE(d, "trigamma/special/neg_int", op::And(neg, isint));
+  CORVUS_ROUTE(d, "trigamma/special/inf", op::Gt(x, maxf));
+  CORVUS_ROUTE(d, "trigamma/special/nan", op::IsNaN(x));
   out = op::IfThenElse(op::Eq(x, zero), inf, out);
   out = op::IfThenElse(neg, op::IfThenElse(isint, inf, out), out);
   out = op::IfThenElse(op::Gt(x, maxf), zero, out);

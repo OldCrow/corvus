@@ -178,6 +178,24 @@ template <class D>
 HWY_INLINE Dd<D> LgammaLow(D d, op::V<D> x) {
   const auto one = op::Set(d, 1.0);
   const auto small = op::Lt(x, op::Set(d, detail::kLgammaZoneLo));
+  {
+    // Region routes; each mask is bounded on both sides so Stirling lanes
+    // (which LgammaPosDd may also pass through here) and NaN match none.
+    const auto pos = op::Gt(x, op::Zero(d));
+    const auto below_x0 = op::Lt(x, op::Set(d, detail::kLgammaX0));
+    CORVUS_ROUTE(d, "lgamma/small", op::And(pos, small));
+    CORVUS_ROUTE(d, "lgamma/small_subnormal",
+                 op::And(pos, op::Lt(x, op::Set(d, 0x1p-1022))));
+    CORVUS_ROUTE(d, "lgamma/zone1",
+                 op::And(op::Ge(x, op::Set(d, detail::kLgammaZoneLo)),
+                         op::Lt(x, op::Set(d, detail::kLgammaZoneMid))));
+    CORVUS_ROUTE(d, "lgamma/zone2",
+                 op::And(op::Ge(x, op::Set(d, detail::kLgammaZoneMid)),
+                         op::Lt(x, op::Set(d, 0x1.4000000000001p+1))));
+    CORVUS_ROUTE(d, "lgamma/walk",
+                 op::And(op::Gt(x, op::Set(d, detail::kLgammaZoneHi)),
+                         below_x0));
+  }
 
   // All-zone fast path. When every lane sits in [kLgammaZoneLo, kLgammaZoneHi]
   // the recurrence multiplies P by exact ones and the log runs on P == 1,
@@ -240,6 +258,7 @@ HWY_INLINE Dd<D> LgammaLow(D d, op::V<D> x) {
 template <class D>
 HWY_INLINE Dd<D> LgammaPosDd(D d, op::V<D> x) {
   const auto big = op::Ge(x, op::Set(d, detail::kLgammaX0));
+  CORVUS_ROUTE(d, "lgamma/stirling", big);
 
   // Both paths are domain-clamped so the unused one cannot fault or produce a
   // NaN that a select would then have to launder: Stirling needs x >= X0 for
@@ -293,6 +312,8 @@ HWY_INLINE op::V<D> LgammaVec(D d, op::V<D> x) {
 
   Dd<D> res = g;
   if (!op::AllFalse(d, neg)) {
+    CORVUS_ROUTE_SCOPE(d, neg);
+    CORVUS_ROUTE(d, "lgamma/neg", neg);
     // u = x - round(x), exact; |u| <= 1/2. u == 0 marks a pole.
     const auto u = op::Sub(x, op::Round(x));
     const auto au = op::Abs(u);
@@ -301,6 +322,7 @@ HWY_INLINE op::V<D> LgammaVec(D d, op::V<D> x) {
     r = DdAdd(d, r, DdAdd(d, OutlinedLogDd(d, ax), g));
     const Dd<D> refl{op::Neg(r.hi), op::Neg(r.lo)};
     const auto pole = op::Eq(u, zero);
+    CORVUS_ROUTE(d, "lgamma/special/pole", pole);
     res = Dd<D>{op::IfThenElse(neg, op::IfThenElse(pole, inf, refl.hi), res.hi),
                 op::IfThenElse(neg, op::IfThenElse(pole, zero, refl.lo), res.lo)};
   }
@@ -317,6 +339,12 @@ HWY_INLINE op::V<D> LgammaVec(D d, op::V<D> x) {
   // ~2.5599833e305, and the whole negative range below -2.5599833e305, where every
   // double is an integer and therefore a pole (so -inf lands right too). NaN
   // propagates with its payload, matching erf/erfc.
+  CORVUS_ROUTE(d, "lgamma/special/zero", op::Eq(x, zero));
+  CORVUS_ROUTE(d, "lgamma/special/overflow",
+               op::And(op::Gt(ax, op::Set(d, detail::kLgammaMaxArg)),
+                       op::Lt(ax, inf)));
+  CORVUS_ROUTE(d, "lgamma/special/inf", op::Eq(ax, inf));
+  CORVUS_ROUTE(d, "lgamma/special/nan", op::IsNaN(x));
   out = op::IfThenElse(op::Eq(x, zero), inf, out);
   out = op::IfThenElse(op::Gt(ax, op::Set(d, detail::kLgammaMaxArg)), inf, out);
   return op::IfThenElse(op::IsNaN(x), x, out);

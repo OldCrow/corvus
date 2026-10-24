@@ -310,6 +310,8 @@ template <class D>
 HWY_INLINE Dd<D> BetaInvFiniteLog(D d, Dd<D> v) {
   const auto ok = op::Lt(op::Abs(v.hi),
                          op::Set(d, std::numeric_limits<double>::infinity()));
+  CORVUS_ROUTE(d, "betainv/special/nonfinite_log",
+               op::MaskNot(ok));
   return Dd<D>{op::IfThenElse(ok, v.hi, op::Set(d, kBetaInvLogSentinel)),
                op::IfThenElse(ok, v.lo, op::Zero(d))};
 }
@@ -350,6 +352,9 @@ template <class D>
 HWY_NOINLINE Dd<D> BetaInvLgamma1p(D d, op::V<D> m) {
   const auto one = op::Set(d, 1.0);
   const auto lo = op::Ge(op::Set(d, detail::kBetaPrTauMax), m);
+  CORVUS_ROUTE(d, "betainv/lgamma1p/diff", lo);
+  CORVUS_ROUTE(d, "betainv/lgamma1p/general",
+               op::Gt(m, op::Set(d, detail::kBetaPrTauMax)));
   const auto ms = op::IfThenElse(lo, m, one);  // scrub the dead branch
   const auto g1 = op::Gt(ms, one);
   const auto diff = LgammaDiffDd(d, op::IfThenElse(g1, op::Add(one, one), one),
@@ -601,6 +606,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
                             op::Mul(i_r2, BetaIndNot(
                                 d, BetaInd(d, op::Lt(y, thr)))))));
   const auto m_sw = BetaIndMask(d, i_sw);
+  CORVUS_ROUTE(d, "betainv/fwd/swap", m_sw);
 
   const auto ra = op::IfThenElse(m_sw, beta, alpha);
   const auto rb = op::IfThenElse(m_sw, alpha, beta);
@@ -615,6 +621,10 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   const auto m_r2 = BetaIndMask(d, i_r2);
   const auto m_r3 = BetaIndMask(d, i_r3);
   const auto m_r4 = BetaIndMask(d, i_r4);
+  CORVUS_ROUTE(d, "betainv/fwd/R1", m_r1);
+  CORVUS_ROUTE(d, "betainv/fwd/R2", m_r2);
+  CORVUS_ROUTE(d, "betainv/fwd/R3", m_r3);
+  CORVUS_ROUTE(d, "betainv/fwd/R4", m_r4);
   const auto i_nat = BetaIndNot(d, i_sw);
   auto is_p = op::IfThenElse(m_r4, i_sw, i_nat);
 
@@ -628,6 +638,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   const auto m_psi = BetaIndMask(d, op::Max(i_r3, cx.i_pb));
   BetaPsi<D> ps{Dd<D>{zero, zero}, Dd<D>{one, zero}, zero, half, half, zero};
   if (!op::AllFalse(d, m_psi)) {
+    CORVUS_ROUTE_SCOPE(d, m_psi);
     const auto pa = op::IfThenElse(m_psi, alpha, safe_a);
     const auto pb = op::IfThenElse(m_psi, beta, safe_b);
     const Dd<D> px{op::IfThenElse(m_psi, y, safe_x), zero};
@@ -700,6 +711,8 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
               op::Mul(BetaInd(d, op::Ge(t_u, small)),
                       BetaInd(d, op::Ge(t_v, small)))));
   const auto m_use_pb = BetaIndMask(d, pb_ok);
+  CORVUS_ROUTE(d, "betainv/fwd/PB", m_use_pb);
+  CORVUS_ROUTE(d, "betainv/fwd/PA", op::MaskNot(m_use_pb));
   auto efull = Dd<D>{op::IfThenElse(m_use_pb, e_pb.hi, e_pa.hi),
                      op::IfThenElse(m_use_pb, e_pb.lo, e_pa.lo)};
   efull = BetaInvFiniteLog(d, efull);
@@ -708,6 +721,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   // fraction may see its arguments at all -- beta scrubs on its saturation
   // mask, this file on the same finiteness test the sentinel above applies.
   const auto esat = op::Ge(op::Set(d, kBetaInvLogSentinel), efull.hi);
+  CORVUS_ROUTE(d, "betainv/fwd/saturated", esat);
 
   // --- ln of the directly computed side ------------------------------------
   Dd<D> lnf{zero, zero};
@@ -717,6 +731,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   const auto e1 = DdSub(d, e2, l2);      // R1 also drops beta*ln(1-y)
 
   if (!op::AllFalse(d, m_r1)) {
+    CORVUS_ROUTE_SCOPE(d, m_r1);
     const auto as = op::IfThenElse(esat, safe_a, ra);
     const auto bs = op::IfThenElse(esat, safe_b, rb);
     const auto xs = op::IfThenElse(esat, safe_x, rxi.hi);
@@ -725,6 +740,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
                 op::IfThenElse(m_r1, l.lo, lnf.lo)};
   }
   if (!op::AllFalse(d, m_r2)) {
+    CORVUS_ROUTE_SCOPE(d, m_r2);
     const auto as = op::IfThenElse(esat, safe_a, ra);
     const auto bs = op::IfThenElse(esat, safe_b, rb);
     const auto cd = TwoSum(d, ra, rb);  // c as the EXACT pair (beta's rule)
@@ -737,6 +753,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
                 op::IfThenElse(m_r2, l.lo, lnf.lo)};
   }
   if (!op::AllFalse(d, m_r3)) {
+    CORVUS_ROUTE_SCOPE(d, m_r3);
     const auto t3 = BetaR3Temme(
         d, ps, BetaInd(d, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim))));
     // THE TAIL BRANCH IS TAKEN IN LOG SPACE, NOT AS log(value).
@@ -755,6 +772,11 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
     const auto lgt = DdAdd(d, DdNeg(d, ps.cpsi), OutlinedLogDd(d, t3.brk));
     const auto tail3 = op::Gt(ps.cpsi.hi, op::Set(d, kBetaZ2Split));
     const auto pos = op::Gt(t3.val.dd.hi, zero);
+    CORVUS_ROUTE(d, "betainv/fwd/R3/tail", tail3);
+    // ROUTE-UNREACHABLE: R3's band keeps y in (0,1) and cpsi finite >= 0, so a
+    // non-tail value <= 0 needs an O(1) relative error in the gated R3 core.
+    CORVUS_ROUTE(d, "betainv/fwd/R3/neg_cpsi",
+                 op::And(op::MaskNot(pos), op::MaskNot(tail3)));
     auto l = Dd<D>{op::IfThenElse(pos, lg3.hi, op::Neg(ps.cpsi.hi)),
                    op::IfThenElse(pos, lg3.lo, op::Neg(ps.cpsi.lo))};
     l = Dd<D>{op::IfThenElse(tail3, lgt.hi, l.hi),
@@ -776,10 +798,12 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
       op::Mul(BetaInd(d, op::Gt(lnf.hi, op::Set(d, kBetaInvNearOneLog))),
               BetaInd(d, op::Ge(op::Set(d, detail::kBetaPrTauMax), ra))));
   const auto m_pr = BetaIndMask(d, i_pr);
+  CORVUS_ROUTE(d, "betainv/fwd/near-one", m_pr);
   const auto i_r4x = op::Max(i_r4, i_pr);
   const auto m_r4x = BetaIndMask(d, i_r4x);
 
   if (!op::AllFalse(d, m_r4x)) {
+    CORVUS_ROUTE_SCOPE(d, m_r4x);
     // R4's scrub point is its OWN interior (tau <= eps_R4), not the shared
     // (2, 3, 1/4): tau = 2 is outside this core's zones.
     const auto t4 =
@@ -805,7 +829,9 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
               BetaInd(d, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim)))),
       BetaInd(d, op::Gt(op::Set(d, detail::kBetaGammaLim), tau)));
   const auto m_gl = BetaIndMask(d, i_gl);
+  CORVUS_ROUTE(d, "betainv/fwd/gamma-limit", m_gl);
   if (!op::AllFalse(d, m_gl)) {
+    CORVUS_ROUTE_SCOPE(d, m_gl);
     const auto hf = op::Ge(ra, op::Set(d, detail::kBetaGammaLim));
     const auto i_hf = BetaInd(d, hf);
     const auto ss = op::IfThenElse(m_gl, op::IfThenElse(hf, rb, ra), one);
@@ -838,11 +864,15 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
         op::Mul(BetaInd(d, op::Ge(ss, op::Set(d, detail::kGammaAT))),
                 BetaInd(d, op::Ge(ss, op::Add(th, th)))));
     const auto m_ser = BetaIndMask(d, i_ser);
+    CORVUS_ROUTE(d, "betainv/fwd/gamma-limit/series", m_ser);
+    CORVUS_ROUTE(d, "betainv/fwd/gamma-limit/cf",
+                 op::MaskNot(m_ser));
     const auto e_s = DdSub(d, e_g, OutlinedLogDd(d, ss));  // gamma's R1 fold
     Dd<D> e_pick{op::IfThenElse(m_ser, e_s.hi, e_g.hi),
                  op::IfThenElse(m_ser, e_s.lo, e_g.lo)};
     e_pick = BetaInvFiniteLog(d, e_pick);
     const auto gsat = op::Ge(op::Set(d, kBetaInvLogSentinel), e_pick.hi);
+    CORVUS_ROUTE(d, "betainv/fwd/gamma-limit/saturated", gsat);
     const auto s_c = op::IfThenElse(gsat, one, ss);
     const auto t_c = op::IfThenElse(gsat, op::Set(d, kBetaGlSatT),
                                     op::Min(th, op::Set(d, kBetaGlTCap)));
@@ -879,7 +909,9 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   // assembled a second time.
   {
     const auto m_cmp = op::Gt(lnf.hi, op::Set(d, kBetaInvNegLn2));
+    CORVUS_ROUTE(d, "betainv/fwd/complement", m_cmp);
     if (!op::AllFalse(d, m_cmp)) {
+      CORVUS_ROUTE_SCOPE(d, m_cmp);
       const auto vb = OutlinedExpDd(d, lnf.hi, lnf.lo);
       const auto cb = DdSub(d, Dd<D>{one, zero}, vb);
       const auto l = BetaInvFiniteLog(d, OutlinedLogDd(d, cb));
@@ -900,6 +932,8 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   // so clamping the ARGUMENT is value-identical for u everywhere and
   // keeps exp_dd inside its audited domain.
   const auto lnf_u = op::Max(lnf.hi, op::Set(d, detail::kBetaExpFloor));
+  CORVUS_ROUTE(d, "betainv/fwd/exp_floor",
+               op::Lt(lnf.hi, op::Set(d, detail::kBetaExpFloor)));
   const auto lnf_ul =
       op::IfThenElse(op::Eq(lnf_u, lnf.hi), lnf.lo, zero);
   const auto u = OutlinedExpDd(d, lnf_u, lnf_ul);
@@ -915,6 +949,9 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   const auto wl = op::Max(op::Min(op::Sub(lnf.hi, efull.hi),
                                   op::Set(d, kBetaInvWExpMax)),
                           op::Set(d, -kBetaInvWExpMax));
+  CORVUS_ROUTE(d, "betainv/fwd/w_clamp",
+               op::Gt(op::Abs(op::Sub(lnf.hi, efull.hi)),
+                      op::Set(d, kBetaInvWExpMax)));
   auto w = op::Mul(op::Mul(OutlinedExp(d, wl), cmpl.hi), yc.hi);
 
   // THE RESIDUAL'S OWN UNCERTAINTY, and the kernel needs it because the
@@ -946,6 +983,8 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
                                    BetaInd(d, op::Lt(op::Abs(m.lo), inf))),
                            BetaInd(d, op::Lt(op::Abs(w), inf)));
   const auto m_ok = BetaIndMask(d, okv);
+  CORVUS_ROUTE(d, "betainv/special/fwd_unusable",
+               op::MaskNot(m_ok));
   m = Dd<D>{op::IfThenElse(m_ok, m.hi, op::Set(d, kBetaInvBigResid)),
             op::IfThenElse(m_ok, m.lo, zero)};
   w = op::IfThenElse(m_ok, w, zero);
@@ -1006,6 +1045,7 @@ HWY_NOINLINE op::V<D> BetaInvLamOfZeta(D d, op::V<D> zeta, op::V<D> as,
   const auto lam0 = op::Mul(op::Mul(op::Set(d, kBetaInvSqrt2), nus), zeta);
   const auto in0 = op::Mul(BetaInd(d, op::Gt(lam0, lo)),
                            BetaInd(d, op::Lt(lam0, hi)));
+  CORVUS_ROUTE(d, "betainv/S1/lam_mid0", BetaIndMask(d, BetaIndNot(d, in0)));
   auto lam = op::IfThenElse(BetaIndMask(d, in0), lam0,
                             op::Mul(op::Add(lo, hi), half));
 
@@ -1035,6 +1075,8 @@ HWY_NOINLINE op::V<D> BetaInvLamOfZeta(D d, op::V<D> zeta, op::V<D> as,
     // safeguard in this file has the same shape and the same reason.
     const auto inb = op::Mul(BetaInd(d, op::Ge(cand, lo)),
                              BetaInd(d, op::Ge(hi, cand)));
+    CORVUS_ROUTE(d, "betainv/S1/lam_bisect",
+                 BetaIndMask(d, BetaIndNot(d, inb)));
     cand = op::IfThenElse(BetaIndMask(d, inb), cand,
                           op::Mul(op::Add(lo, hi), half));
     lam = cand;
@@ -1100,7 +1142,9 @@ HWY_NOINLINE op::V<D> BetaInvSeedS1(D d, const BetaInvCtx<D>& cx, op::V<D> z,
   const auto gate = op::Mul(
       BetaInd(d, op::Ge(zmax, op::Abs(zeta))),
       BetaInd(d, op::Ge(cx.nu, op::Set(d, detail::kBetaInvS1NuMin))));
+  CORVUS_ROUTE(d, "betainv/S1/corrected", BetaIndMask(d, gate));
   if (!op::AllFalse(d, BetaIndMask(d, gate))) {
+    CORVUS_ROUTE_SCOPE(d, BetaIndMask(d, gate));
     // Table symmetry: only p <= 1/2 is stored.
     const auto half = op::Set(d, 0.5);
     const auto pswap = op::Gt(cx.p_mean, half);
@@ -1185,6 +1229,8 @@ HWY_NOINLINE op::V<D> BetaInvSeedS2(D d, const BetaInvCtx<D>& cx,
         d, op::Mul(op::Mul(BetaInd(d, op::Gt(yn, zero)),
                            BetaInd(d, op::Lt(yn, one))),
                    BetaInd(d, op::Lt(op::Abs(ser), inf))));
+    CORVUS_ROUTE(d, "betainv/S2/hold",
+                 op::MaskNot(good));
     y = op::IfThenElse(good, yn, y);
   }
   return y;
@@ -1211,6 +1257,7 @@ HWY_NOINLINE void BetaInvConsider(D d, const BetaInvCtx<D>& cx, op::V<D> cand,
   const auto okc = op::Mul(gate, op::Mul(BetaInd(d, op::Gt(cand, zero)),
                                          BetaInd(d, op::Lt(cand, one))));
   const auto mc = BetaIndMask(d, okc);
+  CORVUS_ROUTE_SCOPE(d, mc);
   // A rejected candidate is replaced by an ordinary interior point before the
   // forward runs: masked-off lanes execute every op, and a NaN y would
   // otherwise reach the series lengths and the region cores' gathers.
@@ -1278,6 +1325,7 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
   // whether sigma is the Q of the CALLER's (a, b, x); that is a statement
   // about the probability, and it does NOT decide the orientation.
   const auto m_flip = op::Gt(s, half);
+  CORVUS_ROUTE(d, "betainv/flip", m_flip);
   const auto sigma = op::IfThenElse(m_flip, op::Sub(one, s), s);  // exact
   const auto i_flip = BetaInd(d, m_flip);
   const auto i_sq = kQ ? BetaIndNot(d, i_flip) : i_flip;
@@ -1328,6 +1376,7 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
                            op::Add(one, op::Abs(mt0.hi)));
   const auto m_swap = BetaIndMask(d, BetaInd(d, op::Lt(d_half, op::Neg(tie))));
   const auto i_swap = BetaInd(d, m_swap);
+  CORVUS_ROUTE(d, "betainv/swap", m_swap);
   const auto cx = BetaInvSwapCtx(d, cx0, m_swap);
   const auto alpha = cx.alpha;
   const auto beta = cx.beta;
@@ -1384,8 +1433,12 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
                                     op::Set(d, detail::kBetaInvDeepSmallCut))),
                              BetaInd(d, op::Lt(y_ds, one))));
 
+  CORVUS_ROUTE(d, "betainv/deep-small", m_ds);
+  CORVUS_ROUTE(d, "betainv/seeded", op::MaskNot(m_ds));
+
   auto y = y_ds;
   if (!op::AllTrue(d, m_ds)) {
+    CORVUS_ROUTE_SCOPE(d, op::MaskNot(m_ds));
     // --- seed candidates ---------------------------------------------------
     // The prescaled frame S1 works in; also the source of the fallback
     // incumbent (the distribution's mean, an ordinary interior point for any
@@ -1436,6 +1489,8 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
       // tau vs s* = beta/(alpha+beta), the branch predicate; tau itself is
       // never assembled as a value, so the comparison uses its log.
       const auto lnqm = OutlinedLogDd(d, cx.q_mean).hi;
+      CORVUS_ROUTE(d, "betainv/S4/lo", op::Ge(lnqm, lntau.hi));
+      CORVUS_ROUTE(d, "betainv/S4/hi", op::Gt(lntau.hi, lnqm));
       BetaInvConsider(d, cx,
                       op::IfThenElse(op::Ge(lnqm, lntau.hi), y_lo, y_hi), one,
                       mt, &best_y, &best_r, &best_f);
@@ -1469,8 +1524,11 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
     {
       const auto gate3 = BetaInd(d, op::Ge(op::Max(alpha, beta),
                                            op::Set(d, kBetaInvS3Min)));
+      CORVUS_ROUTE(d, "betainv/S3", BetaIndMask(d, gate3));
       if (!op::AllFalse(d, BetaIndMask(d, gate3))) {
+        CORVUS_ROUTE_SCOPE(d, BetaIndMask(d, gate3));
         const auto blo = op::Ge(beta, alpha);
+        CORVUS_ROUTE(d, "betainv/S3/blo", blo);
         const auto i_blo = BetaInd(d, blo);
         const auto sg = op::IfThenElse(blo, alpha, beta);   // the gamma shape
         const auto hg = op::IfThenElse(blo, beta, alpha);   // the huge side
@@ -1506,6 +1564,8 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
         // is Q, its own availability condition.
         const auto t3 = GammaInvSeedS3(d, sg, lnsig.hi, lga.hi, &g3ok);
         const auto g3 = op::Mul(op::Mul(gate3, g3ok), BetaIndNot(d, i_gp));
+        CORVUS_ROUTE(d, "betainv/S3/gamma-S1", BetaIndMask(d, g1));
+        CORVUS_ROUTE(d, "betainv/S3/gamma-S3", BetaIndMask(d, g3));
 
         BetaInvConsider(d, cx, BetaInvGammaToY(d, t1, hg, blo), g1, mt,
                         &best_y, &best_r, &best_f);
@@ -1546,7 +1606,14 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
     auto yn = best_y;
     BetaInvFwdOut<D> cur = best_f;
     auto rbest = best_r;
+    // ROUTE-OPEN (#82 T7): needs every gated candidate outside (0,1) or NaN
+    // (for y in (0,1) m and the residual are finite). S1 leaves (0,1) only if
+    // alpha*2^-40/c underflows or beta*2^-40/c < 2^-54; S4-lo only within a
+    // sub-ulp hn::Exp vs ExpDdFrac disagreement; S4-hi, S5 saturation and
+    // y_ds = inf/NaN are not covered. 200k targeted rows: no hit.
+    CORVUS_ROUTE(d, "betainv/seed/none", op::Eq(best_r, inf));
     if (!op::AllFalse(d, op::Eq(best_r, inf))) {
+      CORVUS_ROUTE_SCOPE(d, op::Eq(best_r, inf));
       cur = BetaInvForward(d, cx, yn);
       rbest = op::Abs(BetaInvResid(d, cur, mt));
     }
@@ -1554,6 +1621,7 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
     for (int k = 0; k < detail::kBetaInvStepsN + kBetaInvStepsExtra; ++k) {
       const auto resid = BetaInvResid(d, cur, mt);
       auto ls = op::Neg(op::Mul(op::Mul(scale, cur.w), resid));
+      CORVUS_ROUTE(d, "betainv/newton/clamp", op::Lt(ls, op::Set(d, -0.9)));
       ls = op::Max(ls, op::Set(d, -0.9));
       // FREEZE ON NOISE. A residual at or below the forward's own uncertainty
       // carries no information about where the root is, and stepping on it
@@ -1563,6 +1631,8 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
       // is the one place the safeguard package needed a beta-specific addition
       // (gammainv's w is bounded by ~2^10, so its noise steps are invisible;
       // beta's reaches 2^50 in the joint-tiny band).
+      CORVUS_ROUTE(d, "betainv/newton/freeze",
+                   op::Ge(cur.unc, op::Abs(resid)));
       ls = op::IfThenElse(op::Ge(cur.unc, op::Abs(resid)), zero, ls);
       const auto cand = op::MulAdd(yn, ls, yn);
 
@@ -1574,6 +1644,10 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
           d, op::Mul(op::Mul(BetaInd(d, op::Gt(cand, zero)),
                              BetaInd(d, op::Lt(cand, one))),
                      op::Max(trust, BetaInd(d, op::Ge(rbest, rnew)))));
+      CORVUS_ROUTE(d, "betainv/newton/backtrack", op::MaskNot(acc));
+      CORVUS_ROUTE(d, "betainv/newton/trust",
+                   op::And(acc, op::And(BetaIndMask(d, trust),
+                                        op::Gt(rnew, rbest))));
       yn = op::IfThenElse(acc, cand, yn);
       rbest = op::IfThenElse(acc, rnew, rbest);
       cur.m = Dd<D>{op::IfThenElse(acc, f.m.hi, cur.m.hi),
@@ -1597,6 +1671,7 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
             BetaInd(d, op::Lt(op::Abs(ls), op::Set(d, kBetaInvConvStep))),
             BetaInd(d, op::Eq(scale, one)));
         const auto stuck = BetaInd(d, op::Ge(op::Set(d, 0x1.0p-9), scale));
+        CORVUS_ROUTE(d, "betainv/beyond-resolution", BetaIndMask(d, stuck));
         if (op::AllTrue(d, BetaIndMask(d, op::Max(op::Max(conv, stuck),
                                                   BetaInd(d, m_ds))))) {
           break;
@@ -1616,6 +1691,9 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
   // are tiny the forward is flat at 1/2 to far below an ulp (a plateau), and
   // (1e-300, 1e-300, 1/2) returned 1/2 + 2^-10 -- backward-correct but not
   // the exact answer the identity gives for free (#60).
+  CORVUS_ROUTE(d, "betainv/special/symmetric_half",
+               BetaIndMask(d, op::Mul(BetaInd(d, op::Eq(a, b)),
+                                      BetaInd(d, op::Eq(s, half)))));
   res = op::IfThenElse(
       BetaIndMask(d, op::Mul(BetaInd(d, op::Eq(a, b)),
                              BetaInd(d, op::Eq(s, half)))),
@@ -1628,6 +1706,8 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
   // probability.
   const auto at0 = kQ ? one : zero;  // s = 0
   const auto at1 = kQ ? zero : one;  // s = 1
+  CORVUS_ROUTE(d, "betainv/special/s0", op::Eq(s_in, zero));
+  CORVUS_ROUTE(d, "betainv/special/s1", op::Eq(s_in, one));
   res = op::IfThenElse(op::Eq(s_in, zero), at0, res);
   res = op::IfThenElse(op::Eq(s_in, one), at1, res);
 
@@ -1635,6 +1715,10 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
   const auto b0 = op::Eq(b_in, zero);
   const auto ai = op::Eq(a_in, inf);
   const auto bi = op::Eq(b_in, inf);
+  CORVUS_ROUTE(d, "betainv/special/a0", a0);
+  CORVUS_ROUTE(d, "betainv/special/b_inf", bi);
+  CORVUS_ROUTE(d, "betainv/special/b0", b0);
+  CORVUS_ROUTE(d, "betainv/special/a_inf", ai);
   // Mass at 0 (a = 0 or b = +inf): every quantile is 0. Mass at 1 (b = 0 or
   // a = +inf): every quantile is 1.
   res = op::IfThenElse(a0, zero, res);
@@ -1644,8 +1728,17 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
   {
     const auto da = op::Max(BetaInd(d, a0), BetaInd(d, ai));
     const auto db = op::Max(BetaInd(d, b0), BetaInd(d, bi));
+    CORVUS_ROUTE(d, "betainv/special/two_degenerate",
+                 op::Gt(op::Mul(da, db), half));
     res = op::IfThenElse(op::Gt(op::Mul(da, db), half), qnan, res);
   }
+  CORVUS_ROUTE(d, "betainv/special/a_neg", op::Lt(a_in, zero));
+  CORVUS_ROUTE(d, "betainv/special/b_neg", op::Lt(b_in, zero));
+  CORVUS_ROUTE(d, "betainv/special/s_neg", op::Lt(s_in, zero));
+  CORVUS_ROUTE(d, "betainv/special/s_gt1", op::Gt(s_in, one));
+  CORVUS_ROUTE(d, "betainv/special/nan_a", op::IsNaN(a_in));
+  CORVUS_ROUTE(d, "betainv/special/nan_b", op::IsNaN(b_in));
+  CORVUS_ROUTE(d, "betainv/special/nan_s", op::IsNaN(s_in));
   res = op::IfThenElse(op::Lt(a_in, zero), qnan, res);
   res = op::IfThenElse(op::Lt(b_in, zero), qnan, res);
   res = op::IfThenElse(op::Lt(s_in, zero), qnan, res);

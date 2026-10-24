@@ -33,6 +33,8 @@ endfunction()
 # tools/hunt's evaluator (#82, T5): a public-API probe, not a test.
 add_executable(hunt_probe hunt_probe.cpp)
 corvus_test_target(hunt_probe)
+# src/route_census.h in a census build (#82 T7).
+target_include_directories(hunt_probe PRIVATE ${PROJECT_SOURCE_DIR})
 
 # #36: the Windows toolchain verdicts, in script mode so every leg runs them.
 add_test(NAME toolchain_guard
