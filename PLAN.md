@@ -160,8 +160,8 @@ performance.**
       - Every fix row 12d–12k also deletes its `deferred:#NN` header, so
         those rows are gated, then recounts (`strata_append.py --count`).
         It shows the gate failing first with `CORVUS_REF_DEFERRED=1`.
-    - **T7 DONE 2026-10-23** (uncommitted at write time; 35/35 on
-      AVX3_ZEN4, SSE4, SSE2, MSVC AVX2 /W4 /WX and the census build).
+    - **T7 DONE 2026-10-24** (`7416ad8`; CI 40130702831 green on NEON,
+      Linux sweep + sanitizers, Windows; summary on #82, finding on #83).
       Rule: the doctrine test rule ("every kernel route carries a census
       marker"); recipe: ENVIRONMENT.md. [DERIVED]
       - Mechanism: `CORVUS_ROUTE` / `CORVUS_ROUTE_SCOPE`
@@ -190,8 +190,8 @@ performance.**
         root, the residual goes NaN, and the bracket re-proposes one
         midpoint until its cap, giving roots 4–35% off (about 1.5e15
         ULP). This is #83's class, far worse than its recorded 1,633
-        ULP. A new gammainv stratum adds 95 rows to `deferred:#83`; the
-        #83 comment is drafted, not posted.
+        ULP. A new gammainv stratum adds 95 rows to `deferred:#83`
+        (posted on #83).
       - Contract note for #76: on betainv's both-tiny-shape plateau no
         double meets "backward ≤ 1 ulp(p)" at s + 1–2 ulp.
       - Census limits:
