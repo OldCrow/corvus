@@ -34,6 +34,11 @@ from typing import Callable, Optional, Sequence
 import mpmath as mp
 from mpmath import mpf
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+# Point-selection helpers are shared with the reference generators (#82 T3).
+from refgen_common import (bits, from_bits, full_mantissa, log_uniform,  # noqa: E402,F401
+                           neighbours, ordered, subnormal)
+
 REPO = Path(__file__).resolve().parents[2]
 TIERS = {  # tier label -> build directory (Windows clang-cl builds on Z)
     "AVX3_ZEN4": "build-clangcl",
@@ -45,19 +50,6 @@ MAX_WORKERS = 6  # cap-oracle-sweep-workers rule
 
 
 # ---- double helpers ---------------------------------------------------------
-def bits(d: float) -> int:
-    return struct.unpack("<Q", struct.pack("<d", d))[0]
-
-
-def from_bits(u: int) -> float:
-    return struct.unpack("<d", struct.pack("<Q", u))[0]
-
-
-def ordered(d: float) -> int:
-    u = struct.unpack("<q", struct.pack("<d", d))[0]
-    return u if u >= 0 else -(u & 0x7FFFFFFFFFFFFFFF)
-
-
 def ulp_dist(a: float, b: float) -> int:
     if math.isnan(a) or math.isnan(b):
         return 0 if (math.isnan(a) and math.isnan(b)) else 1 << 62
@@ -84,38 +76,6 @@ def round_double(v) -> float:
         return math.copysign(math.inf, float(mp.sign(v)))
     q = quantum(v)
     return float(mp.nint(v / q) * q)
-
-
-def neighbours(x: float, k: int) -> list[float]:
-    """x and its k bit-neighbours on each side (finite, same sign)."""
-    out = []
-    b = bits(x)
-    for j in range(-k, k + 1):
-        nb = b + j
-        if 0 <= nb < 0x7FF0000000000000 or 0x8000000000000000 <= nb < 0xFFF0000000000000:
-            out.append(from_bits(nb))
-    return out
-
-
-def full_mantissa(rng: random.Random, lo: float, hi: float) -> float:
-    """Uniform on [lo, hi] then re-randomised in its low 30 bits, so rows
-    carry full mantissas rather than the sampler's short ones."""
-    x = rng.uniform(lo, hi)
-    if x == 0 or not math.isfinite(x):
-        return x
-    return from_bits((bits(x) & ~0x3FFFFFFF) | rng.getrandbits(30))
-
-
-def log_uniform(rng: random.Random, lo: float, hi: float) -> float:
-    return math.exp(rng.uniform(math.log(lo), math.log(hi)))
-
-
-def subnormal(rng: random.Random, top_binades: Optional[int] = None) -> float:
-    """Positive subnormal; top_binades=k restricts to the top k binades."""
-    if top_binades is None:
-        return from_bits(rng.getrandbits(52) | 1)
-    e = rng.randint(52 - top_binades, 51)
-    return from_bits((1 << e) | rng.getrandbits(e))
 
 
 # ---- strata -----------------------------------------------------------------

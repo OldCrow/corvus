@@ -15,9 +15,9 @@ value is still not the correctly rounded one, the row is a FINDING (a
 generator defect), listed on stderr, and the file is not rewritten.
 
 Where the hunt oracles do not reach, other routes take over:
-- gamma family, 1e7 < a < 2^130: the gammainv generator's two Temme fits;
 - beta inverses where the hunt root finder fails: forward bisection inside
-  the stored value's cell, or the normal median form for a, b >= 1e15;
+  the stored value's cell (the gamma Temme route and the beta normal-median
+  form, once workarounds here, live in the oracles since #82 T3);
 - special rows (NaN, infinite or zero-shape inputs): r = 0, since the gates
   match their exact special values bit for bit.
 betainv B rows (beyond resolution) certify a neighbour of the root, so
@@ -111,53 +111,13 @@ def path_of(key: str) -> Path:
 _ORACLES: dict = {}
 
 
-_BIG: dict = {}  # gamma family, a > BIG_A: fn -> (oracle, oracle2)
-BIG_A = 1e7       # the hunt's gamma oracles refuse a > 1e7 off saturation
-BIG_A_HI = 2.0 ** 130  # from here the hunt's closed form is exact; at dps 60
-                       # the Temme root bisection could not resolve x - a
-
-
-def _big_gamma():
-    """The gammainv generator's Temme oracle for a > 1e7, where the hunt's
-    series/CF oracles do not reach and its root bracket loses the root
-    (a >~ 1e35 put roots 1 ulp off). Its two independent coefficient fits
-    serve as oracle and oracle2."""
-    sys.path.insert(0, str(REPO / "tools"))
-    import pickle
-    import gen_gammainv_reference as G
-    cache = CKPT_DIR / "temme_fits.pkl"
-    if cache.exists():
-        f1, f2 = pickle.loads(cache.read_bytes())
-    else:
-        f1, f2 = G.build_fits()
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        cache.write_bytes(pickle.dumps((f1, f2)))
-
-    def fwd(k, fit):
-        return lambda args, dps: G.oracle_pq(args[0], args[1], fit, dps)[k]
-
-    def inv(side, fit):
-        def f(args, dps):
-            x = G.oracle_x(args[0], args[1], side, dps, fit)
-            if x is None:
-                raise RuntimeError("Temme root not bracketed")
-            return x
-        return f
-
-    return {"gamma_p": (fwd(0, f1), fwd(0, f2)), "gamma_q": (fwd(1, f1), fwd(1, f2)),
-            "gamma_p_inv": (inv("p", f1), inv("p", f2)),
-            "gamma_q_inv": (inv("q", f1), inv("q", f2))}
-
-
 def _init(family_names):
-    global _ORACLES, _BIG
+    global _ORACLES
     _ORACLES = {}
     for name in family_names:
         for s in importlib.import_module(f"families.{name}").strata():
             o1, o2 = _ORACLES.get(s.fn, (None, None))
             _ORACLES[s.fn] = (o1 or s.oracle, o2 or s.oracle2)
-    if {"gamma", "gammainv"} & set(family_names):
-        _BIG = _big_gamma()
 
 
 def _residual(v, cr: float):
@@ -175,23 +135,13 @@ def _residual(v, cr: float):
 def _beta_inv_fallback(fn, args, cr):
     """Residual of a beta_p_inv / beta_q_inv row where the hunt root finder
     fails or its two forms disagree (2026-10-22: a, b at 1e-94 / 1e-189
-    with the root within e^-1e131 of 1; a, b >= 1e41 at the median).
-    - min(a, b) >= 1e15: the distribution is normal far below an ulp, so
-      x = median + z * sd, median = (a - 1/3) / (a + b - 2/3), with z the
-      normal quantile of the target; the neglected terms are O(sd / a).
-    - otherwise: bisection on the forward betainc_pq inside cr +- 3/4 ulp,
-      which needs the root in that cell (a bracket, not a guess)."""
+    with the root within e^-1e131 of 1): bisection on the forward
+    betainc_pq inside cr +- 3/4 ulp, which needs the root in that cell (a
+    bracket, not a guess)."""
     from families._beta_oracles import betainc_pq
     a, b, s = (mpf(v) for v in args)
     side_p = fn == "beta_p_inv"
     q = quantum(cr)
-    if min(args[0], args[1]) >= 1e15:
-        with mp.workdps(60):
-            t = s if side_p else 1 - s  # lower-tail probability of the root
-            z = mp.sqrt(2) * mp.erfinv(2 * t - 1)
-            sd = mp.sqrt(a * b / ((a + b) ** 2 * (a + b + 1)))
-            x = (a - mpf(1) / 3) / (a + b - mpf(2) / 3) + z * sd
-            return float((x - mpf(cr)) / q), "normal-median closed form"
     with mp.workdps(60):
         lo = max(mpf(0), mpf(cr) - q * mpf(0.75))
         hi = min(mpf(1), mpf(cr) + q * mpf(0.75))
@@ -233,8 +183,7 @@ def _work(task):
 
 def _work_oracles(task):
     fn, args, cr = task
-    big = fn in _BIG and BIG_A < args[0] < BIG_A_HI
-    o1, o2 = _BIG[fn] if big else _ORACLES[fn]
+    o1, o2 = _ORACLES[fn]
     note = ""
     try:
         with mp.workdps(40):

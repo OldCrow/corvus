@@ -417,13 +417,58 @@ def inv_root(kind, a, s, dps, forward=pq, max_evals=160):
         return mpf(xl) + (-gl) * (mpf(xh) - mpf(xl)) / (gh - gl)
 
 
+# ---- large a: Temme route (#82 T3) -----------------------------------------
+# For 1e7 < a < 2^130 the series/CF forms above refuse off saturation, and
+# inv_root's bracket loses the root once the P transition is narrower than an
+# ulp (roots 1 ulp off for a >~ 1e35). The gammainv generator's uniform
+# Temme expansion covers the range; its two independent coefficient fits
+# serve as the first and second form. From 2^130 the closed forms above are
+# exact. Building the fits takes minutes, so they are cached beside the
+# annotate checkpoints.
+BIG_A, BIG_A_HI = A_MAX_EXACT, 2.0 ** 130
+_TEMME: list = []
+
+
+def _temme():
+    if not _TEMME:
+        import pickle
+        import sys
+        from pathlib import Path
+        tools = Path(__file__).resolve().parents[2]
+        sys.path.insert(0, str(tools))
+        import gen_gammainv_reference as T
+        cache = tools.parents[1] / "corvus-scratch" / "annotate" / "temme_fits.pkl"
+        if cache.exists():
+            fits = pickle.loads(cache.read_bytes())
+        else:
+            fits = T.build_fits()
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_bytes(pickle.dumps(fits))
+        _TEMME.extend([T, fits])
+    return _TEMME
+
+
+def _big(a) -> bool:
+    return BIG_A < float(a) < BIG_A_HI
+
+
 def gamma_value(fn, a, x, dps, two=False):
-    P, Q = (pq2 if two else pq)(a, x, dps)
+    if _big(a):
+        T, fits = _temme()
+        P, Q = T.oracle_pq(a, x, fits[1 if two else 0], dps)
+    else:
+        P, Q = (pq2 if two else pq)(a, x, dps)
     return P if fn == "gamma_p" else Q
 
 
 def gammainv_value(fn, a, s, dps, two=False):
     kind = "p" if fn == "gamma_p_inv" else "q"
+    if _big(a):
+        T, fits = _temme()
+        x = T.oracle_x(a, s, kind, dps, fits[1 if two else 0])
+        if x is None:
+            raise OracleError("Temme root not bracketed")
+        return x
     return inv_root(kind, a, s, dps, forward=pq2 if two else pq)
 
 

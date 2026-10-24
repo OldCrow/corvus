@@ -628,6 +628,17 @@ def g_glridge_band(rng, n):
     return _fill(rng, n, d)
 
 
+def g_glentry_band(rng, n):
+    """R3 entered through the gamma-limit ridge (#80): b ~ 1e13-1e16 either
+    side of kBetaGammaLim, a ~ 20-5000, x in the R3 band. The worst beta_q
+    R3 real error (1.356 FMA) sat here with no stratum aimed at it."""
+    def d(r):
+        N = log_uniform(r, 1e13, 1e16)
+        s = log_uniform(r, GL_RIDGE_MIN, 5000.0)
+        return _gl_point(r, N, s, s * r.uniform(0.55, 1.9))
+    return _fill(rng, n, d)
+
+
 def g_glsercf_bits(rng, n):
     pts = []
     for s in (0.5, 2.0, 7.0, 15.0):
@@ -889,6 +900,8 @@ def strata():
     S += _pair("seam:gammalim:band", g_gl_band, 800, "gammalim", "0-ULP cells")
     S += _pair("seam:gl_ridge:bits", g_glridge_bits, 3 * 81 * 2, "gl_ridge")
     S += _pair("seam:gl_ridge:band", g_glridge_band, BAND, "gl_ridge")
+    S += _pair("ridge:gl_entry", g_glentry_band, 1500, "gl_ridge",
+               "R3 via the gamma-limit ridge, b ~ 1e13-1e16 (#80)")
     S += _pair("seam:gl_ser_cf:bits", g_glsercf_bits, 8 * 49, "gl_ser_cf")
     S += _pair("seam:gl_ser_cf:band", g_glsercf_band, BAND, "gl_ser_cf")
     S += _pair("seam:gl_at:bits", g_glat_bits, 4 * 65, "gl_at")

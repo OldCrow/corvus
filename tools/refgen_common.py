@@ -7,6 +7,9 @@ round_to_double rounds once.
 """
 
 import math
+import random
+import struct
+from typing import Optional
 
 import mpmath as mp
 
@@ -50,6 +53,55 @@ def round_to_double(v):
         if frac > 0.5 or (frac == 0.5 and (n & 1)):
             n += 1
     return math.copysign(math.ldexp(float(n), -1074), 1.0 if v > 0 else -1.0)
+
+
+# ---- point selection (#82 T3) -------------------------------------------------
+# Shared by the reference generators, the hunt strata (tools/hunt) and the
+# strata appendix writer (tools/hunt/strata_append.py), so a stratum means
+# the same population wherever it is drawn.
+def bits(d: float) -> int:
+    return struct.unpack("<Q", struct.pack("<d", d))[0]
+
+
+def from_bits(u: int) -> float:
+    return struct.unpack("<d", struct.pack("<Q", u))[0]
+
+
+def ordered(d: float) -> int:
+    u = struct.unpack("<q", struct.pack("<d", d))[0]
+    return u if u >= 0 else -(u & 0x7FFFFFFFFFFFFFFF)
+
+
+def neighbours(x: float, k: int) -> list[float]:
+    """x and its k bit-neighbours on each side (finite, same sign)."""
+    out = []
+    b = bits(x)
+    for j in range(-k, k + 1):
+        nb = b + j
+        if 0 <= nb < 0x7FF0000000000000 or 0x8000000000000000 <= nb < 0xFFF0000000000000:
+            out.append(from_bits(nb))
+    return out
+
+
+def full_mantissa(rng: random.Random, lo: float, hi: float) -> float:
+    """Uniform on [lo, hi] then re-randomised in its low 30 bits, so rows
+    carry full mantissas rather than the sampler's short ones."""
+    x = rng.uniform(lo, hi)
+    if x == 0 or not math.isfinite(x):
+        return x
+    return from_bits((bits(x) & ~0x3FFFFFFF) | rng.getrandbits(30))
+
+
+def log_uniform(rng: random.Random, lo: float, hi: float) -> float:
+    return math.exp(rng.uniform(math.log(lo), math.log(hi)))
+
+
+def subnormal(rng: random.Random, top_binades: Optional[int] = None) -> float:
+    """Positive subnormal; top_binades=k restricts to the top k binades."""
+    if top_binades is None:
+        return from_bits(rng.getrandbits(52) | 1)
+    e = rng.randint(52 - top_binades, 51)
+    return from_bits((1 << e) | rng.getrandbits(e))
 
 
 def _self_test():

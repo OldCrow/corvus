@@ -423,7 +423,43 @@ def _norm_quantile(t):
     return 0.5 * (lo + hi)
 
 
+def _normal_median_root(a, b, p, side):
+    """Root for min(a, b) >= 1e15 near the median, or None (#82 T3).
+
+    There the distribution is normal far below an ulp: x = m + z * sd with
+    m = (a - 1/3) / (a + b - 2/3) and z the normal quantile of the lower-tail
+    target. The first neglected term is the skewness correction
+    sd * g * (z^2 - 1) / 6, g = 2 (b - a) / (a + b + 2) * sqrt((a+b+1)/(ab));
+    the form is used only when that bound is below 2^-64 of the root. The
+    Newton solver below fails or disagrees with itself there (a, b >= 1e41)."""
+    if min(a, b) < 1e15:
+        return None
+    with mp.workdps(60):
+        a, b, p = mpf(a), mpf(b), mpf(p)
+        t = p if side == "p" else 1 - p  # lower-tail probability of the root
+        if not 0 < t < 1:
+            return None
+        z = mp.sqrt(2) * mp.erfinv(2 * t - 1)
+        sd = mp.sqrt(a * b / ((a + b) ** 2 * (a + b + 1)))
+        x = (a - mpf(1) / 3) / (a + b - mpf(2) / 3) + z * sd
+        g = 2 * abs(b - a) / (a + b + 2) * mp.sqrt((a + b + 1) / (a * b))
+        if sd * (g + 1 / mp.sqrt(min(a, b))) * (z * z + 1) > x * mpf(2) ** -64:
+            return None
+        return x
+
+
 def beta_inv_root(a, b, p, side, dps, trace=False):
+    """Exact x with P(x) = p (side 'p') or Q(x) = p (side 'q'), as mpf.
+
+    For min(a, b) >= 1e15 near the median the normal closed form answers
+    (_normal_median_root); elsewhere the solver below."""
+    x = _normal_median_root(a, b, p, side)
+    if x is not None:
+        return x
+    return _beta_inv_solve(a, b, p, side, dps, trace)
+
+
+def _beta_inv_solve(a, b, p, side, dps, trace=False):
     """Exact x with P(x) = p (side 'p') or Q(x) = p (side 'q'), as mpf.
 
     Solves in the frame whose root is <= ~1/2 (I_x(a,b) = 1 - I_{1-x}(b,a))
