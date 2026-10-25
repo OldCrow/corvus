@@ -137,8 +137,8 @@ gamma_q_inv|S1 (a_T..3e34)|fma|0.76
 gamma_q_inv|S1 (a_T..3e34)|nofma|0.76
 gamma_q_inv|beyond-resolution|fma|0.71
 gamma_q_inv|beyond-resolution|nofma|0.71
-gamma_q_inv|deep-small closed form|fma|1.36|#83
-gamma_q_inv|deep-small closed form|nofma|1.51|#83
+gamma_q_inv|deep-small closed form|fma|0.52|#83
+gamma_q_inv|deep-small closed form|nofma|0.52|#83
 gamma_q_inv|small-a mid seed|fma|0.54
 gamma_q_inv|small-a mid seed|nofma|0.52
 gamma_q_inv|small-a tail seed|fma|0.53

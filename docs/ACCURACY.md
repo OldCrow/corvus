@@ -1179,6 +1179,23 @@ every run before anything is written.
   S1 and beyond-resolution pins fall too: 0.90 → 0.58, 0.65 → 0.57,
   1.01 → 0.71.
 
+**Q-side tiny a, roots near 2^-1022 (#83, order row 12f).** The
+deep-small closed form x = exp((ln p + lgamma(1+a))/a) multiplies the
+relative error of its numerator s0 by |log x|, up to ~745. Two terms fell
+short of the 2^-62 this needs.
+- **ln(1 − q) for tiny q.** LogDd of the exact pair (1, −q) added its low
+  word through a plain-double t − t²/2: ~2^-108 absolute, i.e. 2^-57
+  relative to a result of size q. That cost 11–16 ulp at a ~ 1e-20, q ~
+  1e-17. Below q = 2^-7 gammainv now takes Log1pDd at the exact argument
+  −q.
+- **Subnormal a.** s0 is then O(a), so its low word, and lgamma(1+a)'s
+  subnormal product, sat on the 2^-1074 grid: up to 13 ulp. For
+  a < 2^-900 both terms are formed scaled by 2^200 and divided by the
+  scaled a.
+- **Rows.** All 22 deferred rows are correctly rounded on AVX3_ZEN4, SSE4
+  and SSE2 and gated. The q-side deep-small pin falls from 1.36 (1.51
+  without FMA) to 0.52.
+
 Special values (SciPy parity): p = 0 → +0 and p = 1 → +inf, mirrored
 for q; inputs outside [0, 1] → NaN, as are a ≤ 0 and a = +inf; NaN
 propagates from either argument (payload preserved).

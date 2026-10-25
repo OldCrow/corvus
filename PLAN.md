@@ -293,6 +293,24 @@ performance.**
       - The lint reports 71 of 136 sites still without an argument: those
         the census never saw reach the floor. They are #86's phase 3
         (v1.2.0), after which CI runs the lint `--strict`.
+    - **Row 12f, part B DONE 2026-10-25** (#83; uncommitted at write
+      time; 36/36 on AVX3_ZEN4, SSE4, SSE2, the census build and MSVC
+      Release). [DERIVED]
+      - ln(1 − q) for q ≤ 2^-7 is now Log1pDd at −q. LogDd of the pair
+        added its low word as a plain double, 2^-57 relative to a result
+        of size q, which the deep-small |log x| (≤ ~745) turned into 11–16
+        ulp.
+      - For a < 2^-900 the deep-small numerator and a are formed scaled by
+        2^200, so s0's low word and lg1a's product no longer sit on the
+        subnormal grid (up to 13 ulp). GammaInvDivD keeps its own rescale
+        for betainv's subnormal alpha.
+      - Result: all 22 rows are CR and gated, and deferred:#83 is gone.
+        q deep-small pin 1.36/1.51 → 0.52. A 2,000-point q-side sweep
+        (a in [2^-1074, 1e-12], roots across the range) holds ≤ 1 ULP on
+        three tiers.
+      - Noted, not fixed: betainv forms ln(1 − σ) the same way
+        (`lnsigc`); check it under 12h or with #88.
+      - **NEXT: part C** (#88).
     - **Row 12f, part A DONE 2026-10-25** (#72 closed; `3e4841e`; CI
       40163504662 green on NEON, Linux sweep + sanitizers, Windows).
       [DERIVED]
@@ -308,8 +326,6 @@ performance.**
       - Result: all 57 #72 rows are CR and gated. Pins fall: p S1 0.90 →
         0.58, beyond-resolution 0.65 → 0.57 (p) and 1.01 → 0.71 (q), p
         deep-small 0.73 → 0.53. 22 #83 rows remain deferred.
-      - **NEXT: part B** (#83's 22 rows: q-side tiny a, roots near
-        2^-1022; in progress), then **part C** (#88).
     - **Row 12e DONE 2026-10-24** (#71 closed; `1d21c7d`; CI 40160183991
       green on NEON, Linux sweep + sanitizers, Windows; #83 progress
       noted). **NEXT: 12f** (#72 + #83 + #88). [DERIVED]

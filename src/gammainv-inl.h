@@ -144,9 +144,10 @@ inline constexpr double kGammaInvSeedEps = 0x1.0p-60;
 // refinement from ever seeing an infinite first quotient.
 inline constexpr double kGammaInvQuotMax = 0x1.0p+11;
 
-// a below this has 1/a overflowing or losing its low word, so the deep-small
-// quotient rescales both operands by an exact power of two first. 2^-900
-// leaves room for the smallest subnormal a (2^-1074) to land at 2^-874.
+// a below this has 1/a overflowing or s0 = ln p + lgamma(1+a) near the
+// subnormal grid, so the deep-small numerator and a are formed scaled by an
+// exact power of two (#83). 2^-900 leaves room for the smallest subnormal a
+// (2^-1074) to land at 2^-874.
 inline constexpr double kGammaInvTinyA = 0x1.0p-900;
 inline constexpr double kGammaInvTinyAScale = 0x1.0p+200;
 
@@ -193,9 +194,10 @@ inline constexpr double kGammaInvCfAMax = 0x1.0p+996;
 // residual num (-) q0*den (TwoProd supplies q0*den exactly) divided again.
 // Two guards make it total. The power-of-two RESCALE of both operands is
 // exact and leaves the quotient unchanged, so a subnormal den -- routine
-// here, since a is allowed to be subnormal -- never reaches the division as
-// an operand whose reciprocal is infinite. The quotient CLAMP catches the
-// case the rescale cannot: |num/den| genuinely exceeding the double range,
+// here, since betainv's alpha is allowed to be subnormal -- never reaches the
+// division as an operand whose reciprocal is infinite. (gammainv prescales
+// its own tiny a first, for the numerator's sake, so the rescale is idle
+// there.) The quotient CLAMP catches the case the rescale cannot: |num/den| genuinely exceeding the double range,
 // which happens whenever the answer underflows to zero, and which would
 // otherwise put an infinity into TwoProd and a NaN into the result. A clamped
 // lane drops its refinement term (it is meaningless) and exponentiates to the
@@ -727,8 +729,20 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   // Both sides' logs. 1 (-) t is formed EXACTLY, as a pair: when fl(1 - t)
   // rounds to 1 the low word is the entire signal, and it is what the tiny-a
   // q-side answers rest on.
+  //
+  // Below t = 2^-7, log(1 - t) is Log1pDd at the exact argument -t (#83).
+  // LogDd of the pair adds its low word through a plain-double t - t^2/2,
+  // whose rounding is ~2^-108 ABSOLUTE: against a result of size t that is
+  // 2^-57 relative, and the deep-small branch multiplies it by |log x|
+  // (up to ~745), i.e. 16 ulp in x. Above 2^-7 the result is at least 2^-7
+  // and the same rounding is negligible.
   const auto lnt = OutlinedLogDd(d, t);  // log of the solved side; may be subnormal
-  const auto lnct = OutlinedLogDd(d, TwoSum(d, one, op::Neg(t)));  // log(1 - t)
+  const auto lnct_log = OutlinedLogDd(d, TwoSum(d, one, op::Neg(t)));
+  const auto lnct_1p = Log1pDd(d, Dd<D>{op::Neg(t), zero});
+  const auto m_ct1p = op::Ge(op::Set(d, 0x1.0p-7), t);
+  CORVUS_ROUTE(d, "gammainv/lnct_log1p", m_ct1p);
+  const Dd<D> lnct{op::IfThenElse(m_ct1p, lnct_1p.hi, lnct_log.hi),
+                   op::IfThenElse(m_ct1p, lnct_1p.lo, lnct_log.lo)};  // log(1 - t)
   const Dd<D> lnp{op::IfThenElse(m_wq, lnct.hi, lnt.hi),
                   op::IfThenElse(m_wq, lnct.lo, lnt.lo)};
 
@@ -744,11 +758,11 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   const auto ac = op::Min(a, op::Set(d, kGammaR4AMax));
   const auto c1 = op::Ge(op::Set(d, detail::kLgammaZoneLo), a);
   const auto tz = op::IfThenElse(c1, ac, op::Sub(ac, one));  // exact both ways
-  // FLOOR: |B*tz| < 2^-968 needs a < ~2^-967 (|B| >= 0.42). The <= 2^-1072
-  // loss reaches log x_ds through s0/a as <= 2^-1072/a relative in x_ds:
-  // harmless for a >= 2^-1000 (and p-side subnormal a underflows to 0);
-  // q-side subnormal a reaches several ulp -- tracked by #83.
-  const auto lg1_zone = DdMulD(d, ZoneBracket(d, tz, c1), tz);
+  const auto zb = ZoneBracket(d, tz, c1);
+  // FLOOR: |B*tz| < 2^-968 needs a < ~2^-967 (|B| >= 0.42). This unscaled
+  // lg1a feeds only s0, i.e. the S2 seed, where 2^-1072 absolute is
+  // harmless; the deep-small quotient uses the scaled lg1a_s below (#83).
+  const auto lg1_zone = DdMulD(d, zb, tz);
   const auto lg1_gen = DdAdd(d, lga, lna);
   const auto m_zone = op::Ge(op::Set(d, kGammaR4AMax), a);
   CORVUS_ROUTE(d, "gammainv/lg1a_zone", m_zone);
@@ -774,8 +788,28 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   // for every a; above it the S2 seed's Picard iteration, which IS the exact
   // fixed point of the dropped factor, supplies the same answer to full
   // precision.
+  //
+  // SCALED NUMERATOR (#83). For a < kGammaInvTinyA the deep-small answer
+  // needs |s0| <= kGammaInvQuotMax * a, so s0 itself sits near the subnormal
+  // grid, where its low word -- and lg1a's, a subnormal product -- is
+  // quantised to 2^-1074: up to 2^-57 relative, i.e. 13 ulp in x after the
+  // division. Both terms are therefore formed scaled by kGammaInvTinyAScale
+  // (lnp's scaling is exact; lg1a scales its exact tz) and divided by the
+  // scaled a, which GammaInvDivD's own rescale then leaves alone. Unscaled
+  // s0 still feeds the S2 seed, which needs no such precision.
   const auto s0 = DdAdd(d, lnp, lg1a);
-  const auto uds = GammaInvDivD(d, s0, a);
+  const auto m_tiny = op::Lt(a, op::Set(d, kGammaInvTinyA));
+  const auto sc = op::IfThenElse(m_tiny, op::Set(d, kGammaInvTinyAScale), one);
+  const auto tzs = op::Mul(tz, sc);
+  // FLOOR: never reached. tzs is 0 exactly (a = 1, product exact) or at
+  // least 2^-900 in magnitude (tiny a scaled to >= 2^-874; otherwise
+  // a >= 2^-900, or |a - 1| >= 2^-53), so |B*tzs| >= 0.42 * 2^-900.
+  const auto lg1_zone_s = DdMulD(d, zb, tzs);
+  const Dd<D> lg1a_s{op::IfThenElse(m_zone, lg1_zone_s.hi, op::Mul(lg1_gen.hi, sc)),
+                     op::IfThenElse(m_zone, lg1_zone_s.lo, op::Mul(lg1_gen.lo, sc))};
+  const auto s0s =
+      DdAdd(d, Dd<D>{op::Mul(lnp.hi, sc), op::Mul(lnp.lo, sc)}, lg1a_s);
+  const auto uds = GammaInvDivD(d, s0s, op::Mul(a, sc));
   const auto eds = ExpDdFrac(d, uds.hi, uds.lo);
   // One rounding into the subnormal grid (#72 M-6; was ScaleTwo of the
   // rounded dd, two roundings).
@@ -784,7 +818,7 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
                            op::Set(d, detail::kGammaInvDeepSmallCut));
   CORVUS_ROUTE(d, "gammainv/deep_small", m_ds);
   CORVUS_ROUTE(d, "gammainv/deep_small/rescale",
-               op::And(m_ds, op::Lt(a, op::Set(d, kGammaInvTinyA))));
+               op::And(m_ds, m_tiny));
   CORVUS_ROUTE(d, "gammainv/deep_small/quot_clamp",
                op::And(m_ds, op::Ge(op::Abs(uds.hi),
                                     op::Set(d, kGammaInvQuotMax))));
