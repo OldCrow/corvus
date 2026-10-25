@@ -236,8 +236,9 @@ performance.**
         gamma and gammainv now drop no row; betainv still drops about 370
         rows where its second form is badly wrong (residuals 1e287 to
         1e311).
-    - **T6 DONE 2026-10-24** (uncommitted at write time; 36/36 on
-      AVX3_ZEN4, SSE4 and SSE2; the new test is `claims_check`). Rule: the
+    - **T6 DONE 2026-10-24** (`83a065c`; CI 40144717244 green on NEON,
+      Linux sweep + sanitizers, Windows; summary on #82; the new test is
+      `claims_check`). Rule: the
       doctrine test rule ("every bound has one statement"); table semantics
       in the `tests/data/bounds.txt` header. [DERIVED]
       - `tests/data/bounds.txt` has 117 rows. Each holds gate|region, unit
