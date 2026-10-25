@@ -14,8 +14,8 @@ beta_p|R1 series cmp|ulp|1|1|beta.R1
 beta_p|R1 series dir|ulp|1|1|beta.R1
 beta_p|R2 cf     cmp|ulp|1|1|beta.R2.cmp
 beta_p|R2 cf     dir|ulp|1|1|beta.R2.dir
-beta_p|R2 gammalim c|ulp|0|0|beta.GL
-beta_p|R2 gammalim d|ulp|0|0|beta.GL
+beta_p|R2 gammalim c|ulp|1|1|beta.GL
+beta_p|R2 gammalim d|ulp|1|1|beta.GL
 beta_p|R3 temme  cmp|ulp|1|1|beta.R3.cmp
 beta_p|R3 temme  dir|ulp|1|3|beta.R3.dir
 beta_p|R4 postrt cmp|ulp|0|0|beta.R4.cmp
@@ -32,8 +32,8 @@ beta_q|R1 series cmp|ulp|1|1|beta.R1
 beta_q|R1 series dir|ulp|1|1|beta.R1
 beta_q|R2 cf     cmp|ulp|1|1|beta.R2.cmp
 beta_q|R2 cf     dir|ulp|1|1|beta.R2.dir
-beta_q|R2 gammalim c|ulp|0|0|beta.GL
-beta_q|R2 gammalim d|ulp|0|0|beta.GL
+beta_q|R2 gammalim c|ulp|1|1|beta.GL
+beta_q|R2 gammalim d|ulp|1|1|beta.GL
 beta_q|R3 temme  cmp|ulp|1|1|beta.R3.cmp
 beta_q|R3 temme  dir|ulp|1|3|beta.R3.dir
 beta_q|R4 postrt cmp|ulp|0|0|beta.R4.cmp

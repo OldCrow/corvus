@@ -80,6 +80,7 @@ beta_p_reference.txt|dense:r4_tiny_min_B8|120
 beta_p_reference.txt|dense:r2_complement_mid|120
 beta_p_reference.txt|witness:r2_complement|33
 beta_p_reference.txt|seam:two_pi_nu_clamp:band|80
+beta_p_reference.txt|issue90:witness|6
 beta_p_reference.txt|cross|1327
 beta_p_reference.txt|near_tie|83
 beta_q_reference.txt|base|43298
@@ -160,6 +161,7 @@ beta_q_reference.txt|dense:r4_tiny_min_B8|120
 beta_q_reference.txt|dense:r2_complement_mid|120
 beta_q_reference.txt|witness:r2_complement|33
 beta_q_reference.txt|seam:two_pi_nu_clamp:band|80
+beta_q_reference.txt|issue90:witness|6
 beta_q_reference.txt|cross|1327
 beta_q_reference.txt|near_tie|89
 betainv_backward_reference.txt|base|752

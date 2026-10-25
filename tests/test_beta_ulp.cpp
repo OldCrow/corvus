@@ -78,7 +78,10 @@ constexpr uint64_t kGatePrDir = 1, kGatePrCmp = 0;
 // Gl 1/1 -> 0/0 at #54 defect 1: the slice forms t = -(N + (s-1)/2) *
 // log1p(-w) in dd, and 195 2F1-certified rows (--gl54-append) read 0 on
 // every tier; HEAD's bare t = -N*log(x) reads up to 11592 ulp on them.
-constexpr uint64_t kGateGlDir = 0, kGateGlCmp = 0;
+// 0/0 -> 1/1 at #90: near-ties miss by 1 ULP on both sides (1 of 2,315
+// direct and 5 of 2,354 complement hunt rows, every tier); the witnesses
+// are issue90:witness rows. v1.0.x published 1, so the bound is unchanged.
+constexpr uint64_t kGateGlDir = 1, kGateGlCmp = 1;
 
 struct Region {
   const char* name;

@@ -13,7 +13,7 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 **Release split [DECIDED 2026-10-20, user]: v1.1.0 = correctness, v1.2.0 =
 performance.**
 - v1.1.0 ships order rows 2–12j (the correctness block; 12a/12b added 2026-10-20, 12c 2026-10-22, 12d–12j 2026-10-22 from the
-  external adversarial review of `a8525a7`, 12-T and 12k from the hunt campaign; 12j runs last [user]). After row 12j work
+  external adversarial review of `a8525a7`, 12-T and 12k from the hunt campaign; 12j runs last [user]; 12l (#90) from the v1.1.0 Z audit, 2026-10-25). After row 12j work
   PAUSES for the native M1 and Kaby Lake runs owed for rows 2–12j and the
   rest of the release tail.
 - **Adversarial review of `a8525a7` (2026-10-22) [DECIDED, user]:** every
@@ -29,7 +29,7 @@ performance.**
 - **v1.1.0 errata (release notes, RELEASING step 12) [DERIVED 2026-10-25].**
   Each was never met by a release and never enforced by a gate; each has
   an "Erratum" paragraph in docs/ACCURACY.md naming its witness.
-  - gamma_p/gamma_q R2 and R4 complements: 0 → 1 ULP (row 12).
+  - gamma_p/gamma_q R4 complement: 0 → 1 ULP (row 12).
   - beta_p_inv/beta_q_inv deep-small closed form and subnormal/x = 1 results:
     0 → 1 ULP (row 9).
   - lbeta: 0 → 1 ULP relative, 2^-54 → 2^-53 absolute (#76, row 12j).
@@ -40,6 +40,10 @@ performance.**
   Disclosed as v1.0.x defects but fixed, bound kept (PATCH-class, list
   under notable fixes): the i0/i1/i0e/i1e tail (#52, row 10); erfc's top
   subnormal binade (#74, dd G chosen over an erratum). [DERIVED]
+  Not errata (checked against v1.0.0/v1.0.1, which published 1 ULP; only
+  dev/v1.1.0 had tightened them to 0): gamma R2 complement (#56 tightened
+  it; row 12 mislabelled the restatement) and beta's gamma-limit slice
+  (#54 tightened it; #90 restates it). Nothing to disclose. [DERIVED]
 - **Tooling assessment before 12d [user, 2026-10-22]:** these
   defects passed our generators and gates, so before any fix: decide what
   changes in the reference/gate tooling (fail-first gates for each band,
@@ -370,6 +374,28 @@ performance.**
         (the existing ~2,200-row [6, 8) strata never caught a row).
       - Done-when met: the documented not-CR rate is re-measured
         (ACCURACY.md table).
+    - **Row 12l DONE 2026-10-25** (#90; uncommitted at write time).
+      [DERIVED]
+      - Found by the v1.1.0 Z audit's beta hunt (85,274 rows, seed
+        2026102501): 6 gamma-limit rows 1 ULP against gate 0, certified
+        two-form near-ties (0.501–0.504 real), identical on three tiers.
+        Rates (the gate's classifier, whose direct side follows the
+        slice's series/CF choice): direct 1 of 2,315, complement 5 of
+        2,354. The hunt replica's GL side ignores that choice; harmless
+        while both GL bounds are equal.
+      - Not an erratum: v1.0.0/v1.0.1 published 1 ULP (checked in the
+        tags). #54 (`e376460`) had tightened it on dev. A v1.0.1 build
+        misses 3 of the 6 witnesses (one by 3 ULP, since fixed).
+      - Same check found gamma R2 complement mislabelled an erratum
+        (v1.0.x published 1; #56 tightened it on dev). Label removed
+        from ACCURACY and the errata list. The other errata stand
+        (v1.0.1 published them as CR).
+      - Changes: `issue90:witness` rows (6 per file), gates
+        kGateGlDir/Cmp 0 → 1, bounds.txt and the hunt GL bound 1,
+        ACCURACY cells and note, README claim.
+      - **NEXT:** commit 12l on the user's signal, CI, close #90; then
+        R0 on Z (fresh configure + ctest, write the freeze head), then
+        the PAUSE for K and M1 (R1/R2).
     - **Row 12j DONE 2026-10-25** (#76 closed; `c95207b`; CI 40233142385 green; 36/36
       on AVX3_ZEN4, SSE4, SSE2, census and MSVC Release). [DERIVED]
       - Errata (the list under Status): lbeta, beta R2 complement,
@@ -389,8 +415,7 @@ performance.**
         audit 0 empty, 0 unmapped. No deferred:#76 section remains.
       - The K/M1 runbook is refreshed (standards `881984f`: 36 tests,
         Python 3 for claims_check, the R0 CI run as reference).
-      - **NEXT:** R0 on Z (fresh configure + ctest, write the freeze
-        head), then the PAUSE for K and M1 (R1/R2).
+
     - **Row 12k DONE 2026-10-25** (#84, #85 closed; `502d1dc`; CI 40229577338 green;
       36/36 on AVX3_ZEN4, SSE4, SSE2, census and MSVC Release). [DERIVED]
       - #84: the gamma-limit ridge is gated on s = min(a, b), not ν, in
@@ -688,7 +713,8 @@ f85aa37 (the cefaf95 run was cancelled by that dispatch); #67 closed. Detail as 
       lgamma-wide change, so recommended: document "1 ULP, ~0.4% not CR".
       R4 complement: same cause as R4 Q; after that fix ~0.08% not CR,
       document "1 ULP, <= 0.1% not CR". Beta gamma-limit slice CR claim
-      (0.1% not CR) not yet diagnosed.
+      (0.1% not CR) not yet diagnosed. → #90 (row 12l): near-ties, both
+      sides; cells back to the published 1 ULP.
     - Any kernel change re-measures gammainv's gates (its forward residual
       runs through GammaTemme and GammaSmallQ).
   - Choices per finding: fix in v1.1.0 (new order rows), erratum the bound
@@ -1571,6 +1597,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 12i | ~~#75 i0/i1/i0e/i1e series near \|x\| ≈ 7.4 (2 ULP, no-FMA) [ADDED 2026-10-22, user; review M-3]~~ DONE 2026-10-25 (Z) | independent | mid | dense [6, 8] strata, four functions (fail first on SSE4/SSE2) | CI tiers |
 | 12k | ~~#84 beta gamma-limit slice sliver ν < 20 ≤ s takes the CF at the ridge (391 ULP vs 0) + #85 beta_q R4 near-one post-route 2 ULP vs 1 at τ ≈ 2.5 [ADDED 2026-10-22; hunt campaign]~~ DONE 2026-10-25 (Z) | after 12d (beta R3 core twin); before 12j | frontier (#84 routing) + mid | bit-stepped s = 20 × N ≥ 2^47 stratum; dense τ ≈ 2.5 post-route stratum (fail first) | CI tiers |
 | 12j | ~~#76 contract text and gates: false CR claims, stale text, VERSIONING errata clause [ADDED 2026-10-22, user; review M-6..M-10, M-13..M-15, L-1, L-2, L-6, L-8..L-17, I-1]~~ DONE 2026-10-25 (Z) | last: quotes the final numbers of 12d–12i | recipe | witness rows; gates set to the documented cells | CI |
+| 12l | #90 beta gamma-limit slice gated CR on dev, misses near-ties by 1 ULP: restore the published 1 ULP (not an erratum; also drops gamma R2 complement's erratum label) [ADDED 2026-10-25, user; v1.1.0 Z audit] | after 12j; before R0 | recipe | issue90:witness rows | CI |
 | 13 | #42 lever 1 (per-element cost); weigh #44 first | after 5–9: same region cores; guards protect it | frontier | early-exit lane-mix tests | M1, K, Z |
 | 14 | #45 export span expm1, log1pmx | after 4; off the milestone if it would hold the release | mid (new family) | generator, four gating lists | K, M1, Z |
 | 15 | #31 lgamma table band | beta/gamma consume lgamma | frontier | generator + regen | K, Z, M1 |

@@ -43,7 +43,8 @@ that promises — and what it deliberately does not.
 - `beta_p` / `beta_q` (regularized incomplete beta): <!-- claim: beta.R3.dir --> max 3 ULP on the
   directly computed (smaller) side over the whole (a, b, x) domain — the
   continued-fraction region is <!-- claim: beta.R2.dir --> 1 ULP, the gamma-limit slice
-  <!-- claim: beta.GL --> correctly rounded, the Temme ridge carries the 3; per-region cells in
+  <!-- claim: beta.GL --> 1 ULP (measured correctly rounded except near-ties), the Temme ridge
+  carries the 3; per-region cells in
   docs/ACCURACY.md — with the same always-compute-the-smaller-side
   relative guarantee as the gamma pair, down to subnormal results and out
   to parameters at the ends of the double range. The reference set is

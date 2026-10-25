@@ -601,7 +601,7 @@ note under the validation matrix).
 | Region (direct side) | gamma_p | gamma_q |
 |---|---|---|
 | R1 series (P direct) | <!-- claim: gamma.R1 --> **1 ULP** (0.02% not-CR) | complement: <!-- claim: gamma.R1 --> 1 ULP (0.10%) |
-| R2 continued fraction (Q direct) | complement: <!-- claim: gamma.R2 --> **1 ULP** (erratum; ~0.4% not-CR near x = a+1) | <!-- claim: gamma.R2 --> **1 ULP** (0.04% not-CR) |
+| R2 continued fraction (Q direct) | complement: <!-- claim: gamma.R2 --> **1 ULP** (~0.4% not-CR near x = a+1) | <!-- claim: gamma.R2 --> **1 ULP** (0.04% not-CR) |
 | R3 Temme ridge (smaller side direct) | <!-- claim: gamma.R3.dir --> **2 ULP** (1 measured since #64) | <!-- claim: gamma.R3.dir --> **2 ULP** (1 measured since #64; was 3 near x = 2a) |
 | R3 complement | <!-- claim: gamma.R3.cmp --> 1 ULP | <!-- claim: gamma.R3.cmp --> 1 ULP |
 | R4 small-a (Q direct) | complement: <!-- claim: gamma.R4 --> **1 ULP** (erratum; 0.03% not-CR) | <!-- claim: gamma.R4 --> **1 ULP** (1.4% not-CR; was 4 before #67) |
@@ -612,8 +612,10 @@ complement cells, documented as correctly rounded (0 ULP), miss by 1 ulp
 on 0.2–0.4% of dense rows near the seams; the reference set never
 sampled them. The cause is the direct side's dd error (R2: the CF's dd
 steps and LgammaPosDd, ~2^-60; R4: lgamma(1+a)), not the complement
-rounding itself. The bound for both is now 1 ULP: an erratum, as at row 9,
-since no release met 0 there. The same re-score found two cells above
+rounding itself. The bound for both is now 1 ULP. For R4 that is an
+erratum, as at row 9: v1.0.x published 0 and no release met it. R2 is
+not an erratum: v1.0.x published 1, and only the #56 fix had tightened it
+to 0, during v1.1.0 development (#90 corrected the label). The same re-score found two cells above
 their published bound, which v1.1.0 fixes rather than relaxes: gamma_q R3
 near x = 2a (3 ULP vs 2, the plain-double erfc factor G, #64, order row
 12b, fixed below) and gamma_q R4 for a in [0.25, 0.5] (4 ULP vs 1, #67, order row 12a).
@@ -770,7 +772,7 @@ margin.
 | R3 Temme ridge | <!-- claim: beta.R3.dir --> **3 ULP** published; 1 measured since #69 (8–10% not-CR) | <!-- claim: beta.R3.cmp --> 1 ULP |
 | R4 tiny-min corner | <!-- claim: beta.R4.dir --> **2 ULP** (≤1.3% not-CR) | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
 | R4 near-one post-route | <!-- claim: beta.R4pr.dir --> **1 ULP** | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
-| R2 gamma-limit slice | <!-- claim: beta.GL --> **0 ULP** (CR) | <!-- claim: beta.GL --> 0 ULP (CR) |
+| R2 gamma-limit slice | <!-- claim: beta.GL --> **1 ULP** (measured CR except near-ties; 0.04% not-CR dense, #90) | <!-- claim: beta.GL --> 1 ULP (measured CR except near-ties; 0.21% not-CR dense, #90) |
 
 **Erratum (#76, order row 12j, v1.1.0).** Through v1.0.x the R2
 complement cell read 0 ULP (correctly rounded), and the gate held 0.
@@ -780,6 +782,16 @@ beta_p(0x1.7ebfd5597637bp+4, 0x1.390d72284b741p+4, 0x1.1e9d7495b0b32p-1)
 sampled. beta_q at the same point is the direct side, and correctly
 rounded. The witness is now a reference row, the cell and gate are
 1 ULP, and the set measures correctly rounded apart from near-ties.
+
+**Gamma-limit slice (#90, order row 12l, v1.1.0).** v1.0.x published
+1 ULP here. The #54 fix tightened both cells to 0 during v1.1.0
+development, after its certified rows read 0. The v1.1.0 audit hunt
+scored 4,669 gamma-limit rows and found near-tie misses on both sides:
+1 of 2,315 direct and 5 of 2,354 complement, identical on AVX3_ZEN4,
+SSE4 and SSE2, 0.501–0.504 ulp real. Example:
+beta_q(15, 2^48, 0x1.fffffffffff14p-45) is 1 ULP. The cells return to
+the published 1 ULP. This is not an erratum, since no release claimed 0.
+The six witnesses are `issue90:witness` reference rows.
 
 R2-direct moved 0 → 1 ULP at the v0.6.0 single-rounding regeneration:
 the reference fix corrected one subnormal-Q row
@@ -852,7 +864,7 @@ read up to 10 ULP in R2 and 2 ULP in R1 between 2⁵² and 2⁵⁹.
 α, in-band ν ∈ [20, 32) and R1 with s ≥ 10. On them, the previous kernel
 failed R2 direct at 8 ULP and R1 direct at 2, and read 1 ULP in both R2
 complement cells. Every cell now holds its existing gate, and the
-gamma-limit cells, now 774/533 rows, stay at 0 ULP.
+gamma-limit cells, now 774/533 rows, read 0 ULP (restated to 1 by #90).
 
 **The ν < 20 ≤ s sliver (#84, order row 12k).** The router sent a
 gamma-limit lane to R3 on ν ≥ 20, but the slice's own sub-map routes
@@ -869,7 +881,8 @@ inside the sliver found up to 66,895.
 - **Rows.** The `issue84:sliver` (115/118 rows) and
   `seam:gl_ridge_s20:bits` strata (s across 20, N from 2⁴⁷ to 2¹⁰⁰⁰)
   failed first at HEAD, 94 rows deferred as #84. They pass on AVX3_ZEN4,
-  SSE4 and SSE2 and are gated. The gamma-limit cells stay at 0 ULP;
+  SSE4 and SSE2 and are gated. The gamma-limit cells read 0 ULP on the
+  reference set (restated to 1 ULP by #90);
   their pins are unchanged. Inverting the sliver rows through betainv
   gives a backward error of ≤ 1 ulp on both sides.
 

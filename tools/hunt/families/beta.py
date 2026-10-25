@@ -87,7 +87,7 @@ SEAMS = [
 
 # Regions -> (direct bound, complement bound)
 BOUNDS = {"R1": (1, 1), "R2": (1, 1), "R3": (3, 1), "R4": (2, 0),  # R2 cmp 1 since #76
-          "R4pr": (1, 0), "GL": (0, 0)}
+          "R4pr": (1, 0), "GL": (1, 1)}  # GL 1 since #90
 
 
 # ---- router replica (src/beta-inl.h BetaVec routing, float-exact) -------------
@@ -948,8 +948,8 @@ def strata():
     S += _pair("seam:clg_c:band", g_clg_band, BAND, "clg_c")
     S += _pair("seam:z0_min:bits", g_z0_bits, 3 * 129, "z0_min")
     S += _pair("seam:z0_min:band", g_z0_band, BAND, "z0_min")
-    S += _pair("seam:gammalim:bits", g_gl_bits, 5 * 81, "gammalim", "0-ULP cells")
-    S += _pair("seam:gammalim:band", g_gl_band, 800, "gammalim", "0-ULP cells")
+    S += _pair("seam:gammalim:bits", g_gl_bits, 5 * 81, "gammalim", "1-ULP cells since #90")
+    S += _pair("seam:gammalim:band", g_gl_band, 800, "gammalim", "1-ULP cells since #90")
     S += _pair("seam:gl_ridge:bits", g_glridge_bits, 3 * 81 * 2, "gl_ridge")
     S += _pair("seam:gl_ridge:band", g_glridge_band, BAND, "gl_ridge")
     S += _pair("seam:gl_ridge_s20:bits", g_glridge_s20_bits, 5 * 49 * 2, "gl_ridge",
@@ -1007,6 +1007,16 @@ def strata():
                lambda rng, n: [(lambda a: (a, a, 0.5))(2.0 * full_mantissa(rng, TWO_PI_NU_CLAMP * 0.95,
                                                                              TWO_PI_NU_CLAMP * 1.05))
                                for _ in range(n)], 200, "two_pi_nu_clamp")
+    # #90 witnesses: gamma-limit near-tie misses (1 ULP, 0.501-0.504 real, all
+    # three tiers) in cells that were gated 0 on dev/v1.1.0; v1.0.x published 1.
+    S += _pair("issue90:witness", lambda r, n: [tuple(float.fromhex(v) for v in w) for w in (
+        ("0x1.e000000000000p+3", "0x1.0000000000000p+48", "0x1.fffffffffff14p-45"),
+        ("0x1.93d7ee129117cp+3", "0x1.8344b91246540p+546", "0x1.36fc9942edc90p-543"),
+        ("0x1.47e1175a8ef1cp+4", "0x1.ab5ee2ef0bebap+230", "0x1.4d5ca4b82e4dep-225"),
+        ("0x1.3614b84676e08p+4", "0x1.84103d08cbd29p+467", "0x1.4c55bfa7da863p-462"),
+        ("0x1.3668a40581ecdp+4", "0x1.93c3031cebd06p+120", "0x1.1d3ff08c79bb7p-114"),
+        ("0x1.fdb4fb2d48518p+3", "0x1.03d33000fec35p+650", "0x1.065c045774ee0p-646"))],
+        6, "gl_at", "#90 gamma-limit near-tie witnesses")
     return S
 
 
