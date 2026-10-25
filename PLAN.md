@@ -370,7 +370,7 @@ performance.**
         (the existing ~2,200-row [6, 8) strata never caught a row).
       - Done-when met: the documented not-CR rate is re-measured
         (ACCURACY.md table).
-    - **Row 12j DONE 2026-10-25** (#76; uncommitted at write time; 36/36
+    - **Row 12j DONE 2026-10-25** (#76 closed; `c95207b`; CI 40233142385 green; 36/36
       on AVX3_ZEN4, SSE4, SSE2, census and MSVC Release). [DERIVED]
       - Errata (the list under Status): lbeta, beta R2 complement,
         trigamma (0, 1), gammainv deep-small and subnormal/zero. Each has
@@ -387,8 +387,10 @@ performance.**
         mismatches; pins match on three tiers; route census unchanged
         (4 unexercised, 5 argued unreachable); floor lint clean; seam
         audit 0 empty, 0 unmapped. No deferred:#76 section remains.
-      - **NEXT:** commit 12j on the user's signal, CI, close #76; then
-        the K/M1 runbook refresh and pause.
+      - The K/M1 runbook is refreshed (standards `881984f`: 36 tests,
+        Python 3 for claims_check, the R0 CI run as reference).
+      - **NEXT:** R0 on Z (fresh configure + ctest, write the freeze
+        head), then the PAUSE for K and M1 (R1/R2).
     - **Row 12k DONE 2026-10-25** (#84, #85 closed; `502d1dc`; CI 40229577338 green;
       36/36 on AVX3_ZEN4, SSE4, SSE2, census and MSVC Release). [DERIVED]
       - #84: the gamma-limit ridge is gated on s = min(a, b), not ν, in
@@ -1568,7 +1570,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 12h | ~~#74 erfc top subnormal binade (2 ULP vs 1): single rounding of the scaled tail [ADDED 2026-10-22, user; review M-4]~~ DONE 2026-10-25 (Z; dd G chosen over an erratum) | independent | small–mid | dense x ∈ [26.543, 26.6] stratum (fail first) | CI tiers |
 | 12i | ~~#75 i0/i1/i0e/i1e series near \|x\| ≈ 7.4 (2 ULP, no-FMA) [ADDED 2026-10-22, user; review M-3]~~ DONE 2026-10-25 (Z) | independent | mid | dense [6, 8] strata, four functions (fail first on SSE4/SSE2) | CI tiers |
 | 12k | ~~#84 beta gamma-limit slice sliver ν < 20 ≤ s takes the CF at the ridge (391 ULP vs 0) + #85 beta_q R4 near-one post-route 2 ULP vs 1 at τ ≈ 2.5 [ADDED 2026-10-22; hunt campaign]~~ DONE 2026-10-25 (Z) | after 12d (beta R3 core twin); before 12j | frontier (#84 routing) + mid | bit-stepped s = 20 × N ≥ 2^47 stratum; dense τ ≈ 2.5 post-route stratum (fail first) | CI tiers |
-| 12j | #76 contract text and gates: false CR claims, stale text, VERSIONING errata clause [ADDED 2026-10-22, user; review M-6..M-10, M-13..M-15, L-1, L-2, L-6, L-8..L-17, I-1] | last: quotes the final numbers of 12d–12i | recipe | witness rows; gates set to the documented cells | CI |
+| 12j | ~~#76 contract text and gates: false CR claims, stale text, VERSIONING errata clause [ADDED 2026-10-22, user; review M-6..M-10, M-13..M-15, L-1, L-2, L-6, L-8..L-17, I-1]~~ DONE 2026-10-25 (Z) | last: quotes the final numbers of 12d–12i | recipe | witness rows; gates set to the documented cells | CI |
 | 13 | #42 lever 1 (per-element cost); weigh #44 first | after 5–9: same region cores; guards protect it | frontier | early-exit lane-mix tests | M1, K, Z |
 | 14 | #45 export span expm1, log1pmx | after 4; off the milestone if it would hold the release | mid (new family) | generator, four gating lists | K, M1, Z |
 | 15 | #31 lgamma table band | beta/gamma consume lgamma | frontier | generator + regen | K, Z, M1 |
