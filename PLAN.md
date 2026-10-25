@@ -293,8 +293,9 @@ performance.**
       - The lint reports 71 of 136 sites still without an argument: those
         the census never saw reach the floor. They are #86's phase 3
         (v1.2.0), after which CI runs the lint `--strict`.
-    - **Row 12e DONE 2026-10-24** (#71; uncommitted at write time; 36/36
-      on AVX3_ZEN4, SSE4, SSE2, MSVC AVX2 and the census build). [DERIVED]
+    - **Row 12e DONE 2026-10-24** (#71 closed; `1d21c7d`; CI 40160183991
+      green on NEON, Linux sweep + sanitizers, Windows; #83 progress
+      noted). **NEXT: 12f** (#72 + #83 + #88). [DERIVED]
       - Fix: GammaSmallQ prescales a < 2^-600 by 2^400 and returns
         (m, e = -400). Q is linear in a there to 2^-200, and every product
         stays above the floor. gamma applies 2^e last via GammaScale;
