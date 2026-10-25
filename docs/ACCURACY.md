@@ -1345,6 +1345,32 @@ declined, never guessed):
   before); gamma's inverse carried the same latent shape at its u
   site — unreachable on its gates — and received the same clamp.
 
+**A subnormal shape with s/b ≈ 1 (#88, order row 12f).** For a subnormal
+shape the answer depends on s/shape. With the target in the subnormal
+range too, three steps lost it to the 2^-1074 grid. Up to 6·10¹⁵ ulp at
+the denorm_min pair; across the band (shape in [2^-1074, 2^-1022], s/shape
+in [10⁻², 10²], other shape 0.5 to 10¹⁵), 28 of 97 p-side and 98 of 103
+q-side points were off by more than 1 ulp, the worst by 5·10²⁰.
+- *R4 forward.* BetaR4Tiny runs a subnormal tau at tau·2^700 and unscaled
+  last, so a target near 2^-1074 left a value of a few grid steps (0 at
+  the denorm_min pair), and the inverse took its log. BetaR4Tiny now
+  returns the value before the unscale (BetaR4Out). beta applies it
+  exactly as before, so its bits are unchanged. betainv takes
+  log m − 700 ln 2.
+- *Deep-small numerator.* ln τ + LB(α) is O(α) for a tiny α, so for a
+  subnormal α both terms sat on the grid: 2^-1074/α relative, up to
+  10¹² ulp. For α < 2^-900 and β ≥ 2^-500, LB is re-evaluated at α·2^200
+  (linear there to 2^-200) and divided by the scaled α. This is gammainv's
+  #83 fix.
+- *ln(1 − σ).* For σ ≤ 2^-7 it is Log1pDd at −σ. LogDd of the pair carried
+  2^-57 relative, as in #83.
+- **Rows.** The 8 certified rows (denorm_min shape and target; the other
+  shape 20 to 10¹⁵, both sides) are correctly rounded on AVX3_ZEN4, SSE4
+  and SSE2 and gated in the `cross` stratum. The 200-point band sweep,
+  scored against an independent quadrature (Q = shape·Γ-ratio·
+  ∫(1−t)^(o−1)/t dt, in u = ln t), reads a maximum real error of 0.504
+  (p) and 0.498 (q) on all three tiers.
+
 Special values (smoke-pinned, corvus.h is the contract): p = 0 → +0
 and p = 1 → 1, mirrored for q. A single degenerate parameter puts all
 the mass at one endpoint and every quantile is that endpoint: a = 0 or

@@ -34,7 +34,8 @@ SEAMS = [
     {"fn": "gamma_p/q_inv", "name": "s1_amin", "coord": "a", "value": float.fromhex("0x1.3333333333333p-2"), "source": "kGammaInvS1AMin (S1 seed domain)"},
     {"fn": "gamma_p/q_inv", "name": "r4_amax", "coord": "a", "value": 1.5, "source": "kGammaR4AMax: lgamma(1+a) zone form vs lga+lna"},
     {"fn": "gamma_p/q_inv", "name": "zone_half", "coord": "a", "value": 0.5, "source": "kLgammaZoneLo: lgamma(1+a) centre switch"},
-    {"fn": "gamma_p/q_inv", "name": "tiny_a", "coord": "a", "value": 2.0 ** -900, "source": "kGammaInvTinyA (GammaInvDivD rescale)"},
+    {"fn": "gamma_p/q_inv", "name": "tiny_a", "coord": "a", "value": 2.0 ** -900, "source": "kGammaInvTinyA (deep-small scaled numerator, #83)"},
+    {"fn": "gamma_p/q_inv", "name": "lnct_log1p", "coord": "t = min(s, 1-s)", "value": 2.0 ** -7, "source": "ln(1 - t) as Log1pDd below 2^-7 (#83)"},
     {"fn": "gamma_p/q_inv", "name": "cf_amax", "coord": "a", "value": 2.0 ** 996, "source": "kGammaInvCfAMax (CF scrub; beyond-resolution band)"},
     {"fn": "gamma_p/q_inv", "name": "bracket_amax", "coord": "a", "value": 1e16, "source": "kGammaInvBracketAMax: NOT COVERED (oracle gap 1e7 < a < 2^130)"},
     {"fn": "gamma_p/q_inv", "name": "beyond_resolution", "coord": "a", "value": 3e34, "source": "derived onset: NOT COVERED (oracle gap)"},
@@ -279,6 +280,18 @@ def strata():
     add("seam:beyond_resolution:band",
         lambda r, n: [(full_mantissa(r, 3e34 * 0.95, 3e34 * 1.05), s_mixed(r)) for _ in range(n)], 400,
         seam="beyond_resolution")
+    # 13. ln(1 - t) switches to Log1pDd at t = 2^-7 (#83). The deep-small rows
+    # at tiny a amplify its error by |log x|, so both sides carry tiny-a rows.
+    t7 = 2.0 ** -7
+    a_t7 = (1e-20, 1e-3, 0.5, 7.5, 1e3)
+    add("seam:lnct_log1p:bits",
+        lambda r, n: _take(r, [(a, s) for a in a_t7 for s in neighbours(t7, 64)], n),
+        129 * len(a_t7), seam="lnct_log1p")
+    for lo, hi, tag in ((t7 * 0.95, t7, "lo"), (t7, t7 * 1.05, "hi")):
+        add(f"seam:lnct_log1p:band_{tag}",
+            lambda r, n, lo=lo, hi=hi: _many(r, n, lambda q: (log_uniform(q, 1e-300, 1e6),
+                                                              full_mantissa(q, lo, hi))),
+            400, seam="lnct_log1p")
     return out
 
 
@@ -310,6 +323,9 @@ _AUDIT = {
     "eta_max": {"audit_f": _eta0},
     "eta_series_cut": {"audit_f": _eta0},  # the S1 seed's eta, as the kernel cuts
     "out_zero": {"sides": "above"},
+    # t = 1 - p on a p row near 1 moves in steps of ulp(p) = 2^-53, far
+    # coarser than 64 ulp of 2^-7: the bits window is 64 of those steps.
+    "lnct_log1p": {"audit_f": lambda r: min(r["s"], 1.0 - r["s"]), "window": 64 * 2.0 ** -53},
     "bracket_entry": {"route": "gammainv/bracket"},
     "shallow": {"internal": "emitted by the generator, not read by the kernel"},
     "bracket_ylim": {"internal": "the bracket's log-x limits; the bracket is barred for "

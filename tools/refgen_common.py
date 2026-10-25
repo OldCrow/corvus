@@ -104,6 +104,92 @@ def subnormal(rng: random.Random, top_binades: Optional[int] = None) -> float:
     return from_bits((1 << e) | rng.getrandbits(e))
 
 
+# ---- oracle worker memory cap -----------------------------------------------
+# One mpmath evaluation at an extreme argument (huge shapes, deep series) can
+# allocate gigabytes in seconds -- faster than a parent polling free memory
+# can react. Z (16 GB) froze on 2026-10-22 and had to be hard-rebooted on
+# 2026-10-25. So every oracle worker caps ITSELF: an allocation past the cap
+# fails with MemoryError inside that one evaluation, which the caller records
+# as an oracle failure, and the host keeps its headroom.
+DEFAULT_WORKER_MB = 1024
+
+
+def worker_mb() -> int:
+    """Per-worker cap in MB (CORVUS_ORACLE_WORKER_MB overrides the default)."""
+    import os
+    try:
+        return int(os.environ.get("CORVUS_ORACLE_WORKER_MB", DEFAULT_WORKER_MB))
+    except ValueError:
+        return DEFAULT_WORKER_MB
+
+
+def cap_process_memory(mb: Optional[int] = None) -> bool:
+    """Cap this process's committed memory at mb MB. Windows: a Job Object
+    with a per-process memory limit; elsewhere: RLIMIT_AS. Returns whether
+    the cap was applied. Call it first in a pool worker's initializer."""
+    mb = worker_mb() if mb is None else mb
+    limit = int(mb) << 20
+    import sys
+    if sys.platform != "win32":
+        try:
+            import resource
+            resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+            return True
+        except (ImportError, ValueError, OSError):
+            return False
+    import ctypes
+    from ctypes import wintypes
+
+    class BasicLimit(ctypes.Structure):
+        _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64),
+                    ("PerJobUserTimeLimit", ctypes.c_int64),
+                    ("LimitFlags", wintypes.DWORD),
+                    ("MinimumWorkingSetSize", ctypes.c_size_t),
+                    ("MaximumWorkingSetSize", ctypes.c_size_t),
+                    ("ActiveProcessLimit", wintypes.DWORD),
+                    ("Affinity", ctypes.c_size_t),
+                    ("PriorityClass", wintypes.DWORD),
+                    ("SchedulingClass", wintypes.DWORD)]
+
+    class IoCounters(ctypes.Structure):
+        _fields_ = [(n, ctypes.c_uint64) for n in
+                    ("ReadOps", "WriteOps", "OtherOps",
+                     "ReadBytes", "WriteBytes", "OtherBytes")]
+
+    class ExtendedLimit(ctypes.Structure):
+        _fields_ = [("Basic", BasicLimit), ("Io", IoCounters),
+                    ("ProcessMemoryLimit", ctypes.c_size_t),
+                    ("JobMemoryLimit", ctypes.c_size_t),
+                    ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                    ("PeakJobMemoryUsed", ctypes.c_size_t)]
+
+    # Never raise: this runs in pool initializers, and a raising initializer
+    # makes multiprocessing respawn dying workers forever.
+    try:
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.CreateJobObjectW.restype = wintypes.HANDLE
+        k32.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
+        k32.GetCurrentProcess.restype = wintypes.HANDLE
+        k32.GetCurrentProcess.argtypes = []
+        k32.SetInformationJobObject.restype = wintypes.BOOL
+        k32.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int,
+                                                ctypes.c_void_p, wintypes.DWORD]
+        k32.AssignProcessToJobObject.restype = wintypes.BOOL
+        k32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+        job = k32.CreateJobObjectW(None, None)
+        if not job:
+            return False
+        info = ExtendedLimit()
+        info.Basic.LimitFlags = 0x100  # JOB_OBJECT_LIMIT_PROCESS_MEMORY
+        info.ProcessMemoryLimit = limit
+        ok = k32.SetInformationJobObject(job, 9,  # JobObjectExtendedLimitInformation
+                                         ctypes.byref(info), ctypes.sizeof(info))
+        ok = ok and k32.AssignProcessToJobObject(job, k32.GetCurrentProcess())
+        return bool(ok)  # the job handle stays open for the process's life
+    except Exception:
+        return False
+
+
 def _self_test():
     # Tie at the +0/min-subnormal boundary: 2^-1075 is exactly half the
     # smallest subnormal; ties-to-even rounds to 0 (even).

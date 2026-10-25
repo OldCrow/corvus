@@ -55,7 +55,7 @@ from mpmath import mpf
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import annotate  # noqa: E402
 from core import (LowMemory, MAX_WORKERS, MIN_FREE_MB, REPO, TASKS_PER_WORKER,  # noqa: E402
-                  TIERS, evaluate, free_mb, quantum, round_double, ulp_dist)
+                  TIERS, evaluate, free_mb, plan_workers, quantum, round_double, ulp_dist)
 
 DATA = REPO / "tests" / "data"
 COUNTS = DATA / "ref_counts.txt"
@@ -166,6 +166,7 @@ def _pool(families, fns, args_list, ckpt: Path, workers, batch=256, batch_second
         return done, k_of
     ckpt.parent.mkdir(parents=True, exist_ok=True)
     fh = ckpt.open("a")
+    workers = plan_workers(workers)
     pool = mp_.Pool(workers, initializer=annotate._init, initargs=(families,),
                     maxtasksperchild=TASKS_PER_WORKER)
 

@@ -110,11 +110,12 @@ performance.**
         is told to name both reference exceptions.
       - Every fix row 12d–12k: after its fix, run the gates, lower its
         cell's pin with `pins.py --write`, and review the pin diff.
-      - Tooling gaps for T2/T3, worked around in annotate.py only:
-        - hunt gamma oracles refuse a > 1e7 off saturation;
-        - inv_root is 1 ulp off for a ≳ 1e35;
-        - beta_inv_root fails at extreme tiny a, b and at a, b ≥ 1e41;
-        - no hunt strata on the R3 gamma-limit ridge entry.
+      - Tooling gaps from T1: closed in `aa1a97e` (T3) except one.
+        beta_inv_root still fails at extreme tiny pairs (a, b ~
+        1e-94/1e-189, root within e^-1e131 of 1). [OPEN]
+      - #82 closed 2026-10-25. #75's fail-first evidence was not met by
+        T1, since the reference set has no dense |x| ≈ 7.4 band. Row 12i
+        owes it: dense [6, 8] strata failing first. [DERIVED]
     - **T3 DONE 2026-10-23** (`aa1a97e`, `60c0ecd`; CI 40050577320
       green on NEON, Linux sweep + sanitizers, Windows; summary on #82). Design and
       method: ACCURACY.md (Methodology, "Strata"), the doctrine test rule
@@ -293,9 +294,9 @@ performance.**
       - The lint reports 71 of 136 sites still without an argument: those
         the census never saw reach the floor. They are #86's phase 3
         (v1.2.0), after which CI runs the lint `--strict`.
-    - **Row 12f, part B DONE 2026-10-25** (#83; uncommitted at write
-      time; 36/36 on AVX3_ZEN4, SSE4, SSE2, the census build and MSVC
-      Release). [DERIVED]
+    - **Row 12f, part B DONE 2026-10-25** (#83 closed; `ebd024a`; CI
+      40165558305 green on NEON, Linux sweep + sanitizers, Windows).
+      [DERIVED]
       - ln(1 − q) for q ≤ 2^-7 is now Log1pDd at −q. LogDd of the pair
         added its low word as a plain double, 2^-57 relative to a result
         of size q, which the deep-small |log x| (≤ ~745) turned into 11–16
@@ -310,7 +311,39 @@ performance.**
         three tiers.
       - Noted, not fixed: betainv forms ln(1 − σ) the same way
         (`lnsigc`); check it under 12h or with #88.
-      - **NEXT: part C** (#88).
+    - **Row 12f, part C DONE 2026-10-25** (#88; uncommitted at write
+      time — the user was AFK, so no commit; 36/36 on AVX3_ZEN4, SSE4,
+      SSE2, census and MSVC Release). [DERIVED]
+      - R4: BetaR4Tiny returns its value before the 2^-700 unscale
+        (BetaR4Out); beta unscales as before (bits unchanged), betainv
+        takes log m − 700 ln 2.
+      - Deep-small: for α < 2^-900 and β ≥ 2^-500, LB(α) is re-evaluated
+        at α·2^200 and the quotient taken scaled (#83's twin). ln(1 − σ)
+        for σ ≤ 2^-7 is Log1pDd at −σ.
+      - Result: the 8 rows CR on three tiers, gated in `cross`. A 200-point
+        band sweep (subnormal shape, s/shape in [1e-2, 1e2], other shape
+        0.5–1e15), scored by an independent quadrature, reads max real
+        0.504 (p) and 0.498 (q) on all three tiers; HEAD had 28 and 98
+        points over 1.5 ulp (worst 5e20).
+      - Lesson: the scratch sweep first stored oracle roots with str(mpf)
+        (15 digits), which read as 10–30 ulp "failures". Store roots with
+        mp.nstr(v, 40). The hunt oracle is fine in this band.
+      - Seams registered (T2): lnct_log1p (gammainv) and lnsigc_log1p
+        (betainv) at 2^-7 with bits and band strata; ds_scaled_a/_b as
+        census-covered (betainv/deep-small/scaled).
+      - Routes: betainv/newton/clamp lost its #88 witness and has a
+        huge-shape witness line now; betainv/special/nonfinite_log is
+        ROUTE-OPEN (its only path was #88). Open routes: 4 (was 3).
+      - Memory guard also in gen_betainv_reference.py's executor.
+      - Pin: gamma_p_inv small-a mid seed 0.53 → 0.55, from the new
+        lnct_log1p rows (the gammainv kernel is unchanged in part C).
+      - **NEXT:** commit part C and the guard on the user's signal, CI,
+        close #88 (draft in the scratchpad); then row 12g (#73).
+      - Oracle memory guard (2026-10-25, after a hard reboot on Z):
+        refgen_common.cap_process_memory caps each oracle worker
+        (default 1024 MB, `CORVUS_ORACLE_WORKER_MB`), and core.plan_workers
+        sizes pools to free memory minus MIN_FREE_MB. Ad-hoc sweeps must
+        use the same initializer, never a bare Pool. [DECIDED, user]
     - **Row 12f, part A DONE 2026-10-25** (#72 closed; `3e4841e`; CI
       40163504662 green on NEON, Linux sweep + sanitizers, Windows).
       [DERIVED]
@@ -1423,18 +1456,18 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 5 | #47 beta_p R4 seam; #51 gamma_q −denorm_min — DONE 2026-10-19 (Z; #47's inverse half moved to #55, row 9) | one comparison; one sign clamp | small | #53 symmetry, sign sweep | K, CI tiers |
 | 6 | #56 gamma R1/R2 ridge + #57 Temme z.lo — DONE 2026-10-19 (Z; #57 remainder → #64) | forward before #48; same TU | frontier + small | near-ridge rows | K, M1, Z |
 | 7 | #48 gammainv small-a seeds — DONE 2026-10-19 (Z; bracketed phase) | after #56 | frontier | rows + bracket band | K, M1, Z |
-| 8 | #54 beta gamma-limit slice (+ R2 below 2^59 policy) | forward before #55/#50; new ₂F₁ oracle | frontier | rows b∈[2^58,1e30] | K, M1, Z |
-| 9 | #55 betainv a ≳ 1e17 orientation; #50 tiny b (to a≈2.6e4); #60 betainv gates/contract | inverse after #47/#54; one design pass for orientation, seeds, convergence check | frontier | swap-identity guard, rows, non-circular gate | K, M1, Z |
-| 10 | #52 Bessel tail double rounding | independent; can run parallel to 3–9 | small (fix known) | tail sweep, rows | all tiers |
-| 11 | #61 generator self-check hardening | before regeneration | recipe–mid | generator checks | K |
-| 12 | #53 remainder: regenerate band rows, ACCURACY counts and claims, doc drift, sweep_tiers smoke gap; widen `dd_special_reference.txt`'s large-\|u\| coverage (it comes from gen_gamma_reference.py) and unify test_dd_special's two Log1pmxDd cells at the true worst (row 4 decision (b)) | once, after 3–11 | recipe | generators | K, Z (sweep) |
-| 12a | #67 gamma_q R4 small-a (4 ULP vs 1): lgamma(1+a) for a <= 1/2 as centre-2 zone at t = a minus dd log1p(a), private to GammaSmallQ [ADDED 2026-10-20, user] | after 12; independent of 12b | mid (design settled) | certified band rows (fail first); gammainv gates re-measured | K, CI |
-| 12b | #64 gamma R3 Temme tail (3 ULP vs 2): gamma-private dd erfc factor G, refit to ~2^-60 [ADDED 2026-10-20, user] | after 12; independent of 12a (both touch gamma-inl.h: run in sequence) | frontier (fit + budget) | certified x ~ 2a rows (fail first); gammainv gates re-measured | K, CI |
-| 12c | #69 beta R3 Temme tail (4 ULP vs 3): propagate gamma's #57/#64 tail fixes to beta's copy (shared dd G, dd G/(2z), z.lo fold) [ADDED 2026-10-22, user pre-approved on a >3 ULP verdict] | after 12b; touches betainv's forward (log of brk) | frontier | certified R3-tail rows (fail first); betainv ULP + interval gates re-measured | K, CI |
-| 12-T | #82 tooling: T1 residual column + real-error gates, T2 seam registry/audit, T3 shared strata + exact row counts, T4 floor lint, T5 hunt harness, T6 claims check, T7 route census (per-lane region/branch record in a debug build; every route, "unreachable" ones included, shown exercised) [T7 ADDED 2026-10-22, user]; then the hunt campaign (three tiers), each finding filed before 12d [ADDED 2026-10-22, user] | before 12d: the fix rows' fail-first gates use it | frontier (design) + mid | annotation pass, gates, generators, CI report | Z, CI |
-| 12d | #70 gamma_q R3 core (3 ULP vs 2) below the cpsi = 36 split: ErfcCoreDd consumed as dd; probe and mark beta's twin core [ADDED 2026-10-22, user; review M-1] | after the tooling assessment; gamma forward first | frontier | certified cpsi ∈ [34, 36) rows (fail first) | CI tiers |
-| 12e | #71 gamma_q R4 subnormal a (3 ULP, no-FMA): prescale GammaSmallQ's assembly [ADDED 2026-10-22, user; review M-2] | after 12d (same TU) | small–mid | subnormal-a rows (fail first on SSE4/SSE2) | CI tiers |
-| 12f | #72 gammainv deep-subnormal targets (5e10 ulp at a ≳ 4.5e3) + double-rounded subnormal results [ADDED 2026-10-22, user; review H-1, M-6]; + #83 gamma_q_inv tiny/subnormal a (9–1633 ULP; hunt campaign; T7 adds the bracket stall at subnormal a and q, 4–35% off) [ADDED 2026-10-22]; + #88 beta_p_inv/beta_q_inv with shape and target both denorm_min (forward value ~0 or ~313× the target; T3 cross stratum) [ADDED 2026-10-24, user] | after 12d/12e (inverse after forward) | frontier | subnormal p,q × a ∈ [20, 1e6] stratum; deferred:#83, deferred:#72 and deferred:#88 rows (fail first with CORVUS_REF_DEFERRED=1) | CI tiers |
+| 8 | ~~#54 beta gamma-limit slice (+ R2 below 2^59 policy)~~ DONE 2026-10-20 (Z) | forward before #55/#50; new ₂F₁ oracle | frontier | rows b∈[2^58,1e30] | K, M1, Z |
+| 9 | ~~#55 betainv a ≳ 1e17 orientation; #50 tiny b (to a≈2.6e4); #60 betainv gates/contract~~ DONE 2026-10-20 (Z) | inverse after #47/#54; one design pass for orientation, seeds, convergence check | frontier | swap-identity guard, rows, non-circular gate | K, M1, Z |
+| 10 | ~~#52 Bessel tail double rounding~~ DONE 2026-10-20 (Z) | independent; can run parallel to 3–9 | small (fix known) | tail sweep, rows | all tiers |
+| 11 | ~~#61 generator self-check hardening~~ DONE 2026-10-20 (Z) | before regeneration | recipe–mid | generator checks | K |
+| 12 | ~~#53 remainder: regenerate band rows, ACCURACY counts and claims, doc drift, sweep_tiers smoke gap; widen `dd_special_reference.txt`'s large-\|u\| coverage (it comes from gen_gamma_reference.py) and unify test_dd_special's two Log1pmxDd cells at the true worst (row 4 decision (b))~~ DONE 2026-10-20 (Z) | once, after 3–11 | recipe | generators | K, Z (sweep) |
+| 12a | ~~#67 gamma_q R4 small-a (4 ULP vs 1): lgamma(1+a) for a <= 1/2 as centre-2 zone at t = a minus dd log1p(a), private to GammaSmallQ [ADDED 2026-10-20, user]~~ DONE 2026-10-21 (Z) | after 12; independent of 12b | mid (design settled) | certified band rows (fail first); gammainv gates re-measured | K, CI |
+| 12b | ~~#64 gamma R3 Temme tail (3 ULP vs 2): gamma-private dd erfc factor G, refit to ~2^-60 [ADDED 2026-10-20, user]~~ DONE 2026-10-21 (Z) | after 12; independent of 12a (both touch gamma-inl.h: run in sequence) | frontier (fit + budget) | certified x ~ 2a rows (fail first); gammainv gates re-measured | K, CI |
+| 12c | ~~#69 beta R3 Temme tail (4 ULP vs 3): propagate gamma's #57/#64 tail fixes to beta's copy (shared dd G, dd G/(2z), z.lo fold) [ADDED 2026-10-22, user pre-approved on a >3 ULP verdict]~~ DONE 2026-10-22 (Z) | after 12b; touches betainv's forward (log of brk) | frontier | certified R3-tail rows (fail first); betainv ULP + interval gates re-measured | K, CI |
+| 12-T | ~~#82 tooling: T1 residual column + real-error gates, T2 seam registry/audit, T3 shared strata + exact row counts, T4 floor lint, T5 hunt harness, T6 claims check, T7 route census (per-lane region/branch record in a debug build; every route, "unreachable" ones included, shown exercised) [T7 ADDED 2026-10-22, user]; then the hunt campaign (three tiers), each finding filed before 12d [ADDED 2026-10-22, user]~~ DONE 2026-10-24 (Z; T4 is phase 1 only, phases 2–3 are #86, v1.2.0) | before 12d: the fix rows' fail-first gates use it | frontier (design) + mid | annotation pass, gates, generators, CI report | Z, CI |
+| 12d | ~~#70 gamma_q R3 core (3 ULP vs 2) below the cpsi = 36 split: ErfcCoreDd consumed as dd; probe and mark beta's twin core [ADDED 2026-10-22, user; review M-1]~~ DONE 2026-10-24 (Z) | after the tooling assessment; gamma forward first | frontier | certified cpsi ∈ [34, 36) rows (fail first) | CI tiers |
+| 12e | ~~#71 gamma_q R4 subnormal a (3 ULP, no-FMA): prescale GammaSmallQ's assembly [ADDED 2026-10-22, user; review M-2]~~ DONE 2026-10-24 (Z) | after 12d (same TU) | small–mid | subnormal-a rows (fail first on SSE4/SSE2) | CI tiers |
+| 12f | #72 gammainv deep-subnormal targets (5e10 ulp at a ≳ 4.5e3) + double-rounded subnormal results [ADDED 2026-10-22, user; review H-1, M-6]; + #83 gamma_q_inv tiny/subnormal a (9–1633 ULP; hunt campaign; T7 adds the bracket stall at subnormal a and q, 4–35% off) [ADDED 2026-10-22]; + #88 beta_p_inv/beta_q_inv with shape and target both denorm_min (forward value ~0 or ~313× the target; T3 cross stratum) [ADDED 2026-10-24, user] — PARTS A, B DONE 2026-10-25 (Z; #72, #83 closed); part C (#88) open | after 12d/12e (inverse after forward) | frontier | subnormal p,q × a ∈ [20, 1e6] stratum; deferred:#83, deferred:#72 and deferred:#88 rows (fail first with CORVUS_REF_DEFERRED=1) | CI tiers |
 | 12g | #73 erfinv subnormal input (2 ULP, no-FMA): prescale before ProdLow [ADDED 2026-10-22, user; review M-5] | independent | small | subnormal-input rows (fail first on SSE4/SSE2) | CI tiers |
 | 12h | #74 erfc top subnormal binade (2 ULP vs 1): single rounding of the scaled tail [ADDED 2026-10-22, user; review M-4] | independent | small–mid | dense x ∈ [26.543, 26.6] stratum (fail first) | CI tiers |
 | 12i | #75 i0/i1/i0e/i1e series near \|x\| ≈ 7.4 (2 ULP, no-FMA) [ADDED 2026-10-22, user; review M-3] | independent | mid | dense [6, 8] strata, four functions (fail first on SSE4/SSE2) | CI tiers |

@@ -263,7 +263,8 @@ HWY_INLINE Dd<D> DdDivDd(D d, Dd<D> a, Dd<D> b) {
   // where |bn| >= 2^700 caps the error at 2^-1771. R2's tiny d_k see
   // BetaR2Cf, BetaPsiCore's corner w saturates (see cxi). R4's r and lbeta's
   // big band have |an| >= 2^-174. betainv lanes with a shape and the
-  // target both denorm_min reach it too, wrong on every tier: tracked by #88.
+  // target both denorm_min reach it too, under the same bound (their #88
+  // error was the log of R4's unscaled value; see BetaR4Out).
   const auto rem = DdSub(d, an, DdMulD(d, bn, q));
   return Fast2Sum(d, q, op::Div(rem.hi, bn.hi));
 }
@@ -900,8 +901,8 @@ HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
 // by <= 2^-1071 absolute (2^-1075 FMA), moving F by ~F*2^-1071 relative --
 // < 2^-1040 even at F ~ 2^24 (the conditioning note above). F only scales
 // the prefactor (beta) or enters as log F (betainv). betainv's lanes with a
-// shape and the target both denorm_min reach it too, wrong on every tier:
-// tracked by #88.
+// shape and the target both denorm_min reach it too, under the same bound
+// (their #88 error was the log of R4's unscaled value; see BetaR4Out).
 template <class D>
 HWY_NOINLINE Dd<D> BetaR2Cf(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi) {
   const auto one = op::Set(d, 1.0);
@@ -1205,9 +1206,28 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
 // tau-benign (tau appears only in the 1/(tau+n) weights and the exact
 // assembly); the generator's check (f) post-route lattice proves the
 // N = kBetaR4N truncation over the widened domain.
+//
+// The result comes back BEFORE the tau_w lanes' final unscale (#88): on
+// lanes with `down` set the value is m * kBetaTauDown. beta applies that
+// last (BetaR4Value); betainv's forward takes log m + log kBetaTauDown,
+// since for a subnormal-tau lane whose Qtilde is itself near 2^-1074 the
+// unscaled value is a few grid steps and its log has no precision left.
 template <class D>
-HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
-                              Dd<D> lxi) {
+struct BetaR4Out {
+  Dd<D> m;
+  op::M<D> down;
+};
+
+template <class D>
+HWY_INLINE Dd<D> BetaR4Value(D d, BetaR4Out<D> r) {
+  const auto dnw = op::IfThenElse(r.down, op::Set(d, kBetaTauDown),
+                                  op::Set(d, 1.0));
+  return Dd<D>{op::Mul(r.m.hi, dnw), op::Mul(r.m.lo, dnw)};
+}
+
+template <class D>
+HWY_NOINLINE BetaR4Out<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb,
+                                     op::V<D> xi, Dd<D> lxi) {
   const auto one = op::Set(d, 1.0);
   const auto zero = op::Zero(d);
   const auto half = op::Set(d, 0.5);
@@ -1271,7 +1291,8 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
     // reach the floor for tiny xi or late terms; each live term errs by
     // <= 2^-1071, so Sigma by < 2^-1065, which reaches Qtilde only as
     // tau*Sigma: < 2^-1040 of Qtilde >= ~2^-19 tau. Frozen lanes discard it.
-    // betainv's both-denorm_min lanes reach it too, wrong on every tier: #88.
+    // betainv's denorm_min-shape lanes reach it too, under the same bound;
+    // their #88 error was the log of the unscaled value (see BetaR4Out).
     t = DdMulD(d, DdMul(d, t, DdMul(d, nb, rn)), xu);
     const auto wgt = DdRecipDd(d, TwoSum(d, tau, nv));
     // FLOOR: as t_n above.
@@ -1320,13 +1341,11 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
   w = DdAdd(d, w, Log1pDdWide(d, DdMulD(d, s, tau)));
   auto q = DdNeg(d, Expm1Dd(d, w));
 
-  // Unscale the tau_w lanes (exact except the one
-  // allowed final subnormal rounding), then override the both-tiny lanes
-  // with the r/(1+r) closed form. Dead-lane execution of the shortcut can
-  // produce inf/NaN from the 2^900 up-scale of a large bb; those lanes are
-  // discarded by the select and feed no gather (masked-execution rule).
-  const auto dnw = op::IfThenElse(tsub, op::Set(d, kBetaTauDown), one);
-  q = Dd<D>{op::Mul(q.hi, dnw), op::Mul(q.lo, dnw)};
+  // The tau_w lanes stay scaled (the caller unscales, see BetaR4Out); the
+  // both-tiny lanes are overridden with the r/(1+r) closed form, which is
+  // unscaled. Dead-lane execution of the shortcut can produce inf/NaN from
+  // the 2^900 up-scale of a large bb; those lanes are discarded by the
+  // select and feed no gather (masked-execution rule).
   const auto sc = op::Set(d, kBetaTinyPairUp);
   const auto r = DdDivDd(d, Dd<D>{op::Mul(tau0, sc), zero},
                          Dd<D>{op::Mul(bb, sc), zero});
@@ -1335,8 +1354,9 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
   const auto qs = DdMul(d, r, DdRecipDd(d, DdAddD(d, r, one)));
   const auto mbt =
       BetaIndMask(d, op::Mul(BetaInd(d, tsub), BetaInd(d, btiny)));
-  return Dd<D>{op::IfThenElse(mbt, qs.hi, q.hi),
-               op::IfThenElse(mbt, qs.lo, q.lo)};
+  return {Dd<D>{op::IfThenElse(mbt, qs.hi, q.hi),
+                op::IfThenElse(mbt, qs.lo, q.lo)},
+          op::And(tsub, op::MaskNot(mbt))};
 }
 
 // ------------------------------------------------------------------------
@@ -1803,7 +1823,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     const Dd<D> l4{
         op::IfThenElse(m_r4x, lxt.hi, op::Set(d, -2.0 * detail::kLogLn2Hi)),
         op::IfThenElse(m_r4x, lxt.lo, op::Set(d, -2.0 * detail::kLogLn2Lo))};
-    const auto q4 = BetaR4Tiny(d, t4, b4, x4, l4);
+    const auto q4 = BetaR4Value(d, BetaR4Tiny(d, t4, b4, x4, l4));
     val.v = op::IfThenElse(m_r4x, DdToDouble(q4), val.v);
     val.dd.hi = op::IfThenElse(m_r4x, q4.hi, val.dd.hi);
     val.dd.lo = op::IfThenElse(m_r4x, q4.lo, val.dd.lo);

@@ -112,6 +112,7 @@ import gen_beta_data as gb          # noqa: E402  region cores, B_GL, T_RIDGE, Z
 import gen_beta_reference as gbr    # noqa: E402  small_side_direct (audited oracle)
 import gen_betainv_data as bid      # noqa: E402  seed_for, betainv_forward, r1_value_mp, ...
 from refgen_common import round_to_double  # noqa: E402  single-rounding mpf->double (#13 N14)
+from refgen_common import cap_process_memory  # noqa: E402  per-worker memory cap
 
 SEED = 20260810  # fixed seed for reproducible point-set generation --
                   # changing it changes the RNG draw sequence, which
@@ -2747,7 +2748,10 @@ def _points_sig(pts, extra=""):
 def _run_pool(tasks, worker, workers, ckpt_fh):
     import concurrent.futures as cf
     agg = {}
-    with cf.ProcessPoolExecutor(max_workers=workers) as ex:
+    # Each worker caps its own memory: one extreme-shape oracle can allocate
+    # gigabytes faster than anything outside it can react (Z, 2026-10-25).
+    with cf.ProcessPoolExecutor(max_workers=workers,
+                                initializer=cap_process_memory) as ex:
         futs = [ex.submit(worker, t) for t in tasks]
         n = 0
         for fu in cf.as_completed(futs):

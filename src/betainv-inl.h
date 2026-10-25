@@ -310,6 +310,10 @@ template <class D>
 HWY_INLINE Dd<D> BetaInvFiniteLog(D d, Dd<D> v) {
   const auto ok = op::Lt(op::Abs(v.hi),
                          op::Set(d, std::numeric_limits<double>::infinity()));
+  // ROUTE-OPEN (#82 T7): its only known path was #88's log of an R4 value
+  // unscaled into the subnormal grid (0 at the denorm_min pair). BetaR4Out
+  // removed that; a 200k-input census fuzz (tiny to 1e300 shapes, subnormal
+  // to 1 - 2^-53 targets) found no other path to any of its four sites.
   CORVUS_ROUTE(d, "betainv/special/nonfinite_log",
                op::MaskNot(ok));
   return Dd<D>{op::IfThenElse(ok, v.hi, op::Set(d, kBetaInvLogSentinel)),
@@ -817,8 +821,17 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
     const Dd<D> l4{
         op::IfThenElse(m_r4x, lrxi.hi, op::Set(d, -2.0 * detail::kLogLn2Hi)),
         op::IfThenElse(m_r4x, lrxi.lo, op::Set(d, -2.0 * detail::kLogLn2Lo))};
-    const auto q4 = BetaR4Tiny(d, t4, b4, x4, l4);
-    const auto l = OutlinedLogDd(d, q4);
+    // log m + log kBetaTauDown, never the log of the unscaled value (#88):
+    // with a subnormal tau and a target near 2^-1074 that value is a few
+    // subnormal grid steps (0 at the denorm_min pair) and the residual is
+    // quantised. kBetaTauDown = 2^-700 exactly, so its log is -700 ln 2.
+    const auto r4 = BetaR4Tiny(d, t4, b4, x4, l4);
+    const Dd<D> ln2{op::Set(d, detail::kLogLn2Hi), op::Set(d, detail::kLogLn2Lo)};
+    const auto e700 = op::IfThenElse(r4.down, op::Set(d, -700.0), zero);
+    // FLOOR: never reached: the product is exactly 0 (unscaled lanes) or
+    // -700 ln 2 ~ -485.
+    const auto lsc = DdMulD(d, ln2, e700);
+    const auto l = DdAdd(d, OutlinedLogDd(d, r4.m), lsc);
     lnf = Dd<D>{op::IfThenElse(m_r4x, l.hi, lnf.hi),
                 op::IfThenElse(m_r4x, l.lo, lnf.lo)};
     is_p = op::IfThenElse(m_pr, i_sw, is_p);
@@ -1340,8 +1353,17 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
   // ln sigma and ln(1 - sigma). 1 - sigma is formed as an EXACT dd: below
   // sigma ~ 2^-53 the low word is the entire signal, and a native-float
   // 1 - sigma would collapse to exactly 1.0.
+  // Below sigma = 2^-7, ln(1 - sigma) is Log1pDd at the exact argument
+  // -sigma: LogDd of the pair adds its low word as a plain double, 2^-57
+  // relative to a result of size sigma, which the deep-small quotient
+  // amplifies by |ln y| (gammainv's #83 fix; #88).
   const auto lnsig = OutlinedLogDd(d, Dd<D>{sigma, zero});
-  const auto lnsigc = OutlinedLogDd(d, TwoSum(d, one, op::Neg(sigma)));
+  const auto lnsigc_log = OutlinedLogDd(d, TwoSum(d, one, op::Neg(sigma)));
+  const auto lnsigc_1p = Log1pDd(d, Dd<D>{op::Neg(sigma), zero});
+  const auto m_sc1p = op::Ge(op::Set(d, 0x1.0p-7), sigma);
+  CORVUS_ROUTE(d, "betainv/lnsigc_log1p", m_sc1p);
+  const Dd<D> lnsigc{op::IfThenElse(m_sc1p, lnsigc_1p.hi, lnsigc_log.hi),
+                     op::IfThenElse(m_sc1p, lnsigc_1p.lo, lnsigc_log.lo)};
   const Dd<D> lnp0{op::IfThenElse(m_sq, lnsigc.hi, lnsig.hi),
                    op::IfThenElse(m_sq, lnsigc.lo, lnsig.lo)};
   const Dd<D> lnq0{op::IfThenElse(m_sq, lnsig.hi, lnsigc.hi),
@@ -1424,8 +1446,35 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
   // ONE FORM, BOTH ORIENTATIONS: the generator's q-side twin is this
   // expression after the frame's relabelling (file header). There is no second
   // branch for a self-check to miss.
-  const auto ds_num = DdAdd(d, lntau, cx.lb_a);
-  const auto ds_q = GammaInvDivD(d, ds_num, alpha);
+  //
+  // SCALED NUMERATOR (#88; gammainv's #83 twin). For a tiny alpha the
+  // deep-small answer needs |ds_num| <= kGammaInvQuotMax * alpha, so ds_num
+  // is O(alpha), and for alpha < kGammaInvTinyA its terms -- ln tau ~ -sigma
+  // and LB(alpha) = lgamma(1+alpha) (-) [lgamma(beta+alpha) (-) lgamma(beta)]
+  // -- sit on the 2^-1074 grid: 2^-1074/alpha relative, up to 1e12 ulp in
+  // y. Those lanes re-evaluate LB at the scaled argument alpha*2^200 and
+  // divide by the scaled alpha. LB is linear in alpha there to relative
+  // ~alpha*2^200/min(1, beta) <= 2^-200, which needs beta >= 2^-500; both-
+  // tiny pairs keep the unscaled form. ln tau scales exactly.
+  auto ds_num = DdAdd(d, lntau, cx.lb_a);
+  auto ds_den = alpha;
+  const auto m_dsc = op::And(op::Lt(alpha, op::Set(d, kGammaInvTinyA)),
+                             op::Ge(beta, op::Set(d, 0x1.0p-500)));
+  CORVUS_ROUTE(d, "betainv/deep-small/scaled", m_dsc);
+  if (!op::AllFalse(d, m_dsc)) {
+    CORVUS_ROUTE_SCOPE(d, m_dsc);
+    const auto sc = op::Set(d, kGammaInvTinyAScale);
+    // Scrub: lanes outside m_dsc evaluate at (2^-700, 1) and are discarded.
+    const auto as = op::IfThenElse(m_dsc, op::Mul(alpha, sc), op::Set(d, 0x1.0p-700));
+    const auto bsx = op::IfThenElse(m_dsc, beta, one);
+    const auto lb_s = DdSub(d, BetaInvLgamma1p(d, as), LgammaDiffDd(d, bsx, as));
+    const auto num_s =
+        DdAdd(d, Dd<D>{op::Mul(lntau.hi, sc), op::Mul(lntau.lo, sc)}, lb_s);
+    ds_num = Dd<D>{op::IfThenElse(m_dsc, num_s.hi, ds_num.hi),
+                   op::IfThenElse(m_dsc, num_s.lo, ds_num.lo)};
+    ds_den = op::IfThenElse(m_dsc, as, alpha);
+  }
+  const auto ds_q = GammaInvDivD(d, ds_num, ds_den);
   const auto ds_e = ExpDdFrac(d, ds_q.hi, ds_q.lo);
   const auto y_ds = ScaleTwo(d, DdToDouble(ds_e.m), ds_e.e);
   const auto corr_num = op::Neg(OutlinedLogDd(d, TwoSum(d, one, op::Neg(y_ds))).hi);

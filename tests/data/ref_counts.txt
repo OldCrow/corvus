@@ -191,9 +191,10 @@ betainv_p_reference.txt|seam:s3_min:bits|48
 betainv_p_reference.txt|seam:s1_nu_min:bits|48
 betainv_p_reference.txt|seam:huge_nu:bits|48
 betainv_p_reference.txt|seam:fwd_gl_ridge:bits|48
-betainv_p_reference.txt|cross|618
+betainv_p_reference.txt|seam:lnsigc_log1p:bits|48
+betainv_p_reference.txt|seam:lnsigc_log1p:band|80
+betainv_p_reference.txt|cross|622
 betainv_p_reference.txt|near_tie|49
-betainv_p_reference.txt|deferred:#88|4
 betainv_q_reference.txt|base|8616
 betainv_q_reference.txt|seam:fwd_xi1:band|80
 betainv_q_reference.txt|seam:fwd_b1:band|80
@@ -228,9 +229,10 @@ betainv_q_reference.txt|seam:s3_min:bits|48
 betainv_q_reference.txt|seam:s1_nu_min:bits|48
 betainv_q_reference.txt|seam:huge_nu:bits|48
 betainv_q_reference.txt|seam:fwd_gl_ridge:bits|48
-betainv_q_reference.txt|cross|686
+betainv_q_reference.txt|seam:lnsigc_log1p:bits|48
+betainv_q_reference.txt|seam:lnsigc_log1p:band|80
+betainv_q_reference.txt|cross|690
 betainv_q_reference.txt|near_tie|52
-betainv_q_reference.txt|deferred:#88|4
 cos_reference.txt|base|14630
 cos_reference.txt|small_random|120
 cos_reference.txt|huge_random|120
@@ -618,6 +620,9 @@ gammainv_p_reference.txt|witness:route_reject_nan|2
 gammainv_p_reference.txt|seam:cf_amax:band|80
 gammainv_p_reference.txt|seam:beyond_resolution:bits|48
 gammainv_p_reference.txt|seam:beyond_resolution:band|80
+gammainv_p_reference.txt|seam:lnct_log1p:bits|48
+gammainv_p_reference.txt|seam:lnct_log1p:band_lo|80
+gammainv_p_reference.txt|seam:lnct_log1p:band_hi|80
 gammainv_p_reference.txt|cross|97
 gammainv_p_reference.txt|near_tie|38
 gammainv_q_reference.txt|base|6875
@@ -664,6 +669,9 @@ gammainv_q_reference.txt|witness:route_reject_nan|2
 gammainv_q_reference.txt|seam:cf_amax:band|80
 gammainv_q_reference.txt|seam:beyond_resolution:bits|48
 gammainv_q_reference.txt|seam:beyond_resolution:band|80
+gammainv_q_reference.txt|seam:lnct_log1p:bits|48
+gammainv_q_reference.txt|seam:lnct_log1p:band_lo|80
+gammainv_q_reference.txt|seam:lnct_log1p:band_hi|80
 gammainv_q_reference.txt|cross|93
 gammainv_q_reference.txt|near_tie|42
 i0_reference.txt|base|4593

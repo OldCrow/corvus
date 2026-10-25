@@ -55,7 +55,7 @@ from mpmath import mpf
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from core import (LowMemory, MAX_WORKERS, MIN_FREE_MB, REPO, TASKS_PER_WORKER,  # noqa: E402
-                  free_mb, quantum)
+                  cap_process_memory, free_mb, quantum)
 
 DATA = REPO / "tests" / "data"
 CKPT_DIR = REPO.parent / "corvus-scratch" / "annotate"
@@ -113,6 +113,7 @@ _ORACLES: dict = {}
 
 def _init(family_names):
     global _ORACLES
+    cap_process_memory()  # before any oracle runs (refgen_common)
     _ORACLES = {}
     for name in family_names:
         for s in importlib.import_module(f"families.{name}").strata():

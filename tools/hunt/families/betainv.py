@@ -54,6 +54,9 @@ SEAMS = [
     {"fn": "betainv", "name": "near_one_log", "coord": "ln f", "value": -4.8840049810887e-4, "source": "kBetaInvNearOneLog"},
     {"fn": "betainv", "name": "pa_scale", "coord": "max(|E|,|lnB|)", "value": PA_SCALE_MAX, "source": "kBetaInvPaScaleMax"},
     {"fn": "betainv", "name": "huge_nu", "coord": "nu", "value": HUGE_NU, "source": "huge-nu band onset (ACCURACY.md)"},
+    {"fn": "betainv", "name": "lnsigc_log1p", "coord": "sigma = min(s, 1-s)", "value": 2.0 ** -7, "source": "ln(1 - sigma) as Log1pDd below 2^-7 (#88)"},
+    {"fn": "betainv", "name": "ds_scaled_a", "coord": "alpha (deep-small frame)", "value": 2.0 ** -900, "source": "kGammaInvTinyA: deep-small scaled numerator (#88)"},
+    {"fn": "betainv", "name": "ds_scaled_b", "coord": "beta (deep-small frame)", "value": 2.0 ** -500, "source": "deep-small scaled numerator needs beta >= 2^-500 (#88)"},
 ]
 
 FNS = ("beta_p_inv", "beta_q_inv")
@@ -437,6 +440,15 @@ def _t2_strata():
     S += _pstrat("seam:fwd_gl_ridge:bits",
                  _shape_bits([(a, 2.0 ** 60) for a in neighbours(a20, 16)], (1e-5, 0.3, 0.7)),
                  3 * 33, "fwd_gl_ridge", raw=True)
+    # ln(1 - sigma) switches to Log1pDd at sigma = 2^-7 (#88).
+    t7 = 2.0 ** -7
+    S += _pstrat("seam:lnsigc_log1p:bits",
+                 _shape_bits([(2.0, 5.0), (0.3, 40.0), (1e3, 1e3)], neighbours(t7, 64)),
+                 3 * 129, "lnsigc_log1p", raw=True)
+    S += _pstrat("seam:lnsigc_log1p:band",
+                 lambda r: (log_uniform(r, 0.05, 1e6), log_uniform(r, 0.05, 1e6),
+                            full_mantissa(r, t7 * 0.95, t7 * 1.05)),
+                 400, "lnsigc_log1p")
     return S
 
 
@@ -478,6 +490,13 @@ _AUDIT = {
     # than 64 ulp of 2^-40: the bits window is 64 of those steps.
     "tie_band": {"audit_f": _tie, "window": 64 * 2.0 ** -53},
     "near_one_log": {"route": "betainv/fwd/near-one"},
+    # sigma = 1 - s on a row near 1 moves in steps of 2^-53: window as tie_band.
+    "lnsigc_log1p": {"audit_f": lambda r: min(r["s"], 1.0 - r["s"]), "window": 64 * 2.0 ** -53},
+    # Both select inside the deep-small closed form (itself route-covered):
+    # the census marks the scaled branch; the #88 band sweep checked it
+    # against an independent quadrature.
+    "ds_scaled_a": {"route": "betainv/deep-small/scaled"},
+    "ds_scaled_b": {"route": "betainv/deep-small/scaled"},
     "pa_scale": {"internal": "max(|E|, |ln B|) is a prescale test inside the forward's "
                              "PA assembly; the census marks the PA form, not this threshold"},
 }

@@ -119,8 +119,8 @@ gamma_p_inv|beyond-resolution|fma|0.57
 gamma_p_inv|beyond-resolution|nofma|0.57
 gamma_p_inv|deep-small closed form|fma|0.53
 gamma_p_inv|deep-small closed form|nofma|0.53
-gamma_p_inv|small-a mid seed|fma|0.53
-gamma_p_inv|small-a mid seed|nofma|0.53
+gamma_p_inv|small-a mid seed|fma|0.55
+gamma_p_inv|small-a mid seed|nofma|0.55
 gamma_p_inv|small-a tail seed|fma|0.53
 gamma_p_inv|small-a tail seed|nofma|0.53
 gamma_p|R1 series dir|fma|0.77

@@ -37,7 +37,7 @@ from mpmath import mpf
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 # Point-selection helpers are shared with the reference generators (#82 T3).
 from refgen_common import (bits, from_bits, full_mantissa, log_uniform,  # noqa: E402,F401
-                           neighbours, ordered, subnormal)
+                           neighbours, ordered, subnormal, cap_process_memory, worker_mb)
 
 REPO = Path(__file__).resolve().parents[2]
 TIERS = {  # tier label -> build directory (Windows clang-cl builds on Z)
@@ -128,9 +128,11 @@ _STRATA: dict = {}
 
 def _init(family_names):
     """Workers rebuild the strata by importing the family modules: strata
-    hold lambdas, which do not pickle under Windows' spawn start method."""
+    hold lambdas, which do not pickle under Windows' spawn start method.
+    Each worker first caps its own memory (refgen_common.cap_process_memory)."""
     global _STRATA
     import importlib
+    cap_process_memory()
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     _STRATA = {}
     for name in family_names:
@@ -251,6 +253,23 @@ class LowMemory(RuntimeError):
     pass
 
 
+def plan_workers(requested: int) -> int:
+    """Workers that fit: each may reach its cap (worker_mb), and MIN_FREE_MB
+    stays free on top. Raises LowMemory when not even one fits."""
+    n = min(requested, MAX_WORKERS)
+    fm = free_mb()
+    if fm is None:
+        return n
+    fit = (fm - MIN_FREE_MB) // worker_mb()
+    if fit < 1:
+        raise LowMemory(f"free memory {fm} MB leaves no room for one {worker_mb()} MB "
+                        f"worker above the {MIN_FREE_MB} MB headroom")
+    if fit < n:
+        print(f"  workers {n} -> {fit} (free {fm} MB, cap {worker_mb()} MB each, "
+              f"headroom {MIN_FREE_MB} MB)", file=sys.stderr, flush=True)
+    return min(n, fit)
+
+
 def _key(k, args):
     return f"{k[0]}|{k[1]}|" + ",".join(a.hex() for a in args)
 
@@ -271,6 +290,7 @@ def _pool_map(family_names, tasks, ckpt: Path, workers=MAX_WORKERS, batch=256,
     print(f"  resume: {len(tasks) - len(todo)} rows from checkpoint, {len(todo)} to score",
           file=sys.stderr, flush=True)
     results = list(done.values())
+    workers = plan_workers(workers)
     pool = mp_.Pool(workers, initializer=_init, initargs=(family_names,),
                     maxtasksperchild=TASKS_PER_WORKER)
     fh = ckpt.open("a")
