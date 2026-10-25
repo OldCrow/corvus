@@ -30,7 +30,7 @@ performance.**
   `CORVUS_EXPECT_TARGET=AVX3_ZEN4`; the negative check (SSE2 asserted)
   fails as required; `check_release_version.py --tag v1.1.0` OK.
   Milestone 5 is clean (0 open). Z work for v1.1.0 is complete; R1 (M1)
-  and R2 (Kaby Lake) are next, then R3 (PR, tag, release). [DERIVED]
+  and R2 (Kaby Lake) are done (below); R3 (PR, tag, release) is next. [DERIVED]
 - **v1.1.0 native validation — R2 DONE 2026-10-25 on Kaby Lake** (i7-7820HQ,
   macOS 13.7.8; AppleClang 15.0.0, CMake 4.4.4, Ninja 1.13.2, Highway 1.4.0
   (brew), Python 3.15.1). HEAD `b870466`, code measured `0508ef1` (no
@@ -44,7 +44,32 @@ performance.**
   beta_q R4 tiny direct 2 → 1 (gate 2), gammainv small-a mid seed 1 → 0,
   i0e negative series 0 → 1 (gate 1), betainv backward κ > 2^18 report-only
   row. GCC 16.2.0 diagnostics leg (`HWY_AVX10_2` cap, DEV_WARNINGS, WERROR):
-  0 warnings, 36/36 at AVX2. No deviation. R1 (M1) still owed. [DERIVED]
+  0 warnings, 36/36 at AVX2. No deviation. [DERIVED]
+- **v1.1.0 native validation — R1 DONE 2026-10-25 on the Mac Mini M1**
+  (Apple M1, macOS 27.0.1; AppleClang 21.0.0 (clang-2100.3.34.2), CMake
+  4.4.4, Ninja 1.13.2, Highway 1.4.0 (brew, find_package), Python 3.15.1).
+  HEAD `66bf5fa`, code measured `0508ef1` (no code diff since). FEAT_BF16
+  reads 0, so native dispatch is NEON. Fresh Release `-DCORVUS_WERROR=ON`
+  configure into build-m1-v110: 0 warnings, 36/36 under
+  `CORVUS_EXPECT_TARGET=NEON`; the negative check (AVX2 asserted) fails
+  34/36. ULP report (the ci.yml macOS step, NEON asserted): 147 max-ULP
+  lines, and all 604 gate lines identical to the R0 CI run's NEON job
+  (121305146149), not-CR counts and worst inputs included. Spot checks as
+  the runbook lists them: gamma R3 P/Q direct 1, R4 Q direct 1, R4 P
+  complement 1; beta R3 direct 1; Bessel tails 1 on all four; Log1pmxDd
+  |u| >= 2^-40 at 2^-67.78; betainv certified intervals 0 outside (p 371,
+  q 381); erf 19,439 points max 1; lbeta max 1; beta gamma-limit cells
+  <= 1; exp prints near-ties; no deferred rows. Route census (diagnostic,
+  build-m1-census): 318 routes, 309 exercised, 4 unexercised, 0
+  grid-only, 0 mismatches, 5 argued unreachable — Z's reading. No
+  deviation. Two environment notes, not findings: gh 2.103.2
+  (2026-10-23) labels every CI log step "UNKNOWN STEP", so the runbook's
+  awk step filter prints nothing; the ULP-report step was sliced at its
+  `##[group]Run` boundary instead. And tools/hunt/route_census.py
+  imports annotate.py, which needs mpmath, so it is not stdlib-only as
+  the runbook said; it ran under the libstats-erf-cleanroom venv (Python
+  3.14.9, mpmath 1.3.0). R0, R1 and R2 are done; R3 (PR, tag, release)
+  on Z is next. [DERIVED]
 - **v1.1.0 errata (release notes, RELEASING step 12) [DERIVED 2026-10-25].**
   Each was never met by a release and never enforced by a gate; each has
   an "Erratum" paragraph in docs/ACCURACY.md naming its witness.

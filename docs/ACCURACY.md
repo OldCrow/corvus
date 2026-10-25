@@ -102,33 +102,33 @@ review I-1).
 
 | Function | AVX2 | SSE4 | SSSE3 | SSE2 | NEON | AVX-512 |
 |---|---|---|---|---|---|---|
-| erf | ✅ 2026-10-11 | ✅ | ✅ | ✅ | ✅ 2026-10-10 | ✅ 2026-10-11 |
-| erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-25 |
-| lgamma | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
-| erfinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
-| erfcinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
-| gamma_p | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-07-29 | ✅ 2026-07-28 |
-| gamma_q | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-07-29 | ✅ 2026-07-28 |
-| beta_p | ✅ 2026-08-05 † | ✅ | ✅ | ✅ | ✅ 2026-08-06 | ✅ 2026-08-05 |
-| beta_q | ✅ 2026-08-05 † | ✅ | ✅ | ✅ | ✅ 2026-08-06 | ✅ 2026-08-05 |
-| digamma | ✅ 2026-08-08 † | ✅ | ✅ | ✅ | ✅ 2026-08-08 | ✅ 2026-08-07 |
-| trigamma | ✅ 2026-08-08 † | ✅ | ✅ | ✅ | ✅ 2026-08-08 | ✅ 2026-08-08 |
-| gamma_p_inv | ✅ 2026-08-09 † | ✅ | ✅ | ✅ | ✅ 2026-08-09 | ✅ 2026-08-09 |
-| gamma_q_inv | ✅ 2026-08-09 † | ✅ | ✅ | ✅ | ✅ 2026-08-09 | ✅ 2026-08-09 |
-| beta_p_inv | ✅ 2026-08-10 † | ✅ | ✅ | ✅ | ✅ 2026-08-10 | ✅ 2026-08-10 |
-| beta_q_inv | ✅ 2026-08-10 † | ✅ | ✅ | ✅ | ✅ 2026-08-10 | ✅ 2026-08-10 |
-| i0 | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
-| i1 | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
-| i0e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
-| i1e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
-| lbeta | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
-| cos | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-10 | ✅ 2026-10-11 |
-| sin | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-10 | ✅ 2026-10-11 |
-| exp | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-10 | ✅ 2026-10-11 |
-| log | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-10 | ✅ 2026-10-11 |
-| log1p | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-10 | ✅ 2026-10-11 |
-| exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
-| log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
+| erf | ✅ 2026-10-11 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
+| erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
+| lgamma | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
+| erfinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
+| erfcinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
+| gamma_p | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-28 |
+| gamma_q | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-28 |
+| beta_p | ✅ 2026-08-05 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-05 |
+| beta_q | ✅ 2026-08-05 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-05 |
+| digamma | ✅ 2026-08-08 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-07 |
+| trigamma | ✅ 2026-08-08 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-08 |
+| gamma_p_inv | ✅ 2026-08-09 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-09 |
+| gamma_q_inv | ✅ 2026-08-09 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-09 |
+| beta_p_inv | ✅ 2026-08-10 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-10 |
+| beta_q_inv | ✅ 2026-08-10 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-10 |
+| i0 | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-11 |
+| i1 | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-11 |
+| i0e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-11 |
+| i1e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-11 |
+| lbeta | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-11 |
+| cos | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
+| sin | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
+| exp | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
+| log | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
+| log1p | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
+| exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
+| log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
 
 † The beta, digamma, trigamma, inverse-gamma, inverse-beta, Bessel, and
 v0.8.0 elementary-family (cos/sin/exp/log/log1p) x86 rows come from the
@@ -162,7 +162,12 @@ The v1.1.0 cross-machine reproduction on Kaby Lake (2026-10-25,
 AppleClang 15.0.0, code at `0508ef1`) ran all four tiers, 36/36 each,
 tier-asserted, with the negative check verified. AVX2's ULP report
 matches the Linux CI AVX2 job line for line, and SSE4, SSSE3 and SSE2 are
-bit-identical to each other.
+bit-identical to each other. The v1.1.0 native NEON leg ran on the Mac
+Mini M1 the same day (Apple M1, macOS 27.0.1, AppleClang 21.0.0, Homebrew
+Highway 1.4.0, code at `0508ef1`): 36/36 tier-asserted with the negative
+check verified, and its ULP report is identical to the CI NEON job's,
+all 147 max-ULP lines and every not-CR count and worst input. Every NEON
+cell above carries that date.
 
 `exp_dd` and `log_dd` are not public API; they are audited here because the
 erfc tail's bound rests on `exp_dd` and lgamma's rests on `log_dd`. Their
@@ -176,13 +181,13 @@ tiers via capping, which also exercises the no-FMA paths); Linux/GCC CI
 tier sweep; NEON on the Apple Silicon GitHub runner (native silicon,
 native FMA — per-run measured values appear in the CI "ULP report"
 steps) and natively on the Mac Mini M1 (Apple M1, AppleClang 21, macOS
-Tahoe, Homebrew Highway 1.4.0 via find_package): 27 gates 2026-08-23
-on the pre-elementary surface, and all 33 gates 2026-08-30
-tier-asserted with the negative check verified — the elementary rows'
-NEON cells date from that run, except log1p, whose NEON cell was
-re-validated natively 2026-09-01 after the tiny-band fix (33/33
-tier-asserted, negative check verified; log1p corner/near-0/general all
-0 ULP at gate 0); AVX-512 on the Ryzen 7 7445HS (Zen 4, Windows 11). "AVX-512"
+Tahoe then 27, Homebrew Highway 1.4.0 via find_package): 27 gates
+2026-08-23 on the pre-elementary surface, all 33 gates 2026-08-30, log1p
+re-validated 2026-09-01 after the tiny-band fix, 34/34 at the #43
+re-gate 2026-10-10, and 36/36 at v1.1.0 on 2026-10-25 (code `0508ef1`,
+ULP report identical to the CI NEON job) — each run tier-asserted with
+the negative check verified; the NEON cells carry the last of those
+dates; AVX-512 on the Ryzen 7 7445HS (Zen 4, Windows 11). "AVX-512"
 means the three AVX3\* variants this CPU supports — `AVX3_ZEN4` (native
 dispatch), `AVX3_DL`, `AVX3` (capping) — all passing every gate with
 values identical to AVX2. `AVX3_SPR` compiles but is Sapphire-Rapids-only
