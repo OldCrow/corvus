@@ -158,6 +158,11 @@ and every #43 ULP line is identical across them except erf's not-CR
 count (217; 218 on the three no-FMA tiers). The new exp/log fast paths hold 0 ULP
 for exp normal results and for log/log1p on every tier, including the
 three no-FMA tiers that run their non-FMA rounding-test budget.
+The v1.1.0 cross-machine reproduction on Kaby Lake (2026-10-25,
+AppleClang 15.0.0, code at `0508ef1`) ran all four tiers, 36/36 each,
+tier-asserted, with the negative check verified. AVX2's ULP report
+matches the Linux CI AVX2 job line for line, and SSE4, SSSE3 and SSE2 are
+bit-identical to each other.
 
 `exp_dd` and `log_dd` are not public API; they are audited here because the
 erfc tail's bound rests on `exp_dd` and lgamma's rests on `log_dd`. Their

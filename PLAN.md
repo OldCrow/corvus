@@ -31,6 +31,20 @@ performance.**
   fails as required; `check_release_version.py --tag v1.1.0` OK.
   Milestone 5 is clean (0 open). Z work for v1.1.0 is complete; R1 (M1)
   and R2 (Kaby Lake) are next, then R3 (PR, tag, release). [DERIVED]
+- **v1.1.0 native validation — R2 DONE 2026-10-25 on Kaby Lake** (i7-7820HQ,
+  macOS 13.7.8; AppleClang 15.0.0, CMake 4.4.4, Ninja 1.13.2, Highway 1.4.0
+  (brew), Python 3.15.1). HEAD `b870466`, code measured `0508ef1` (no
+  code diff since). Fresh Release `-DCORVUS_WERROR=ON` build per tier: AVX2
+  native, SSE4/SSSE3/SSE2 by capping; 0 warnings and 36/36 under
+  `CORVUS_EXPECT_TARGET=<tier>` on all four; negative check (SSE2 asserted
+  on the AVX2 build) fails 34/36. ULP report (ci.yml Linux step) 147
+  max-ULP lines per tier, active target asserted on each: AVX2 equals the
+  R0 CI run's AVX2 job line for line (604 gate lines); SSE4, SSSE3 and SSE2
+  bit-identical. AVX2 vs no-FMA max-ULP cells that move, all within gate:
+  beta_q R4 tiny direct 2 → 1 (gate 2), gammainv small-a mid seed 1 → 0,
+  i0e negative series 0 → 1 (gate 1), betainv backward κ > 2^18 report-only
+  row. GCC 16.2.0 diagnostics leg (`HWY_AVX10_2` cap, DEV_WARNINGS, WERROR):
+  0 warnings, 36/36 at AVX2. No deviation. R1 (M1) still owed. [DERIVED]
 - **v1.1.0 errata (release notes, RELEASING step 12) [DERIVED 2026-10-25].**
   Each was never met by a release and never enforced by a gate; each has
   an "Erratum" paragraph in docs/ACCURACY.md naming its witness.
