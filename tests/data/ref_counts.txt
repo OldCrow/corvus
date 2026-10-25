@@ -481,8 +481,8 @@ gamma_p_reference.txt|seam:expfloor_r2:bits|48
 gamma_p_reference.txt|subnormal_out:r3|120
 gamma_p_reference.txt|subnormal_out:r1|120
 gamma_p_reference.txt|subnormal_out:r2|120
-gamma_p_reference.txt|subnormal_a:x_log|119
-gamma_p_reference.txt|subnormal_a:box|111
+gamma_p_reference.txt|subnormal_a:x_log|120
+gamma_p_reference.txt|subnormal_a:box|120
 gamma_p_reference.txt|tiny_a:x_near_4|120
 gamma_p_reference.txt|tiny_a:x_near_a_plus_1|120
 gamma_p_reference.txt|extreme:big_a_ridge|120
@@ -495,7 +495,7 @@ gamma_p_reference.txt|generic:r1_small|120
 gamma_p_reference.txt|generic:r2_small|120
 gamma_p_reference.txt|generic:r3|120
 gamma_p_reference.txt|generic:r4|120
-gamma_p_reference.txt|witness|1
+gamma_p_reference.txt|witness|2
 gamma_p_reference.txt|witness:route_r2_nan_exponent|17
 gamma_p_reference.txt|seam:tail_zhi:bits|48
 gamma_p_reference.txt|seam:twopi_a_clamp:band|80
@@ -503,7 +503,6 @@ gamma_p_reference.txt|seam:out_min_normal:bits|48
 gamma_p_reference.txt|seam:out_min_normal:band|80
 gamma_p_reference.txt|cross|140
 gamma_p_reference.txt|near_tie|73
-gamma_p_reference.txt|deferred:#71|11
 gamma_q_reference.txt|base|21369
 gamma_q_reference.txt|seam:aT:bits|46
 gamma_q_reference.txt|seam:aT:band_lo|80
@@ -553,8 +552,8 @@ gamma_q_reference.txt|seam:expfloor_r2:bits|48
 gamma_q_reference.txt|subnormal_out:r3|120
 gamma_q_reference.txt|subnormal_out:r1|120
 gamma_q_reference.txt|subnormal_out:r2|120
-gamma_q_reference.txt|subnormal_a:x_log|112
-gamma_q_reference.txt|subnormal_a:box|111
+gamma_q_reference.txt|subnormal_a:x_log|120
+gamma_q_reference.txt|subnormal_a:box|120
 gamma_q_reference.txt|tiny_a:x_near_4|120
 gamma_q_reference.txt|tiny_a:x_near_a_plus_1|120
 gamma_q_reference.txt|extreme:big_a_ridge|120
@@ -567,7 +566,7 @@ gamma_q_reference.txt|generic:r1_small|120
 gamma_q_reference.txt|generic:r2_small|120
 gamma_q_reference.txt|generic:r3|120
 gamma_q_reference.txt|generic:r4|120
-gamma_q_reference.txt|witness|1
+gamma_q_reference.txt|witness|2
 gamma_q_reference.txt|witness:route_r2_nan_exponent|17
 gamma_q_reference.txt|seam:tail_zhi:bits|48
 gamma_q_reference.txt|seam:twopi_a_clamp:band|80
@@ -575,7 +574,6 @@ gamma_q_reference.txt|seam:out_min_normal:bits|48
 gamma_q_reference.txt|seam:out_min_normal:band|80
 gamma_q_reference.txt|cross|140
 gamma_q_reference.txt|near_tie|65
-gamma_q_reference.txt|deferred:#71|18
 gammainv_p_reference.txt|base|8823
 gammainv_p_reference.txt|seam:aT:bits|48
 gammainv_p_reference.txt|seam:aT:band_lo|80
@@ -656,11 +654,12 @@ gammainv_q_reference.txt|seam:eta_series_cut:band|80
 gammainv_q_reference.txt|seam:eta_series_cut:bits|48
 gammainv_q_reference.txt|extreme:beyond_resolution|120
 gammainv_q_reference.txt|extreme:big_a_ridge|120
-gammainv_q_reference.txt|extreme:subnormal_a|102
+gammainv_q_reference.txt|extreme:subnormal_a|116
 gammainv_q_reference.txt|extreme:tiny_a_q_tail|120
 gammainv_q_reference.txt|generic:small_a|120
 gammainv_q_reference.txt|generic:temme|117
 gammainv_q_reference.txt|witness|3
+gammainv_q_reference.txt|witness:subnormal_aq|96
 gammainv_q_reference.txt|witness:route_reject_nan|2
 gammainv_q_reference.txt|seam:cf_amax:band|80
 gammainv_q_reference.txt|seam:beyond_resolution:bits|48
@@ -668,7 +667,7 @@ gammainv_q_reference.txt|seam:beyond_resolution:band|80
 gammainv_q_reference.txt|cross|92
 gammainv_q_reference.txt|near_tie|39
 gammainv_q_reference.txt|deferred:#72|30
-gammainv_q_reference.txt|deferred:#83|132
+gammainv_q_reference.txt|deferred:#83|22
 i0_reference.txt|base|4593
 i0_reference.txt|seam:split:bits|17
 i0_reference.txt|seam:split:below|80

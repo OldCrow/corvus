@@ -151,8 +151,8 @@ gamma_q|R3 temme  cmp|fma|0.56
 gamma_q|R3 temme  cmp|nofma|0.56
 gamma_q|R3 temme  dir|fma|0.92
 gamma_q|R3 temme  dir|nofma|0.96
-gamma_q|R4 smalla dir|fma|1.21
-gamma_q|R4 smalla dir|nofma|1.50|#71
+gamma_q|R4 smalla dir|fma|0.76
+gamma_q|R4 smalla dir|nofma|0.76
 i0e|neg series|fma|0.78
 i0e|neg series|nofma|0.78
 i0e|neg tail|fma|0.62

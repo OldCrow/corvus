@@ -354,8 +354,26 @@ HWY_NOINLINE Dd<D> GammaCfRecip(D d, op::V<D> a, op::V<D> x) {
 // against centre 1 for a <= 1/2, t = a-1 (exact by Sterbenz) against centre 2
 // for the rest -- which is exactly what lgamma-inl.h does internally for
 // x in (0, 1/2) and [3/2, 5/2].
+//
+// THE PRESCALE (#71). For a below 2^-600 the answer is computed at
+// a_s = a * 2^400 and returned as Q = m * 2^e with e = -400. Q(a, x) =
+// a E1(x) (1 + O(a)) is linear in a far below an ulp there, so Q(a_s, x) *
+// 2^-400 equals Q(a, x) to O(a_s) <= 2^-200 relative. Unscaled, every term
+// of num is O(a): for subnormal a each Dekker product sat below the
+// ProdLow floor, and the no-FMA tiers lost 2-3 ulp of a subnormal Q (FMA:
+// a residue that read denorm_min where Q rounds to +0). At a_s >= 2^-674
+// every product is above the floor (a_s * |log x| >= 2^-727; num ~ a_s *
+// E1(x) >= 2^-683; the tiny-x S terms are dominated by a_s * |log x|). The
+// caller applies 2^e LAST: GammaScale's one rounding into the subnormal
+// grid for gamma, log m + e log 2 for gammainv's forward.
 template <class D>
-HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
+struct GammaSmallQOut {
+  Dd<D> m;
+  op::V<op::SignedTag<D>> e;
+};
+
+template <class D>
+HWY_NOINLINE GammaSmallQOut<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   const auto one = op::Set(d, 1.0);
   const auto zero = op::Zero(d);
   const auto half = op::Set(d, 0.5);
@@ -366,6 +384,13 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   // and out of the zone polynomials' extrapolation range.
   a = op::Min(a, op::Set(d, kGammaR4AMax));
   x = op::Min(x, op::Set(d, kGammaR4XMax));
+  // Prescale (#71, see above): exact, a power of two.
+  const auto tiny_a = op::Gt(op::Set(d, 0x1.0p-600), a);
+  CORVUS_ROUTE(d, "gamma/R4/prescale", tiny_a);
+  a = op::IfThenElse(tiny_a, op::Mul(a, op::Set(d, 0x1.0p400)), a);
+  const op::SignedTag<D> di;
+  const auto e = op::ConvertToInt(
+      di, op::IfThenElse(tiny_a, op::Set(d, -400.0), zero));
 
   // lgamma(1+a), always from the CENTRE-2 zone (#67): t = a - 1 (Sterbenz)
   // for a > 1/2, and for a <= 1/2 t = a with lgamma(1+a) = lgamma(2+a) -
@@ -385,14 +410,11 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
                op::Gt(a, op::Set(d, detail::kLgammaZoneLo)));
   const auto t = op::IfThenElse(c1, a, op::Sub(a, one));
   const auto centre2 = op::Gt(zero, one);  // all false: centre-2 coefficients
-  // FLOOR: (R4 note, for every site in this function) |B*t| < 2^-968 needs
-  // a < ~2^-967 (|B| >= 0.42); a*log x, axs and q reach it for tiny a too,
-  // each losing <= 2^-1072 absolute (~2^-1070 in all) against Q >= a*E1(4)
-  // ~ a*2^-8. Tiny x puts the S terms below it; that loss (<= 2^-1065) is
-  // scaled by a*xa, so it stays ~2^-1053 relative to Q. Harmless for a >=
-  // 2^-1000 (measured: no tier split on 300 rows a in [2^-1012, 2^-940]),
-  // and for gamma_p (1 - Q). Below a = 2^-1000 it is up to ~3 ulp of a
-  // subnormal Q on no-FMA tiers -- tracked by #71, and #83 for gamma_q_inv.
+  // FLOOR: (R4 note, for every site in this function) a here is >= 2^-674
+  // after the prescale above (#71), so a*log x >= 2^-727, Q ~ a*E1(x) >=
+  // 2^-683 and |B*t| >= 2^-676: no product of the O(a) terms reaches 2^-968.
+  // Only tiny x puts the S terms below it; that loss (<= 2^-1065) is scaled
+  // by a*xa against num ~ a*|log x|, so it stays below 2^-370 relative to Q.
   auto lg1a = DdMulD(d, ZoneBracket(d, t, centre2), t);  // lgamma(2+t)
   if (!op::AllFalse(d, c1)) {
     CORVUS_ROUTE_SCOPE(d, c1);
@@ -414,8 +436,8 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   const auto g1a_m1 = Expm1Dd(d, lg1a);                   // Gamma(1+a) - 1
   const auto g1a = DdAddD(d, g1a_m1, one);
 
-  // FLOOR: |a*log x| < 2^-968 needs a < 2^-915 (log x is 0 exactly or in
-  // [2^-53, 745]); see the R4 note at lg1a (#71 below a = 2^-1000).
+  // FLOOR: |a*log x| >= 2^-727 or exactly 0 (a >= 2^-674 after the prescale,
+  // log x is 0 or in [2^-53, 745]); see the R4 note at lg1a.
   const auto xa_m1 = Expm1Dd(d, DdMulD(d, LogDdAny(d, x), a));  // x^a - 1
   const auto xa = DdAddD(d, xa_m1, one);
 
@@ -452,19 +474,21 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   // FLOOR: below it for tiny S (x < ~2^-900) or a; see the R4 note at lg1a.
   const auto axs = DdMulD(d, DdMul(d, xa, s), a);
   num = DdAdd(d, num, Dd<D>{op::Neg(axs.hi), op::Neg(axs.lo)});
-  // FLOOR: num ~ Q < 2^-968 needs a < ~2^-958: the loss is <= 2^-1072 on Q,
-  // up to ~3 ulp of a subnormal Q on no-FMA -- tracked by #71 (R4 note).
+  // FLOOR: num ~ Q >= 2^-683 after the prescale (R4 note at lg1a).
   const auto q = DdMul(d, num, DdRecipDd(d, g1a));
-  // SIGN CLAMP (#51). Q > 0 always, but for a subnormal a the three O(a)
-  // terms of num cancel to a true Q far below denorm_min (gamma_q(2^-1074, 2)
-  // = 2.4e-325), and their rounding residue can come out as -denorm_min or
-  // -0. Clamping q.hi <= 0 to +0 is value-safe -- it only fires where the
-  // true Q rounds to +0 anyway -- and keeps the contract that a probability
-  // is never negative, signed zero included.
+  // SIGN CLAMP (#51). Q > 0 always. Before the #71 prescale the three O(a)
+  // terms of num cancelled, for subnormal a, to a rounding residue that
+  // could come out as -denorm_min or -0; with a >= 2^-674 here num is far
+  // above the floor and the clamp should not fire. It stays as the guard on
+  // the contract that a probability is never negative, signed zero included.
   const auto nonpos = op::Ge(zero, q.hi);
+  // ROUTE-UNREACHABLE: since the #71 prescale a >= 2^-674 here, so num is
+  // Q to dd relative accuracy, and Q > 0 on R4's box (Q >= a E1(4) for
+  // tiny a, >= Q(3/2, 4) ~ 0.06 otherwise): q.hi is never <= 0.
   CORVUS_ROUTE(d, "gamma/R4/sign_clamp", nonpos);
-  return Dd<D>{op::IfThenElse(nonpos, zero, q.hi),
-               op::IfThenElse(nonpos, zero, q.lo)};
+  return {Dd<D>{op::IfThenElse(nonpos, zero, q.hi),
+                op::IfThenElse(nonpos, zero, q.lo)},
+          e};
 }
 
 // R3: Temme's uniform asymptotic expansion on the ridge.
@@ -809,12 +833,14 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
   }
   if (!op::AllFalse(d, m_r4)) {
     CORVUS_ROUTE_SCOPE(d, m_r4);
-    const auto q4 = GammaSmallQ(d, a, x);
+    // 2^e applied last (#71): one rounding into the subnormal grid.
+    const auto s4 = GammaSmallQ(d, a, x);
+    const auto q4 = GammaScale(d, s4.m, s4.e);
     CORVUS_ROUTE(d, "gamma/R4/subnormal",
-                 op::Lt(DdToDouble(q4), op::Set(d, 0x1.0p-1022)));
-    val.v = op::IfThenElse(m_r4, DdToDouble(q4), val.v);
-    val.dd.hi = op::IfThenElse(m_r4, q4.hi, val.dd.hi);
-    val.dd.lo = op::IfThenElse(m_r4, q4.lo, val.dd.lo);
+                 op::Lt(q4.v, op::Set(d, 0x1.0p-1022)));
+    val.v = op::IfThenElse(m_r4, q4.v, val.v);
+    val.dd.hi = op::IfThenElse(m_r4, q4.dd.hi, val.dd.hi);
+    val.dd.lo = op::IfThenElse(m_r4, q4.dd.lo, val.dd.lo);
   }
 
   // The complement is formed from the dd BEFORE any rounding, so the single

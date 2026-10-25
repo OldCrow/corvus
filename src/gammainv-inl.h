@@ -586,7 +586,13 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
   }
   if (!op::AllFalse(d, m_r4)) {
     CORVUS_ROUTE_SCOPE(d, m_r4);
-    const auto l = OutlinedLogDd(d, GammaSmallQ(d, a, x));
+    // Q = m * 2^e (#71: m from the prescaled core): log Q = log m + e log 2,
+    // so a tiny-a Q keeps full relative accuracy in log space.
+    const auto s4 = GammaSmallQ(d, a, x);
+    const Dd<D> ln2{op::Set(d, detail::kLogLn2Hi), op::Set(d, detail::kLogLn2Lo)};
+    // FLOOR: e is 0 or -400, so e*ln2 is 0 or ~277: never below 2^-968.
+    const auto l = DdAdd(d, OutlinedLogDd(d, s4.m),
+                         DdMulD(d, ln2, op::ConvertToDouble(d, s4.e)));
     lnf = Dd<D>{op::IfThenElse(m_r4, l.hi, lnf.hi),
                 op::IfThenElse(m_r4, l.lo, lnf.lo)};
     i_pdir = op::IfThenElse(m_r4, zero, i_pdir);
@@ -1013,6 +1019,10 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
                                               dxold));
         live = op::Mul(live, IndNot(d, Ind(d, op::Gt(tol, applied))));
       }
+      // ROUTE-OPEN (#82 T7): its only known path was #83's stall, where Q
+      // rounded to 0 above the root at subnormal (a, q), the residual went
+      // NaN and the bracket re-proposed one midpoint. #71's prescaled R4
+      // forward (log m + e log 2) removed that NaN; no other path is known.
       CORVUS_ROUTE(d, "gammainv/bracket/cap", IndMask(d, live));
       rbest = op::Abs(GammaInvResid(d, cur, mt));
     }

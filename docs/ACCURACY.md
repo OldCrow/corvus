@@ -580,6 +580,20 @@ on the old kernel (Q 4 ULP, P complement 1) and pass now on AVX3_ZEN4,
 SSE4 and SSE2; Q's not-CR rate on R4 rows fell from 4.2% to 1.4%.
 Cost: ~+6% on the R4 bench band (indicative, Zen 4).
 
+**R4 subnormal a fixed (#71, order row 12e).** Every term of GammaSmallQ's
+num is O(a), so for subnormal a each Dekker product sat below the ProdLow
+floor: 2–3 ULP (2.74 real) on SSE4/SSE2, and on the FMA tier a residue
+that returned denorm_min where Q rounds to +0. For a < 2^-600 the core
+now runs at a·2^400 and returns Q = m·2^-400. Q = a E1(x)(1 + O(a)) is
+linear in a far below an ulp there, so the result is exact to 2^-200
+relative, and every product stays above the floor. The scaling is applied
+last (one rounding into the subnormal grid), and gammainv's forward takes
+log m − 400 log 2. R4 direct now reads 0.74 real on every tier with #71's
+30 rows gated (pin 1.21/1.50 → 0.76). Through gammainv's forward this
+also removes #83's bracket stall: the 96 subnormal-(a, q) rows that
+returned roots 4–35% off are correctly rounded, and 14 of 18 tiny-a rows
+pass.
+
 **R1/R2 re-measured 2026-10-19 (#56).** The table's R1 and R2 rows above
 used to read 2 / 4 / 2 / 1 ULP (R1 P, R1 Q complement, R2 Q, R2 P
 complement), and the reference set never sampled the ridge below a = 20

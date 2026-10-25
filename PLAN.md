@@ -293,9 +293,26 @@ performance.**
       - The lint reports 71 of 136 sites still without an argument: those
         the census never saw reach the floor. They are #86's phase 3
         (v1.2.0), after which CI runs the lint `--strict`.
+    - **Row 12e DONE 2026-10-24** (#71; uncommitted at write time; 36/36
+      on AVX3_ZEN4, SSE4, SSE2, MSVC AVX2 and the census build). [DERIVED]
+      - Fix: GammaSmallQ prescales a < 2^-600 by 2^400 and returns
+        (m, e = -400). Q is linear in a there to 2^-200, and every product
+        stays above the floor. gamma applies 2^e last via GammaScale;
+        gammainv's forward uses log m + e log 2. The FLOOR arguments are
+        rewritten for the scaled range.
+      - Result: gamma_q R4 dir 2.74 real (SSE2) → 0.74 on every tier.
+        #71's 30 rows are gated (no gamma deferrals remain), and the pins
+        fall 1.21/1.50 → 0.76.
+      - Side effect on #83 (row 12f): the subnormal-(a, q) bracket stall
+        is gone, because the forward's log no longer goes NaN. 110 of
+        #83's 132 deferred rows now pass and are gated. 22 remain: 17 at
+        the min-normal output seam (11–12 ULP), 4 tiny-a, 1 subnormal-x.
+        The gamma_q_inv deep-small pin (1.36/1.51, #83) is unchanged.
+      - Census: `gamma/R4/sign_clamp` is now argued unreachable;
+        `gammainv/bracket/cap` lost its only known path, so it is open
+        (`// ROUTE-OPEN:`). The census reads 3 open routes, 5 argued.
     - **Row 12d DONE 2026-10-24** (#70 closed; `c24adf6`; CI 40156682698
-      green on NEON, Linux sweep + sanitizers, Windows). **NEXT: 12e**
-      (#71, same TU). [DERIVED]
+      green on NEON, Linux sweep + sanitizers, Windows). [DERIVED]
       - Cause: the R3 core's ½ erfc(z) is 1 − erf(z) (ErfcCoreDd), whose
         error relative to erfc grows like e^{z²}. That is about one erfc
         ulp at z = 6, amplified to 2.51 ulp real just below the old split
