@@ -1476,7 +1476,9 @@ HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
   }
   const auto ds_q = GammaInvDivD(d, ds_num, ds_den);
   const auto ds_e = ExpDdFrac(d, ds_q.hi, ds_q.lo);
-  const auto y_ds = ScaleTwo(d, DdToDouble(ds_e.m), ds_e.e);
+  // One rounding into the subnormal grid (row 12h; was ScaleTwo of the
+  // rounded dd, two roundings -- gammainv's #72 M-6 twin).
+  const auto y_ds = DdScaleToDouble(d, ds_e.m, ds_e.e);
   const auto corr_num = op::Neg(OutlinedLogDd(d, TwoSum(d, one, op::Neg(y_ds))).hi);
   const auto corr = op::IfThenElse(op::Lt(y_ds, op::Set(d, 1e-8)), one,
                                    op::Div(corr_num, y_ds));

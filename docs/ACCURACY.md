@@ -290,8 +290,11 @@ validated tier).
 
 The tail bound was 5 ULP until 2026-07-25, when the region moved from the
 backend's vector exp to corvus's own `exp_dd` (below); the same reference
-set now measures 2. What remains is the tail polynomial G, not the
-exponential — see the note at the end of this section.
+set then measured 2, the plain-double tail polynomial G's error. Since row
+12h (#74, 2026-10-25) G is the shared dd fit and the result rounds once,
+so the whole tail measures ≤ 0.53 real — see the note at the end of this
+section. The published bounds above are unchanged here (bounds are
+contractual floors); tightening the claim text is row 12j's (#76).
 
 Method, core |x| ≤ 6: the erf table, assembled as compensated
 1 ∓ erf(|x|) (Fast2Sum head plus exact residual) so the cancellation in
@@ -317,16 +320,34 @@ onto the subnormal grid) — measured max 1 ULP in that band. Results underflow
 gradually past x ≈ 26.5; erfc(x) = 0 for x ≥ ~27.3. Special values:
 erfc(±0) = 1, erfc(−inf) = 2, erfc(+inf) = 0, NaN propagates with payload.
 
-**Where the residual 2 ULP lives.** `exp_dd` contributes at most 2^−68.4
-relative (≈ 2^−15 ULP) and the dd assembly around it is exact to ~2^−104,
-so none of the 2 ULP is the exponential — it is the G polynomial.
-Error-source decomposition (one source at a time, 3875 points in
-[6, 27.2]): the not-CR rate (~53%) is set by the fit's double
-coefficients alone — only a dd-coefficient re-fit could move it; the max
-ULP is the evaluation — a compensated Horner would buy 2 → 1 while
-leaving the rate unchanged. Neither is attempted: the first is a
-different project, the second spends throughput on a tail path already
-1.7× slower to move a bound that is already documented. Accepted.
+**The tail's G, and #74 (row 12h).** `exp_dd` contributes at most
+2^−68.4 relative (≈ 2^−15 ULP) and the dd assembly around it is exact to
+~2^−104, so none of the old 2 ULP was the exponential. It was G:
+erfc's plain-double G (`ErfcTailGFromU`, ~1.7 × 2^−53: the fit's double
+coefficients set the ~53% not-CR rate, the evaluation the 2-ULP maximum).
+That was accepted while a dd re-fit was "a different project". #74 found
+it also broke the 1-ULP subnormal-results claim. The top subnormal binade
+(x in [26.5433, 26.556]) still carries ~52 bits, and G's error survived
+a double rounding there (dd rounded to double, then scaled): 2 ULP, 1.55
+real, 1.52 pinned against #74.
+- **Fix.** The dd re-fit already existed: `GammaTailG`
+  (src/erfc_tail_dd-inl.h), the same function to 2^−64 on z in
+  [5, 28.5], built for the Temme tails (#64, #69). erfc's live tail,
+  a in (6, 28], lies inside it. The product then rounds once into the
+  subnormal grid (`DdScaleToDouble`). Single rounding alone was measured
+  first: it left the top binade at 1.264 real, above the 1.25 ceiling.
+  The user chose the dd G over an erratum.
+- **Result.** 40,000-point sweeps per band (mpmath at 60 digits) read a
+  maximum real error of 0.500 on the subnormal band and the normal tail
+  [6, 26.54], identically on AVX3_ZEN4, SSE4 and SSE2. One near-tie in
+  40,000 normal-tail points is 1 ULP. HEAD read 2.07 (normal) and 1.45
+  (subnormal). Pins: tail normal 2.12 → 0.53, tail subnormal 1.52 → 0.52.
+- **Cost.** The tail-only bench goes ~5.5 → ~9.8 ns/el and the mixed band
+  ~8.8 → ~12.7 (Zen 4, ad hoc, not a quiet-bench run); the core is
+  untouched. `ErfcTailGFromU` stays for erfinv's far Halley step.
+- **Same pattern elsewhere.** gamma's `GammaScale`, beta's `BetaScale`
+  and betainv's deep-small y now round once through `DdScaleToDouble`
+  too. Their subnormal-result cells fall from up to 0.77 to 0.53 real.
 
 Negative x mirrors through the compensated core (not 2 − erfc(|x|), which
 would reround) up to |x| = 6; beyond, 2 − tail rounds to exactly 2, which

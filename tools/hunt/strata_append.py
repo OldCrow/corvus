@@ -62,6 +62,8 @@ COUNTS = DATA / "ref_counts.txt"
 CKPT_DIR = REPO.parent / "corvus-scratch" / "strata"
 SEED = 20261023
 AGREE = mpf("1e-4")   # two-form agreement that certifies a row, in ulps
+TIE_RESOLVE = mpf("1e-12")  # |r| this close to 1/2: re-evaluate at TIE_DPS
+TIE_DPS = 400
 TIE = 1 / 32          # near_tie: distance to the rounding midpoint, in ulps
 TIE_ROWS, TIE_POOL = 128, 1024
 CAPS = {"bits": 48, "band": 80, "other": 120}  # rows per hunt stratum
@@ -134,6 +136,25 @@ def _exact(fn, args):
     tol = abs(r1 - r2)
     if tol > AGREE or abs(r2) + tol > mpf(0.5) + annotate.HALF_SLACK:
         return None, None, f"forms disagree: r {mp.nstr(r1, 8)} vs {mp.nstr(r2, 8)}"
+    # A residual this close to 1/2 does not say which side of the midpoint
+    # the value is on: an algebraic near-tie such as I_x(1, 1/2) at
+    # x = 2^-1074 (x/2 + x^2/8, the excess 2^-1076 relative) reads exactly
+    # 0.5 at 40-90 digits, and was stored rounded to even on the wrong side
+    # (row 12h). Re-evaluate at TIE_DPS and round from there; a residual
+    # still unresolved there is dropped, never guessed.
+    if abs(abs(r2) - mpf(0.5)) <= TIE_RESOLVE:
+        with mp.workdps(TIE_DPS):
+            v3 = +o1(args, TIE_DPS)
+            if not mp.isfinite(v3):
+                return None, None, "near-tie: high-precision form not finite"
+            cr = round_double(v3)
+            r3 = annotate._residual(v3, cr)
+            # Inside the 400-digit block: the excess can be ~1e-324, which
+            # the ambient 15 digits would round to an exact tie.
+            unresolved = r3 is None or abs(abs(r3) - mpf(0.5)) <= mpf(10) ** -(TIE_DPS - 40)
+        if unresolved:
+            return None, None, "near-tie unresolved at %d digits" % TIE_DPS
+        return cr, float(r3), form + f", tie resolved at {TIE_DPS} digits"
     return cr, float(r2), form
 
 

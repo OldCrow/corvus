@@ -30,18 +30,21 @@ namespace op = ops;
 // G's relative error reaches the small side at weight (lambda-1)/eta, which
 // is 1.28 at lambda = 2 (s_rv < 0 there, so the bracket is smaller than G's
 // term), and with a result mantissa near 2 that read 3 ulp at x = 2a - 4 ulp
-// (a ~ 1180). The 2-ULP bound was never reachable with a double G. erfc's
-// table and ErfcTailGFromU are untouched, so erfc's and erfinv's bits do
-// not move.
+// (a ~ 1180). The 2-ULP bound was never reachable with a double G.
+// ErfcTailGFromU stays for erfinv's far Halley step, whose bits do not move.
 //
-// TWO CALLERS, ONE DOMAIN. gamma-inl.h GammaTemme (a*phi > 25) and
+// THREE CALLERS, ONE DOMAIN. gamma-inl.h GammaTemme (a*phi > 25) and
 // beta-inl.h BetaR3Temme (cpsi > 25, #69: beta's weight reaches 1.28 too,
 // and its plain-double G read 4 ulp against a 3-ULP bound). Both clamp
 // their exponent at -800 (kGammaExpFloor, kBetaExpFloor), so on every live
 // tail lane z = sqrt(a*phi) or sqrt(cpsi) lies in (5, 28.29], inside the
-// fit interval. A third caller must show the same before using it. The
-// split was 36 (z = 6) until #70, which moved both callers' core/tail
-// split down to 25 and this fit's lower edge with it.
+// fit interval. The split was 36 (z = 6) until #70, which moved both
+// callers' core/tail split down to 25 and this fit's lower edge with it.
+// Third, erfc-inl.h ErfcTailVec (#74): z = a in (6, 28] on live lanes
+// (kErfcTailLo, kErfcTailHi), and it clamps a below at kGammaTailZLo for
+// the core lanes sharing the vector. Its plain-double G had cost the tail
+// 2.07 ulp (normal) and 1.45 (top subnormal binade, 1-ULP bound). A fourth
+// caller must show its own z range lies inside [5, 28.5] before using it.
 //
 // METHOD (tools/gen_gamma_data.py, block "Tail G" and self-check (g)). One
 // Chebyshev interpolant in u = 1/z over the whole live range (a*phi in

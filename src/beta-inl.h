@@ -358,12 +358,13 @@ struct BetaVal {
 };
 
 // Apply exp_dd's power-of-two scaling LAST (the erfc/gamma pattern), twice
-// over: v is the direct answer with ONE rounding even in the subnormal band,
-// dd is the scaled pair for the complement (which is only ever taken where the
-// result is >= ~0.4 and the scaling is therefore exact).
+// over: v is the direct answer with ONE rounding even in the subnormal band
+// (DdScaleToDouble; ScaleTwo of the rounded dd until row 12h, which rounded
+// twice there), dd is the scaled pair for the complement (which is only ever
+// taken where the result is >= ~0.4 and the scaling is therefore exact).
 template <class D>
 HWY_INLINE BetaVal<D> BetaScale(D d, Dd<D> m, op::V<op::SignedTag<D>> e) {
-  return {ScaleTwo(d, DdToDouble(m), e),
+  return {DdScaleToDouble(d, m, e),
           Dd<D>{ScaleTwo(d, m.hi, e), ScaleTwo(d, m.lo, e)}};
 }
 

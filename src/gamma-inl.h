@@ -186,8 +186,9 @@ struct GammaVal {
 };
 
 // Apply exp_dd's power-of-two scaling LAST (the erfc pattern), twice over.
-//   v  = ScaleTwo(round(m), e): the direct answer, ONE rounding even when the
-//        result lands in the subnormal band.
+//   v  = DdScaleToDouble(m, e): the direct answer, ONE rounding even when the
+//        result lands in the subnormal band. (Until #74/row 12h this was
+//        ScaleTwo(round(m), e), which rounds twice there.)
 //   dd = the scaled pair, for the complement. Where the complement is taken
 //        the direct side is at most ~0.87 (Q ~ 0.13 at worst, #56) and far
 //        from the subnormal band, so the scaling is exact and the pair is a
@@ -195,7 +196,7 @@ struct GammaVal {
 //        rounds to 1 regardless.
 template <class D>
 HWY_INLINE GammaVal<D> GammaScale(D d, Dd<D> m, op::V<op::SignedTag<D>> e) {
-  return {ScaleTwo(d, DdToDouble(m), e),
+  return {DdScaleToDouble(d, m, e),
           Dd<D>{ScaleTwo(d, m.hi, e), ScaleTwo(d, m.lo, e)}};
 }
 

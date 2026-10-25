@@ -311,6 +311,39 @@ performance.**
         three tiers.
       - Noted, not fixed: betainv forms ln(1 − σ) the same way
         (`lnsigc`); check it under 12h or with #88.
+    - **Row 12h DONE 2026-10-25** (#74; uncommitted at write time; 36/36
+      on AVX3_ZEN4, SSE4, SSE2, census and MSVC Release). [DERIVED]
+      - erfc tail: G is now the shared dd GammaTailG, and the result
+        rounds once (DdScaleToDouble). Single rounding alone left the top
+        subnormal binade at 1.264 real (> 1.25); the user chose the dd G
+        over an erratum [DECIDED 2026-10-25, user]. The tail reads ≤ 0.50
+        real on three tiers (was 2.07 normal, 1.45 subnormal). Cost:
+        tail-only ~5.5 → ~9.8 ns/el, mixed ~8.8 → ~12.7 (ad hoc, Zen 4);
+        PERFORMANCE.md's erfc tail rows are marked stale until the next
+        quiet bench.
+      - GammaScale, BetaScale and betainv's y_ds round once too; their
+        subnormal cells fall to 0.53. No ScaleTwo(DdToDouble(…)) site
+        remains. exp's ExpDdVec still rounds twice into subnormals: that
+        is its documented 0.75-ulp design bound, a candidate only. [OPEN]
+      - Reference ties: the kernel's single rounding exposed a stored row
+        on the wrong side of a midpoint, beta_p(1, ½, denorm_min). Its
+        exact value is x/2 + x²/8, an excess of 2^-1076 relative, which
+        no 40–90-digit oracle resolves. strata_append now re-evaluates at
+        400 digits within 1e-12 of ½ and drops a row still unresolved;
+        the row is corrected. A 400-digit scan of every printed |r| = 0.5
+        row found 246 more, all i1e at subnormal x (x/2 − x²/2 …,
+        stored rounded to even). Their cells are 1 ULP, so no gate trips,
+        but the reference CR is wrong. i1 has the same structure with an
+        excess (x²/8) beyond 400 digits, so its rows are very likely
+        wrong too. Issue drafted, not filed. [OPEN]
+      - CI: the Linux sanitizer job (Debug, -O0) ran guards in 722 s, and
+        the whole job took 25:51 of its 30-minute limit. That was 450 s
+        before part C. The proposal is to build that step at -O1 (the
+        ASan-recommended level) and, if needed, scale guards' counts
+        under sanitizers. Awaiting the user. [OPEN]
+      - **NEXT:** commit 12h on the user's signal, CI, close #74; then
+        row 12i (#75; dense [6, 8] strata failing first, as #82's close
+        noted).
     - **Row 12g DONE 2026-10-25** (#73 closed; `940c9f9`; CI 40219413347
       green on NEON, Linux sweep + sanitizers, Windows). [DERIVED]
       - ErfinvCentral: for |y| < 2^-900 the product is formed at

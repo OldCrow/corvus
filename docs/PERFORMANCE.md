@@ -103,6 +103,13 @@ Much of the spread here is that, not vectorisation.
 The mixed band is slowest because lanes in a vector can land in different
 regions, and the kernel pays for both.
 
+**Stale since row 12h (2026-10-25).** The tail now evaluates the dd G
+(#74, docs/ACCURACY.md erfc). An ad-hoc Zen 4 run, not a quiet-bench run,
+put the tail-only band at ~9.8 ns/el against ~5.5 for the plain-double G,
+and the mixed band at ~12.7 against ~8.8. The core band is unchanged. The
+tail and mixed rows above, and in §8.1, predate the change; re-measure at
+the next quiet bench.
+
 ### lgamma
 
 | band | corvus ns/el | libm ns/el | ratio |
