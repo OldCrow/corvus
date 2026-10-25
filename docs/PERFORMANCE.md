@@ -147,6 +147,12 @@ bands at the largest n.
 | `erfinv` / `erfcinv` | 5.17 – 14.94× — see §5 |
 | `i0` / `i1` / `i0e` / `i1e` | 8.31 – 8.45× — see §5 |
 
+**Bessel rows stale since row 12i (2026-10-25).** The series now carries
+eight dd terms (#75), and each regime runs only when some lane needs it.
+Ad-hoc Zen 4 runs, not quiet-bench runs (ns/el, before → after): series
+band 14.3–14.8 → 13.9–14.3, tail band 14.5–14.8 → 6.4–6.5, mixed band
+14.4–14.8 → 19.3–19.7. Re-measure at the next quiet bench.
+
 The very large figures at the top of the `gammainv` range are a property of the
 baseline, not of the kernel: an iterative solve has a lot of per-call setup to
 amortise, so calling it one element at a time is especially wasteful.

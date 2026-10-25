@@ -61,7 +61,10 @@ emit nothing):
       unscaled assembly. exp_dd is modeled with an injected +/-2^-70
       relative perturbation, never assumed exact. Series sample: log-
       spaced coverage, bit-stepped refinement below the split, tiny-x/
-      subnormal probes. Tail sample: 20k full-mantissa points in
+      subnormal probes, and (since #75) 3,000 seeded full-mantissa points
+      over [4, 8] plus the review's two witnesses. The series dd depth is
+      the smallest whose worst REAL error is <= SERIES_REAL_TARGET (0.51):
+      the integer target below admitted 1.526 real at depth 4. Tail sample: 20k full-mantissa points in
       (kBesselSplit, min overflow boundary] (both assemblies), 1k log-
       uniform points above it up to DBL_MAX (scaled only), plus anchors
       (bit-stepped above the split and around both overflow boundaries).
@@ -70,8 +73,9 @@ emit nothing):
       truth; NOT relative-error bits, which artificially blow up near
       the subnormal floor even when the double result IS the correctly
       rounded nearest value, which relative error would wrongly flag near
-      the subnormal floor). Series and tail targets are both 1 ULP
-      (ULP_TARGET_SERIES, ULP_TARGET_TAIL).
+      the subnormal floor). Tail target 1 ULP (ULP_TARGET_TAIL); the
+      series depth is chosen on real error (above), and ULP_TARGET_SERIES
+      (1 ULP) remains the seam check's bound.
   (d) negative controls: corrupt one dd-lead coefficient's lo word and
       confirm the series floor measurement explodes (proves the dd
       machinery is load-bearing, not a no-op); add 4 ulp to the tail's c0
@@ -104,6 +108,14 @@ mp.mp.dps = 60
 X_S = 8.0                    # kBesselSplit
 FIT_TOL = mpf(2) ** -60      # both regimes' truncation target (design's stated budget)
 ULP_TARGET_SERIES = 1.0
+# The series' dd depth is chosen on REAL error (#75): an integer-ULP target
+# of 1 admits real error up to 1.5, and depth 4 read 1.526 on SSE4 at
+# x = 0x1.db72e43633fd3p+2 while passing it. 0.51 is "correctly rounded
+# except near ties"; depth 8 reads 0.500 on 3,000 dense [4, 8] points.
+SERIES_REAL_TARGET = 0.51
+SERIES_DENSE_N = 3000   # seeded full-mantissa points in [4, 8], the hump
+SERIES_DENSE_SEED = 20261025
+SERIES_WITNESSES = ("0x1.db72e43633fd3p+2", "0x1.dc35230441228p+2")  # #75
 ULP_TARGET_TAIL = 1.0        # the published bound (#52: 2.0 hid a ~1.5 ULP kernel)
 TAIL_FIT_REL_TARGET = 2.5e-16  # dense-verification gate for the RAW fitted
 # polynomial's double-precision evaluation (erfc_tail's own REL_TARGET,
@@ -277,6 +289,18 @@ def ulp_distance_pos(true_val, got):
     b_ref = struct.unpack('<q', struct.pack('<d', ref))[0]
     b_got = struct.unpack('<q', struct.pack('<d', got))[0]
     return float(abs(b_got - b_ref))
+
+
+def real_ulp(true_val, got):
+    """|got - true| in ulps of the true value's binade (subnormal grid below
+    2^-1022): the real error, which an integer ULP distance hides up to 1/2."""
+    if not math.isfinite(got) or got < 0:
+        return float("inf")
+    t = mp.mpf(true_val)
+    if t == 0:
+        return 0.0 if got == 0 else float("inf")
+    e = max(int(mp.floor(mp.log(abs(t), 2))), -1022)
+    return float(abs(mp.mpf(got) - t) / mp.mpf(2) ** (e - 52))
 
 
 def next_after(x, up=True):
@@ -577,6 +601,12 @@ def series_sample_points(x_s, n=300):
         # ulps below the split; 200 gives deep margin either side of it
     pts += [1e-300, 1e-150, 1e-30, 1e-10, 1e-5, 5e-324, 2.0 ** -1074,
             2.0 ** -1022, 2.0 ** -1021]
+    # #75: the 300 log-spaced points put ~9 in [6, 8], where the series'
+    # term profile peaks and the plain-double tail carries most of the
+    # value. Dense seeded points over [4, 8] plus the review's witnesses.
+    rng = random.Random(SERIES_DENSE_SEED)
+    pts += [rng.uniform(4.0, x_s) for _ in range(SERIES_DENSE_N)]
+    pts += [float.fromhex(w) for w in SERIES_WITNESSES]
     return sorted(set(p for p in pts if 0 < p <= x_s))
 
 
@@ -723,8 +753,8 @@ def main():
                         un, sc = series_assemble_sim(
                             nu, coeffs_hi, coeffs_lo, dcoef_desc, klead, p,
                             sign, fused)
-                        du = ulp_distance_pos(truth_u[p], un)
-                        ds = ulp_distance_pos(truth_e[p], sc)
+                        du = real_ulp(truth_u[p], un)
+                        ds = real_ulp(truth_e[p], sc)
                         if du > worst:
                             worst, worst_pt = du, p
                             worst_tag = ("unscaled", fused)
@@ -735,13 +765,13 @@ def main():
                   f"{worst:.3f} ULP @ x={worst_pt!r} "
                   f"[{worst_tag[0]}, {'fused' if worst_tag[1] else 'unfused'}]",
                   file=sys.stderr)
-            if worst <= ULP_TARGET_SERIES:
+            if worst <= SERIES_REAL_TARGET:
                 chosen = klead
                 series[nu]["worst_ulp"] = worst
                 break
         if chosen is None:
             print(f"[gen_bessel_data] FAILED: series nu={nu} misses "
-                  f"{ULP_TARGET_SERIES} ULP at every klead <= 12",
+                  f"{SERIES_REAL_TARGET} real ULP at every klead <= 12",
                   file=sys.stderr)
             ok = False
         else:
@@ -836,7 +866,9 @@ def main():
         bad_lo = list(coeffs_lo)
         bad_lo[idx] = bad_lo[idx] + 1e-3
         worst_bad = -1.0
-        for p in series_sample_points(X_S)[:300]:
+        # The LARGEST points: the corrupted coefficient multiplies q^(klead-1),
+        # invisible at small x once klead is deep (8 since #75).
+        for p in series_sample_points(X_S)[-300:]:
             _, got = series_assemble_sim(nu, coeffs_hi, bad_lo, dcoef_desc,
                                          klead, p, 1.0, True)
             truth = truth_ive(nu, p)

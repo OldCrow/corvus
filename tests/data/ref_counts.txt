@@ -702,6 +702,8 @@ i0_reference.txt|seam:q_underflow:above|80
 i0_reference.txt|seam:min_normal:bits|24
 i0_reference.txt|seam:min_normal:below|80
 i0_reference.txt|seam:min_normal:above|80
+i0_reference.txt|issue75:bits:0x1.db72e43633fd3p+2|65
+i0_reference.txt|issue75:bits:0x1.dc35230441228p+2|65
 i0_reference.txt|series:[1,4)|120
 i0_reference.txt|series:[4,6)|120
 i0_reference.txt|series:[6,8)|120
@@ -712,7 +714,7 @@ i0_reference.txt|tiny:subnormal_top|120
 i0_reference.txt|tail:(8,700]|120
 i0_reference.txt|tail:[8,16)|120
 i0_reference.txt|tail:(700,ovf]|120
-i0_reference.txt|near_tie|66
+i0_reference.txt|near_tie|60
 i0e_reference.txt|base|4625
 i0e_reference.txt|seam:split:bits|19
 i0e_reference.txt|seam:split:below|80
@@ -746,6 +748,8 @@ i0e_reference.txt|seam:prescale_split:above|80
 i0e_reference.txt|seam:prescale_pre:bits|48
 i0e_reference.txt|seam:prescale_pre:below|80
 i0e_reference.txt|seam:prescale_pre:above|80
+i0e_reference.txt|issue75:bits:0x1.db72e43633fd3p+2|65
+i0e_reference.txt|issue75:bits:0x1.dc35230441228p+2|65
 i0e_reference.txt|series:[1,4)|120
 i0e_reference.txt|series:[4,6)|120
 i0e_reference.txt|series:[6,8)|120
@@ -757,7 +761,7 @@ i0e_reference.txt|tail:(8,700]|120
 i0e_reference.txt|tail:[8,16)|120
 i0e_reference.txt|tail:(700,ovf]|120
 i0e_reference.txt|tail:(ovf,DBL_MAX]|120
-i0e_reference.txt|near_tie|58
+i0e_reference.txt|near_tie|48
 i1_reference.txt|base|4623
 i1_reference.txt|seam:split:bits|22
 i1_reference.txt|seam:split:below|80
@@ -780,6 +784,8 @@ i1_reference.txt|seam:min_normal:above|80
 i1_reference.txt|seam:half_normal:bits|48
 i1_reference.txt|seam:half_normal:below|80
 i1_reference.txt|seam:half_normal:above|80
+i1_reference.txt|issue75:bits:0x1.db72e43633fd3p+2|65
+i1_reference.txt|issue75:bits:0x1.dc35230441228p+2|65
 i1_reference.txt|series:[1,4)|120
 i1_reference.txt|series:[4,6)|120
 i1_reference.txt|series:[6,8)|120
@@ -790,7 +796,7 @@ i1_reference.txt|tiny:subnormal_top|120
 i1_reference.txt|tail:(8,700]|120
 i1_reference.txt|tail:[8,16)|120
 i1_reference.txt|tail:(700,ovf]|120
-i1_reference.txt|near_tie|102
+i1_reference.txt|near_tie|71
 i1e_reference.txt|base|4621
 i1e_reference.txt|seam:split:bits|14
 i1e_reference.txt|seam:split:below|80
@@ -821,6 +827,8 @@ i1e_reference.txt|seam:prescale_split:above|80
 i1e_reference.txt|seam:prescale_pre:bits|48
 i1e_reference.txt|seam:prescale_pre:below|80
 i1e_reference.txt|seam:prescale_pre:above|80
+i1e_reference.txt|issue75:bits:0x1.db72e43633fd3p+2|65
+i1e_reference.txt|issue75:bits:0x1.dc35230441228p+2|65
 i1e_reference.txt|series:[1,4)|120
 i1e_reference.txt|series:[4,6)|120
 i1e_reference.txt|series:[6,8)|120
@@ -832,7 +840,7 @@ i1e_reference.txt|tail:(8,700]|120
 i1e_reference.txt|tail:[8,16)|120
 i1e_reference.txt|tail:(700,ovf]|120
 i1e_reference.txt|tail:(ovf,DBL_MAX]|120
-i1e_reference.txt|near_tie|101
+i1e_reference.txt|near_tie|108
 lbeta_reference.txt|base|5931
 lbeta_reference.txt|seam:big_min:bits|48
 lbeta_reference.txt|seam:big_min:band|80

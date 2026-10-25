@@ -311,8 +311,8 @@ performance.**
         three tiers.
       - Noted, not fixed: betainv forms ln(1 − σ) the same way
         (`lnsigc`); check it under 12h or with #88.
-    - **Row 12h DONE 2026-10-25** (#74; uncommitted at write time; 36/36
-      on AVX3_ZEN4, SSE4, SSE2, census and MSVC Release). [DERIVED]
+    - **Row 12h DONE 2026-10-25** (#74 closed; `9f47755`; CI 40222274687
+      green on NEON, Linux sweep + sanitizers, Windows). [DERIVED]
       - erfc tail: G is now the shared dd GammaTailG, and the result
         rounds once (DdScaleToDouble). Single rounding alone left the top
         subnormal binade at 1.264 real (> 1.25); the user chose the dd G
@@ -335,15 +335,30 @@ performance.**
         stored rounded to even). Their cells are 1 ULP, so no gate trips,
         but the reference CR is wrong. i1 has the same structure with an
         excess (x²/8) beyond 400 digits, so its rows are very likely
-        wrong too. Issue drafted, not filed. [OPEN]
-      - CI: the Linux sanitizer job (Debug, -O0) ran guards in 722 s, and
-        the whole job took 25:51 of its 30-minute limit. That was 450 s
-        before part C. The proposal is to build that step at -O1 (the
-        ASan-recommended level) and, if needed, scale guards' counts
-        under sanitizers. Awaiting the user. [OPEN]
-      - **NEXT:** commit 12h on the user's signal, CI, close #74; then
-        row 12i (#75; dense [6, 8] strata failing first, as #82's close
-        noted).
+        wrong too. Filed as #89 (v1.2.0, with #87). [OPEN]
+      - CI: the sanitizer step now builds Debug at -O1 (`f72a128`, user
+        decision 2026-10-25). Guards under ASan went 722 → 25 s, all
+        sanitizer tests 39 s, and the Linux job 25:51 → 18:44 of its
+        30-minute limit. [DECIDED, user]
+    - **Row 12i DONE 2026-10-25** (#75; uncommitted at write time — user
+      AFK, commits held; 36/36 on AVX3_ZEN4, SSE4, SSE2, census and MSVC
+      Release). [DERIVED]
+      - Series dd depth 4 → 8 (data only). gen_bessel_data.py now picks
+        the depth on REAL error ≤ 0.51 over 3,000 dense [4, 8] points plus
+        the review's witnesses; the integer-ULP target had admitted 1.526
+        real. Its replay reproduces the SSE4 kernel bit for bit.
+      - Region skips in BesselNu0/Nu1: byte-identical over 200k outputs
+        (AVX3_ZEN4, SSE2). Zen 4 indicative: series ≈ unchanged, tail
+        2.2× faster, mixed vectors +34% (19.3–19.7 vs 14.4–14.8 ns/el).
+        PERFORMANCE.md marks its bessel rows stale.
+      - Result: dense [6, 8] at 100k per function, max real ≤ 0.506 and
+        not-CR ≤ 0.11% on three tiers; series pins 0.52–0.53 (were up to
+        1.07). Fail-first: issue75:bits strata deferred as #75 at depth 4
+        (the existing ~2,200-row [6, 8) strata never caught a row).
+      - Done-when met: the documented not-CR rate is re-measured
+        (ACCURACY.md table).
+      - **NEXT:** commit 12i and the 12h close-out on the user's signal,
+        CI, close #75; then row 12k (#84 + #85), then 12j last.
     - **Row 12g DONE 2026-10-25** (#73 closed; `940c9f9`; CI 40219413347
       green on NEON, Linux sweep + sanitizers, Windows). [DERIVED]
       - ErfinvCentral: for |y| < 2^-900 the product is formed at
@@ -1513,7 +1528,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 12e | ~~#71 gamma_q R4 subnormal a (3 ULP, no-FMA): prescale GammaSmallQ's assembly [ADDED 2026-10-22, user; review M-2]~~ DONE 2026-10-24 (Z) | after 12d (same TU) | small–mid | subnormal-a rows (fail first on SSE4/SSE2) | CI tiers |
 | 12f | ~~#72 gammainv deep-subnormal targets (5e10 ulp at a ≳ 4.5e3) + double-rounded subnormal results [ADDED 2026-10-22, user; review H-1, M-6]; + #83 gamma_q_inv tiny/subnormal a (9–1633 ULP; hunt campaign; T7 adds the bracket stall at subnormal a and q, 4–35% off) [ADDED 2026-10-22]; + #88 beta_p_inv/beta_q_inv with shape and target both denorm_min (forward value ~0 or ~313× the target; T3 cross stratum) [ADDED 2026-10-24, user]~~ — DONE 2026-10-25 (Z; #72, #83, #88 closed) | after 12d/12e (inverse after forward) | frontier | subnormal p,q × a ∈ [20, 1e6] stratum; deferred:#83, deferred:#72 and deferred:#88 rows (fail first with CORVUS_REF_DEFERRED=1) | CI tiers |
 | 12g | ~~#73 erfinv subnormal input (2 ULP, no-FMA): prescale before ProdLow [ADDED 2026-10-22, user; review M-5]~~ DONE 2026-10-25 (Z) | independent | small | subnormal-input rows (fail first on SSE4/SSE2) | CI tiers |
-| 12h | #74 erfc top subnormal binade (2 ULP vs 1): single rounding of the scaled tail [ADDED 2026-10-22, user; review M-4] | independent | small–mid | dense x ∈ [26.543, 26.6] stratum (fail first) | CI tiers |
+| 12h | ~~#74 erfc top subnormal binade (2 ULP vs 1): single rounding of the scaled tail [ADDED 2026-10-22, user; review M-4]~~ DONE 2026-10-25 (Z; dd G chosen over an erratum) | independent | small–mid | dense x ∈ [26.543, 26.6] stratum (fail first) | CI tiers |
 | 12i | #75 i0/i1/i0e/i1e series near \|x\| ≈ 7.4 (2 ULP, no-FMA) [ADDED 2026-10-22, user; review M-3] | independent | mid | dense [6, 8] strata, four functions (fail first on SSE4/SSE2) | CI tiers |
 | 12k | #84 beta gamma-limit slice sliver ν < 20 ≤ s takes the CF at the ridge (391 ULP vs 0) + #85 beta_q R4 near-one post-route 2 ULP vs 1 at τ ≈ 2.5 [ADDED 2026-10-22; hunt campaign] | after 12d (beta R3 core twin); before 12j | frontier (#84 routing) + mid | bit-stepped s = 20 × N ≥ 2^47 stratum; dense τ ≈ 2.5 post-route stratum (fail first) | CI tiers |
 | 12j | #76 contract text and gates: false CR claims, stale text, VERSIONING errata clause [ADDED 2026-10-22, user; review M-6..M-10, M-13..M-15, L-1, L-2, L-6, L-8..L-17, I-1] | last: quotes the final numbers of 12d–12i | recipe | witness rows; gates set to the documented cells | CI |

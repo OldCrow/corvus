@@ -135,6 +135,15 @@ def strata():
             out.append(_stratum2(fn, f"seam:{sname}:below", lo_gen, 150, sname, own=own))
             if not top:
                 out.append(_stratum2(fn, f"seam:{sname}:above", hi_gen, 150, sname, own=own))
+    # #75 witnesses: the reviewer's two i0 inputs (2 ULP, 1.53 real on
+    # SSE4/SSE2 at series dd depth 4) and their bit neighbourhoods. The dense
+    # [6, 8) strata below (~2,200 rows) never caught one: ~2 per 1.1M.
+    for x0 in (float.fromhex("0x1.db72e43633fd3p+2"), float.fromhex("0x1.dc35230441228p+2")):
+        for fn in FNS:
+            out.append(_stratum2(
+                fn, f"issue75:bits:{x0.hex()}",
+                lambda r, n, x0=x0: [(x if i % 2 == 0 else -x,) for i, x in enumerate(neighbours(x0, 32))],
+                65, note="#75 witness neighbourhood", own=True))
     for fn in FNS:
         for lo, hi in ((1, 4), (4, 6), (6, 8)):
             out.append(_stratum2(

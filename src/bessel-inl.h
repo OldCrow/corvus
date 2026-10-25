@@ -261,38 +261,54 @@ HWY_NOINLINE BesselPair<D> BesselNu0(D d, op::V<D> x) {
   CORVUS_ROUTE(d, "i0/tail", op::And(op::Gt(ax_raw, split),
                                      op::Lt(ax_raw, inf)));
 
-  // --- series branch (computed on every lane; selected in on in_series) ---
-  const auto ax_s = op::Min(ax, split);
-  const auto ssq = op::Mul(ax_s, ax_s);
-  // FLOOR: ax < 2^-484; sqlo, off by <= 2^-1073, only feeds q_lo, i.e.
-  // S'(q)*q_lo added to S >= 1: below 2^-1070 of S.
-  const auto sqlo = op::SquareLow(d, ax_s, ssq);
-  const auto q_hi = op::Mul(ssq, quarter);  // exact: *0.25 is a power of 2
-  const auto q_lo = op::Mul(sqlo, quarter);
+  // Each branch runs only when some lane needs it (#75, row 12i): the series
+  // carries 8 dd terms now, and an all-tail vector should not pay for it
+  // (nor an all-series vector for the tail). Lanes are still selected
+  // below, so the skip is bit-identical; a skipped branch's outputs keep
+  // finite placeholders that the select discards.
+  auto i0_series_val = one;
+  Dd<D> i0e_series{one, zero};
+  Dd<D> ive_tail{one, zero};
+  auto i0_tail_val = one;
 
-  const auto s0 = BesselSeriesS(
-      d, q_hi, q_lo, detail::kBesselI0SeriesLeadHi,
-      detail::kBesselI0SeriesLeadLo, detail::kBesselI0SeriesLead,
-      detail::kBesselI0SeriesCoef, detail::kBesselI0SeriesNCoef,
-      detail::kBesselI0SeriesDCoef, kBesselI0SeriesNDCoef);
-  const auto exp_neg = OutlinedExpDd(d, op::Neg(ax_s), zero);
-  const auto i0e_series = DdMul(d, s0, exp_neg);
-  const auto i0_series_val = op::Add(s0.hi, s0.lo);
+  // --- series branch (lanes selected in on in_series) ----------------------
+  if (!op::AllFalse(d, in_series)) {
+    CORVUS_ROUTE_SCOPE(d, in_series);
+    const auto ax_s = op::Min(ax, split);
+    const auto ssq = op::Mul(ax_s, ax_s);
+    // FLOOR: ax < 2^-484; sqlo, off by <= 2^-1073, only feeds q_lo, i.e.
+    // S'(q)*q_lo added to S >= 1: below 2^-1070 of S.
+    const auto sqlo = op::SquareLow(d, ax_s, ssq);
+    const auto q_hi = op::Mul(ssq, quarter);  // exact: *0.25 is a power of 2
+    const auto q_lo = op::Mul(sqlo, quarter);
 
-  // --- tail branch (computed on every lane; selected in on !in_series) ----
-  const auto ax_t = op::Max(ax, split);
-  const auto ive_tail = BesselTailIveDd(
-      d, ax_t, detail::kBesselI0TailCoef, detail::kBesselI0TailNCoef,
-      detail::kBesselI0TailScale, detail::kBesselI0TailShift);
+    const auto s0 = BesselSeriesS(
+        d, q_hi, q_lo, detail::kBesselI0SeriesLeadHi,
+        detail::kBesselI0SeriesLeadLo, detail::kBesselI0SeriesLead,
+        detail::kBesselI0SeriesCoef, detail::kBesselI0SeriesNCoef,
+        detail::kBesselI0SeriesDCoef, kBesselI0SeriesNDCoef);
+    const auto exp_neg = OutlinedExpDd(d, op::Neg(ax_s), zero);
+    i0e_series = DdMul(d, s0, exp_neg);
+    i0_series_val = op::Add(s0.hi, s0.lo);
+  }
 
-  const auto parts = BesselExpDdFrac(d, ax_t, zero);
-  const auto prod = DdMul(d, ive_tail, parts.m);
-  const auto sc_hi = ScaleTwo(d, prod.hi, parts.e);
-  const auto sc_lo = ScaleTwo(d, prod.lo, parts.e);
-  auto i0_tail_val = op::Add(sc_hi, sc_lo);
-  const auto boundary = op::Set(d, detail::kBesselI0OverflowX);
-  CORVUS_ROUTE(d, "i0/overflow", op::Gt(ax, boundary));  // i0 only; i0e is finite
-  i0_tail_val = op::IfThenElse(op::Gt(ax, boundary), inf, i0_tail_val);
+  // --- tail branch (lanes selected in on !in_series) -----------------------
+  if (!op::AllTrue(d, in_series)) {
+    CORVUS_ROUTE_SCOPE(d, op::MaskNot(in_series));
+    const auto ax_t = op::Max(ax, split);
+    ive_tail = BesselTailIveDd(
+        d, ax_t, detail::kBesselI0TailCoef, detail::kBesselI0TailNCoef,
+        detail::kBesselI0TailScale, detail::kBesselI0TailShift);
+
+    const auto parts = BesselExpDdFrac(d, ax_t, zero);
+    const auto prod = DdMul(d, ive_tail, parts.m);
+    const auto sc_hi = ScaleTwo(d, prod.hi, parts.e);
+    const auto sc_lo = ScaleTwo(d, prod.lo, parts.e);
+    i0_tail_val = op::Add(sc_hi, sc_lo);
+    const auto boundary = op::Set(d, detail::kBesselI0OverflowX);
+    CORVUS_ROUTE(d, "i0/overflow", op::Gt(ax, boundary));  // i0 only; i0e is finite
+    i0_tail_val = op::IfThenElse(op::Gt(ax, boundary), inf, i0_tail_val);
+  }
 
   // --- combine, then specials, NaN last (payload preserved) --------------
   auto i0_val = op::IfThenElse(in_series, i0_series_val, i0_tail_val);
@@ -344,46 +360,58 @@ HWY_NOINLINE BesselPair<D> BesselNu1(D d, op::V<D> x) {
   CORVUS_ROUTE(d, "i1/tail", op::And(op::Gt(ax_raw, split),
                                      op::Lt(ax_raw, inf)));
 
-  // --- series branch -------------------------------------------------------
-  const auto ax_s = op::Min(ax, split);
-  const auto ssq = op::Mul(ax_s, ax_s);
-  // FLOOR: ax < 2^-484; sqlo, off by <= 2^-1073, only feeds q_lo, i.e.
-  // S'(q)*q_lo added to S >= 1: below 2^-1070 of S.
-  const auto sqlo = op::SquareLow(d, ax_s, ssq);
-  const auto q_hi = op::Mul(ssq, quarter);
-  const auto q_lo = op::Mul(sqlo, quarter);
+  // Region skips as in BesselNu0 (#75, row 12i): bit-identical selection.
+  auto i1_series_mag = one;
+  Dd<D> i1e_series{one, zero};
+  Dd<D> ive_tail{one, zero};
+  auto i1_tail_mag = one;
 
-  const auto s1 = BesselSeriesS(
-      d, q_hi, q_lo, detail::kBesselI1SeriesLeadHi,
-      detail::kBesselI1SeriesLeadLo, detail::kBesselI1SeriesLead,
-      detail::kBesselI1SeriesCoef, detail::kBesselI1SeriesNCoef,
-      detail::kBesselI1SeriesDCoef, kBesselI1SeriesNDCoef);
-  // Exact for normal ax; for subnormal ax the halving rounds, so i1 there is
-  // within 1 ulp but not always correctly rounded (i1(0x1p-1074) = +0).
-  const auto half_ax = op::Mul(ax_s, half);
-  // FLOOR: s1*half_ax < 2^-968 only for ax < 2^-967, where ax^2 rounds to 0
-  // and s1 == {1, 0}: TwoProd(1, b) is exact on every tier, so mag == half_ax.
-  const auto mag_series = DdMulD(d, s1, half_ax);  // unscaled |I1|, dd
-  const auto exp_neg = OutlinedExpDd(d, op::Neg(ax_s), zero);
-  // FLOOR: below the floor (ax < 2^-967) exp_neg.hi == 1 exactly, so the
-  // TwoProd is exact and the cross terms (~ax^2/2) round to 0 on every tier.
-  const auto i1e_series = DdMul(d, mag_series, exp_neg);
-  const auto i1_series_mag = op::Add(mag_series.hi, mag_series.lo);
+  // --- series branch -------------------------------------------------------
+  if (!op::AllFalse(d, in_series)) {
+    CORVUS_ROUTE_SCOPE(d, in_series);
+    const auto ax_s = op::Min(ax, split);
+    const auto ssq = op::Mul(ax_s, ax_s);
+    // FLOOR: ax < 2^-484; sqlo, off by <= 2^-1073, only feeds q_lo, i.e.
+    // S'(q)*q_lo added to S >= 1: below 2^-1070 of S.
+    const auto sqlo = op::SquareLow(d, ax_s, ssq);
+    const auto q_hi = op::Mul(ssq, quarter);
+    const auto q_lo = op::Mul(sqlo, quarter);
+
+    const auto s1 = BesselSeriesS(
+        d, q_hi, q_lo, detail::kBesselI1SeriesLeadHi,
+        detail::kBesselI1SeriesLeadLo, detail::kBesselI1SeriesLead,
+        detail::kBesselI1SeriesCoef, detail::kBesselI1SeriesNCoef,
+        detail::kBesselI1SeriesDCoef, kBesselI1SeriesNDCoef);
+    // Exact for normal ax; for subnormal ax the halving rounds, so i1 there is
+    // within 1 ulp but not always correctly rounded (i1(0x1p-1074) = +0).
+    const auto half_ax = op::Mul(ax_s, half);
+    // FLOOR: s1*half_ax < 2^-968 only for ax < 2^-967, where ax^2 rounds to 0
+    // and s1 == {1, 0}: TwoProd(1, b) is exact on every tier, so mag == half_ax.
+    const auto mag_series = DdMulD(d, s1, half_ax);  // unscaled |I1|, dd
+    const auto exp_neg = OutlinedExpDd(d, op::Neg(ax_s), zero);
+    // FLOOR: below the floor (ax < 2^-967) exp_neg.hi == 1 exactly, so the
+    // TwoProd is exact and the cross terms (~ax^2/2) round to 0 on every tier.
+    i1e_series = DdMul(d, mag_series, exp_neg);
+    i1_series_mag = op::Add(mag_series.hi, mag_series.lo);
+  }
 
   // --- tail branch -----------------------------------------------------
-  const auto ax_t = op::Max(ax, split);
-  const auto ive_tail = BesselTailIveDd(
-      d, ax_t, detail::kBesselI1TailCoef, detail::kBesselI1TailNCoef,
-      detail::kBesselI1TailScale, detail::kBesselI1TailShift);
+  if (!op::AllTrue(d, in_series)) {
+    CORVUS_ROUTE_SCOPE(d, op::MaskNot(in_series));
+    const auto ax_t = op::Max(ax, split);
+    ive_tail = BesselTailIveDd(
+        d, ax_t, detail::kBesselI1TailCoef, detail::kBesselI1TailNCoef,
+        detail::kBesselI1TailScale, detail::kBesselI1TailShift);
 
-  const auto parts = BesselExpDdFrac(d, ax_t, zero);
-  const auto prod = DdMul(d, ive_tail, parts.m);
-  const auto sc_hi = ScaleTwo(d, prod.hi, parts.e);
-  const auto sc_lo = ScaleTwo(d, prod.lo, parts.e);
-  auto i1_tail_mag = op::Add(sc_hi, sc_lo);
-  const auto boundary = op::Set(d, detail::kBesselI1OverflowX);
-  CORVUS_ROUTE(d, "i1/overflow", op::Gt(ax, boundary));  // i1 only; i1e is finite
-  i1_tail_mag = op::IfThenElse(op::Gt(ax, boundary), inf, i1_tail_mag);
+    const auto parts = BesselExpDdFrac(d, ax_t, zero);
+    const auto prod = DdMul(d, ive_tail, parts.m);
+    const auto sc_hi = ScaleTwo(d, prod.hi, parts.e);
+    const auto sc_lo = ScaleTwo(d, prod.lo, parts.e);
+    i1_tail_mag = op::Add(sc_hi, sc_lo);
+    const auto boundary = op::Set(d, detail::kBesselI1OverflowX);
+    CORVUS_ROUTE(d, "i1/overflow", op::Gt(ax, boundary));  // i1 only; i1e is finite
+    i1_tail_mag = op::IfThenElse(op::Gt(ax, boundary), inf, i1_tail_mag);
+  }
 
   // --- combine magnitudes, specials on the magnitude, THEN sign ----------
   auto i1_mag = op::IfThenElse(in_series, i1_series_mag, i1_tail_mag);

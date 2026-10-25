@@ -1435,17 +1435,43 @@ see it, and the generator's 2-ULP tail target hid it from the replay.
 The kernel now carries the polynomial's last Horner step in dd, the
 replay targets 1 ULP, and a dense tail sweep (below) gates it.
 
+**Series near |x| ≈ 7.4 (#75, order row 12i, v1.1.0).** The series'
+plain-double Horner over q up to 16 carried most of the value there:
+at q = 16 the terms from k = 4 make up ~300 of I0's 427. On the no-FMA
+tiers that crossed 1.5 ulp, i.e. 2 ULP, at about 2 rows per 1.1M; the
+reviewer's two i0 inputs read 1.53 and 1.52 real on SSE4/SSE2, and
+dense [6, 8] not-CR rates ran 9–21% against the 5% documented. The
+generator had passed dd depth 4 because it targeted INTEGER ULP ≤ 1
+(which admits real error up to 1.5) on ~9 points in [6, 8].
+- **Fix (data only).** gen_bessel_data.py now chooses the depth on
+  REAL error ≤ 0.51 over 3,000 dense [4, 8] points plus the two
+  witnesses. That pins depth 8 for both orders (replay 0.501/0.502;
+  depth 4 reproduced the SSE4 kernel's 1.526 bit for bit). The kernel
+  reads the depth from the data and is unchanged.
+- **Region skips.** Both regimes used to run on every lane, so the
+  deeper series would have taxed pure-tail vectors (+35%). Each
+  branch now runs only when some lane needs it, verified byte-
+  identical over 200,000 outputs on AVX3_ZEN4 and SSE2. Zen 4,
+  indicative (ns/el, HEAD → now): series 14.3–14.8 → 13.9–14.3; tail
+  14.5–14.8 → 6.4–6.5; mixed vectors, which need both, 14.4–14.8 →
+  19.3–19.7.
+- **Result.** 100,000-point dense [6, 8] sweeps per function read
+  max real 0.501–0.506 and 0.04–0.11% not-CR (near-ties) on all three
+  tiers. Every series pin falls to 0.52–0.53, from up to 1.07 (i1).
+  The two witness neighbourhoods are gated as `issue75:bits` strata,
+  and they failed first as `deferred:#75`.
+
 | Region | Bound | Notes |
 |---|---|---|
-| series, \|x\| ≤ 8 (all four) | 1 ULP | ≤ 5% not-CR, worst at the split seam |
+| series, \|x\| ≤ 8 (all four) | 1 ULP | ≤ 0.11% not-CR on dense [6, 8] (near-ties only, max 0.506 real; #75) |
 | tail, \|x\| > 8 (all four) | 1 ULP | ≤ 16% not-CR; i0e/i1e verified through DBL_MAX |
 | overflow boundary (i0/i1) | exact | last finite double → finite; one ulp above → ±inf, 220 bit-stepped rows exact-match |
 
 Method: two regimes on ax = \|x\| split at x = 8. Series side: the
 all-positive power series in q = x²/4 with q captured **exactly**
 (TwoProd residual + first-order S′·q_lo correction — a rounded q
-alone costs (x/2)·I1/I0 ≈ 3.7 ULP at the split), four dd lead
-coefficients, remainder in plain double. Tail side: clean-room
+alone costs (x/2)·I1/I0 ≈ 3.7 ULP at the split), eight dd lead
+coefficients (four until #75), remainder in plain double. Tail side: clean-room
 Chebyshev refit of e^−x I_ν(x)·√(2πx) in 1/x (degree 26, own nodes
 and budgets, truncation < 2^−60), Horner in plain double except the
 last step c₀ + s·acc, which is dd (#52), then multiplied by a dd
