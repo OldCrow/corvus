@@ -24,8 +24,13 @@ performance.**
   miss at ~2e-17 ulp), H-1's "from a ≈ 20" (clean to a = 1000; gross only
   for a ≳ 4.5e3 with p ≲ 2^-1054), M-14's README gammainv/trigamma/lbeta
   "contradictions" (they agree with ACCURACY), and M-17's floor percentages.
-  **`a8525a7` is no longer the freeze head; R1/R2 are ON HOLD** until R0 is
-  re-run after 12j.
+  **R0 DONE 2026-10-25 on Z: freeze head `0508ef1`** (CI 40238527638
+  green on all three jobs). Fresh `windows-clang-cl` configure into
+  build-r0-v110, build with 0 warnings, ctest 36/36 under
+  `CORVUS_EXPECT_TARGET=AVX3_ZEN4`; the negative check (SSE2 asserted)
+  fails as required; `check_release_version.py --tag v1.1.0` OK.
+  Milestone 5 is clean (0 open). Z work for v1.1.0 is complete; R1 (M1)
+  and R2 (Kaby Lake) are next, then R3 (PR, tag, release). [DERIVED]
 - **v1.1.0 errata (release notes, RELEASING step 12) [DERIVED 2026-10-25].**
   Each was never met by a release and never enforced by a gate; each has
   an "Erratum" paragraph in docs/ACCURACY.md naming its witness.
@@ -374,8 +379,9 @@ performance.**
         (the existing ~2,200-row [6, 8) strata never caught a row).
       - Done-when met: the documented not-CR rate is re-measured
         (ACCURACY.md table).
-    - **Row 12l DONE 2026-10-25** (#90; uncommitted at write time).
-      [DERIVED]
+    - **Row 12l DONE 2026-10-25** (#90 closed; `0508ef1`; CI
+      40238527638 green; 36/36 on AVX3_ZEN4, SSE4, SSE2, census and MSVC
+      Release). [DERIVED]
       - Found by the v1.1.0 Z audit's beta hunt (85,274 rows, seed
         2026102501): 6 gamma-limit rows 1 ULP against gate 0, certified
         two-form near-ties (0.501–0.504 real), identical on three tiers.
@@ -393,9 +399,7 @@ performance.**
       - Changes: `issue90:witness` rows (6 per file), gates
         kGateGlDir/Cmp 0 → 1, bounds.txt and the hunt GL bound 1,
         ACCURACY cells and note, README claim.
-      - **NEXT:** commit 12l on the user's signal, CI, close #90; then
-        R0 on Z (fresh configure + ctest, write the freeze head), then
-        the PAUSE for K and M1 (R1/R2).
+      - **NEXT:** the PAUSE for K and M1 (R1/R2); R0 is done (Status).
     - **Row 12j DONE 2026-10-25** (#76 closed; `c95207b`; CI 40233142385 green; 36/36
       on AVX3_ZEN4, SSE4, SSE2, census and MSVC Release). [DERIVED]
       - Errata (the list under Status): lbeta, beta R2 complement,
@@ -1597,7 +1601,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 12i | ~~#75 i0/i1/i0e/i1e series near \|x\| ≈ 7.4 (2 ULP, no-FMA) [ADDED 2026-10-22, user; review M-3]~~ DONE 2026-10-25 (Z) | independent | mid | dense [6, 8] strata, four functions (fail first on SSE4/SSE2) | CI tiers |
 | 12k | ~~#84 beta gamma-limit slice sliver ν < 20 ≤ s takes the CF at the ridge (391 ULP vs 0) + #85 beta_q R4 near-one post-route 2 ULP vs 1 at τ ≈ 2.5 [ADDED 2026-10-22; hunt campaign]~~ DONE 2026-10-25 (Z) | after 12d (beta R3 core twin); before 12j | frontier (#84 routing) + mid | bit-stepped s = 20 × N ≥ 2^47 stratum; dense τ ≈ 2.5 post-route stratum (fail first) | CI tiers |
 | 12j | ~~#76 contract text and gates: false CR claims, stale text, VERSIONING errata clause [ADDED 2026-10-22, user; review M-6..M-10, M-13..M-15, L-1, L-2, L-6, L-8..L-17, I-1]~~ DONE 2026-10-25 (Z) | last: quotes the final numbers of 12d–12i | recipe | witness rows; gates set to the documented cells | CI |
-| 12l | #90 beta gamma-limit slice gated CR on dev, misses near-ties by 1 ULP: restore the published 1 ULP (not an erratum; also drops gamma R2 complement's erratum label) [ADDED 2026-10-25, user; v1.1.0 Z audit] | after 12j; before R0 | recipe | issue90:witness rows | CI |
+| 12l | ~~#90 beta gamma-limit slice gated CR on dev, misses near-ties by 1 ULP: restore the published 1 ULP (not an erratum; also drops gamma R2 complement's erratum label) [ADDED 2026-10-25, user; v1.1.0 Z audit]~~ DONE 2026-10-25 (Z) | after 12j; before R0 | recipe | issue90:witness rows | CI |
 | 13 | #42 lever 1 (per-element cost); weigh #44 first | after 5–9: same region cores; guards protect it | frontier | early-exit lane-mix tests | M1, K, Z |
 | 14 | #45 export span expm1, log1pmx | after 4; off the milestone if it would hold the release | mid (new family) | generator, four gating lists | K, M1, Z |
 | 15 | #31 lgamma table band | beta/gamma consume lgamma | frontier | generator + regen | K, Z, M1 |
