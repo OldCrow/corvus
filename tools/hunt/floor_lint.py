@@ -42,10 +42,19 @@ def scan(path: Path):
     lines = path.read_text(encoding="utf-8").splitlines()
     head_mark = False  # a FLOOR: in the current function's leading comment
     pending = False    # FLOOR: seen in comments since the last code line
+    in_sig = False     # inside a signature that spans several head lines
     for i, line in enumerate(lines, 1):
         s = line.strip()
-        if FN_HEAD.match(line):
+        if FN_HEAD.match(line) and not in_sig:
+            # The first head line (`template <class D>` before `HWY_INLINE
+            # ...`) takes the leading comment; later head lines of the same
+            # signature must not reset it.
             head_mark = pending
+            in_sig = True
+        # A signature ends at its body's brace; a declaration such as
+        # `inline constexpr int k = 6;` ends at its semicolon.
+        if in_sig and ("{" in line or ";" in line) and not s.startswith("//"):
+            in_sig = False
         if s.startswith("//"):
             pending = pending or MARK in s
             continue

@@ -25,6 +25,11 @@ namespace corvus::census {
 // every open scope; consecutive repeats (iteration loops) are kept once.
 void Hit(const char* name, bool lane0) noexcept;
 
+// Floor census (#82 T4): records `floor:<file>:<line>` like a route when
+// `lane0` is set, i.e. lane 0's Dekker product at that call site fell
+// below the ProdLow floor.
+void Floor(const char* file, unsigned line, bool lane0) noexcept;
+
 // The routes recorded since the last call, in order; clears the record.
 std::vector<const char*> Take();
 

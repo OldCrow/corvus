@@ -81,6 +81,9 @@ HWY_INLINE Dd<D> Log1pDd(D d, Dd<D> r) {
   q = op::MulAdd(q, rh, op::Set(d, 1.0 / 3.0));
 
   // r^2 in dd (halving by 0.5 is exact), then r - r^2/2.
+  // FLOOR: |rh| < 2^-484 (only callers passing a tiny r, e.g. gamma R4's
+  // log1p(a); LogDd's r is 0 or >= 2^-106); sq.lo is off by
+  // <= min(2^-1073, 1.01 rh^2) < 2^-535 |result|, below the dd contract.
   const auto sq = TwoProd(d, rh, rh);
   const auto half = op::Set(d, 0.5);
   const Dd<D> half_sq{op::Mul(sq.hi, half),

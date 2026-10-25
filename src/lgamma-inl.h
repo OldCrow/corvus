@@ -112,6 +112,9 @@ HWY_INLINE Dd<D> ZoneBracket(D d, op::V<D> t, M c1) {
   for (int k = 1; k >= 0; --k) {
     acc = DdAdd(d, Dd<D>{Sel2(d, c1, lh[0][k], lh[1][k]),
                          Sel2(d, c1, ll[0][k], ll[1][k])},
+                // FLOOR: |acc*t| < 2^-968 needs |t| < 2^-964 (|acc| >= 0.067);
+                // the <= 2^-1072 loss lands on L1 or L0 (>= 0.32), 2^-1070
+                // relative in B for every caller (LgammaLow, R4, gammainv).
                 DdMulD(d, acc, t));
   }
   return acc;
@@ -239,6 +242,9 @@ HWY_INLINE Dd<D> LgammaLow(D d, op::V<D> x) {
   const auto t = op::IfThenElse(
       small, x,
       op::IfThenElse(c1, op::Sub(x, one), op::Sub(y, op::Set(d, 2.0))));
+  // FLOOR: below it only on small lanes, x < ~2^-966 (|B| >= 0.42; other t
+  // are >= 2^-53). The <= 2^-1072 loss joins -log x >= 669, ~2^-975 under
+  // that sum's own dd rounding -- invisible to lgamma, gamma and beta alike.
   const auto base = DdMulD(d, ZoneBracket(d, t, c1), t);
 
   // One log for both outer bands: x when shifting, P otherwise (P == 1, hence
@@ -281,6 +287,9 @@ HWY_INLINE Dd<D> LgammaPosDd(D d, op::V<D> x) {
 // -pi^2 v/6, large enough that v's own rounding would show.
 template <class D>
 HWY_INLINE Dd<D> LogSinc(D d, op::V<D> u) {
+  // FLOOR: u*u < 2^-968 needs |u| < 2^-484, so x = u (|x| >= 1/2 leaves |u|
+  // 0 or >= 2^-53); LogSinc is then < 2^-966 in all, against lgamma(x) ~
+  // -log|x| >= 335, so its few-2^-1074 loss is invisible.
   const auto v = TwoProd(d, u, u);
   auto s = op::Set(d, detail::kLgammaSinCoef[detail::kLgammaSinNCoef - 1]);
   for (int k = detail::kLgammaSinNCoef - 2; k >= 0; --k) {

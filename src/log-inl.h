@@ -218,6 +218,8 @@ HWY_INLINE op::V<D> Log1pVec(D d, op::V<D> x) {
   CORVUS_ROUTE(d, "log1p/main", op::MaskNot(tiny));
   if (!op::AllFalse(d, tiny)) {
     CORVUS_ROUTE_SCOPE(d, tiny);
+    // FLOOR: |x| < 2^-484; sq.lo is off by <= min(2^-1073, 1.01 x^2), which
+    // is below 2^-483 ulp(x) for every such x (result ~ x, subnormals too).
     const auto sq = TwoProd(d, x, x);
     const auto mhalf = op::Set(d, -0.5);
     const auto s1 = Fast2Sum(d, x, op::Mul(sq.hi, mhalf));

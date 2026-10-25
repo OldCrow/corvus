@@ -145,6 +145,7 @@ def main():
     ap.add_argument("--build", default="build-census")
     ap.add_argument("--keys", nargs="*", default=list(annotate.FILES))
     ap.add_argument("--json")
+    ap.add_argument("--floor-json", help="write the floor sites and example rows")
     a = ap.parse_args()
     exe = REPO / a.build / "tests" / ("hunt_probe.exe" if sys.platform == "win32" else "hunt_probe")
     src = source_routes()
@@ -195,6 +196,20 @@ def main():
         else:
             lost.append((route, fn, args))
     witnessed = {w[0] for w in wit}
+
+    # Floor census (#82 T4): Dekker-product call sites whose lane-0 product
+    # fell below the ProdLow floor. Reported, not failed: floor_lint.py and
+    # the sites' FLOOR: arguments own the verdict.
+    floors = {n: hits.pop(n) for n in [n for n in hits if n.startswith("floor:")]}
+    if a.floor_json:
+        Path(a.floor_json).write_text(json.dumps({
+            n: {"rows": c, "ref_rows": ref_hits.get(n, 0),
+                "example": [examples[n][0], [v.hex() for v in examples[n][1]]]}
+            for n, c in sorted(floors.items())}, indent=1))
+    print(f"\n{len(floors)} Dekker-product sites reach the floor")
+    for n, c in sorted(floors.items()):
+        fn_, r_ = examples[n]
+        print(f"  FLOOR {n[6:]:28s} {c:7d} rows  e.g. {fn_}({', '.join(v.hex() for v in r_)})")
 
     unknown = sorted(set(hits) - set(src))
     gaps = sorted(n for n, (_, why) in src.items() if hits[n] == 0 and not why)

@@ -213,6 +213,9 @@ HWY_INLINE Dd<D> GammaInvDivD(D d, Dd<D> num, op::V<D> den) {
   auto q0 = op::Div(n.hi, b);
   const auto over = op::Gt(op::Abs(q0), lim);
   q0 = op::IfThenElse(over, op::CopySign(lim, q0), q0);
+  // FLOOR: q0*b ~ n.hi < 2^-968 when ln p + lgamma(1+a) is tiny; the
+  // <= 2^-1072 loss divided by b >= 2^-900 (the rescale) is <= 2^-172 in
+  // uds = log x_ds, i.e. relative in x_ds -- harmless.
   const auto pr = TwoProd(d, q0, b);
   const auto rem = DdAdd(d, n, Dd<D>{op::Neg(pr.hi), op::Neg(pr.lo)});
   const auto q1 = op::IfThenElse(over, zero, op::Div(DdToDouble(rem), b));
@@ -453,6 +456,9 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
   if (need_small) {
     CORVUS_ROUTE_SCOPE(d, op::MaskNot(m_big));
     const auto lx = OutlinedLogDd(d, x);
+    // FLOOR: |a*lx| < 2^-968 needs a < 2^-915 (lx is 0 exactly or in
+    // [2^-53, 745]); lga >= 634 then dominates E, whose dd rounding dwarfs
+    // the <= 2^-1072 loss, and m sees it as relative error in P or Q.
     e_small = DdAddD(d, DdMulD(d, lx, a), op::Neg(x));
     e_small = DdAdd(d, e_small, Dd<D>{op::Neg(lga.hi), op::Neg(lga.lo)});
   }
@@ -480,6 +486,9 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
     // whatever x is, and a tiny-p root puts x near 0, i.e. u near -1: the
     // 1-arg form then derives 1 + u by cancellation, which dd_special-inl.h's
     // HAZARD RULE forbids (gamma_p_inv(20, 1e-300) came back 9.7e-5 off).
+    // FLOOR: x/a < 2^-968 gives log P < -13000 (a >= 20), far past any
+    // target: a representable root has x/a > e^-38, where w is exact, so
+    // the loss only perturbs far iterates, whose m keeps its sign and size.
     const auto w = DdMulD(d, ra, xcs);
     const auto aphi_s = DdMulD(d, Log1pmxDd(d, u, w), acs);
     aphi = Dd<D>{op::Mul(aphi_s.hi, up), op::Mul(aphi_s.lo, up)};
@@ -730,6 +739,10 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   const auto ac = op::Min(a, op::Set(d, kGammaR4AMax));
   const auto c1 = op::Ge(op::Set(d, detail::kLgammaZoneLo), a);
   const auto tz = op::IfThenElse(c1, ac, op::Sub(ac, one));  // exact both ways
+  // FLOOR: |B*tz| < 2^-968 needs a < ~2^-967 (|B| >= 0.42). The <= 2^-1072
+  // loss reaches log x_ds through s0/a as <= 2^-1072/a relative in x_ds:
+  // harmless for a >= 2^-1000 (and p-side subnormal a underflows to 0);
+  // q-side subnormal a reaches several ulp -- tracked by #83.
   const auto lg1_zone = DdMulD(d, ZoneBracket(d, tz, c1), tz);
   const auto lg1_gen = DdAdd(d, lga, lna);
   const auto m_zone = op::Ge(op::Set(d, kGammaR4AMax), a);

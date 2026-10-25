@@ -372,6 +372,9 @@ HWY_NOINLINE op::V<D> DigammaRoughTrigamma(D d, op::V<D> y_in) {
 // directly.
 template <class D>
 HWY_NOINLINE Dd<D> DigammaCotDd(D d, op::V<D> u) {
+  // FLOOR: v < 2^-968 for |u| < 2^-484 (live lanes keep |u| >= 2^-960; lanes
+  // below are floored to it and replaced by -1/u). v enters sinc and cos
+  // after their exact leading 1, so the loss is ~2^-1072 relative to each.
   const auto v = TwoProd(d, u, u);  // exact
   const auto sinc =
       LeadTailDd(d, v, detail::kDigammaSincLeadHi, detail::kDigammaSincLeadLo,

@@ -252,6 +252,15 @@ HWY_INLINE Dd<D> DdDivDd(D d, Dd<D> a, Dd<D> b) {
   const Dd<D> an{op::Mul(a.hi, s), op::Mul(a.lo, s)};
   const Dd<D> bn{op::Mul(b.hi, s), op::Mul(b.lo, s)};
   const auto q = op::Div(an.hi, bn.hi);
+  // FLOOR: bn*q ~ an reaches the floor only with |an| < 2^-968 on an
+  // unscaled lane (|bn| >= 2^-900): rem errs by <= 2^-1071, the quotient by
+  // <= 2^-1071/|bn| <= 2^-171 absolute. LgammaDiffDd's eps gets there only
+  // with m < 2^-968 (never from R4: tau >= 2^-950 or 2^700-scaled), so in
+  // lbeta (result > 670) or a prefactor exponent; its w also on huge-z lanes,
+  // where |bn| >= 2^700 caps the error at 2^-1771. R2's tiny d_k see
+  // BetaR2Cf, BetaPsiCore's corner w saturates (see cxi). R4's r and lbeta's
+  // big band have |an| >= 2^-174. betainv lanes with a shape and the
+  // target both denorm_min reach it too, wrong on every tier: tracked by #88.
   const auto rem = DdSub(d, an, DdMulD(d, bn, q));
   return Fast2Sum(d, q, op::Div(rem.hi, bn.hi));
 }
@@ -433,6 +442,9 @@ HWY_INLINE op::V<D> BinetVal(D d, op::V<D> z) {
 // (every term has one sign), so plain double suffices for them -- except the
 // k = 1 term, which is ~1000x the rest at z = 10 and is carried as a dd
 // (c_1 = 1/12 exactly, so its dd pair is kBetaRecipN[11]).
+// FLOOR: g = -w/(1+w) and g*(lead+rest) <= |g|/120 reach the floor only for
+// w = m/z < ~2^-960; each then errs by <= 2^-1071 absolute (2^-1075 FMA),
+// added into LgammaDiffDd's result, whose FLOOR note covers that size.
 template <class D>
 HWY_NOINLINE Dd<D> BinetDiffDd(D d, Dd<D> z, Dd<D> w) {
   const auto one = op::Set(d, 1.0);
@@ -517,6 +529,14 @@ HWY_NOINLINE Dd<D> BinetDiffDd(D d, Dd<D> z, Dd<D> w) {
 // tau <= kBetaPrTauMax = 2.5 for its lgdiff term and m <= 3/2 for its
 // lgamma(1+tau) form), so no other operand is at risk.
 // That audit is the AGENTS.md 2^996 rule discharged for this function.
+// FLOOR: s*eps, m*ln z, z*phi(w) and (m-1/2)*log1p(w) reach the floor only
+// as O(m) or smaller terms with m or w = m/z tiny. Each errs by <= 2^-1071
+// absolute (2^-1075 FMA); z*phi, formed at z*2^-200 on huge-z lanes, by <=
+// 2^-871 after the scale-back and never by more than ~8x the true m*w/2 <=
+// m*2^-900. All callers take the difference additively: lbeta against a
+// result >= 1 or its 2^-54 absolute band; the beta and betainv prefactors as
+// absolute error in an exponent; R4's w against Qtilde >= ~2^-19 tau >=
+// 2^-969 (tau >= 2^-950 unscaled; tsub lanes run at tau*2^700).
 template <class D>
 HWY_NOINLINE Dd<D> LgammaDiffDd(D d, op::V<D> bigm, op::V<D> smallm) {
   const auto one = op::Set(d, 1.0);
@@ -625,8 +645,13 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   const auto c = TwoSum(d, as, bs);  // exact and finite by construction
 
   const auto a0 = TwoProd(d, as, y.hi);
+  // FLOOR: a residual word (y.lo, xi.lo: possibly subnormal) or a tiny xi
+  // puts a product at the floor; it enters lambda additively with <=
+  // 2^-1071 error, far under lambda's nu*2^-157 budget (nu >= 5*2^-200).
   const auto a1 = TwoProd(d, as, y.lo);
+  // FLOOR: as a1 above.
   const auto b0 = TwoProd(d, bs, xi.hi);
+  // FLOOR: as a1 above.
   const auto b1 = TwoProd(d, bs, xi.lo);
   const auto lead = TwoSum(d, a0.hi, op::Neg(b0.hi));  // exact
   Dd<D> lam{lead.hi, lead.lo};
@@ -638,6 +663,10 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   lam = DdAddD(d, lam, op::Neg(b1.lo));
 
   const auto u = DdMul(d, DdNeg(d, lam), DdRecip(d, as));
+  // FLOOR: |v| < 2^-968 errs by <= 2^-1071, moving beta*phi(v) ~ lambda*v/2
+  // by <= |lambda|*2^-1071 in cpsi (unscaled). Unsaturated lanes (cpsi <=
+  // 800) have |lambda| < 2^518: <= 2^-553 in E and z; saturated ones are
+  // clamped (relative <= 2^-560 for betainv's log-space use).
   const auto v = DdMul(d, lam, DdRecip(d, bs));
 
   // 1 + u AND 1 + v BY CLOSED FORM ON THE CORNER LANES. The identities
@@ -677,6 +706,10 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   const auto cor_v = op::Lt(v.hi, mhalf);
   CORVUS_ROUTE(d, "beta/psi/corner_u", cor_u);
   CORVUS_ROUTE(d, "beta/psi/corner_v", cor_v);
+  // FLOOR: c*xi < 2^-968 gives 1 + u = c*xi/alpha < 2^-771 (alpha >= 10 *
+  // 2^-200 scaled), so cpsi > 10*530 > 800 even if the error moves ln(1+u)
+  // by O(1): the lane saturates in BetaClampE (and for betainv sits e^-5000
+  // below any target). Same for wuc's DdDivDd.
   const auto cxi = DdMul(d, c, xi);
   const auto cyv = DdMul(d, c, y);
   const Dd<D> num_u{op::IfThenElse(cor_u, cxi.hi, as),
@@ -701,6 +734,13 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   const auto rc = DdRecipDd(d, c);
   // nu = alpha*(beta/c): beta/c <= 1 and alpha*(beta/c) <= min(alpha,beta), so
   // this ordering cannot overflow where alpha*beta would.
+  // FLOOR: only beta/c can reach it (beta the small one; >= 20/2^1024 on
+  // live lanes), so nu errs by <= ~2^-52 relative (no-FMA, worst corner).
+  // nu enters as ln(nu)/2 in PB's E (non-GL PB lanes have beta >= 2^47:
+  // beta/c >= 2^-978, <= 2^-93) and on R3 GL-ridge lanes through the
+  // 1/sqrt(2 pi nu) <= 0.09 correction: <= ~0.2 ulp worst case. Measured:
+  // on 484 such lanes (max 2^1000..2^1023) SSE2 = AVX3 bits but for three
+  // 1-ulp flips, which recur identically at max ~2^650 (no floor there).
   const auto nus = DdMulD(d, DdMulD(d, rc, bs), as);
   const auto z2 = DdMul(d, cs, DdRecipDd(d, nus));
 
@@ -753,6 +793,11 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
 // optimizer is superlinear in function size -- gamma's TU hit the CI Windows
 // job's 25-minute timeout inside code generation before its cores were
 // outlined, and this TU is heavier still.
+// FLOOR: t_n (true scale), t_n/(alpha+n) and s*alpha reach the floor only for
+// tiny xi, late terms, or tiny s/alpha; each errs by <= 2^-1071 absolute
+// (2^-1075 FMA). Against the factor 1 + alpha*s >= e^-10.6 (R1's box: xi <=
+// 0.45, beta*xi <= 8), with alpha <~ 2^11 on unsaturated lanes, that is
+// < 2^-1030 relative; exp(E1) (beta) and the log (betainv) preserve it.
 template <class D>
 HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
   const auto one = op::Set(d, 1.0);
@@ -847,6 +892,13 @@ HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
 // are in range (xi <= 1 bounds xi/s by 2^200, and the branch only fires when
 // c > 2^900 forces xi < 1e-270 anyway). The divisors alpha+2m are handled by
 // DdDivDd's own scaling guard.
+// FLOOR: every product here ((beta-m)xi, (c+m)xi, r1*r2, d_k/f) is at the
+// floor only when d_k itself is < ~2^-968 (tiny c*xi or xi); each then errs
+// by <= 2^-1071 absolute (2^-1075 FMA), moving F by ~F*2^-1071 relative --
+// < 2^-1040 even at F ~ 2^24 (the conditioning note above). F only scales
+// the prefactor (beta) or enters as log F (betainv). betainv's lanes with a
+// shape and the target both denorm_min reach it too, wrong on every tier:
+// tracked by #88.
 template <class D>
 HWY_NOINLINE Dd<D> BetaR2Cf(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi) {
   const auto one = op::Set(d, 1.0);
@@ -1063,6 +1115,9 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
   const auto exd = OutlinedExpDd(d, ea.hi, ea.lo);
   const auto brk_core = DdAddD(
       d, s_rv, op::Neg(op::Mul(z.lo, op::Set(d, kBetaInvSqrtPiHi))));
+  // FLOOR: a product below 2^-968 errs by <= 2^-1071, added to half_erfc >=
+  // erfc(6)/2 > 2^-57 (core lanes have cpsi <= 36): far below ulp(core);
+  // tail lanes discard core.
   const auto core = DdAdd(d, half_erfc, DdMul(d, brk_core, exd));
 
   // TWIN: gamma-inl.h GammaTemme tail (a*phi > 36). Matches it since #69
@@ -1207,8 +1262,14 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
     const auto nb = TwoSum(d, op::Mul(nv, rdn), op::Neg(bsd));
     const Dd<D> rn{op::Set(d, detail::kBetaRecipNHi[n - 1]),
                    op::Set(d, detail::kBetaRecipNLo[n - 1])};
+    // FLOOR: t_n (true scale; the 2^-200/2^200 pair cancels) and t_n/(tau+n)
+    // reach the floor for tiny xi or late terms; each live term errs by
+    // <= 2^-1071, so Sigma by < 2^-1065, which reaches Qtilde only as
+    // tau*Sigma: < 2^-1040 of Qtilde >= ~2^-19 tau. Frozen lanes discard it.
+    // betainv's both-denorm_min lanes reach it too, wrong on every tier: #88.
     t = DdMulD(d, DdMul(d, t, DdMul(d, nb, rn)), xu);
     const auto wgt = DdRecipDd(d, TwoSum(d, tau, nv));
+    // FLOOR: as t_n above.
     const auto contrib = DdMul(d, t, wgt);
     const auto lm = op::Gt(live, half);
     const auto sn = DdAdd(d, s, contrib);
@@ -1247,6 +1308,10 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
   auto w = DdMulD(d, lxi, tau);
   w = DdAdd(d, w, LgammaDiffDd(d, bb, tau));
   w = DdSub(d, w, lg1);
+  // FLOOR: Sigma*tau below 2^-968 errs by <= 2^-1071 absolute in w, hence in
+  // Qtilde >= ~2^-19 tau (R4's box; post-routed lanes >= 2^-17): with tau >=
+  // 2^-950 unscaled that is < 2^-48 ulp; tsub lanes run at tau*2^700 and
+  // scale the error down with the result.
   w = DdAdd(d, w, Log1pDdWide(d, DdMulD(d, s, tau)));
   auto q = DdNeg(d, Expm1Dd(d, w));
 
@@ -1260,6 +1325,8 @@ HWY_NOINLINE Dd<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb, op::V<D> xi,
   const auto sc = op::Set(d, kBetaTinyPairUp);
   const auto r = DdDivDd(d, Dd<D>{op::Mul(tau0, sc), zero},
                          Dd<D>{op::Mul(bb, sc), zero});
+  // FLOOR: on the selected both-tiny lanes r = tau/bb >= 2^-1074/2^-140,
+  // above the floor; lanes that reach it (bb > 2^-140) are discarded by mbt.
   const auto qs = DdMul(d, r, DdRecipDd(d, DdAddD(d, r, one)));
   const auto mbt =
       BetaIndMask(d, op::Mul(BetaInd(d, tsub), BetaInd(d, btiny)));
@@ -1541,8 +1608,12 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
                     op::IfThenElse(xsm, lsm.lo, lbg.lo)};
     const Dd<D> lyv{op::IfThenElse(xsm, lbg.hi, lsm.hi),
                     op::IfThenElse(xsm, lbg.lo, lsm.lo)};
+    // FLOOR: alpha*ln xi reaches the floor only for tiny alpha or ln xi
+    // (never on the 2^-200-scaled lanes: alpha*2^-200 >= 2^700); the
+    // <= 2^-1071 error is absolute in E, i.e. relative in exp(E).
     const auto l1s = DdMulD(d, lxi, op::Mul(alpha, sa));
     const Dd<D> l1{op::Mul(l1s.hi, ua), op::Mul(l1s.lo, ua)};
+    // FLOOR: beta*ln y, the same argument as alpha*ln xi above.
     const auto l2s = DdMulD(d, lyv, op::Mul(beta, sb));
     const Dd<D> l2{op::Mul(l2s.hi, ub), op::Mul(l2s.lo, ub)};
     const auto la = OutlinedLogDd(d, alpha);
@@ -1809,6 +1880,9 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     // R ~ 1/t, so the bracket -> s/t), so the first order is valid
     // everywhere. Without it the cores' t.hi cost the slice up to 1.8 ulp
     // near t ~ s, where the series' sensitivity is its mean term index.
+    // FLOOR: s*ln t reaches the floor only for subnormal-class s; its
+    // <= 2^-1071 error (2^-1075 FMA) is absolute in the exponent E_g, so
+    // relative in the result after ExpDdFrac.
     auto e_g = DdMulD(d, OutlinedLogDd(d, t_dd), ss);
     e_g = DdSub(d, e_g, t_dd);
     e_g = DdSub(d, e_g, LgammaPosDd(d, ss));

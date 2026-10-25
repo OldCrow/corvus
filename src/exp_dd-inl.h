@@ -131,6 +131,9 @@ HWY_INLINE ExpDdParts<D> ExpDdFrac(D d, op::V<D> xh, op::V<D> xl) {
   const auto tl = op::GatherIndex(d, detail::kExpTableLo, j);
 
   // --- m = T * (1 + p), T in [1, 2), |p| <= 0.0028 ---
+  // FLOOR: th*p.hi < 2^-968 needs |r| < 2^-968, i.e. k = 0 (for k != 0 a dd
+  // x cannot come within 2^-968 of k*ln2/128), so e = 0; the lost low part
+  // (<= 2^-1073) is relative 2^-1072 to m >= 0.99 for every caller.
   const auto u = TwoProd(d, th, p.hi);  // exact
   const auto a = Fast2Sum(d, th, u.hi);  // |th| >= 1 > |u.hi|
   auto lo = op::Add(op::Add(a.lo, u.lo), tl);

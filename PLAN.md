@@ -265,9 +265,39 @@ performance.**
         Row 12j removes each #76 tag as it corrects the text.
       - USER-GUIDE wording: "2 in erfc's far tail" now reads "2 ULP in
         erfc's far tail" (unit only, so the checker can read it).
-    - **Order of the rest of 12-T [proposed 2026-10-22]:** T1, T3, T7, T2,
-      T6 (done) → **NEXT: T4 phase 1** (FLOOR: arguments where operands
-      reach the ProdLow floor) → the 12d–12k fix rows.
+    - **T4 phase 1 DONE 2026-10-24** (uncommitted at write time; 36/36 on
+      AVX3_ZEN4, SSE4, SSE2 and the census build). [DERIVED]
+      - Floor census: in census builds the Dekker products (TwoProd,
+        DdMul, DdMulD, ProdLow, SquareLow) take the caller's
+        `std::source_location` and record `floor:<file>:<line>` when lane
+        0's product is nonzero and below 2^-968. Normal builds are
+        unchanged: the macros are empty.
+      - 64 of the 136 sites reach the floor on reference rows, the special
+        grid or the witnesses, and all 64 carry a `// FLOOR:` argument:
+        - 61 harmless, each with its magnitude bound (a small term in a
+          larger sum, a discarded lane, or a loss that lands in an
+          exponent and becomes relative error);
+        - tracked: #71 (GammaSmallQ for a < 2^-1000), #73 (erfinv
+          subnormal y), #83 (gammainv lg1_zone for a < 2^-1000);
+        - #88's rows are noted at the beta sites they pass through.
+        No new defect. Example inputs and targeted sweeps return the same
+        bits on AVX3_ZEN4, SSE4 and SSE2 outside those issues.
+      - Closest call: beta R3 `nus` on gamma-limit-ridge lanes. nu can
+        lose up to ~2^-52 relative on no-FMA tiers but enters only through
+        a weight <= 0.09; 484 lanes matched bit for bit apart from three
+        1-ulp flips that also occur where nothing reaches the floor.
+      - floor_lint.py fixes: a head comment now covers a signature that
+        spans `template <class D>` and `HWY_INLINE ...`, and an `inline
+        constexpr` declaration no longer swallows the next function's
+        head comment.
+      - The lint reports 71 of 136 sites still without an argument: those
+        the census never saw reach the floor. They are #86's phase 3
+        (v1.2.0), after which CI runs the lint `--strict`.
+    - **12-T is complete** (T1–T7). **NEXT: the 12d–12k fix rows** (order
+      in the 12-row table). Each fix row runs its deferred rows' fail-first
+      gate (`CORVUS_REF_DEFERRED=1`), lowers its pins, argues the FLOOR of
+      the functions it changes, and keeps claims_check, the seam audit and
+      the route census at their current state.
   - Pilot results 2026-10-22, no new defects:
     - Subnormal inputs in 13 unary families are clean.
     - `beta_p_inv`/`beta_q_inv` at subnormal targets: CR where certified.

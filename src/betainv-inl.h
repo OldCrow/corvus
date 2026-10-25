@@ -671,8 +671,12 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   const auto upa = op::IfThenElse(pba, op::Set(d, kBetaScaleUp), one);
   const auto scb = op::IfThenElse(pbb, op::Set(d, kBetaScaleDown), one);
   const auto upb = op::IfThenElse(pbb, op::Set(d, kBetaScaleUp), one);
+  // FLOOR: a product < 2^-968 needs a tiny parameter or log (never a scaled
+  // lane: ra*2^-200 >= 2^700); its <= 2^-1073 loss is ABSOLUTE in E, a log,
+  // so the forward value moves by <= 2^-1073 relative.
   const auto l1s = DdMulD(d, lrxi, op::Mul(ra, sca));
   const Dd<D> l1{op::Mul(l1s.hi, upa), op::Mul(l1s.lo, upa)};
+  // FLOOR: as for l1s: <= 2^-1073 absolute in a log-space E.
   const auto l2s = DdMulD(d, lryv, op::Mul(rb, scb));
   const Dd<D> l2{op::Mul(l2s.hi, upb), op::Mul(l2s.lo, upb)};
   const auto e_pa = DdAdd(d, DdAdd(d, l1, l2), cx.mlnb);
@@ -853,6 +857,8 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
     const auto t_dd = BetaGlT(d, huge, ss, w_gl, lv_gl);
     // Prefactor at the full dd t, factor corrected for t.lo, exactly as the
     // forward's slice does (beta-inl.h, "PREFACTOR AT THE FULL dd t").
+    // FLOOR: tiny ss (or log t) reaches the floor; the <= 2^-1073 loss is
+    // ABSOLUTE in the log-space prefactor e_g: <= 2^-1073 relative in value.
     auto e_g = DdMulD(d, OutlinedLogDd(d, t_dd), ss);
     e_g = DdSub(d, e_g, t_dd);
     e_g = DdSub(d, e_g, LgammaPosDd(d, ss));

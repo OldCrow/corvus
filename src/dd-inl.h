@@ -63,9 +63,9 @@ HWY_INLINE Dd<D> TwoSum(D, op::V<D> a, op::V<D> b) {
 
 // Exact product of two doubles.
 template <class D>
-HWY_INLINE Dd<D> TwoProd(D d, op::V<D> a, op::V<D> b) {
+HWY_INLINE Dd<D> TwoProd(D d, op::V<D> a, op::V<D> b CORVUS_FLOOR_LOC) {
   const auto p = op::Mul(a, b);
-  return {p, op::ProdLow(d, a, b, p)};
+  return {p, op::ProdLow(d, a, b, p CORVUS_FLOOR_FWD)};
 }
 
 // dd + dd, accurate to ~2^-104 relative (Knuth's two-length addition).
@@ -87,8 +87,8 @@ HWY_INLINE Dd<D> DdAddD(D d, Dd<D> a, op::V<D> b) {
 // dd * dd, accurate to ~2^-104 relative. The dropped a.lo*b.lo term is
 // O(2^-106) relative, below the representation's own resolution.
 template <class D>
-HWY_INLINE Dd<D> DdMul(D d, Dd<D> a, Dd<D> b) {
-  const auto p = TwoProd(d, a.hi, b.hi);
+HWY_INLINE Dd<D> DdMul(D d, Dd<D> a, Dd<D> b CORVUS_FLOOR_LOC) {
+  const auto p = TwoProd(d, a.hi, b.hi CORVUS_FLOOR_FWD);
   const auto lo = op::MulAdd(a.hi, b.lo, op::MulAdd(a.lo, b.hi, p.lo));
   // |p.hi| >= |lo|: lo is O(2^-53) relative to p.hi (both are zero together).
   return Fast2Sum(d, p.hi, lo);
@@ -96,8 +96,8 @@ HWY_INLINE Dd<D> DdMul(D d, Dd<D> a, Dd<D> b) {
 
 // dd * double.
 template <class D>
-HWY_INLINE Dd<D> DdMulD(D d, Dd<D> a, op::V<D> b) {
-  const auto p = TwoProd(d, a.hi, b);
+HWY_INLINE Dd<D> DdMulD(D d, Dd<D> a, op::V<D> b CORVUS_FLOOR_LOC) {
+  const auto p = TwoProd(d, a.hi, b CORVUS_FLOOR_FWD);
   return Fast2Sum(d, p.hi, op::MulAdd(a.lo, b, p.lo));
 }
 

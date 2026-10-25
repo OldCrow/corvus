@@ -135,6 +135,9 @@ CORVUS_OUTLINE ExpFastResult<D> ExpFast(D d, op::V<D> x) {
   // T*(1 + (e^r - 1))*(1 + rlo) with T = th + tl:
   //   th + th*r exactly as y0 + e0 + pl; then the small terms.
   const auto p = op::Mul(th, r);
+  // FLOOR: th*r < 2^-968 only for k = 0, |x| < 2^-967 (for k != 0, |r| stays
+  // far above it): y = th = 1 and |t| < 2^-966, so a 2^-1073 error in pl
+  // moves neither y + t (CR value 1) nor the rounding test.
   const auto pl = op::ProdLow(d, th, r, p);  // exact on every tier
   const auto y0 = op::Add(th, p);
   const auto e0 = op::Sub(p, op::Sub(y0, th));  // Fast2Sum: |th| >= 1 > |p|

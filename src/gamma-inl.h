@@ -272,6 +272,10 @@ HWY_NOINLINE Dd<D> GammaSeriesSum(D d, op::V<D> a, op::V<D> x) {
   auto live = one;
   for (int n = 1; n <= detail::kGammaSeriesN; ++n) {
     const auto apn = TwoSum(d, a, op::Set(d, static_cast<double>(n)));  // exact
+    // FLOOR: tiny x (or a decayed term) puts these below it; each step loses
+    // <= 2^-1071 absolute against s >= 1 (terms >= 0, ratio <= 1), <= 2^-1065
+    // relative over 64 steps; every caller (gamma, gammainv, beta, betainv)
+    // scales s or takes its log, so it stays relative.
     t = DdMul(d, t, DdMulD(d, DdRecipDd(d, apn), xc));
     const auto lm = op::Gt(live, half);
     const auto sn = DdAdd(d, s, t);
@@ -312,6 +316,9 @@ HWY_NOINLINE Dd<D> GammaCfRecip(D d, op::V<D> a, op::V<D> x) {
     const auto num = DdMulD(d, TwoSum(d, jv, ma), jv);  // j*(j-a)
     const auto den = DdAddD(
         d, TwoSum(d, x, op::Set(d, static_cast<double>(2 * j - 1))), ma);
+    // FLOOR: |num| = j|j-a| is 0 (exact) or >= 2^-52 (j - a exact), so
+    // q < 2^-968 needs |k| > 2^916, i.e. x > ~2^915 (bracket iterates); K =
+    // den - q is then as large, and q's <= 2^-1072 loss is ~2^-1987 of K.
     const auto q = DdMul(d, num, DdRecipDd(d, k));
     k = DdAdd(d, den, Dd<D>{op::Neg(q.hi), op::Neg(q.lo)});
   }
@@ -374,6 +381,14 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
                op::Gt(a, op::Set(d, detail::kLgammaZoneLo)));
   const auto t = op::IfThenElse(c1, a, op::Sub(a, one));
   const auto centre2 = op::Gt(zero, one);  // all false: centre-2 coefficients
+  // FLOOR: (R4 note, for every site in this function) |B*t| < 2^-968 needs
+  // a < ~2^-967 (|B| >= 0.42); a*log x, axs and q reach it for tiny a too,
+  // each losing <= 2^-1072 absolute (~2^-1070 in all) against Q >= a*E1(4)
+  // ~ a*2^-8. Tiny x puts the S terms below it; that loss (<= 2^-1065) is
+  // scaled by a*xa, so it stays ~2^-1053 relative to Q. Harmless for a >=
+  // 2^-1000 (measured: no tier split on 300 rows a in [2^-1012, 2^-940]),
+  // and for gamma_p (1 - Q). Below a = 2^-1000 it is up to ~3 ulp of a
+  // subnormal Q on no-FMA tiers -- tracked by #71, and #83 for gamma_q_inv.
   auto lg1a = DdMulD(d, ZoneBracket(d, t, centre2), t);  // lgamma(2+t)
   if (!op::AllFalse(d, c1)) {
     CORVUS_ROUTE_SCOPE(d, c1);
@@ -395,6 +410,8 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   const auto g1a_m1 = Expm1Dd(d, lg1a);                   // Gamma(1+a) - 1
   const auto g1a = DdAddD(d, g1a_m1, one);
 
+  // FLOOR: |a*log x| < 2^-968 needs a < 2^-915 (log x is 0 exactly or in
+  // [2^-53, 745]); see the R4 note at lg1a (#71 below a = 2^-1000).
   const auto xa_m1 = Expm1Dd(d, DdMulD(d, LogDdAny(d, x), a));  // x^a - 1
   const auto xa = DdAddD(d, xa_m1, one);
 
@@ -410,11 +427,14 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   Dd<D> s{zero, zero};
   auto live = one;
   for (int n = 1; n <= detail::kGammaR4N; ++n) {
+    // FLOOR: live terms fall below it only for x < ~2^-900 (contrib >=
+    // 2^-60 |S|, S ~ x); see the R4 note at lg1a.
     term = DdMul(d, DdMulD(d, term, negx),
                  Dd<D>{op::Set(d, detail::kGammaRecipNHi[n - 1]),
                        op::Set(d, detail::kGammaRecipNLo[n - 1])});
     const auto wgt =
         DdRecipDd(d, TwoSum(d, a, op::Set(d, static_cast<double>(n))));
+    // FLOOR: as the term above (wgt <= 1); see the R4 note at lg1a.
     const auto contrib = DdMul(d, term, wgt);
     const auto lm = op::Gt(live, half);  // sticky; see GammaSeriesSum
     const auto sn = DdAdd(d, s, contrib);
@@ -425,8 +445,11 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   }
 
   auto num = DdAdd(d, g1a_m1, Dd<D>{op::Neg(xa_m1.hi), op::Neg(xa_m1.lo)});
+  // FLOOR: below it for tiny S (x < ~2^-900) or a; see the R4 note at lg1a.
   const auto axs = DdMulD(d, DdMul(d, xa, s), a);
   num = DdAdd(d, num, Dd<D>{op::Neg(axs.hi), op::Neg(axs.lo)});
+  // FLOOR: num ~ Q < 2^-968 needs a < ~2^-958: the loss is <= 2^-1072 on Q,
+  // up to ~3 ulp of a subnormal Q on no-FMA -- tracked by #71 (R4 note).
   const auto q = DdMul(d, num, DdRecipDd(d, g1a));
   // SIGN CLAMP (#51). Q > 0 always, but for a subnormal a the three O(a)
   // terms of num cancel to a true Q far below denorm_min (gamma_q(2^-1074, 2)
@@ -562,6 +585,9 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
   const auto exd = ExpDd(d, ea.hi, ea.lo);
   const auto brk_core = DdAddD(
       d, s_rv, op::Neg(op::Mul(z.lo, op::Set(d, detail::kGammaInvSqrtPiHi))));
+  // FLOOR: brk_core*exd < 2^-968 on tail lanes (a*phi > 36, exd tiny), whose
+  // core the tm select below discards; on core lanes (z <= 6) the sum is
+  // ~1/2 erfc(z) >= 2^-57, so the <= 2^-1072 loss is invisible.
   const auto core = DdAdd(d, half_erfc, DdMul(d, brk_core, exd));
 
   // TWIN: beta-inl.h BetaR3Temme tail (cpsi > 36), a copy of this block;
@@ -697,6 +723,9 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
   const bool need12 = !op::AllFalse(d, m_r1) || !op::AllFalse(d, m_r2);
   if (need12) {
     // E = a*log(x) - x - lgamma(a), the log of the common prefactor.
+    // FLOOR: |a*log x| < 2^-968 needs a < 2^-915 (|log x| is 0 exactly or in
+    // [2^-53, 745]); then lgamma(a) >= 634 dominates E, whose own dd rounding
+    // (~2^-97) dwarfs the <= 2^-1072 loss, and e^E makes it relative error.
     auto eb = DdMulD(d, LogDdAny(d, x), a);
     eb = DdAddD(d, eb, op::Neg(x));
     const auto lg = LgammaPosDd(d, a);

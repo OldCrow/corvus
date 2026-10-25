@@ -118,7 +118,12 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   1. Row 12-T (v1.1.0) argues every site whose operands can reach the
      floor: subnormal or tiny inputs, tiny-a/tiny-shape paths, subnormal
      results formed through a product. These are the no-FMA tiers' gross
-     cases.
+     cases. DONE 2026-10-24: the floor census (the route census build;
+     `route_census.py --floor-json`) records each call site whose lane-0
+     product falls below 2^-968 on a reference row, a special-input row
+     or a witness. That is 64 of the 136 sites, and all 64 carry an
+     argument. A kernel change reruns it, and a newly hit site needs its
+     argument before it lands.
   2. Each fix row argues every site in the functions it changes.
   3. #86 (v1.2.0) argues the rest. Until then the lint is report-only. At
      zero, CI runs it with `--strict` and new sites cannot land without

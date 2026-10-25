@@ -115,6 +115,8 @@ HWY_INLINE Dd<D> ErfinvCentralDd(D d, op::V<D> v) {
   acc = DdAddD(d, acc, op::Mul(s, v));
   for (int k = kLead - 2; k >= 0; --k) {
     acc = DdAdd(d, Dd<D>{op::Set(d, lh[k]), op::Set(d, ll[k])},
+                // FLOOR: acc*v < 2^-968 needs |y| < 2^-484 (|acc| <= 1); the
+                // lost low part (<= 2^-1073) lands on a lead >= 2^-3.
                 DdMulD(d, acc, v));
   }
   return acc;
@@ -144,6 +146,9 @@ template <class D>
 HWY_INLINE op::V<D> ErfinvCentral(D d, op::V<D> y) {
   const auto v = op::Mul(y, y);
   const auto pc = ErfinvCentralDd(d, v);
+  // FLOOR: reaches the floor for |y| < 2^-967 (subnormal and lowest-normal
+  // results); the lost low part is up to 2 ulp of the result on no-FMA tiers
+  // -- tracked by #73.
   return op::CopySign(DdToDouble(DdMulD(d, pc, y)), y);
 }
 

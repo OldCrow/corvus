@@ -106,6 +106,18 @@ inline constexpr int kPhiLead = 6;
 // the 2-arg overload with an independently computed w. Every 1-arg call
 // site today satisfies this (gamma's Temme band has u in [-1/2, 1], beta's
 // R3 ratio band likewise, Log1pDdWide's arguments are >= -1 + 2^-12-class).
+//
+// FLOOR: |u| < 2^-484. The t*uh steps lose <= 2^-1073 against T >= 0.47.
+// u^2 and u^2*T leave phi off by <= min(2^-1072, 1.1 u^2) ABSOLUTE (not
+// relative to phi), which each caller absorbs:
+//  * Log1pDdWide (w - phi): <= 2^-535 |w|.
+//  * LgammaDiffDd (z*phi(m/z)): <= 1.1 m*w, under 2^-483 of m ln z (z >= Z0).
+//  * BetaPsiCore (p*phi): |u| < 2^-484 needs y < 2^-326 (lambda is 0 or
+//    >= 2^-157 alpha*y; x + y = 1), so alpha/beta > 2^326 and the other
+//    term dominates cs: error <= 2^-324 cs (mirrored for v).
+//  * gamma Temme, gammainv forward: u = x/a - 1 of doubles is 0 or >= 2^-54.
+//  * BetaInvPhiOverSq: S1 seed only; BetaInvConsider scores it on the forward
+//    and Newton polishes, so the error cannot reach a result.
 template <class D>
 HWY_INLINE Dd<D> Log1pmxDd(D d, Dd<D> u, Dd<D> w) {
   const auto one = op::Set(d, 1.0);
@@ -173,6 +185,9 @@ HWY_INLINE Dd<D> Expm1Dd(D d, Dd<D> w) {
   q = op::MulAdd(q, wh, op::Set(d, 1.0 / 120.0));
   q = op::MulAdd(q, wh, op::Set(d, 1.0 / 24.0));
   q = op::MulAdd(q, wh, op::Set(d, 1.0 / 6.0));
+  // FLOOR: |wh| < 2^-484 (series lanes); sq.lo is off by <= min(2^-1073,
+  // 1.01 wh^2) < 2^-535 |result|, inside the relative contract every caller
+  // (gamma R4, beta, betainv) relies on.
   const auto sq = TwoProd(d, wh, wh);
   const auto half = op::Set(d, 0.5);
   // w^2/2 as a dd; halving is exact and the 2*w.hi*w.lo cross term is kept

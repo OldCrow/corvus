@@ -52,6 +52,23 @@
 #endif
 #endif
 
+// Floor census (#82 T4): in a census build the Dekker products take the
+// caller's source location (a defaulted trailing parameter) and record
+// `floor:<file>:<line>` when lane 0's product is nonzero and below the
+// ProdLow floor, 2^-968. The dd products forward it, so a hit names the
+// kernel's call site. Empty outside a census build.
+#ifndef CORVUS_FLOOR_LOC
+#if defined(CORVUS_ROUTE_CENSUS)
+#include <source_location>
+#define CORVUS_FLOOR_LOC \
+  , const std::source_location& corvus_loc = std::source_location::current()
+#define CORVUS_FLOOR_FWD , corvus_loc
+#else
+#define CORVUS_FLOOR_LOC
+#define CORVUS_FLOOR_FWD
+#endif
+#endif
+
 HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
@@ -161,7 +178,23 @@ template <class D> HWY_INLINE V<D> Exp(D d, V<D> x) { return hn::Exp(d, x); }
 // emulated mul-then-sub rounds a*a to exactly p and silently returns 0,
 // so use Dekker's split (exact: a_hi has <= 26 significant bits, all
 // partial products fit in a double).
-template <class D> HWY_INLINE V<D> SquareLow(D d, V<D> a, V<D> p) {
+#if defined(CORVUS_ROUTE_CENSUS)
+// The floor census's test: lane 0's product a*b (rounded: p) is nonzero and
+// below 2^-968, where the low part stops being exact (ProdLow, below).
+template <class D>
+HWY_INLINE void FloorCheck(D d, V<D> a, V<D> b, V<D> p,
+                           const std::source_location& loc) {
+  const auto z = hn::Zero(d);
+  const auto nz = hn::And(hn::Not(hn::Eq(a, z)), hn::Not(hn::Eq(b, z)));
+  const auto tiny = hn::And(nz, hn::Lt(hn::Abs(p), hn::Set(d, 0x1p-968)));
+  ::corvus::census::Floor(loc.file_name(), loc.line(), FirstLaneTrue(d, tiny));
+}
+#endif
+
+template <class D> HWY_INLINE V<D> SquareLow(D d, V<D> a, V<D> p CORVUS_FLOOR_LOC) {
+#if defined(CORVUS_ROUTE_CENSUS)
+  FloorCheck(d, a, a, p, corvus_loc);
+#endif
 #if HWY_NATIVE_FMA
   (void)d;
   return hn::MulSub(a, a, p);
@@ -187,7 +220,10 @@ template <class D> HWY_INLINE V<D> SquareLow(D d, V<D> a, V<D> p) {
 //     rounds the residual (mild: 1 ULP-class downstream).
 // Every caller must sit between the two or prescale by an exact power of
 // two (DdDivDd, LogDdAny, the beta/gamma 2^900 clamps).
-template <class D> HWY_INLINE V<D> ProdLow(D d, V<D> a, V<D> b, V<D> p) {
+template <class D> HWY_INLINE V<D> ProdLow(D d, V<D> a, V<D> b, V<D> p CORVUS_FLOOR_LOC) {
+#if defined(CORVUS_ROUTE_CENSUS)
+  FloorCheck(d, a, b, p, corvus_loc);
+#endif
 #if HWY_NATIVE_FMA
   (void)d;
   return hn::MulSub(a, b, p);

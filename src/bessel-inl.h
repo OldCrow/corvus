@@ -152,6 +152,8 @@ HWY_INLINE Dd<D> BesselLeadTailScalar(D d, op::V<D> t, const double* lead_hi,
   Dd<D> acc{op::Set(d, lead_hi[n_lead - 1]), op::Set(d, lead_lo[n_lead - 1])};
   acc = DdAddD(d, acc, op::Mul(s, t));
   for (int k = n_lead - 2; k >= 0; --k) {
+    // FLOOR: t = q_hi < 2^-968 only for x < 2^-483; |acc| <= 2, so the lost
+    // low part (<= 2^-1073) lands on a lead >= 2^-8: below 2^-1060 of S.
     acc = DdAdd(d, DdMulD(d, acc, t),
                Dd<D>{op::Set(d, lead_hi[k]), op::Set(d, lead_lo[k])});
   }
@@ -262,6 +264,8 @@ HWY_NOINLINE BesselPair<D> BesselNu0(D d, op::V<D> x) {
   // --- series branch (computed on every lane; selected in on in_series) ---
   const auto ax_s = op::Min(ax, split);
   const auto ssq = op::Mul(ax_s, ax_s);
+  // FLOOR: ax < 2^-484; sqlo, off by <= 2^-1073, only feeds q_lo, i.e.
+  // S'(q)*q_lo added to S >= 1: below 2^-1070 of S.
   const auto sqlo = op::SquareLow(d, ax_s, ssq);
   const auto q_hi = op::Mul(ssq, quarter);  // exact: *0.25 is a power of 2
   const auto q_lo = op::Mul(sqlo, quarter);
@@ -343,6 +347,8 @@ HWY_NOINLINE BesselPair<D> BesselNu1(D d, op::V<D> x) {
   // --- series branch -------------------------------------------------------
   const auto ax_s = op::Min(ax, split);
   const auto ssq = op::Mul(ax_s, ax_s);
+  // FLOOR: ax < 2^-484; sqlo, off by <= 2^-1073, only feeds q_lo, i.e.
+  // S'(q)*q_lo added to S >= 1: below 2^-1070 of S.
   const auto sqlo = op::SquareLow(d, ax_s, ssq);
   const auto q_hi = op::Mul(ssq, quarter);
   const auto q_lo = op::Mul(sqlo, quarter);
@@ -355,8 +361,12 @@ HWY_NOINLINE BesselPair<D> BesselNu1(D d, op::V<D> x) {
   // Exact for normal ax; for subnormal ax the halving rounds, so i1 there is
   // within 1 ulp but not always correctly rounded (i1(0x1p-1074) = +0).
   const auto half_ax = op::Mul(ax_s, half);
+  // FLOOR: s1*half_ax < 2^-968 only for ax < 2^-967, where ax^2 rounds to 0
+  // and s1 == {1, 0}: TwoProd(1, b) is exact on every tier, so mag == half_ax.
   const auto mag_series = DdMulD(d, s1, half_ax);  // unscaled |I1|, dd
   const auto exp_neg = OutlinedExpDd(d, op::Neg(ax_s), zero);
+  // FLOOR: below the floor (ax < 2^-967) exp_neg.hi == 1 exactly, so the
+  // TwoProd is exact and the cross terms (~ax^2/2) round to 0 on every tier.
   const auto i1e_series = DdMul(d, mag_series, exp_neg);
   const auto i1_series_mag = op::Add(mag_series.hi, mag_series.lo);
 
