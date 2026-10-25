@@ -311,8 +311,8 @@ performance.**
         three tiers.
       - Noted, not fixed: betainv forms ln(1 − σ) the same way
         (`lnsigc`); check it under 12h or with #88.
-    - **Row 12g DONE 2026-10-25** (#73; uncommitted at write time; 36/36
-      on AVX3_ZEN4, SSE4, SSE2, census and MSVC Release). [DERIVED]
+    - **Row 12g DONE 2026-10-25** (#73 closed; `940c9f9`; CI 40219413347
+      green on NEON, Linux sweep + sanitizers, Windows). [DERIVED]
       - ErfinvCentral: for |y| < 2^-900 the product is formed at
         |y|·2^600 with slope √π/2 (a dd exact to 7e-34, NOT the fitted
         lead L0, which is 2^-69.7 off and flipped a near-tie) and taken
@@ -1479,7 +1479,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 12d | ~~#70 gamma_q R3 core (3 ULP vs 2) below the cpsi = 36 split: ErfcCoreDd consumed as dd; probe and mark beta's twin core [ADDED 2026-10-22, user; review M-1]~~ DONE 2026-10-24 (Z) | after the tooling assessment; gamma forward first | frontier | certified cpsi ∈ [34, 36) rows (fail first) | CI tiers |
 | 12e | ~~#71 gamma_q R4 subnormal a (3 ULP, no-FMA): prescale GammaSmallQ's assembly [ADDED 2026-10-22, user; review M-2]~~ DONE 2026-10-24 (Z) | after 12d (same TU) | small–mid | subnormal-a rows (fail first on SSE4/SSE2) | CI tiers |
 | 12f | ~~#72 gammainv deep-subnormal targets (5e10 ulp at a ≳ 4.5e3) + double-rounded subnormal results [ADDED 2026-10-22, user; review H-1, M-6]; + #83 gamma_q_inv tiny/subnormal a (9–1633 ULP; hunt campaign; T7 adds the bracket stall at subnormal a and q, 4–35% off) [ADDED 2026-10-22]; + #88 beta_p_inv/beta_q_inv with shape and target both denorm_min (forward value ~0 or ~313× the target; T3 cross stratum) [ADDED 2026-10-24, user]~~ — DONE 2026-10-25 (Z; #72, #83, #88 closed) | after 12d/12e (inverse after forward) | frontier | subnormal p,q × a ∈ [20, 1e6] stratum; deferred:#83, deferred:#72 and deferred:#88 rows (fail first with CORVUS_REF_DEFERRED=1) | CI tiers |
-| 12g | #73 erfinv subnormal input (2 ULP, no-FMA): prescale before ProdLow [ADDED 2026-10-22, user; review M-5] | independent | small | subnormal-input rows (fail first on SSE4/SSE2) | CI tiers |
+| 12g | ~~#73 erfinv subnormal input (2 ULP, no-FMA): prescale before ProdLow [ADDED 2026-10-22, user; review M-5]~~ DONE 2026-10-25 (Z) | independent | small | subnormal-input rows (fail first on SSE4/SSE2) | CI tiers |
 | 12h | #74 erfc top subnormal binade (2 ULP vs 1): single rounding of the scaled tail [ADDED 2026-10-22, user; review M-4] | independent | small–mid | dense x ∈ [26.543, 26.6] stratum (fail first) | CI tiers |
 | 12i | #75 i0/i1/i0e/i1e series near \|x\| ≈ 7.4 (2 ULP, no-FMA) [ADDED 2026-10-22, user; review M-3] | independent | mid | dense [6, 8] strata, four functions (fail first on SSE4/SSE2) | CI tiers |
 | 12k | #84 beta gamma-limit slice sliver ν < 20 ≤ s takes the CF at the ridge (391 ULP vs 0) + #85 beta_q R4 near-one post-route 2 ULP vs 1 at τ ≈ 2.5 [ADDED 2026-10-22; hunt campaign] | after 12d (beta R3 core twin); before 12j | frontier (#84 routing) + mid | bit-stepped s = 20 × N ≥ 2^47 stratum; dense τ ≈ 2.5 post-route stratum (fail first) | CI tiers |
