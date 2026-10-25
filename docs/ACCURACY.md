@@ -454,6 +454,23 @@ separately, `erfcinv`'s C argument must be computed as the direct
 `Sub(1, z)`, not `Neg(Sub(z, 1))`: at z = 1 those are not bit-identical
 (`x - x` is always `+0`; negating a `+0` residual gives `-0`).
 
+**Subnormal and tiny y (#73, order row 12g).** x = y·Pc(y²) took its last
+product with ProdLow below its floor for |y| < 2^-967. The no-FMA tiers
+lost the low part: up to 2 ULP (1.53 real) on subnormal results, and the
+C no-FMA real-error cell read 1.51, above its 1.25 ceiling. For
+|y| < 2^-900 the kernel now forms the product at |y|·2^600 and takes it
+back with `DdScaleToDouble`, rounding once into the subnormal grid. The
+slope there is √π/2 itself, a dd exact to 7e-34. It is not Pc's fitted
+lead, which differs from √π/2 by 2^-69.7: a first version used it and
+rounded one near-tie the wrong way (9e-8 grid units from the midpoint,
+now a reference row). The branch runs only when a lane needs it.
+- 400,000 inputs below 2^-900 (70% subnormal, both signs, two seeds) are
+  correctly rounded on AVX3_ZEN4, SSE4 and SSE2. The reviewer's 2-ULP
+  input is CR.
+- The C real-error cell falls from 1.51 (no-FMA) and 0.94 (FMA) to 0.56 on
+  both. The FMA tier had lost a little through the double rounding of the
+  subnormal result.
+
 **Core T** (tail, s ∈ (0, ½)): w = −log(s) via `LogDdAny` (s can be
 subnormal, reachable only through `erfcinv`), t = √(w.hi). A cheap seed
 x0 = t·Seed(t) (2^-19 relative; three intervals selected by t — [t_lo, 2],

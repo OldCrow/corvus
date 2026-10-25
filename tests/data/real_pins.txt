@@ -103,8 +103,8 @@ erfc|tail normal|fma|2.12
 erfc|tail normal|nofma|2.12
 erfc|tail subnormal|fma|1.52|#74
 erfc|tail subnormal|nofma|1.52|#74
-erfinv|C|fma|0.94
-erfinv|C|nofma|1.51|#73
+erfinv|C|fma|0.56
+erfinv|C|nofma|0.56
 erfinv|T|fma|0.53
 erfinv|T|nofma|0.53
 erf|all|fma|0.98

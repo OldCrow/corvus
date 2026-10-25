@@ -394,6 +394,8 @@ erfinv_reference.txt|seam:y_to_1:bits|1
 erfinv_reference.txt|seam:y_to_1:band|80
 erfinv_reference.txt|seam:min_normal_in:bits|48
 erfinv_reference.txt|seam:min_normal_in:band|80
+erfinv_reference.txt|seam:tiny_prescale:bits|48
+erfinv_reference.txt|seam:tiny_prescale:band|80
 erfinv_reference.txt|central|120
 erfinv_reference.txt|central_tiny|120
 erfinv_reference.txt|tail_mid|120
@@ -401,6 +403,7 @@ erfinv_reference.txt|tail_deep|99
 erfinv_reference.txt|subnormal|120
 erfinv_reference.txt|subnormal_top|120
 erfinv_reference.txt|issue73:bits|48
+erfinv_reference.txt|issue73:tie|2
 erfinv_reference.txt|near_tie|55
 exp_dd_reference.txt|base|7651
 exp_reference.txt|base|14531

@@ -1,7 +1,7 @@
 """erfinv / erfcinv hunt strata. Bound: ACCURACY.md erfinv and erfcinv -- max
 1 ULP everywhere, both functions, far tail and subnormal arguments included.
-Known: erfinv of a subnormal is 2 ULP on SSE4/SSE2 (#73,
-erfinv(-0x0.2884b16852f8ep-1022)); the subnormal strata below reproduce it."""
+Fixed (#73, row 12g): erfinv of a subnormal was 2 ULP on SSE4/SSE2
+(erfinv(-0x0.2884b16852f8ep-1022)); the subnormal strata below guard it."""
 import math
 
 import mpmath as mp
@@ -20,6 +20,7 @@ SEAMS = [
     {"fn": "erfinv", "name": "tsplit", "coord": "y", "value": 1 - _TSPLIT_S, "source": "kErfinvTSplit t=2 <=> s=e^-4 (seed interval 0|1)"},
     {"fn": "erfinv", "name": "y_to_1", "coord": "y", "value": 1 - 2.0 ** -53, "source": "largest y < 1 (s = 2^-53, x ~ 5.86)"},
     {"fn": "erfinv", "name": "min_normal_in", "coord": "y", "value": 2.0 ** -1022, "source": "subnormal input edge"},
+    {"fn": "erfinv", "name": "tiny_prescale", "coord": "y", "value": 2.0 ** -900, "source": "ErfinvCentral tiny-y prescale, slope sqrt(pi)/2 (#73)"},
     {"fn": "erfcinv", "name": "c_lo", "coord": "z", "value": 0.5, "source": "erfcinv C|T split z = 1/2"},
     {"fn": "erfcinv", "name": "c_hi", "coord": "z", "value": 1.5, "source": "erfcinv C|T split z = 3/2"},
     {"fn": "erfcinv", "name": "zero_cross", "coord": "z", "value": 1.0, "source": "erfcinv(1) = +0, C(1 - z)"},
@@ -188,11 +189,17 @@ def strata():
         _st("erfinv", "tail_mid", lambda r, n: [(_sgn(r, full_mantissa(r, 0.5, 1 - _TSPLIT_S)),) for _ in range(n)], 4000),
         _st("erfinv", "tail_deep", lambda r, n: [(_y_tail(r, 2.0 ** -53, _TSPLIT_S),) for _ in range(n)], 4000),
         _st("erfinv", "subnormal", lambda r, n: [(_sgn(r, subnormal(r)),) for _ in range(n)], 6000,
-            note="#73: 2 ULP on SSE4/SSE2"),
+            note="#73 (fixed): was 2 ULP on SSE4/SSE2"),
         _st("erfinv", "subnormal_top", lambda r, n: [(_sgn(r, subnormal(r, 4)),) for _ in range(n)], 3000,
             note="#73 neighbourhood: top subnormal binades"),
         _st("erfinv", "issue73:bits", lambda r, n: [(x,) for x in neighbours(_ISSUE73, 64)], 129,
             note="#73 witness erfinv(-0x0.2884b16852f8ep-1022)"),
+        # A subnormal near-tie (9e-8 grid units below the midpoint) that the
+        # first #73 fix rounded the wrong way through the fitted lead L0;
+        # the slope must be sqrt(pi)/2 itself. Both signs.
+        _st("erfinv", "issue73:tie",
+            lambda r, n: [(s * float.fromhex("0x0.c8af607554ed5p-1022"),) for s in (-1.0, 1.0)], 2,
+            note="#73 near-tie witness (CR is 0x0.b1da3e01eceb8p-1022)"),
         # erfcinv
         _st("erfcinv", "central", lambda r, n: [(full_mantissa(r, 0.5, 1.5),) for _ in range(n)], 5000),
         _st("erfcinv", "near_one", lambda r, n: [(1 + _sgn(r, log_uniform(r, 2.0 ** -53, 1e-3)),) for _ in range(n)], 2000,

@@ -83,6 +83,7 @@
 #include "src/dd-inl.h"
 #include "src/erfc_core-inl.h"
 #include "src/erfinv_data.h"
+#include "src/exp_dd-inl.h"  // DdScaleToDouble (#73)
 #include "src/log_dd-inl.h"
 #include "src/ops-inl.h"
 
@@ -97,6 +98,11 @@ namespace op = ops;
 // since they are closed-form, not fitted.
 inline constexpr double kErfinvTwoOverSqrtPi = 0x1.20dd750429b6dp+0;  // 2/sqrt(pi)
 inline constexpr double kErfinvSqrtPi = 0x1.c5bf891b4ef6bp+0;        // sqrt(pi)
+// sqrt(pi)/2 as a dd (relative 7e-34): erfinv's exact slope at 0, for the
+// tiny-y branch of ErfinvCentral. NOT the fitted lead L0, which differs from
+// it by 2^-69.7 -- enough to flip a subnormal near-tie (#73).
+inline constexpr double kErfinvHalfSqrtPiHi = 0x1.c5bf891b4ef6bp-1;
+inline constexpr double kErfinvHalfSqrtPiLo = -0x1.618f13eb7ca89p-55;
 
 // Pc(v) = L0 + v*(L1 + v*(L2 + v*S(v))), v = y^2, as a dd. See the file
 // header for why the leading terms are dd and the tail is plain double.
@@ -142,14 +148,36 @@ HWY_INLINE Dd<D> ErfinvCentralDd(D d, op::V<D> v) {
 // a +0 and a -0 partial sum together -- and IEEE 754 defines (-0)+(+0) as
 // +0 in round-to-nearest, which silently turns erfinv(-0) into +0 without
 // this. CopySign is a no-op everywhere else since the sign already matches.
+//
+// TINY y (#73). For |y| < 2^-967 the product pc*y sits below the ProdLow
+// floor, and the no-FMA tiers lost its low part: up to 2 ulp of a subnormal
+// result. Those lanes form the product at |y|*2^600 (exact; at least
+// 2^-474) and take it back with DdScaleToDouble, which rounds the dd times
+// 2^-600 ONCE into the subnormal grid. The slope is sqrt(pi)/2 itself, not
+// pc: below 2^-900, erfinv(y) = y*sqrt(pi)/2 to relative 1e-540, while pc's
+// fitted lead L0 is off it by 2^-69.7 and flipped a near-tie 9e-8 grid
+// units from the midpoint in a 200k sweep. The branch runs only when a
+// lane needs it: the central path is the cheapest and most travelled.
 template <class D>
 HWY_INLINE op::V<D> ErfinvCentral(D d, op::V<D> y) {
   const auto v = op::Mul(y, y);
   const auto pc = ErfinvCentralDd(d, v);
-  // FLOOR: reaches the floor for |y| < 2^-967 (subnormal and lowest-normal
-  // results); the lost low part is up to 2 ulp of the result on no-FMA tiers
-  // -- tracked by #73.
-  return op::CopySign(DdToDouble(DdMulD(d, pc, y)), y);
+  // FLOOR: tiny lanes are recomputed below; on the rest |y| >= 2^-900, so
+  // |pc*y| >= 0.88 * 2^-900, above the floor.
+  auto r = DdToDouble(DdMulD(d, pc, y));
+  const auto tiny = op::Lt(op::Abs(y), op::Set(d, 0x1.0p-900));
+  CORVUS_ROUTE(d, "erfinv/central/tiny", tiny);
+  if (!op::AllFalse(d, tiny)) {
+    CORVUS_ROUTE_SCOPE(d, tiny);
+    const op::SignedTag<D> di;
+    const auto ys = op::Mul(op::Abs(y), op::Set(d, 0x1.0p+600));
+    const Dd<D> hsp{op::Set(d, kErfinvHalfSqrtPiHi), op::Set(d, kErfinvHalfSqrtPiLo)};
+    // FLOOR: never reached: |ys| >= 2^-474 on tiny lanes (others discarded).
+    const auto pm = DdMulD(d, hsp, ys);
+    const auto rs = DdScaleToDouble(d, pm, op::Set(di, int64_t{-600}));
+    r = op::IfThenElse(tiny, rs, r);
+  }
+  return op::CopySign(r, y);
 }
 
 // mid: delta = -f / (f' + x0*f), f = erfc(x0) - s, f' = erfc'(x0).
