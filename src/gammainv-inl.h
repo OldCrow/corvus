@@ -568,18 +568,17 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
   if (!op::AllFalse(d, m_r3)) {
     CORVUS_ROUTE_SCOPE(d, m_r3);
     const auto t3 = GammaTemme(d, a, x);
-    // Past a*phi ~ 745 the assembled Temme value underflows to zero, and its
-    // log would then be the log of the smallest normal rather than a number
-    // with any bearing on the residual. -a*phi is the leading term of ln F
-    // there and is exact to the dd; using it keeps the step's SIGN and
-    // magnitude right, which is what pulls such a lane back toward the root
-    // instead of stranding it. (No live lane is ever there: a target below
-    // e^-745 is not a representable double.)
-    const auto lg3 = OutlinedLogDd(d, t3.val.dd);
-    const auto pos = op::Gt(t3.val.dd.hi, zero);
-    CORVUS_ROUTE(d, "gammainv/fwd/R3/underflow", op::MaskNot(pos));
-    const auto l = Dd<D>{op::IfThenElse(pos, lg3.hi, op::Neg(aphi.hi)),
-                         op::IfThenElse(pos, lg3.lo, op::Neg(aphi.lo))};
+    // ln F in LOG SPACE on tail lanes (#72): the tail value is exactly
+    // e^{ln_e} * brk, so ln F = ln_e + log(brk) and no subnormal value is
+    // ever formed. Taking the log of the assembled value instead quantised
+    // the residual once F was subnormal (targets below 2^-1022 at a >~ 4.5e3:
+    // up to 1e11 ulp in the root), and gave the log of zero past a*phi ~ 745.
+    // Core lanes (a*phi <= 25) are >= ~1e-12 and keep log(value).
+    const auto lgv = OutlinedLogDd(d, t3.val.dd);
+    const auto lgt = DdAdd(d, t3.ln_e, OutlinedLogDd(d, t3.brk));
+    CORVUS_ROUTE(d, "gammainv/fwd/R3/log_tail", t3.tail);
+    const auto l = Dd<D>{op::IfThenElse(t3.tail, lgt.hi, lgv.hi),
+                         op::IfThenElse(t3.tail, lgt.lo, lgv.lo)};
     lnf = Dd<D>{op::IfThenElse(m_r3, l.hi, lnf.hi),
                 op::IfThenElse(m_r3, l.lo, lnf.lo)};
     i_pdir = op::IfThenElse(m_r3, t3.is_p, i_pdir);
@@ -778,7 +777,9 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   const auto s0 = DdAdd(d, lnp, lg1a);
   const auto uds = GammaInvDivD(d, s0, a);
   const auto eds = ExpDdFrac(d, uds.hi, uds.lo);
-  const auto x_ds = ScaleTwo(d, DdToDouble(eds.m), eds.e);
+  // One rounding into the subnormal grid (#72 M-6; was ScaleTwo of the
+  // rounded dd, two roundings).
+  const auto x_ds = DdScaleToDouble(d, eds.m, eds.e);
   const auto m_ds = op::Lt(op::Mul(x_ds, op::Add(one, a)),
                            op::Set(d, detail::kGammaInvDeepSmallCut));
   CORVUS_ROUTE(d, "gammainv/deep_small", m_ds);

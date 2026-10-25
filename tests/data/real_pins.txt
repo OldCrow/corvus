@@ -113,12 +113,12 @@ exp|normal|fma|0.50
 exp|normal|nofma|0.50
 exp|subnormal|fma|0.77
 exp|subnormal|nofma|0.77
-gamma_p_inv|S1 (a_T..3e34)|fma|0.90
-gamma_p_inv|S1 (a_T..3e34)|nofma|0.90
-gamma_p_inv|beyond-resolution|fma|0.65
-gamma_p_inv|beyond-resolution|nofma|0.65
-gamma_p_inv|deep-small closed form|fma|0.73
-gamma_p_inv|deep-small closed form|nofma|0.73
+gamma_p_inv|S1 (a_T..3e34)|fma|0.58
+gamma_p_inv|S1 (a_T..3e34)|nofma|0.58
+gamma_p_inv|beyond-resolution|fma|0.57
+gamma_p_inv|beyond-resolution|nofma|0.57
+gamma_p_inv|deep-small closed form|fma|0.53
+gamma_p_inv|deep-small closed form|nofma|0.53
 gamma_p_inv|small-a mid seed|fma|0.53
 gamma_p_inv|small-a mid seed|nofma|0.53
 gamma_p_inv|small-a tail seed|fma|0.53
@@ -135,8 +135,8 @@ gamma_p|R4 smalla cmp|fma|0.53
 gamma_p|R4 smalla cmp|nofma|0.53
 gamma_q_inv|S1 (a_T..3e34)|fma|0.76
 gamma_q_inv|S1 (a_T..3e34)|nofma|0.76
-gamma_q_inv|beyond-resolution|fma|1.01
-gamma_q_inv|beyond-resolution|nofma|1.01
+gamma_q_inv|beyond-resolution|fma|0.71
+gamma_q_inv|beyond-resolution|nofma|0.71
 gamma_q_inv|deep-small closed form|fma|1.36|#83
 gamma_q_inv|deep-small closed form|nofma|1.51|#83
 gamma_q_inv|small-a mid seed|fma|0.54

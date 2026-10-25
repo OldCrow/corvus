@@ -529,6 +529,15 @@ struct GammaTemmeOut {
   GammaVal<D> val;
   op::V<D> is_p;  // 1.0 where the directly computed side is P
   op::M<D> sat;
+  // For gammainv's forward (#72): on tail lanes the value is exactly
+  // e^{ln_e} * brk, so ln value = ln_e + log(brk) without ever forming a
+  // subnormal value and taking its log.
+  Dd<D> ln_e;     // -a*phi, UNclamped (#72: the clamped exponent misled far
+                  // Newton iterates; log(brk) is then O(log z) off, which
+                  // keeps the step's sign and size, as the old -a*phi
+                  // fallback did)
+  Dd<D> brk;      // the tail bracket
+  op::M<D> tail;  // a*phi > kGammaTemmeZ2Split
 };
 
 template <class D>
@@ -666,7 +675,9 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
   const GammaVal<D> val{op::IfThenElse(tm, tail.v, DdToDouble(core)),
                         Dd<D>{op::IfThenElse(tm, tail.dd.hi, core.hi),
                               op::IfThenElse(tm, tail.dd.lo, core.lo)}};
-  return {val, Ind(d, op::Lt(xma, zero)), ea.sat};
+  return {val, Ind(d, op::Lt(xma, zero)), ea.sat,
+          Dd<D>{op::Neg(aphi.hi), op::Neg(aphi.lo)}, brk_tail,
+          tm};
 }
 
 // ------------------------------------------------------------------------

@@ -1161,6 +1161,24 @@ independently-anchored asymptotic route. Four known-bad rows are
 baked into the generator as negative controls and must be rejected on
 every run before anything is written.
 
+**Subnormal targets at large a, and subnormal results (#72, order row
+12f).** Two defects, both fixed.
+- **H-1.** The R3 forward took the log of the assembled Temme value. For a
+  target below 2^-1022 that value is itself subnormal and has shed most of
+  its significand, so Newton's residual was quantised: up to 1e11 ulp at
+  a ≳ 4.5e3. On tail lanes the forward now forms ln F = −a·φ + log(brk) in
+  log space. It never builds the subnormal value, and the unclamped −a·φ
+  keeps far iterates' steps right.
+- **M-6.** Subnormal results of the deep-small closed form rounded twice,
+  through `ScaleTwo(DdToDouble(m), e)`. A new primitive,
+  `DdScaleToDouble` (src/exp_dd-inl.h), rounds (m.hi + m.lo)·2^e once.
+  The P-side deep-small real-error maximum falls from 0.73 to 0.50, with
+  1 near-tie row of 4,228 not correctly rounded.
+- **Rows.** All 57 certified #72 rows (subnormal p and q, a from 2e3 to
+  5e5) are correctly rounded on AVX3_ZEN4, SSE4 and SSE2 and gated. The
+  S1 and beyond-resolution pins fall too: 0.90 → 0.58, 0.65 → 0.57,
+  1.01 → 0.71.
+
 Special values (SciPy parity): p = 0 → +0 and p = 1 → +inf, mirrored
 for q; inputs outside [0, 1] → NaN, as are a ≤ 0 and a = +inf; NaN
 propagates from either argument (payload preserved).

@@ -77,6 +77,40 @@ HWY_INLINE op::V<D> ScaleTwo(D d, op::V<D> v, op::V<op::SignedTag<D>> e) {
   return op::Mul(op::Mul(v, s1), s2);
 }
 
+// (m.hi + m.lo) * 2^e rounded ONCE (#72 M-6). ScaleTwo(DdToDouble(m), e)
+// rounds twice when the result is subnormal: first to 53 bits, then onto
+// the 2^-1074 grid, ~19% of 52-bit subnormal results off by one. Here hi
+// alone is scaled (one rounding, to r), and the rest of the exact value
+// decides whether r must move one grid step:
+//   back = r * 2^-e is exact, so hb = hi - back is exact (|hb| <= Hs);
+//   with Hs = half a grid step in m's scale, the true value lies above the
+//   midpoint r + U/2 iff hb + lo > Hs, i.e. iff hb - Hs > -lo, both sides
+//   exact; and below r - U/2 iff hb + Hs < -lo. An exact tie (lo = 0,
+//   hb = +-Hs) keeps ScaleTwo's ties-to-even choice.
+// Below 2^-1021 the grid is uniform, U = 2^-1074, on both sides of the
+// normal boundary; above it ScaleTwo of the rounded dd is exact, and that
+// is what is returned. Same precondition as ScaleTwo; m.hi in [1, 2) or
+// zero, as ExpDdFrac and the callers' mantissas are.
+template <class D>
+HWY_INLINE op::V<D> DdScaleToDouble(D d, Dd<D> m, op::V<op::SignedTag<D>> e) {
+  const auto v_norm = ScaleTwo(d, op::Add(m.hi, m.lo), e);
+  const auto r = ScaleTwo(d, m.hi, e);
+  const auto back = ScaleTwo(d, r, op::Neg(e));
+  const auto hb = op::Sub(m.hi, back);
+  const op::SignedTag<D> di;
+  // Hs = 2^(-1075 - e) = 0.5 * 2^(-1074 - e), in m's scale.
+  const auto hs =
+      ScaleTwo(d, op::Set(d, 0.5), op::Sub(op::Set(di, int64_t{-1074}), e));
+  const auto nlo = op::Neg(m.lo);
+  const auto unit = op::Set(d, 0x1.0p-1074);
+  const auto up = op::Gt(op::Sub(hb, hs), nlo);
+  const auto dn = op::Lt(op::Add(hb, hs), nlo);
+  auto r1 = op::IfThenElse(up, op::Add(r, unit), r);
+  r1 = op::IfThenElse(dn, op::Sub(r, unit), r1);
+  const auto grid = op::Lt(op::Abs(v_norm), op::Set(d, 0x1.0p-1021));
+  return op::IfThenElse(grid, r1, v_norm);
+}
+
 // exp(x_hi + x_lo) in mantissa/exponent form. See the file header.
 template <class D>
 HWY_INLINE ExpDdParts<D> ExpDdFrac(D d, op::V<D> xh, op::V<D> xl) {

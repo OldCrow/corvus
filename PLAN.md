@@ -293,6 +293,22 @@ performance.**
       - The lint reports 71 of 136 sites still without an argument: those
         the census never saw reach the floor. They are #86's phase 3
         (v1.2.0), after which CI runs the lint `--strict`.
+    - **Row 12f, part A DONE 2026-10-25** (#72; uncommitted at write
+      time; 36/36 on AVX3_ZEN4, SSE4, SSE2 and the census build). [DERIVED]
+      - H-1: gammainv's R3 forward takes ln F = −a·φ + log(brk) on tail
+        lanes (GammaTemmeOut gains ln_e = −a·φ unclamped, brk and tail).
+        The first try used the clamped exponent and broke far iterates
+        (gated S1/beyond-resolution rows read 1e15). The unclamped −a·φ is
+        the old fallback's quantity.
+      - M-6: DdScaleToDouble (src/exp_dd-inl.h) rounds a dd times 2^e once;
+        gammainv's deep-small result uses it. The other double-rounding
+        sites (erfc's tail, #74; gamma's and beta's GammaScale; betainv's
+        deep-small y_ds) are left for row 12h to switch over.
+      - Result: all 57 #72 rows are CR and gated. Pins fall: p S1 0.90 →
+        0.58, beyond-resolution 0.65 → 0.57 (p) and 1.01 → 0.71 (q), p
+        deep-small 0.73 → 0.53. 22 #83 rows remain deferred.
+      - **NEXT: part B** (#83's 22 rows: q-side tiny a, roots near
+        2^-1022), then **part C** (#88).
     - **Row 12e DONE 2026-10-24** (#71 closed; `1d21c7d`; CI 40160183991
       green on NEON, Linux sweep + sanitizers, Windows; #83 progress
       noted). **NEXT: 12f** (#72 + #83 + #88). [DERIVED]
