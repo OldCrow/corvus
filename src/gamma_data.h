@@ -54,19 +54,19 @@ inline constexpr double kGammaExpFloor = -0x1.9000000000000p+9;
 
 // erfc tail factor G(z) = z e^{z^2} erfc(z) (#64), for the gamma and
 // beta (#69) R3 Temme tails via src/erfc_tail_dd-inl.h (erfc keeps its own).
-// z in [6.0, 28.5]: monomial coefficients (ascending) in
+// z in [5.0, 28.5]: monomial coefficients (ascending) in
 // s = 1/z - kGammaTailC; the first kGammaTailNDd are dd
 // (kGammaTailCoef holds the high words, kGammaTailCoefLo the low).
-inline constexpr double kGammaTailZLo = 0x1.8000000000000p+2;
+inline constexpr double kGammaTailZLo = 0x1.4000000000000p+2;
 inline constexpr double kGammaTailZHi = 0x1.c800000000000p+4;
-inline constexpr double kGammaTailC = 0x1.9d31674c59d31p-4;
-inline constexpr int kGammaTailNCoef = 16;
+inline constexpr double kGammaTailC = 0x1.e175ab909e176p-4;
+inline constexpr int kGammaTailNCoef = 18;
 inline constexpr int kGammaTailNDd = 3;
-inline constexpr double kGammaTailCoef[16] = {
-    0x1.1f6acbfc258e9p-1, -0x1.c48603b03e690p-5, -0x1.07fccbd3a8a51p-2, 0x1.353d54ef36530p-3, 0x1.24184752abeaap-2, -0x1.dbd745b283c3cp-2, -0x1.2aec0dff76728p-2, 0x1.855b090756f33p+0, -0x1.47a342bf0c421p-1, -0x1.282d2a974d7adp+2, 0x1.095980ad8055dp+3, 0x1.12d00978ec769p+3, -0x1.9a86eb3c01310p+5, 0x1.2923fa5aa99cfp+5, 0x1.a2add9217c541p+7, -0x1.05584349d62c8p+9,
+inline constexpr double kGammaTailCoef[18] = {
+    0x1.1ee8d50430a9cp-1, -0x1.04ec7d2b1317bp-4, -0x1.ff9581aece1cep-3, 0x1.597eb46ad834bp-3, 0x1.f6e355a29c57bp-3, -0x1.f0dc7d395a802p-2, -0x1.f014f5a2ba4bap-4, 0x1.64e36cc749c1cp+0, -0x1.39cb11c6b4a0cp+0, -0x1.9506a61ce740ep+1, 0x1.1fa6ed6ae28d0p+3, -0x1.23efa673b9d6bp-1, -0x1.38693e0ae63fap+5, 0x1.197b91fd274c3p+6, 0x1.220bb2a0f9091p+6, -0x1.03735e617400cp+9, 0x1.b338f8a0fdaf7p+8, 0x1.d1a05d69ae62ep+10,
 };
 inline constexpr double kGammaTailCoefLo[3] = {
-    -0x1.0b5c703608eadp-55, -0x1.c92ce561b6ed3p-59, 0x1.aeba2c6ef0b20p-58,
+    0x1.8b89c074e7a23p-55, 0x1.d885e0da4f28bp-61, -0x1.93a5a8c36fbadp-57,
 };
 
 }  // namespace corvus::detail

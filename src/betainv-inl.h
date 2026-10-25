@@ -770,7 +770,7 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
     // (reachable: (a, b, sigma) = (2.9e5, 4.0e6, 2.0e-323)). gamma's inverse
     // takes log(value) with a -a*phi fallback and gets away with it because
     // its own targets bottom out sooner; beta's do not. The core branch
-    // (cpsi <= 36) keeps log(value): the value is >= ~1e-17 there, normal by
+    // (cpsi <= kBetaZ2Split = 25) keeps log(value): the value is >= ~1e-12 there, normal by
     // a wide margin, and the bracket form has no advantage.
     const auto lg3 = OutlinedLogDd(d, t3.val.dd);
     const auto lgt = DdAdd(d, DdNeg(d, ps.cpsi), OutlinedLogDd(d, t3.brk));

@@ -120,10 +120,14 @@ inline constexpr double kGammaFreezeEps = 0x1.0p-60;
 // cost against 8's ~25% (Zen 4, indicative).
 inline constexpr int kGammaCfDdSteps = 4;
 
-// Temme core/tail split, exact: a*phi = 36 <=> z = sqrt(a*phi) = 6, the same
-// threshold erfc's own core/tail split uses, so the two halves of this
-// kernel consume exactly the two halves of erfc's machinery.
-inline constexpr double kGammaTemmeZ2Split = 36.0;
+// Temme core/tail split, exact: a*phi = 25 <=> z = sqrt(a*phi) = 5 (#70).
+// The core takes 1/2 erfc(z) from ErfcCoreDd, i.e. 1 - erf(z): its error
+// relative to erfc grows like e^{z^2}, ~1 ulp of erfc at z = 6, which the
+// assembly amplified to 2.5 ulp at the old split a*phi = 36 (erfc's own
+// split). At z = 5 it is e^-11 of that. Above the split the tail's dd
+// GammaTailG (fitted on [kGammaTailZLo, kGammaTailZHi] = [5, 28.5] since
+// #70) supplies erfc. TWIN: beta-inl.h kBetaZ2Split moves with this.
+inline constexpr double kGammaTemmeZ2Split = 25.0;
 
 // Ceiling on a when forming 1/sqrt(2*pi*a): 2*pi*a overflows above ~2.9e307
 // and DdSqrt would then return NaN. Above this clamp the only non-saturated
@@ -486,9 +490,10 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
 //  4. z is a dd and its low word is the first-order correction to erfc:
 //     1/2*erfc(z.hi + z.lo) = 1/2*erfc(z.hi) - z.lo/sqrt(pi) * e^{-z^2}, so
 //     the correction folds into the same bracket S already multiplies.
-//  5. The core/tail split is on a*phi against an exact 36.0, i.e. z against
-//     6 -- erfc's own split. Below it ErfcCoreDd supplies 1/2*erfc(z) as a
-//     dd and nothing underflows. Above it the whole expression carries the
+//  5. The core/tail split is on a*phi against an exact 25.0, i.e. z against
+//     5 (#70: at erfc's own split, 6, ErfcCoreDd's 1 - erf form carried ~1
+//     ulp of erfc into a 2.5-ulp result). Below it ErfcCoreDd supplies
+//     1/2*erfc(z) as a dd and nothing underflows. Above it the whole expression carries the
 //     factor e^{-a*phi}, so erfc is taken in its tail form
 //     e^{-z^2} G(1/z)/z (G from gamma's own dd fit, GammaTailG -- erfc's
 //     plain-double G cost up to 2.1 ulp here, #64) and the power-of-two
@@ -573,7 +578,9 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
       IndMask(d, op::Mul(Ind(d, op::IsNaN(aphi.hi)), Ind(d, op::Eq(x, a))))));
   const auto ea = GammaClampE(d, op::Neg(aphi.hi), op::Neg(aphi.lo));
 
-  // --- core, a*phi <= 36 --------------------------------------------------
+  // TWIN: beta-inl.h BetaR3Temme core (cpsi <= kBetaZ2Split), a copy of
+  // this block: the same ErfcCoreDd consumption and the same split (#70).
+  // --- core, a*phi <= 25 --------------------------------------------------
   // ErfcCoreDd's table index is round(min(z,6+1/1024)*256) and is NOT masked,
   // so a NaN z from a discarded lane must be scrubbed before it -- the same
   // one-op guard erfinv's HalleyMid carries (AGENTS.md, value-derived
@@ -585,14 +592,15 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
   const auto exd = ExpDd(d, ea.hi, ea.lo);
   const auto brk_core = DdAddD(
       d, s_rv, op::Neg(op::Mul(z.lo, op::Set(d, detail::kGammaInvSqrtPiHi))));
-  // FLOOR: brk_core*exd < 2^-968 on tail lanes (a*phi > 36, exd tiny), whose
-  // core the tm select below discards; on core lanes (z <= 6) the sum is
-  // ~1/2 erfc(z) >= 2^-57, so the <= 2^-1072 loss is invisible.
+  // FLOOR: brk_core*exd < 2^-968 on tail lanes (a*phi > 25, exd tiny), whose
+  // core the tm select below discards; on core lanes (z <= 5) the sum is
+  // ~1/2 erfc(z) >= 2^-41, so the <= 2^-1072 loss is invisible.
   const auto core = DdAdd(d, half_erfc, DdMul(d, brk_core, exd));
 
-  // TWIN: beta-inl.h BetaR3Temme tail (cpsi > 36), a copy of this block;
-  // it matches since #69 (same GammaTailG, dd G/(2z), guarded z.lo fold).
-  // --- tail, a*phi > 36 ---------------------------------------------------
+  // TWIN: beta-inl.h BetaR3Temme tail (cpsi > kBetaZ2Split), a copy of this
+  // block; it matches since #69 (same GammaTailG, dd G/(2z), guarded z.lo
+  // fold) and #70 (the split at 25).
+  // --- tail, a*phi > 25 ---------------------------------------------------
   // gt = G/(2z) = 1/2 erfc(z) e^{z^2} at z.hi, as a dd (#57: it was a
   // rounded double, and z.lo was dropped; #64: G itself is now a dd, and
   // GammaTailG's comment in src/erfc_tail_dd-inl.h covers the z clamp

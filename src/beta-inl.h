@@ -123,10 +123,13 @@ namespace op = ops;
 // full fixed cap (64 for R1, 48 for R4) instead of stopping early.
 inline constexpr double kBetaFreezeEps = 0x1.0p-105;
 
-// R3 core/tail split, exact: cpsi = 36 <=> z = sqrt(cpsi) = 6, the same
-// threshold erfc's own core/tail split uses: the core consumes erfc's
-// ErfcCoreDd, the tail the dd G fit shared with gamma (GammaTailG, #69).
-inline constexpr double kBetaZ2Split = 36.0;
+// R3 core/tail split, exact: cpsi = 25 <=> z = sqrt(cpsi) = 5 (#70). The core
+// consumes erfc's ErfcCoreDd, whose 1 - erf form of erfc carries ~1 ulp of
+// erfc at z = 6 (gamma's twin read 2.5 ulp at the old split, cpsi = 36); at
+// z = 5 that error is e^-11 of it. The tail takes the dd G fit shared with
+// gamma (GammaTailG, #69; fitted down to z = 5 since #70). TWIN: gamma-inl.h
+// kGammaTemmeZ2Split, and betainv-inl.h's forward reads this constant.
+inline constexpr double kBetaZ2Split = 25.0;
 
 // Ceiling on nu when forming 1/sqrt(2*pi*nu): 2*pi*nu overflows above ~2.9e307
 // and DdSqrt would then return NaN. Above this clamp the whole S/sqrt(2*pi*nu)
@@ -1104,7 +1107,9 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
 
   const auto ea = BetaClampE(d, op::Neg(ps.cpsi.hi), op::Neg(ps.cpsi.lo));
 
-  // --- core, cpsi <= 36 ---------------------------------------------------
+  // TWIN: gamma-inl.h GammaTemme core (a*phi <= kGammaTemmeZ2Split): the
+  // same ErfcCoreDd consumption and the same split (#70); keep in step.
+  // --- core, cpsi <= 25 ---------------------------------------------------
   // ErfcCoreDd's table index is round(min(z, 6+1/1024)*256) and is NOT masked,
   // so a NaN z from a discarded lane must be scrubbed before it -- the same
   // one-op guard erfinv's HalleyMid carries (AGENTS.md, value-derived
@@ -1116,14 +1121,14 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
   const auto brk_core = DdAddD(
       d, s_rv, op::Neg(op::Mul(z.lo, op::Set(d, kBetaInvSqrtPiHi))));
   // FLOOR: a product below 2^-968 errs by <= 2^-1071, added to half_erfc >=
-  // erfc(6)/2 > 2^-57 (core lanes have cpsi <= 36): far below ulp(core);
+  // erfc(5)/2 > 2^-41 (core lanes have cpsi <= 25): far below ulp(core);
   // tail lanes discard core.
   const auto core = DdAdd(d, half_erfc, DdMul(d, brk_core, exd));
 
-  // TWIN: gamma-inl.h GammaTemme tail (a*phi > 36). Matches it since #69
-  // (dd G from the shared GammaTailG, dd G/(2z), z.lo fold with its
-  // live-lane guard); keep the two in step.
-  // --- tail, cpsi > 36 ----------------------------------------------------
+  // TWIN: gamma-inl.h GammaTemme tail (a*phi > kGammaTemmeZ2Split). Matches
+  // it since #69 (dd G from the shared GammaTailG, dd G/(2z), z.lo fold with
+  // its live-lane guard) and #70 (split at 25); keep the two in step.
+  // --- tail, cpsi > 25 ----------------------------------------------------
   // gt = G/(2z) = 1/2 erfc(z) e^{z^2} at z.hi, as a dd. Until #69 this was
   // erfc's plain-double G divided in double with z.lo dropped: at G weight
   // w = (1/2 erfc(z))/small ~ 1.2-1.28 (the small side's parameter ratio at

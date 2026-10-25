@@ -618,6 +618,16 @@ AVX3_ZEN4, SSE4 and SSE2 (gates tightened 2 -> 1; the published bound
 stays 2). gammainv's gate output is byte-identical. Cost: +3-7% on the R3
 bench band (indicative; the machine was not quiet).
 
+**R3 core/tail split moved to a·φ = 25 (#70, order row 12d).** The core
+takes ½ erfc(z) from ErfcCoreDd, i.e. 1 − erf(z), whose error relative to
+erfc grows like e^{z²}: about one ulp of erfc at z = 6, which the assembly
+amplified to 2.51 ulp real (3 ULP integer) just below the old split
+a·φ = 36. At z = 5 that error is e^{-11} of it, and the tail's dd G now
+covers z ∈ [5, 28.5] at degree 17 (2^-64.55 fused, 2^-64.37 unfused,
+target 2^-63). The R3 direct real error falls from 2.51 to 0.89 (AVX3_ZEN4)
+and 0.94 (SSE4, SSE2) with #70's rows included; the gates stay at 1 on
+every tier. Beta's R3 core is a twin and moves with it (below).
+
 Method: four regions on λ = x/a with a_T = 20 — a power series for P
 (fixed cap 64, per-lane freeze), a **backward** fixed-depth (44) evaluation
 of Legendre's continued fraction for Q (backward is load-bearing: forward
@@ -705,6 +715,15 @@ kernel — unchanged — agrees with the old row, so its true error there is
 1 ULP (1 of 2948 R2-direct rows; re-verified against mpmath betainc at
 dps 400, true value 0.60 ULP above the old row). The previous 0 was an
 artifact of the reference's own rounding.
+
+**R3 core/tail split moved to cpsi = 25 (#70, order row 12d).** Beta's R3
+core is gamma's twin: it takes ½ erfc(z) from the same ErfcCoreDd, whose
+1 − erf form carries about one erfc ulp at z = 6. The split moves with
+gamma's to cpsi = 25 (z = 5), where the shared dd G now starts. beta_p's R3
+direct real-error maximum falls from 1.21 to 1.03; the gates stay at 1 on
+every tier. betainv's forward reads the same constant. beta_q's R3 margin
+at the gamma-limit ridge entry (#80, 1.38) is unchanged: it does not sit
+at the split.
 
 **R3 Temme tail fixed (#69, order row 12c).** Beta's tail (cpsi > 36) was
 a 2026-08-01 copy of gamma's and never received gamma's #57 (z.lo fold, dd

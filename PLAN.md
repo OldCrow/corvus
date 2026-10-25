@@ -293,6 +293,27 @@ performance.**
       - The lint reports 71 of 136 sites still without an argument: those
         the census never saw reach the floor. They are #86's phase 3
         (v1.2.0), after which CI runs the lint `--strict`.
+    - **Row 12d DONE 2026-10-24** (#70; uncommitted at write time; 36/36
+      on AVX3_ZEN4, SSE4, SSE2, MSVC AVX2 and the census build). [DERIVED]
+      - Cause: the R3 core's ½ erfc(z) is 1 − erf(z) (ErfcCoreDd), whose
+        error relative to erfc grows like e^{z²}. That is about one erfc
+        ulp at z = 6, amplified to 2.51 ulp real just below the old split
+        a·φ = 36.
+      - Fix: the core/tail split moves to a·φ (cpsi) = 25, z = 5, in gamma
+        and in its twin beta, with betainv's forward on the same constant.
+        The shared dd GammaTailG is refit over [5, 28.5] at degree 17:
+        2^-64.55 fused, 2^-64.37 unfused, target 2^-63. Both branches were
+        already computed on every R3 lane, so the only cost is two Horner
+        steps. TWIN markers now sit on both core blocks.
+      - Result: gamma_q R3 dir real error 2.51 → 0.89 (AVX3_ZEN4) / 0.94
+        (SSE4, SSE2) on #70's rows, which are now gated. The pins fall:
+        gamma_q R3 dir 1.41 → 0.92/0.96 (the #70 tag is removed),
+        gamma_p 0.80 → 0.68, beta_p 1.21 → 1.03. gammainv's gates and pins
+        are unchanged. The gates stay at 1.
+      - The seams move to 25 in the gamma, beta and betainv families (the
+        old 28–36 band is kept as coverage of tail lanes), and their six
+        appendices are regenerated. Seam audit 0 gaps; route census and
+        floor census unchanged.
     - **12-T is complete** (T1–T7). **NEXT: the 12d–12k fix rows** (order
       in the 12-row table). Each fix row runs its deferred rows' fail-first
       gate (`CORVUS_REF_DEFERRED=1`), lowers its pins, argues the FLOOR of

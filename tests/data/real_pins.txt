@@ -5,12 +5,12 @@ beta_p_inv|B rows (neighbour semantics)|fma|1.05
 beta_p_inv|B rows (neighbour semantics)|nofma|1.05
 beta_p_inv|deep-small closed form|fma|0.77
 beta_p_inv|deep-small closed form|nofma|0.77
-beta_p_inv|gamma-limit transfer|fma|0.76
-beta_p_inv|gamma-limit transfer|nofma|0.76
+beta_p_inv|gamma-limit transfer|fma|0.77
+beta_p_inv|gamma-limit transfer|nofma|0.77
 beta_p_inv|huge-nu (formula bucket)|fma|0.98
 beta_p_inv|huge-nu (formula bucket)|nofma|0.98
-beta_p_inv|ridge (S1 territory)|fma|0.76
-beta_p_inv|ridge (S1 territory)|nofma|0.76
+beta_p_inv|ridge (S1 territory)|fma|0.77
+beta_p_inv|ridge (S1 territory)|nofma|0.77
 beta_p_inv|small-parameter remainder|fma|0.77
 beta_p_inv|small-parameter remainder|nofma|0.77
 beta_p|R1 series cmp|fma|0.52
@@ -27,7 +27,7 @@ beta_p|R2 gammalim d|fma|0.50
 beta_p|R2 gammalim d|nofma|0.50
 beta_p|R3 temme  cmp|fma|0.53
 beta_p|R3 temme  cmp|nofma|0.56
-beta_p|R3 temme  dir|fma|1.21
+beta_p|R3 temme  dir|fma|1.03
 beta_p|R3 temme  dir|nofma|1.18
 beta_p|R4 postrt cmp|fma|0.50
 beta_p|R4 postrt cmp|nofma|0.50
@@ -45,8 +45,8 @@ beta_q_inv|gamma-limit transfer|fma|0.77
 beta_q_inv|gamma-limit transfer|nofma|0.77
 beta_q_inv|huge-nu (formula bucket)|fma|1.03
 beta_q_inv|huge-nu (formula bucket)|nofma|1.03
-beta_q_inv|ridge (S1 territory)|fma|0.76
-beta_q_inv|ridge (S1 territory)|nofma|0.76
+beta_q_inv|ridge (S1 territory)|fma|0.77
+beta_q_inv|ridge (S1 territory)|nofma|0.77
 beta_q_inv|small-parameter remainder|fma|0.77
 beta_q_inv|small-parameter remainder|nofma|0.77
 beta_q|R1 series cmp|fma|0.93
@@ -129,8 +129,8 @@ gamma_p|R2 cf     cmp|fma|0.50
 gamma_p|R2 cf     cmp|nofma|0.50
 gamma_p|R3 temme  cmp|fma|0.53
 gamma_p|R3 temme  cmp|nofma|0.53
-gamma_p|R3 temme  dir|fma|0.80
-gamma_p|R3 temme  dir|nofma|0.80
+gamma_p|R3 temme  dir|fma|0.68
+gamma_p|R3 temme  dir|nofma|0.68
 gamma_p|R4 smalla cmp|fma|0.53
 gamma_p|R4 smalla cmp|nofma|0.53
 gamma_q_inv|S1 (a_T..3e34)|fma|0.76
@@ -149,8 +149,8 @@ gamma_q|R2 cf     dir|fma|0.70
 gamma_q|R2 cf     dir|nofma|0.70
 gamma_q|R3 temme  cmp|fma|0.56
 gamma_q|R3 temme  cmp|nofma|0.56
-gamma_q|R3 temme  dir|fma|1.41|#70
-gamma_q|R3 temme  dir|nofma|1.41|#70
+gamma_q|R3 temme  dir|fma|0.92
+gamma_q|R3 temme  dir|nofma|0.96
 gamma_q|R4 smalla dir|fma|1.21
 gamma_q|R4 smalla dir|nofma|1.50|#71
 i0e|neg series|fma|0.78

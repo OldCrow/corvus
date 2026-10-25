@@ -44,7 +44,7 @@ SEAMS = [
     {"fn": "betainv", "name": "fwd_xi1", "coord": "root x", "value": XI1, "source": "kBetaXi1 (forward router twin)"},
     {"fn": "betainv", "name": "fwd_b1", "coord": "b*x", "value": B1, "source": "kBetaB1 (forward router twin)"},
     {"fn": "betainv", "name": "fwd_r2_thr", "coord": "root x", "value": "(a+1)/(a+b+2)", "source": "R2 orientation (forward twin)"},
-    {"fn": "betainv", "name": "fwd_z2split", "coord": "cpsi(root)", "value": 36.0, "source": "kBetaZ2Split (forward core/tail)"},
+    {"fn": "betainv", "name": "fwd_z2split", "coord": "cpsi(root)", "value": 25.0, "source": "kBetaZ2Split (forward core/tail; 36 until #70)"},
     {"fn": "betainv", "name": "fwd_gammalim", "coord": "max(a,b)", "value": GAMMA_LIM, "source": "kBetaGammaLim (forward twin)"},
     {"fn": "betainv", "name": "fwd_gl_ridge", "coord": "nu (max>=2^47)", "value": GL_RIDGE_MIN, "source": "kBetaGlRidgeMin"},
     {"fn": "betainv", "name": "deep_small", "coord": "|1-b| y/(1+a) corr(y)", "value": DEEP_SMALL_CUT, "source": "kBetaInvDeepSmallCut"},
@@ -346,10 +346,12 @@ def strata():
     S += _xstrat("seam:fwd_xi1:band", d_xi1, 600, "fwd_xi1")
     S += _xstrat("seam:fwd_b1:band", d_b1, 500, "fwd_b1")
     S += _xstrat("seam:fwd_r2_thr:band", d_thr, 800, "fwd_r2_thr")
-    S += _xstrat("seam:fwd_z2split:band", d_cpsi(30.0, 42.0), 500, "fwd_z2split")
+    S += _xstrat("seam:fwd_z2split:band", d_cpsi(22.0, 28.0), 500, "fwd_z2split")
+    S += _xstrat("dense:fwd_r3_old_split", d_cpsi(30.0, 42.0), 500, None,
+                 "around the pre-#70 split cpsi = 36, now tail lanes")
     S += _xstrat("seam:fwd_z2split:core_below", d_cpsi(20.0, 36.0), 800, "fwd_z2split",
                  "forward R3 core just below cpsi=36 (#70 twin)")
-    S += _xstrat("seam:fwd_r3_tail", d_cpsi(36.0, 700.0), 500, "fwd_z2split")
+    S += _xstrat("seam:fwd_r3_tail", d_cpsi(25.0, 700.0), 500, "fwd_z2split")
     S += _xstrat("seam:fwd_gammalim:band", d_gl, 500, "fwd_gammalim")
     S += _xstrat("seam:fwd_gl_ridge:band", d_glridge, 500, "fwd_gl_ridge")
     S += _xstrat("seam:deep_small:band", d_deep_small, 800, "deep_small")
@@ -416,7 +418,7 @@ def _t2_strata():
                  3 * 25, "fwd_xi1", per_fn=True, raw=True)
     S += _pstrat("seam:fwd_b1:bits", _root_bits([(1.5, 16.0, 0.5), (3.0, 20.0, 0.4), (1.2, 40.0, 0.2)]),
                  3 * 25, "fwd_b1", per_fn=True, raw=True)
-    z2 = [(a, b, x_for_cpsi(a, b, 36.0, up)) for a, b, up in ((40.0, 60.0, False), (200.0, 90.0, True),
+    z2 = [(a, b, x_for_cpsi(a, b, 25.0, up)) for a, b, up in ((40.0, 60.0, False), (200.0, 90.0, True),
                                                              (1e4, 3e4, False))]
     S += _pstrat("seam:fwd_z2split:bits", _root_bits(z2), 3 * 25, "fwd_z2split", per_fn=True, raw=True)
     tg = (1e-5, 0.3, 0.7)

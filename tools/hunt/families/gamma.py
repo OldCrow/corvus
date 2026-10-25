@@ -38,7 +38,7 @@ SEAMS = [
     {"fn": "gamma_p/q", "name": "lgamma_zone_hi", "coord": "a", "value": 2.5, "source": "kLgammaZoneHi (LgammaPosDd, prefactor E for R1/R2)"},
     {"fn": "gamma_p/q", "name": "lgamma_x0", "coord": "a", "value": 8.0, "source": "kLgammaX0 (LgammaPosDd Stirling switch)"},
     # Temme (R3)
-    {"fn": "gamma_p/q", "name": "temme_split", "coord": "a*phi", "value": 36.0, "source": "kGammaTemmeZ2Split (z = 6 = kGammaTailZLo, erfc core/tail)"},
+    {"fn": "gamma_p/q", "name": "temme_split", "coord": "a*phi", "value": 25.0, "source": "kGammaTemmeZ2Split (z = 5 = kGammaTailZLo; 36 until #70)"},
     {"fn": "gamma_p/q", "name": "expfloor_r3", "coord": "a*phi", "value": 800.0, "source": "-kGammaExpFloor: R3 saturation and live_tail"},
     {"fn": "gamma_p/q", "name": "tail_zhi", "coord": "a*phi", "value": 812.25, "source": "kGammaTailZHi^2 (28.5^2): inside saturation, result 0 -- no stratum"},
     {"fn": "gamma_p/q", "name": "twopi_a_clamp", "coord": "a", "value": 2.0 ** 900, "source": "kGammaTwoPiAClamp = kGammaScaleAbove (prescale)"},
@@ -302,13 +302,14 @@ def strata():
                     log_uniform(q, 20.0, 1e6)))
             add(f"seam:{name}:band_{tag}", lambda r, n, f=f: _many(r, n, f), 1200, seam=name)
 
-    # 5. Temme core/tail split a*phi = 36 (R3 had 1 reference row in [30, 36)).
+    # 5. Temme core/tail split a*phi = 25 (36 until #70; R3 had 1 reference row
+    # in [30, 36) before T3).
     a_set = (150.0, 300.0, 1e3, 1e4, 1e5, 1e6)
     add("seam:temme_split:bits",
         lambda r, n, a_set=a_set: _take(r, [(a, x) for a in a_set for s in (-1, 1)
-                               for x in neighbours(x_for_aphi_exact(a, 36.0, s), 64)], n),
+                               for x in neighbours(x_for_aphi_exact(a, 25.0, s), 64)], n),
         129 * 2 * len(a_set), seam="temme_split")
-    for lo, hi, tag in ((30.0, 36.0, "lo"), (36.0, 40.0, "hi")):
+    for lo, hi, tag in ((21.0, 25.0, "lo"), (25.0, 29.0, "hi")):
         add(f"seam:temme_split:band_{tag}",
             lambda r, n, lo=lo, hi=hi: _many(r, n, lambda q: (lambda a: (a, x_for_aphi(a, q.uniform(lo, hi), q.choice((-1, 1)))))(
                 log_uniform(q, 100.0, 1e6))),
@@ -316,7 +317,11 @@ def strata():
     add("corner:temme_core_lam2",
         lambda r, n: _many(r, n, lambda q: (lambda a: (a, x_for_aphi(a, q.uniform(28.0, 36.0), 1)))(
             full_mantissa(q, 117.0, 190.0))),
-        1500, seam="temme_split", note="#70: R3 core just below a*phi = 36 near lambda = 2")
+        1500, seam="temme_split", note="#70's band, a*phi in [28, 36) near lambda = 2: tail lanes since #70")
+    add("corner:temme_core_lam2_below",
+        lambda r, n: _many(r, n, lambda q: (lambda a: (a, x_for_aphi(a, q.uniform(18.0, 25.0), 1)))(
+            full_mantissa(q, 80.0, 190.0))),
+        1500, seam="temme_split", note="R3 core just below the a*phi = 25 split near lambda = 2")
 
     # 6. Saturation a*phi = 800 (R3) and E = -800 (R1, R2).
     a_set = (5e3, 1e4, 1e5, 1e6, 1e7)

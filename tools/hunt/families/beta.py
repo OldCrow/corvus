@@ -42,7 +42,7 @@ NEAR_ONE = float.fromhex("0x1.ffc0000000000p-1")  # kBetaNearOne = 1 - 2^-11
 PR_TAU_MAX = 2.5                                # kBetaPrTauMax
 GL_RIDGE_MIN = 20.0                             # kBetaGlRidgeMin
 GAMMA_AT = 20.0                                 # kGammaAT (gamma-limit sub-map)
-Z2_SPLIT = 36.0                                 # kBetaZ2Split (cpsi)
+Z2_SPLIT = 25.0                                 # kBetaZ2Split (cpsi; 36 until #70)
 EXP_FLOOR = -800.0                              # kBetaExpFloor
 TAU_SUBN = 2.0 ** -950                          # kBetaTauSubn
 B_TINY_CUT = 2.0 ** -140                        # kBetaBTinyCut
@@ -883,7 +883,9 @@ def strata():
         S += _pair(f"seam:band_{w}:bits", g_band_bits(w), 3 * 129, f"band_{w}")
         S += _pair(f"seam:band_{w}:band", g_band_band(w), 300, f"band_{w}")
     S += _pair("seam:z2split:bits", g_z2_bits, 4 * 129, "z2split")
-    S += _pair("seam:z2split:band", g_cpsi_band(33.0, 39.0), BAND, "z2split")
+    S += _pair("seam:z2split:band", g_cpsi_band(23.75, 26.25), BAND, "z2split")
+    S += _pair("dense:r3_old_split", g_cpsi_band(33.0, 39.0), BAND, None,
+               "around the pre-#70 split cpsi = 36, now tail lanes")
     S += _pair("seam:z2split:core_below", g_cpsi_band(20.0, 36.0), 1500, "z2split",
                "R3 Temme core just below cpsi=36 (gamma's twin 3 ULP, #70)")
     S += _pair("seam:z2split:core_big_nu", g_cpsi_band(25.0, 36.0, 1e6, 1e15), 400, "z2split")

@@ -90,9 +90,14 @@ REPLAY_TARGET = mp.mpf(2) ** -56
 # TAIL_DEG + 1 monomial coefficients in s = 1/z - C, the first TAIL_NDD of
 # them dd and evaluated by dd Horner steps. TAIL_ZHI sits above
 # sqrt(-kGammaExpFloor) = sqrt(800) ~ 28.28, the largest z of a live tail lane.
-TAIL_ZLO = 6.0
+# TAIL_ZLO = 5 since #70: the core/tail split moved from a*phi (cpsi) = 36 to
+# 25, because the core's 1 - erf form of erfc carries ~1 ulp of erfc at z = 6,
+# which the R3 assembly amplified to 2.5 ulp; at z = 5 that error is e^-11
+# smaller. Degree 17 holds the budget over the wider range (deg 15 reads
+# 2^-62.5 at z = 5; 17 reads 2^-64.4, 19 no better: the dd-step floor).
+TAIL_ZLO = 5.0
 TAIL_ZHI = 28.5
-TAIL_DEG = 15
+TAIL_DEG = 17
 TAIL_NDD = 3
 TAIL_NNODES = 96
 TAIL_TARGET = mp.mpf(2) ** -63
@@ -276,19 +281,20 @@ def r4_series_contribution(a, x, nterms):
 # separate fit so erfc's and erfinv's bits do not move.
 #
 # Variable: u = 1/z (erfc's choice -- G is a function of u^2 analytic off the
-# imaginary u axis, so on [1/28.5, 1/6] the nearest trouble is u = 0), used
+# imaginary u axis, so on [1/28.5, 1/5] the nearest trouble is u = 0), used
 # UNSCALED as s = u - C with C = the interval midpoint rounded to double: the
 # kernel forms s from the dd u = 2 * DdRecip(2z) by one DdAddD, so s is a dd
 # with no scale-constant rounding at all. Chebyshev interpolation on
-# TAIL_NNODES nodes, truncated at degree TAIL_DEG (|a_16|/a_0 ~ 2e-21), then
+# TAIL_NNODES nodes, truncated at degree TAIL_DEG (|a_17|/a_0 ~ 2e-20), then
 # re-expanded exactly into monomials in s; coefficients 0..TAIL_NDD-1 are dd,
 # the rest doubles.
 #
-# Why 3 dd steps (measured with this replay, both MulAdd semantics, deg 15):
+# Why 3 dd steps (measured with this replay, both MulAdd semantics, deg 15,
+# on the original [6, 28.5]; #70 widened it to [5, 28.5] at degree 17):
 # 1 dd step (c0 dd only) 2^-58.6; 2 steps 2^-60.9 (floor set by the double
 # step-2 rounding, |s q_2| / G ~ 2^-10); 3 steps 2^-65.4; 4 steps 2^-67.3.
 # Degree at 3 steps: 13 -> 2^-59.3, 14 -> 2^-62.8, 15 -> 2^-65.4, 16 -> same.
-# One interval at degree 15 beats erfc's three at degree 11: no per-lane
+# One interval at degree 17 beats erfc's three at degree 11: no per-lane
 # coefficient selects at all.
 def tail_g_exact(z):
     z = mp.mpf(z)
@@ -408,7 +414,7 @@ def tail_g_replay(z, tab, fused):
 
 def tail_g_points():
     """Per-arm sample: uniform in z and in u, plus bit-stepped neighbourhoods
-    of the domain edges (6, sqrt(800), 28.5) and of u = C (s ~ 0, where
+    of the domain edges (z_lo, sqrt(800), 28.5) and of u = C (s ~ 0, where
     DdAddD's Fast2Sum ordering is tightest)."""
     import random
     import struct
@@ -426,7 +432,7 @@ def tail_g_points():
         "uniform-u": [1.0 / rng.uniform(1.0 / zlive, 1.0 / TAIL_ZLO)
                       for _ in range(2000)],
     }
-    for name, e in (("edge-6", TAIL_ZLO), ("edge-sqrt800", zlive),
+    for name, e in (("edge-zlo", TAIL_ZLO), ("edge-sqrt800", zlive),
                     ("edge-28.5", TAIL_ZHI)):
         arms[name] = [unbits(bits(e) + k) for k in range(-96, 97)]
     cd = rd((1 / mp.mpf(TAIL_ZHI) + 1 / mp.mpf(TAIL_ZLO)) / 2)
