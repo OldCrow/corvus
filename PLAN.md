@@ -265,8 +265,8 @@ performance.**
         Row 12j removes each #76 tag as it corrects the text.
       - USER-GUIDE wording: "2 in erfc's far tail" now reads "2 ULP in
         erfc's far tail" (unit only, so the checker can read it).
-    - **T4 phase 1 DONE 2026-10-24** (uncommitted at write time; 36/36 on
-      AVX3_ZEN4, SSE4, SSE2 and the census build). [DERIVED]
+    - **T4 phase 1 DONE 2026-10-24** (`0f00daf`; CI 40149259523 green on
+      NEON, Linux sweep + sanitizers, Windows; summary on #82). [DERIVED]
       - Floor census: in census builds the Dekker products (TwoProd,
         DdMul, DdMulD, ProdLow, SquareLow) take the caller's
         `std::source_location` and record `floor:<file>:<line>` when lane
@@ -1361,7 +1361,7 @@ touches exp_dd/log_dd, the block's gates then run once on the final cores.
 | 12-T | #82 tooling: T1 residual column + real-error gates, T2 seam registry/audit, T3 shared strata + exact row counts, T4 floor lint, T5 hunt harness, T6 claims check, T7 route census (per-lane region/branch record in a debug build; every route, "unreachable" ones included, shown exercised) [T7 ADDED 2026-10-22, user]; then the hunt campaign (three tiers), each finding filed before 12d [ADDED 2026-10-22, user] | before 12d: the fix rows' fail-first gates use it | frontier (design) + mid | annotation pass, gates, generators, CI report | Z, CI |
 | 12d | #70 gamma_q R3 core (3 ULP vs 2) below the cpsi = 36 split: ErfcCoreDd consumed as dd; probe and mark beta's twin core [ADDED 2026-10-22, user; review M-1] | after the tooling assessment; gamma forward first | frontier | certified cpsi ∈ [34, 36) rows (fail first) | CI tiers |
 | 12e | #71 gamma_q R4 subnormal a (3 ULP, no-FMA): prescale GammaSmallQ's assembly [ADDED 2026-10-22, user; review M-2] | after 12d (same TU) | small–mid | subnormal-a rows (fail first on SSE4/SSE2) | CI tiers |
-| 12f | #72 gammainv deep-subnormal targets (5e10 ulp at a ≳ 4.5e3) + double-rounded subnormal results [ADDED 2026-10-22, user; review H-1, M-6]; + #83 gamma_q_inv tiny/subnormal a (9–1633 ULP; hunt campaign) [ADDED 2026-10-22] | after 12d/12e (inverse after forward) | frontier | subnormal p,q × a ∈ [20, 1e6] stratum (fail first) | CI tiers |
+| 12f | #72 gammainv deep-subnormal targets (5e10 ulp at a ≳ 4.5e3) + double-rounded subnormal results [ADDED 2026-10-22, user; review H-1, M-6]; + #83 gamma_q_inv tiny/subnormal a (9–1633 ULP; hunt campaign; T7 adds the bracket stall at subnormal a and q, 4–35% off) [ADDED 2026-10-22]; + #88 beta_p_inv/beta_q_inv with shape and target both denorm_min (forward value ~0 or ~313× the target; T3 cross stratum) [ADDED 2026-10-24, user] | after 12d/12e (inverse after forward) | frontier | subnormal p,q × a ∈ [20, 1e6] stratum; deferred:#83, deferred:#72 and deferred:#88 rows (fail first with CORVUS_REF_DEFERRED=1) | CI tiers |
 | 12g | #73 erfinv subnormal input (2 ULP, no-FMA): prescale before ProdLow [ADDED 2026-10-22, user; review M-5] | independent | small | subnormal-input rows (fail first on SSE4/SSE2) | CI tiers |
 | 12h | #74 erfc top subnormal binade (2 ULP vs 1): single rounding of the scaled tail [ADDED 2026-10-22, user; review M-4] | independent | small–mid | dense x ∈ [26.543, 26.6] stratum (fail first) | CI tiers |
 | 12i | #75 i0/i1/i0e/i1e series near \|x\| ≈ 7.4 (2 ULP, no-FMA) [ADDED 2026-10-22, user; review M-3] | independent | mid | dense [6, 8] strata, four functions (fail first on SSE4/SSE2) | CI tiers |
