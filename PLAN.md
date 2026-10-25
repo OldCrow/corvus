@@ -293,8 +293,9 @@ performance.**
       - The lint reports 71 of 136 sites still without an argument: those
         the census never saw reach the floor. They are #86's phase 3
         (v1.2.0), after which CI runs the lint `--strict`.
-    - **Row 12d DONE 2026-10-24** (#70; uncommitted at write time; 36/36
-      on AVX3_ZEN4, SSE4, SSE2, MSVC AVX2 and the census build). [DERIVED]
+    - **Row 12d DONE 2026-10-24** (#70 closed; `c24adf6`; CI 40156682698
+      green on NEON, Linux sweep + sanitizers, Windows). **NEXT: 12e**
+      (#71, same TU). [DERIVED]
       - Cause: the R3 core's ½ erfc(z) is 1 − erf(z) (ErfcCoreDd), whose
         error relative to erfc grows like e^{z²}. That is about one erfc
         ulp at z = 6, amplified to 2.51 ulp real just below the old split
