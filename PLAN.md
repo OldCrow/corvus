@@ -293,8 +293,9 @@ performance.**
       - The lint reports 71 of 136 sites still without an argument: those
         the census never saw reach the floor. They are #86's phase 3
         (v1.2.0), after which CI runs the lint `--strict`.
-    - **Row 12f, part A DONE 2026-10-25** (#72; uncommitted at write
-      time; 36/36 on AVX3_ZEN4, SSE4, SSE2 and the census build). [DERIVED]
+    - **Row 12f, part A DONE 2026-10-25** (#72 closed; `3e4841e`; CI
+      40163504662 green on NEON, Linux sweep + sanitizers, Windows).
+      [DERIVED]
       - H-1: gammainv's R3 forward takes ln F = −a·φ + log(brk) on tail
         lanes (GammaTemmeOut gains ln_e = −a·φ unclamped, brk and tail).
         The first try used the clamped exponent and broke far iterates
@@ -308,7 +309,7 @@ performance.**
         0.58, beyond-resolution 0.65 → 0.57 (p) and 1.01 → 0.71 (q), p
         deep-small 0.73 → 0.53. 22 #83 rows remain deferred.
       - **NEXT: part B** (#83's 22 rows: q-side tiny a, roots near
-        2^-1022), then **part C** (#88).
+        2^-1022; in progress), then **part C** (#88).
     - **Row 12e DONE 2026-10-24** (#71 closed; `1d21c7d`; CI 40160183991
       green on NEON, Linux sweep + sanitizers, Windows; #83 progress
       noted). **NEXT: 12f** (#72 + #83 + #88). [DERIVED]
