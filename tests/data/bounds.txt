@@ -12,7 +12,7 @@
 # edits the gate field here, a contract change edits published and the docs.
 beta_p|R1 series cmp|ulp|1|1|beta.R1
 beta_p|R1 series dir|ulp|1|1|beta.R1
-beta_p|R2 cf     cmp|ulp|0|0|beta.R2.cmp
+beta_p|R2 cf     cmp|ulp|1|1|beta.R2.cmp
 beta_p|R2 cf     dir|ulp|1|1|beta.R2.dir
 beta_p|R2 gammalim c|ulp|0|0|beta.GL
 beta_p|R2 gammalim d|ulp|0|0|beta.GL
@@ -30,7 +30,7 @@ beta_p_inv|ridge (S1 territory)|ulp|1|1|betainv
 beta_p_inv|small-parameter remainder|ulp|1|1|betainv
 beta_q|R1 series cmp|ulp|1|1|beta.R1
 beta_q|R1 series dir|ulp|1|1|beta.R1
-beta_q|R2 cf     cmp|ulp|0|0|beta.R2.cmp
+beta_q|R2 cf     cmp|ulp|1|1|beta.R2.cmp
 beta_q|R2 cf     dir|ulp|1|1|beta.R2.dir
 beta_q|R2 gammalim c|ulp|0|0|beta.GL
 beta_q|R2 gammalim d|ulp|0|0|beta.GL
@@ -73,7 +73,7 @@ gamma_p|R3 temme  dir|ulp|1|2|gamma.R3.dir
 gamma_p|R4 smalla cmp|ulp|1|1|gamma.R4
 gamma_p_inv|S1 (a_T..3e34)|ulp|1|1|gammainv
 gamma_p_inv|beyond-resolution|ulp|1|1|gammainv
-gamma_p_inv|deep-small closed form|ulp|1|0|gammainv.deep_small|#76
+gamma_p_inv|deep-small closed form|ulp|1|1|gammainv.deep_small
 gamma_p_inv|small-a mid seed|ulp|1|1|gammainv
 gamma_p_inv|small-a tail seed|ulp|1|1|gammainv
 gamma_q|R1 series cmp|ulp|1|1|gamma.R1
@@ -83,7 +83,7 @@ gamma_q|R3 temme  dir|ulp|1|2|gamma.R3.dir
 gamma_q|R4 smalla dir|ulp|1|1|gamma.R4
 gamma_q_inv|S1 (a_T..3e34)|ulp|1|1|gammainv
 gamma_q_inv|beyond-resolution|ulp|1|1|gammainv
-gamma_q_inv|deep-small closed form|ulp|1|0|gammainv.deep_small|#76
+gamma_q_inv|deep-small closed form|ulp|1|1|gammainv.deep_small
 gamma_q_inv|small-a mid seed|ulp|1|1|gammainv
 gamma_q_inv|small-a tail seed|ulp|1|1|gammainv
 i0|neg series|ulp|1|1|bessel
@@ -102,8 +102,8 @@ i1e|neg series|ulp|1|1|bessel
 i1e|neg tail|ulp|1|1|bessel
 i1e|pos series|ulp|1|1|bessel
 i1e|pos tail|ulp|1|1|bessel
-lbeta|big band|ulp|0|0|lbeta.relative
-lbeta|relative|ulp|0|0|lbeta.relative
+lbeta|big band|ulp|1|1|lbeta.relative
+lbeta|relative|ulp|1|1|lbeta.relative
 lgamma|neg abs(lg)>=1|ulp|1|1|lgamma.neg
 lgamma|pos big|ulp|0|0|lgamma.stirling
 lgamma|pos mid|ulp|1|1|lgamma.pos
@@ -120,10 +120,10 @@ sin|neg small|ulp|1|1|trig
 sin|pos huge|ulp|1|1|trig
 sin|pos small|ulp|1|1|trig
 trigamma|negative|ulp|1|1|trigamma
-trigamma|pos (0,1)|ulp|1|0|trigamma.pos01|#76
+trigamma|pos (0,1)|ulp|1|1|trigamma.pos01
 trigamma|pos asym [8,inf)|ulp|1|1|trigamma
 trigamma|pos walk [2,8)|ulp|1|1|trigamma
 trigamma|pos zone [1,2)|ulp|1|1|trigamma
 lgamma|neg abs(lg)<1|abs53|1|1|lgamma.neg_abs
 digamma|neg abs(psi)<1|abs53|1|1|digamma.neg_abs
-lbeta|absolute|abs53|0.5|0.5|lbeta.abs
+lbeta|absolute|abs53|1|1|lbeta.abs

@@ -269,6 +269,12 @@ def strata():
           (float.fromhex("0x1.d0b296b5b1b25p-4"), float.fromhex("0x1.d8620a769c840p-7"))]
     add("witness:route_reject_nan", lambda r, n: list(rw), len(rw),
         note="gammainv/bracket/reject_nan at ordinary shapes (correctly rounded)")
+    # #76 (review M-6, L-1) witnesses: the +0/denorm_min tie (now CR since
+    # 12f) and a deep-small near-tie miss (1 ULP, 0.501 real).
+    w76 = [(float.fromhex("0x1.88b12f89a20c8p-4"), float.fromhex("0x1.013a295afed95p-103")),
+           (float.fromhex("0x1.570f4055140d5p-3"), float.fromhex("0x1.bea0e967ed1fap-11"))]
+    add("issue76:witness", lambda r, n: list(w76), len(w76),
+        note="#76 review witnesses (deep-small near-tie; subnormal/zero tie)")
     # 12. T2 completion (#82): seam buckets the audit found empty.
     cfa = 6.696928794914171e+299
     add("seam:cf_amax:band",

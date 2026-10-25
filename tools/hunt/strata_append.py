@@ -327,7 +327,11 @@ def _violations(fn_bound, fns, args_list, results, k_of):
         res, _ = results[k_of(args)]
         for j, f in enumerate(fns):
             cr = float.fromhex(res[j][0]) if res[j][0].startswith(("0x", "-0x")) else float(res[j][0])
-            bound, tol = fn_bound[f](args, cr, res[j][1])
+            bound, tol, tie = fn_bound[f](args, cr, res[j][1])
+            # A CR cell's documented near-tie exception (#76): a 1-ULP result
+            # whose stored residual is within the stratum's tie_exempt of 1/2
+            # is a tie, not a violation -- the hunt scorer's and the gates' rule.
+            tie_ok = bound == 0 and tie and 0.5 - abs(res[j][1]) < tie
             for tier in TIERS:
                 o = outs[tier][i * len(fns) + j]
                 if tol is not None:
@@ -337,21 +341,24 @@ def _violations(fn_bound, fns, args_list, results, k_of):
                             bad[i] = (tier, f, "abs")
                     continue
                 u = ulp_dist(o, cr)
+                if tie_ok and u == 1:
+                    continue
                 if u > bound and (i not in bad or bad[i][2] == "abs" or u > bad[i][2]):
                     bad[i] = (tier, f, u)
     return bad
 
 
 def _bounds(strata_by_fn):
-    """fn -> (args, cr, r) -> (integer bound, absolute tolerance or None),
-    from the family's first stratum for that fn (its region-aware bound)."""
+    """fn -> (args, cr, r) -> (integer bound, absolute tolerance or None,
+    tie_exempt), from the family's first stratum for that fn (its
+    region-aware bound)."""
     out = {}
     for f, s in strata_by_fn.items():
         def b(args, cr, r, s=s):
             with mp.workdps(60):
                 v = mpf(cr) + mpf(r) * quantum(cr) if math.isfinite(cr) else mpf(cr)
                 tol = s.abs_tol(args, v) if s.abs_tol else None
-                return s.bound(args, v), tol
+                return s.bound(args, v), tol, getattr(s, "tie_exempt", 0.0) or 0.0
         out[f] = b
     return out
 

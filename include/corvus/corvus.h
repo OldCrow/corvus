@@ -113,9 +113,11 @@ void erfcinv(std::span<const double> in, std::span<double> out) noexcept;
 ///
 /// Three spans, all the same length: `a`, `x` and `out`. Whichever of the
 /// pair is the smaller at a given (a, x) is the one computed directly, so
-/// the accuracy bound is relative on that side however far it underflows;
-/// the other side is >= ~0.4 by construction. See docs/ACCURACY.md for the
-/// measured per-region table.
+/// the accuracy bound is relative on that side however far it underflows.
+/// The other side is the complement of the direct side's double-double,
+/// taken before any rounding; it is not always large (Q ~ 0.13 occurs) and
+/// keeps the same per-region bound. See docs/ACCURACY.md for the measured
+/// per-region table.
 ///
 /// Specials: P(a, 0) = +0 and P(+inf, x) = +0 for finite a, x; P(0, x) = 1
 /// and P(a, +inf) = 1 for finite a, x; P(0, 0), P(+inf, +inf) and any
@@ -166,9 +168,11 @@ void gamma_q(std::span<const double> a, std::span<const double> x,
 ///
 /// Four spans, all the same length: `a`, `b`, `x` and `out`. Whichever of the
 /// pair is the smaller at a given (a, b, x) is the one computed directly, so
-/// the accuracy bound is relative on that side however far it underflows; the
-/// other side is >= ~0.4 by construction. See docs/ACCURACY.md for the
-/// measured per-region table.
+/// the accuracy bound is relative on that side however far it underflows. The
+/// other side is the complement of the direct side's double-double, taken
+/// before any rounding; it can be as small as ~2^-11 (below that the kernel
+/// computes it directly) and keeps the same per-region bound. See
+/// docs/ACCURACY.md for the measured per-region table.
 ///
 /// Specials, with `a` and `b` finite and positive unless stated: I_0(a, b) =
 /// +0 and I_1(a, b) = 1; a = 0 or b = +inf puts all the mass at 0, so
@@ -220,10 +224,11 @@ void beta_q(std::span<const double> a, std::span<const double> b,
 /// them.) Computed through the same double-double lgamma-difference
 /// machinery as beta_p/beta_q's prefactor, so the a+b cancellation that
 /// costs a plain three-lgamma assembly its accuracy for large parameters
-/// is removed analytically. Accuracy: <!-- claim: lbeta.relative --> CORRECTLY ROUNDED on every measured
-/// row of every band and tier — 0 ULP where |ln B| >= 1, <!-- claim: lbeta.abs --> half-ulp
-/// absolute in the band around ln B's zero curve through (1,1), where the
-/// result itself is ill-conditioned (docs/ACCURACY.md). Symmetric in
+/// is removed analytically. Accuracy: <!-- claim: lbeta.relative --> max 1 ULP where |ln B| >= 1,
+/// <!-- claim: lbeta.abs --> 2^-53 absolute in the band around ln B's zero curve through (1,1),
+/// where the result itself is ill-conditioned; measured correctly rounded on
+/// the reference set except near-ties (docs/ACCURACY.md; it was documented
+/// as correctly rounded until v1.1.0). Symmetric in
 /// (a, b); saturates to -inf
 /// where the true ln B falls below the double range (both parameters
 /// huge); NaN propagates as a quiet NaN (the input payload is not preserved).
@@ -282,10 +287,12 @@ void trigamma(std::span<const double> in, std::span<double> out) noexcept;
 /// Whichever of p and 1 - p is <= 1/2 is the one solved against, the switch
 /// being exact, so the accuracy bound is relative on both sides of the
 /// median and down to subnormal answers. See docs/ACCURACY.md for the
-/// measured per-regime table. Note that for a above ~3e34 the whole
-/// transition from P = 0 to P = 1 happens inside one ulp of x, so the answer
-/// there is x = a for every p in (0, 1) that is not a hard limit; that is
-/// the correctly rounded result, not a shortcut.
+/// measured per-regime table. Note that for a above ~3e34 one ulp of x
+/// already carries P from saturated-0 to saturated-1, so the answer is a or
+/// one of its neighbours for every p in (0, 1) that is not a hard limit;
+/// above ~5e35 the whole transition fits inside half an ulp and the answer
+/// is x = a exactly. Either way it is the correctly rounded result (within
+/// the 1-ULP bound), not a shortcut.
 ///
 /// Specials: p = 0 gives +0 and p = 1 gives +inf; p outside [0, 1] gives
 /// NaN, as do a <= 0 and a = +inf; NaN propagates (payload preserved).

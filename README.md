@@ -42,8 +42,9 @@ that promises — and what it deliberately does not.
   through) the subnormals, including Q for arbitrarily small a.
 - `beta_p` / `beta_q` (regularized incomplete beta): <!-- claim: beta.R3.dir --> max 3 ULP on the
   directly computed (smaller) side over the whole (a, b, x) domain — the
-  <!-- claim: beta.R2.dir beta.GL #76 --> continued-fraction and gamma-limit regions are correctly rounded, the
-  Temme ridge carries the 3 — with the same always-compute-the-smaller-side
+  continued-fraction region is <!-- claim: beta.R2.dir --> 1 ULP, the gamma-limit slice
+  <!-- claim: beta.GL --> correctly rounded, the Temme ridge carries the 3; per-region cells in
+  docs/ACCURACY.md — with the same always-compute-the-smaller-side
   relative guarantee as the gamma pair, down to subnormal results and out
   to parameters at the ends of the double range. The reference set is
   additionally certified by an independent verification harness, and every
@@ -57,15 +58,18 @@ that promises — and what it deliberately does not.
   where the reflection's terms cancel by ~49 bits and a plain-double
   assembly would keep only 3–4 correct bits.
 
-- `trigamma`: <!-- claim: trigamma --> max 1 ULP over the full real axis — <!-- claim: trigamma.pos01 --> correctly rounded on
-  (0, 1) — under a single relative metric everywhere: ψ₁ is a sum of
+- `trigamma`: <!-- claim: trigamma --> max 1 ULP over the full real axis (on (0, 1)
+  <!-- claim: trigamma.pos01 --> 1 ULP too, measured correctly rounded on the reference set except
+  near-ties) — under a single relative metric everywhere: ψ₁ is a sum of
   squares with no zeros on either axis, so unlike lgamma and digamma no
   absolute-error band exists, even near the reflection's poles.
 
 - `gamma_p_inv` / `gamma_q_inv` (inverse regularized incomplete gamma —
   directly the Gamma-distribution quantile): <!-- claim: gammainv --> max 1 ULP over the whole
   (a, p) domain, on both sides of the median (the solve-side switch is
-  exact), with subnormal and zero results <!-- claim: gammainv.deep_small --> correctly rounded. Since no
+  exact); its deep-small closed form, subnormal and zero results included, is
+  <!-- claim: gammainv.deep_small --> 1 ULP, measured correctly rounded on the reference set except
+  near-ties. Since no
   library baseline exists for the inverse, every reference row is
   individually bracket-certified: the stored answer is proven to be the
   correctly rounded inverse of its exact double input.
@@ -74,7 +78,7 @@ that promises — and what it deliberately does not.
   directly the Beta-distribution quantile): <!-- claim: betainv --> max 1 ULP over the whole
   (a, b, p) domain (<!-- claim: betainv.B --> 2 ULP only where the entire 0→1 transition sits
   inside one or two ulp of x, so neighbouring doubles are equally
-  correct), with subnormal and endpoint results correctly rounded, and BOTH ends of [0, 1] lossless — the kernel always solves
+  correct), subnormal and endpoint results within the same 1 ULP, and BOTH ends of [0, 1] lossless — the kernel always solves
   for whichever of x, 1−x is small, so `beta_p_inv(b, a, q)` returns
   1−x at full relative precision (SciPy's `betaincinv`, for
   comparison, degrades to ~10¹¹ ULP near 1). Where both parameters
@@ -85,9 +89,10 @@ that promises — and what it deliberately does not.
   the measured backward error is 0.000 ulp. Every reference row is
   individually bracket-certified, as with the gamma inverse.
 
-- `lbeta` (ln B(a,b)): <!-- claim: lbeta.relative --> **correctly rounded on every measured row** —
-  0 ULP wherever |ln B| >= 1 and <!-- claim: lbeta.abs --> half-ulp absolute in the
-  ill-conditioned band around ln B's zero curve. Computed through the
+- `lbeta` (ln B(a,b)): <!-- claim: lbeta.relative --> max 1 ULP wherever |ln B| >= 1 and
+  <!-- claim: lbeta.abs --> 2^-53 absolute in the ill-conditioned band around ln B's zero
+  curve (it was documented as correctly rounded until v1.1.0; near-ties
+  round either way — the erratum is in docs/ACCURACY.md). Computed through the
   beta family's double-double lgamma-difference machinery, so the a+b
   cancellation that degrades a naive lgamma(a)+lgamma(b)-lgamma(a+b)
   assembly at large parameters is removed analytically. Positive
@@ -100,13 +105,13 @@ that promises — and what it deliberately does not.
   no conditioning caveats. The unscaled forms saturate to ±inf exactly
   at the measured overflow boundary (|x| ≈ 713.99); the scaled forms
   stay finite to DBL_MAX and never underflow. For von Mises work:
-  log I0(κ) composes as `log(i0e(x)) + x`, and A(κ) = `i1e/i0e`
-  composes exactly (see docs/ACCURACY.md for the recipes, including
-  stable higher-order I_j for the CDF series).
+  log I0(κ) composes as `log(i0e(x)) + x` and A(κ) as `i1e/i0e`; see
+  docs/ACCURACY.md for their measured accuracy and the recipes, including
+  stable higher-order I_j for the CDF series.
 
 - `exp` / `log` / `log1p`: <!-- claim: log --> **log and log1p correctly rounded on every
-  reference row (0-ULP gates); <!-- claim: exp.normal --> exp correctly rounded on every
-  normal-result row**, <!-- claim: exp.subnormal --> 1 ULP in the subnormal band, with overflow to
+  reference row (0-ULP gates); <!-- claim: exp.normal --> exp correctly rounded on normal
+  results except within ~2^-15 ulp of a rounding tie** (exp(2^-53) is one), <!-- claim: exp.subnormal --> 1 ULP in the subnormal band, with overflow to
   +inf and gradual underflow to +0 crossing at the correctly rounded
   thresholds (exp(−inf) = +0 exactly). Thin assemblies over corvus's
   audited internal double-double cores — nothing here depends on the
@@ -245,7 +250,8 @@ sets neither.
 ### Platforms and compilers
 
 CI builds and tests on Linux x86-64 (GCC), macOS arm64 (Apple Clang),
-and Windows x86-64 (MSVC). Two Windows-specific points are worth knowing:
+and Windows x86-64 (MSVC and clang-cl). Two Windows-specific points are
+worth knowing:
 
 - **Without `-G Ninja` you get the Visual Studio generator**, which is
   multi-config: it ignores `CMAKE_BUILD_TYPE`, builds `Debug` by default,
@@ -270,9 +276,11 @@ and Windows x86-64 (MSVC). Two Windows-specific points are worth knowing:
   AVX2 or above: GCC 16.1 miscompiles 256- and 512-bit by-value vector
   arguments on the Windows ABI (misaligned stack temporaries — crashes
   depend on call-chain luck; GCC PR 126741, see docs/ACCURACY.md). It
-  remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4). This one bites
-  at *run* time, not build time: the build succeeds
-  and the binary faults, which reads like a bug in your own code.
+  remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4). corvus's
+  configure step therefore refuses mingw GCC when 256-bit or wider targets
+  are compiled in (cmake/ToolchainGuard.cmake); cap the build to the
+  128-bit tiers to use it. Unguarded, the build would succeed and the
+  binary fault, which reads like a bug in your own code.
   `corvus::active_target()` reports the tier runtime dispatch actually
   selected, and is the only reliable way to know.
 
@@ -311,7 +319,7 @@ corvus::beta_p(a, b, x, p);                // x in [0, 1]
 corvus::beta_q(a, b, x, p);
 corvus::beta_p_inv(a, b, p, x);            // Beta quantile: I_x(a,b) = p
 corvus::beta_q_inv(a, b, p, x);
-corvus::lbeta(a, b, p);                    // ln B(a,b), correctly rounded
+corvus::lbeta(a, b, p);                    // ln B(a,b), 1 ULP
 
 corvus::i0(x, y);                          // modified Bessel I0, I1
 corvus::i1(x, y);

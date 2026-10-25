@@ -9951,6 +9951,9 @@
 # stratum witness:route_reject_nan
 0x1.35e480e2883cep-3 0x1.f8dbcaf539fbdp-1 0x1.83ffa8f0bb38ep-42 r=-0.347124
 0x1.d0b296b5b1b25p-4 0x1.d8620a769c840p-7 0x1.6e9c81c71b23fp+0 r=-0.069391
+# stratum issue76:witness
+0x1.88b12f89a20c8p-4 0x1.013a295afed95p-103 0x1.0534102ae666fp+6 r=0.004025
+0x1.570f4055140d5p-3 0x1.bea0e967ed1fap-11 0x1.023ad38a677afp+2 r=0.335502
 # stratum seam:cf_amax:band
 0x1.ecb158cda314ap+995 0x1.fffffffff9ea8p-1 0x1.ecb158cda314ap+995 r=0.000000
 0x1.e706f2c028d94p+995 0x0.c7114ac89277bp-1022 0x1.e706f2c028d94p+995 r=0.000000

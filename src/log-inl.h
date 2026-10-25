@@ -24,7 +24,9 @@
 //          subtraction captured by Fast2Sum (|x^2/2| <= 2^-61|x| << |x|),
 //          and the residual + x^2 tail + cubic folded into one low word.
 //          Error budget at the cut (worst case both regimes): neglected
-//          x^4/4 <= 2^-122 relative; series-side rounding ~2^-23 ulp;
+//          x^4/4 <= 2^-122 absolute, i.e. 2^-92 relative to the result ~x
+//          (it said "relative" until #76, review L-14); series-side
+//          rounding ~2^-23 ulp;
 //          main-path absolute error ~2^-105 against ulp(2^-30) = 2^-82
 //          is ~2^-23 ulp. Total <= 0.5 + ~2^-23 ulp everywhere -- inside
 //          the library's CR-except-near-tie standard with margin.

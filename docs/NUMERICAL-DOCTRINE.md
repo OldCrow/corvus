@@ -35,7 +35,8 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   relief, and was reverted. MEASURED EXEMPTIONS (recorded 2026-08-29;
   the rule is a build-time tool, not an end in itself): lgamma's cores
   and LgammaVec stay HWY_INLINE — the 2026-08-11 retro pass measured that
-  outlining LgammaLog alone met the build-time goal (193 s → 72 s) and
+  outlining its log call alone (today the shared OutlinedLogDd,
+  log_dd-inl.h) met the build-time goal (193 s → 72 s) and
   stopped there deliberately; erf/erfc carry no HWY_NOINLINE at all —
   they are the cheapest TUs in the library and have never shown a
   build-time problem; the elementary family's Vec wrappers (ExpVec,
@@ -49,8 +50,9 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   Impl is a dispatch-table root that is never inlined, so every
   instantiation is one outlined driver per family per target and the
   MSVC rule applies per instantiation, unchanged. MSVC additionally gets
-  `/d2ReducedOptimizeHugeFunctions` on the heaviest TUs (gamma.cpp,
-  beta.cpp; CMakeLists; real MSVC only, clang-cl rejects /d2 flags) —
+  `/d2ReducedOptimizeHugeFunctions` on the four heaviest TUs (gamma.cpp,
+  beta.cpp, gammainv.cpp, betainv.cpp; CMakeLists; real MSVC only,
+  clang-cl rejects /d2 flags) —
   erfinv needed no such flag once outlined.
 - dd layer: `src/dd-inl.h` holds the double-double primitives (Fast2Sum,
   TwoSum, TwoProd, DdAdd/DdMul/DdRecip, DdSqrt, DdRecipDd), written
@@ -145,8 +147,10 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   Incidents: #47's R4 seam fix (beta-inl.h, order row 5) missed
   BetaInvForward's copy of the router until #55 traced a betainv failure
   to it (row 9). #57's z.lo fold and #64's dd G (gamma's Temme tail) missed
-  beta's copy of that tail, which still has the 2026-08-01 form; beta's
-  3-ULP R3 bound absorbed it (row 12b).
+  beta's copy of that tail, whose 3-ULP R3 bound absorbed it (row 12b);
+  #69 (row 12c) brought beta's tail level, and the shared GammaTailG now
+  serves gamma, beta and erfc (#74). #84's router predicate reached all
+  its twins in one change (row 12k).
 
 ## Test doctrine
 

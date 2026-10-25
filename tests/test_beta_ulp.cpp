@@ -60,7 +60,11 @@ using corvus_test::UlpDiff;
 // the OLD row, so its true error there is 1 ulp -- the old 0 was an
 // artifact of the reference's own double rounding, not a kernel change.
 constexpr uint64_t kGateR1Dir = 1, kGateR1Cmp = 1;
-constexpr uint64_t kGateR2Dir = 1, kGateR2Cmp = 0;
+// R2-cmp 0 -> 1 at #76 (order row 12j, review M-9): beta_p at
+// (0x1.7ebfd5597637bp+4, 0x1.390d72284b741p+4, 0x1.1e9d7495b0b32p-1) is a
+// near-tie miss, 0.5015 ulp real, 1 ULP. The cell was never CR; it is now
+// gated at 1 with that witness row (measured CR elsewhere in the set).
+constexpr uint64_t kGateR2Dir = 1, kGateR2Cmp = 1;
 // R3-dir 3 -> 1 at #69 (order row 12c): the Temme tail (cpsi > 36) took
 // erfc's plain-double G, a rounded G/(2z) and no z.lo fold; gamma's twin
 // had all three fixed (#57, #64). 2202 --r3tail-append rows at G weight

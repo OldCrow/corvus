@@ -47,6 +47,7 @@ Only `include/corvus/corvus.h` is public.
 |---|---|
 | Remove/rename a function, change a signature or parameter order | MAJOR |
 | Loosen a published accuracy bound on a validated tier | MAJOR |
+| Correct a published bound no release ever met (an erratum, below) | MINOR |
 | Change documented special-value behavior | MAJOR |
 | Raise the required C++ standard | MAJOR |
 | Add a function or overload | MINOR |
@@ -58,6 +59,23 @@ Only `include/corvus/corvus.h` is public.
 Boundary case: fixing a function whose actual behavior violated its
 documentation is a PATCH even when results change visibly — the
 documentation was the contract, and the fix restores it.
+
+**Errata.** A published bound that was never true is corrected, not
+loosened. It is an erratum, not a MAJOR change, only when all three
+hold:
+
+1. no release met the published bound, so no consumer could have relied
+   on behavior corvus never delivered;
+2. the gate never enforced it, because the test pinned a looser value
+   or the reference set held no row that would have failed;
+3. the release notes of the correcting release disclose it, naming the
+   cell, the old and new bound, and the witness input.
+
+Where corvus can instead make the published bound true, it fixes the
+kernel (a PATCH). An erratum is for a bound that cannot be met without a
+redesign, typically a correctly-rounded claim that a near-tie miss
+falsifies. Each erratum keeps a paragraph in ACCURACY.md, in its
+function's section.
 
 ## Per-tier claims
 

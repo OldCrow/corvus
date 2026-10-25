@@ -1,10 +1,9 @@
 """lbeta hunt strata (#82).
 
-Bound (docs/ACCURACY.md, lbeta): CORRECTLY ROUNDED -- 0 ULP wherever
-|ln B| >= 1 (relative metric), and absolute 0.5 * 2^-53 (the final rounding)
-in the band |ln B| < 1 around ln B's zero curve through (1, 1). The 0-ULP
-claim is disputed by #76 (~2% not-CR on [0.25, 4]^2), so violations are
-expected and counted; tie_exempt = 0.
+Bound (docs/ACCURACY.md, lbeta): 1 ULP wherever |ln B| >= 1 (relative
+metric), and absolute 1 * 2^-53 in the band |ln B| < 1 around ln B's zero
+curve through (1, 1). It was documented as correctly rounded until #76
+(order row 12j) found ~2% not-CR on [0.25, 4]^2; tie_exempt = 0.
 
 Oracle: ln B = lgamma(m) + lgamma(M) - lgamma(m + M) at cancellation-aware
 precision (_beta_oracles.ln_beta: absolute accuracy 10^-dps, digits for the
@@ -44,7 +43,7 @@ SEAMS = [
     {"fn": "lbeta", "name": "abs_band", "coord": "|ln B|", "value": 1.0, "source": "ACCURACY.md absolute band edge"},
 ]
 
-ABS_TOL = mpf(0.5) * mpf(2) ** -53
+ABS_TOL = mpf(2) ** -53  # #76: was 0.5 * 2^-53
 
 
 def _oracle(args, dps):
@@ -62,7 +61,7 @@ def _oracle2(args, dps):
 
 
 def _bound(args, v):
-    return 0
+    return 1  # #76
 
 
 def _abs_tol(args, v):

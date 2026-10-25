@@ -26,6 +26,20 @@ performance.**
   "contradictions" (they agree with ACCURACY), and M-17's floor percentages.
   **`a8525a7` is no longer the freeze head; R1/R2 are ON HOLD** until R0 is
   re-run after 12j.
+- **v1.1.0 errata (release notes, RELEASING step 12) [DERIVED 2026-10-25].**
+  Each was never met by a release and never enforced by a gate; each has
+  an "Erratum" paragraph in docs/ACCURACY.md naming its witness.
+  - gamma_p/gamma_q R2 and R4 complements: 0 → 1 ULP (row 12).
+  - beta_p_inv/beta_q_inv deep-small closed form and subnormal/x = 1 results:
+    0 → 1 ULP (row 9).
+  - lbeta: 0 → 1 ULP relative, 2^-54 → 2^-53 absolute (#76, row 12j).
+  - beta R2 complement: 0 → 1 ULP (#76 M-9).
+  - trigamma on (0, 1): CR → 1 ULP; the gate was already 1 (#76 M-8).
+  - gamma_p_inv/gamma_q_inv deep-small closed form and subnormal/zero results:
+    CR → 1 ULP; the gate was already 1 (#76 M-6, L-1).
+  Disclosed as v1.0.x defects but fixed, bound kept (PATCH-class, list
+  under notable fixes): the i0/i1/i0e/i1e tail (#52, row 10); erfc's top
+  subnormal binade (#74, dd G chosen over an erratum). [DERIVED]
 - **Tooling assessment before 12d [user, 2026-10-22]:** these
   defects passed our generators and gates, so before any fix: decide what
   changes in the reference/gate tooling (fail-first gates for each band,
@@ -356,6 +370,25 @@ performance.**
         (the existing ~2,200-row [6, 8) strata never caught a row).
       - Done-when met: the documented not-CR rate is re-measured
         (ACCURACY.md table).
+    - **Row 12j DONE 2026-10-25** (#76; uncommitted at write time; 36/36
+      on AVX3_ZEN4, SSE4, SSE2, census and MSVC Release). [DERIVED]
+      - Errata (the list under Status): lbeta, beta R2 complement,
+        trigamma (0, 1), gammainv deep-small and subnormal/zero. Each has
+        an ACCURACY "Erratum" paragraph naming its witness, and each
+        witness is a reference row. Gates: lbeta 1 / 2^-53, beta R2 cmp 1.
+      - exp: rows within 2^-15 of a tie may miss by 1 ULP (the header's
+        exception), and the report counts them. strata_append honours a
+        stratum's tie exemption for CR cells.
+      - VERSIONING gains the errata clause and its MINOR row; RELEASING
+        step 12 lists errata. The other review items (M-13, M-14, L-2,
+        L-8 to L-14, L-16, L-17, I-1) are text fixes, with figures
+        re-measured where the text quoted a number.
+      - Audits: claims_check 38 claims / 95 markers, 0 failures, 0 known
+        mismatches; pins match on three tiers; route census unchanged
+        (4 unexercised, 5 argued unreachable); floor lint clean; seam
+        audit 0 empty, 0 unmapped. No deferred:#76 section remains.
+      - **NEXT:** commit 12j on the user's signal, CI, close #76; then
+        the K/M1 runbook refresh and pause.
     - **Row 12k DONE 2026-10-25** (#84, #85 closed; `502d1dc`; CI 40229577338 green;
       36/36 on AVX3_ZEN4, SSE4, SSE2, census and MSVC Release). [DERIVED]
       - #84: the gamma-limit ridge is gated on s = min(a, b), not ν, in
@@ -374,8 +407,6 @@ performance.**
         failed first (61 rows) and are gated. R1-complement sweep worst
         1.23 → 0.501; pin 0.93 → 0.52. New seams lgamma_table_max (16)
         and lgamma1p_table_max (15) are registered with rows.
-      - **NEXT:** row 12j (#76, contract text, last), then the K/M1 runbook
-        refresh and pause.
     - **Row 12g DONE 2026-10-25** (#73 closed; `940c9f9`; CI 40219413347
       green on NEON, Linux sweep + sanitizers, Windows). [DERIVED]
       - ErfinvCentral: for |y| < 2^-900 the product is formed at
@@ -531,7 +562,7 @@ release tail" (records/CORVUS-ADOPTION-WORKPLAN.md).
 - Cost ~+1.2% on bench_beta R3 (indicative, ~21% ambient load).
 - Commit note (twin rule): twin gamma <-> beta tail now in step.
 
-**Twin-drift rule [DECIDED 2026-10-21, user] — uncommitted at write time.**
+**Twin-drift rule [DECIDED 2026-10-21, user] — committed in `3a5d63f`.**
 NUMERICAL-DOCTRINE.md hazard rules gain "copied code has twins; a fix
 reaches every twin": `// TWIN:` markers at both ends of every copy, and a
 fix commit greps and disposes of each twin. Incidents: #47 -> #55
@@ -541,18 +572,8 @@ BetaInvForward; gamma prescale <-> gammainv prescale; gamma region map <->
 gammainv region map.
 - **#69 -> order row 12c [DECIDED 2026-10-22: adversarial re-score, 3,000/3,000
   certified (C/D forms, 1.3e-45), P and Q direct reach 4 ULP vs the published 3;
-  user pre-approved this fork]. Subagent implementing; verdict on #69.** It
-  still has the 2026-08-01 form (plain G,
-  rounded G/(2z), no z.lo). A read-only dense two-oracle re-score is
-  running (scratchpad beta-tail/). Breaks 3 ULP -> v1.1.0 order row;
-  within 3 -> tightening, v1.2.0.
-  PARTIAL (2026-10-21, posted on #69): smoke 300 rows reach 2 ULP direct;
-  attribution G -1.15, division -0.66, z.lo -0.54 ulp; a 20k prescreen
-  predicts up to +3.78 ulp, so a >3 ULP break is likely. Unconfirmed: the
-  adversarial and broad sweeps were unfinished; re-run the adversarial set
-  with capped workers (<= 6) if they never report. Stopped for shutdown
-  2026-10-21; scripts, point sets, harnesses and a RESTART.md are staged at
-  ~/Development/corvus-scratch/beta-tail-2026-10-21/ (outside the repo).
+  user pre-approved this fork].** Resolved by row 12c (`87ef42d`, #69 closed):
+  beta's tail now has gamma's dd G, dd G/(2z) and z.lo fold. [DERIVED]
 
 **Order row 12b (#64): DONE 2026-10-21 on Z**, `d0fb2e1`. CI GREEN via run
 39477235960 on 991a700 (macOS re-run after a runner shortage); #64 closed. As implemented:
@@ -576,9 +597,8 @@ gammainv region map.
   published bound stays 2. gammainv gate output byte-identical.
 - Cost: +3% (n = 1e4) / +7% (n = 1e6) on bench_gamma R3, best of 5,
   machine NOT quiet (~50% ambient): INDICATIVE, re-run quiet if needed.
-- [OPEN] beta sibling: src/beta-inl.h:1048 uses the plain-double
-  ErfcTailGFromU G with no z.lo fold in its tail; likely the same exposure.
-  GammaTailG could be reused. Not investigated.
+- Beta sibling (plain-double G, no z.lo fold in beta's tail): it was the
+  same exposure, filed as #69 and fixed by row 12c. [DERIVED]
 
 **CI: macOS NEON_BF16 guard integrated 2026-10-21** (`f85aa37`, cherry-pick
 of `b3f1b4a` from `ci/macos-neon-cap`). Hosted macos-26-arm64 runners can

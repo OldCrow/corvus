@@ -17,8 +17,8 @@ beta_p|R1 series cmp|fma|0.52
 beta_p|R1 series cmp|nofma|0.52
 beta_p|R1 series dir|fma|0.53
 beta_p|R1 series dir|nofma|0.53
-beta_p|R2 cf     cmp|fma|0.50
-beta_p|R2 cf     cmp|nofma|0.50
+beta_p|R2 cf     cmp|fma|0.53
+beta_p|R2 cf     cmp|nofma|0.53
 beta_p|R2 cf     dir|fma|0.52
 beta_p|R2 cf     dir|nofma|0.52
 beta_p|R2 gammalim c|fma|0.50
@@ -53,8 +53,8 @@ beta_q|R1 series cmp|fma|0.52
 beta_q|R1 series cmp|nofma|0.52
 beta_q|R1 series dir|fma|0.53
 beta_q|R1 series dir|nofma|0.53
-beta_q|R2 cf     cmp|fma|0.50
-beta_q|R2 cf     cmp|nofma|0.50
+beta_q|R2 cf     cmp|fma|0.52
+beta_q|R2 cf     cmp|nofma|0.52
 beta_q|R2 cf     dir|fma|0.53
 beta_q|R2 cf     dir|nofma|0.53
 beta_q|R2 gammalim c|fma|0.50
@@ -185,10 +185,10 @@ i1|pos series|fma|0.52
 i1|pos series|nofma|0.52
 i1|pos tail|fma|0.73
 i1|pos tail|nofma|0.73
-lbeta|big band|fma|0.50
-lbeta|big band|nofma|0.50
-lbeta|relative|fma|0.50
-lbeta|relative|nofma|0.50
+lbeta|big band|fma|0.52
+lbeta|big band|nofma|0.52
+lbeta|relative|fma|0.53
+lbeta|relative|nofma|0.53
 lgamma|neg abs(lg)>=1|fma|0.53
 lgamma|neg abs(lg)>=1|nofma|0.53
 lgamma|pos big|fma|0.50
@@ -221,7 +221,7 @@ sin|pos small|fma|0.79
 sin|pos small|nofma|0.79
 trigamma|negative|fma|0.53
 trigamma|negative|nofma|0.53
-trigamma|pos (0,1)|fma|0.52
+trigamma|pos (0,1)|fma|0.53
 trigamma|pos (0,1)|nofma|0.53
 trigamma|pos asym [8,inf)|fma|0.59
 trigamma|pos asym [8,inf)|nofma|0.59

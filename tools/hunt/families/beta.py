@@ -86,7 +86,7 @@ SEAMS = [
 ]
 
 # Regions -> (direct bound, complement bound)
-BOUNDS = {"R1": (1, 1), "R2": (1, 0), "R3": (3, 1), "R4": (2, 0),
+BOUNDS = {"R1": (1, 1), "R2": (1, 1), "R3": (3, 1), "R4": (2, 0),  # R2 cmp 1 since #76
           "R4pr": (1, 0), "GL": (0, 0)}
 
 

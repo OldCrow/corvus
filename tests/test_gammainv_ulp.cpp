@@ -52,7 +52,9 @@ constexpr uint64_t kMaxUlp = 1;
 
 // Beyond-resolution floor. Not a kernel constant -- the kernel has no such
 // branch, by design -- but a property of the domain: a*phi(1 +- ulp/a) > 800
-// once a exceeds ~3e34, which is where the certified x collapses onto a.
+// once a exceeds ~3e34, where the certified x becomes a or a neighbour
+// (exactly a only above ~5e35, where the whole transition fits in half an
+// ulp; #76, review L-2).
 constexpr double kBeyondResolutionA = 3e34;
 
 struct Bucket {

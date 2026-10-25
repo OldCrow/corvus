@@ -78,11 +78,10 @@ beta_p_reference.txt|subnormal_out:PB|120
 beta_p_reference.txt|subnormal_out:R4|120
 beta_p_reference.txt|dense:r4_tiny_min_B8|120
 beta_p_reference.txt|dense:r2_complement_mid|120
-beta_p_reference.txt|witness:r2_complement|32
+beta_p_reference.txt|witness:r2_complement|33
 beta_p_reference.txt|seam:two_pi_nu_clamp:band|80
 beta_p_reference.txt|cross|1327
 beta_p_reference.txt|near_tie|83
-beta_p_reference.txt|deferred:#76|1
 beta_q_reference.txt|base|43298
 beta_q_reference.txt|seam:xi1_x:bits|48
 beta_q_reference.txt|seam:xi1_x:band|80
@@ -159,11 +158,10 @@ beta_q_reference.txt|subnormal_out:PB|120
 beta_q_reference.txt|subnormal_out:R4|120
 beta_q_reference.txt|dense:r4_tiny_min_B8|120
 beta_q_reference.txt|dense:r2_complement_mid|120
-beta_q_reference.txt|witness:r2_complement|32
+beta_q_reference.txt|witness:r2_complement|33
 beta_q_reference.txt|seam:two_pi_nu_clamp:band|80
 beta_q_reference.txt|cross|1327
 beta_q_reference.txt|near_tie|89
-beta_q_reference.txt|deferred:#76|1
 betainv_backward_reference.txt|base|752
 betainv_p_reference.txt|base|8993
 betainv_p_reference.txt|seam:fwd_xi1:band|80
@@ -425,7 +423,7 @@ exp_reference.txt|near_zero_unit|120
 exp_reference.txt|subnormal_out_band|120
 exp_reference.txt|subnormal_out_top|120
 exp_reference.txt|near_tie|248
-exp_reference.txt|pow2_inputs|119
+exp_reference.txt|pow2_inputs|120
 exp_reference.txt|subnormal_in|120
 exp_reference.txt|extremes|15
 exp_reference.txt|reduction_midpoints|120
@@ -447,7 +445,6 @@ exp_reference.txt|seam:clamp_hi:band|78
 exp_reference.txt|seam:clamp_lo:bits|48
 exp_reference.txt|seam:clamp_lo:band|77
 exp_reference.txt|near_tie|248
-exp_reference.txt|deferred:#76|1
 expm1_dd_reference.txt|base|3012
 gamma_p_reference.txt|base|21369
 gamma_p_reference.txt|seam:aT:bits|47
@@ -632,6 +629,7 @@ gammainv_p_reference.txt|generic:temme|120
 gammainv_p_reference.txt|witness|1
 gammainv_p_reference.txt|witness:subnormal_aq|96
 gammainv_p_reference.txt|witness:route_reject_nan|2
+gammainv_p_reference.txt|issue76:witness|2
 gammainv_p_reference.txt|seam:cf_amax:band|80
 gammainv_p_reference.txt|seam:beyond_resolution:bits|48
 gammainv_p_reference.txt|seam:beyond_resolution:band|80
@@ -681,6 +679,7 @@ gammainv_q_reference.txt|generic:temme|120
 gammainv_q_reference.txt|witness|4
 gammainv_q_reference.txt|witness:subnormal_aq|96
 gammainv_q_reference.txt|witness:route_reject_nan|2
+gammainv_q_reference.txt|issue76:witness|2
 gammainv_q_reference.txt|seam:cf_amax:band|80
 gammainv_q_reference.txt|seam:beyond_resolution:bits|48
 gammainv_q_reference.txt|seam:beyond_resolution:band|80
@@ -874,7 +873,7 @@ lbeta_reference.txt|crossed:tiny_huge|120
 lbeta_reference.txt|crossed:ratio_sweep|120
 lbeta_reference.txt|dense:quarter_to_four|120
 lbeta_reference.txt|dense:moderate|120
-lbeta_reference.txt|witness|16
+lbeta_reference.txt|witness|17
 lbeta_reference.txt|seam:walk_3:bits|48
 lbeta_reference.txt|seam:walk_4:bits|48
 lbeta_reference.txt|seam:walk_6:bits|48
@@ -884,7 +883,6 @@ lbeta_reference.txt|seam:neg_inf:band|80
 lbeta_reference.txt|seam:abs_band:bits|46
 lbeta_reference.txt|cross|132
 lbeta_reference.txt|near_tie|44
-lbeta_reference.txt|deferred:#76|1
 lgamma_reference.txt|base|19255
 lgamma_reference.txt|seam:zone_lo:bits|14
 lgamma_reference.txt|seam:zone_lo:band|80
@@ -1085,4 +1083,5 @@ trigamma_reference.txt|subnormal|120
 trigamma_reference.txt|neg_unit_intervals|120
 trigamma_reference.txt|neg_near_poles|115
 trigamma_reference.txt|neg_large|120
+trigamma_reference.txt|issue76:witness|1
 trigamma_reference.txt|near_tie|56

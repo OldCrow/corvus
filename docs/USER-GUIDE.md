@@ -95,7 +95,7 @@ Grouped by what you would use them for.
 
 | function | computes | typical bound |
 |---|---|---|
-| `gamma_p`, `gamma_q` | regularized incomplete gamma, lower and upper | <!-- claim: gamma.R3.dir --> 2 ULP (<!-- claim: gamma.R4 #76 --> `gamma_q`: 4 in one band) |
+| `gamma_p`, `gamma_q` | regularized incomplete gamma, lower and upper | <!-- claim: gamma.R3.dir --> 2 ULP (<!-- claim: gamma.R4 --> 1 ULP in the small-a band since v1.1.0) |
 | `gamma_p_inv`, `gamma_q_inv` | their inverses | <!-- claim: gammainv --> 1 ULP |
 | `lgamma` | log of the gamma function | <!-- claim: lgamma.pos lgamma.neg --> 1 ULP |
 | `digamma`, `trigamma` | first and second derivatives of `lgamma` | <!-- claim: digamma trigamma --> 1 ULP |
@@ -106,7 +106,7 @@ Grouped by what you would use them for.
 |---|---|---|
 | `beta_p`, `beta_q` | regularized incomplete beta, lower and upper | <!-- claim: beta.R3.dir --> 3 ULP |
 | `beta_p_inv`, `beta_q_inv` | their inverses | <!-- claim: betainv --> 1 ULP |
-| `lbeta` | log of the beta function | <!-- claim: lbeta.relative --> correctly rounded |
+| `lbeta` | log of the beta function | <!-- claim: lbeta.relative --> 1 ULP |
 
 **Circular / von Mises work**
 

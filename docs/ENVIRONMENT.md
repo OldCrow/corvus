@@ -350,8 +350,9 @@ surface lean and justify every runner:
   hosted silicon is not guaranteed. AVX-512 stays a Zen 4 manual stop.
 - Docs-only changes skip CI; concurrency cancellation; per-job timeouts.
 - Deliberately absent: required status checks (incompatible with
-  direct-push-to-main workflow); caching (build is ~minutes; add only
-  if minutes grow). AVX-512 cannot run on hosted runners — Ryzen stays a
+  direct-push-to-main workflow). Caching is limited to the pinned Highway
+  prefix (ci.yml), added when its source build grew the minutes; nothing
+  else is cached. AVX-512 cannot run on hosted runners — Ryzen stays a
   manual validation stop.
 - `lint-workflows.yml` carries the fleet actionlint + zizmor pair, and
   every action in both workflows is SHA-pinned with a `# vX.Y.Z` comment

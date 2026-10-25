@@ -27,13 +27,15 @@ namespace {
 
 using corvus_test::UlpDiff;
 
-// Gates PINNED to measured, no margin: lbeta
-// measured CORRECTLY ROUNDED on every row of every band -- relative and
-// big-band max 0 ULP (4569 + 165 rows), absolute band max 0.500 x 2^-53
-// (the final rounding itself), -inf boundary 44/44 exact (see
-// docs/ACCURACY.md).
-constexpr uint64_t kMaxUlp = 0;         // relative rows and big-band rows
-constexpr double kMaxAbs53 = 0.5;       // |lnB| < 1 band, units of 2^-53
+// Gates: lbeta was documented and gated as CORRECTLY ROUNDED (relative and
+// big-band 0 ULP, absolute band 0.5 x 2^-53). #76 (order row 12j, review
+// M-7) found near-tie misses: lbeta(0x1.5c788bfb641a0p+1,
+// 0x1.5f0d82e6d1d90p+0) is 1 ULP and lbeta(0x1.62f92a1b0bb25p+0,
+// 0x1.9546088f2e3ccp+0) 0.5012 x 2^-53 absolute, both 0.5012 ulp real. The
+// contract is now 1 ULP / 1 x 2^-53, measured CR on the reference set
+// except such ties (see docs/ACCURACY.md); the -inf boundary stays exact.
+constexpr uint64_t kMaxUlp = 1;         // relative rows and big-band rows
+constexpr double kMaxAbs53 = 1.0;       // |lnB| < 1 band, units of 2^-53
 
 constexpr double kBigMin = 0x1.0p+990;  // mirrors kLbetaBigMin (beta-inl.h)
 

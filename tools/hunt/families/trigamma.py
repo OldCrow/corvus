@@ -113,4 +113,8 @@ def strata():
         _st("neg_near_poles", _near_poles, 2000),
         _st("neg_large", lambda r, n: [(-log_uniform(r, 20.0, 2.0 ** 52),) for _ in range(n)], 2000),
     ]
+    # #76 (review M-8) witness: 1 ULP on AVX3_ZEN4 (0.5022 real), CR on
+    # SSE4/SSE2 -- a near-tie in (0, 1), now scored at its 1-ULP bound.
+    out.append(_st("issue76:witness", lambda r, n: [(float.fromhex("0x1.f24f9e4bebb8fp-1"),)], 1,
+                   note="#76 review witness M-8"))
     return out
