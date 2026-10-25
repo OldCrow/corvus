@@ -19,6 +19,8 @@ beta_p_reference.txt|seam:near_one:bits|48
 beta_p_reference.txt|seam:near_one:band|80
 beta_p_reference.txt|seam:pr_tau_max:bits|48
 beta_p_reference.txt|seam:pr_tau_max:band|80
+beta_p_reference.txt|seam:lgamma_table_max:bits|48
+beta_p_reference.txt|seam:lgamma_table_max:band|80
 beta_p_reference.txt|seam:r4_tau1:bits|48
 beta_p_reference.txt|seam:r4_tau1:band|80
 beta_p_reference.txt|seam:tridge_nu:bits|48
@@ -45,8 +47,11 @@ beta_p_reference.txt|seam:z0_min:bits|48
 beta_p_reference.txt|seam:z0_min:band|80
 beta_p_reference.txt|seam:gammalim:bits|48
 beta_p_reference.txt|seam:gammalim:band|80
-beta_p_reference.txt|seam:gl_ridge:bits|45
+beta_p_reference.txt|seam:gl_ridge:bits|48
 beta_p_reference.txt|seam:gl_ridge:band|80
+beta_p_reference.txt|seam:gl_ridge_s20:bits|48
+beta_p_reference.txt|issue85:bits|48
+beta_p_reference.txt|issue84:sliver|115
 beta_p_reference.txt|ridge:gl_entry|120
 beta_p_reference.txt|seam:gl_ser_cf:bits|48
 beta_p_reference.txt|seam:gl_ser_cf:band|80
@@ -76,9 +81,8 @@ beta_p_reference.txt|dense:r2_complement_mid|120
 beta_p_reference.txt|witness:r2_complement|32
 beta_p_reference.txt|seam:two_pi_nu_clamp:band|80
 beta_p_reference.txt|cross|1327
-beta_p_reference.txt|near_tie|75
+beta_p_reference.txt|near_tie|83
 beta_p_reference.txt|deferred:#76|1
-beta_p_reference.txt|deferred:#84|3
 beta_q_reference.txt|base|43298
 beta_q_reference.txt|seam:xi1_x:bits|48
 beta_q_reference.txt|seam:xi1_x:band|80
@@ -96,6 +100,8 @@ beta_q_reference.txt|seam:near_one:bits|48
 beta_q_reference.txt|seam:near_one:band|80
 beta_q_reference.txt|seam:pr_tau_max:bits|48
 beta_q_reference.txt|seam:pr_tau_max:band|80
+beta_q_reference.txt|seam:lgamma_table_max:bits|48
+beta_q_reference.txt|seam:lgamma_table_max:band|80
 beta_q_reference.txt|seam:r4_tau1:bits|48
 beta_q_reference.txt|seam:r4_tau1:band|80
 beta_q_reference.txt|seam:tridge_nu:bits|48
@@ -122,8 +128,11 @@ beta_q_reference.txt|seam:z0_min:bits|48
 beta_q_reference.txt|seam:z0_min:band|80
 beta_q_reference.txt|seam:gammalim:bits|48
 beta_q_reference.txt|seam:gammalim:band|80
-beta_q_reference.txt|seam:gl_ridge:bits|42
+beta_q_reference.txt|seam:gl_ridge:bits|48
 beta_q_reference.txt|seam:gl_ridge:band|80
+beta_q_reference.txt|seam:gl_ridge_s20:bits|45
+beta_q_reference.txt|issue85:bits|48
+beta_q_reference.txt|issue84:sliver|118
 beta_q_reference.txt|ridge:gl_entry|120
 beta_q_reference.txt|seam:gl_ser_cf:bits|48
 beta_q_reference.txt|seam:gl_ser_cf:band|80
@@ -153,9 +162,8 @@ beta_q_reference.txt|dense:r2_complement_mid|120
 beta_q_reference.txt|witness:r2_complement|32
 beta_q_reference.txt|seam:two_pi_nu_clamp:band|80
 beta_q_reference.txt|cross|1327
-beta_q_reference.txt|near_tie|96
+beta_q_reference.txt|near_tie|89
 beta_q_reference.txt|deferred:#76|1
-beta_q_reference.txt|deferred:#84|6
 betainv_backward_reference.txt|base|752
 betainv_p_reference.txt|base|8993
 betainv_p_reference.txt|seam:fwd_xi1:band|80
@@ -191,6 +199,8 @@ betainv_p_reference.txt|seam:s3_min:bits|48
 betainv_p_reference.txt|seam:s1_nu_min:bits|48
 betainv_p_reference.txt|seam:huge_nu:bits|48
 betainv_p_reference.txt|seam:fwd_gl_ridge:bits|48
+betainv_p_reference.txt|seam:lgamma1p_table_max:bits|48
+betainv_p_reference.txt|seam:lgamma1p_table_max:band|80
 betainv_p_reference.txt|seam:lnsigc_log1p:bits|48
 betainv_p_reference.txt|seam:lnsigc_log1p:band|80
 betainv_p_reference.txt|cross|622
@@ -229,6 +239,8 @@ betainv_q_reference.txt|seam:s3_min:bits|48
 betainv_q_reference.txt|seam:s1_nu_min:bits|48
 betainv_q_reference.txt|seam:huge_nu:bits|48
 betainv_q_reference.txt|seam:fwd_gl_ridge:bits|48
+betainv_q_reference.txt|seam:lgamma1p_table_max:bits|48
+betainv_q_reference.txt|seam:lgamma1p_table_max:band|80
 betainv_q_reference.txt|seam:lnsigc_log1p:bits|48
 betainv_q_reference.txt|seam:lnsigc_log1p:band|80
 betainv_q_reference.txt|cross|690

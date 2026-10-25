@@ -833,6 +833,25 @@ failed R2 direct at 8 ULP and R1 direct at 2, and read 1 ULP in both R2
 complement cells. Every cell now holds its existing gate, and the
 gamma-limit cells, now 774/533 rows, stay at 0 ULP.
 
+**The ν < 20 ≤ s sliver (#84, order row 12k).** The router sent a
+gamma-limit lane to R3 on ν ≥ 20, but the slice's own sub-map routes
+gamma-style on s, the small parameter, and has no Temme case. With
+N ≥ 2⁴⁷, lanes with s in [20, 20N/(N−20)) have ν < 20 ≤ s. That
+sliver is ~3e-12 wide at N = 2⁴⁷ and fell to the slice, which took the
+continued fraction at t ≈ s. The hunt found 391 ulp; a stratum aimed
+inside the sliver found up to 66,895.
+- **Fix.** The ridge is gated on s = min(a, b), the slice's own
+  predicate. Since ν = s(1 − O(s/N)) there, only the sliver moves, onto
+  R3 just below its ν = 20 anchor. betainv's forward (the twin), the
+  hunt family's router replica and the gate's region classifier all
+  carry the same predicate.
+- **Rows.** The `issue84:sliver` (115/118 rows) and
+  `seam:gl_ridge_s20:bits` strata (s across 20, N from 2⁴⁷ to 2¹⁰⁰⁰)
+  failed first at HEAD, 94 rows deferred as #84. They pass on AVX3_ZEN4,
+  SSE4 and SSE2 and are gated. The gamma-limit cells stay at 0 ULP;
+  their pins are unchanged. Inverting the sliver rows through betainv
+  gives a backward error of ≤ 1 ulp on both sides.
+
 **u → −1 corner, fixed 2026-08-12** (the defect pair disclosed in the
 v0.1.0–v0.3.0 release notes, plus a third found by the fix's own
 reference rows). The PB prefactor's 1 + u degenerated for x deep in the
@@ -927,6 +946,23 @@ validation machinery and each a lesson with reach beyond beta:
    lgamma analytically via `LgammaDiffDd` identities — dd-absolute,
    erasing the amplification. The reference oracle's worst defect
    (lg_diff Taylor truncation) was the same disease in mpmath clothing.
+   **#85 (order row 12k) was the same mechanism past PA's 2.5 edge.**
+   Only min ≤ kBetaPrTauMax = 2.5 had taken the analytic form; above it
+   PA's lgamma(min) still came from `LgammaPosDd`, 2⁻⁶² absolute at
+   min ≈ 2.5. A lane just past both post-route gates (τ > 2.5, and
+   Q ≈ 2⁻¹⁰·⁵ above the 1 − 2⁻¹¹ bar) takes R1's complement, which
+   amplifies that by P/Q to 2 ULP (2.45 real) on SSE4/SSE2. The issue
+   suspected R4's own budget at the τ cap, but those lanes never reach
+   R4. The code had already named the fix: PA now takes
+   lgamma(k + f) = `LgammaDiffDd(k, f)` + ln((k−1)!) from a dd table for
+   min in (2.5, 16]. No near-one R1 lane exists above ~14.5. betainv's
+   `BetaInvLgamma1p` twin does the same on (2.5, 15]. The witness
+   neighbourhoods (`issue85:bits`, 61 rows) failed first at HEAD and
+   are gated. On a 3,000-point sweep of R1 complements
+   (Q ∈ [2⁻¹², 2⁻⁵], min ∈ [0.5, 8]) the worst real error falls from
+   1.23 to 0.501 on both AVX3_ZEN4 and SSE2, and the R1 series
+   complement pin from 0.93 to 0.52. The table edges are registered
+   seams (16 and 15) with bits and band rows.
 2. **Non-FMA Dekker splits have a ceiling and a floor.** Operands above
    2⁹⁹⁶ overflow the 2²⁷+1 split (the ν clamp sat at 2¹⁰⁰⁰ → NaN on the
    a = b ≥ 2⁹⁹⁸ diagonal, SSE tiers only; gamma carried the identical

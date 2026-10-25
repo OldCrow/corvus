@@ -356,7 +356,27 @@ performance.**
         (the existing ~2,200-row [6, 8) strata never caught a row).
       - Done-when met: the documented not-CR rate is re-measured
         (ACCURACY.md table).
-      - **NEXT:** row 12k (#84 + #85; in progress), then 12j last.
+    - **Row 12k DONE 2026-10-25** (#84, #85; uncommitted at write time;
+      36/36 on AVX3_ZEN4, SSE4, SSE2, census and MSVC Release). [DERIVED]
+      - #84: the gamma-limit ridge is gated on s = min(a, b), not ν, in
+        beta's router, betainv's forward twin, the hunt replica, and the
+        gate's and bench's region classifiers. An aimed sliver stratum
+        failed first at HEAD by up to 66,895 ULP (94 deferred rows). It
+        passes on three tiers and is gated; the gamma-limit cells stay at
+        0 ULP. Betainv's backward error on the sliver is ≤ 1 ulp.
+      - #85: misattributed in the issue — the witnesses never reach R4.
+        They are R1 complements just past both post-route gates
+        (τ > 2.5, Q above the 1 − 2⁻¹¹ bar), where PA's
+        LgammaPosDd(min) carries 2⁻⁶² absolute, amplified by P/Q. Fix:
+        the code's own planned extension, lgamma(k + f) =
+        LgammaDiffDd(k, f) + ln((k−1)!) table for min in (2.5, 16], and
+        the same in BetaInvLgamma1p on (2.5, 15]. Witness neighbourhoods
+        failed first (61 rows) and are gated. R1-complement sweep worst
+        1.23 → 0.501; pin 0.93 → 0.52. New seams lgamma_table_max (16)
+        and lgamma1p_table_max (15) are registered with rows.
+      - **NEXT:** commit 12k on the user's signal, CI, close #84 and #85;
+        then row 12j (#76, contract text, last), then the K/M1 runbook
+        refresh and pause.
     - **Row 12g DONE 2026-10-25** (#73 closed; `940c9f9`; CI 40219413347
       green on NEON, Linux sweep + sanitizers, Windows). [DERIVED]
       - ErfinvCentral: for |y| < 2^-900 the product is formed at

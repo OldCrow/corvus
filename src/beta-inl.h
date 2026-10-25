@@ -592,6 +592,48 @@ HWY_NOINLINE Dd<D> LgammaDiffDd(D d, op::V<D> bigm, op::V<D> smallm) {
   return DdSub(d, out, walk);
 }
 
+// ln((k-1)!) = lgamma(k) as dd pairs, k = 0..16 (entries 0-2 are 0; k = 0 is
+// never read). Closed-form math constants (mpmath, 80 digits), not fitted.
+inline constexpr double kBetaLnFactHi[17] = {
+    0x0.0p+0, 0x0.0p+0, 0x0.0p+0, 0x1.62e42fefa39efp-1, 0x1.cab0bfa2a2002p+0,
+    0x1.96ca77c922cf9p+1, 0x1.326643c4479c9p+2, 0x1.a51273acf01cap+2,
+    0x1.10ce1f32dcc30p+3, 0x1.5358e82fcb70dp+3, 0x1.99a8921a7f7cfp+3,
+    0x1.e357590954d15p+3, 0x1.180973f3a8d74p+4, 0x1.3fcba16d50143p+4,
+    0x1.68d5a9c3b32cep+4, 0x1.930f3df162a42p+4, 0x1.be636a63fd346p+4};
+inline constexpr double kBetaLnFactLo[17] = {
+    0x0.0p+0, 0x0.0p+0, 0x0.0p+0, 0x1.abc9e3b39803fp-56, 0x1.9136fea076849p-55,
+    -0x1.30bfc76afc5dep-53, 0x1.a53c2789a6631p-53, -0x1.f67618ce3bfbdp-53,
+    -0x1.a6cba31db10b8p-52, -0x1.6b4ae43602456p-51, 0x1.2c1f5d62d30afp-51,
+    -0x1.510357c26784bp-51, -0x1.9946fb029adcdp-51, 0x1.a695620284a5dp-50,
+    -0x1.da275f15ff083p-50, 0x1.e1a3a2cb2a947p-50, 0x1.623db10ff440bp-50};
+// Upper end of the analytic lgamma range (#85): above it, near-one R1 lanes
+// do not exist (R1's box xi <= 0.45, beta*xi <= 8 with beta > alpha(1-xi)/xi
+// caps the min parameter near 14.5).
+inline constexpr double kBetaLgammaAnalyticMax = 16.0;
+
+// lgamma(k + f) for an integer k in [2, 16] and f in [0, 1), as a dd that is
+// ABSOLUTELY accurate to ~2^-100: LgammaDiffDd(k, f) + ln((k-1)!). #85: the
+// prefactor's lgamma(min) above kBetaPrTauMax came from LgammaPosDd, whose
+// budgets are relative to lgamma itself with a plain-double Horner floor
+// (2^-62 absolute measured at min ~ 2.5); a complement taken at Q ~ 2^-10
+// amplifies that by P/Q to 2 ULP on the no-FMA tiers. Callers split their
+// argument exactly (k = floor, f = x - k by Sterbenz).
+template <class D>
+HWY_INLINE Dd<D> LgammaIntFracDd(D d, op::V<D> k, op::V<D> f) {
+  const op::SignedTag<D> di;
+  const auto ki = op::ConvertToInt(di, k);
+  const Dd<D> lf{op::GatherIndex(d, kBetaLnFactHi, ki),
+                 op::GatherIndex(d, kBetaLnFactLo, ki)};
+  return DdAdd(d, LgammaDiffDd(d, k, f), lf);
+}
+
+// floor(x) for x >= 1, exact: Round then step down if it rounded up.
+template <class D>
+HWY_INLINE op::V<D> BetaFloorPos(D d, op::V<D> x) {
+  const auto r = op::Round(x);
+  return op::IfThenElse(op::Gt(r, x), op::Sub(r, op::Set(d, 1.0)), r);
+}
+
 // ------------------------------------------------------------------------
 // The lambda / u / v / cpsi / nu machinery, shared by R3 and by the PB
 // prefactor exactly as the design requires (ONE implementation).
@@ -1508,9 +1550,16 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // validated c_k (generator check (c)'s extension lattice proves the
   // 1/nu extrapolation there; gamma's own table is likewise applied down
   // to a = 20 from a ladder extracted far higher).
+  //
+  // ON s, NOT nu (#84). The slice's sub-map routes gamma-style on s, the
+  // small parameter, and has no Temme case. Gated on nu, the sliver
+  // nu < 20 <= s (s in [20, 20N/(N-20)), ~3e-12 wide at N = 2^47) fell to
+  // the slice, which took the CF at t ~ s: up to 391 ulp. With N >= 2^47,
+  // nu = s(1 - O(s/N)), so only that sliver moves, onto R3 just below its
+  // nu = 20 anchor. TWIN: betainv-inl.h BetaInvForward.
   const auto i_glr = op::Mul(
       BetaInd(d, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim))),
-      BetaInd(d, op::Ge(nu_r, op::Set(d, detail::kBetaGlRidgeMin))));
+      BetaInd(d, op::Ge(op::Min(a, b), op::Set(d, detail::kBetaGlRidgeMin))));
   const auto i_r3 = op::Mul(
       op::Mul(op::Max(BetaInd(d, op::Ge(nu_r, op::Set(d, detail::kBetaTRidge))),
                       i_glr),
@@ -1678,7 +1727,23 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
           d, op::IfThenElse(gt1, op::Add(one, one), one),
           op::IfThenElse(gt1, op::Sub(mns, one), mns));
       const auto lga = DdSub(d, lg1m, OutlinedLogDd(d, mns));
-      const auto lgp = LgammaPosDd(d, mn);
+      auto lgp = LgammaPosDd(d, mn);
+      // #85: (2.5, 16] takes the analytic table form too -- the corner the
+      // note above anticipated. A complement at Q ~ 2^-10 with min just past
+      // 2.5 (no post-route: tau above its cap) read 2 ULP on the no-FMA tiers
+      // from LgammaPosDd's 2^-62 absolute error. Above 16 no near-one R1
+      // lane exists (kBetaLgammaAnalyticMax).
+      const auto mid = op::And(op::Gt(mn, op::Set(d, detail::kBetaPrTauMax)),
+                               op::Ge(op::Set(d, kBetaLgammaAnalyticMax), mn));
+      CORVUS_ROUTE(d, "beta/pre/pa/lgamma_table", mid);
+      if (!op::AllFalse(d, mid)) {
+        CORVUS_ROUTE_SCOPE(d, mid);
+        const auto mm = op::IfThenElse(mid, mn, op::Set(d, 3.0));  // scrub: k in [2, 16]
+        const auto kf = BetaFloorPos(d, mm);
+        const auto lgt = LgammaIntFracDd(d, kf, op::Sub(mm, kf));  // f exact
+        lgp = Dd<D>{op::IfThenElse(mid, lgt.hi, lgp.hi),
+                    op::IfThenElse(mid, lgt.lo, lgp.lo)};
+      }
       const Dd<D> lgmn{op::IfThenElse(lo, lga.hi, lgp.hi),
                        op::IfThenElse(lo, lga.lo, lgp.lo)};
       epa = DdAdd(d, DdAdd(d, l1, l2),
@@ -1848,7 +1913,8 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // gated as its own ULP row -- gammalim).
   // The sub-map mirrors gamma-inl.h's own routing verbatim (series for
   // s < kGammaAT and t <= s+1, or s >= kGammaAT and s >= 2t; CF otherwise;
-  // gamma's in-band Temme case cannot occur here, those lanes are R3's).
+  // gamma's in-band Temme case cannot occur here, those lanes are R3's --
+  // true since #84 gates the ridge on s, as this sub-map does, not on nu).
   // val takes the NATURALLY COMPUTED side (series -> P_gamma, CF ->
   // Q_gamma) -- never a dd complement round-trip, which would hand a small
   // side back as absolute noise -- and is_p records which side of the

@@ -364,7 +364,21 @@ HWY_NOINLINE Dd<D> BetaInvLgamma1p(D d, op::V<D> m) {
   const auto diff = LgammaDiffDd(d, op::IfThenElse(g1, op::Add(one, one), one),
                                  op::IfThenElse(g1, op::Sub(ms, one), ms));
   const auto mh = op::IfThenElse(lo, op::Set(d, 3.0), m);  // scrub the other
-  const auto gen = DdAdd(d, LgammaPosDd(d, mh), OutlinedLogDd(d, mh));
+  auto gen = DdAdd(d, LgammaPosDd(d, mh), OutlinedLogDd(d, mh));
+  // #85, beta-inl.h's PA twin: (2.5, 15] as lgamma(k + f) from the table
+  // (k = floor(m) + 1 <= 16, f = m - floor(m) exact), absolute ~2^-100;
+  // LgammaPosDd's 2^-62 absolute is amplified by the near-one complement.
+  const auto mid = op::And(op::Gt(m, op::Set(d, detail::kBetaPrTauMax)),
+                           op::Ge(op::Set(d, 15.0), m));
+  CORVUS_ROUTE(d, "betainv/lgamma1p/table", mid);
+  if (!op::AllFalse(d, mid)) {
+    CORVUS_ROUTE_SCOPE(d, mid);
+    const auto mm = op::IfThenElse(mid, m, op::Set(d, 3.0));  // scrub: k in [3, 16]
+    const auto fl = BetaFloorPos(d, mm);
+    const auto lgt = LgammaIntFracDd(d, op::Add(fl, one), op::Sub(mm, fl));
+    gen = Dd<D>{op::IfThenElse(mid, lgt.hi, gen.hi),
+                op::IfThenElse(mid, lgt.lo, gen.lo)};
+  }
   return Dd<D>{op::IfThenElse(lo, diff.hi, gen.hi),
                op::IfThenElse(lo, diff.lo, gen.lo)};
 }
@@ -591,9 +605,11 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   const auto band = op::Mul(
       op::Mul(BetaInd(d, op::Ge(rat1, lo_r)), BetaInd(d, op::Ge(hi_r, rat1))),
       op::Mul(BetaInd(d, op::Ge(rat2, lo_r)), BetaInd(d, op::Ge(hi_r, rat2))));
+  // On s = min(alpha, beta), not nu: beta-inl.h's router twin (#84).
   const auto i_glr = op::Mul(
       BetaInd(d, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim))),
-      BetaInd(d, op::Ge(nu_r, op::Set(d, detail::kBetaGlRidgeMin))));
+      BetaInd(d, op::Ge(op::Min(alpha, beta),
+                        op::Set(d, detail::kBetaGlRidgeMin))));
   const auto i_r3 = op::Mul(
       op::Mul(op::Max(BetaInd(d, op::Ge(nu_r, op::Set(d, detail::kBetaTRidge))),
                       i_glr),

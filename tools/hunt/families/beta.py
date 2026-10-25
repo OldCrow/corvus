@@ -60,6 +60,7 @@ SEAMS = [
     {"fn": "beta", "name": "r2_thr", "coord": "x", "value": "(a+1)/(a+b+2)", "source": "R2 orientation / #47 R4 window"},
     {"fn": "beta", "name": "near_one", "coord": "I (R1 value)", "value": NEAR_ONE, "source": "kBetaNearOne post-route"},
     {"fn": "beta", "name": "pr_tau_max", "coord": "alpha", "value": PR_TAU_MAX, "source": "kBetaPrTauMax"},
+    {"fn": "beta", "name": "lgamma_table_max", "coord": "min(a,b)", "value": 16.0, "source": "kBetaLgammaAnalyticMax: PA lgamma(min) table form above kBetaPrTauMax (#85)"},
     {"fn": "beta", "name": "r4_tau1", "coord": "alpha", "value": 1.0, "source": "BetaR4Tiny gt1 (lgamma(1+tau) zone)"},
     {"fn": "beta", "name": "tridge_nu", "coord": "nu", "value": T_RIDGE, "source": "kBetaTRidge"},
     {"fn": "beta", "name": "band_rat1_lo", "coord": "x/p", "value": 0.5, "source": "kBetaXiRatioLo"},
@@ -72,7 +73,7 @@ SEAMS = [
     {"fn": "beta", "name": "clg_c", "coord": "a+b", "value": C_LG, "source": "kBetaClg (PA/PB prefactor)"},
     {"fn": "beta", "name": "z0_min", "coord": "min(a,b)", "value": Z0, "source": "kBetaZ0 (PA/PB prefactor)"},
     {"fn": "beta", "name": "gammalim", "coord": "max(a,b)", "value": GAMMA_LIM, "source": "kBetaGammaLim"},
-    {"fn": "beta", "name": "gl_ridge", "coord": "nu (max>=2^47)", "value": GL_RIDGE_MIN, "source": "kBetaGlRidgeMin"},
+    {"fn": "beta", "name": "gl_ridge", "coord": "min(a,b) (max>=2^47)", "value": GL_RIDGE_MIN, "source": "kBetaGlRidgeMin, gated on s since #84"},
     {"fn": "beta", "name": "gl_ser_cf", "coord": "t (s<20)", "value": "s+1", "source": "gamma-limit sub-map (kGammaAT)"},
     {"fn": "beta", "name": "gl_at", "coord": "s", "value": GAMMA_AT, "source": "kGammaAT in the gamma-limit slice"},
     {"fn": "beta", "name": "gl_sat", "coord": "E_g", "value": EXP_FLOOR, "source": "BetaClampE / kBetaGlSatT (slice saturation)"},
@@ -120,7 +121,7 @@ def route(a, b, x):
     rat1 = x * (1.0 + b / a)
     rat2 = y0 * (1.0 + a / b)
     band = 0.5 <= rat1 <= 2.0 and 0.5 <= rat2 <= 2.0
-    glr = bmax >= GAMMA_LIM and nu >= GL_RIDGE_MIN
+    glr = bmax >= GAMMA_LIM and min(a, b) >= GL_RIDGE_MIN  # on s, not nu (#84)
     i_r3 = (nu >= T_RIDGE or glr) and band and not i_r4 and not i_r1
     if i_r4:
         out = [("R4", sw4)]
@@ -429,6 +430,21 @@ def g_prtau_band(rng, n):
     return _fill(rng, n, lambda r: _box_near_one(r, full_mantissa(r, 2.3, 2.7)))
 
 
+def g_lgtab_bits(rng, n):
+    """#85: PA's lgamma(min) switches from the analytic table to LgammaPosDd
+    at min = 16. a + b <= 216 keeps the lane on PA (C_lg = 256)."""
+    r = random.Random(rng.getrandbits(32))
+    pts = [(a, b, x) for a in neighbours(16.0, 24) for b, x in
+           ((r.uniform(16.0, 200.0), r.uniform(0.05, 0.9)) for _ in range(2))]
+    return _take(rng, pts, n)
+
+
+def g_lgtab_band(rng, n):
+    def d(r):
+        return (full_mantissa(r, 15.2, 16.8), r.uniform(16.0, 200.0), r.uniform(0.02, 0.95))
+    return _fill(rng, n, d)
+
+
 def g_tau1_bits(rng, n):
     r = random.Random(rng.getrandbits(32))
     pts = []
@@ -617,6 +633,38 @@ def g_glridge_bits(rng, n):
         for s in neighbours(s0, 40):
             for tf in (0.7, 1.4):
                 pts.append((s, N, s * tf / N))
+    return _take(rng, pts, n)
+
+
+def g_glridge_s20_bits(rng, n):
+    """#84: the ridge is gated on s = min(a, b) at 20. Bit-stepped across
+    s = 20 for N from 2^47 to 2^1000, at the t/s ratios the issue's rows
+    used (strata_append keeps 48 rows of a :bits stratum)."""
+    r = random.Random(rng.getrandbits(32))
+    pts = []
+    for N in (2.0 ** 47, 2.0 ** 48, 2.0 ** 60, 2.0 ** 200, 2.0 ** 1000):
+        for s in neighbours(GL_RIDGE_MIN, 24):
+            for tf in (0.7, 1.4):
+                p = _gl_point(r, N, s, s * tf)
+                if p is not None:
+                    pts.append(p)
+    return _take(rng, pts, n)
+
+
+def g_issue84_sliver(rng, n):
+    """#84: inside the sliver nu < 20 <= s, s in [20, 20N/(N-20)), where the
+    s-gated router sends lanes to R3 and the nu-gated one sent them to the
+    slice's CF. N where the sliver is several ulps of 20 wide."""
+    r = random.Random(rng.getrandbits(32))
+    pts = []
+    for N in (2.0 ** 47, 2.0 ** 48, 2.0 ** 50):
+        s1 = GL_RIDGE_MIN * N / (N - GL_RIDGE_MIN)
+        for _ in range(16):
+            s = r.uniform(GL_RIDGE_MIN, s1)
+            for tf in (0.55, 0.7, 0.85, 1.2, 1.4, 1.9):
+                p = _gl_point(r, N, s, s * tf)
+                if p is not None:
+                    pts.append(p)
     return _take(rng, pts, n)
 
 
@@ -875,6 +923,8 @@ def strata():
     S += _pair("seam:near_one:band", g_nearone_band, BAND, "near_one")
     S += _pair("seam:pr_tau_max:bits", g_prtau_bits, 3 * 129, "pr_tau_max")
     S += _pair("seam:pr_tau_max:band", g_prtau_band, BAND, "pr_tau_max")
+    S += _pair("seam:lgamma_table_max:bits", g_lgtab_bits, 49 * 2, "lgamma_table_max")
+    S += _pair("seam:lgamma_table_max:band", g_lgtab_band, BAND, "lgamma_table_max")
     S += _pair("seam:r4_tau1:bits", g_tau1_bits, 3 * 129, "r4_tau1")
     S += _pair("seam:r4_tau1:band", g_tau1_band, BAND, "r4_tau1")
     S += _pair("seam:tridge_nu:bits", g_tridge_bits, 3 * 87 * 2, "tridge_nu")
@@ -902,6 +952,20 @@ def strata():
     S += _pair("seam:gammalim:band", g_gl_band, 800, "gammalim", "0-ULP cells")
     S += _pair("seam:gl_ridge:bits", g_glridge_bits, 3 * 81 * 2, "gl_ridge")
     S += _pair("seam:gl_ridge:band", g_glridge_band, BAND, "gl_ridge")
+    S += _pair("seam:gl_ridge_s20:bits", g_glridge_s20_bits, 5 * 49 * 2, "gl_ridge",
+               "s across 20, N 2^47..2^1000 (#84)")
+    # #85 witnesses: min shape just past kBetaPrTauMax with Q ~ 2^-10.5, so no
+    # post-route; the R1 complement amplified LgammaPosDd's 2^-62 absolute
+    # error to 2 ULP on SSE4/SSE2. Bit neighbourhoods in x, both witnesses.
+    S += _pair("issue85:bits", lambda r, n: _take(r, [
+        (a, b, xx)
+        for a, b, x0 in ((float.fromhex("0x1.4000000000040p+1"), float.fromhex("0x1.16d2f94b501a8p+4"),
+                          float.fromhex("0x1.bbb1361c00740p-2")),
+                         (float.fromhex("0x1.4497c15e49c2bp+1"), float.fromhex("0x1.1d9cd393a33dep+4"),
+                          float.fromhex("0x1.c0256ad5870c5p-2")))
+        for xx in neighbours(x0, 24)], n), 2 * 49, "pr_tau_max", "#85 witness neighbourhoods")
+    S += _pair("issue84:sliver", g_issue84_sliver, 3 * 16 * 6, "gl_ridge",
+               "nu < 20 <= s: the slice took the CF here (#84)")
     S += _pair("ridge:gl_entry", g_glentry_band, 1500, "gl_ridge",
                "R3 via the gamma-limit ridge, b ~ 1e13-1e16 (#80)")
     S += _pair("seam:gl_ser_cf:bits", g_glsercf_bits, 8 * 49, "gl_ser_cf")
@@ -996,6 +1060,7 @@ _AUDIT = {
                "audit_value": 1.0},
     "near_one": {"audit_f": lambda r: (_r1_frame(r) or (None, None))[1]},
     "pr_tau_max": {"audit_f": lambda r: (_r1_frame(r) or (None, None))[0]},
+    "lgamma_table_max": {"audit_f": lambda r: min(r["a"], r["b"])},
     "r4_tau1": {"audit_f": lambda r: (_r1_frame(r) or (None, None))[0]},
     "tridge_nu": {"audit_f": _nu},
     "two_pi_nu_clamp": {"audit_f": _nu},
@@ -1005,7 +1070,7 @@ _AUDIT = {
     "band_rat2_hi": {"audit_f": lambda r: (1.0 - r["x"]) * (r["a"] + r["b"]) / r["b"]},
     "z2split": {"audit_f": lambda r: cpsi_f(r["a"], r["b"], r["x"])},
     "r3_sat": {"audit_f": lambda r: cpsi_f(r["a"], r["b"], r["x"])},
-    "gl_ridge": {"audit_f": lambda r: _nu(r) if max(r["a"], r["b"]) >= GAMMA_LIM else None},
+    "gl_ridge": {"audit_f": lambda r: min(r["a"], r["b"]) if max(r["a"], r["b"]) >= GAMMA_LIM else None},
     "gl_ser_cf": {"audit_f": _gl_t, "audit_value": 1.0},
     "gl_at": {"audit_f": lambda r: (_gl(r) or (None,))[0]},
     "gl_sat": {"route": "beta/GL/saturated"},

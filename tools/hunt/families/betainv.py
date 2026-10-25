@@ -46,7 +46,7 @@ SEAMS = [
     {"fn": "betainv", "name": "fwd_r2_thr", "coord": "root x", "value": "(a+1)/(a+b+2)", "source": "R2 orientation (forward twin)"},
     {"fn": "betainv", "name": "fwd_z2split", "coord": "cpsi(root)", "value": 25.0, "source": "kBetaZ2Split (forward core/tail; 36 until #70)"},
     {"fn": "betainv", "name": "fwd_gammalim", "coord": "max(a,b)", "value": GAMMA_LIM, "source": "kBetaGammaLim (forward twin)"},
-    {"fn": "betainv", "name": "fwd_gl_ridge", "coord": "nu (max>=2^47)", "value": GL_RIDGE_MIN, "source": "kBetaGlRidgeMin"},
+    {"fn": "betainv", "name": "fwd_gl_ridge", "coord": "min(a,b) (max>=2^47)", "value": GL_RIDGE_MIN, "source": "kBetaGlRidgeMin, gated on s since #84"},
     {"fn": "betainv", "name": "deep_small", "coord": "|1-b| y/(1+a) corr(y)", "value": DEEP_SMALL_CUT, "source": "kBetaInvDeepSmallCut"},
     {"fn": "betainv", "name": "s3_min", "coord": "max(a,b)", "value": S3_MIN, "source": "kBetaInvS3Min (gamma-limit seed gate)"},
     {"fn": "betainv", "name": "s1_nu_min", "coord": "nu", "value": S1_NU_MIN, "source": "kBetaInvS1NuMin (ridge seed gate)"},
@@ -56,6 +56,7 @@ SEAMS = [
     {"fn": "betainv", "name": "huge_nu", "coord": "nu", "value": HUGE_NU, "source": "huge-nu band onset (ACCURACY.md)"},
     {"fn": "betainv", "name": "lnsigc_log1p", "coord": "sigma = min(s, 1-s)", "value": 2.0 ** -7, "source": "ln(1 - sigma) as Log1pDd below 2^-7 (#88)"},
     {"fn": "betainv", "name": "ds_scaled_a", "coord": "alpha (deep-small frame)", "value": 2.0 ** -900, "source": "kGammaInvTinyA: deep-small scaled numerator (#88)"},
+    {"fn": "betainv", "name": "lgamma1p_table_max", "coord": "min(a,b)", "value": 15.0, "source": "BetaInvLgamma1p table form on (2.5, 15] (#85)"},
     {"fn": "betainv", "name": "ds_scaled_b", "coord": "beta (deep-small frame)", "value": 2.0 ** -500, "source": "deep-small scaled numerator needs beta >= 2^-500 (#88)"},
 ]
 
@@ -442,6 +443,14 @@ def _t2_strata():
                  3 * 33, "fwd_gl_ridge", raw=True)
     # ln(1 - sigma) switches to Log1pDd at sigma = 2^-7 (#88).
     t7 = 2.0 ** -7
+    S += _pstrat("seam:lgamma1p_table_max:bits",
+                 _shape_bits([(a, b) for a in neighbours(15.0, 16) for b in (20.0, 80.0)],
+                             (1e-5, 0.3, 0.7)),
+                 3 * 66, "lgamma1p_table_max", raw=True)
+    S += _pstrat("seam:lgamma1p_table_max:band",
+                 lambda r: (full_mantissa(r, 14.2, 15.8), log_uniform(r, 15.0, 200.0),
+                            log_uniform(r, 1e-6, 0.5)),
+                 300, "lgamma1p_table_max")
     S += _pstrat("seam:lnsigc_log1p:bits",
                  _shape_bits([(2.0, 5.0), (0.3, 40.0), (1e3, 1e3)], neighbours(t7, 64)),
                  3 * 129, "lnsigc_log1p", raw=True)
@@ -482,7 +491,7 @@ _AUDIT = {
     "fwd_r2_thr": {"audit_f": lambda r: r["root x"] / ((r["a"] + 1.0) / (r["a"] + r["b"] + 2.0)),
                    "audit_value": 1.0},
     "fwd_z2split": {"audit_f": lambda r: cpsi_f(r["a"], r["b"], r["root x"])},
-    "fwd_gl_ridge": {"audit_f": lambda r: _nu_r(r) if max(r["a"], r["b"]) >= GAMMA_LIM else None},
+    "fwd_gl_ridge": {"audit_f": lambda r: min(r["a"], r["b"]) if max(r["a"], r["b"]) >= GAMMA_LIM else None},
     "deep_small": {"route": "betainv/deep-small"},
     "s1_nu_min": {"audit_f": _nu_r},
     "huge_nu": {"audit_f": _nu_r},
@@ -495,6 +504,7 @@ _AUDIT = {
     # Both select inside the deep-small closed form (itself route-covered):
     # the census marks the scaled branch; the #88 band sweep checked it
     # against an independent quadrature.
+    "lgamma1p_table_max": {"audit_f": lambda r: min(r["a"], r["b"])},
     "ds_scaled_a": {"route": "betainv/deep-small/scaled"},
     "ds_scaled_b": {"route": "betainv/deep-small/scaled"},
     "pa_scale": {"internal": "max(|E|, |ln B|) is a prescale test inside the forward's "

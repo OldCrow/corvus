@@ -127,7 +127,7 @@ int Route(double a, double b, double x, double pref, double qref,
                     rat2 >= kBetaXiRatioLo && rat2 <= kBetaXiRatioHi;
   const bool gl_hi = bmax >= corvus::detail::kBetaGammaLim;
   if (band && (nu >= kBetaTRidge ||
-               (gl_hi && nu >= corvus::detail::kBetaGlRidgeMin))) {
+               (gl_hi && std::min(a, b) >= corvus::detail::kBetaGlRidgeMin))) {  // on s (#84)
     const bool sw = rat1 > 1.0;
     const double lam = a * y - b * x;
     *direct_is_p = sw ? (lam > 0.0) : (lam >= 0.0);
