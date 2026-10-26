@@ -31,7 +31,7 @@ performance.**
   fails as required; `check_release_version.py --tag v1.1.0` OK.
   Milestone 5 is clean (0 open). Z work for v1.1.0 is complete; R1 (M1)
   and R2 (Kaby Lake) are done (below); R3 (PR, tag, release) is next. [DERIVED]
-- **R3 in progress 2026-10-25 [DERIVED].** PR #91 merged into `main` as
+- **R3 DONE 2026-10-26: corvus v1.1.0 released [DERIVED].** PR #91 merged into `main` as
   `713bac3` (a verified merge commit, so the 105 signed dev commits stay
   as they are). CI 40251301863 on `main` is green on all three jobs. RELEASING preconditions:
   milestone 5 clean; ACCURACY matrix current (R1/R2); PERFORMANCE.md
@@ -39,8 +39,14 @@ performance.**
   performance bullets updated to match. Release notes drafted from the
   errata list below. Witnesses: the gamma R4 complement witness is a 1-ULP
   reference row on HEAD; the betainv one came from a v1.0.1 build, since
-  HEAD reads 0 there. Next: the signed tag `v1.1.0` on `main`, then the
-  GitHub release and closing milestone 5.
+  HEAD reads 0 there. Docs commit `55dc705` on `main`. Signed annotated
+  tag `v1.1.0` on it (good signature, GitHub-verified);
+  `check_release_version.py` and `git describe` agree. The tagged code is
+  identical to `713bac3`, so CI 40251301863 covers it. GitHub release
+  published 2026-10-26 and marked latest:
+  https://github.com/OldCrow/corvus/releases/tag/v1.1.0. Milestone 5 is
+  closed. **Next: R4**, branch `dev/v1.2.0` off `main` (rows 13–17,
+  milestone 7); libstats and libhmm adopt v1.2.0, not v1.1.0.
 - **v1.1.0 native validation — R2 DONE 2026-10-25 on Kaby Lake** (i7-7820HQ,
   macOS 13.7.8; AppleClang 15.0.0, CMake 4.4.4, Ninja 1.13.2, Highway 1.4.0
   (brew), Python 3.15.1). HEAD `b870466`, code measured `0508ef1` (no
