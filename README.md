@@ -179,23 +179,30 @@ X0 = 8 because accuracy puts it there, not because it was tuned.
 As of v0.9.0 the measurements hold on quiet-machine release builds across
 three microarchitectures (Zen 4, Kaby Lake, Apple M1) and three vendor
 libms (UCRT, Apple x86, Apple arm64), so ranges can be quoted — always
-with the libm named, never as one number:
+with the libm named, never as one number. v1.1.0 changed several families
+(faster elementary kernels, slower inverses and incomplete functions from
+the accuracy fixes); until the next quiet pass, PERFORMANCE.md's status
+note lists indicative v1.1.0 figures, measured on Zen 4 only:
 
 - `cos`/`sin` run 3.2–5.6× ahead of every vendor libm measured, at 1 ULP
   over the full double range.
 - `lgamma` spans 1.5–5.2× against UCRT and 0.2–0.9× against Apple's
   libm: the same kernel lands on opposite sides of 1.0 depending on the
   baseline alone.
-- `log` runs at 0.2–0.64× of every vendor libm measured — deliberately.
-  It is correctly rounded on every reference row, and every baseline it
-  loses to trades exactly that away for speed.
+- `log` ran at 0.2–0.64× of every vendor libm measured at v0.9.0 —
+  deliberately. It is correctly rounded on every reference row, and every
+  baseline it lost to trades exactly that away for speed. v1.1.0's fast
+  path (#43) keeps it correctly rounded. An ad-hoc Zen 4 run reads
+  1.3–1.5× against UCRT; Kaby Lake and M1 are not yet re-measured.
 - Batching the compute-heavy families (inverses, incomplete functions)
-  gains roughly 4–140× over calling the same kernels one element at a
-  time — an upper bound against per-call overhead, not a libm
-  comparison.
+  gains roughly 3–18× over calling the same kernels one element at a
+  time (ad-hoc, Zen 4, v1.1.0; v0.9.0 read 4–140× against a slower
+  per-element baseline) — an upper bound against per-call overhead, not
+  a libm comparison.
 
 The full per-machine, per-band record is
-[docs/PERFORMANCE.md](docs/PERFORMANCE.md) — start at its §11 synthesis.
+[docs/PERFORMANCE.md](docs/PERFORMANCE.md) — start at its v1.1.0 status
+note, then its §11 synthesis.
 If throughput against your own libm on your own hardware is what decides the
 question, measure it — what corvus documents, and stands behind, is the
 accuracy at vector width.
