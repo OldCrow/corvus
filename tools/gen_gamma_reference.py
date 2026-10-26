@@ -15,8 +15,13 @@ Oracle rules (both hard requirements):
 
   ORACLE TRAP: mpmath's lower-gammainc path (hyp1f1) genuinely hangs/fails
   to converge for large a (measured: NoConvergence for a>=1e7 near the
-  ridge; multi-minute hangs for a~1e250 even AWAY from the ridge). Use
-  mpmath only for a<=1e4. For a>1e4: if a*phi(lambda) > 800 the small side
+  ridge; multi-minute hangs for a~1e250 even AWAY from the ridge). mpmath
+  gammainc is called in exactly two places: (1) oracle_pq evaluates rows
+  with a<=1e4 directly; (2) the Temme coefficient extraction (r_exact /
+  extract_c) evaluates it at the 15 nodes a = 512*2^j, j=0..14 (512 ..
+  8388608 ~ 8.4e6), on the 33 Chebyshev eta nodes of the fitted band
+  [eta(1/2), eta(2)] only -- every such call converges (a < 1e7). No row
+  with a>1e4 ever calls gammainc. For a>1e4: if a*phi(lambda) > 800 the small side
   has already underflowed past any double's representable range (e^-800 <<
   the smallest subnormal, e^-745ish) -- return the exact saturated pair
   (0,1)/(1,0) with no further computation. Otherwise (a>1e4, a*phi<=800)
@@ -24,21 +29,46 @@ Oracle rules (both hard requirements):
   800/1e4=0.08 bounds it), safely inside the Temme fit's validated band
   [1/2, 2] -- use the exact-arithmetic Temme oracle: mpf evaluation of
   1/2*erfc(+-eta*sqrt(a/2)) +- e^{-a*phi}/sqrt(2*pi*a)*sum_{k<11} c_k(eta)/a^k
-  with FULL-DEGREE (untruncated) Chebyshev fits, dps>=100. Truncation
-  error at a>1e4 is bounded by |c_11|*a^-11 <~ 2e-3 * 1e-44 << 1e-40 (c_11
-  was the first coefficient this generator's own extraction drops at the
-  2^-60 tail cut, and every extracted |c_k| for k<=11 stays under 2e-3 --
-  see gen_gamma_data.py's stderr degree/coefficient report). Self-checked
-  below on the a in [5e3,1e4] overlap band against mpmath directly.
+  with FULL-DEGREE (untruncated) Chebyshev fits, dps>=100. The k<11
+  truncation alone is bounded at a>1e4 by |c_11|*a^-11 <~ 2e-3 * 1e-44
+  (every extracted |c_k| for k<=11 stays under 2e-3 -- see
+  gen_gamma_data.py's stderr degree/coefficient report), but it is not the
+  dominant term: the measured total oracle error, which includes the
+  extraction and 33-node Chebyshev fit error, is ~1e-35 relative on the
+  small side (still ~19 decimal orders below double resolution).
+
+  Self-checks (every mode, exit non-zero on a miss; run_oracle_self_checks):
+  - overlap: Temme vs mpmath on a in [5e3,1e4] -- shows the switch has no
+    seam, but those a lie between the extraction's own nodes, so it does
+    not by itself certify the a>1e4 oracle;
+  - certification: at off-node a in (1e4, 1e8] (past the last extraction
+    node, 8.4e6), the small side from oracle_pq is compared with an
+    independent route that never calls gammainc -- own power series for P
+    (x<a), own Legendre continued fraction for Q (x>=a), at two working
+    precisions that must agree with each other -- to tolerance 2^-100.
+    a>1e8 is not certified directly (series/CF cost grows as sqrt(a)); it
+    rests on the same fits with every c_k/a^k (k>=1) term smaller still;
+  - negative control: the certification must reject an oracle whose c_0
+    fit is perturbed by a relative 2^-40, a shift that moves the small side
+    by more than 2^-53 at some certified point.
 
 Usage:
-    python3 tools/gen_gamma_reference.py
+    python3 tools/gen_gamma_reference.py               # full regeneration
+    python3 tools/gen_gamma_reference.py --check-only  # self-checks only, writes nothing
+    python3 tools/gen_gamma_reference.py --dd-special-append  # row-12 Log1pmxDd rows
+    python3 tools/gen_gamma_reference.py --r4band-append      # #67 R4 band rows
+    python3 tools/gen_gamma_reference.py --r3tail-append      # #64 R3 tail rows
 """
 
+import argparse
+import hashlib
 import math
+import os
 import random
 import struct
 import sys
+import tempfile
+import time
 
 import mpmath as mp
 
@@ -214,6 +244,164 @@ def check_oracle_overlap(fits):
             if rel > worst:
                 worst, worst_at = rel, (float(a), float(lam))
     return worst, worst_at
+
+
+# --- independent certification of the a > 1e4 Temme oracle --------------------
+# Off-node a (the extraction nodes are 512*2^j; 8388608 is the last one and is
+# kept as the endpoint) spanning (1e4, 1e8]. Per a, x is placed at a*phi in
+# CERT_APHI on both sides of the ridge (0 = the ridge itself), so every point
+# routes through temme_pq, never through saturation.
+CERT_A = (12345.678, 3.7e4, 1e5, 5e5, 2e6, 8388608.0, 8.4e6, 3e7, 1e8)
+CERT_APHI = (0, 1, 36, 300, 700)
+CERT_DPS = (130, 160)
+CERT_CONV_TOL = mp.mpf(10) ** -110  # the two precisions must agree this well
+CERT_TOL = mp.mpf(2) ** -100        # oracle vs independent route
+NEGCTL_K = 0                        # perturb c_0's fit ...
+NEGCTL_REL = mp.mpf(2) ** -40       # ... by this relative amount
+DOUBLE_RES = mp.mpf(2) ** -53
+
+
+def indep_small_side(a, x, dps):
+    """Small side of (P, Q) without gammainc: P by the power series
+    P = x^a e^-x / Gamma(a+1) * sum_n x^n / ((a+1)...(a+n))   (x < a),
+    Q by the Legendre continued fraction (modified Lentz)
+    Q = x^a e^-x / Gamma(a) * 1/(x+1-a- 1(1-a)/(x+3-a- 2(2-a)/(x+5-a- ...)))
+    (x >= a). Stops when the next term / CF factor changes the result by
+    less than 10^-(dps-5). Returns (value, iterations)."""
+    with mp.workdps(dps):
+        a, x = mp.mpf(a), mp.mpf(x)
+        eps = mp.mpf(10) ** -(dps - 5)
+        cap = 10 ** 7
+        if x >= a:
+            tiny = mp.mpf(10) ** -(2 * dps)
+            b = x + 1 - a
+            c = 1 / tiny
+            d = 1 / b
+            h = d
+            n = 0
+            while True:
+                n += 1
+                an = -n * (n - a)
+                b += 2
+                d = an * d + b
+                if d == 0:
+                    d = tiny
+                c = b + an / c
+                if c == 0:
+                    c = tiny
+                d = 1 / d
+                delta = d * c
+                h *= delta
+                if abs(delta - 1) < eps:
+                    break
+                if n > cap:
+                    raise RuntimeError(f"CF did not converge at a={a} x={x}")
+            pref = mp.exp(a * mp.log(x) - x - mp.loggamma(a))
+            return +(pref * h), n
+        term = mp.mpf(1)
+        s = mp.mpf(1)
+        n = 0
+        while True:
+            n += 1
+            term *= x / (a + n)
+            s += term
+            # x < a + n: terms are strictly decreasing from here on.
+            if term < s * eps and x < a + n:
+                break
+            if n > cap:
+                raise RuntimeError(f"series did not converge at a={a} x={x}")
+        pref = mp.exp(a * mp.log(x) - x - mp.loggamma(a + 1))
+        return +(pref * s), n
+
+
+def build_temme_cert_set():
+    """(a, x, is_q_side, indep_value) per certification point, plus the
+    worst two-precision disagreement. Raises if a point fails to converge
+    or the two precisions disagree beyond CERT_CONV_TOL."""
+    pts = []
+    worst_conv = mp.mpf(0)
+    for a in CERT_A:
+        for tgt in CERT_APHI:
+            for sgn in ((1,) if tgt == 0 else (1, -1)):
+                lam = lam_of_eta(sgn * mp.sqrt(2 * mp.mpf(tgt) / a))
+                x = float(lam * a)
+                v_lo, _ = indep_small_side(a, x, CERT_DPS[0])
+                v_hi, _ = indep_small_side(a, x, CERT_DPS[1])
+                conv = abs((v_hi - v_lo) / v_hi)
+                if conv > CERT_CONV_TOL:
+                    raise RuntimeError(
+                        f"independent route unconverged at a={a!r} x={x!r}: "
+                        f"dps {CERT_DPS} disagree by {float(conv):.3e}")
+                worst_conv = max(worst_conv, conv)
+                pts.append((a, x, mp.mpf(x) >= mp.mpf(a), v_hi))
+    return pts, worst_conv
+
+
+def temme_cert_worst(pts, fits):
+    """Worst relative small-side gap between oracle_pq(fits) and the
+    independent values. Asserts each point actually takes the Temme path."""
+    worst = mp.mpf(0)
+    worst_at = None
+    for a, x, q_side, ref in pts:
+        a_m, x_m = mp.mpf(a), mp.mpf(x)
+        assert a_m > A_SWITCH and a_m * phi_lam(x_m / a_m) <= APHI_SAT
+        P, Q = oracle_pq(a, x, fits)
+        got = Q if q_side else P
+        rel = abs((got - ref) / ref)
+        if rel > worst:
+            worst, worst_at = rel, (a, x)
+    return worst, worst_at
+
+
+def run_oracle_self_checks(fits):
+    """Overlap check, independent a>1e4 certification, and its negative
+    control. Returns 0 on success, else a non-zero exit code."""
+    t0 = time.time()
+    print("self-check: oracle overlap on a in [5e3,1e4] ...", file=sys.stderr)
+    worst, worst_at = check_oracle_overlap(fits)
+    print(f"  worst rel diff {float(worst):.3e} "
+          f"(2^{float(mp.log(worst, 2)):.2f}) at (a,lam)={worst_at}, "
+          f"target 2^-60", file=sys.stderr)
+    if worst > mp.mpf(2) ** -60:
+        print("  FAILED: oracle overlap exceeds 2^-60 -- aborting.",
+              file=sys.stderr)
+        return 1
+
+    print(f"self-check: independent certification of the a>1e4 Temme oracle "
+          f"(own series/CF, dps {CERT_DPS}) ...", file=sys.stderr)
+    pts, worst_conv = build_temme_cert_set()
+    worst, worst_at = temme_cert_worst(pts, fits)
+    print(f"  {len(pts)} points, a in {CERT_A}; independent route "
+          f"self-agreement {float(worst_conv):.3e}", file=sys.stderr)
+    print(f"  worst rel diff {float(worst):.3e} "
+          f"(2^{float(mp.log(worst, 2)):.2f}) at (a,x)={worst_at}, "
+          f"target 2^-100", file=sys.stderr)
+    if worst > CERT_TOL:
+        print("  FAILED: Temme oracle misses the independent route -- aborting.",
+              file=sys.stderr)
+        return 3
+
+    bad = [list(row) for row in fits]
+    bad[NEGCTL_K][0] *= 1 + NEGCTL_REL
+    shift = mp.mpf(0)
+    for a, x, q_side, _ref in pts:
+        P0, Q0 = oracle_pq(a, x, fits)
+        P1, Q1 = oracle_pq(a, x, bad)
+        s0, s1 = (Q0, Q1) if q_side else (P0, P1)
+        shift = max(shift, abs((s1 - s0) / s0))
+    bad_worst, bad_at = temme_cert_worst(pts, bad)
+    print(f"  negative control: c_{NEGCTL_K} fit perturbed by rel "
+          f"2^{float(mp.log(NEGCTL_REL, 2)):.0f} -> max small-side shift "
+          f"{float(shift):.3e} (double resolution 2^-53 = "
+          f"{float(DOUBLE_RES):.3e}); certification gap {float(bad_worst):.3e} "
+          f"at (a,x)={bad_at}", file=sys.stderr)
+    if shift <= DOUBLE_RES or bad_worst <= CERT_TOL:
+        print("  FAILED: negative control not flagged (or perturbation "
+              "below double resolution) -- aborting.", file=sys.stderr)
+        return 4
+    print(f"  negative control rejected as required; self-checks "
+          f"{time.time() - t0:.1f}s", file=sys.stderr)
+    return 0
 
 
 # --- helpers -----------------------------------------------------------------
@@ -567,22 +755,671 @@ def gen_dd_special_reference(rng):
     return len(rows)
 
 
+# --- incremental append: Log1pmxDd's LogDdAny branch (row 12) ------------------
+# The base set above samples |u| > 1/16 at 700 points per side over wide
+# ranges and never landed near u = 0.1166, where #58's nonzero-u.lo set found
+# the primitive's worst (2^-71.41; the same u.hi with u.lo = 0 measures the
+# same). This mode appends dense LogDdAny-branch rows from its OWN rng, so the
+# main SEED stream -- and every gamma_{p,q} and existing dd_special row -- is
+# untouched; existing lines stay byte-identical and rows already present are
+# skipped (a re-run appends nothing). Same oracle and format as
+# gen_dd_special_reference: phi = u - log1p(u) at dps 60, rounded to a dd.
+#
+# Strata (u.lo = 0, as the whole file):
+#   near-cut   u in (1/16, 1/4], uniform -- the 2/u amplification is largest
+#   pos        u in (1/4, 1], uniform
+#   pos-wide   u in (1, 100], log-uniform
+#   neg        u in [-1/2, -1/16), uniform
+#   neg-deep   t = 1 + u log-uniform in [2^-52, 1/2], u = fl(t - 1); with
+#              u in [-1, -1/2], 1 + u is exact (Sterbenz), so the 1-arg
+#              form's w is exact -- its hazard near -1 is u.lo, which is 0
+#   worst-nbhd the #58 worst u.hi = 0.11658359198367813 +- 256 ulps
+#              bit-stepped, plus 400 uniform in +-2^-12 relative around it
+#   cut-dense  u in (1/16, 0.064] (4000) and [-0.064, -1/16) (1000), uniform,
+#              plus 0.0625809 +- 128 ulps: the true worst sits here (row 12)
+#
+# Self-checks (exit non-zero, file untouched):
+#   (a) re-verify: every row recomputed at dps 120 must round to the SAME dd
+#       pair, bit for bit;
+#   (b) every want pair is normalized: |lo| <= ulp(hi)/2 and hi + lo == hi;
+#   (c) negative control: a want pair with lo moved by one ulp(lo) -- the
+#       smallest change a dd can express, ~2^-106 relative -- must fail (a);
+#   (d) every appended u is in the LogDdAny branch (|u| > 1/16), and the
+#       stratum counts meet the plan (no silent shrinkage).
+DDSPEC12_SEED = 1212
+DDSPEC12_WORST = 0.11658359198367813
+DDSPEC12_CUT_PEAK = 0.0625809
+DDSPEC12_PLAN = (("near-cut", 1500), ("pos", 800), ("pos-wide", 200),
+                 ("neg", 800), ("neg-deep", 300), ("worst-nbhd", 913),
+                 ("cut-dense", 5257))
+DD_SPECIAL_PATH = os.path.join("tests", "data", "dd_special_reference.txt")
+
+
+def build_ddspec12_points():
+    """Returns [(u, stratum)] in file order, duplicates within the list removed."""
+    rng = random.Random(DDSPEC12_SEED)
+    cut = 1.0 / 16.0
+    pts = []
+    for _ in range(1500):
+        pts.append((rng.uniform(cut, 0.25), "near-cut"))
+    for _ in range(800):
+        pts.append((rng.uniform(0.25, 1.0), "pos"))
+    for _ in range(200):
+        pts.append((10.0 ** rng.uniform(0.0, 2.0), "pos-wide"))
+    for _ in range(800):
+        pts.append((-rng.uniform(cut, 0.5), "neg"))
+    # Near t = 2^-52 the 2^-53 grid of u collapses draws; draw to 300 distinct.
+    deep = set()
+    while len(deep) < 300:
+        u = 2.0 ** rng.uniform(-52.0, -1.0) - 1.0
+        if u not in deep:
+            deep.add(u)
+            pts.append((u, "neg-deep"))
+    up = dn = DDSPEC12_WORST
+    pts.append((DDSPEC12_WORST, "worst-nbhd"))
+    for _ in range(256):
+        up = math.nextafter(up, math.inf)
+        dn = math.nextafter(dn, -math.inf)
+        pts.append((up, "worst-nbhd"))
+        pts.append((dn, "worst-nbhd"))
+    for _ in range(400):
+        pts.append((DDSPEC12_WORST * (1.0 + rng.uniform(-2.0 ** -12, 2.0 ** -12)),
+                    "worst-nbhd"))
+    # cut-dense (drawn last, so the strata above keep their draws): the
+    # error peaks just above the cut, where log_dd's error is amplified by
+    # ~2/u; 100k-point probes found 2^-67.63 near u = 0.0625809.
+    for _ in range(4000):
+        pts.append((rng.uniform(cut, 0.064), "cut-dense"))
+    for _ in range(1000):
+        pts.append((-rng.uniform(cut, 0.064), "cut-dense"))
+    up = dn = DDSPEC12_CUT_PEAK
+    pts.append((DDSPEC12_CUT_PEAK, "cut-dense"))
+    for _ in range(128):
+        up = math.nextafter(up, math.inf)
+        dn = math.nextafter(dn, -math.inf)
+        pts.append((up, "cut-dense"))
+        pts.append((dn, "cut-dense"))
+    out, seen = [], set()
+    for u, tag in pts:
+        b = as_bits(u)
+        if b not in seen:
+            seen.add(b)
+            out.append((u, tag))
+    return out
+
+
+def phi_dd(u, dps):
+    with mp.workdps(dps):
+        um = mp.mpf(u)
+        phi = um - mp.log1p(um)
+        hi = round_to_double(phi)
+        lo = round_to_double(phi - mp.mpf(hi))
+    return hi, lo
+
+
+def dd_normalized(hi, lo):
+    return abs(lo) <= math.ulp(hi) / 2 and hi + lo == hi
+
+
+def ddspec12_append():
+    pts = build_ddspec12_points()
+    with open(DD_SPECIAL_PATH, "rb") as f:
+        old = f.read()
+    if old and not old.endswith(b"\n"):
+        print("FAILED: dd_special_reference.txt lacks a trailing newline -- "
+              "nothing written.", file=sys.stderr)
+        return 6
+    eol = b"\r\n" if b"\r\n" in old else b"\n"
+    present = {ln.split()[0] for ln in old.decode().splitlines() if ln.split()}
+
+    bad = 0
+    rows, counts, skipped = [], {}, 0
+    for u, tag in pts:
+        if not (abs(u) > 1.0 / 16.0 and u > -1.0 and math.isfinite(u)):
+            print(f"  FAILED (d): u={u!r} ({tag}) outside the LogDdAny branch",
+                  file=sys.stderr)
+            bad += 1
+            continue
+        if hexd(u) in present:
+            skipped += 1
+            continue
+        hi, lo = phi_dd(u, 60)
+        if (hi, lo) != phi_dd(u, 120):
+            print(f"  FAILED (a): u={u!r} dps 60/120 dd pairs differ",
+                  file=sys.stderr)
+            bad += 1
+            continue
+        if not dd_normalized(hi, lo):
+            print(f"  FAILED (b): u={u!r} want pair not normalized",
+                  file=sys.stderr)
+            bad += 1
+            continue
+        rows.append((u, hi, lo))
+        counts[tag] = counts.get(tag, 0) + 1
+
+    # (c) negative control on the middle row: one ulp of lo must be caught.
+    if rows:
+        u, hi, lo = rows[len(rows) // 2]
+        if (hi, math.nextafter(lo, math.inf)) == phi_dd(u, 120):
+            print("  FAILED (c): 1-ulp(lo) perturbation not rejected",
+                  file=sys.stderr)
+            bad += 1
+    # (d) plan sizes, unless this is a re-run that found everything present.
+    if skipped == 0:
+        for tag, want in DDSPEC12_PLAN:
+            if counts.get(tag, 0) < want:
+                print(f"  FAILED (d): stratum {tag} has {counts.get(tag, 0)} "
+                      f"rows < {want}", file=sys.stderr)
+                bad += 1
+    if bad:
+        print(f"Self-checks FAILED ({bad}) -- nothing written.", file=sys.stderr)
+        return 1
+
+    new = [f"{hexd(u)} {hexd(hi)} {hexd(lo)}".encode() + eol
+           for u, hi, lo in rows]
+    with open(DD_SPECIAL_PATH, "wb") as f:
+        f.write(old + b"".join(new))
+    print(f"  appended {len(new)} rows to dd_special_reference.txt "
+          f"({skipped} already present); by stratum: {counts}; "
+          f"self-checks (a)-(d) passed", file=sys.stderr)
+    return 0
+
+
+# --- incremental append of the #56 ridge / #57 Temme-tail families ------------
+# Own RNG (Random(5657)); the main SEED stream is never touched. Only the new
+# family is certified (same oracle_pq, same finite / saturation-prune /
+# min-subnormal row filters as compute_and_write, preceded by the same
+# extraction + oracle self-checks main() runs), then the rows are
+# appended to both data files, leaving every existing line byte-identical.
+# Ordering convention: file order == point-set insertion order, so new rows
+# go at the end. Rows whose (a, x) is already present are skipped.
+RIDGE56_SEED = 5657
+RIDGE56_N = 600
+RIDGE56_STEP_A = 60
+TAIL57_N = 300
+TAIL57_PHI_MIN = 36.5
+RIDGE56_WITNESSES = (
+    (15.171008041303773, 14.337519187856447),
+    (1.5964951531210116, 2.355985895630986),
+    (14.580163310119733, 15.71328391163746),
+    (14.509912867374792, 15.54067538287069),
+)
+TAIL57_WITNESSES = (
+    (221.53038557579066, 436.1874278050619),
+    (2293.9196984916325, 4212.8856201041035),
+    (4493.060743078933, 2958.983641334607),
+)
+RIDGE56_CKPT_PATH = os.path.join(tempfile.gettempdir(),
+                                 f"corvus_gamma_ref_ckpt_ridge56_{RIDGE56_SEED}.tsv")
+
+
+def build_ridge56_point_set():
+    """Returns (PointSet, tags) with tags[(abits, xbits)] -> family label."""
+    rng = random.Random(RIDGE56_SEED)
+    ps = PointSet()
+    tags = {}
+
+    def add(a, x, tag, keep_sat):
+        n = len(ps.pts)
+        ps.add(a, x, keep_if_saturated=keep_sat)
+        if len(ps.pts) > n:
+            tags[(as_bits(float(a)), as_bits(float(x)))] = tag
+            return True
+        return False
+
+    for a, x in RIDGE56_WITNESSES:
+        add(a, x, "ridge-witness", True)
+    for a, x in TAIL57_WITNESSES:
+        add(a, x, "tail-witness", True)
+    lo, hi = math.log10(1.5), math.log10(20.0)
+    a_ridge = []
+    while len(a_ridge) < RIDGE56_N:
+        a = 10.0 ** rng.uniform(lo, hi)
+        if not (1.5 <= a < 20.0):
+            continue
+        x = a * rng.uniform(0.8, 1.25)
+        if add(a, x, "ridge", True):
+            a_ridge.append(a)
+    for a in rng.sample(a_ridge, RIDGE56_STEP_A):
+        x = a + 1.0
+        xs = {0: x}
+        up = dn = x
+        for k in (1, 2, 3):
+            up = math.nextafter(up, math.inf)
+            dn = math.nextafter(dn, -math.inf)
+            xs[k], xs[-k] = up, dn
+        for k in range(-3, 4):
+            add(a, xs[k], "ridge", True)
+    n_tail = 0
+    lo, hi = math.log10(20.0), math.log10(3000.0)
+    while n_tail < TAIL57_N:
+        a = 10.0 ** rng.uniform(lo, hi)
+        lam = rng.uniform(0.5, 2.0)
+        if not (20.0 <= a <= 3000.0 and 0.5 < lam < 2.0):
+            continue
+        if a * (lam - 1.0 - math.log(lam)) <= TAIL57_PHI_MIN:
+            continue
+        if add(a, a * lam, "tail", False):
+            n_tail += 1
+    return ps, tags
+
+
+def ridge56_append():
+    t0 = time.time()
+    print("extracting full-degree Temme fits for the a>1e4 oracle ...",
+          file=sys.stderr)
+    fits = extract_temme_full()
+    rc = run_oracle_self_checks(fits)
+    if rc:
+        return rc
+
+    ps, tags = build_ridge56_point_set()
+    total = len(ps.pts)
+    dig = hashlib.sha256()
+    for a, x, _k, _m in ps.pts:
+        dig.update(struct.pack("<QQ", as_bits(a), as_bits(x)))
+    sig = f"ridge56-v1-{dig.hexdigest()[:16]} SEED={RIDGE56_SEED} N={total}"
+    print(f"  ridge56/tail57 point set: {total} points", file=sys.stderr)
+
+    done = {}
+    mode = "w"
+    if os.path.exists(RIDGE56_CKPT_PATH):
+        with open(RIDGE56_CKPT_PATH, "r") as f:
+            if f.readline().strip() == sig:
+                mode = "a"
+                for line in f:
+                    parts = line.rstrip("\n").split("\t")
+                    if len(parts) >= 2:
+                        done[int(parts[0])] = parts[1:]
+            else:
+                print("  checkpoint signature mismatch -- starting fresh.",
+                      file=sys.stderr)
+    print(f"  checkpoint: {len(done)}/{total} points already computed",
+          file=sys.stderr)
+    with open(RIDGE56_CKPT_PATH, mode) as fh:
+        if mode == "w":
+            fh.write(sig + "\n")
+            fh.flush()
+        for idx, (a, x, _k, _m) in enumerate(ps.pts):
+            if idx in done:
+                continue
+            try:
+                P, Q = oracle_pq(a, x, fits)
+                if not (mp.isfinite(P) and mp.isfinite(Q)):
+                    raise ValueError("non-finite oracle value")
+                if abs(P + Q - 1) > mp.mpf(10) ** -80:
+                    print(f"\nFAILED: P+Q != 1 at a={a!r} x={x!r}: "
+                          f"P={float(P)!r} Q={float(Q)!r} -- nothing written.",
+                          file=sys.stderr)
+                    return 7
+                Pf, Qf = round_to_double(P), round_to_double(Q)
+                if not (math.isfinite(Pf) and math.isfinite(Qf)):
+                    raise ValueError("non-finite rounded value")
+                rec = [hexd(Pf), hexd(Qf)]
+            except Exception as e:
+                rec = ["FAILED", f"{type(e).__name__}:{e}"]
+            fh.write(str(idx) + "\t" + "\t".join(rec) + "\n")
+            fh.flush()
+            if (idx + 1) % 100 == 0:
+                print(f"    ... {idx + 1}/{total} ({time.time() - t0:.0f}s)",
+                      file=sys.stderr)
+        # reload
+    done = {}
+    with open(RIDGE56_CKPT_PATH, "r") as f:
+        f.readline()
+        for line in f:
+            parts = line.rstrip("\n").split("\t")
+            done[int(parts[0])] = parts[1:]
+
+    rows = []
+    n_pruned = 0
+    n_min_sub = 0
+    declined = []
+    for idx, (a, x, keep_sat, avoid_min_sub) in enumerate(ps.pts):
+        rec = done[idx]
+        if rec[0] == "FAILED":
+            declined.append((a, x, rec[1]))
+            continue
+        Pf, Qf = float.fromhex(rec[0]), float.fromhex(rec[1])
+        if not keep_sat and Pf in (0.0, 1.0) and Qf in (0.0, 1.0):
+            n_pruned += 1
+            continue
+        if avoid_min_sub and (Pf == MIN_SUBNORMAL or Qf == MIN_SUBNORMAL):
+            n_min_sub += 1
+            continue
+        rows.append((a, x, Pf, Qf))
+    for a, x, why in declined:
+        print(f"  DECLINED (not emitted): a={a!r} x={x!r} ({why})", file=sys.stderr)
+    got = {(a, x): (Pf, Qf) for a, x, Pf, Qf in rows}
+    for w in RIDGE56_WITNESSES + TAIL57_WITNESSES:
+        if w not in got:
+            print(f"\nFAILED: witness {w!r} was not certified -- nothing written.",
+                  file=sys.stderr)
+            return 5
+    print(f"  certified {len(rows)} rows; {len(declined)} declined, "
+          f"{n_pruned} incidental saturations pruned, {n_min_sub} min-subnormal",
+          file=sys.stderr)
+
+    plan = []
+    for name, col in (("gamma_p_reference.txt", 2), ("gamma_q_reference.txt", 3)):
+        path = os.path.join("tests", "data", name)
+        with open(path, "rb") as f:
+            old = f.read()
+        if old and not old.endswith(b"\n"):
+            print(f"\nFAILED: {name} lacks a trailing newline -- nothing written.",
+                  file=sys.stderr)
+            return 6
+        eol = b"\r\n" if b"\r\n" in old else b"\n"
+        present = set()
+        for ln in old.decode().splitlines():
+            t = ln.split()
+            if len(t) == 4:
+                present.add((t[0], t[1]))
+        new = []
+        counts = {}
+        for a, x, Pf, Qf in rows:
+            if (hexd(a), hexd(x)) in present:
+                print(f"  already present, skipped: {name} a={hexd(a)} x={hexd(x)}",
+                      file=sys.stderr)
+                continue
+            new.append(f"{hexd(a)} {hexd(x)} {hexd(Pf)} {hexd(Qf)}".encode() + eol)
+            fam = tags[(as_bits(a), as_bits(x))].split("-")[0]
+            counts[fam] = counts.get(fam, 0) + 1
+        plan.append((name, path, old, new, counts))
+    for name, path, old, new, counts in plan:
+        with open(path, "wb") as f:
+            f.write(old + b"".join(new))
+        print(f"  appended {len(new)} rows to {name} (by family: {counts})",
+              file=sys.stderr)
+    for a, x in RIDGE56_WITNESSES + TAIL57_WITNESSES:
+        Pf, Qf = got[(a, x)]
+        print(f"  witness a={a!r} x={x!r} -> P={Pf!r} ({hexd(Pf)}) "
+              f"Q={Qf!r} ({hexd(Qf)})", file=sys.stderr)
+    print(f"ridge56 runtime (this invocation): {time.time()-t0:.1f}s",
+          file=sys.stderr)
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# --r4band-append (#67, order row 12a): gamma_q's R4 small-a band, where
+# lgamma(1+a)'s centre-1 zone error is amplified by 1/Q (a in ~[0.25, 0.5],
+# x in [2.5, 4]); plus a sparse small-a stratum and the a > 1/2 side of the
+# seam. Own rng; existing rows untouched. Certified by TWO forms that share
+# no code: mpmath gammainc (regularized), and an own power series for P
+#     P = x^a e^-x / Gamma(a+1) * sum_{n>=0} x^n / ((a+1)...(a+n)),
+# with Q = 1 - P at a dps that keeps Q's digits (Q >= ~3e-3 here). Both run
+# at dps 60 and must agree to 1e-45 relative on P and on Q; a value within
+# 1e-6 ulp of a rounding midpoint is declined. Negative control: a stored Q
+# nudged by one ulp must fail the re-check.
+R4BAND_SEED = 6767
+R4BAND_WITNESS = (float.fromhex("0x1.ba7604d78e820p-2"),
+                  float.fromhex("0x1.fe069bd940a0ap+1"))
+
+
+def build_r4band_points():
+    rng = random.Random(R4BAND_SEED)
+    pts = [R4BAND_WITNESS]
+    for _ in range(1200):
+        pts.append((rng.uniform(0.2, 0.5), rng.uniform(2.5, 4.0)))
+    for _ in range(300):
+        pts.append((10.0 ** rng.uniform(-6.0, math.log10(0.2)),
+                    rng.uniform(0.5, 4.0)))
+    for _ in range(200):
+        pts.append((rng.uniform(0.5, 0.75), rng.uniform(2.5, 4.0)))
+    out, seen = [], set()
+    for a, x in pts:
+        k = (as_bits(a), as_bits(x))
+        if k not in seen:
+            seen.add(k)
+            out.append((a, x))
+    return out
+
+
+def r4band_series_pq(a, x, dps):
+    with mp.workdps(dps):
+        am, xm = mp.mpf(a), mp.mpf(x)
+        term, s, n = mp.mpf(1), mp.mpf(1), 0
+        while True:
+            n += 1
+            term = term * xm / (am + n)
+            s += term
+            if term < s * mp.mpf(10) ** (-dps - 5):
+                break
+        P = mp.exp(am * mp.log(xm) - xm - mp.loggamma(am + 1)) * s
+        return P, 1 - P
+
+
+def r4band_halfway_ulps(v, y):
+    up = math.nextafter(y, math.inf)
+    dn = math.nextafter(y, -math.inf)
+    mid = (mp.mpf(y) + mp.mpf(up if v >= y else dn)) / 2
+    return abs(v - mid) / abs(mp.mpf(up) - mp.mpf(y))
+
+
+def r4band_append():
+    t0 = time.time()
+    pts = build_r4band_points()
+    rows, declined = [], 0
+    for a, x in pts:
+        with mp.workdps(60):
+            Qm = mp.gammainc(mp.mpf(a), mp.mpf(x), mp.inf, regularized=True)
+            Pm = 1 - Qm
+        Ps, Qs = r4band_series_pq(a, x, 60)
+        with mp.workdps(60):
+            ok = (abs(Ps - Pm) <= abs(Pm) * mp.mpf(10) ** -45
+                  and abs(Qs - Qm) <= abs(Qm) * mp.mpf(10) ** -45)
+        if not ok:
+            print(f"  DECLINED (forms disagree): a={a!r} x={x!r}", file=sys.stderr)
+            declined += 1
+            continue
+        Pf, Qf = round_to_double(Pm), round_to_double(Qm)
+        if (r4band_halfway_ulps(Pm, Pf) < mp.mpf("1e-6")
+                or r4band_halfway_ulps(Qm, Qf) < mp.mpf("1e-6")):
+            declined += 1
+            continue
+        rows.append((a, x, Pf, Qf))
+    if (R4BAND_WITNESS[0], R4BAND_WITNESS[1]) not in {(r[0], r[1]) for r in rows}:
+        print("FAILED: #67 witness not certified -- nothing written.", file=sys.stderr)
+        return 5
+    # Re-check a sample at doubled dps by the series form, and prove the
+    # re-check is load-bearing with a one-ulp nudge.
+    rng = random.Random(R4BAND_SEED + 1)
+
+    def recheck(a, x, Pf, Qf):
+        P2, Q2 = r4band_series_pq(a, x, 120)
+        return round_to_double(P2) == Pf and round_to_double(Q2) == Qf
+
+    sample = rng.sample(rows, min(200, len(rows)))
+    bad = [r for r in sample if not recheck(*r)]
+    a, x, Pf, Qf = rows[0]
+    caught = not recheck(a, x, Pf, math.nextafter(Qf, math.inf))
+    print(f"  r4band: {len(rows)} certified, {declined} declined; re-check "
+          f"{len(sample)}: {len(bad)} mismatches; negative control "
+          f"{'CAUGHT' if caught else 'NOT CAUGHT'}", file=sys.stderr)
+    if bad or not caught:
+        print("FAILED: self-check -- nothing written.", file=sys.stderr)
+        return 3
+    if len(rows) % 2:
+        rows.pop()  # both files are odd-length; appending an even count keeps them so
+    for name in ("gamma_p_reference.txt", "gamma_q_reference.txt"):
+        path = os.path.join("tests", "data", name)
+        with open(path, "rb") as f:
+            old = f.read()
+        eol = b"\r\n" if b"\r\n" in old else b"\n"
+        present = {tuple(ln.split()[:2]) for ln in old.decode().splitlines()}
+        new = [f"{hexd(a)} {hexd(x)} {hexd(Pf)} {hexd(Qf)}".encode() + eol
+               for a, x, Pf, Qf in rows if (hexd(a), hexd(x)) not in present]
+        with open(path, "wb") as f:
+            f.write(old + b"".join(new))
+        print(f"  appended {len(new)} rows to {name}", file=sys.stderr)
+    print(f"r4band runtime: {time.time() - t0:.1f}s", file=sys.stderr)
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# --r3tail-append (#64, order row 12b): gamma_q's R3 Temme TAIL near
+# lambda = 2, where the erfc tail factor G carries weight ~1.28 in the
+# bracket and a plain-double G read 3 ulp (the witness: x = 2a - 4 ulp).
+# Strata, all a in [20, 3000] with a*phi in (36, 800] (the tail's live band):
+#   edge:  x = 2a - k ulp, k = 1..8 (the R3 side of the R3/R2 seam);
+#   band:  lambda uniform in [1.6, 2.4] (both sides of the seam).
+# Own rng; existing rows untouched. Certified by TWO forms that share no
+# code: mpmath gammainc (regularized upper) and the own modified-Lentz
+# Legendre CF of indep_small_side, both at dps 70, agreeing to 1e-45
+# relative on Q (x > a, so Q is the small side; P = 1 - Q). A value within
+# 1e-6 ulp of a rounding midpoint is declined; a Q that rounds to 0 is a
+# saturated pair and is pruned. Re-check: a sample at dps 140 by the CF
+# form; negative control: a stored Q nudged by one ulp must fail it.
+R3TAIL_SEED = 6464
+R3TAIL_WITNESS = (float.fromhex("0x1.271e222aab03cp+10"),
+                  float.fromhex("0x1.271e222aab038p+11"))
+R3TAIL_EDGE_A = 150
+R3TAIL_BAND_N = 400
+
+
+def r3tail_live(a, x):
+    am, xm = mp.mpf(a), mp.mpf(x)
+    aphi = am * phi_lam(xm / am)
+    return 36 < aphi <= 800
+
+
+def build_r3tail_points():
+    rng = random.Random(R3TAIL_SEED)
+    pts = [R3TAIL_WITNESS]
+    lo, hi = math.log10(20.0), math.log10(3000.0)
+    n_a = 0
+    while n_a < R3TAIL_EDGE_A:
+        a = 10.0 ** rng.uniform(lo, hi)
+        if not r3tail_live(a, 2.0 * a):
+            continue
+        n_a += 1
+        x = 2.0 * a
+        for _ in range(8):
+            x = math.nextafter(x, -math.inf)
+            pts.append((a, x))
+    n_b = 0
+    while n_b < R3TAIL_BAND_N:
+        a = 10.0 ** rng.uniform(lo, hi)
+        x = a * rng.uniform(1.6, 2.4)
+        if not r3tail_live(a, x):
+            continue
+        n_b += 1
+        pts.append((a, x))
+    out, seen = [], set()
+    for a, x in pts:
+        k = (as_bits(a), as_bits(x))
+        if k not in seen:
+            seen.add(k)
+            out.append((a, x))
+    return out
+
+
+def r3tail_append():
+    t0 = time.time()
+    pts = build_r3tail_points()
+    rows, declined, pruned = [], 0, 0
+    tol = mp.mpf(10) ** -45
+    for a, x in pts:
+        with mp.workdps(70):
+            Qm = mp.gammainc(mp.mpf(a), mp.mpf(x), mp.inf, regularized=True)
+            Pm = 1 - Qm
+        Qc, _ = indep_small_side(a, x, 70)
+        with mp.workdps(70):
+            ok = Qm > 0 and abs(Qc - Qm) <= Qm * tol
+        if not ok:
+            print(f"  DECLINED (forms disagree): a={a!r} x={x!r}", file=sys.stderr)
+            declined += 1
+            continue
+        Pf, Qf = round_to_double(Pm), round_to_double(Qm)
+        if Qf == 0.0:
+            pruned += 1
+            continue
+        if (r4band_halfway_ulps(Pm, Pf) < mp.mpf("1e-6")
+                or r4band_halfway_ulps(Qm, Qf) < mp.mpf("1e-6")):
+            declined += 1
+            continue
+        rows.append((a, x, Pf, Qf))
+    if R3TAIL_WITNESS not in {(r[0], r[1]) for r in rows}:
+        print("FAILED: #64 witness not certified -- nothing written.", file=sys.stderr)
+        return 5
+    rng = random.Random(R3TAIL_SEED + 1)
+
+    def recheck(a, x, Pf, Qf):
+        Q2, _ = indep_small_side(a, x, 140)
+        with mp.workdps(140):
+            return round_to_double(1 - Q2) == Pf and round_to_double(Q2) == Qf
+
+    sample = rng.sample(rows, min(200, len(rows)))
+    bad = [r for r in sample if not recheck(*r)]
+    a, x, Pf, Qf = rows[0]
+    caught = not recheck(a, x, Pf, math.nextafter(Qf, math.inf))
+    print(f"  r3tail: {len(rows)} certified, {declined} declined, {pruned} "
+          f"saturated pruned; re-check {len(sample)}: {len(bad)} mismatches; "
+          f"negative control {'CAUGHT' if caught else 'NOT CAUGHT'}",
+          file=sys.stderr)
+    if bad or not caught:
+        print("FAILED: self-check -- nothing written.", file=sys.stderr)
+        return 3
+    if len(rows) % 2:
+        rows.pop()  # both files are odd-length; appending an even count keeps them so
+    for name in ("gamma_p_reference.txt", "gamma_q_reference.txt"):
+        path = os.path.join("tests", "data", name)
+        with open(path, "rb") as f:
+            old = f.read()
+        eol = b"\r\n" if b"\r\n" in old else b"\n"
+        present = {tuple(ln.split()[:2]) for ln in old.decode().splitlines()}
+        new = [f"{hexd(a)} {hexd(x)} {hexd(Pf)} {hexd(Qf)}".encode() + eol
+               for a, x, Pf, Qf in rows if (hexd(a), hexd(x)) not in present]
+        if len(new) % 2:
+            print(f"FAILED: odd append count to {name} -- nothing written.",
+                  file=sys.stderr)
+            return 6
+        with open(path, "wb") as f:
+            f.write(old + b"".join(new))
+        print(f"  appended {len(new)} rows to {name}", file=sys.stderr)
+    print(f"r3tail runtime: {time.time() - t0:.1f}s", file=sys.stderr)
+    return 0
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0],
+                                     allow_abbrev=False)
+    parser.add_argument("--ridge56-append", action="store_true",
+                        help="certify only the #56 ridge / #57 Temme-tail "
+                             "families and append them to "
+                             "tests/data/gamma_{p,q}_reference.txt")
+    parser.add_argument("--check-only", action="store_true",
+                        help="extract the Temme fits and run the oracle "
+                             "self-checks only; write no files")
+    parser.add_argument("--dd-special-append", action="store_true",
+                        help="append the row-12 LogDdAny-branch rows to "
+                             "tests/data/dd_special_reference.txt (own rng; "
+                             "no Temme work, gamma files untouched)")
+    parser.add_argument("--r4band-append", action="store_true",
+                        help="append #67's R4 small-a band rows (two-form "
+                             "certified) to tests/data/gamma_{p,q}_reference.txt")
+    parser.add_argument("--r3tail-append", action="store_true",
+                        help="append #64's R3 Temme-tail rows near lambda = 2 "
+                             "(two-form certified) to "
+                             "tests/data/gamma_{p,q}_reference.txt")
+    args = parser.parse_args()
+    if args.r3tail_append:
+        return r3tail_append()
+    if args.r4band_append:
+        return r4band_append()
+    if args.ridge56_append:
+        return ridge56_append()
+    if args.dd_special_append:
+        return ddspec12_append()
     rng = random.Random(SEED)
 
     print("extracting full-degree Temme fits for the a>1e4 oracle ...",
           file=sys.stderr)
     fits = extract_temme_full()
 
-    print("self-check: oracle overlap on a in [5e3,1e4] ...", file=sys.stderr)
-    worst, worst_at = check_oracle_overlap(fits)
-    print(f"  worst rel diff {float(worst):.3e} "
-          f"(2^{float(mp.log(worst, 2)):.2f}) at (a,lam)={worst_at}, "
-          f"target 2^-60", file=sys.stderr)
-    if worst > mp.mpf(2) ** -60:
-        print("  FAILED: oracle overlap exceeds 2^-60 -- aborting.",
-              file=sys.stderr)
-        return 1
+    rc = run_oracle_self_checks(fits)
+    if rc or args.check_only:
+        return rc
 
     print("generating region point sets ...", file=sys.stderr)
     ps = PointSet()

@@ -118,7 +118,7 @@ int main() {
   }
 
   // Region boundaries: both sides of every split stay close to libm.
-  for (double b : {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.0}) {
+  for (const double b : {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.0}) {
     std::vector<double> bx = {std::nextafter(b, 0.0), b, std::nextafter(b, 99.0)};
     std::vector<double> by(bx.size());
     corvus::lgamma(bx, by);

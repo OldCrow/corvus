@@ -48,8 +48,8 @@ namespace corvus {
 // time (a mismatch is a FATAL_ERROR; added after these constants sat at
 // 0.1.0 through the v0.2.0 release unnoticed).
 inline constexpr int kVersionMajor = 1;
-inline constexpr int kVersionMinor = 0;
-inline constexpr int kVersionPatch = 1;
+inline constexpr int kVersionMinor = 1;
+inline constexpr int kVersionPatch = 0;
 
 /// \brief Name of the SIMD target selected by runtime dispatch.
 /// \return A static string such as "AVX2", "SSE4", or "NEON". Note Highway
@@ -58,14 +58,14 @@ inline constexpr int kVersionPatch = 1;
 
 /// \brief out[i] = erf(in[i]).
 ///
-/// Max 1 ULP over the full domain on validated tiers. Specials: erf(+/-0)
+/// <!-- claim: erf --> Max 1 ULP over the full domain on validated tiers. Specials: erf(+/-0)
 /// = +/-0, erf(+/-inf) = +/-1, NaN propagates (payload preserved).
 void erf(std::span<const double> in, std::span<double> out) noexcept;
 
 /// \brief out[i] = erfc(in[i]).
 ///
-/// Accuracy on validated tiers: max 1 ULP for |x| <= 6 and for subnormal
-/// results; max 2 ULP for normal-result x > 6 (bounded by the tail
+/// Accuracy on validated tiers: <!-- claim: erfc.core erfc.subnormal --> max 1 ULP for |x| <= 6 and for subnormal
+/// results; <!-- claim: erfc.tail --> max 2 ULP for normal-result x > 6 (bounded by the tail
 /// polynomial fit; see docs/ACCURACY.md). Specials: erfc(-inf) = 2,
 /// erfc(+inf) = 0, results underflow gradually past x ~ 26.5, NaN
 /// propagates (payload preserved).
@@ -85,7 +85,7 @@ void erfc(std::span<const double> in, std::span<double> out) noexcept;
 /// split is documented.
 ///
 /// Specials: lgamma(1) = lgamma(2) = +0; +inf at every pole (x = 0 and the
-/// negative integers), on overflow (x above ~2.556e305), and at both
+/// negative integers), on overflow (x above ~2.5599833e305), and at both
 /// infinities; NaN propagates (payload preserved).
 void lgamma(std::span<const double> in, std::span<double> out) noexcept;
 
@@ -113,9 +113,11 @@ void erfcinv(std::span<const double> in, std::span<double> out) noexcept;
 ///
 /// Three spans, all the same length: `a`, `x` and `out`. Whichever of the
 /// pair is the smaller at a given (a, x) is the one computed directly, so
-/// the accuracy bound is relative on that side however far it underflows;
-/// the other side is >= ~0.4 by construction. See docs/ACCURACY.md for the
-/// measured per-region table.
+/// the accuracy bound is relative on that side however far it underflows.
+/// The other side is the complement of the direct side's double-double,
+/// taken before any rounding; it is not always large (Q ~ 0.13 occurs) and
+/// keeps the same per-region bound. See docs/ACCURACY.md for the measured
+/// per-region table.
 ///
 /// Specials: P(a, 0) = +0 and P(+inf, x) = +0 for finite a, x; P(0, x) = 1
 /// and P(a, +inf) = 1 for finite a, x; P(0, 0), P(+inf, +inf) and any
@@ -166,9 +168,11 @@ void gamma_q(std::span<const double> a, std::span<const double> x,
 ///
 /// Four spans, all the same length: `a`, `b`, `x` and `out`. Whichever of the
 /// pair is the smaller at a given (a, b, x) is the one computed directly, so
-/// the accuracy bound is relative on that side however far it underflows; the
-/// other side is >= ~0.4 by construction. See docs/ACCURACY.md for the
-/// measured per-region table.
+/// the accuracy bound is relative on that side however far it underflows. The
+/// other side is the complement of the direct side's double-double, taken
+/// before any rounding; it can be as small as ~2^-11 (below that the kernel
+/// computes it directly) and keeps the same per-region bound. See
+/// docs/ACCURACY.md for the measured per-region table.
 ///
 /// Specials, with `a` and `b` finite and positive unless stated: I_0(a, b) =
 /// +0 and I_1(a, b) = 1; a = 0 or b = +inf puts all the mass at 0, so
@@ -220,10 +224,11 @@ void beta_q(std::span<const double> a, std::span<const double> b,
 /// them.) Computed through the same double-double lgamma-difference
 /// machinery as beta_p/beta_q's prefactor, so the a+b cancellation that
 /// costs a plain three-lgamma assembly its accuracy for large parameters
-/// is removed analytically. Accuracy: CORRECTLY ROUNDED on every measured
-/// row of every band and tier — 0 ULP where |ln B| >= 1, half-ulp
-/// absolute in the band around ln B's zero curve through (1,1), where the
-/// result itself is ill-conditioned (docs/ACCURACY.md). Symmetric in
+/// is removed analytically. Accuracy: <!-- claim: lbeta.relative --> max 1 ULP where |ln B| >= 1,
+/// <!-- claim: lbeta.abs --> 2^-53 absolute in the band around ln B's zero curve through (1,1),
+/// where the result itself is ill-conditioned; measured correctly rounded on
+/// the reference set except near-ties (docs/ACCURACY.md; it was documented
+/// as correctly rounded until v1.1.0). Symmetric in
 /// (a, b); saturates to -inf
 /// where the true ln B falls below the double range (both parameters
 /// huge); NaN propagates as a quiet NaN (the input payload is not preserved).
@@ -241,7 +246,7 @@ void lbeta(std::span<const double> a, std::span<const double> b,
 /// reproduces by construction. On the negative axis psi also has a zero
 /// between every consecutive pair of poles -- infinitely many points with no
 /// closed form -- so there the bound is relative where |psi| >= 1 and
-/// ABSOLUTE, of order 2^-53, inside the bands around those zeros; the
+/// <!-- claim: digamma.neg_abs --> ABSOLUTE, of order 2^-53, inside the bands around those zeros; the
 /// measured split is documented.
 ///
 /// Specials: psi(+0) = -inf and psi(-0) = +inf (signed-zero pole
@@ -282,10 +287,12 @@ void trigamma(std::span<const double> in, std::span<double> out) noexcept;
 /// Whichever of p and 1 - p is <= 1/2 is the one solved against, the switch
 /// being exact, so the accuracy bound is relative on both sides of the
 /// median and down to subnormal answers. See docs/ACCURACY.md for the
-/// measured per-regime table. Note that for a above ~3e34 the whole
-/// transition from P = 0 to P = 1 happens inside one ulp of x, so the answer
-/// there is x = a for every p in (0, 1) that is not a hard limit; that is
-/// the correctly rounded result, not a shortcut.
+/// measured per-regime table. Note that for a above ~3e34 one ulp of x
+/// already carries P from saturated-0 to saturated-1, so the answer is a or
+/// one of its neighbours for every p in (0, 1) that is not a hard limit;
+/// above ~5e35 the whole transition fits inside half an ulp and the answer
+/// is x = a exactly. Either way it is the correctly rounded result (within
+/// the 1-ULP bound), not a shortcut.
 ///
 /// Specials: p = 0 gives +0 and p = 1 gives +inf; p outside [0, 1] gives
 /// NaN, as do a <= 0 and a = +inf; NaN propagates (payload preserved).
@@ -351,11 +358,15 @@ void gamma_q_inv(std::span<const double> a, std::span<const double> q,
 /// use that form; it is exactly what the kernel does internally.
 ///
 /// Two named regimes carry a weaker guarantee, both by the nature of the
-/// problem rather than by the method. Where BOTH a and b are below ~1e-16 the
-/// distribution's interior density is ~4 min(a, b), so an interior x is not
-/// resolvable to 1 ULP by any double-precision inverse; there the returned x
-/// satisfies a BACKWARD-error contract instead (its forward value is within a
-/// few ulp of the requested probability). Where the effective sample size
+/// problem rather than by the method. Where the inversion's condition number
+/// kappa = sigma / (x f(x)) exceeds 2^18 (sigma the smaller of p and 1 - p, f
+/// the Beta density), a double-double forward cannot pin x to 1 ULP: its own
+/// ~2^-70 relative error, multiplied by kappa, already exceeds an ulp of x.
+/// There the returned x satisfies a BACKWARD-error contract instead: its true
+/// forward value is within 1 ulp of the requested probability. The regime
+/// always contains pairs with BOTH a and b below ~1e-16, whose interior
+/// density is ~4 min(a, b); it also reaches some small pairs (shapes near
+/// 1e-8) at interior targets. Where the effective sample size
 /// nu = ab/(a+b) is huge (audited band nu >= ~1e31; full collapse for
 /// nu >~ 1e35) the entire transition from I = 0 to I = 1 happens inside one
 /// or two ulp of x, so every interior probability has effectively the same
@@ -410,7 +421,7 @@ void beta_q_inv(std::span<const double> a, std::span<const double> b,
 ///
 /// Method: a truncated power series in q = x^2/4 for |x| <= 8 (all terms
 /// positive, well conditioned), and a Chebyshev fit in 1/x times
-/// exp(|x|)/sqrt(2*pi*|x|) for |x| > 8. Accuracy: max 1 ULP over the full
+/// exp(|x|)/sqrt(2*pi*|x|) for |x| > 8. Accuracy: <!-- claim: bessel --> max 1 ULP over the full
 /// real axis, measured and gate-pinned on every SIMD tier
 /// (docs/ACCURACY.md).
 ///
@@ -423,7 +434,7 @@ void i0(std::span<const double> in, std::span<double> out) noexcept;
 ///   kind, order 1 (SciPy's `iv(1, .)` / `i1`).
 ///
 /// Same method as i0, on the ODD series/fit pair: I1 is odd, so the sign of
-/// a nonzero result matches the sign of the input. Accuracy: max 1 ULP
+/// a nonzero result matches the sign of the input. Accuracy: <!-- claim: bessel --> max 1 ULP
 /// over the full real axis, measured and gate-pinned on every SIMD tier
 /// (docs/ACCURACY.md).
 ///
@@ -441,7 +452,7 @@ void i1(std::span<const double> in, std::span<double> out) noexcept;
 /// this stays finite over the whole real axis. A(kappa) = i1e(kappa) /
 /// i0e(kappa) is the exact mean resultant length of a von Mises(kappa)
 /// distribution, computed without ever forming the unscaled I0/I1.
-/// Accuracy: max 1 ULP over the full real axis, measured and gate-pinned
+/// Accuracy: <!-- claim: bessel --> max 1 ULP over the full real axis, measured and gate-pinned
 /// on every SIMD tier (docs/ACCURACY.md).
 ///
 /// Specials: i0e(0) = 1; i0e(+-inf) = +0; NaN propagates (payload
@@ -454,7 +465,7 @@ void i0e(std::span<const double> in, std::span<double> out) noexcept;
 ///   order 1 (SciPy's `ive(1, .)`).
 ///
 /// Same scaling rationale as i0e, on the odd pair; see i0e's doc for the von
-/// Mises mean-resultant-length identity. Accuracy: max 1 ULP over the full
+/// Mises mean-resultant-length identity. Accuracy: <!-- claim: bessel --> max 1 ULP over the full
 /// real axis, measured and gate-pinned on every SIMD tier
 /// (docs/ACCURACY.md).
 ///
@@ -467,10 +478,10 @@ void i1e(std::span<const double> in, std::span<double> out) noexcept;
 ///
 /// Assembled from corvus's internal double-double exp core (audited at
 /// 2^-68.4 relative before the final rounding), so the result is the
-/// correctly rounded exp except within ~2^-15 ulp of a rounding tie.
+/// <!-- claim: exp.normal --> correctly rounded exp except within ~2^-15 ulp of a rounding tie.
 /// Subnormal results take ONE extra rounding through the two-step
 /// power-of-two scaling (worst construction bound ~0.75 ulp of the
-/// output, within the 1-ULP gate). Accuracy: measured and gate-pinned
+/// output, within the <!-- claim: exp.subnormal --> 1-ULP gate). Accuracy: measured and gate-pinned
 /// per SIMD tier
 /// (docs/ACCURACY.md). Overflow to +inf and gradual underflow through the
 /// subnormals to 0 cross at the correctly rounded thresholds.

@@ -55,15 +55,16 @@ def emit(points):
 def self_check(rows):
     """Re-verify a deterministic sample at double dps (issue #13 N14.2).
 
-    Sample = every subnormal-output row plus every 97th row, capped at 500
-    rows total (no rng -- deterministic by construction). Recomputes the
+    Sample = every subnormal-output row plus every 97th row, each arm in
+    full (no rng -- deterministic by construction). Recomputes the
     oracle at 2*DPS and requires a bit-identical double, compared by packed
     bit pattern so -0.0 vs +0.0 is caught.
     """
     subnormal = [i for i, (_, y) in enumerate(rows) if 0 < abs(y) < _MIN_NORMAL]
     subnormal_set = set(subnormal)
     every_97th = [i for i in range(0, len(rows), 97) if i not in subnormal_set]
-    sample = (subnormal + every_97th)[:500]
+    # No truncating global cap (#35 L3 / #61): each arm is verified in full.
+    sample = subnormal + every_97th
     bad = []
     with mp.workdps(2 * DPS):
         for i in sample:
@@ -76,7 +77,8 @@ def self_check(rows):
             print(f"self-check MISMATCH: x={x.hex()} stored={y.hex()} "
                   f"recomputed={y2.hex()}", file=sys.stderr)
         return False
-    print(f"self-check: {len(sample)} rows re-verified at dps={2 * DPS}: OK",
+    print(f"self-check: {len(sample)} rows ({len(subnormal)} subnormal-output, "
+          f"{len(every_97th)} every-97th) re-verified at dps={2 * DPS}: OK",
           file=sys.stderr)
     return True
 

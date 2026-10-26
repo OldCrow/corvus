@@ -30,6 +30,22 @@ endfunction()
 # erfinv reuses erfc's core and tail; gamma reuses all of them plus
 # Log1pmxDd/Expm1Dd from dd_special).
 
+# tools/hunt's evaluator (#82, T5): a public-API probe, not a test.
+add_executable(hunt_probe hunt_probe.cpp)
+corvus_test_target(hunt_probe)
+# src/route_census.h in a census build (#82 T7).
+target_include_directories(hunt_probe PRIVATE ${PROJECT_SOURCE_DIR})
+
+# #82 T6: the docs' bound claims against tests/data/bounds.txt, the table the
+# ULP gates are held to (CheckBound in ulp_utils.h).
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+  add_test(NAME claims_check
+    COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/claims_check.py)
+else()
+  message(STATUS "corvus: no Python 3 interpreter; the claims_check test is skipped")
+endif()
+
 # #36: the Windows toolchain verdicts, in script mode so every leg runs them.
 add_test(NAME toolchain_guard
   COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchain_guard_test.cmake)
@@ -48,7 +64,9 @@ add_executable(test_dd_special test_dd_special.cpp)
 corvus_kernel_test_target(test_dd_special)
 add_test(NAME dd_special
   COMMAND test_dd_special
-  ${CMAKE_CURRENT_SOURCE_DIR}/data/dd_special_reference.txt)
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/dd_special_reference.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/log1pmx_ulo_reference.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/expm1_dd_reference.txt)
 
 add_executable(test_erf test_erf.cpp)
 corvus_test_target(test_erf)
@@ -231,7 +249,8 @@ target_include_directories(test_betainv_ulp PRIVATE ${PROJECT_SOURCE_DIR})
 add_test(NAME betainv_ulp
   COMMAND test_betainv_ulp
   ${CMAKE_CURRENT_SOURCE_DIR}/data/betainv_p_reference.txt
-  ${CMAKE_CURRENT_SOURCE_DIR}/data/betainv_q_reference.txt)
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/betainv_q_reference.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/betainv_backward_reference.txt)
 
 add_executable(bench_betainv bench_betainv.cpp)
 corvus_test_target(bench_betainv)
@@ -335,3 +354,10 @@ add_test(NAME log_ulp
 add_executable(bench_log bench_log.cpp)
 corvus_test_target(bench_log)
 # Deliberately not registered with ctest: run manually on a quiet machine.
+
+# Guard harness (#53): scalar = span, sign/range, beta symmetry and the
+# inverse bracket over seeded grids. It consumes every incomplete gamma/beta
+# export, so it registers last; no reference file.
+add_executable(test_guards test_guards.cpp)
+corvus_test_target(test_guards)
+add_test(NAME guards COMMAND test_guards)

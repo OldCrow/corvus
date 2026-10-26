@@ -83,6 +83,7 @@
 #include "src/dd-inl.h"
 #include "src/erfc_core-inl.h"
 #include "src/erfinv_data.h"
+#include "src/exp_dd-inl.h"  // DdScaleToDouble (#73)
 #include "src/log_dd-inl.h"
 #include "src/ops-inl.h"
 
@@ -97,6 +98,11 @@ namespace op = ops;
 // since they are closed-form, not fitted.
 inline constexpr double kErfinvTwoOverSqrtPi = 0x1.20dd750429b6dp+0;  // 2/sqrt(pi)
 inline constexpr double kErfinvSqrtPi = 0x1.c5bf891b4ef6bp+0;        // sqrt(pi)
+// sqrt(pi)/2 as a dd (relative 7e-34): erfinv's exact slope at 0, for the
+// tiny-y branch of ErfinvCentral. NOT the fitted lead L0, which differs from
+// it by 2^-69.7 -- enough to flip a subnormal near-tie (#73).
+inline constexpr double kErfinvHalfSqrtPiHi = 0x1.c5bf891b4ef6bp-1;
+inline constexpr double kErfinvHalfSqrtPiLo = -0x1.618f13eb7ca89p-55;
 
 // Pc(v) = L0 + v*(L1 + v*(L2 + v*S(v))), v = y^2, as a dd. See the file
 // header for why the leading terms are dd and the tail is plain double.
@@ -115,6 +121,8 @@ HWY_INLINE Dd<D> ErfinvCentralDd(D d, op::V<D> v) {
   acc = DdAddD(d, acc, op::Mul(s, v));
   for (int k = kLead - 2; k >= 0; --k) {
     acc = DdAdd(d, Dd<D>{op::Set(d, lh[k]), op::Set(d, ll[k])},
+                // FLOOR: acc*v < 2^-968 needs |y| < 2^-484 (|acc| <= 1); the
+                // lost low part (<= 2^-1073) lands on a lead >= 2^-3.
                 DdMulD(d, acc, v));
   }
   return acc;
@@ -140,11 +148,36 @@ HWY_INLINE Dd<D> ErfinvCentralDd(D d, op::V<D> v) {
 // a +0 and a -0 partial sum together -- and IEEE 754 defines (-0)+(+0) as
 // +0 in round-to-nearest, which silently turns erfinv(-0) into +0 without
 // this. CopySign is a no-op everywhere else since the sign already matches.
+//
+// TINY y (#73). For |y| < 2^-967 the product pc*y sits below the ProdLow
+// floor, and the no-FMA tiers lost its low part: up to 2 ulp of a subnormal
+// result. Those lanes form the product at |y|*2^600 (exact; at least
+// 2^-474) and take it back with DdScaleToDouble, which rounds the dd times
+// 2^-600 ONCE into the subnormal grid. The slope is sqrt(pi)/2 itself, not
+// pc: below 2^-900, erfinv(y) = y*sqrt(pi)/2 to relative 1e-540, while pc's
+// fitted lead L0 is off it by 2^-69.7 and flipped a near-tie 9e-8 grid
+// units from the midpoint in a 200k sweep. The branch runs only when a
+// lane needs it: the central path is the cheapest and most travelled.
 template <class D>
 HWY_INLINE op::V<D> ErfinvCentral(D d, op::V<D> y) {
   const auto v = op::Mul(y, y);
   const auto pc = ErfinvCentralDd(d, v);
-  return op::CopySign(DdToDouble(DdMulD(d, pc, y)), y);
+  // FLOOR: tiny lanes are recomputed below; on the rest |y| >= 2^-900, so
+  // |pc*y| >= 0.88 * 2^-900, above the floor.
+  auto r = DdToDouble(DdMulD(d, pc, y));
+  const auto tiny = op::Lt(op::Abs(y), op::Set(d, 0x1.0p-900));
+  CORVUS_ROUTE(d, "erfinv/central/tiny", tiny);
+  if (!op::AllFalse(d, tiny)) {
+    CORVUS_ROUTE_SCOPE(d, tiny);
+    const op::SignedTag<D> di;
+    const auto ys = op::Mul(op::Abs(y), op::Set(d, 0x1.0p+600));
+    const Dd<D> hsp{op::Set(d, kErfinvHalfSqrtPiHi), op::Set(d, kErfinvHalfSqrtPiLo)};
+    // FLOOR: never reached: |ys| >= 2^-474 on tiny lanes (others discarded).
+    const auto pm = DdMulD(d, hsp, ys);
+    const auto rs = DdScaleToDouble(d, pm, op::Set(di, int64_t{-600}));
+    r = op::IfThenElse(tiny, rs, r);
+  }
+  return op::CopySign(r, y);
 }
 
 // mid: delta = -f / (f' + x0*f), f = erfc(x0) - s, f' = erfc'(x0).
@@ -164,7 +197,8 @@ HWY_INLINE op::V<D> HalleyMid(D d, op::V<D> x0, op::V<D> s) {
   // gather index round(ac*256) only stays at 0 because |x0| < 1/512 --
   // a 7.2x rounding margin enforced nowhere until this Max. The clamp is
   // provably a no-op on live lanes (x0 > 0) and runs after the NaN scrub,
-  // so Max never sees a NaN.
+  // so Max never sees a NaN. The 2026-10-10 defect hunt (#53) found no
+  // reachable effect over 220k points: a guard, not a fix.
   const auto x0s = op::Max(
       op::IfThenElse(op::IsNaN(x0), op::Zero(d), x0), op::Zero(d));
   const auto e = ErfcCoreDd(d, x0s, x0s);  // x0 > 0 on live lanes
@@ -177,6 +211,9 @@ HWY_INLINE op::V<D> HalleyMid(D d, op::V<D> x0, op::V<D> s) {
 // far: delta = -2F / (2F' + F*(2x0 + F')), F = w - x0^2 - log(x0/G(1/x0)).
 template <class D>
 HWY_INLINE op::V<D> HalleyFar(D d, op::V<D> x0, Dd<D> wneg) {
+  // Far lanes have x0 >= ~6 (seed error 2^-19); the margin keeps mid lanes
+  // evaluated alongside (mixed vectors) from recording erfc_core routes.
+  CORVUS_ROUTE_SCOPE(d, op::Ge(x0, op::Set(d, 0x1.7fp+2)));
   const auto ssq = op::Mul(x0, x0);
   const auto slo = op::ProdLow(d, x0, x0, ssq);  // exact: x0 <= ~28 << 2^996
 
@@ -211,6 +248,15 @@ HWY_NOINLINE op::V<D> ErfcInvCore(D d, op::V<D> s) {
   const auto m1 = op::Lt(t, op::Set(d, detail::kErfinvTSplit));  // t < 2
   const auto m2 = op::Lt(t, op::Set(d, detail::kErfinvTFar));    // mid overall
   const auto far = op::Ge(t, op::Set(d, detail::kErfinvTFar));
+  CORVUS_ROUTE(d, "erfinv_t/mid_lo", m1);
+  {
+    CORVUS_ROUTE_SCOPE(d, m2);
+    CORVUS_ROUTE(d, "erfinv_t/mid_hi",
+                 op::Ge(t, op::Set(d, detail::kErfinvTSplit)));
+  }
+  CORVUS_ROUTE(d, "erfinv_t/far", far);
+  CORVUS_ROUTE(d, "erfinv_t/subnormal_s",
+               op::Lt(s, op::Set(d, 0x1p-1022)));
 
   const auto u = op::Div(op::Set(d, 1.0), t);
   const auto var = op::IfThenElse(far, u, t);
@@ -245,18 +291,31 @@ HWY_NOINLINE op::V<D> ErfinvVec(D d, op::V<D> y) {
 
   const auto c_m = op::Ge(op::Set(d, detail::kErfinvYSplit), ay);  // |y|<=1/2
 
+  CORVUS_ROUTE(d, "erfinv/central", c_m);
+  {
+    CORVUS_ROUTE_SCOPE(d, op::Gt(one, ay));
+    CORVUS_ROUTE(d, "erfinv/tail", op::Gt(ay, op::Set(d, detail::kErfinvYSplit)));
+  }
+
   op::V<D> res;
   if (op::AllTrue(d, c_m)) {
     res = ErfinvCentral(d, y);
   } else if (op::AllFalse(d, c_m)) {
+    CORVUS_ROUTE_SCOPE(d, op::Gt(ay, op::Set(d, detail::kErfinvYSplit)));
+    CORVUS_ROUTE_SCOPE(d, op::Gt(one, ay));
     const auto s = op::Sub(one, ay);  // exact by Sterbenz, ay in [1/2, inf)
     res = op::CopySign(ErfcInvCore(d, s), y);
   } else {
+    CORVUS_ROUTE_SCOPE(d, op::Gt(ay, op::Set(d, detail::kErfinvYSplit)));
+    CORVUS_ROUTE_SCOPE(d, op::Gt(one, ay));
     const auto s = op::Sub(one, ay);
     res = op::IfThenElse(c_m, ErfinvCentral(d, y),
                          op::CopySign(ErfcInvCore(d, s), y));
   }
 
+  CORVUS_ROUTE(d, "erfinv/special/pm1", op::Eq(ay, one));
+  CORVUS_ROUTE(d, "erfinv/special/domain", op::Gt(ay, one));
+  CORVUS_ROUTE(d, "erfinv/special/nan", nan);
   res = op::IfThenElse(op::Eq(ay, one), op::CopySign(inf, y), res);
   res = op::IfThenElse(op::Gt(ay, one), nan_out, res);
   res = op::IfThenElse(nan, y, res);  // propagate NaN (payload preserved)
@@ -270,7 +329,14 @@ HWY_NOINLINE op::V<D> ErfinvVec(D d, op::V<D> y) {
 // evaluation, and s is exact either way so the select costs nothing extra.
 template <class D>
 HWY_INLINE op::V<D> ErfcinvTail(D d, op::V<D> z) {
+  // Tail region (|z - 1| > 1/2) restricted to the in-domain z in (0, 2).
+  CORVUS_ROUTE_SCOPE(d, op::Gt(op::Abs(op::Sub(z, op::Set(d, 1.0))),
+                               op::Set(d, 0.5)));
+  CORVUS_ROUTE_SCOPE(d, op::Gt(z, op::Zero(d)));
+  CORVUS_ROUTE_SCOPE(d, op::Lt(z, op::Set(d, 2.0)));
   const auto lo_m = op::Lt(z, op::Set(d, 0.5));
+  CORVUS_ROUTE(d, "erfcinv/tail_low", lo_m);
+  CORVUS_ROUTE(d, "erfcinv/tail_high", op::Gt(z, op::Set(d, 1.5)));
   const auto s = op::IfThenElse(lo_m, z, op::Sub(op::Set(d, 2.0), z));
   const auto x = ErfcInvCore(d, s);
   return op::IfThenElse(lo_m, x, op::Neg(x));
@@ -297,6 +363,8 @@ HWY_NOINLINE op::V<D> ErfcinvVec(D d, op::V<D> z) {
   const auto c_m = op::Ge(half, op::Abs(zm1));
   const auto one_minus_z = op::Sub(one, z);
 
+  CORVUS_ROUTE(d, "erfcinv/central", c_m);
+
   op::V<D> res;
   if (op::AllTrue(d, c_m)) {
     res = ErfinvCentral(d, one_minus_z);
@@ -311,6 +379,11 @@ HWY_NOINLINE op::V<D> ErfcinvVec(D d, op::V<D> z) {
   // for c_m: for z a tiny negative subnormal, z - 1 rounds to exactly -1
   // (the deviation is many orders of magnitude below 1's ulp), which would
   // silently swallow the very case this check exists to catch.
+  CORVUS_ROUTE(d, "erfcinv/special/z0", op::Eq(z, op::Zero(d)));
+  CORVUS_ROUTE(d, "erfcinv/special/z2", op::Eq(z, two));
+  CORVUS_ROUTE(d, "erfcinv/special/domain_neg", op::Lt(z, op::Zero(d)));
+  CORVUS_ROUTE(d, "erfcinv/special/domain_pos", op::Gt(z, two));
+  CORVUS_ROUTE(d, "erfcinv/special/nan", nan_in);
   res = op::IfThenElse(op::Eq(z, op::Zero(d)), inf, res);
   res = op::IfThenElse(op::Eq(z, two), op::Neg(inf), res);
   res = op::IfThenElse(op::Lt(z, op::Zero(d)), nan_out, res);

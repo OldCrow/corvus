@@ -29,8 +29,9 @@
 //   structural, not FMA-dependent; part 3's product rounding (~2^-124
 //   absolute) sits below the reduction's ~2^-60 floor. On non-FMA tiers the
 //   MulAdd ladders in the cores fall back to mul+add; the donor gates that
-//   exact form at 2 ULP (its SSE2 tier), which is this kernel's expected
-//   non-FMA bound too.
+//   exact form at 2 ULP (its SSE2 tier), but this kernel holds 1 ULP on the
+//   non-FMA tiers too (gate and docs/ACCURACY.md), because the reduction is
+//   exact and only the polynomial ladders feel the missing fusion.
 //
 // LARGE REGION (|x| > 2^23): Payne-Hanek over per-exponent windows
 //   W_e = (2^(e-52) * 2/pi) mod 4 as four 53-bit chunks c0..c3 at fixed
@@ -186,12 +187,16 @@ HWY_NOINLINE TrigRed<D> TrigReducePh(D d, op::V<D> ax) {
 }
 
 // Both regions, blended, with a skip guard so vectors with no huge lane
-// (the overwhelmingly common case) never pay for the gathers.
+// (the overwhelmingly common case) never pay for the gathers. Hot path:
+// CORVUS_OUTLINE (inlined off MSVC); TrigReducePh stays outlined.
 template <class D>
-HWY_NOINLINE TrigRed<D> TrigReduce(D d, op::V<D> ax) {
+CORVUS_OUTLINE TrigRed<D> TrigReduce(D d, op::V<D> ax) {
   TrigRed<D> red = TrigReduceSmall(d, ax);
   const auto big = op::Gt(ax, op::Set(d, detail::kTrigDMax));  // NaN: false
+  CORVUS_ROUTE(d, "trig/small", op::Ge(op::Set(d, detail::kTrigDMax), ax));
+  CORVUS_ROUTE(d, "trig/huge", big);
   if (!op::AllFalse(d, big)) {
+    CORVUS_ROUTE_SCOPE(d, big);
     const TrigRed<D> ph = TrigReducePh(d, ax);
     red.r = op::IfThenElse(big, ph.r, red.r);
     red.rlo = op::IfThenElse(big, ph.rlo, red.rlo);
@@ -206,8 +211,8 @@ HWY_NOINLINE TrigRed<D> TrigReduce(D d, op::V<D> ax) {
 // exactly (generator-asserted), and both the split's subtractions are exact
 // with or without FMA (Sterbenz + shared grid).
 template <class D>
-HWY_NOINLINE void TrigCores(D d, op::V<D> r, op::V<D> rlo, op::V<D>& s_core,
-                            op::V<D>& c_core) {
+CORVUS_OUTLINE void TrigCores(D d, op::V<D> r, op::V<D> rlo, op::V<D>& s_core,
+                              op::V<D>& c_core) {
   const auto u = op::Mul(r, r);
 
   auto ps = op::Set(d, detail::kTrigSinC[6]);
@@ -223,8 +228,8 @@ HWY_NOINLINE void TrigCores(D d, op::V<D> r, op::V<D> rlo, op::V<D>& s_core,
   const auto one = op::Set(d, 1.0);
   const auto half = op::Set(d, 0.5);
   const auto nu = op::Neg(u);
-  const auto h = op::MulAdd(nu, half, one);                  // 1 - u/2, exact
-  const auto hl = op::MulAdd(nu, half, op::Sub(one, h));     // (1-h) - u/2, exact
+  const auto h = op::MulAdd(nu, half, one);                  // 1 - u/2, rounded
+  const auto hl = op::MulAdd(nu, half, op::Sub(one, h));     // its residual; (h, hl) is exact
   auto mc = op::MulAdd(op::Mul(u, u), pc, hl);
   mc = op::MulAdd(op::Neg(r), rlo, mc);  // first-order effect of rlo on cos
   c_core = op::Add(h, mc);
@@ -268,6 +273,8 @@ HWY_INLINE op::V<D> TrigVec(D d, op::V<D> x) {
 
   const auto inf = op::Set(d, std::numeric_limits<double>::infinity());
   const auto qnan = op::Set(d, std::numeric_limits<double>::quiet_NaN());
+  CORVUS_ROUTE(d, "trig/special/inf", op::Eq(ax, inf));
+  CORVUS_ROUTE(d, "trig/special/nan", op::IsNaN(x));
   res = op::IfThenElse(op::Eq(ax, inf), qnan, res);
   res = op::IfThenElse(op::IsNaN(x), x, res);  // payload-preserving
   return res;

@@ -69,21 +69,41 @@ $gates = @(
   @{ exe = "test_exp_dd";   data = "exp_dd_reference.txt" },
   @{ exe = "test_log_dd";   data = "log_dd_reference.txt" },
   @{ exe = "test_dd_special"; data = "dd_special_reference.txt" },
+  # Each family's smoke / lane-mix test (no reference file) runs just before
+  # its ULP gate, as in tests/CMakeLists.txt: the capped tiers are where the
+  # masked-tail and lane-mix paths differ, and the ULP gates alone skip them.
+  @{ exe = "test_erf"; data = @() },
   @{ exe = "test_erf_ulp";  data = "erf_reference.txt" },
+  @{ exe = "test_erfc"; data = @() },
   @{ exe = "test_erfc_ulp"; data = "erfc_reference.txt" },
+  @{ exe = "test_lgamma"; data = @() },
   @{ exe = "test_lgamma_ulp"; data = "lgamma_reference.txt" },
+  @{ exe = "test_erfinv"; data = @() },
   @{ exe = "test_erfinv_ulp"; data = "erfinv_reference.txt", "erfcinv_reference.txt" },
+  @{ exe = "test_gamma"; data = @() },
   @{ exe = "test_gamma_ulp"; data = "gamma_p_reference.txt", "gamma_q_reference.txt" },
+  @{ exe = "test_beta_smoke"; data = @() },
   @{ exe = "test_beta_ulp"; data = "beta_p_reference.txt", "beta_q_reference.txt" },
+  @{ exe = "test_digamma_smoke"; data = @() },
   @{ exe = "test_digamma_ulp"; data = "digamma_reference.txt" },
+  @{ exe = "test_trigamma_smoke"; data = @() },
   @{ exe = "test_trigamma_ulp"; data = "trigamma_reference.txt" },
+  @{ exe = "test_gammainv_smoke"; data = @() },
   @{ exe = "test_gammainv_ulp"; data = "gammainv_p_reference.txt", "gammainv_q_reference.txt" },
-  @{ exe = "test_betainv_ulp"; data = "betainv_p_reference.txt", "betainv_q_reference.txt" },
-  @{ exe = "test_bessel_ulp"; data = "i0_reference.txt", "i1_reference.txt", "i0e_reference.txt", "i1e_reference.txt" }
-  @{ exe = "test_lbeta_ulp"; data = "lbeta_reference.txt" }
-  @{ exe = "test_trig_ulp"; data = "cos_reference.txt", "sin_reference.txt" }
-  @{ exe = "test_exp_ulp"; data = "exp_reference.txt" }
-  @{ exe = "test_log_ulp"; data = "log_reference.txt", "log1p_reference.txt" }
+  @{ exe = "test_betainv_smoke"; data = @() },
+  @{ exe = "test_betainv_ulp"; data = "betainv_p_reference.txt", "betainv_q_reference.txt", "betainv_backward_reference.txt" },
+  @{ exe = "test_bessel_smoke"; data = @() },
+  @{ exe = "test_bessel_ulp"; data = "i0_reference.txt", "i1_reference.txt", "i0e_reference.txt", "i1e_reference.txt" },
+  @{ exe = "test_lbeta_smoke"; data = @() },
+  @{ exe = "test_lbeta_ulp"; data = "lbeta_reference.txt" },
+  @{ exe = "test_trig_smoke"; data = @() },
+  @{ exe = "test_trig_ulp"; data = "cos_reference.txt", "sin_reference.txt" },
+  @{ exe = "test_exp_smoke"; data = @() },
+  @{ exe = "test_exp_ulp"; data = "exp_reference.txt" },
+  @{ exe = "test_log_smoke"; data = @() },
+  @{ exe = "test_log_ulp"; data = "log_reference.txt", "log1p_reference.txt" },
+  # #53 guard harness: no reference file; last, since it consumes every family.
+  @{ exe = "test_guards"; data = @() }
 )
 
 $selected = if ($Tier) { $Tier } else { $caps.Keys }

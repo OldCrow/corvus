@@ -1,0 +1,8 @@
+# Route witnesses for tools/hunt/route_census.py (#82 T7).
+# route|fn|args (hex or decimal)|why no reference row carries it
+# The census runs each line and fails if the row no longer takes its route.
+# A witness stands in for a reference row only where no certified expected
+# value can be stored; elsewhere add a hunt stratum instead.
+beta/R2/huge_c|beta_p_inv|1e300 1 5e-324|only betainv's forward reaches BetaR2Cf with c > 2^900 unsaturated; the forward kernel saturates first
+betainv/special/fwd_unusable|beta_p_inv|0x1.18958f8f0850fp-1013 0x0.017fbd7319952p-1022 0x1.5e1d25d80d147p-17|both shapes tiny at the plateau target b/(a+b): a Newton candidate leaves (0,1); the oracle cannot certify roots there
+betainv/newton/clamp|beta_q_inv|0x1.9b8b94fa5c455p+612 0x1.2c4b0f36fff48p+789 0x1.aee246b024068p-320|both shapes far above 1e41 (the oracle gap): the first Newton step from the seed asks for y down by more than 90%; #88's fix removed the only reference-row witness

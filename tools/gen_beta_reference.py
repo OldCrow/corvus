@@ -1113,6 +1113,10 @@ def _cf_small(aa, bb, xx, dps):
 #     t'=-aa*log1p(-(1-xx))=-aa*log(xx) EXACTLY (log1p(xx-1)=log(xx), no
 #     near-1 subtraction needed since xx itself, not 1-xx, feeds the log).
 #     So I_xx(aa,bb) = 1-P(bb,t') = Q(bb,t').
+# ISSUE #54: the gamma limit I_x(s, N) ~ P_gamma(s, t) needs the SHIFTED
+# t = -(N + (s-1)/2) * log1p(-x); the bare t = -N*log1p(-x) carries a
+# relative error ~ s^2/(2N) (1.7e-11 at N = 2^59, s = 1e4). The near-one
+# argument's log is formed as log1p(-w) of its tiny complement w = 1-xx.
 def gamma_corner_value(aa, bb, xx, dps):
     old = mp.mp.dps
     mp.mp.dps = dps
@@ -1125,10 +1129,11 @@ def gamma_corner_value(aa, bb, xx, dps):
         aa_m, bb_m = mp.mpf(aa), mp.mpf(bb)
         xx_m = xx if isinstance(xx, mp.mpf) else mp.mpf(xx)
         if bb_m >= aa_m:
-            t = -bb_m * mp.log1p(-xx_m)
+            t = -(bb_m + (aa_m - 1) / 2) * mp.log1p(-xx_m)  # #54 shift
             return mp.gammainc(aa_m, 0, t, regularized=True)  # P(aa,t)
         else:
-            t = -aa_m * mp.log(xx_m)
+            w = 1 - xx_m
+            t = -(aa_m + (bb_m - 1) / 2) * mp.log1p(-w)  # #54 shift
             return mp.gammainc(bb_m, t, mp.inf, regularized=True)  # Q(bb,t)
     finally:
         mp.mp.dps = old
@@ -1149,11 +1154,12 @@ def gamma_corner_value_signed(aa, bb, xx, dps):
         aa_m, bb_m = mp.mpf(aa), mp.mpf(bb)
         xx_m = xx if isinstance(xx, mp.mpf) else mp.mpf(xx)
         if bb_m >= aa_m:
-            t = -bb_m * mp.log1p(-xx_m)
+            t = -(bb_m + (aa_m - 1) / 2) * mp.log1p(-xx_m)  # #54 shift
             P = mp.gammainc(aa_m, 0, t, regularized=True)
             Q = mp.gammainc(aa_m, t, mp.inf, regularized=True)
         else:
-            t = -aa_m * mp.log(xx_m)
+            w = 1 - xx_m
+            t = -(aa_m + (bb_m - 1) / 2) * mp.log1p(-w)  # #54 shift
             Pgb = mp.gammainc(bb_m, 0, t, regularized=True)  # P(bb,t)
             Q = mp.gammainc(bb_m, t, mp.inf, regularized=True)  # Q(bb,t) = P(aa,bb,xx)-frame's P
             P = Pgb
@@ -2159,13 +2165,16 @@ def existing_checkpoint_sig(path):
         return f0.readline().strip()
 
 
-def compute_all(ps, ckpt_path=CKPT_PATH, sig_ver="v2"):
+def compute_all(ps, ckpt_path=CKPT_PATH, sig_ver="v2", oracle=None):
     """Resumable oracle pass over every point in ps.pts. Returns
     (rows, region_hist, done) where done is True iff every point in ps.pts
     has a checkpoint entry (rows/region_hist are only meaningful when
     done is True -- callers must check). ckpt_path/sig_ver default to the
     full-run values; --corner-append passes its own so the two checkpoint
-    families can never be confused for one another."""
+    families can never be confused for one another. oracle (default None =
+    small_side_direct) replaces the per-point evaluator; a custom oracle
+    also skips the betainc-rescue prewarm (--gl54-append, issue #54: its
+    rows must never fall back to the generator's own methods)."""
     total = len(ps.pts)
     sig = f"{sig_ver} SEED={SEED} N={total}"
     done_map = load_checkpoint(ckpt_path, sig)
@@ -2183,7 +2192,8 @@ def compute_all(ps, ckpt_path=CKPT_PATH, sig_ver="v2"):
         if mode == "w":
             fh.write(sig + "\n")
             fh.flush()
-        prewarm_betainc_rescue_checkpoint(ps, done_map, fh)
+        if oracle is None:
+            prewarm_betainc_rescue_checkpoint(ps, done_map, fh)
     # Reload: the prewarm pass above wrote new entries via a SEPARATE file
     # handle lifetime (its own append_checkpoint calls flushed already,
     # but this process's done_map dict was built before those writes) --
@@ -2206,7 +2216,7 @@ def compute_all(ps, ckpt_path=CKPT_PATH, sig_ver="v2"):
                       f"{idx}/{total} ({newly_done} computed this run) -- "
                       f"re-run this script to continue.", file=sys.stderr)
                 return None, None, False
-            P, Q, which, escalated, failed = small_side_direct(a, b, x)
+            P, Q, which, escalated, failed = (oracle or small_side_direct)(a, b, x)
             if failed:
                 append_checkpoint(fh, idx, ["FAILED"])
             else:
@@ -2780,12 +2790,72 @@ def check_small_side_direct(rows):
     return 0 if n_fail == 0 else 1
 
 
+EXACT_LINE_MAX_EXP = 4096
+
+
+def exact_line_value(a, b, x):
+    """(P, Q) as doubles from EXACT rational arithmetic on the closed-form
+    lines I_x(a, 1) = x^a and I_x(1, b) = 1 - (1-x)^b with an integer
+    exponent, else None. A double x is rational, so these values are exact
+    and Python's float(Fraction) rounds them ties-to-even. An mpf oracle
+    cannot: where the exact value IS a rounding midpoint (e.g. Q(2, 1,
+    1-2^-53) = 2^-52 - 2^-106), an error of 1e-60 decides the tie, and five
+    rows of the v1.0.x set stored the odd neighbour (#53, order row 12)."""
+    from fractions import Fraction
+    if not all(math.isfinite(v) for v in (a, b, x)) or not 0.0 <= x <= 1.0:
+        return None
+    if b == 1.0 and a == int(a) and 1 <= a <= EXACT_LINE_MAX_EXP:
+        p = Fraction(x) ** int(a)
+        return float(p), float(1 - p)
+    if a == 1.0 and b == int(b) and 1 <= b <= EXACT_LINE_MAX_EXP:
+        q = (1 - Fraction(x)) ** int(b)
+        return float(1 - q), float(q)
+    return None
+
+
 def write_rows(rows):
     for path in ("tests/data/beta_p_reference.txt", "tests/data/beta_q_reference.txt"):
         with open(path, "w") as f:
             for a, b, x, P, Q in rows:
+                exact = exact_line_value(a, b, x)
+                if exact is not None:
+                    P, Q = exact
                 f.write(f"{hexd(a)} {hexd(b)} {hexd(x)} {hexd(P)} {hexd(Q)}\n")
         print(f"  wrote {path}: {len(rows)} points", file=sys.stderr)
+
+
+def exact_ties_fix():
+    """--exact-ties-fix: rewrite, in place, every checked-in row on an
+    exact closed-form line (exact_line_value) whose stored P or Q differs
+    from the exact ties-to-even rounding. Every other row is untouched. A
+    difference larger than one ulp is NOT a tie: abort without writing."""
+    total = 0
+    for path in ("tests/data/beta_p_reference.txt", "tests/data/beta_q_reference.txt"):
+        with open(path) as f:
+            lines = f.read().split("\n")
+        changed = 0
+        for i, line in enumerate(lines):
+            t = line.split()
+            if len(t) != 5:
+                continue
+            a, b, x, P, Q = (float.fromhex(v) for v in t)
+            exact = exact_line_value(a, b, x)
+            if exact is None or exact == (P, Q):
+                continue
+            for got, want in zip((P, Q), exact):
+                if got != want and math.nextafter(got, want) != want:
+                    print(f"  ABORT {path}:{i + 1}: stored {got.hex()} is more "
+                          f"than one ulp from exact {want.hex()}", file=sys.stderr)
+                    return 1
+            print(f"  {path}:{i + 1}: ({t[3]}, {t[4]}) -> "
+                  f"({hexd(exact[0])}, {hexd(exact[1])})", file=sys.stderr)
+            lines[i] = f"{t[0]} {t[1]} {t[2]} {hexd(exact[0])} {hexd(exact[1])}"
+            changed += 1
+        with open(path, "w") as f:
+            f.write("\n".join(lines))
+        print(f"  {path}: {changed} row(s) corrected", file=sys.stderr)
+        total += changed
+    return 0
 
 
 # ============================================================================
@@ -3027,6 +3097,111 @@ def corner_append():
 
 
 # ============================================================================
+# Both-subnormal family (issue #59: non-FMA DdDivDd with a subnormal divisor).
+# Own RNG (seed 59), never the main SEED stream. Appended via --subsub-append.
+# ============================================================================
+SUBSUB_SEED = 59
+SUBSUB_WITNESS = (2.255641e-316, 4.48138277e-316, 0.99999999)
+
+
+def gen_subsub_corner(ps):
+    n0 = len(ps.pts)
+    rng = random.Random(SUBSUB_SEED)
+
+    def loguni(lo, hi):
+        return math.exp(rng.uniform(math.log(lo), math.log(hi)))
+
+    def xuni():
+        while True:
+            x = rng.random()
+            if 0.0 < x < 1.0:
+                return x
+
+    sub_lo, sub_hi = 4.9e-324, 2e-308
+    for _ in range(240):
+        a = max(loguni(sub_lo, sub_hi), 5e-324)
+        b = max(loguni(sub_lo, sub_hi), 5e-324)
+        ps.add(a, b, xuni(), keep_if_saturated=True, tag="subsub")
+    for _ in range(40):
+        big = loguni(1e-300, 1e-260)
+        small = big * loguni(1e-10, 1.0)
+        a, b = (big, small) if rng.random() < 0.5 else (small, big)
+        ps.add(a, b, xuni(), keep_if_saturated=True, tag="subsub-control")
+    m = 2.0 ** -900
+    for bigm in (m, math.nextafter(m, 0.0), math.nextafter(m, 1.0),
+                 2.0 ** -901):
+        for x in (0.3, 0.7):
+            ps.add(bigm / 2.0, bigm, x, keep_if_saturated=True,
+                   tag="subsub-floor")
+    ps.add(*SUBSUB_WITNESS, keep_if_saturated=True, tag="subsub-witness")
+    print(f"  subsub family: {len(ps.pts) - n0} points", file=sys.stderr)
+
+
+# ============================================================================
+# R4 widened-window seam family (issue #47: beta_p wrong at the R4 boundary
+# for tiny shape pairs). Own RNG (seed 47), never the main SEED stream.
+# Appended via --r4seam-append.
+# ============================================================================
+R4SEAM_SEED = 47
+R4SEAM_WITNESSES = (
+    (1e-100, 1e-140, 0.5),
+    (float.fromhex('0x1.c340cc210bfa3p-518'),
+     float.fromhex('0x1.1618b68cd170dp-635'), 0.5),
+    (float.fromhex('0x1.7b5e7ef47b33cp-14'),
+     float.fromhex('0x1.a42c5bb289b41p-156'),
+     float.fromhex('0x1.0002f6b4353f4p-1')),
+    (0.1, 1e-100, float.fromhex('0x1.0c30c30c30c31p-1')),
+)
+
+
+def gen_r4seam_corner(ps):
+    n0 = len(ps.pts)
+    from fractions import Fraction
+    rng = random.Random(R4SEAM_SEED)
+
+    def loguni(lo, hi):
+        return math.exp(rng.uniform(math.log(lo), math.log(hi)))
+
+    a_set = (1e-300, 1e-200, 1e-140, 1e-100, 1e-40, 1e-20, 1e-12, 1e-8,
+             1e-4, 1e-3, 0.01, 0.1)
+    b_set = (1e-300, 1e-200, 1e-140, 1e-100, 1e-40, 1e-20, 1e-12)
+    pairs = [(a, b) for a in a_set for b in b_set if b < a]
+    for _ in range(60):
+        a = loguni(1e-300, 0.1)
+        b = a * loguni(1e-200, 1e-2)
+        if b == 0.0:
+            continue
+        pairs.append((a, b))
+
+    for a, b in pairs:
+        w = (a + 1.0) / (a + b + 2.0)
+        xs = [0.5]
+        wk = w
+        for _ in range(3):
+            wk = math.nextafter(wk, 0.0)
+            xs.append(wk)
+        wk = w
+        xs.append(w)
+        for _ in range(3):
+            wk = math.nextafter(wk, 1.0)
+            xs.append(wk)
+        for x in xs:
+            if not (0.0 < x < 1.0):
+                continue
+            ps.add(a, b, x, keep_if_saturated=True, tag="r4seam")
+            # Mirror only when 1 - x is exact (always for x >= 0.5; x
+            # just below 0.5 may round).
+            if Fraction(1) - Fraction(x) == Fraction(1.0 - x):
+                ps.add(b, a, 1.0 - x, keep_if_saturated=True,
+                       tag="r4seam")
+    # Witnesses from the issue #47 fuzz: two of the pairs are not reachable
+    # from the seed-47 stream, so add all four explicitly (PointSet dedups).
+    for wa, wb, wx in R4SEAM_WITNESSES:
+        ps.add(wa, wb, wx, keep_if_saturated=True, tag="r4seam-witness")
+    print(f"  r4seam family: {len(ps.pts) - n0} points", file=sys.stderr)
+
+
+# ============================================================================
 # --r4huge-append: incremental certification of the r4huge-corner family
 # alone, same pattern as --corner-append (see its docstring): own checkpoint
 # file/signature, same small_side_direct protocol and self-checks, splice
@@ -3108,6 +3283,1015 @@ def r4huge_append():
     return rc
 
 
+
+# --subsub-append: incremental certification of the both-subnormal family
+# (issue #59), same pattern as --r4huge-append.
+CKPT_SUBSUB_PATH = os.path.join(tempfile.gettempdir(),
+                                f"corvus_beta_ref_ckpt_subsub_{SEED}.tsv")
+
+
+def subsub_append():
+    t_all = time.time()
+    ps = PointSet()
+    gen_subsub_corner(ps)
+    print(f"subsub point set: {len(ps.pts)} distinct points", file=sys.stderr)
+
+    # Point-bits digest signature (NUMERICAL-DOCTRINE.md's binding rule: a
+    # grid edit that preserves N would otherwise replay stale checkpoint
+    # values under new point identities).
+    import hashlib
+    dig = hashlib.sha256()
+    for a, b, x, _, _ in ps.pts:
+        dig.update(struct.pack("<QQQ", as_bits(a), as_bits(b), as_bits(x)))
+    rows, region_hist, done = compute_all(
+        ps, ckpt_path=CKPT_SUBSUB_PATH,
+        sig_ver=f"v1-subsub-{dig.hexdigest()[:16]}")
+    if not done:
+        print("\nPARTIAL RUN: re-invoke with --subsub-append to continue "
+              "(checkpoint saved).", file=sys.stderr)
+        return 3
+    print(f"  subsub region histogram: {region_hist}", file=sys.stderr)
+
+    rc = 0
+    rc |= check_p_plus_q(rows)
+    rc |= check_small_side_direct(rows)
+
+    # The task-example witness must be present as an emitted row, and is
+    # force-included in the cross-check sample below.
+    wit = [SUBSUB_WITNESS]
+    wit_idx = []
+    for wa, wb, wx in wit:
+        hits = [i for i, r in enumerate(rows)
+                if as_bits(r[0]) == as_bits(wa) and as_bits(r[1]) == as_bits(wb)
+                and as_bits(r[2]) == as_bits(wx)]
+        if not hits:
+            print(f"  FAILED: witness row ({wa}, {wb}, {wx:.17e}) missing "
+                  f"from the subsub set.", file=sys.stderr)
+            rc = 1
+        else:
+            wit_idx.append(hits[0])
+            r = rows[hits[0]]
+            print(f"  witness ({wa:.9g}, {wb:.9g}, {wx:.17e}): P={r[3]:.17e} "
+                  f"Q={r[4]:.17g}", file=sys.stderr)
+
+    xcheck_ok, xcheck_summary = run_cross_check(rows, n=60,
+                                                force_idx=tuple(wit_idx))
+    if not xcheck_ok:
+        print("\nPARTIAL RUN: cross-check incomplete, re-invoke with "
+              "--subsub-append to continue (checkpoint saved).",
+              file=sys.stderr)
+        return 3
+    if xcheck_summary is not None and \
+            xcheck_summary["worst"] > float(CROSS_CHECK_TARGET):
+        print(f"  FAILED: cross-check worst disagreement "
+              f"{xcheck_summary['worst']:.3e} exceeds target "
+              f"{float(CROSS_CHECK_TARGET):.0e}.", file=sys.stderr)
+        rc = 1
+
+    if rc:
+        print("\nSelf-checks FAILED -- not touching reference files.",
+              file=sys.stderr)
+        return rc
+
+    rc = _splice_corner(rows)
+    print(f"\nsubsub-append runtime: {time.time() - t_all:.1f}s",
+          file=sys.stderr)
+    return rc
+
+
+# --r4seam-append: incremental certification of the R4 widened-window seam
+# family (issue #47), same pattern as --subsub-append.
+CKPT_R4SEAM_PATH = os.path.join(tempfile.gettempdir(),
+                                f"corvus_beta_ref_ckpt_r4seam_{SEED}.tsv")
+
+
+def r4seam_append():
+    t_all = time.time()
+    ps = PointSet()
+    gen_r4seam_corner(ps)
+    print(f"r4seam point set: {len(ps.pts)} distinct points", file=sys.stderr)
+
+    # Point-bits digest signature (NUMERICAL-DOCTRINE.md's binding rule: a
+    # grid edit that preserves N would otherwise replay stale checkpoint
+    # values under new point identities).
+    import hashlib
+    dig = hashlib.sha256()
+    for a, b, x, _, _ in ps.pts:
+        dig.update(struct.pack("<QQQ", as_bits(a), as_bits(b), as_bits(x)))
+    rows, region_hist, done = compute_all(
+        ps, ckpt_path=CKPT_R4SEAM_PATH,
+        sig_ver=f"v1-r4seam-{dig.hexdigest()[:16]}")
+    if not done:
+        print("\nPARTIAL RUN: re-invoke with --r4seam-append to continue "
+              "(checkpoint saved).", file=sys.stderr)
+        return 3
+    print(f"  r4seam region histogram: {region_hist}", file=sys.stderr)
+
+    rc = 0
+    rc |= check_p_plus_q(rows)
+    rc |= check_small_side_direct(rows)
+
+    # Witnesses must be present as emitted rows, and are force-included in
+    # the cross-check sample below.
+    wit_idx = []
+    for wa, wb, wx in R4SEAM_WITNESSES:
+        hits = [i for i, r in enumerate(rows)
+                if as_bits(r[0]) == as_bits(wa) and as_bits(r[1]) == as_bits(wb)
+                and as_bits(r[2]) == as_bits(wx)]
+        if not hits:
+            print(f"  FAILED: witness row ({wa:.17g}, {wb:.17g}, {wx:.17e}) "
+                  f"missing from the r4seam set.", file=sys.stderr)
+            rc = 1
+        else:
+            wit_idx.append(hits[0])
+            r = rows[hits[0]]
+            print(f"  witness ({wa:.9g}, {wb:.9g}, {wx:.17e}): P={r[3]:.17e} "
+                  f"Q={r[4]:.17g}", file=sys.stderr)
+
+    xcheck_ok, xcheck_summary = run_cross_check(rows, n=60,
+                                                force_idx=tuple(wit_idx))
+    if not xcheck_ok:
+        print("\nPARTIAL RUN: cross-check incomplete, re-invoke with "
+              "--r4seam-append to continue (checkpoint saved).",
+              file=sys.stderr)
+        return 3
+    if xcheck_summary is not None and \
+            xcheck_summary["worst"] > float(CROSS_CHECK_TARGET):
+        print(f"  FAILED: cross-check worst disagreement "
+              f"{xcheck_summary['worst']:.3e} exceeds target "
+              f"{float(CROSS_CHECK_TARGET):.0e}.", file=sys.stderr)
+        rc = 1
+
+    if rc:
+        print("\nSelf-checks FAILED -- not touching reference files.",
+              file=sys.stderr)
+        return rc
+
+    rc = _splice_corner(rows)
+    print(f"\nr4seam-append runtime: {time.time() - t_all:.1f}s",
+          file=sys.stderr)
+    return rc
+
+
+# ============================================================================
+# --gl54-append (issue #54): gamma-limit slice, max(a,b) >= 2^59. The kernel
+# dropped the (s-1)/2 shift of t; a generator certifying with its own gamma
+# formula hid it. This family is certified by an INDEPENDENT oracle, the 2F1
+# closed form
+#   I_x(s, N) = x^s (1-x)^N / (s B(s, N)) * 2F1(s+N, 1; s+1; x),
+# summed directly (series converges: ratio (s+N+k) x/(s+1+k) -> x), with a
+# second evaluation at doubled dps that must agree to 1e-40 relative on the
+# small side (hard check: failing rows are declined, never emitted). Own RNG
+# (seed 5454), never the main SEED stream.
+# ============================================================================
+GL54_SEED = 5454
+GL54_WITNESS = (2000.0, 2.0 ** 59, 1.3877787807814447e-15)
+GL54_WITNESS_P = 2.7883412344207464e-277
+GL54_DPS0 = 95            # 60 + 35: loggamma(N) ~ 7e31 loses ~32 digits
+GL54_AGREE = mp.mpf("1e-40")
+GL54_STATS = {"agree_worst": mp.mpf(0)}
+GL54_DECLINED = []
+
+
+def _gl54_log_small_est(s, t):
+    """ln of the small side of I(s, N) ~ P(s, t) to O(1): the leading term
+    of the gamma tail; used only to drop draws that clearly underflow."""
+    if t < s:
+        return s * math.log(t) - t - math.lgamma(s + 1.0)
+    return (s - 1.0) * math.log(t) - t - math.lgamma(s)
+
+
+def gen_gl54_corner(ps):
+    n0 = len(ps.pts)
+    rng = random.Random(GL54_SEED)
+    st = GL54_STATS
+    for k in ("draws", "skip_underflow_est", "skip_y_is_1", "skip_route",
+              "added", "added_second", "added_first"):
+        st[k] = 0
+    st["route_tags"] = {}
+    lo_n, hi_n = 2.0 ** 59, 1e30
+    ln_floor = math.log(1e-300) - 3.0
+
+    def loguni(lo, hi):
+        return math.exp(rng.uniform(math.log(lo), math.log(hi)))
+
+    def route_tag(a, b, x):
+        return route_final(mp.mpf(a), mp.mpf(b), mp.mpf(x))[3]
+
+    ps.add(*GL54_WITNESS, keep_if_saturated=True, tag="gl54-witness")
+    if not route_tag(*GL54_WITNESS).endswith("-gammalim"):
+        raise RuntimeError("gl54 witness does not route to the gamma-limit "
+                           "slice")
+    st["added"] += 1
+    st["added_second"] += 1
+    for orient in ("second", "first"):
+        for i in range(400):
+            n_ = max(loguni(lo_n, hi_n), lo_n)
+            s_ = loguni(1.0, 1e4)
+            r_ = rng.uniform(0.05, 0.45) if i % 2 == 0 else \
+                rng.uniform(2.2, 6.0)
+            st["draws"] += 1
+            x = (r_ * s_) / n_
+            if orient == "second":
+                a, b, xo, xs = s_, n_, x, x
+            else:
+                y = 1.0 - x
+                if not (y < 1.0):
+                    st["skip_y_is_1"] += 1
+                    continue
+                xs = 1.0 - y
+                a, b, xo = n_, s_, y
+            if _gl54_log_small_est(s_, n_ * xs) < ln_floor:
+                st["skip_underflow_est"] += 1
+                continue
+            tag = route_tag(a, b, xo)
+            st["route_tags"][tag] = st["route_tags"].get(tag, 0) + 1
+            if not tag.endswith("-gammalim"):
+                st["skip_route"] += 1
+                continue
+            n_before = len(ps.pts)
+            ps.add(a, b, xo, keep_if_saturated=True, tag="gl54-" + orient)
+            if len(ps.pts) > n_before:
+                st["added"] += 1
+                st["added_" + orient] += 1
+    print(f"  gl54 family: {len(ps.pts) - n0} points; stats "
+          f"{ {k: v for k, v in st.items() if k != 'agree_worst'} }",
+          file=sys.stderr)
+
+
+def _gl54_J(s, n_, xs, dps):
+    """I_xs(s, N) by the 2F1 closed form at dps; xs a python float."""
+    old = mp.mp.dps
+    mp.mp.dps = dps
+    try:
+        sm, nm, xm = mp.mpf(s), mp.mpf(n_), mp.mpf(xs)
+        lnb = mp.loggamma(sm) + mp.loggamma(nm) - mp.loggamma(sm + nm)
+        lnpref = (sm * mp.log(xm) + nm * mp.log1p(-xm) - mp.log(sm) - lnb)
+        sn = sm + nm
+        eps = mp.mpf(10) ** (-(dps + 3))
+        term = mp.mpf(1)
+        tot = mp.mpf(1)
+        k = 0
+        while True:
+            ratio = (sn + k) * xm / (sm + 1 + k)
+            term = term * ratio
+            tot += term
+            k += 1
+            if ratio < 1 and term <= tot * eps:
+                break
+            if k > 5000000:
+                raise RuntimeError("2F1 series did not converge")
+        return mp.exp(lnpref) * tot
+    finally:
+        mp.mp.dps = old
+
+
+def _gl54_small(J, dps):
+    """(small, small_is_J, K) with K = 1 - J formed at dps."""
+    old = mp.mp.dps
+    mp.mp.dps = dps
+    try:
+        K = 1 - J
+        return (J, True, K) if J <= K else (K, False, K)
+    finally:
+        mp.mp.dps = old
+
+
+def gl54_oracle(a, b, x):
+    """Drop-in for small_side_direct: (P, Q, which, escalated, failed).
+    2F1 closed-form oracle with a doubled-dps second evaluation (hard
+    agreement 1e-40 on the small side). Never calls the gamma-limit
+    formula."""
+    from fractions import Fraction
+    if a >= b:      # huge FIRST: I_y(N, s) = 1 - I_{1-y}(s, N)
+        s_, n_, first = b, a, True
+        xs = 1.0 - x
+        if Fraction(1) - Fraction(x) != Fraction(xs):
+            GL54_DECLINED.append((a, b, x, "1-y not exact"))
+            return None, None, "P", False, True
+    else:
+        s_, n_, first = a, b, False
+        xs = x
+    dps = GL54_DPS0
+    while True:
+        J = _gl54_J(s_, n_, xs, dps)
+        small, small_is_J, K = _gl54_small(J, dps)
+        old = mp.mp.dps
+        mp.mp.dps = dps
+        try:
+            L = float("inf") if K <= 0 else float(-mp.log10(K))
+        finally:
+            mp.mp.dps = old
+        if L <= dps - 80:
+            break
+        dps *= 2
+        if dps > 3000:
+            GL54_DECLINED.append((a, b, x, "complement unresolved at 3000"))
+            return None, None, "P", False, True
+    dps2 = 2 * dps
+    J2 = _gl54_J(s_, n_, xs, dps2)
+    small2, small2_is_J, K2 = _gl54_small(J2, dps2)
+    old = mp.mp.dps
+    mp.mp.dps = dps2
+    try:
+        if small2_is_J != small_is_J or small2 == 0:
+            rel = mp.mpf("inf")
+        else:
+            rel = abs(small - small2) / small2
+        agree_ok = rel <= GL54_AGREE
+        if rel != mp.mpf("inf") and rel > GL54_STATS["agree_worst"]:
+            GL54_STATS["agree_worst"] = rel
+    finally:
+        mp.mp.dps = old
+    if not agree_ok:
+        GL54_DECLINED.append((a, b, x, f"dps {dps} vs {dps2} disagree "
+                              f"{float(rel):.3e} (>1e-40)"))
+        return None, None, "P", False, True
+    # emit the doubled-dps values
+    if first:       # P = 1 - J, Q = J
+        P, Q = K2, J2
+        which = "Q" if small2_is_J else "P"
+    else:           # P = J, Q = 1 - J
+        P, Q = J2, K2
+        which = "P" if small2_is_J else "Q"
+    return P, Q, which, dps > GL54_DPS0, False
+
+
+CKPT_GL54_PATH = os.path.join(tempfile.gettempdir(),
+                              f"corvus_beta_ref_ckpt_gl54_{SEED}.tsv")
+
+
+def gl54_append():
+    t_all = time.time()
+    ps = PointSet()
+    gen_gl54_corner(ps)
+    print(f"gl54 point set: {len(ps.pts)} distinct points", file=sys.stderr)
+
+    import hashlib
+    dig = hashlib.sha256()
+    for a, b, x, _, _ in ps.pts:
+        dig.update(struct.pack("<QQQ", as_bits(a), as_bits(b), as_bits(x)))
+    rows, region_hist, done = compute_all(
+        ps, ckpt_path=CKPT_GL54_PATH,
+        sig_ver=f"v1-gl54-{dig.hexdigest()[:16]}", oracle=gl54_oracle)
+    if not done:
+        print("\nPARTIAL RUN: re-invoke with --gl54-append to continue "
+              "(checkpoint saved).", file=sys.stderr)
+        return 3
+    print(f"  gl54 region histogram: {region_hist}", file=sys.stderr)
+
+    rc = 0
+    if region_hist.get("R2-gammalim", 0) != len(rows):
+        print(f"  FAILED: {len(rows)} rows but only "
+              f"{region_hist.get('R2-gammalim', 0)} route to the gamma-limit "
+              f"slice.", file=sys.stderr)
+        rc = 1
+    n_all = len(rows)
+    rows = [r for r in rows if min(r[3], r[4]) >= 1e-300]
+    n_uf = n_all - len(rows)
+    print(f"  dropped {n_uf} rows whose small side is below 1e-300",
+          file=sys.stderr)
+
+    rc |= check_p_plus_q(rows)
+    rc |= check_small_side_direct(rows)
+
+    wa, wb, wx = GL54_WITNESS
+    hits = [r for r in rows if as_bits(r[0]) == as_bits(wa)
+            and as_bits(r[1]) == as_bits(wb) and as_bits(r[2]) == as_bits(wx)]
+    if not hits:
+        print("  FAILED: gl54 witness row missing.", file=sys.stderr)
+        rc = 1
+    else:
+        r = hits[0]
+        print(f"  witness ({wa}, 2^59, {wx:.17e}): P={r[3]:.17e} "
+              f"Q={r[4]:.17g} (expected P ~ {GL54_WITNESS_P:.17e})",
+              file=sys.stderr)
+        if abs(r[3] - GL54_WITNESS_P) > 1e-12 * GL54_WITNESS_P:
+            print("  FAILED: witness P differs from expected.",
+                  file=sys.stderr)
+            rc = 1
+
+    n_first = sum(1 for r in rows if r[0] >= r[1])
+    n_series = n_cf = 0
+    for a, b, x, P, Q in rows:
+        s_, n_ = (b, a) if a >= b else (a, b)
+        xs = 1.0 - x if a >= b else x
+        if n_ * xs < s_:
+            n_series += 1
+        else:
+            n_cf += 1
+    print(f"  rows: {len(rows)} (huge-second {len(rows) - n_first}, "
+          f"huge-first {n_first}; series/P-small {n_series}, "
+          f"CF/Q-small {n_cf})", file=sys.stderr)
+    print(f"  declined: {len(GL54_DECLINED)}", file=sys.stderr)
+    for d in GL54_DECLINED:
+        print(f"    DECLINED a={d[0]!r} b={d[1]!r} x={d[2]!r}: {d[3]}",
+              file=sys.stderr)
+    print(f"  worst dps-agreement (small side, rel): "
+          f"{float(GL54_STATS['agree_worst']):.3e}", file=sys.stderr)
+
+    if rc:
+        print("\nSelf-checks FAILED -- not touching reference files.",
+              file=sys.stderr)
+        return rc
+
+    rc = _splice_corner(rows)
+    print(f"\ngl54-append runtime: {time.time() - t_all:.1f}s",
+          file=sys.stderr)
+    return rc
+
+
+# ============================================================================
+# --gl54b-append (issue #54 defect 2): the band N in [2^40, 2^59), just below
+# the gamma-limit slice. Same independent 2F1 oracle as --gl54-append
+# (_gl54_J), but with a start dps that covers the loggamma(N) -
+# loggamma(s+N) cancellation at ANY N (log10(N ln N) digits) plus the digits
+# the complement 1 - I needs, and a doubling escalation (up to dps 6000)
+# until dps d and 2d agree to 1e-40 relative on BOTH I and 1 - I; a row that
+# never agrees is declined. No kernel-route filter (routing thresholds move);
+# route tags are reported only. Own RNG (seed 5455), checkpoint, signature.
+# ============================================================================
+GL54B_SEED = 5455
+GL54B_AGREE = mp.mpf("1e-40")
+GL54B_DPS_MAX = 6000
+GL54B_STATS = {"agree_worst": mp.mpf(0), "dps_min": None, "dps_max": 0}
+GL54B_DECLINED = []
+GL54B_FAMILY = {}      # (a, b, x) bits -> "F1-second" etc., provenance only
+
+
+def gen_gl54b_corner(ps):
+    rng = random.Random(GL54B_SEED)
+    st = GL54B_STATS
+    st["draws"] = {}
+    st["skip_y_is_1"] = {}
+    st["skip_underflow_est"] = {}
+    lo_n, hi_n = 2.0 ** 40, 2.0 ** 59
+    ln_floor = math.log(1e-300) - 3.0   # est is O(1)-accurate; 3 nats slack
+
+    def loguni(lo, hi):
+        return math.exp(rng.uniform(math.log(lo), math.log(hi)))
+
+    def draw(fam):
+        n_ = min(max(loguni(lo_n, hi_n), lo_n), math.nextafter(hi_n, 0.0))
+        if fam == "F1":
+            s_ = loguni(1.0, 3000.0)
+            r_ = rng.uniform(0.05, 0.45) if rng.random() < 0.5 else \
+                rng.uniform(2.2, 6.0)
+            t_ = r_ * s_
+        elif fam == "F2":
+            s_ = loguni(0.02, 1.0)
+            t_ = loguni(8.0, 700.0)
+        elif fam == "F3":
+            s_ = rng.uniform(20.0, 32.0)
+            t_ = rng.uniform(0.55, 1.9) * s_
+        else:
+            s_ = rng.uniform(10.0, 40.0)
+            t_ = rng.uniform(1.0, 8.0)
+        return n_, s_, t_ / n_
+
+    for fam, ndraw in (("F1", 160), ("F2", 160), ("F3", 160), ("F4", 120)):
+        for orient in ("second", "first"):
+            key = fam + "-" + orient
+            st["draws"][key] = 0
+            st["skip_y_is_1"][key] = 0
+            st["skip_underflow_est"][key] = 0
+            for _ in range(ndraw):
+                n_, s_, x = draw(fam)
+                st["draws"][key] += 1
+                # clear underflow of the small side: would be dropped after
+                # certification anyway, and a Q ~ 1e-3000 costs dps ~ 6000
+                if _gl54_log_small_est(s_, n_ * x) < ln_floor:
+                    st["skip_underflow_est"][key] += 1
+                    continue
+                if orient == "second":
+                    a, b, xo = s_, n_, x
+                else:
+                    y = 1.0 - x
+                    if not (y < 1.0):
+                        st["skip_y_is_1"][key] += 1
+                        continue
+                    a, b, xo = n_, s_, y
+                n_before = len(ps.pts)
+                ps.add(a, b, xo, keep_if_saturated=True, tag="gl54b-" + key)
+                if len(ps.pts) > n_before:
+                    GL54B_FAMILY[(as_bits(a), as_bits(b), as_bits(xo))] = key
+    print(f"  gl54b family: {len(ps.pts)} points; draws {st['draws']}; "
+          f"y==1 skips {st['skip_y_is_1']}; underflow-estimate skips "
+          f"{st['skip_underflow_est']}", file=sys.stderr)
+
+
+def _gl54b_rel(u, v):
+    return mp.mpf("inf") if v == 0 else abs(u - v) / abs(v)
+
+
+def gl54b_oracle(a, b, x):
+    """Drop-in for small_side_direct: (P, Q, which, escalated, failed)."""
+    from fractions import Fraction
+    if a >= b:      # huge FIRST: I_y(N, s) = 1 - I_{1-y}(s, N)
+        s_, n_, first = b, a, True
+        xs = 1.0 - x
+        if Fraction(1) - Fraction(x) != Fraction(xs):
+            GL54B_DECLINED.append((a, b, x, "1-y not exact"))
+            return None, None, "P", False, True
+    else:
+        s_, n_, first = a, b, False
+        xs = x
+    cancel = math.ceil(math.log10(n_ * math.log(n_)))   # loggamma(N) terms
+    dps0 = 50 + cancel + 50     # 50 result digits + cancellation + 1-I room
+    dps = dps0
+    while True:
+        J = _gl54_J(s_, n_, xs, dps)
+        old = mp.mp.dps
+        mp.mp.dps = dps
+        try:
+            K = 1 - J
+            Lj = float("inf") if J <= 0 else float(-mp.log10(J))
+            Lk = float("inf") if K <= 0 else float(-mp.log10(K))
+        finally:
+            mp.mp.dps = old
+        ok = False
+        if min(Lj, Lk) + cancel + 50 <= dps:       # the small side is resolved
+            dps2 = 2 * dps
+            J2 = _gl54_J(s_, n_, xs, dps2)
+            old = mp.mp.dps
+            mp.mp.dps = dps2
+            try:
+                K2 = 1 - J2
+                rel = max(_gl54b_rel(J, J2), _gl54b_rel(K, K2))
+                ok = rel <= GL54B_AGREE
+                if rel != mp.mpf("inf") and rel > GL54B_STATS["agree_worst"]:
+                    GL54B_STATS["agree_worst"] = rel
+            finally:
+                mp.mp.dps = old
+        if ok:
+            break
+        dps *= 2
+        if dps > GL54B_DPS_MAX:
+            GL54B_DECLINED.append((a, b, x, f"dps {dps // 2} vs "
+                                   f"{dps} never agree (<=1e-40 on I and "
+                                   f"1-I) by dps {GL54B_DPS_MAX}"))
+            return None, None, "P", False, True
+    st = GL54B_STATS
+    st["dps_min"] = dps if st["dps_min"] is None else min(st["dps_min"], dps)
+    st["dps_max"] = max(st["dps_max"], dps2)
+    small_is_J = J2 <= K2
+    if first:       # P = 1 - J, Q = J
+        P, Q = K2, J2
+        which = "Q" if small_is_J else "P"
+    else:           # P = J, Q = 1 - J
+        P, Q = J2, K2
+        which = "P" if small_is_J else "Q"
+    return P, Q, which, dps > dps0, False
+
+
+CKPT_GL54B_PATH = os.path.join(tempfile.gettempdir(),
+                               f"corvus_beta_ref_ckpt_gl54b_{SEED}.tsv")
+
+
+def gl54b_append():
+    t_all = time.time()
+    ps = PointSet()
+    gen_gl54b_corner(ps)
+    print(f"gl54b point set: {len(ps.pts)} distinct points", file=sys.stderr)
+
+    import hashlib
+    dig = hashlib.sha256()
+    for a, b, x, _, _ in ps.pts:
+        dig.update(struct.pack("<QQQ", as_bits(a), as_bits(b), as_bits(x)))
+    rows, region_hist, done = compute_all(
+        ps, ckpt_path=CKPT_GL54B_PATH,
+        sig_ver=f"v1-gl54b-{dig.hexdigest()[:16]}", oracle=gl54b_oracle)
+    if not done:
+        print("\nPARTIAL RUN: re-invoke with --gl54b-append to continue "
+              "(checkpoint saved).", file=sys.stderr)
+        return 3
+    print(f"  gl54b route-tag counts (information only): {region_hist}",
+          file=sys.stderr)
+
+    n_all = len(rows)
+    rows = [r for r in rows if min(r[3], r[4]) >= 1e-300]
+    print(f"  dropped {n_all - len(rows)} rows whose small side is below "
+          f"1e-300", file=sys.stderr)
+    rc = check_p_plus_q(rows)
+    rc |= check_small_side_direct(rows)
+
+    per = {}
+    for r in rows:
+        k = GL54B_FAMILY[(as_bits(r[0]), as_bits(r[1]), as_bits(r[2]))]
+        per[k] = per.get(k, 0) + 1
+    print(f"  rows: {len(rows)}; per family/orientation: "
+          f"{dict(sorted(per.items()))}", file=sys.stderr)
+    st = GL54B_STATS
+    print(f"  declined: {len(GL54B_DECLINED)}", file=sys.stderr)
+    for d in GL54B_DECLINED:
+        print(f"    DECLINED a={d[0]!r} b={d[1]!r} x={d[2]!r}: {d[3]}",
+              file=sys.stderr)
+    print(f"  worst dps-agreement (I and 1-I, rel): "
+          f"{float(st['agree_worst']):.3e}; dps range {st['dps_min']}.."
+          f"{st['dps_max']}", file=sys.stderr)
+    if rc:
+        print("\nSelf-checks FAILED -- not touching reference files.",
+              file=sys.stderr)
+        return rc
+    rc = _splice_corner(rows)
+    print(f"\ngl54b-append runtime: {time.time() - t_all:.1f}s",
+          file=sys.stderr)
+    return rc
+
+
+# ============================================================================
+# --r3tail-append (issue #69): R3 Temme TAIL (cpsi > 36) at high G weight.
+# Beta's tail took G = z e^{z^2} erfc(z) from erfc's plain double fit, formed
+# G/(2z) as a rounded double, and dropped z.lo -- gamma's twin had all three
+# fixed (#57, #64). The error scales with the G weight
+#   w = (erfc(sqrt(cpsi))/2) / small,
+# which approaches 1.28 where the small side's parameter ratio sits at the
+# band edge (y/q -> 2 with a >> b, or x/p -> 2 with a << b) -- the gamma
+# limit's lambda = 2. The v1.0 set held no such rows: the kernel read 4 ulp
+# there against a 3-ULP gate.
+#
+# Strata (own RNG, seed 6969; no kernel input in the selection):
+#   witness  the two worst rows of the #69 adversarial scoring
+#   hiw-P    a > b, y = s*q, s in [1.5, 2) edge-biased  (P is the small side)
+#   hiw-Q    a < b, x = s*p, same                       (Q is the small side)
+#   broad    any skew, any of the four band edges, edge-biased
+# z = sqrt(cpsi) is drawn uniformly in (6, sqrt(800)), so the subnormal band
+# and the underflow-to-zero lanes below the -800 clamp are covered too.
+#
+# Oracle: two INDEPENDENT forms of the small side, both in mpmath at
+# dps = 45 + log10(c):
+#   C  tanh-sinh quadrature of the integrand, taken relative to the endpoint
+#      (s = xi - t) so nothing cancels inside it, with the prefactor
+#      xi^(al-1) (1-xi)^(be-1) / B(al, be) applied outside;
+#   D  own modified-Lentz continued fraction (DLMF 8.17.22), capped.
+# They must agree to R3TAIL_AGREE relative, else the row is declined. The
+# emitted value is C. Halfway guard: a P or Q within R3TAIL_HALFWAY ulp of a
+# rounding midpoint is declined. After the oracle pass, every emitted row is
+# re-derived by form D at dps + 25 (dps re-check: the stored P and Q must be
+# its rounding), and a one-ulp nudge of every stored small side must FAIL
+# that same check (negative control). Appended count is kept even.
+# ============================================================================
+R3TAIL_SEED = 6969
+R3TAIL_AGREE = mp.mpf("1e-30")
+R3TAIL_HALFWAY = mp.mpf("1e-6")
+R3TAIL_CF_CAP = 200000      # Lentz iterations; a row that needs more declines
+R3TAIL_WITNESS = (
+    (float.fromhex("0x1.60e68a83ac337p+53"), float.fromhex("0x1.9ffbb946bc7cfp+8"),
+     float.fromhex("0x1.ffffffffffddcp-1")),
+    (float.fromhex("0x1.f6bdc2431d81fp+9"), float.fromhex("0x1.83e635a0b76fbp+23"),
+     float.fromhex("0x1.4a82afffedb34p-13")),
+)
+R3TAIL_STATS = {"agree_worst": mp.mpf(0), "halfway_declined": 0,
+                "disagree_declined": 0, "cf_declined": 0}
+R3TAIL_DECLINED = []
+R3TAIL_FAMILY = {}
+
+
+def _r3tail_phi(t):
+    """t - log1p(t), cancellation-free near 0 (sampling only)."""
+    if abs(t) < 1e-3:
+        return t * t * (0.5 - t / 3 + t * t / 4 - t ** 3 / 5)
+    return t - math.log1p(t)
+
+
+def gen_r3tail_corner(ps):
+    rng = random.Random(R3TAIL_SEED)
+    n0 = len(ps.pts)
+    for a, b, x in R3TAIL_WITNESS:
+        n_before = len(ps.pts)
+        ps.add(a, b, x, keep_if_saturated=True, tag="r3tail-witness")
+        if len(ps.pts) > n_before:
+            R3TAIL_FAMILY[(as_bits(a), as_bits(b), as_bits(x))] = "witness"
+    zmax = math.sqrt(800.0)
+    draws = {}
+    kept = {}
+    for fam, want in (("hiw-P", 950), ("hiw-Q", 950), ("broad", 300)):
+        draws[fam] = 0
+        kept[fam] = 0
+        while kept[fam] < want and draws[fam] < 40 * want:
+            draws[fam] += 1
+            if fam == "broad":
+                lr = rng.uniform(-14.0, 14.0)
+                edge = rng.randrange(4)
+            else:
+                lr = rng.uniform(0.5, 14.0)
+                if fam == "hiw-Q":
+                    lr = -lr
+                edge = 3 if fam == "hiw-P" else 1
+            r = 10.0 ** lr                          # a/b
+            p, q = r / (1.0 + r), 1.0 / (1.0 + r)
+            t = 1.0 - rng.random() ** 2             # edge-biased in [0, 1)
+            # edges: 0 x = p(1 - t/2), 1 x = p(1 + t), 2 y = q(1 - t/2),
+            # 3 y = q(1 + t); the hiw strata hold s = 1 + t in [1.5, 2).
+            if fam != "broad":
+                t = 0.5 + 0.5 * t
+            if edge == 0:
+                x = p * (1.0 - 0.5 * t)
+            elif edge == 1:
+                x = p * (1.0 + t)
+            elif edge == 2:
+                x = 1.0 - q * (1.0 - 0.5 * t)
+            else:
+                x = 1.0 - q * (1.0 + t)
+            if not 0.0 < x < 1.0:
+                continue
+            a1, b1 = 1.0 + r, (1.0 + r) / r         # nu = 1
+            lam = a1 - (a1 + b1) * x
+            f1 = a1 * _r3tail_phi(-lam / a1) + b1 * _r3tail_phi(lam / b1)
+            if not f1 > 0.0:
+                continue
+            z = rng.uniform(6.0, zmax)
+            nu = z * z / f1
+            a, b = nu * a1, nu * b1
+            if not (math.isfinite(a) and math.isfinite(b)):
+                continue
+            tag = route_final(mp.mpf(a), mp.mpf(b), mp.mpf(x))[3]
+            if not tag.startswith("R3"):
+                continue
+            cp = _r3tail_cpsi(a, b, x)
+            if not 36.0 < cp <= 800.0:
+                continue
+            n_before = len(ps.pts)
+            ps.add(a, b, x, keep_if_saturated=True, tag="r3tail-" + fam)
+            if len(ps.pts) > n_before:
+                R3TAIL_FAMILY[(as_bits(a), as_bits(b), as_bits(x))] = fam
+                kept[fam] += 1
+    print(f"  r3tail family: {len(ps.pts) - n0} points; draws {draws}; "
+          f"kept {kept}", file=sys.stderr)
+
+
+def _r3tail_cpsi(a, b, x, dps=40):
+    """cpsi = a*phi(-lam/a) + b*phi(lam/b), lam = a - c*x, at dps (exact
+    inputs; phi via log1p)."""
+    lc = int(math.log10(a + b)) + 1
+    with mp.workdps(dps + lc):
+        A, B, X = mp.mpf(a), mp.mpf(b), mp.mpf(x)
+        lam = A - (A + B) * X
+        u, v = -lam / A, lam / B
+        return float(A * (u - mp.log1p(u)) + B * (v - mp.log1p(v)))
+
+
+def _r3tail_orient(a, b, x, dps):
+    """(al, be, xi, small_is_p) at dps: the small side is I_xi(al, be)."""
+    with mp.workdps(dps):
+        A, B, X = mp.mpf(a), mp.mpf(b), mp.mpf(x)
+        lam = A - (A + B) * X
+        if lam > 0:
+            return A, B, X, True
+        return B, A, 1 - X, False     # 1 - x is exact at this dps
+
+
+def _r3tail_quad(al, be, xi, dps):
+    """Form C: the small side by tanh-sinh quadrature relative to the
+    endpoint, I = xi^(al-1) (1-xi)^(be-1) / B(al, be) * int_0^xi
+    (1 - s/xi)^(al-1) (1 + s/(1-xi))^(be-1) ds. The integrand decays from 1
+    at s = 0 at rate k = (al-1)/xi - (be-1)/(1-xi) > 0 (small side); the
+    break points double from 1/(8k) until it is below e^-(2.31 dps + 30)."""
+    with mp.workdps(dps):
+        y = 1 - xi
+        a1, b1 = al - 1, be - 1
+        g = lambda s: mp.exp(a1 * mp.log1p(-s / xi) + b1 * mp.log1p(s / y))
+        k = a1 / xi - b1 / y
+        if k <= 0:
+            return None
+        cut = dps * 2.31 + 30
+        pts = [mp.mpf(0)]
+        h = 1 / k / 8
+        for _ in range(4000):   # h doubles: bounded far below this
+            s = pts[-1] + h
+            if s >= xi:
+                pts.append(xi)
+                break
+            pts.append(s)
+            if a1 * mp.log1p(-s / xi) + b1 * mp.log1p(s / y) < -cut:
+                break
+            h *= 2
+        else:
+            return None
+        integral = mp.quad(g, pts)
+        lb = mp.loggamma(al) + mp.loggamma(be) - mp.loggamma(al + be)
+        return mp.exp(a1 * mp.log(xi) + b1 * mp.log1p(-xi) - lb) * integral
+
+
+def _r3tail_cf(al, be, xi, dps, cap=R3TAIL_CF_CAP):
+    """Form D: own modified-Lentz CF for I_xi(al, be) (DLMF 8.17.22);
+    None if it has not converged within cap iterations."""
+    with mp.workdps(dps):
+        al, be, xi = mp.mpf(al), mp.mpf(be), mp.mpf(xi)
+        eps = mp.mpf(2) ** (-mp.mp.prec - 6)
+        tiny = mp.mpf(10) ** (-(dps + 300))
+        c = mp.mpf(1)
+        d = 1 - (al + be) * xi / (al + 1)
+        d = tiny if d == 0 else d
+        d = 1 / d
+        h = d
+        for m in range(1, cap):
+            aa = m * (be - m) * xi / ((al + 2 * m - 1) * (al + 2 * m))
+            d = 1 + aa * d
+            d = tiny if d == 0 else d
+            c = 1 + aa / c
+            c = tiny if c == 0 else c
+            d = 1 / d
+            h *= d * c
+            aa = -(al + m) * (al + be + m) * xi / ((al + 2 * m) * (al + 2 * m + 1))
+            d = 1 + aa * d
+            d = tiny if d == 0 else d
+            c = 1 + aa / c
+            c = tiny if c == 0 else c
+            d = 1 / d
+            de = d * c
+            h *= de
+            if abs(de - 1) < eps:
+                break
+        else:
+            return None
+        lb = mp.loggamma(al) + mp.loggamma(be) - mp.loggamma(al + be)
+        return mp.exp(al * mp.log(xi) + be * mp.log1p(-xi) - lb) / al * h
+
+
+def _r3tail_dps(a, b):
+    return 45 + int(math.log10(a + b))
+
+
+def _r3tail_halfway_ulps(v, y):
+    """Distance of mpf v from the nearest rounding midpoint around the double
+    y = round(v), in ulps of y's upper spacing (exact neighbours)."""
+    up, dn = math.nextafter(y, math.inf), math.nextafter(y, -math.inf)
+    with mp.workprec(mp.mp.prec + 128):
+        mu = (mp.mpf(y) + mp.mpf(up)) / 2
+        md = (mp.mpf(y) + mp.mpf(dn)) / 2
+        return min(abs(v - mu), abs(v - md)) / (mp.mpf(up) - mp.mpf(y))
+
+
+def r3tail_oracle(a, b, x):
+    """Drop-in for small_side_direct: (P, Q, which, escalated, failed)."""
+    dps = _r3tail_dps(a, b)
+    al, be, xi, small_is_p = _r3tail_orient(a, b, x, dps + 10)
+    vc = _r3tail_quad(al, be, xi, dps)
+    vd = _r3tail_cf(al, be, xi, dps)
+    if vc is None or vd is None or vc <= 0:
+        R3TAIL_STATS["cf_declined"] += 1
+        R3TAIL_DECLINED.append((a, b, x, "form C or D did not converge"))
+        return None, None, "P", False, True
+    with mp.workdps(dps):
+        rel = abs(vc - vd) / vc
+        if rel > R3TAIL_STATS["agree_worst"]:
+            R3TAIL_STATS["agree_worst"] = rel
+        if rel > R3TAIL_AGREE:
+            R3TAIL_STATS["disagree_declined"] += 1
+            R3TAIL_DECLINED.append((a, b, x, f"C vs D rel {float(rel):.2e}"))
+            return None, None, "P", False, True
+        small, big = vc, 1 - vc
+        for v in (small, big):
+            if _r3tail_halfway_ulps(v, round_to_double(v)) < R3TAIL_HALFWAY:
+                R3TAIL_STATS["halfway_declined"] += 1
+                R3TAIL_DECLINED.append((a, b, x, "halfway"))
+                return None, None, "P", False, True
+    if small_is_p:
+        return small, big, "P", False, False
+    return big, small, "Q", False, False
+
+
+def _r3tail_in_cell(v, y):
+    """True iff mpf v lies in the rounding cell of the double y (between the
+    midpoints to its two neighbours) -- an interval test independent of
+    round_to_double."""
+    up, dn = math.nextafter(y, math.inf), math.nextafter(y, -math.inf)
+    with mp.workprec(mp.mp.prec + 128):
+        mu = (mp.mpf(y) + mp.mpf(up)) / 2
+        md = (mp.mpf(y) + mp.mpf(dn)) / 2
+        return md <= v <= mu
+
+
+def _r3tail_recheck(rows):
+    """dps re-check + negative control on every emitted row: form D at
+    dps + 25 must lie in the rounding cell of the stored P and of the stored
+    Q, and must lie OUTSIDE the cell of the stored small side nudged by one
+    ulp either way. Returns the failure count."""
+    bad = 0
+    nc_missed = 0
+    worst_half = None
+    t0 = time.time()
+    for i, (a, b, x, P, Q) in enumerate(rows):
+        dps = _r3tail_dps(a, b) + 25
+        al, be, xi, small_is_p = _r3tail_orient(a, b, x, dps + 10)
+        v = _r3tail_cf(al, be, xi, dps)
+        if v is None:
+            bad += 1
+            print(f"    RECHECK no convergence a={a!r} b={b!r} x={x!r}",
+                  file=sys.stderr)
+            continue
+        with mp.workdps(dps):
+            small, big = v, 1 - v
+            sp, sq = (small, big) if small_is_p else (big, small)
+            if not (_r3tail_in_cell(sp, P) and _r3tail_in_cell(sq, Q)):
+                bad += 1
+                print(f"    RECHECK mismatch a={a!r} b={b!r} x={x!r}",
+                      file=sys.stderr)
+                continue
+            stored = P if small_is_p else Q
+            h = _r3tail_halfway_ulps(small, stored)
+            worst_half = h if worst_half is None else min(worst_half, h)
+            for nudged in (math.nextafter(stored, math.inf),
+                           math.nextafter(stored, -math.inf)):
+                if _r3tail_in_cell(small, nudged):
+                    nc_missed += 1
+        if (i + 1) % 500 == 0:
+            print(f"    recheck {i + 1}/{len(rows)} ({time.time() - t0:.0f}s)",
+                  file=sys.stderr)
+    print(f"  dps re-check (form D at dps+25): {len(rows) - bad}/{len(rows)} "
+          f"rows round to the stored P and Q; nearest small side to a "
+          f"midpoint {float(worst_half or 0):.3e} ulp", file=sys.stderr)
+    print(f"  negative control: {2 * len(rows)} one-ulp nudges, "
+          f"{nc_missed} accepted (must be 0)", file=sys.stderr)
+    return bad + nc_missed
+
+
+CKPT_R3TAIL_PATH = os.path.join(tempfile.gettempdir(),
+                                f"corvus_beta_ref_ckpt_r3tail_{SEED}.tsv")
+
+
+def r3tail_append():
+    t_all = time.time()
+    ps = PointSet()
+    gen_r3tail_corner(ps)
+    print(f"r3tail point set: {len(ps.pts)} distinct points", file=sys.stderr)
+
+    import hashlib
+    dig = hashlib.sha256()
+    for a, b, x, _, _ in ps.pts:
+        dig.update(struct.pack("<QQQ", as_bits(a), as_bits(b), as_bits(x)))
+    rows, region_hist, done = compute_all(
+        ps, ckpt_path=CKPT_R3TAIL_PATH,
+        sig_ver=f"v1-r3tail-{dig.hexdigest()[:16]}", oracle=r3tail_oracle)
+    print(f"  this invocation: worst C-vs-D rel {float(R3TAIL_STATS['agree_worst']):.3e}; "
+          f"declined: halfway {R3TAIL_STATS['halfway_declined']}, C/D disagree "
+          f"{R3TAIL_STATS['disagree_declined']}, no convergence "
+          f"{R3TAIL_STATS['cf_declined']}", file=sys.stderr)
+    for d in R3TAIL_DECLINED:
+        print(f"    DECLINED a={d[0]!r} b={d[1]!r} x={d[2]!r}: {d[3]}",
+              file=sys.stderr)
+    if not done:
+        print("\nPARTIAL RUN: re-invoke with --r3tail-append to continue "
+              "(checkpoint saved).", file=sys.stderr)
+        return 3
+    print(f"  r3tail route-tag counts: {region_hist}", file=sys.stderr)
+    rc = 0
+    for a, b, x, P, Q in rows:
+        if not route_final(mp.mpf(a), mp.mpf(b), mp.mpf(x))[3].startswith("R3"):
+            print(f"  FAILED: non-R3 row a={a!r} b={b!r} x={x!r}", file=sys.stderr)
+            rc = 1
+    rc |= check_p_plus_q(rows)
+    rc |= check_small_side_direct(rows)
+    rc |= _r3tail_recheck(rows)
+
+    # exact_line_value: no R3 row lies on an exact closed-form line (nu >=
+    # 20 there), but keep the same override write_rows applies.
+    fixed = []
+    for a, b, x, P, Q in rows:
+        exact = exact_line_value(a, b, x)
+        fixed.append((a, b, x) + (exact if exact is not None else (P, Q)))
+    rows = fixed
+
+    # Even appended count keeps both files' length parity. Rows already in
+    # the files belong to their earlier family (as _splice_corner skips them),
+    # so parity is decided on the NEW rows; the last non-witness row goes.
+    with open("tests/data/beta_p_reference.txt") as f:
+        have = {tuple(ln.split()[:3]) for ln in f if ln.strip()}
+    rows = [r for r in rows if (hexd(r[0]), hexd(r[1]), hexd(r[2])) not in have]
+    if len(rows) % 2:
+        for i in range(len(rows) - 1, -1, -1):
+            k = (as_bits(rows[i][0]), as_bits(rows[i][1]), as_bits(rows[i][2]))
+            if R3TAIL_FAMILY.get(k) != "witness":
+                del rows[i]
+                break
+
+    per = {}
+    wbins = {}
+    for r in rows:
+        k = R3TAIL_FAMILY[(as_bits(r[0]), as_bits(r[1]), as_bits(r[2]))]
+        per[k] = per.get(k, 0) + 1
+        small = min(r[3], r[4])
+        if small > 0:
+            cp = _r3tail_cpsi(r[0], r[1], r[2])
+            with mp.workdps(30):
+                w = float(mp.erfc(mp.sqrt(cp)) / 2 / small)
+            wbins[round(w, 1)] = wbins.get(round(w, 1), 0) + 1
+    n_p = sum(1 for r in rows if r[3] <= r[4])
+    print(f"  new rows: {len(rows)}; per stratum {dict(sorted(per.items()))}; "
+          f"P small {n_p}, Q small {len(rows) - n_p}", file=sys.stderr)
+    print(f"  G-weight w histogram (rows with a nonzero small side): "
+          f"{dict(sorted(wbins.items()))}", file=sys.stderr)
+    if rc:
+        print("\nSelf-checks FAILED -- not touching reference files.",
+              file=sys.stderr)
+        return rc
+    rc = _splice_corner(rows)
+    print(f"\nr3tail-append runtime: {time.time() - t_all:.1f}s",
+          file=sys.stderr)
+    return rc
+
+
 if __name__ == "__main__":
     _parser = argparse.ArgumentParser(
         allow_abbrev=False,  # '--ful' must ERROR, not prefix-match --full (#11)
@@ -3134,9 +4318,63 @@ if __name__ == "__main__":
              "--corner-append but a DIFFERENT family (huge-B R4 recurrence, "
              "not the PB prefactor corner) -- kept as its own flag rather "
              "than aliased to --corner-append.")
+    _parser.add_argument(
+        "--subsub-append", action="store_true",
+        help="Incrementally certify and splice ONLY the both-subnormal "
+             "family (gen_subsub_corner -- a and b both subnormal, issue "
+             "#59 non-FMA DdDivDd) into the existing reference files, own "
+             "checkpoint/cross-check, resumable by re-invoking with this "
+             "same flag. Same append pattern as --r4huge-append.")
+    _parser.add_argument(
+        "--r4seam-append", action="store_true",
+        help="Incrementally certify and splice ONLY the R4 widened-window "
+             "seam family (gen_r4seam_corner -- tiny shape pairs at the "
+             "boundary, issue #47) into the existing reference files, own "
+             "checkpoint/cross-check, resumable by re-invoking with this "
+             "same flag. Same append pattern as --subsub-append.")
+    _parser.add_argument(
+        "--gl54-append", action="store_true",
+        help="Incrementally certify and splice ONLY the gamma-limit-slice "
+             "family (gen_gl54_corner -- max(a,b) >= 2^59, issue #54) into "
+             "the existing reference files. Certified by the independent "
+             "2F1 closed-form oracle with a doubled-dps agreement check, "
+             "NOT the generator's gamma-limit formula; own checkpoint, "
+             "resumable by re-invoking with this same flag.")
+    _parser.add_argument(
+        "--gl54b-append", action="store_true",
+        help="Incrementally certify and splice ONLY the N in [2^40, 2^59) "
+             "family just below the gamma-limit slice (gen_gl54b_corner, "
+             "issue #54 defect 2) into the existing reference files. "
+             "Independent 2F1 oracle, doubling-dps agreement on I and 1-I; "
+             "own seed/checkpoint, resumable by re-invoking.")
+    _parser.add_argument(
+        "--r3tail-append", action="store_true",
+        help="Incrementally certify and splice ONLY the R3 Temme-tail family "
+             "at high G weight (gen_r3tail_corner, issue #69) into the "
+             "existing reference files. Two independent oracle forms "
+             "(endpoint-relative quadrature, own Lentz CF), halfway guard, "
+             "dps re-check and one-ulp negative control; own seed/"
+             "checkpoint, resumable by re-invoking.")
+    _parser.add_argument(
+        "--exact-ties-fix", action="store_true",
+        help="Rewrite in place only the rows on exact closed-form lines "
+             "(I_x(a,1) = x^a, I_x(1,b) = 1-(1-x)^b, integer exponent) whose "
+             "stored value is not the exact ties-to-even rounding (#53).")
     _args = _parser.parse_args()
+    if _args.exact_ties_fix:
+        sys.exit(exact_ties_fix())
     if _args.corner_append:
         sys.exit(corner_append())
     if _args.r4huge_append:
         sys.exit(r4huge_append())
+    if _args.subsub_append:
+        sys.exit(subsub_append())
+    if _args.r4seam_append:
+        sys.exit(r4seam_append())
+    if _args.gl54_append:
+        sys.exit(gl54_append())
+    if _args.gl54b_append:
+        sys.exit(gl54b_append())
+    if _args.r3tail_append:
+        sys.exit(r3tail_append())
     sys.exit(main())

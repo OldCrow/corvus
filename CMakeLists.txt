@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)  # 3.25: FetchContent SYSTEM keyword
-project(corvus VERSION 1.0.1 LANGUAGES CXX
+project(corvus VERSION 1.1.0 LANGUAGES CXX
   DESCRIPTION "SIMD-vectorized statistical special functions"
   HOMEPAGE_URL "https://github.com/OldCrow/corvus")
 
@@ -50,6 +50,9 @@ option(CORVUS_BUILD_EXAMPLES "Build corvus examples" ${PROJECT_IS_TOP_LEVEL})
 option(CORVUS_DEV_WARNINGS "Enable -Wall -Wextra -Wpedantic (dev builds)"
        ${PROJECT_IS_TOP_LEVEL})
 option(CORVUS_WERROR "Treat warnings as errors (CI)" OFF)
+# Route census (#82 T7, src/route_census.h): records the kernel route lane 0
+# takes, for tools/hunt/route_census.py. A test tool; never ship it.
+option(CORVUS_ROUTE_CENSUS "Record kernel routes (test tool)" OFF)
 
 # Compile-time target restriction, e.g. -DCORVUS_DISABLED_TARGETS="HWY_AVX3|HWY_AVX2"
 # forces dispatch to stop at the next-lower tier. Used for native per-tier
@@ -130,6 +133,11 @@ target_include_directories(corvus
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_link_libraries(corvus PRIVATE hwy::hwy)
+if(CORVUS_ROUTE_CENSUS)
+  target_sources(corvus PRIVATE src/route_census.cpp)
+  # PUBLIC: tests/hunt_probe reads the record through src/route_census.h.
+  target_compile_definitions(corvus PUBLIC CORVUS_ROUTE_CENSUS)
+endif()
 
 # Dev warnings: PRIVATE only — never exported to consumers. CORVUS_WARN_FLAGS
 # is also applied to test/bench targets in tests/CMakeLists.txt.
@@ -189,6 +197,9 @@ if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND MSVC_VERSION LESS 1930
     "breaks the double-double layer's exactness proofs (MSVC_VERSION is "
     "${MSVC_VERSION}). Use VS 2022, clang-cl, or GCC/Clang.")
 endif()
+# Contraction is OFF project-wide. GCC defaults to -ffp-contract=fast for
+# non-ISO modes, and Clang defaults to "on" (contract within a statement), so
+# both need the explicit flag; real MSVC gets no flag (the version floor above).
 set(CORVUS_FP_FLAGS "")
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND MSVC)
   list(APPEND CORVUS_FP_FLAGS /clang:-ffp-contract=off)  # clang-cl driver

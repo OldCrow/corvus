@@ -22,59 +22,64 @@ The per-tier validation matrix lives in
 stable; [docs/VERSIONING.md](docs/VERSIONING.md) states exactly what
 that promises — and what it deliberately does not.
 
-- `erf`: max 1 ULP over the full domain.
-- `erfc`: max 1 ULP for |x| <= 6 and for subnormal results; max 2 ULP in
+- `erf`: <!-- claim: erf --> max 1 ULP over the full domain.
+- `erfc`: <!-- claim: erfc.core erfc.subnormal --> max 1 ULP for |x| <= 6 and for subnormal results; <!-- claim: erfc.tail --> max 2 ULP in
   the tail, where what remains is the tail polynomial's fit, not the
   exponential.
-- `lgamma`: max 1 ULP across the positive axis — including arbitrarily
-  close to the zeros at x = 1 and x = 2, which are exact — and correctly
+- `lgamma`: <!-- claim: lgamma.pos --> max 1 ULP across the positive axis — including arbitrarily
+  close to the zeros at x = 1 and x = 2, which are exact — and <!-- claim: lgamma.stirling --> correctly
   rounded throughout the Stirling region. On the negative axis the bound is
-  1 ULP where |lgamma| >= 1 and 2^-53 absolute below that, because lgamma
+  <!-- claim: lgamma.neg --> 1 ULP where |lgamma| >= 1 and <!-- claim: lgamma.neg_abs --> 2^-53 absolute below that, because lgamma
   has infinitely many zeros there with no closed form.
-- `erfinv` / `erfcinv`: max 1 ULP everywhere, including subnormal results
+- `erfinv` / `erfcinv`: <!-- claim: erfinv --> max 1 ULP everywhere, including subnormal results
   down to the far tail (`erfcinv` reaches x up to ~27.2; `erfinv` never
   leaves x < 6). Useful directly as the normal quantile:
   `probit(p) = -sqrt(2)*erfcinv(2p)`.
-- `gamma_p` / `gamma_q` (regularized incomplete gamma): max 2 ULP on the
+- `gamma_p` / `gamma_q` (regularized incomplete gamma): <!-- claim: gamma.R3.dir --> max 2 ULP on the
   directly computed (smaller) side over the whole (a, x) plane, and every
   bound is relative — the routing always computes the smaller of P/Q
   directly, so tiny values keep full relative accuracy down to (and
   through) the subnormals, including Q for arbitrarily small a.
-- `beta_p` / `beta_q` (regularized incomplete beta): max 3 ULP on the
+- `beta_p` / `beta_q` (regularized incomplete beta): <!-- claim: beta.R3.dir --> max 3 ULP on the
   directly computed (smaller) side over the whole (a, b, x) domain — the
-  continued-fraction and gamma-limit regions are correctly rounded, the
-  Temme ridge carries the 3 — with the same always-compute-the-smaller-side
+  continued-fraction region is <!-- claim: beta.R2.dir --> 1 ULP, the gamma-limit slice
+  <!-- claim: beta.GL --> 1 ULP (measured correctly rounded except near-ties), the Temme ridge
+  carries the 3; per-region cells in
+  docs/ACCURACY.md — with the same always-compute-the-smaller-side
   relative guarantee as the gamma pair, down to subnormal results and out
   to parameters at the ends of the double range. The reference set is
   additionally certified by an independent verification harness, and every
   target passes a monotonicity post-pass plus dense sweeps across all ten
   routing seams.
 
-- `digamma`: max 1 ULP over the full real axis wherever |ψ| ≥ 1 —
+- `digamma`: <!-- claim: digamma --> max 1 ULP over the full real axis wherever |ψ| ≥ 1 —
   including arbitrarily close to the positive root x₀ ≈ 1.4616, which the
   kernel reproduces through a double-double product form despite the root
-  being irrational — and 2^-53 absolute near the negative-axis zeros,
+  being irrational — and <!-- claim: digamma.neg_abs --> 2^-53 absolute near the negative-axis zeros,
   where the reflection's terms cancel by ~49 bits and a plain-double
   assembly would keep only 3–4 correct bits.
 
-- `trigamma`: max 1 ULP over the full real axis — correctly rounded on
-  (0, 1) — under a single relative metric everywhere: ψ₁ is a sum of
+- `trigamma`: <!-- claim: trigamma --> max 1 ULP over the full real axis (on (0, 1)
+  <!-- claim: trigamma.pos01 --> 1 ULP too, measured correctly rounded on the reference set except
+  near-ties) — under a single relative metric everywhere: ψ₁ is a sum of
   squares with no zeros on either axis, so unlike lgamma and digamma no
   absolute-error band exists, even near the reflection's poles.
 
 - `gamma_p_inv` / `gamma_q_inv` (inverse regularized incomplete gamma —
-  directly the Gamma-distribution quantile): max 1 ULP over the whole
+  directly the Gamma-distribution quantile): <!-- claim: gammainv --> max 1 ULP over the whole
   (a, p) domain, on both sides of the median (the solve-side switch is
-  exact), with subnormal and zero results correctly rounded. Since no
+  exact); its deep-small closed form, subnormal and zero results included, is
+  <!-- claim: gammainv.deep_small --> 1 ULP, measured correctly rounded on the reference set except
+  near-ties. Since no
   library baseline exists for the inverse, every reference row is
   individually bracket-certified: the stored answer is proven to be the
   correctly rounded inverse of its exact double input.
 
 - `beta_p_inv` / `beta_q_inv` (inverse regularized incomplete beta —
-  directly the Beta-distribution quantile): max 1 ULP over the whole
-  (a, b, p) domain (2 ULP only where the entire 0→1 transition sits
+  directly the Beta-distribution quantile): <!-- claim: betainv --> max 1 ULP over the whole
+  (a, b, p) domain (<!-- claim: betainv.B --> 2 ULP only where the entire 0→1 transition sits
   inside one or two ulp of x, so neighbouring doubles are equally
-  correct), with subnormal and endpoint results correctly rounded, and BOTH ends of [0, 1] lossless — the kernel always solves
+  correct), subnormal and endpoint results within the same 1 ULP, and BOTH ends of [0, 1] lossless — the kernel always solves
   for whichever of x, 1−x is small, so `beta_p_inv(b, a, q)` returns
   1−x at full relative precision (SciPy's `betaincinv`, for
   comparison, degrades to ~10¹¹ ULP near 1). Where both parameters
@@ -85,9 +90,10 @@ that promises — and what it deliberately does not.
   the measured backward error is 0.000 ulp. Every reference row is
   individually bracket-certified, as with the gamma inverse.
 
-- `lbeta` (ln B(a,b)): **correctly rounded on every measured row** —
-  0 ULP wherever |ln B| >= 1 and half-ulp absolute in the
-  ill-conditioned band around ln B's zero curve. Computed through the
+- `lbeta` (ln B(a,b)): <!-- claim: lbeta.relative --> max 1 ULP wherever |ln B| >= 1 and
+  <!-- claim: lbeta.abs --> 2^-53 absolute in the ill-conditioned band around ln B's zero
+  curve (it was documented as correctly rounded until v1.1.0; near-ties
+  round either way — the erratum is in docs/ACCURACY.md). Computed through the
   beta family's double-double lgamma-difference machinery, so the a+b
   cancellation that degrades a naive lgamma(a)+lgamma(b)-lgamma(a+b)
   assembly at large parameters is removed analytically. Positive
@@ -95,24 +101,24 @@ that promises — and what it deliberately does not.
   the true value leaves the double range.
 
 - `i0` / `i1` / `i0e` / `i1e` (modified Bessel functions of the first
-  kind, orders 0 and 1, plain and exponentially scaled): max 1 ULP over
+  kind, orders 0 and 1, plain and exponentially scaled): <!-- claim: bessel --> max 1 ULP over
   the full real axis — every function, every region, every tier, with
   no conditioning caveats. The unscaled forms saturate to ±inf exactly
   at the measured overflow boundary (|x| ≈ 713.99); the scaled forms
   stay finite to DBL_MAX and never underflow. For von Mises work:
-  log I0(κ) composes as `log(i0e(x)) + x`, and A(κ) = `i1e/i0e`
-  composes exactly (see docs/ACCURACY.md for the recipes, including
-  stable higher-order I_j for the CDF series).
+  log I0(κ) composes as `log(i0e(x)) + x` and A(κ) as `i1e/i0e`; see
+  docs/ACCURACY.md for their measured accuracy and the recipes, including
+  stable higher-order I_j for the CDF series.
 
-- `exp` / `log` / `log1p`: **log and log1p correctly rounded on every
-  reference row (0-ULP gates); exp correctly rounded on every
-  normal-result row**, 1 ULP in the subnormal band, with overflow to
+- `exp` / `log` / `log1p`: <!-- claim: log --> **log and log1p correctly rounded on every
+  reference row (0-ULP gates); <!-- claim: exp.normal --> exp correctly rounded on normal
+  results except within ~2^-15 ulp of a rounding tie** (exp(2^-53) is one), <!-- claim: exp.subnormal --> 1 ULP in the subnormal band, with overflow to
   +inf and gradual underflow to +0 crossing at the correctly rounded
   thresholds (exp(−inf) = +0 exactly). Thin assemblies over corvus's
   audited internal double-double cores — nothing here depends on the
   backend's or the platform's math library.
 
-- `cos` / `sin`: max 1 ULP over the **full double range** on every tier —
+- `cos` / `sin`: <!-- claim: trig --> max 1 ULP over the **full double range** on every tier —
   including the non-FMA tiers — with no domain cutoff and no per-lane
   libm fallback: |x| ≤ 2^23 uses an exact-split quadrant reduction, and
   beyond it a vectorized Payne–Hanek reduction certified at every
@@ -245,7 +251,8 @@ sets neither.
 ### Platforms and compilers
 
 CI builds and tests on Linux x86-64 (GCC), macOS arm64 (Apple Clang),
-and Windows x86-64 (MSVC). Two Windows-specific points are worth knowing:
+and Windows x86-64 (MSVC and clang-cl). Two Windows-specific points are
+worth knowing:
 
 - **Without `-G Ninja` you get the Visual Studio generator**, which is
   multi-config: it ignores `CMAKE_BUILD_TYPE`, builds `Debug` by default,
@@ -270,9 +277,11 @@ and Windows x86-64 (MSVC). Two Windows-specific points are worth knowing:
   AVX2 or above: GCC 16.1 miscompiles 256- and 512-bit by-value vector
   arguments on the Windows ABI (misaligned stack temporaries — crashes
   depend on call-chain luck; GCC PR 126741, see docs/ACCURACY.md). It
-  remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4). This one bites
-  at *run* time, not build time: the build succeeds
-  and the binary faults, which reads like a bug in your own code.
+  remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4). corvus's
+  configure step therefore refuses mingw GCC when 256-bit or wider targets
+  are compiled in (cmake/ToolchainGuard.cmake); cap the build to the
+  128-bit tiers to use it. Unguarded, the build would succeed and the
+  binary fault, which reads like a bug in your own code.
   `corvus::active_target()` reports the tier runtime dispatch actually
   selected, and is the only reliable way to know.
 
@@ -311,7 +320,7 @@ corvus::beta_p(a, b, x, p);                // x in [0, 1]
 corvus::beta_q(a, b, x, p);
 corvus::beta_p_inv(a, b, p, x);            // Beta quantile: I_x(a,b) = p
 corvus::beta_q_inv(a, b, p, x);
-corvus::lbeta(a, b, p);                    // ln B(a,b), correctly rounded
+corvus::lbeta(a, b, p);                    // ln B(a,b), 1 ULP
 
 corvus::i0(x, y);                          // modified Bessel I0, I1
 corvus::i1(x, y);

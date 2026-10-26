@@ -16,7 +16,11 @@ the kernel under test carries more than working precision
 double-rounds (a hazard noted 2026-08-21 and closed by the v0.6.0
 single-rounding regeneration: the predicted 6/642 erfc and 9/931 exp_dd
 1-ulp subnormal rows were corrected exactly, plus 2 exp_dd `lo`
-components, 6 erfinv rows, and one beta_q and one gamma row). Reference
+components, 6 erfinv rows, and one beta_q and one gamma row). The helper
+re-rounded its argument to the caller's ambient precision until #82 T1:
+a generator that restored `mp.dps` before rounding still double-rounded,
+and 13 trigamma rows near x = 1e308 (subnormal results) were stored 1 ulp
+off until the 2026-10-22 regeneration. Reference
 files are checked in (`tests/data/`); each point-selection strategy is
 documented in its generator and deliberately includes the worst cases for
 the method under test (grid residual extremes, region boundaries at the
@@ -26,6 +30,40 @@ bit level, cancellation-prone ranges, subnormal-result bands).
 monotonic integer), so adjacent doubles differ by 1 everywhere including
 across ±0 and into the subnormals. "not-CR" = fraction of results that are
 not the correctly rounded double.
+
+**Real error (#82 T1).** An integer bound B fails only once the real error
+|result − exact| passes B + ½, which a finite reference set seldom reaches;
+the real error's maximum shows erosion first. Every public-function
+reference row therefore carries its residual `r=` (exact − stored value,
+in ulps; `tools/hunt/annotate.py`, which also refuses a file with any
+|r| > ½ — a generator defect). Each gate region prints its maximum real
+error and enforces two ceilings per tier class (FMA, no-FMA):
+- the contract ceiling, B + ¼ (½ for a correctly rounded cell);
+- a regression pin, the measured maximum + 0.02
+  (`tests/data/real_pins.txt`, written by `tools/hunt/pins.py`).
+
+A pin above its contract ceiling names the issue that tracks the defect;
+the fix lowers it.
+
+**One bound table (#82 T6).** Every gated region's enforced bound and its
+published contract live in `tests/data/bounds.txt`. The gates fail on a
+bound the table does not hold, and the `claims_check` test holds every
+marked bound statement in this file, README.md, USER-GUIDE.md and
+corvus.h to the table's published value. Statements already known to be
+wrong carry #76, the row that corrects them.
+
+**Strata (#82 T3).** Beyond each generator's own population, every public
+reference file carries an appendix drawn from the hunt strata: each kernel
+seam's bit-neighbourhood and a full-mantissa band on each side, subnormal
+inputs and outputs, dense fills, near-tie rows and extreme
+cross-products. Every appended row is certified by two oracle forms (or
+one form at two precisions). The per-stratum row counts are fixed in
+`tests/data/ref_counts.txt` and checked exactly. Rows on which a kernel
+breaks its published bound are held in sections named after the issue
+that tracks the defect; they are counted but not gated until the fix
+lands. The internal double-double files and the betainv
+backward intervals carry no residual: their gates already measure a
+continuous error.
 
 **Gates.** `test_*_ulp` enforce the measured bounds with no margin; any
 regression trips CI. Bounds are claimed only for tiers validated on native
@@ -51,35 +89,46 @@ taken on a quiet machine.
 
 ## Validation matrix
 
+**What "identical on every validated leg" means.** Below, that phrase
+means the per-region bounds: the max-ULP cells, and so the claims, are
+the same on every leg. Individual results need not be. FMA and no-FMA
+tiers round different intermediate steps, so a row can be correctly
+rounded on one tier and 1 ULP on another, within the bound. Examples:
+trigamma(0x1.f24f9e4bebb8fp-1) is 1 ULP on AVX3_ZEN4 and correctly
+rounded on SSE4/SSE2, and cos(1.0) likewise, 1 ULP on AVX3_ZEN4 and
+correctly rounded on SSE4/SSE2 (the review also found one betainv row).
+Not-CR tallies therefore move by a few rows between tier classes (#76,
+review I-1).
+
 | Function | AVX2 | SSE4 | SSSE3 | SSE2 | NEON | AVX-512 |
 |---|---|---|---|---|---|---|
-| erf | ✅ 2026-07-20 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-24 |
-| erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-07-21 | ✅ 2026-07-25 |
-| lgamma | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
-| erfinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
-| erfcinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
-| gamma_p | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-07-29 | ✅ 2026-07-28 |
-| gamma_q | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-07-29 | ✅ 2026-07-28 |
-| beta_p | ✅ 2026-08-05 † | ✅ | ✅ | ✅ | ✅ 2026-08-06 | ✅ 2026-08-05 |
-| beta_q | ✅ 2026-08-05 † | ✅ | ✅ | ✅ | ✅ 2026-08-06 | ✅ 2026-08-05 |
-| digamma | ✅ 2026-08-08 † | ✅ | ✅ | ✅ | ✅ 2026-08-08 | ✅ 2026-08-07 |
-| trigamma | ✅ 2026-08-08 † | ✅ | ✅ | ✅ | ✅ 2026-08-08 | ✅ 2026-08-08 |
-| gamma_p_inv | ✅ 2026-08-09 † | ✅ | ✅ | ✅ | ✅ 2026-08-09 | ✅ 2026-08-09 |
-| gamma_q_inv | ✅ 2026-08-09 † | ✅ | ✅ | ✅ | ✅ 2026-08-09 | ✅ 2026-08-09 |
-| beta_p_inv | ✅ 2026-08-10 † | ✅ | ✅ | ✅ | ✅ 2026-08-10 | ✅ 2026-08-10 |
-| beta_q_inv | ✅ 2026-08-10 † | ✅ | ✅ | ✅ | ✅ 2026-08-10 | ✅ 2026-08-10 |
-| i0 | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
-| i1 | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
-| i0e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
-| i1e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
-| lbeta | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-08-11 | ✅ 2026-08-11 |
-| cos | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
-| sin | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
-| exp | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
-| log | ✅ 2026-08-30 † | ✅ | ✅ | ✅ | ✅ 2026-08-30 | ✅ 2026-08-30 |
-| log1p | ✅ 2026-08-31 † | ✅ | ✅ | ✅ | ✅ 2026-09-01 | ✅ 2026-08-31 |
-| exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
-| log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-07-25 | ✅ 2026-07-25 |
+| erf | ✅ 2026-10-11 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
+| erfc | ✅ 2026-07-21 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
+| lgamma | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
+| erfinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
+| erfcinv | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
+| gamma_p | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-28 |
+| gamma_q | ✅ 2026-07-28 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-28 |
+| beta_p | ✅ 2026-08-05 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-05 |
+| beta_q | ✅ 2026-08-05 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-05 |
+| digamma | ✅ 2026-08-08 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-07 |
+| trigamma | ✅ 2026-08-08 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-08 |
+| gamma_p_inv | ✅ 2026-08-09 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-09 |
+| gamma_q_inv | ✅ 2026-08-09 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-09 |
+| beta_p_inv | ✅ 2026-08-10 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-10 |
+| beta_q_inv | ✅ 2026-08-10 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-10 |
+| i0 | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-11 |
+| i1 | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-11 |
+| i0e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-11 |
+| i1e | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-11 |
+| lbeta | ✅ 2026-08-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-08-11 |
+| cos | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
+| sin | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
+| exp | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
+| log | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
+| log1p | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
+| exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
+| log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
 
 † The beta, digamma, trigamma, inverse-gamma, inverse-beta, Bessel, and
 v0.8.0 elementary-family (cos/sin/exp/log/log1p) x86 rows come from the
@@ -98,6 +147,27 @@ worst-case input). AVX2 differs from them only in the usual FMA/no-FMA
 not-CR spread (32 report lines across the 12 ULP gates) and two max-ULP
 cells that move *within* their gates without FMA: `beta_q` R4 tiny-min
 direct 1 → 2 ULP (gate 2) and trigamma (0, 1) 0 → 1 ULP (gate 1).
+The #43 re-gate (2026-10-11) moved the erf, cos, sin, exp, log and log1p
+AVX2-column dates to Kaby Lake (AVX2 native; SSE4, SSSE3 and SSE2 by
+capping; AppleClang 15.0.0); AVX-512 is from the Ryzen box (AVX3_ZEN4
+native, clang-cl 22.1.3), and NEON from the Mac Mini M1 (2026-10-10,
+AppleClang 21.0.0, system Highway 1.4.0; re-confirmed 2026-10-12 at the
+same code, ULP lines unchanged). All four Kaby tiers, AVX3_ZEN4 and
+NEON ran 34/34 tier-asserted, each with the negative check verified,
+and every #43 ULP line is identical across them except erf's not-CR
+count (217; 218 on the three no-FMA tiers). The new exp/log fast paths hold 0 ULP
+for exp normal results and for log/log1p on every tier, including the
+three no-FMA tiers that run their non-FMA rounding-test budget.
+The v1.1.0 cross-machine reproduction on Kaby Lake (2026-10-25,
+AppleClang 15.0.0, code at `0508ef1`) ran all four tiers, 36/36 each,
+tier-asserted, with the negative check verified. AVX2's ULP report
+matches the Linux CI AVX2 job line for line, and SSE4, SSSE3 and SSE2 are
+bit-identical to each other. The v1.1.0 native NEON leg ran on the Mac
+Mini M1 the same day (Apple M1, macOS 27.0.1, AppleClang 21.0.0, Homebrew
+Highway 1.4.0, code at `0508ef1`): 36/36 tier-asserted with the negative
+check verified, and its ULP report is identical to the CI NEON job's,
+all 147 max-ULP lines and every not-CR count and worst input. Every NEON
+cell above carries that date.
 
 `exp_dd` and `log_dd` are not public API; they are audited here because the
 erfc tail's bound rests on `exp_dd` and lgamma's rests on `log_dd`. Their
@@ -111,13 +181,13 @@ tiers via capping, which also exercises the no-FMA paths); Linux/GCC CI
 tier sweep; NEON on the Apple Silicon GitHub runner (native silicon,
 native FMA — per-run measured values appear in the CI "ULP report"
 steps) and natively on the Mac Mini M1 (Apple M1, AppleClang 21, macOS
-Tahoe, Homebrew Highway 1.4.0 via find_package): 27 gates 2026-08-23
-on the pre-elementary surface, and all 33 gates 2026-08-30
-tier-asserted with the negative check verified — the elementary rows'
-NEON cells date from that run, except log1p, whose NEON cell was
-re-validated natively 2026-09-01 after the tiny-band fix (33/33
-tier-asserted, negative check verified; log1p corner/near-0/general all
-0 ULP at gate 0); AVX-512 on the Ryzen 7 7445HS (Zen 4, Windows 11). "AVX-512"
+Tahoe then 27, Homebrew Highway 1.4.0 via find_package): 27 gates
+2026-08-23 on the pre-elementary surface, all 33 gates 2026-08-30, log1p
+re-validated 2026-09-01 after the tiny-band fix, 34/34 at the #43
+re-gate 2026-10-10, and 36/36 at v1.1.0 on 2026-10-25 (code `0508ef1`,
+ULP report identical to the CI NEON job) — each run tier-asserted with
+the negative check verified; the NEON cells carry the last of those
+dates; AVX-512 on the Ryzen 7 7445HS (Zen 4, Windows 11). "AVX-512"
 means the three AVX3\* variants this CPU supports — `AVX3_ZEN4` (native
 dispatch), `AVX3_DL`, `AVX3` (capping) — all passing every gate with
 values identical to AVX2. `AVX3_SPR` compiles but is Sapphire-Rapids-only
@@ -202,8 +272,12 @@ reaches AppleClang, whose default is `on`.
 
 ## erf
 
-**Bound: max 1 ULP over the full domain** (~98.5% correctly rounded on the
-14,594-point reference).
+<!-- claim: erf --> **Bound: max 1 ULP over the full domain** (~98.7% correctly rounded on the
+17,595-point reference). Until row 11 (#61) the reference held no
+subnormal x (smallest |x| ~1.7e-300), so the bound was ungated there;
+`gen_erf_reference.py --subnormal-append` added 3,001 subnormal rows
+(both signs, the smallest subnormals and the 2^-1022 boundary), which
+pass at 1 ULP.
 
 Method: 1537-entry table on the grid r = j/256 over [0, 6], each entry
 {E_hi, S, E_lo} with E_hi + E_lo a compensated erf(r) and S = erf'(r);
@@ -215,16 +289,33 @@ so saturation is correctly rounded). The method was independently derived
 generator self-checks the derivation against mpmath each run. Special
 values: erf(±0) = ±0, erf(±inf) = ±1, NaN propagates with payload.
 
+Since #43 (dev/v1.1.0) erf truncates the correction at d^6, not d^8 — the
+d^7/d^8 terms exist for erfc's relative precision near 6, and dropping
+them costs erf at most 0.012 ulp (worst at r = 0) and ~28% of its NEON
+time. Same reference counts on NEON (max 1 ULP, 217 not-CR); on 2·10^6
+uniform points in [−6, 6] the correctly rounded fraction moves by 3
+points out of 1957 differing (d^6 the better side on 2), and on 4·10^6
+stress inputs d^6 is correctly rounded on 42 of the 66 differing points
+against d^8's 19. erfc is unchanged. AVX-512 re-gated 2026-10-11
+(`AVX3_ZEN4` native, clang-cl 22.1.3): max 1 ULP, 217 not-CR, matching
+NEON. AVX2, SSE4, SSSE3 and SSE2 re-gated 2026-10-11 on Kaby Lake
+(AVX2 native, lower tiers by capping, AppleClang 15.0.0, each
+tier-asserted): max 1 ULP; not-CR 217 at AVX2 and 218 at the three
+no-FMA tiers.
+
 ## erfc
 
-**Bounds: max 1 ULP for |x| ≤ 6; max 1 ULP for subnormal results; max
+**Bounds: <!-- claim: erfc.core --> max 1 ULP for |x| ≤ 6; <!-- claim: erfc.subnormal --> max 1 ULP for subnormal results; <!-- claim: erfc.tail --> max
 2 ULP for normal results with x > 6** (measured identical on every
 validated tier).
 
 The tail bound was 5 ULP until 2026-07-25, when the region moved from the
 backend's vector exp to corvus's own `exp_dd` (below); the same reference
-set now measures 2. What remains is the tail polynomial G, not the
-exponential — see the note at the end of this section.
+set then measured 2, the plain-double tail polynomial G's error. Since row
+12h (#74, 2026-10-25) G is the shared dd fit and the result rounds once,
+so the whole tail measures ≤ 0.53 real — see the note at the end of this
+section. The published bounds above are unchanged here (bounds are
+contractual floors); tightening the claim text is row 12j's (#76).
 
 Method, core |x| ≤ 6: the erf table, assembled as compensated
 1 ∓ erf(|x|) (Fast2Sum head plus exact residual) so the cancellation in
@@ -244,22 +335,40 @@ Dekker's algorithm on non-FMA targets, where an emulated fused op silently
 returns a zero residual. Both halves of that split are consumed inside
 `exp_dd`'s argument reduction, and everything after the exponential —
 1/a, the G/a product, the mantissa product — is carried in double-double
-and rounded exactly once. The power-of-two scaling is applied last, so a
-subnormal result sees two roundings (the 53-bit mantissa, then the scaling
-onto the subnormal grid) — measured max 1 ULP in that band. Results underflow
-gradually past x ≈ 26.5; erfc(x) = 0 for x ≥ ~27.3. Special values:
+and rounded exactly once. The power-of-two scaling is folded into that
+one rounding (`DdScaleToDouble`, since #74), so a subnormal result is
+rounded once too. Results are subnormal for x in (26.5433, 27.22602)
+and erfc(x) = 0 from 27.22602 on (#76, review L-8). Special values:
 erfc(±0) = 1, erfc(−inf) = 2, erfc(+inf) = 0, NaN propagates with payload.
 
-**Where the residual 2 ULP lives.** `exp_dd` contributes at most 2^−68.4
-relative (≈ 2^−15 ULP) and the dd assembly around it is exact to ~2^−104,
-so none of the 2 ULP is the exponential — it is the G polynomial.
-Error-source decomposition (one source at a time, 3875 points in
-[6, 27.2]): the not-CR rate (~53%) is set by the fit's double
-coefficients alone — only a dd-coefficient re-fit could move it; the max
-ULP is the evaluation — a compensated Horner would buy 2 → 1 while
-leaving the rate unchanged. Neither is attempted: the first is a
-different project, the second spends throughput on a tail path already
-1.7× slower to move a bound that is already documented. Accepted.
+**The tail's G, and #74 (row 12h).** `exp_dd` contributes at most
+2^−68.4 relative (≈ 2^−15 ULP) and the dd assembly around it is exact to
+~2^−104, so none of the old 2 ULP was the exponential. It was G:
+erfc's plain-double G (`ErfcTailGFromU`, ~1.7 × 2^−53: the fit's double
+coefficients set the ~53% not-CR rate, the evaluation the 2-ULP maximum).
+That was accepted while a dd re-fit was "a different project". #74 found
+it also broke the 1-ULP subnormal-results claim. The top subnormal binade
+(x in [26.5433, 26.556]) still carries ~52 bits, and G's error survived
+a double rounding there (dd rounded to double, then scaled): 2 ULP, 1.55
+real, 1.52 pinned against #74.
+- **Fix.** The dd re-fit already existed: `GammaTailG`
+  (src/erfc_tail_dd-inl.h), the same function to 2^−64 on z in
+  [5, 28.5], built for the Temme tails (#64, #69). erfc's live tail,
+  a in (6, 28], lies inside it. The product then rounds once into the
+  subnormal grid (`DdScaleToDouble`). Single rounding alone was measured
+  first: it left the top binade at 1.264 real, above the 1.25 ceiling.
+  The user chose the dd G over an erratum.
+- **Result.** 40,000-point sweeps per band (mpmath at 60 digits) read a
+  maximum real error of 0.500 on the subnormal band and the normal tail
+  [6, 26.54], identically on AVX3_ZEN4, SSE4 and SSE2. One near-tie in
+  40,000 normal-tail points is 1 ULP. HEAD read 2.07 (normal) and 1.45
+  (subnormal). Pins: tail normal 2.12 → 0.53, tail subnormal 1.52 → 0.52.
+- **Cost.** The tail-only bench goes ~5.5 → ~9.8 ns/el and the mixed band
+  ~8.8 → ~12.7 (Zen 4, ad hoc, not a quiet-bench run); the core is
+  untouched. `ErfcTailGFromU` stays for erfinv's far Halley step.
+- **Same pattern elsewhere.** gamma's `GammaScale`, beta's `BetaScale`
+  and betainv's deep-small y now round once through `DdScaleToDouble`
+  too. Their subnormal-result cells fall from up to 0.77 to 0.53 real.
 
 Negative x mirrors through the compensated core (not 2 − erfc(|x|), which
 would reround) up to |x| = 6; beyond, 2 − tail rounds to exactly 2, which
@@ -272,12 +381,12 @@ validated tier:**
 
 | Region | Bound | not-CR |
 |---|---|---|
-| 0 < x < ½ (one log shift) | 1 ULP | 0.04% |
-| ½ ≤ x ≤ 5/2 (the zeros) | 1 ULP | 0.78% |
-| 5/2 < x < 8 (recurrence) | 1 ULP | 0.11% |
-| x ≥ 8 (Stirling) | **0 ULP — correctly rounded** | 0.00% |
-| x < 0, \|lgamma\| ≥ 1 | 1 ULP | 0.03% |
-| x < 0, \|lgamma\| < 1 | 2^−53 **absolute** | 1.25% |
+| 0 < x < ½ (one log shift) | <!-- claim: lgamma.pos --> 1 ULP | 0.04% |
+| ½ ≤ x ≤ 5/2 (the zeros) | <!-- claim: lgamma.pos --> 1 ULP | 0.78% |
+| 5/2 < x < 8 (recurrence) | <!-- claim: lgamma.pos --> 1 ULP | 0.11% |
+| x ≥ 8 (Stirling) | <!-- claim: lgamma.stirling --> **0 ULP — correctly rounded** | 0.00% |
+| x < 0, \|lgamma\| ≥ 1 | <!-- claim: lgamma.neg --> 1 ULP | 0.03% |
+| x < 0, \|lgamma\| < 1 | <!-- claim: lgamma.neg_abs --> 2^−53 **absolute** | 1.25% |
 
 The last row is the only one not stated in ULP, and the reason is
 structural rather than a shortfall. On the positive axis lgamma has exactly
@@ -328,7 +437,7 @@ same-magnitude terms — at 2^−53 absolute.
 Special values: lgamma(1) = lgamma(2) = +0 (the `+0.0` at the end of the
 kernel is load-bearing: t·B(t) at t = 0 carries the sign of B, which is
 negative at x = 1); +inf at every pole, on overflow above
-0x1.754d9278b51a7p+1014 ≈ 2.556e305, and at both infinities; NaN
+0x1.754d9278b51a7p+1014 ≈ 2.5599833e305, and at both infinities; NaN
 propagates with payload.
 
 **One tier-specific defect, found by the sweep and worth recording**:
@@ -345,7 +454,7 @@ build, and both compilers were all green.
 
 ## erfinv and erfcinv
 
-**Bound: max 1 ULP everywhere on all five validated x86 tiers and NEON**,
+<!-- claim: erfinv --> **Bound: max 1 ULP everywhere on all five validated x86 tiers and NEON**,
 including the far tail down to the smallest subnormal `erfcinv` result and
 the bit-neighbourhood of `erfcinv`'s zero crossing at z = 1. NEON
 reproduces the x86 FMA-tier numbers point-for-point — same not-CR counts,
@@ -387,6 +496,23 @@ separately, `erfcinv`'s C argument must be computed as the direct
 `Sub(1, z)`, not `Neg(Sub(z, 1))`: at z = 1 those are not bit-identical
 (`x - x` is always `+0`; negating a `+0` residual gives `-0`).
 
+**Subnormal and tiny y (#73, order row 12g).** x = y·Pc(y²) took its last
+product with ProdLow below its floor for |y| < 2^-967. The no-FMA tiers
+lost the low part: up to 2 ULP (1.53 real) on subnormal results, and the
+C no-FMA real-error cell read 1.51, above its 1.25 ceiling. For
+|y| < 2^-900 the kernel now forms the product at |y|·2^600 and takes it
+back with `DdScaleToDouble`, rounding once into the subnormal grid. The
+slope there is √π/2 itself, a dd exact to 7e-34. It is not Pc's fitted
+lead, which differs from √π/2 by 2^-69.7: a first version used it and
+rounded one near-tie the wrong way (9e-8 grid units from the midpoint,
+now a reference row). The branch runs only when a lane needs it.
+- 400,000 inputs below 2^-900 (70% subnormal, both signs, two seeds) are
+  correctly rounded on AVX3_ZEN4, SSE4 and SSE2. The reviewer's 2-ULP
+  input is CR.
+- The C real-error cell falls from 1.51 (no-FMA) and 0.94 (FMA) to 0.56 on
+  both. The FMA tier had lost a little through the double rounding of the
+  subnormal result.
+
 **Core T** (tail, s ∈ (0, ½)): w = −log(s) via `LogDdAny` (s can be
 subnormal, reachable only through `erfcinv`), t = √(w.hi). A cheap seed
 x0 = t·Seed(t) (2^-19 relative; three intervals selected by t — [t_lo, 2],
@@ -426,9 +552,10 @@ erfinv's mid-region seed can legitimately land a few 2^-17 past 6 when
 the true root sits at the mid/far seam (seed error ~2^-19 relative, and
 6·2^-19 is well past a double's ulp there), and a clamp at exactly 6.0
 silently evaluates erfc at 6.0 instead of the true x0, decoupling f from
-f′ (~1e-6 error instead of 1 ULP). The widened clamp is over 100x the
-worst-case overshoot and still ~500x inside the erf table's safe
-extrapolation limit of 6 + 1/512; erfc's own results are provably
+f′ (~1e-6 error instead of 1 ULP). The widened clamp, 6 + 2^-10, is
+some tens of times the worst-case overshoot ("a few 2^-17") and half
+the erf table's safe extrapolation margin of 6 + 2^-9 (it said "100x"
+and "~500x" until #76, review L-8); erfc's own results are provably
 unaffected since every lane the wider clamp changes is one erfc.cpp
 always discards via its tail/core select.
 
@@ -467,7 +594,7 @@ diagonal rows
 (a ∈ {2^996, 2^997, 2^1000, DBL_MAX}, x = a ± 3 ulp: exact-diagonal
 P = Q = 0.5, saturated exact (1, +0)/(+0, 1) neighbours).
 
-**Bounds, measured on the 16,734-point reference set and identical
+**Bounds, measured on the 21,369-point reference set and identical
 (max ULP cell for cell) on AVX2, SSE4, SSSE3, SSE2, NEON and AVX-512.**
 x86: Kaby Lake native + capping, AppleClang, 2026-07-28. NEON:
 Apple-silicon CI runner (run 30412061002, 2026-07-29), point-identical to
@@ -483,18 +610,99 @@ note under the validation matrix).
 
 | Region (direct side) | gamma_p | gamma_q |
 |---|---|---|
-| R1 series (P direct) | **2 ULP** (1.8% not-CR) | complement: 4 ULP |
-| R2 continued fraction (Q direct) | complement: 1 ULP | **2 ULP** (27% not-CR) |
-| R3 Temme ridge (smaller side direct) | **2 ULP** | **2 ULP** |
-| R3 complement | 1 ULP | 1 ULP |
-| R4 small-a (Q direct) | complement: **0 ULP** (CR) | **1 ULP** |
+| R1 series (P direct) | <!-- claim: gamma.R1 --> **1 ULP** (0.02% not-CR) | complement: <!-- claim: gamma.R1 --> 1 ULP (0.10%) |
+| R2 continued fraction (Q direct) | complement: <!-- claim: gamma.R2 --> **1 ULP** (~0.4% not-CR near x = a+1) | <!-- claim: gamma.R2 --> **1 ULP** (0.04% not-CR) |
+| R3 Temme ridge (smaller side direct) | <!-- claim: gamma.R3.dir --> **2 ULP** (1 measured since #64) | <!-- claim: gamma.R3.dir --> **2 ULP** (1 measured since #64; was 3 near x = 2a) |
+| R3 complement | <!-- claim: gamma.R3.cmp --> 1 ULP | <!-- claim: gamma.R3.cmp --> 1 ULP |
+| R4 small-a (Q direct) | complement: <!-- claim: gamma.R4 --> **1 ULP** (erratum; 0.03% not-CR) | <!-- claim: gamma.R4 --> **1 ULP** (1.4% not-CR; was 4 before #67) |
 
-Every complement is ≥ ~0.4 by the routing's construction, so all bounds
-above are relative — there is no absolute-error band anywhere in the
-domain. The no-FMA tiers moved exactly two not-CR counts by one point each
-(R1/P 132→131 of 7366, R3/Q 44→45 of 365) with every max ULP unchanged —
-the lgamma-class signature of a design that accumulates in double-double
-and rounds once.
+**Erratum and open violations (row 12, 2026-10-20).** A dense re-score
+with two independent mpmath forms (AVX3_ZEN4) found that the R2 and R4
+complement cells, documented as correctly rounded (0 ULP), miss by 1 ulp
+on 0.2–0.4% of dense rows near the seams; the reference set never
+sampled them. The cause is the direct side's dd error (R2: the CF's dd
+steps and LgammaPosDd, ~2^-60; R4: lgamma(1+a)), not the complement
+rounding itself. The bound for both is now 1 ULP. For R4 that is an
+erratum, as at row 9: v1.0.x published 0 and no release met it. R2 is
+not an erratum: v1.0.x published 1, and only the #56 fix had tightened it
+to 0, during v1.1.0 development (#90 corrected the label). The same re-score found two cells above
+their published bound, which v1.1.0 fixes rather than relaxes: gamma_q R3
+near x = 2a (3 ULP vs 2, the plain-double erfc factor G, #64, order row
+12b, fixed below) and gamma_q R4 for a in [0.25, 0.5] (4 ULP vs 1, #67, order row 12a).
+
+**R4 small-a fixed (#67, order row 12a).** Q's error is lgamma(1+a)'s
+ABSOLUTE error over Q, and Q reaches ~3e-3 in the box; lgamma's centre-1
+zone (~2^-57) therefore cost up to 4 ulp at a ~ 0.43, x ~ 4. GammaSmallQ
+now takes lgamma(1+a) from the centre-2 zone for every lane: t = a - 1
+for a > 1/2, and lgamma(2+a) - log(1+a) at t = a for a <= 1/2, with
+log(1+a) relative-accurate to dd (Log1pDd for a <= 2^-7, LogDd of the
+exact TwoSum(1, a) above). lgamma's own bits are unchanged. 1,700
+two-form-certified rows (gen_gamma_reference.py --r4band-append) fail
+on the old kernel (Q 4 ULP, P complement 1) and pass now on AVX3_ZEN4,
+SSE4 and SSE2; Q's not-CR rate on R4 rows fell from 4.2% to 1.4%.
+Cost: ~+6% on the R4 bench band (indicative, Zen 4).
+
+**R4 subnormal a fixed (#71, order row 12e).** Every term of GammaSmallQ's
+num is O(a), so for subnormal a each Dekker product sat below the ProdLow
+floor: 2–3 ULP (2.74 real) on SSE4/SSE2, and on the FMA tier a residue
+that returned denorm_min where Q rounds to +0. For a < 2^-600 the core
+now runs at a·2^400 and returns Q = m·2^-400. Q = a E1(x)(1 + O(a)) is
+linear in a far below an ulp there, so the result is exact to 2^-200
+relative, and every product stays above the floor. The scaling is applied
+last (one rounding into the subnormal grid), and gammainv's forward takes
+log m − 400 log 2. R4 direct now reads 0.74 real on every tier with #71's
+30 rows gated (pin 1.21/1.50 → 0.76). Through gammainv's forward this
+also removes #83's bracket stall: the 96 subnormal-(a, q) rows that
+returned roots 4–35% off are correctly rounded, and 14 of 18 tiny-a rows
+pass.
+
+**R1/R2 re-measured 2026-10-19 (#56).** The table's R1 and R2 rows above
+used to read 2 / 4 / 2 / 1 ULP (R1 P, R1 Q complement, R2 Q, R2 P
+complement), and the reference set never sampled the ridge below a = 20
+densely enough to show they were not true: 1,024 ridge rows added for
+#56 measured 3 / 6 / 3 / 2 on the old kernel. The cause was plain-double
+R1 series terms and R2 CF steps, whose rounding rides into every later
+term (not "attenuated", as the derivation claimed) and is not decaying
+near the ridge. Both now carry dd (R1 every term, R2 its last four CF
+steps). Validated on Zen 4 (clang-cl) at AVX3_ZEN4, SSE4 and SSE2; the
+other legs at CI, the native NEON leg owed by the M1.
+
+A complement is NOT always large: in R1 with a just above 3/2 and x near
+a+1, Q is ~0.13, where 1 ⊖ P amplifies P's error ~5×. That premise ("every
+complement ≥ ~0.4") was the second false claim #56 found. What holds the
+R1 Q complement to 1 ULP is that the complement is taken from the direct
+side's dd before any rounding, and that dd is now accurate far below a
+double ulp. All bounds above are relative — there is no absolute-error
+band anywhere in the domain.
+
+**R3 Temme tail (a·φ > 36), #57.** The tail dropped z.lo and formed
+G/(2z) as a rounded double, reading 3 ULP on tail rows; with the z.lo
+slope folded in and G/(2z) a dd product it reads 2 ULP (302 tail rows
+added). Its real error still reached 2.34 ulp because the erfc tail factor
+G was plain double, and the "0.16 ulp of margin" recorded then was wrong:
+row 12's re-score found 3 ULP just below x = 2a (G's ~1.7 x 2^-53 relative
+error, weighted 1.28 where s_rv < 0).
+
+**R3 Temme tail fixed (#64, order row 12b).** gamma now carries its own dd
+G (GammaTailG; erfc's and erfinv's bits are unchanged): one interval
+z in [6, 28.5], degree 15 in s = 1/z - C, plain-double Horner down to c3
+and the last three steps in dd. The generator replays it op for op, fused
+and unfused, at 2^-65.29 (target 2^-63; negative control rejected).
+1,584 two-form-certified rows (gen_gamma_reference.py --r3tail-append) read
+3 ULP on the old kernel; R3 P and Q direct now both measure 1 ULP on
+AVX3_ZEN4, SSE4 and SSE2 (gates tightened 2 -> 1; the published bound
+stays 2). gammainv's gate output is byte-identical. Cost: +3-7% on the R3
+bench band (indicative; the machine was not quiet).
+
+**R3 core/tail split moved to a·φ = 25 (#70, order row 12d).** The core
+takes ½ erfc(z) from ErfcCoreDd, i.e. 1 − erf(z), whose error relative to
+erfc grows like e^{z²}: about one ulp of erfc at z = 6, which the assembly
+amplified to 2.51 ulp real (3 ULP integer) just below the old split
+a·φ = 36. At z = 5 that error is e^{-11} of it, and the tail's dd G now
+covers z ∈ [5, 28.5] at degree 17 (2^-64.55 fused, 2^-64.37 unfused,
+target 2^-63). The R3 direct real error falls from 2.51 to 0.89 (AVX3_ZEN4)
+and 0.94 (SSE4, SSE2) with #70's rows included; the gates stay at 1 on
+every tier. Beta's R3 core is a twin and moves with it (below).
 
 Method: four regions on λ = x/a with a_T = 20 — a power series for P
 (fixed cap 64, per-lane freeze), a **backward** fixed-depth (44) evaluation
@@ -519,19 +727,43 @@ oracle, not by the original reference set, which under-sampled that band
 (it now covers it). And the reference oracle itself: mpmath's regularized
 lower gammainc silently fails (or hangs) for large a near the ridge, so
 references above a = 1e4 come from exact-arithmetic Temme evaluation at
-100+ digits with full-degree fits (truncation there < 1e-40); for η < 0
+100+ digits with full-degree fits. Row 11 (#61) certifies that oracle
+independently (own power series for P, own Legendre CF for Q, at 81
+points with a from 1.2e4 to 1e8, off the fit nodes): it agrees to
+≤ 9e-36, not the < 1e-40 once stated, and still ~19 orders below double
+resolution; a perturbed-coefficient control is rejected. a > 1e8 is not
+certified directly (series/CF cost grows as √a). For η < 0
 the coefficient extraction must run on the P-side identity — the Q-side
 difference is a 1-minus-tiny cancellation that needs thousands of digits.
 
+The R4 small-a cell rests on the dd e^w − 1 primitive, whose comment
+claimed ~2⁻⁹⁵ while its exponential branch measured 2⁻⁶¹·⁴ (ExpDd's
+plain-double p2 term, amplified by 1/|w| up to the old 2⁻¹⁰ series cut).
+`GammaSmallQ` subtracts two such values, so gamma_q R4 reached 1.59 ULP
+real error, e.g. gamma_q(0x1.f9d9f993458a9p-10, 0x1.fec3334db02dbp+1)
+one ulp off (#58). The series now runs to w¹¹/11! below a 2⁻⁶ cut:
+the primitive measures 2⁻⁶⁴·³⁴ (gated in test_dd_special, alongside a
+nonzero-u.lo set for φ) and that call is correctly rounded at AVX3_ZEN4
+and SSE2 (Zen 4, 2026-10-18); the R4 cell is unchanged at 1 ULP.
+
 Specials (SciPy limit conventions, exercised by the smoke test): x<0, a<0,
 (0,0) and (∞,∞) → NaN, payload preserved; (x=0, a>0) → P=+0, Q=1;
-(a=0, x>0) → P=1, Q=+0; x=+∞ → P=1; a=+∞ → Q=1. P+Q = 1 holds within
-1 ULP everywhere. Results underflow gradually; deep-tail lanes saturate to
-the exact 0/1 pair below e^-800.
+(a=0, x>0) → P=1, Q=+0; x=+∞ → P=1; a=+∞ → Q=1. P+Q = 1 is not
+a separate bound: each output carries its own ULP bound above, so the sum
+could in principle exceed 1 ULP. Measured exactly from the returned
+doubles over dense sweeps of R1–R4 (row 12, 2026-10-20, AVX3_ZEN4):
+|P + Q − 1| ≤ 0.5 ulp(max(P, Q)). The 2026-10-10 hunt's "1.45 ulp(P)"
+did not reproduce; ulp(P) is the wrong unit where P is tiny, since
+P + Q = 1 is an absolute statement. Results underflow gradually; deep-tail lanes saturate to
+the exact 0/1 pair below e^-800. A probability is never negative, signed
+zero included: R4's small-a assembly cancels three O(a) terms, and for a
+subnormal a (gamma_q(2⁻¹⁰⁷⁴, 2), true value 2.4e-325) their rounding
+residue came out as −denorm_min; a value-safe clamp now returns +0 there
+(#51, gated by the guard harness's sign/range sweep).
 
 ## beta_p and beta_q
 
-**Bounds, measured on the 37,885-point reference set (+251 specials) and
+**Bounds, measured on the 43,047-point reference set (+251 specials) and
 identical (max ULP cell for cell) on AVX3_ZEN4, AVX2, SSE4, SSSE3, SSE2
 and NEON.** x86: Ryzen 7445HS, clang-cl, 2026-08-05, re-measured
 2026-08-12 with the u → −1 corner rows (below) — `AVX3_ZEN4` native
@@ -545,12 +777,31 @@ margin.
 
 | Region (direct side) | max ULP (dir) | complement |
 |---|---|---|
-| R1 power series | **1 ULP** (0.02% not-CR) | 1 ULP |
-| R2 continued fraction | **1 ULP** (0.03% not-CR) | 0 ULP (CR) |
-| R3 Temme ridge | **3 ULP** (12–19% not-CR at 1–2) | 1 ULP |
-| R4 tiny-min corner | **2 ULP** (≤1.3% not-CR) | 0 ULP (CR) |
-| R4 near-one post-route | **1 ULP** | 0 ULP (CR) |
-| R2 gamma-limit slice | **1 ULP** (1.4% not-CR) | 1 ULP |
+| R1 power series | <!-- claim: beta.R1 --> **1 ULP** (0.02% not-CR) | <!-- claim: beta.R1 --> 1 ULP |
+| R2 continued fraction | <!-- claim: beta.R2.dir --> **1 ULP** (0.03% not-CR) | <!-- claim: beta.R2.cmp --> 1 ULP (erratum, #76; measured CR except near-ties) |
+| R3 Temme ridge | <!-- claim: beta.R3.dir --> **3 ULP** published; 1 measured since #69 (8–10% not-CR) | <!-- claim: beta.R3.cmp --> 1 ULP |
+| R4 tiny-min corner | <!-- claim: beta.R4.dir --> **2 ULP** (≤1.3% not-CR) | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
+| R4 near-one post-route | <!-- claim: beta.R4pr.dir --> **1 ULP** | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
+| R2 gamma-limit slice | <!-- claim: beta.GL --> **1 ULP** (measured CR except near-ties; 0.04% not-CR dense, #90) | <!-- claim: beta.GL --> 1 ULP (measured CR except near-ties; 0.21% not-CR dense, #90) |
+
+**Erratum (#76, order row 12j, v1.1.0).** Through v1.0.x the R2
+complement cell read 0 ULP (correctly rounded), and the gate held 0.
+No release met that: the review found
+beta_p(0x1.7ebfd5597637bp+4, 0x1.390d72284b741p+4, 0x1.1e9d7495b0b32p-1)
+1 ULP (0.5015 ulp real), a near-tie that the reference set had never
+sampled. beta_q at the same point is the direct side, and correctly
+rounded. The witness is now a reference row, the cell and gate are
+1 ULP, and the set measures correctly rounded apart from near-ties.
+
+**Gamma-limit slice (#90, order row 12l, v1.1.0).** v1.0.x published
+1 ULP here. The #54 fix tightened both cells to 0 during v1.1.0
+development, after its certified rows read 0. The v1.1.0 audit hunt
+scored 4,669 gamma-limit rows and found near-tie misses on both sides:
+1 of 2,315 direct and 5 of 2,354 complement, identical on AVX3_ZEN4,
+SSE4 and SSE2, 0.501–0.504 ulp real. Example:
+beta_q(15, 2^48, 0x1.fffffffffff14p-45) is 1 ULP. The cells return to
+the published 1 ULP. This is not an erratum, since no release claimed 0.
+The six witnesses are `issue90:witness` reference rows.
 
 R2-direct moved 0 → 1 ULP at the v0.6.0 single-rounding regeneration:
 the reference fix corrected one subnormal-Q row
@@ -559,6 +810,91 @@ kernel — unchanged — agrees with the old row, so its true error there is
 1 ULP (1 of 2948 R2-direct rows; re-verified against mpmath betainc at
 dps 400, true value 0.60 ULP above the old row). The previous 0 was an
 artifact of the reference's own rounding.
+
+**R3 core/tail split moved to cpsi = 25 (#70, order row 12d).** Beta's R3
+core is gamma's twin: it takes ½ erfc(z) from the same ErfcCoreDd, whose
+1 − erf form carries about one erfc ulp at z = 6. The split moves with
+gamma's to cpsi = 25 (z = 5), where the shared dd G now starts. beta_p's R3
+direct real-error maximum falls from 1.21 to 1.03; the gates stay at 1 on
+every tier. betainv's forward reads the same constant. beta_q's R3 margin
+at the gamma-limit ridge entry (#80, 1.38) is unchanged: it does not sit
+at the split.
+
+**R3 Temme tail fixed (#69, order row 12c).** Beta's tail (cpsi > 36) was
+a 2026-08-01 copy of gamma's and never received gamma's #57 (z.lo fold, dd
+G/(2z)) or #64 (dd G). An adversarial re-score (3,000 rows certified by an
+own tanh-sinh quadrature and an own Lentz CF, agreeing to 1.3e-45) found
+P and Q direct at **4 ULP**, above the published 3: G's plain-double error
+(~1.7 x 2^-53), the rounded division and the dropped z.lo each cost about
+1/2 to 1 ulp, weighted up to 1.3 where the Temme sum is negative. The tail
+now matches gamma's: the dd G is shared through src/erfc_tail_dd-inl.h
+(gamma's bits unchanged), G/(2z) is a dd product, and z.lo is folded on
+unsaturated lanes. 2,202 two-form-certified rows
+(gen_beta_reference.py --r3tail-append) read 4 ULP on the old kernel; R3 P
+and Q direct now measure 1 ULP on AVX3_ZEN4, SSE4 and SSE2 (gate 3 -> 1;
+the published bound stays 3). betainv, whose forward takes the log of this
+tail, keeps every gated maximum and its certified backward intervals; its
+huge-nu not-CR count fell and the ridge backward error halved. Cost: ~+1%
+on the R3 bench band (indicative).
+
+**Gamma-limit slice, #54 defect 1, fixed 2026-10-19.** The slice
+(max(a,b) ≥ 2⁵⁹) took I_x(s, N) ≈ P(s, t) with the bare t = −N·ln x. That
+form drops the (s−1)/2 shift, whose relative weight is s/N, and loses
+digits from ln x near 1. The slice now forms
+t = −(N + (s−1)/2)·log1p(−w) in double-double (`BetaGlT`). It evaluates the
+prefactor at the full dd t and corrects the series and CF factors through
+their t-derivatives. The gamma-limit transfer in betainv shares the
+helper. 195 new rows (`--gl54-append`, seed 5454) are certified against a
+₂F₁ series with a doubled-dps agreement check, not against mpmath
+betainc. They span N ∈ [2⁵⁹, 1e30], s ∈ [1, 1e4], and t/s on both sides
+of the ridge, plus the witness
+I(2000, 2⁵⁹, 1.3877787807814447e-15) = 2.7883412344207463e-277. HEAD read
+them at up to 11592 ULP (direct P) and 1774 ULP (direct Q). They now read
+0 ULP in every cell, and the 1.4% not-CR rate of the old 1-ULP cell is
+gone. The gates are pinned to 0/0.
+
+**Huge-parameter band below the slice, #54 defect 2, fixed 2026-10-20.**
+The reference set had no rows with max(a, b) between 1e12 and the old
+slice threshold 2⁵⁹, and two defects lived there. A ₂F₁-scored probe
+read up to 10 ULP in R2 and 2 ULP in R1 between 2⁵² and 2⁵⁹.
+- The R1/R2 prefactor took a double-double log of ξ or y = 1 − ξ within
+  ~1e-16 of 1. That log is accurate only to ~2⁻¹⁰⁶ absolute, and the huge
+  parameter multiplies it into E. Both logs now come from the smaller of
+  the pair, with log1p of minus the smaller for the larger. betainv's
+  forward takes the same rule.
+- The backward CF's conditioning F grows like β/20, so its dd recurrence
+  carries ~F·2⁻¹⁰⁶. The slice threshold is now derived at the literal
+  2⁻⁶⁰ target from the shifted gamma form: the CF ceiling is 2^49.6 and
+  the gamma-form floor 2^45.0, over the whole unsaturated slice range
+  s ≲ 3,860. The derived pin is 2⁴⁷, where it had been 2⁵⁹. It lowers
+  R3's ν ≥ 20 ridge floor to the same line.
+
+1,098 new rows (`--gl54b-append`, seed 5455) span N ∈ [2⁴⁰, 2⁵⁹) and are
+₂F₁-certified with a doubled-dps check. They cover off-band R2, small
+α, in-band ν ∈ [20, 32) and R1 with s ≥ 10. On them, the previous kernel
+failed R2 direct at 8 ULP and R1 direct at 2, and read 1 ULP in both R2
+complement cells. Every cell now holds its existing gate, and the
+gamma-limit cells, now 774/533 rows, read 0 ULP (restated to 1 by #90).
+
+**The ν < 20 ≤ s sliver (#84, order row 12k).** The router sent a
+gamma-limit lane to R3 on ν ≥ 20, but the slice's own sub-map routes
+gamma-style on s, the small parameter, and has no Temme case. With
+N ≥ 2⁴⁷, lanes with s in [20, 20N/(N−20)) have ν < 20 ≤ s. That
+sliver is ~3e-12 wide at N = 2⁴⁷ and fell to the slice, which took the
+continued fraction at t ≈ s. The hunt found 391 ulp; a stratum aimed
+inside the sliver found up to 66,895.
+- **Fix.** The ridge is gated on s = min(a, b), the slice's own
+  predicate. Since ν = s(1 − O(s/N)) there, only the sliver moves, onto
+  R3 just below its ν = 20 anchor. betainv's forward (the twin), the
+  hunt family's router replica and the gate's region classifier all
+  carry the same predicate.
+- **Rows.** The `issue84:sliver` (115/118 rows) and
+  `seam:gl_ridge_s20:bits` strata (s across 20, N from 2⁴⁷ to 2¹⁰⁰⁰)
+  failed first at HEAD, 94 rows deferred as #84. They pass on AVX3_ZEN4,
+  SSE4 and SSE2 and are gated. The gamma-limit cells read 0 ULP on the
+  reference set (restated to 1 ULP by #90);
+  their pins are unchanged. Inverting the sliver rows through betainv
+  gives a backward error of ≤ 1 ulp on both sides.
 
 **u → −1 corner, fixed 2026-08-12** (the defect pair disclosed in the
 v0.1.0–v0.3.0 release notes, plus a third found by the fix's own
@@ -588,6 +924,37 @@ by a 215-row certified R4-huge-B corner family (τ to 1e-8, B
 bit-stepped across 2^900/2^996/1.4e308, B·ξ approaching the cap from
 below, both orientations; independent-harness verified, 0 declines).
 
+**Both-subnormal shapes, closed by the `DdDivDd` floor (#59).**
+`LgammaDiffDd`'s up-walk divides by a subnormal max-parameter, where
+`DdDivDd`'s product residual rounds on the 2⁻¹⁰⁷⁴ grid: on non-FMA tiers
+up to 2.2e7 ULP (R1 complement, the #59 witness at SSE4), and 1 ULP at 7
+of 4,800 sampled points even on AVX3_ZEN4. Fixed by an exact 2⁶⁰⁰
+prescale of divisors below 2⁻⁹⁰⁰, the mirror of the existing 2⁹⁰⁰
+ceiling; bit-identical for every divisor between the two. Gated by a
+289-row certified family (`--subsub-append`: 240 rows with both shapes
+in [5e-324, 2e-308], 40 controls with the larger shape in
+[1e-300, 1e-260], 8 rows bit-stepped across 2⁻⁹⁰⁰, the witness), which
+fails at SSE4 without the fix and passes at AVX3_ZEN4 and SSE4 with it
+(2026-10-18, Zen 4, clang-cl); every pinned cell unchanged.
+
+**R4 window seam, closed (#47).** R4's widened window and R2's
+orientation test describe one boundary, (a+1)/(a+b+2), but the window
+evaluated it in the tiny-first frame and so rounded it differently. For
+b < a a point within an ulp or so of it fell to neither region and R2
+complemented the near-one side: beta_p came back negative for tiny pairs
+at x = ½ exactly (≈ −a·ln 2), and as a wrong positive value up to a = 0.1
+(beta_p(0.1, 1e-100, fl(1.1/2.1)) = 2.8e-24 against 1.0e-99). The
+window is now R2's own predicate — R4 takes the lane iff R2 would
+evaluate the tiny-first side — so the two cannot disagree. Gated by a
+1,414-row certified seam family (`--r4seam-append`: tiny pairs at
+x = ½ and at the boundary ± 3 ulp, both orientations, the issue's
+witnesses), which with the old window fails R4 direct at 8.3·10¹⁸ ULP
+and the monotonicity post-pass at the seam; and by the guard harness's
+sign/range and reflection checks. Every pinned cell unchanged. The
+issue's inverse symptom — betainv's orientation probe at both-tiny
+pairs — is NOT closed by this fix: it is tracked in #55 (with the
+contract gap in #60), under a strict harness band.
+
 The small side is always the directly-computed side (P ≤ ½ invariant via
 the symmetry I_x(a,b) = 1 − I_{1−x}(b,a)), so every bound above is
 relative down to the subnormal band; complements are handed out as
@@ -607,7 +974,7 @@ p-edge depth extension), the tiny-min log-space assembly
 Q̃ = −expm1(τ·lnξ + lgΔ − lg1 + log1p(τΣ)) whose every component is
 individually dd-relative, a near-one post-route folding R1 lanes whose
 value exceeds 1 − 2⁻¹¹ into that assembly, and a gamma-limit slice
-(one parameter ≥ 2⁵⁹) routed through the incomplete-gamma limit. Region
+(one parameter ≥ 2⁴⁷) routed through the incomplete-gamma limit. Region
 map and seams: the derivation blocks in src/beta-inl.h; the
 correction-by-correction history is in the repository's git record.
 
@@ -623,6 +990,23 @@ validation machinery and each a lesson with reach beyond beta:
    lgamma analytically via `LgammaDiffDd` identities — dd-absolute,
    erasing the amplification. The reference oracle's worst defect
    (lg_diff Taylor truncation) was the same disease in mpmath clothing.
+   **#85 (order row 12k) was the same mechanism past PA's 2.5 edge.**
+   Only min ≤ kBetaPrTauMax = 2.5 had taken the analytic form; above it
+   PA's lgamma(min) still came from `LgammaPosDd`, 2⁻⁶² absolute at
+   min ≈ 2.5. A lane just past both post-route gates (τ > 2.5, and
+   Q ≈ 2⁻¹⁰·⁵ above the 1 − 2⁻¹¹ bar) takes R1's complement, which
+   amplifies that by P/Q to 2 ULP (2.45 real) on SSE4/SSE2. The issue
+   suspected R4's own budget at the τ cap, but those lanes never reach
+   R4. The code had already named the fix: PA now takes
+   lgamma(k + f) = `LgammaDiffDd(k, f)` + ln((k−1)!) from a dd table for
+   min in (2.5, 16]. No near-one R1 lane exists above ~14.5. betainv's
+   `BetaInvLgamma1p` twin does the same on (2.5, 15]. The witness
+   neighbourhoods (`issue85:bits`, 61 rows) failed first at HEAD and
+   are gated. On a 3,000-point sweep of R1 complements
+   (Q ∈ [2⁻¹², 2⁻⁵], min ∈ [0.5, 8]) the worst real error falls from
+   1.23 to 0.501 on both AVX3_ZEN4 and SSE2, and the R1 series
+   complement pin from 0.93 to 0.52. The table edges are registered
+   seams (16 and 15) with bits and band rows.
 2. **Non-FMA Dekker splits have a ceiling and a floor.** Operands above
    2⁹⁹⁶ overflow the 2²⁷+1 split (the ν clamp sat at 2¹⁰⁰⁰ → NaN on the
    a = b ≥ 2⁹⁹⁸ diagonal, SSE tiers only; gamma carried the identical
@@ -639,7 +1023,16 @@ validation machinery and each a lesson with reach beyond beta:
    sharing no code with the generator) that carries a mandatory
    negative control — four confirmed-bad rows from an earlier oracle
    round must be rejected, and their corrections accepted, before any
-   row is judged.
+   row is judged. Since row 11 (#61) a row passes only if the
+   independent value lies inside the stored double's round-to-nearest
+   interval (it accepted ~2 ULP before); every certified row's one-ulp
+   neighbours must be rejected; the gamma-limit stratum uses the
+   kernel's 2^47 boundary (it had drifted at 2^59) and adds fresh points
+   with no stored row. Rows within 1e-30 of a midpoint are declined, not
+   passed: two of the four declined are a genuine defect, Q at
+   (2, 1, 1−2^-53) and P at its mirror (1, 2, 2^-53) store the odd
+   neighbour of the exact midpoint 2^-52 − 2^-106 (row 12 regenerates
+   them).
 
 Specials (gamma-consistent doctrine, exercised by the smoke test's full
 251-row table): x = 0 → P = +0, Q = 1 and x = 1 → P = 1, Q = +0 at any
@@ -648,7 +1041,7 @@ parameters (a or b ∈ {0, +∞}) take their point-mass limits — except when
 the degenerate parameter *meets the x-boundary its own mass sits on*
 (e.g. a = 0 at x = 0, b = 0 at x = 1, a = +∞ at x = 1, both parameters
 degenerate), which is 0·∞ and → NaN. P + Q = 1 holds within 1 ULP on all
-37,885 points. Results underflow gradually; fully-saturated pairs return
+43,047 points. Results underflow gradually; fully-saturated pairs return
 the exact 0/1 doubles, each certified against a rigorous log-space bound
 in the harness.
 
@@ -660,12 +1053,12 @@ counts, and the no-FMA capped tiers move only those counts by a few rows):
 
 | Region | Bound | not-CR |
 |---|---|---|
-| 0 < x < 1 (one up-step) | 1 ULP | 0.23% |
-| 1 ≤ x < 2 (the positive root) | 1 ULP | 5.28% |
-| 2 ≤ x < 8 (recurrence) | 1 ULP | 2.16% |
-| x ≥ 8 (asymptotic) | 1 ULP | 0.13% |
-| x < 0, \|ψ\| ≥ 1 | 1 ULP | 0.27% |
-| x < 0, \|ψ\| < 1 | 2^−53 **absolute** | 32.8% |
+| 0 < x < 1 (one up-step) | <!-- claim: digamma --> 1 ULP | 0.23% |
+| 1 ≤ x < 2 (the positive root) | <!-- claim: digamma --> 1 ULP | 5.28% |
+| 2 ≤ x < 8 (recurrence) | <!-- claim: digamma --> 1 ULP | 2.16% |
+| x ≥ 8 (asymptotic) | <!-- claim: digamma --> 1 ULP | 0.13% |
+| x < 0, \|ψ\| ≥ 1 | <!-- claim: digamma --> 1 ULP | 0.27% |
+| x < 0, \|ψ\| < 1 | <!-- claim: digamma.neg_abs --> 2^−53 **absolute** | 32.8% |
 
 The absolute band is lgamma's negative-axis doctrine, but the two axes
 trade places structurally. On the positive axis digamma's only zero,
@@ -732,11 +1125,18 @@ counts; the capped no-FMA tiers move only those tallies):
 
 | Region | Bound | not-CR |
 |---|---|---|
-| 0 < x < 1 (one up-step) | **0 ULP — correctly rounded** | 0.00% |
-| 1 ≤ x < 2 (zone) | 1 ULP | 0.58% |
-| 2 ≤ x < 8 (recurrence) | 1 ULP | 2.97% |
-| x ≥ 8 (asymptotic) | 1 ULP | 0.69% |
-| x < 0 | 1 ULP | 0.22% |
+| 0 < x < 1 (one up-step) | <!-- claim: trigamma.pos01 --> 1 ULP (erratum, #76; measured CR except near-ties) | 0.03% (1 of 2,956) |
+| 1 ≤ x < 2 (zone) | <!-- claim: trigamma --> 1 ULP | 0.58% |
+| 2 ≤ x < 8 (recurrence) | <!-- claim: trigamma --> 1 ULP | 2.97% |
+| x ≥ 8 (asymptotic) | <!-- claim: trigamma --> 1 ULP | 0.69% |
+| x < 0 | <!-- claim: trigamma --> 1 ULP | 0.22% |
+
+**Erratum (#76, order row 12j, v1.1.0).** Through v1.0.x the (0, 1)
+cell read correctly rounded, while its gate was always 1 ULP. No
+release met that: trigamma(0x1.f24f9e4bebb8fp-1) is 1 ULP on
+AVX3_ZEN4 (a near-tie, r = 0.4978) and correctly rounded on SSE4 and
+SSE2. The witness is now a reference row, and the cell states the
+1 ULP that shipped.
 
 **One metric, everywhere.** ψ₁(x) = Σ 1/(x+n)² is a sum of squares —
 positive wherever finite — so unlike lgamma and digamma there is no
@@ -795,20 +1195,60 @@ subnormals of both signs → +inf.
 
 ## gamma_p_inv and gamma_q_inv
 
-**Bounds, measured on the 14,926-row certified reference set and
+**Bounds, measured on the 15,698-row certified reference set and
 identical on every validated leg** — clang-cl AVX3_ZEN4 native, the
-capped AVX2/SSE4/SSSE3/SSE2 sweep, Linux CI, NEON, and MSVC AVX2 —
-including not-CR tallies and worst-case points:
+capped AVX2/SSE4/SSSE3/SSE2 sweep, Linux CI, NEON, and MSVC AVX2 (the
+bounds; not-CR tallies can differ by a few rows between FMA and no-FMA
+tiers, see the Validation matrix note) (the 82 #49 band rows of
+2026-10-18, and the 302 #56 near-median and 388 #48 small-a upper-tail
+rows of 2026-10-19, are validated on Zen 4 at AVX3_ZEN4, SSE4 and SSE2,
+the other legs at CI):
 
 | Regime | Bound | not-CR (p / q) |
 |---|---|---|
-| deep-small closed form (x·(1+a) < 2⁻⁶⁰) | **0 ULP — correctly rounded** | 0.00% |
-| small-a seeds (a < 20), tail targets | 1 ULP | 0.52% / 0.94% |
-| small-a seeds, near-median targets | 1 ULP | 4.29% / 4.22% |
-| Temme seed (20 ≤ a ≲ 3·10³⁴) | 1 ULP | 0.18% / 0.38% |
-| beyond-resolution (a ≳ 3·10³⁴) | 1 ULP | 0.08% / 0.08% |
-| large-side inputs (s > ½, exact flip) | 1 ULP | 0.84% / 0.73% |
-| subnormal and zero results | **0 ULP — correctly rounded** | 0.00% |
+| deep-small closed form (x·(1+a) < 2⁻⁶⁰) | <!-- claim: gammainv.deep_small --> 1 ULP (erratum, #76; measured CR except near-ties) | 0.05% / 0.00% |
+| small-a seeds (a < 20), tail targets | <!-- claim: gammainv --> 1 ULP | 0.28% / 0.09% |
+| small-a seeds, near-median targets | <!-- claim: gammainv --> 1 ULP (measured 0) | 0.00% / 0.00% |
+| Temme seed (20 ≤ a ≲ 3·10³⁴) | <!-- claim: gammainv --> 1 ULP | 0.16% / 0.38% |
+| beyond-resolution (a ≳ 3·10³⁴) | <!-- claim: gammainv --> 1 ULP | 0.08% / 0.08% |
+| large-side inputs (s > ½, exact flip) | <!-- claim: gammainv --> 1 ULP (measured 0) | 0.00% / 0.00% |
+| subnormal and zero results | <!-- claim: gammainv.deep_small --> 1 ULP (erratum, #76; measured CR, single rounding since #72) | 0.00% |
+
+**Erratum (#76, order row 12j, v1.1.0).** Through v1.0.x both cells
+above read correctly rounded, while the gate was always 1 ULP. No
+release met that. In the deep-small closed form,
+gamma_p_inv(0x1.570f4055140d5p-3, 0x1.bea0e967ed1fap-11) is 1 ULP
+(0.501 ulp real), a near-tie. For subnormal and zero results,
+gamma_p_inv(0x1.88b12f89a20c8p-4, 0x1.013a295afed95p-103) returned +0
+where the root lies about 2e-17 ulp above 2^-1075, so denorm_min is
+the correctly rounded value. #72's single rounding now returns
+denorm_min there. Both witnesses are reference rows, and both cells
+state 1 ULP, as betainv's do.
+
+**Small a on the upper tail, closed (#48).** For a below ~0.5 and
+targets with q/a between ~0.01 and ~100 no seed applied: S1 is barred
+below a = 0.3, S3's far-tail gate declined, and S2's Picard iteration —
+whose contraction factor there is ~1/a — ran away, yet won by default
+because its domain flag is always set. Three steps clamped at a tenth per
+step could not recover: gamma_p_inv(0.1, 0.99) returned 7.9·10¹⁰⁶ for
+1.588, and a 6,000-pair probe of the band failed 1,648. A bracketed phase
+now runs between the seeds and the three steps, on lanes whose first
+Newton step exceeds 2⁻⁷ in log x (or whose slope has underflowed): Newton
+in log x inside a sign bracket of the monotone logit, rtsafe's
+halving rule, bisection once both sides are known and a doubling ramp
+while only one is. 2⁻⁷ is the bar because the three steps carry a
+log-step s to ~s⁸, which is below a double's resolution only from s ≤ 2⁻⁷;
+every lane below it keeps the old path bit for bit. The probe now fails
+0 of 6,000; the 388 certified band rows read up to 4·10¹⁸ ULP on the old
+kernel and within the 1-ULP gates now. INDICATIVE cost (Zen 4): +17% in
+the small-a mid (q) and large-side flip (p) bench bands, ~+9% q-side
+deep-small, flat elsewhere.
+
+The small-a rows dropped from 4.3% not-CR to none on 2026-10-19 without
+touching the inverse: they had inherited the forward's R1/R2 rounding
+(#56), and the forward's series and CF are now dd. #56's witness
+gamma_p_inv(7.151707517755251, 0.6176099837213445) — 2 ulp off before —
+returns the certified 0x1.e84a372567c6cp+2.
 
 **Both sides of the median carry the full relative bound.** An input
 s > ½ is replaced by 1 − s, exact by Sterbenz, so the kernel always
@@ -833,10 +1273,23 @@ power-of-two scaling last — two roundings into the subnormals (mantissa,
 then grid) and to zero; measured correctly rounded on every reference row
 in that band.
 
-For a ≳ 3·10³⁴ the entire transition from P = 0 to P = 1 happens
-inside one ulp of x = a, so x = a is the correctly rounded answer for
-every interior input — returned through the same pipeline, not a
-special case.
+**Tiny-p roots just above a = 20, closed (#49).** The Stirling-side E
+runs on every a ≥ 20 lane whatever x is, and a tiny-p root puts
+u = (x − a)/a near −1, where the one-argument φ(u) derived 1 + u by
+cancellation: gamma_p_inv(20, 1e-300) was 9.7·10⁻⁵ relative off, and
+the band's new reference rows measured up to 2·10¹⁷ ULP. Fixed by
+handing φ the exact 1 + u = x/a (the two-argument form the primitive's
+hazard rule requires); gated by 82 bracket-certified rows (a in
+[19.5, 27], p down to 5·10⁻³²⁴) and by the guard harness's inverse
+bracket over a in [19, 28].
+
+For a ≳ 3·10³⁴ one ulp of x already moves a·φ past 800, so P runs from
+saturated 0 to saturated 1 within a few ulps of x = a. The answer is a
+or a neighbour, within the 1-ULP bound. Only above ≈ 5·10³⁵ does the
+whole transition (~76 standard deviations of √a) fit inside half an ulp,
+making x = a the correctly rounded answer for every interior input (#76,
+review L-2; it was stated from 3·10³⁴). Either way the answer comes
+through the same pipeline, not a special case.
 
 Oracle: no library baseline exists for the inverse anywhere, so every
 reference row is individually **bracket-certified**: the stored
@@ -848,26 +1301,63 @@ independently-anchored asymptotic route. Four known-bad rows are
 baked into the generator as negative controls and must be rejected on
 every run before anything is written.
 
+**Subnormal targets at large a, and subnormal results (#72, order row
+12f).** Two defects, both fixed.
+- **H-1.** The R3 forward took the log of the assembled Temme value. For a
+  target below 2^-1022 that value is itself subnormal and has shed most of
+  its significand, so Newton's residual was quantised: up to 1e11 ulp at
+  a ≳ 4.5e3. On tail lanes the forward now forms ln F = −a·φ + log(brk) in
+  log space. It never builds the subnormal value, and the unclamped −a·φ
+  keeps far iterates' steps right.
+- **M-6.** Subnormal results of the deep-small closed form rounded twice,
+  through `ScaleTwo(DdToDouble(m), e)`. A new primitive,
+  `DdScaleToDouble` (src/exp_dd-inl.h), rounds (m.hi + m.lo)·2^e once.
+  The P-side deep-small real-error maximum falls from 0.73 to 0.50, with
+  1 near-tie row of 4,228 not correctly rounded.
+- **Rows.** All 57 certified #72 rows (subnormal p and q, a from 2e3 to
+  5e5) are correctly rounded on AVX3_ZEN4, SSE4 and SSE2 and gated. The
+  S1 and beyond-resolution pins fall too: 0.90 → 0.58, 0.65 → 0.57,
+  1.01 → 0.71.
+
+**Q-side tiny a, roots near 2^-1022 (#83, order row 12f).** The
+deep-small closed form x = exp((ln p + lgamma(1+a))/a) multiplies the
+relative error of its numerator s0 by |log x|, up to ~745. Two terms fell
+short of the 2^-62 this needs.
+- **ln(1 − q) for tiny q.** LogDd of the exact pair (1, −q) added its low
+  word through a plain-double t − t²/2: ~2^-108 absolute, i.e. 2^-57
+  relative to a result of size q. That cost 11–16 ulp at a ~ 1e-20, q ~
+  1e-17. Below q = 2^-7 gammainv now takes Log1pDd at the exact argument
+  −q.
+- **Subnormal a.** s0 is then O(a), so its low word, and lgamma(1+a)'s
+  subnormal product, sat on the 2^-1074 grid: up to 13 ulp. For
+  a < 2^-900 both terms are formed scaled by 2^200 and divided by the
+  scaled a.
+- **Rows.** All 22 deferred rows are correctly rounded on AVX3_ZEN4, SSE4
+  and SSE2 and gated. The q-side deep-small pin falls from 1.36 (1.51
+  without FMA) to 0.52.
+
 Special values (SciPy parity): p = 0 → +0 and p = 1 → +inf, mirrored
 for q; inputs outside [0, 1] → NaN, as are a ≤ 0 and a = +inf; NaN
 propagates from either argument (payload preserved).
 
 ## beta_p_inv and beta_q_inv
 
-**Bounds, measured on the 16,883-row certified reference set and
+**Bounds, measured on the 17,609-row certified reference set and
 identical on every validated leg** — clang-cl AVX3_ZEN4 native, the
-capped AVX2/SSE4/SSSE3/SSE2 sweep, Linux CI, NEON, and MSVC AVX2:
+capped AVX2/SSE4/SSSE3/SSE2 sweep, Linux CI, NEON, and MSVC AVX2 (row
+9's 693 rows and the certified intervals: AVX3_ZEN4, SSE4 and SSE2 on
+2026-10-20; the other legs at the next CI run):
 
 | Regime | Bound |
 |---|---|
-| deep-small closed form, both ends | **0 ULP — correctly rounded** |
-| small-parameter seeds (series / closed-form / logit-normal) | 1 ULP |
-| Temme ridge | 1 ULP |
-| gamma-limit transfer (max(a,b) ≳ 10⁶) | 1 ULP |
-| huge-ν band (ν = ab/(a+b) ≥ 10³¹) | 1 ULP |
-| beyond-resolution rows (transition < 1 ulp of x) | ≤ 2 ULP vs the certified answer (neighbour semantics) |
-| conditioning-limited band (κ > 2¹⁸, see below) | backward error ≤ 1 ulp(p) — measured 0.000 |
-| subnormal x and x = 1 results | **0 ULP — correctly rounded** |
+| deep-small closed form, both ends | <!-- claim: betainv --> 1 ULP (erratum, see below) |
+| small-parameter seeds (series / closed-form / logit-normal) | <!-- claim: betainv --> 1 ULP |
+| Temme ridge | <!-- claim: betainv --> 1 ULP |
+| gamma-limit transfer (max(a,b) ≳ 10⁶) | <!-- claim: betainv --> 1 ULP |
+| huge-ν band (ν = ab/(a+b) ≥ 10³¹) | <!-- claim: betainv --> 1 ULP |
+| beyond-resolution rows (transition < 1 ulp of x) | <!-- claim: betainv.B --> ≤ 2 ULP vs the certified answer (neighbour semantics) |
+| conditioning-limited band (κ > 2¹⁸, see below) | backward error ≤ 1 ulp(p), true forward — 752/752 inside certified intervals |
+| subnormal x and x = 1 results | <!-- claim: betainv --> 1 ULP (erratum, see below) |
 
 **Both ends of [0, 1] are lossless.** The input side is flipped
 exactly (s = min(p, 1−p), Sterbenz), and the *output* end is chosen by
@@ -884,8 +1374,53 @@ zero across the whole interior, and the quantile's condition number
 can pin x to 1 ulp there. Above κ ≈ 2¹⁸ the kernel's guarantee
 switches to **backward error**: the returned x is the exact quantile
 of a probability within one ulp of the input — the statistically
-meaningful contract — and the measured worst case is 0.000 ulp.
-Below that κ the normal 1-ULP forward bound applies everywhere.
+meaningful contract. Below that κ the normal 1-ULP forward bound
+applies everywhere. The same κ > 2¹⁸ line is the regime the public
+header states (it once said "both shapes below ~1e-16", which the
+regime always contains but does not end at).
+
+**Row 9 (2026-10-20): #55, #50 and the #60 contract.**
+- *Orientation (#55).* The kernel picks which end to solve for with
+  one forward probe at ½. Two defects broke it.
+  - *Huge a.* The probe's dead band was measured through the slope w,
+    which is cancellation noise at a ≳ 10¹⁶. Roots at 1 stayed in the
+    wrong frame and came back as ~½. The band is now in the logit
+    itself (2⁻⁴⁰ relative), so w no longer enters.
+  - *Both shapes tiny with b ≪ a.* The inverse's own log-space forward
+    still routed x = ½ exactly the way the public forward did before
+    #47 was fixed (row 5): for tiny pairs both region thresholds round
+    to ½, so ½ fell into neither region and the continued fraction
+    ran on its divergent side. The logit came back ~−1500 where it is
+    ~ln(b/a), but only at the probe's own point. The router now
+    mirrors the forward's #47 predicate. Doing the probe correctly
+    costs ~0.3 µs per element on joint-tiny pairs (the bench's
+    plateau band, +58%), whose old midpoint evaluation was cheap
+    because it was wrong.
+- *Convergence (#50).* For a moderate shape against a tiny one at p
+  below it, the seeds land far out and the fixed four steps stopped
+  1e6–2e9 ulp short. Up to four more steps now run while any lane in
+  the vector is still moving, so converged vectors pay nothing.
+- *Guards.* The #53 harness's three strict bands for these defects
+  (798 failures) are gone, and a forward-free swap-identity check
+  (x = 1 − beta_q_inv(b, a, p)) now covers the same grids; on the
+  previous kernel it fails 140 points.
+- *Errata.* Two rows of the table above once read "0 ULP — correctly
+  rounded": the deep-small closed form and subnormal/x = 1 results.
+  No release met that: the gate was always 1 ULP and 1 ULP is what
+  was measured (the two-rounding subnormal assembly). The table now
+  states the bound that shipped. The κ row's "measured 0.000" was
+  scored through corvus's own forward, so it could not see an error.
+  It is now scored against certified intervals: for each of the 752
+  rows carrying the backward contract, `--backward-intervals` finds by
+  bit-pattern bisection in mpmath the doubles whose *true* forward is
+  within 1 ulp(σ) of σ, and the kernel's x must land inside. All 752
+  do (the previous kernel too: those rows were never wrong, only
+  unverified).
+- *Rows.* 693 new certified rows (`--row9-append`, seed 909) cover the
+  three bands: huge a, skewed tiny pairs, and #50's moderate-against-
+  tiny shapes. On them the previous kernel fails four cells, up to
+  5·10¹⁶ ulp in deep-small (#55's roots at 1 returned as ~½) and
+  3·10⁹ ulp in the remainder (#50).
 
 Method: per-lane analytic seed — five candidates (a beta-Temme
 normal-quantile ridge inversion through the 1-ULP erfcinv core; the
@@ -894,7 +1429,8 @@ end via the swap; a gamma-limit transfer that reuses the shipped
 inverse-gamma seed machinery; an exact-lnB closed form that owns the
 joint-tiny plateau; and a logit-normal form built on the kernel's own
 digamma/trigamma cores), scored by one cheap forward residual — then
-four safeguarded Newton steps on the **logit** m = ln P − ln Q, which
+four safeguarded Newton steps, plus up to four more while any lane in
+the vector is still moving, on the **logit** m = ln P − ln Q, which
 saturates nowhere and is antisymmetric under both the input flip and
 the orientation swap, so one code path serves all four (side, end)
 combinations. The forward is assembled unrounded from the forward
@@ -904,7 +1440,8 @@ the whole underflow range stays live out to parameters at 10³⁰⁸.
 Results below the closed-form cut (whose boundary correctly involves
 the *other* side's parameter) are assembled in double-double with the
 power-of-two scaling last — two roundings into the subnormals (mantissa,
-then grid); measured correctly rounded on every reference row there.
+then grid), so a result there can land 1 ULP from the correctly rounded
+value (measured: 1 ULP, 12 of 3,116 p-side rows).
 
 For ν ≳ 10³⁵ the entire transition happens inside one ulp of the mean
 a/(a+b), so the mean is the correctly rounded answer for every
@@ -948,6 +1485,32 @@ declined, never guessed):
   before); gamma's inverse carried the same latent shape at its u
   site — unreachable on its gates — and received the same clamp.
 
+**A subnormal shape with s/b ≈ 1 (#88, order row 12f).** For a subnormal
+shape the answer depends on s/shape. With the target in the subnormal
+range too, three steps lost it to the 2^-1074 grid. Up to 6·10¹⁵ ulp at
+the denorm_min pair; across the band (shape in [2^-1074, 2^-1022], s/shape
+in [10⁻², 10²], other shape 0.5 to 10¹⁵), 28 of 97 p-side and 98 of 103
+q-side points were off by more than 1 ulp, the worst by 5·10²⁰.
+- *R4 forward.* BetaR4Tiny runs a subnormal tau at tau·2^700 and unscaled
+  last, so a target near 2^-1074 left a value of a few grid steps (0 at
+  the denorm_min pair), and the inverse took its log. BetaR4Tiny now
+  returns the value before the unscale (BetaR4Out). beta applies it
+  exactly as before, so its bits are unchanged. betainv takes
+  log m − 700 ln 2.
+- *Deep-small numerator.* ln τ + LB(α) is O(α) for a tiny α, so for a
+  subnormal α both terms sat on the grid: 2^-1074/α relative, up to
+  10¹² ulp. For α < 2^-900 and β ≥ 2^-500, LB is re-evaluated at α·2^200
+  (linear there to 2^-200) and divided by the scaled α. This is gammainv's
+  #83 fix.
+- *ln(1 − σ).* For σ ≤ 2^-7 it is Log1pDd at −σ. LogDd of the pair carried
+  2^-57 relative, as in #83.
+- **Rows.** The 8 certified rows (denorm_min shape and target; the other
+  shape 20 to 10¹⁵, both sides) are correctly rounded on AVX3_ZEN4, SSE4
+  and SSE2 and gated in the `cross` stratum. The 200-point band sweep,
+  scored against an independent quadrature (Q = shape·Γ-ratio·
+  ∫(1−t)^(o−1)/t dt, in u = ln t), reads a maximum real error of 0.504
+  (p) and 0.498 (q) on all three tiers.
+
 Special values (smoke-pinned, corvus.h is the contract): p = 0 → +0
 and p = 1 → 1, mirrored for q. A single degenerate parameter puts all
 the mass at one endpoint and every quantile is that endpoint: a = 0 or
@@ -961,30 +1524,65 @@ handling.)
 
 ## i0, i1, i0e, i1e
 
-**Bound: max 1 ULP over the full real axis, every function, every
+<!-- claim: bessel --> **Bound: max 1 ULP over the full real axis, every function, every
 region, every tier** — the first family since erf with a single
 uniform bound and no conditioning caveats. Gate pinned at 1 with no
-margin; the doctrine's 2-ULP tail allowance was not needed.
+margin.
+
+**Erratum (#52, order row 10, v1.1.0).** Through v1.0.x the tail did
+not meet this bound: it rounded the fitted polynomial to a double
+before the dd division, so i0 reached 1.56 ulp, i0e 1.39 and i1/i1e
+about 1.2. The original sets held about 190 tail rows each, too few to
+see it, and the generator's 2-ULP tail target hid it from the replay.
+The kernel now carries the polynomial's last Horner step in dd, the
+replay targets 1 ULP, and a dense tail sweep (below) gates it.
+
+**Series near |x| ≈ 7.4 (#75, order row 12i, v1.1.0).** The series'
+plain-double Horner over q up to 16 carried most of the value there:
+at q = 16 the terms from k = 4 make up ~300 of I0's 427. On the no-FMA
+tiers that crossed 1.5 ulp, i.e. 2 ULP, at about 2 rows per 1.1M; the
+reviewer's two i0 inputs read 1.53 and 1.52 real on SSE4/SSE2, and
+dense [6, 8] not-CR rates ran 9–21% against the 5% documented. The
+generator had passed dd depth 4 because it targeted INTEGER ULP ≤ 1
+(which admits real error up to 1.5) on ~9 points in [6, 8].
+- **Fix (data only).** gen_bessel_data.py now chooses the depth on
+  REAL error ≤ 0.51 over 3,000 dense [4, 8] points plus the two
+  witnesses. That pins depth 8 for both orders (replay 0.501/0.502;
+  depth 4 reproduced the SSE4 kernel's 1.526 bit for bit). The kernel
+  reads the depth from the data and is unchanged.
+- **Region skips.** Both regimes used to run on every lane, so the
+  deeper series would have taxed pure-tail vectors (+35%). Each
+  branch now runs only when some lane needs it, verified byte-
+  identical over 200,000 outputs on AVX3_ZEN4 and SSE2. Zen 4,
+  indicative (ns/el, HEAD → now): series 14.3–14.8 → 13.9–14.3; tail
+  14.5–14.8 → 6.4–6.5; mixed vectors, which need both, 14.4–14.8 →
+  19.3–19.7.
+- **Result.** 100,000-point dense [6, 8] sweeps per function read
+  max real 0.501–0.506 and 0.04–0.11% not-CR (near-ties) on all three
+  tiers. Every series pin falls to 0.52–0.53, from up to 1.07 (i1).
+  The two witness neighbourhoods are gated as `issue75:bits` strata,
+  and they failed first as `deferred:#75`.
 
 | Region | Bound | Notes |
 |---|---|---|
-| series, \|x\| ≤ 8 (all four) | 1 ULP | ≤ 5% not-CR, worst at the split seam |
-| tail, \|x\| > 8 (all four) | 1 ULP | i0e/i1e verified through DBL_MAX |
+| series, \|x\| ≤ 8 (all four) | 1 ULP | ≤ 0.11% not-CR on dense [6, 8] (near-ties only, max 0.506 real; #75) |
+| tail, \|x\| > 8 (all four) | 1 ULP | ≤ 16% not-CR; i0e/i1e verified through DBL_MAX |
 | overflow boundary (i0/i1) | exact | last finite double → finite; one ulp above → ±inf, 220 bit-stepped rows exact-match |
 
 Method: two regimes on ax = \|x\| split at x = 8. Series side: the
 all-positive power series in q = x²/4 with q captured **exactly**
 (TwoProd residual + first-order S′·q_lo correction — a rounded q
-alone costs (x/2)·I1/I0 ≈ 3.7 ULP at the split), four dd lead
-coefficients, remainder in plain double. Tail side: clean-room
+alone costs (x/2)·I1/I0 ≈ 3.7 ULP at the split), eight dd lead
+coefficients (four until #75), remainder in plain double. Tail side: clean-room
 Chebyshev refit of e^−x I_ν(x)·√(2πx) in 1/x (degree 26, own nodes
-and budgets, truncation < 2^−60), divided by a dd
-√(2πx) with an exact 2^−32 power-of-two prescale sized to the
+and budgets, truncation < 2^−60), Horner in plain double except the
+last step c₀ + s·acc, which is dd (#52), then multiplied by a dd
+1/√(2πx) with an exact 2^−32 power-of-two prescale sized to the
 non-FMA tiers' Dekker-split operand bound, not merely DBL_MAX.
 Unscaled forms assemble as iνe·e^{\|x\|} through exp_dd's
 mantissa+exponent form, scaling last, saturating at the exact
-measured boundary doubles (i0: 0x1.64fe5304e83e4p+9; i1 one
-ulp-neighborhood higher). i1/i1e are odd with the sign applied once
+measured boundary doubles (i0: 0x1.64fe5304e83e4p+9 ≈ 713.98691; i1:
+0x1.64fe69ff9fec7p+9 ≈ 713.98761, 7.0·10⁻⁴ or ~6.2·10⁹ ulps higher). i1/i1e are odd with the sign applied once
 by CopySign at the end (i1(−0) = −0 exact).
 
 The per-tier claims are backed by a replay discipline extended for
@@ -997,17 +1595,32 @@ Dekker-split overflow past x ≈ 4·10³⁰²; both fixed, all tiers
 re-validated at 1 ULP).
 
 Oracle: mpmath `besseli` at layered dps (40/80, escalation to 150;
-zero disagreements, zero declined rows across 9,732 reference rows),
+zero disagreements, zero declined rows across 18,462 reference rows),
 independently cross-checked by an own-series/own-asymptotic route
 and an independent 52-row spot-check; overflow boundaries derived
 three times independently (dps 40/50/50), bit-identical.
 
-Consumer notes (von Mises): log I0(κ) composes as
-`log(i0e(x)) + x` — relative error < 1 ulp for x ≳ 2 and absolute
-error ≤ 3.3·10⁻¹⁶ on the whole axis (sufficient for log-density
-work; a relative-accurate log I0 near 0 would need a dedicated
-kernel no consumer requires). A(κ) = i1e/i0e composes exactly
-(the scalings cancel). Higher-order I_j for the von Mises CDF:
+Tail sweep (row 10, `gen_bessel_reference.py --tail-append`, seed
+1010): 8,730 rows, about 1,500 log-uniform positive points per
+function in (8, 700], 40% replayed at −x, plus the #52 witnesses and,
+for i0e/i1e, 120 points in (700, 10³⁰⁰]. Rows within 10⁻⁶ ulp of a
+rounding midpoint are declined (none were). The own-route cross-check
+now runs at the routes' dps: at mpmath's default 15 digits its
+subtraction and the negative-axis negation had floored it near 10⁻¹⁶,
+which the full generator's 10⁻¹⁴ threshold had hidden; it now agrees to
+≤ 3·10⁻²⁶. The previous kernel fails this sweep (i0 and i0e positive
+tails at 2 ULP; 37% of i0 tail rows not correctly rounded, now 7.6%).
+
+Consumer notes (von Mises; measured 2026-10-25, #76 review L-9):
+log I0(κ) composes as `log(i0e(x)) + x`. Its relative error is < 1 ulp
+for x ≳ 4 (0.90 on [4, 50]) and reaches 1.7 ulp on [2, 4]. Below x ≈ 4
+its absolute error is ≤ 4·10⁻¹⁶, which suffices for log-density work.
+Relative error is unbounded toward 0, where log I0 → 0; a
+relative-accurate log I0 there would need a dedicated kernel. The
+absolute error grows with x, as the relative bound implies.
+A(κ) = i1e/i0e: the exponential scalings cancel exactly, so A carries
+the two 1-ULP factors and the division's rounding, measured ≤ 2.5 ulp
+(it said "composes exactly" until #76). Higher-order I_j for the von Mises CDF:
 Miller backward recurrence seeded at j_max + ~15, run on scaled
 values and normalized by i0e, delivers the CDF series to ≤ 5·10⁻¹⁶
 absolute for κ ∈ [0.5, 1000]; the forward recurrence from I0/I1 is
@@ -1020,11 +1633,22 @@ underflow on finite doubles (minimum ≈ 3·10⁻¹⁵⁵ at DBL_MAX).
 
 ## lbeta
 
-**Bound: CORRECTLY ROUNDED on every measured row of every band** — the
-strongest result in the library. Relative metric where |ln B| ≥ 1:
-max 0 ULP (4,569 rows, gate pinned at 0). The band around ln B's zero
-curve through (1,1), where the result itself is relative-ill-conditioned:
-max 0.500·2^−53 absolute — the final rounding itself (gate 0.5·2^−53).
+<!-- claim: lbeta.relative --> **Bound: max 1 ULP** where |ln B| ≥ 1 (relative metric; the
+both-subnormal family added with #59's `DdDivDd` floor took SSE4 from
+65,836 ULP there to 0). The band around ln B's zero curve through
+(1,1), where the result itself is relative-ill-conditioned:
+<!-- claim: lbeta.abs --> 2^−53 absolute.
+
+**Erratum (#76, order row 12j, v1.1.0).** Through v1.0.x lbeta was
+documented and gated as correctly rounded (0 ULP; 0.5·2^−53 absolute).
+No release met that. The review found near-tie misses:
+lbeta(0x1.5c788bfb641a0p+1, 0x1.5f0d82e6d1d90p+0) is 1 ULP, and
+lbeta(0x1.62f92a1b0bb25p+0, 0x1.9546088f2e3ccp+0) is 0.5012·2^−53
+absolute, both 0.5012 ulp real on every tier. The hunt measured ~2%
+not-CR on [0.25, 4]². The gates had held 0 only because the reference
+set held no such row. Both witnesses are now reference rows, the
+contract is 1 ULP / 2^−53 absolute, and the set measures correctly
+rounded except near-ties.
 Both-parameters-huge band (min > 2^990): 0 ULP. True values below
 −DBL_MAX round to −inf exactly (44 bit-stepped boundary rows).
 
@@ -1063,10 +1687,10 @@ ln B implementation.
 
 ## cos and sin
 
-**Bound: max 1 ULP over the FULL double range, both functions, every
+<!-- claim: trig --> **Bound: max 1 ULP over the FULL double range, both functions, every
 region, every validated tier — including the non-FMA tiers.** Gate
 pinned at 1 with no margin, in four buckets per function (small/huge ×
-sign; 14,374 rows per function shared row-for-row). The donor kernel's
+sign; 14,630 rows per function shared row-for-row). The donor kernel's
 own SSE2 tier gates at 2 ULP; corvus holds 1 there because the
 reduction's exactness is structural (30-bit split parts make every
 n·part product exact without FMA), so only the polynomial ladders feel
@@ -1074,7 +1698,7 @@ the missing fusion, and they have headroom.
 
 | Region | Bound | Notes |
 |---|---|---|
-| \|x\| ≤ 2^23 (exact-split reduction) | 1 ULP | ~1.4–1.8% not-CR; worst rows at k·π/2 bit-neighborhoods |
+| \|x\| ≤ 2^23 (exact-split reduction) | 1 ULP | ~1.4–1.8% not-CR, concentrated where the reduced \|r\| nears π/4 (~11% in the last decile; none of the ~7,100 rows per function at the k·π/2 bit-neighborhoods; #76, review L-13) |
 | \|x\| > 2^23 (Payne–Hanek) | 1 ULP | ≤ 0.6% not-CR; rows include every exponent's CF worst cancellation and binary64's global worst case (\|r\| = 2^−60.89 at e = 849) |
 
 Method: quadrant reduction x = n·(π/2) + r with shared degree-6 parity
@@ -1106,9 +1730,9 @@ every lane position (smoke-asserted per position).
 
 ## exp, log, log1p
 
-**Bound: correctly rounded on every reference row for log and log1p
-(gate pinned at 0 ULP); exp correctly rounded on every normal-result
-row (gate 0) and max 1 ULP in the subnormal-output band, with both
+<!-- claim: log --> **Bound: correctly rounded on every reference row for log and log1p
+(gate pinned at 0 ULP); <!-- claim: exp.normal --> exp correctly rounded on every normal-result
+row (gate 0) and <!-- claim: exp.subnormal --> max 1 ULP in the subnormal-output band, with both
 saturation boundaries exact** — measured identically (bucket-for-
 bucket, row-for-row) on AVX3_ZEN4 native and the SSE2 cap. These are
 the tightest gates in the library; the theoretical statement behind
@@ -1136,14 +1760,29 @@ row. Anyone consuming v0.8.0/v0.9.0 log1p in that band should assume
 
 | Function | Region | Bound |
 |---|---|---|
-| exp | normal results | 0 ULP (correctly rounded, 10,626 rows) |
+| exp | normal results | 0 ULP (correctly rounded except within ~2^−15 ulp of a tie, 12,489 rows; 1 such tie, exp(2^−53), counted and allowed) |
 | exp | subnormal results | 1 ULP (design bound ~0.75 ulp in the output's own ulp — 0.7495 measured in the top subnormal binade; the earlier ~0.51 figure held only for deeper subnormals and has been corrected) |
 | exp | overflow / underflow-to-zero | exact +inf / exact +0, ±160-ulp boundary ladders |
-| log | all buckets (subnormal-in, near-1, general) | 0 ULP (15,423 rows) |
-| log1p | all buckets (corner, near-0, general) | 0 ULP (11,903 rows) |
+| log | all buckets (subnormal-in, near-1, general) | 0 ULP (17,257 rows) |
+| log1p | all buckets (corner, near-0, general) | 0 ULP (17,976 rows) |
 
 Method: thin assemblies over the audited internal dd cores — nothing
-new was fit. exp = ExpDdFrac (~2^−70 relative, generator-certified) +
+new was fit. Since #43 (dev/v1.1.0) exp and log first run a fast path on
+the same tables (exp ~2^−66.8, log ~2^−63.5 relative, budgets at the
+definition sites in src/exp-inl.h and src/log-inl.h, valid on FMA and
+non-FMA tiers) and certify each lane with CRlibm's rounding test,
+y == fl(y + fl(ρ·c)); lanes that fail it, and every special or
+out-of-range lane, take the dd path described here. Correctly rounded
+results are unique, so the bits do not change: NEON output was
+bit-identical to the pre-#43 kernels on 4·10^6 stress inputs per
+function (subnormal, special, near-1, reduction-grid and random bit
+patterns), on 400 exp inputs nearest a rounding midpoint found by an
+mpmath scan (to 2.4·10^−7 of a gap), and on 72,000 structured log hard
+cases 2^e·(1 ± j·ulp) (log(1 − 2^−52) sits 2^−53.6 of a gap from a
+midpoint) — all correctly rounded. Negative control: an injected error
+just inside each certified window (2^−66 exp, 2^−63 log) misrounds 291
+exp and 2,003 log stress results with the test bypassed, and none with
+it. log1p still runs the dd path only. exp = ExpDdFrac (~2^−70 relative, generator-certified) +
 one rounding + ScaleTwo's two-step exact-then-rounding scaling; the
 core's ±1100 clamp makes ±inf, overflow and gradual underflow correct
 BY CONSTRUCTION with no threshold blends (the ULP gate's boundary
@@ -1177,8 +1816,10 @@ documents and delivers a fresh quiet NaN instead.
 **Bound: max 2^−68.4 relative** on the 7651-point dd reference set —
 about 2^−15 ULP, i.e. the double rounding of the result is correct unless
 the exact value sits within 2^−15 ULP of a tie. Measured: max 1 ULP after
-rounding (10 of 6692 normal results not correctly rounded, 0.15%), 0 ULP
-across the subnormal band, and exact agreement on flush-to-zero.
+rounding (10 of 6692 normal results not correctly rounded, 0.15%), max
+1 ULP across the subnormal band (9 of 931 not correctly rounded, 0.97%;
+it said 0 there until #76, review L-11), and exact agreement on
+flush-to-zero.
 
 Method: Cody-Waite reduction k = round(x·N/ln2) with N = 128 and ln2/N
 split as L1 + L2, L1 carrying 34 significant bits so k·L1 is *exact* for

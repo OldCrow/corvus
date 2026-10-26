@@ -63,9 +63,9 @@ HWY_INLINE Dd<D> TwoSum(D, op::V<D> a, op::V<D> b) {
 
 // Exact product of two doubles.
 template <class D>
-HWY_INLINE Dd<D> TwoProd(D d, op::V<D> a, op::V<D> b) {
+HWY_INLINE Dd<D> TwoProd(D d, op::V<D> a, op::V<D> b CORVUS_FLOOR_LOC) {
   const auto p = op::Mul(a, b);
-  return {p, op::ProdLow(d, a, b, p)};
+  return {p, op::ProdLow(d, a, b, p CORVUS_FLOOR_FWD)};
 }
 
 // dd + dd, accurate to ~2^-104 relative (Knuth's two-length addition).
@@ -87,8 +87,8 @@ HWY_INLINE Dd<D> DdAddD(D d, Dd<D> a, op::V<D> b) {
 // dd * dd, accurate to ~2^-104 relative. The dropped a.lo*b.lo term is
 // O(2^-106) relative, below the representation's own resolution.
 template <class D>
-HWY_INLINE Dd<D> DdMul(D d, Dd<D> a, Dd<D> b) {
-  const auto p = TwoProd(d, a.hi, b.hi);
+HWY_INLINE Dd<D> DdMul(D d, Dd<D> a, Dd<D> b CORVUS_FLOOR_LOC) {
+  const auto p = TwoProd(d, a.hi, b.hi CORVUS_FLOOR_FWD);
   const auto lo = op::MulAdd(a.hi, b.lo, op::MulAdd(a.lo, b.hi, p.lo));
   // |p.hi| >= |lo|: lo is O(2^-53) relative to p.hi (both are zero together).
   return Fast2Sum(d, p.hi, lo);
@@ -96,8 +96,8 @@ HWY_INLINE Dd<D> DdMul(D d, Dd<D> a, Dd<D> b) {
 
 // dd * double.
 template <class D>
-HWY_INLINE Dd<D> DdMulD(D d, Dd<D> a, op::V<D> b) {
-  const auto p = TwoProd(d, a.hi, b);
+HWY_INLINE Dd<D> DdMulD(D d, Dd<D> a, op::V<D> b CORVUS_FLOOR_LOC) {
+  const auto p = TwoProd(d, a.hi, b CORVUS_FLOOR_FWD);
   return Fast2Sum(d, p.hi, op::MulAdd(a.lo, b, p.lo));
 }
 
@@ -161,6 +161,18 @@ HWY_INLINE Dd<D> DdRecipDd(D d, Dd<D> b) {
 // sqrt(0) = 0 exactly, so it is selected in. Negative a.hi is the caller's
 // problem -- it produces NaN rather than trapping, which discarded lanes are
 // allowed to do.
+//
+// FLOOR (#59): the exactness argument needs the s^2 residual to be
+// representable, which fails once s^2 nears the subnormal range. Below
+// a.hi ~ 2^-968 SquareLow's residual rounds on the 2^-1074 grid: on
+// non-FMA tiers the HIGH word degrades (DdSqrt(0x1.8p-1050) is wrong at
+// 2^-26 relative at SSE4), and on FMA tiers the low word does. So the
+// ~2^-105 claim holds for a.hi = 0 or a.hi >~ 2^-968 only. No caller goes
+// below it (audit 2026-10-18: the Temme/ridge sites pass 2*phi or a*phi
+// with phi ~ u^2/2, u = (x-a)/a exactly 0 or >= ~2^-54; Bessel and gamma
+// pass 2*pi*x, 2*pi*a >= O(1)). A new caller that can pass tinier
+// arguments prescales by an even power of two (LogDdAny's 2^600 pattern)
+// -- here, or at its call site.
 template <class D>
 HWY_INLINE Dd<D> DdSqrt(D d, Dd<D> a) {
   const auto zero = op::Zero(d);
@@ -170,6 +182,7 @@ HWY_INLINE Dd<D> DdSqrt(D d, Dd<D> a) {
   const auto lo = op::Div(op::Sub(a.lo, e), op::Add(s, s));
   const auto r = Fast2Sum(d, s, lo);  // |s| >> |lo| by construction
   const auto z = op::Eq(a.hi, zero);
+  CORVUS_ROUTE(d, "dd/sqrt/zero", z);
   return Dd<D>{op::IfThenElse(z, zero, r.hi), op::IfThenElse(z, zero, r.lo)};
 }
 

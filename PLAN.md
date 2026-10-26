@@ -8,6 +8,1658 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
+## Status [DERIVED] — 2026-10-20
+
+**Release split [DECIDED 2026-10-20, user]: v1.1.0 = correctness, v1.2.0 =
+performance.**
+- v1.1.0 ships order rows 2–12j (the correctness block; 12a/12b added 2026-10-20, 12c 2026-10-22, 12d–12j 2026-10-22 from the
+  external adversarial review of `a8525a7`, 12-T and 12k from the hunt campaign; 12j runs last [user]; 12l (#90) from the v1.1.0 Z audit, 2026-10-25). After row 12j work
+  PAUSES for the native M1 and Kaby Lake runs owed for rows 2–12j and the
+  rest of the release tail.
+- **Adversarial review of `a8525a7` (2026-10-22) [DECIDED, user]:** every
+  finding was re-verified on Z (three tiers, own two-form oracles). Fix in
+  v1.1.0: H-1 and M-1 to M-5 (rows 12d–12i, #70–#75), plus the contract
+  text and gates row 12j (#76). The rest went to v1.2.0 as #77–#81. Review
+  errors found: M-9's `beta_q` half (it is CR), M-6's +0 witness (a tie
+  miss at ~2e-17 ulp), H-1's "from a ≈ 20" (clean to a = 1000; gross only
+  for a ≳ 4.5e3 with p ≲ 2^-1054), M-14's README gammainv/trigamma/lbeta
+  "contradictions" (they agree with ACCURACY), and M-17's floor percentages.
+  **R0 DONE 2026-10-25 on Z: freeze head `0508ef1`** (CI 40238527638
+  green on all three jobs). Fresh `windows-clang-cl` configure into
+  build-r0-v110, build with 0 warnings, ctest 36/36 under
+  `CORVUS_EXPECT_TARGET=AVX3_ZEN4`; the negative check (SSE2 asserted)
+  fails as required; `check_release_version.py --tag v1.1.0` OK.
+  Milestone 5 is clean (0 open). Z work for v1.1.0 is complete; R1 (M1)
+  and R2 (Kaby Lake) are done (below); R3 (PR, tag, release) is next. [DERIVED]
+- **v1.1.0 native validation — R2 DONE 2026-10-25 on Kaby Lake** (i7-7820HQ,
+  macOS 13.7.8; AppleClang 15.0.0, CMake 4.4.4, Ninja 1.13.2, Highway 1.4.0
+  (brew), Python 3.15.1). HEAD `b870466`, code measured `0508ef1` (no
+  code diff since). Fresh Release `-DCORVUS_WERROR=ON` build per tier: AVX2
+  native, SSE4/SSSE3/SSE2 by capping; 0 warnings and 36/36 under
+  `CORVUS_EXPECT_TARGET=<tier>` on all four; negative check (SSE2 asserted
+  on the AVX2 build) fails 34/36. ULP report (ci.yml Linux step) 147
+  max-ULP lines per tier, active target asserted on each: AVX2 equals the
+  R0 CI run's AVX2 job line for line (604 gate lines); SSE4, SSSE3 and SSE2
+  bit-identical. AVX2 vs no-FMA max-ULP cells that move, all within gate:
+  beta_q R4 tiny direct 2 → 1 (gate 2), gammainv small-a mid seed 1 → 0,
+  i0e negative series 0 → 1 (gate 1), betainv backward κ > 2^18 report-only
+  row. GCC 16.2.0 diagnostics leg (`HWY_AVX10_2` cap, DEV_WARNINGS, WERROR):
+  0 warnings, 36/36 at AVX2. No deviation. [DERIVED]
+- **v1.1.0 native validation — R1 DONE 2026-10-25 on the Mac Mini M1**
+  (Apple M1, macOS 27.0.1; AppleClang 21.0.0 (clang-2100.3.34.2), CMake
+  4.4.4, Ninja 1.13.2, Highway 1.4.0 (brew, find_package), Python 3.15.1).
+  HEAD `66bf5fa`, code measured `0508ef1` (no code diff since). FEAT_BF16
+  reads 0, so native dispatch is NEON. Fresh Release `-DCORVUS_WERROR=ON`
+  configure into build-m1-v110: 0 warnings, 36/36 under
+  `CORVUS_EXPECT_TARGET=NEON`; the negative check (AVX2 asserted) fails
+  34/36. ULP report (the ci.yml macOS step, NEON asserted): 147 max-ULP
+  lines, and all 604 gate lines identical to the R0 CI run's NEON job
+  (121305146149), not-CR counts and worst inputs included. Spot checks as
+  the runbook lists them: gamma R3 P/Q direct 1, R4 Q direct 1, R4 P
+  complement 1; beta R3 direct 1; Bessel tails 1 on all four; Log1pmxDd
+  |u| >= 2^-40 at 2^-67.78; betainv certified intervals 0 outside (p 371,
+  q 381); erf 19,439 points max 1; lbeta max 1; beta gamma-limit cells
+  <= 1; exp prints near-ties; no deferred rows. Route census (diagnostic,
+  build-m1-census): 318 routes, 309 exercised, 4 unexercised, 0
+  grid-only, 0 mismatches, 5 argued unreachable — Z's reading. No
+  deviation. Two environment notes, not findings: gh 2.103.2
+  (2026-10-23) labels every CI log step "UNKNOWN STEP", so the runbook's
+  awk step filter prints nothing; the ULP-report step was sliced at its
+  `##[group]Run` boundary instead. And tools/hunt/route_census.py
+  imports annotate.py, which needs mpmath, so it is not stdlib-only as
+  the runbook said; it ran under the libstats-erf-cleanroom venv (Python
+  3.14.9, mpmath 1.3.0). R0, R1 and R2 are done; R3 (PR, tag, release)
+  on Z is next. [DERIVED]
+- **v1.1.0 errata (release notes, RELEASING step 12) [DERIVED 2026-10-25].**
+  Each was never met by a release and never enforced by a gate; each has
+  an "Erratum" paragraph in docs/ACCURACY.md naming its witness.
+  - gamma_p/gamma_q R4 complement: 0 → 1 ULP (row 12).
+  - beta_p_inv/beta_q_inv deep-small closed form and subnormal/x = 1 results:
+    0 → 1 ULP (row 9).
+  - lbeta: 0 → 1 ULP relative, 2^-54 → 2^-53 absolute (#76, row 12j).
+  - beta R2 complement: 0 → 1 ULP (#76 M-9).
+  - trigamma on (0, 1): CR → 1 ULP; the gate was already 1 (#76 M-8).
+  - gamma_p_inv/gamma_q_inv deep-small closed form and subnormal/zero results:
+    CR → 1 ULP; the gate was already 1 (#76 M-6, L-1).
+  Disclosed as v1.0.x defects but fixed, bound kept (PATCH-class, list
+  under notable fixes): the i0/i1/i0e/i1e tail (#52, row 10); erfc's top
+  subnormal binade (#74, dd G chosen over an erratum). [DERIVED]
+  Not errata (checked against v1.0.0/v1.0.1, which published 1 ULP; only
+  dev/v1.1.0 had tightened them to 0): gamma R2 complement (#56 tightened
+  it; row 12 mislabelled the restatement) and beta's gamma-limit slice
+  (#54 tightened it; #90 restates it). Nothing to disclose. [DERIVED]
+- **Tooling assessment before 12d [user, 2026-10-22]:** these
+  defects passed our generators and gates, so before any fix: decide what
+  changes in the reference/gate tooling (fail-first gates for each band,
+  and a systematic hunt for defects the review did not reach).
+  DECIDED 2026-10-22 [user]: all of T1–T6 as row 12-T (#82) before 12d,
+  then the hunt campaign before 12d. Assessment 2026-10-22 [DERIVED]:
+  - **Root causes.**
+    1. Gates count integer ULPs against CR-only reference files; no file
+       stores the exact value. An integer bound B fails only when real
+       error passes B + 0.5, which happens on about 2 rows per 1e6 (i0).
+       A real-error profile flags the same bands with 300–4,000 rows:
+       erfinv SSE4 reads 1.36, i0 SSE4 reads 1.12.
+    2. Strata are ±k-ulp seam brackets plus random or log fill. No
+       generator fills the band just inside a seam: gamma R3 has 1 row
+       for a·phi in [30, 36). Extremes are not crossed: no subnormal p
+       with a ≥ 100, no subnormal a. Many kernel constants have no
+       stratum at all.
+    3. No near-tie stratum exists; four appends reject near-midpoint
+       rows. So 0-ULP cells cannot fail, and several CR claims are gated
+       at 1.
+    4. Populations are not designed for no-FMA tiers; the replay rule
+       binds table generators only.
+    5. One-form oracles in 9 families; no oracle check runs in CI.
+    6. Docs, gates and claims have no single source.
+  - **Proposed tooling row before 12d (T1–T6):**
+    - T1: a residual column (exact − CR, in ulps) added to every
+      reference file by an annotation pass, two forms where available.
+      Real-error gates per region and per FMA/no-FMA tier class.
+    - T2: a seam registry and audit (every kernel threshold → bit-stepped
+      rows plus a full-mantissa band on each side).
+    - T3: shared strata in refgen_common: seam, inside-band, subnormal
+      in/out, extreme cross-products, near-tie; per-stratum counts;
+      exact row counts in the tests.
+    - T4: a lint over TwoProd/ProdLow callers for the prescale or
+      floor argument.
+    - T5: an in-repo hunt harness (probe evaluator + oracles, ≤ 6
+      workers, real-error profiles per stratum and tier).
+    - T6: a claims check: README/USER-GUIDE/corvus.h against one bound
+      table that the gates also read.
+    - Then a hunt campaign over every family, seam band and subnormal
+      band on three tiers.
+  - **Hunt campaign 2026-10-22 [DERIVED]:** about 728k rows on AVX3_ZEN4,
+    SSE4 and SSE2, all certified, 0 uncertified; summary on #82.
+    - New defects: #83 (gamma_q_inv tiny/subnormal a, 9–1633 ULP),
+      #84 (beta gamma-limit ridge sliver, 391 ULP) and #85 (beta_q
+      post-route τ cap, 2 ULP vs 1). Wider bands are recorded on #71 and
+      #72; near-tie, slice-subnormal and lbeta evidence on #76. betainv is
+      clean.
+    - The harness (`tools/hunt`, `tests/hunt_probe`) is committed (T1).
+    - T2 seam audit: 157 of 236 mapped seams have an empty reference
+      bucket (some false: zero-valued seams, domain edges); 41 seams are
+      unmapped.
+    - T4 floor lint: 136 Dekker-product sites, 0 with a `// FLOOR:`
+      argument.
+    - Still open in 12-T: T3, T6 and T7, and the T2 coordinate
+      mapping and false-gap handling.
+    - **T4 scope [DECIDED 2026-10-22, user]:**
+      - 12-T writes `// FLOOR:` arguments only at the sites whose operands
+        can reach the ProdLow floor.
+      - Each fix row argues the functions it changes.
+      - #86 (v1.2.0) argues the rest, then CI runs the lint `--strict`.
+      - The rule and phasing are in NUMERICAL-DOCTRINE.md (hazard rules)
+        and the floor_lint.py docstring, so the intent outlives this
+        session.
+    - **T1 DONE 2026-10-22** (`3083620`, `0d4cb46`; CI 39763726024
+      green on NEON, Linux sweep + sanitizers, Windows). Design and
+      method: ACCURACY.md (Methodology, "Real error") and the doctrine
+      test rule; summary on #82. [DERIVED]
+      - All 25 public reference files carry `r=`; 15 gates enforce the
+        contract ceiling and a regression pin per region and tier class
+        (`tests/data/real_pins.txt`, 228 cells). Out of scope by design:
+        the dd files, the betainv backward intervals, absolute bands and
+        exact-match rows.
+      - Pins above their ceiling, each lowered by its fix row:
+        - erfinv C, no-FMA, 1.37 → #73 (row 12g).
+        - beta_q R3 at the gamma-limit ridge entry, FMA, 1.38 → #80
+          (v1.2.0; within the 1-ULP bound, dense probe max 1.24;
+          re-measure after #84 in row 12k).
+      - Reference data: refgen double rounding fixed (13 trigamma rows);
+        betainv_q a=1, b=1/2 row not CR → #87 (v1.2.0; annotate.py
+        KNOWN_BAD; any betainv regeneration must fix it first). #76 (12j)
+        is told to name both reference exceptions.
+      - Every fix row 12d–12k: after its fix, run the gates, lower its
+        cell's pin with `pins.py --write`, and review the pin diff.
+      - Tooling gaps from T1: closed in `aa1a97e` (T3) except one.
+        beta_inv_root still fails at extreme tiny pairs (a, b ~
+        1e-94/1e-189, root within e^-1e131 of 1). [OPEN]
+      - #82 closed 2026-10-25. #75's fail-first evidence was not met by
+        T1, since the reference set has no dense |x| ≈ 7.4 band. Row 12i
+        owes it: dense [6, 8] strata failing first. [DERIVED]
+    - **T3 DONE 2026-10-23** (`aa1a97e`, `60c0ecd`; CI 40050577320
+      green on NEON, Linux sweep + sanitizers, Windows; summary on #82). Design and
+      method: ACCURACY.md (Methodology, "Strata"), the doctrine test rule
+      and the `tools/hunt/strata_append.py` docstring. [DERIVED]
+      - No generator was rerun. All 25 public reference files carry an
+        appendix of hunt-strata rows: 78,768 rows in 904 stratum sections
+        on top of 403,168 base rows. It holds seam bits and bands (45k),
+        dense, subnormal and other fills, near-tie rows within 1/32 ulp of
+        a midpoint (2.8k), extreme cross-products (4.5k), and the new beta
+        `ridge:gl_entry` stratum (#80's territory; its pin did not move).
+        Every row is two-form certified; 428 rows that failed
+        certification were dropped, 402 of them in betainv.
+      - `tests/data/ref_counts.txt` fixes the rows per file and stratum
+        for all 31 reference files; LoadRef exits 2 on any difference.
+        Negative controls fire: an off-by-one count, a truncated file and
+        `deferred:?`.
+      - 147 rows that break a published bound sit in `deferred:#NN`
+        sections: #70 (2), #71 (30), #72 (57), #76 (4), #83 (37), #84 (9),
+        #88 (8). `CORVUS_REF_DEFERRED=1` fails exactly the six gates that
+        hold them.
+      - New defect #88 (v1.1.0): beta_p_inv/beta_q_inv with a shape and
+        the target both denorm_min return a root whose forward value is
+        about 0, or about 313 times the target.
+      - New pins above the ceiling: erfc tail subnormal 1.52 (#74),
+        gamma_q R3 dir 1.41 (#70), gamma_q R4 no-FMA 1.50 (#71),
+        gamma_q_inv deep-small 1.36/1.51 (#83). erfinv C no-FMA rose
+        1.37 → 1.51 (#73).
+      - Oracle gaps closed in the oracles: gamma Temme route for
+        1e7 < a < 2^130, and beta_inv normal-median for min(a, b) ≥ 1e15
+        near the median. annotate.py keeps only the bracket fallback.
+        Still open: beta inverses off the median with shapes ≥ 1e100
+        (gigabytes per row; the cross stratum stops at 1e15), and both
+        shapes tiny (I_x flat; the two forms agreed on a wrong root, so
+        cross excludes max(a, b) ≤ 1e-20).
+      - The seam audit is down to 37 empty buckets of 277 seams, from 157
+        of 236. The rest are mostly domain edges and zero-valued
+        coordinates, which is T2's false-gap handling; 41 seams are
+        unmapped.
+      - The exp(2^-53) near-tie row (2^-55 ulp from the midpoint, 1 ULP
+        on FMA) sits inside ACCURACY.md's documented ~2^-15 window. It is
+        deferred to #76, where the CR claims and the gate's tie rule are
+        decided together.
+      - Every fix row 12d–12k also deletes its `deferred:#NN` header, so
+        those rows are gated, then recounts (`strata_append.py --count`).
+        It shows the gate failing first with `CORVUS_REF_DEFERRED=1`.
+    - **T7 DONE 2026-10-24** (`7416ad8`; CI 40130702831 green on NEON,
+      Linux sweep + sanitizers, Windows; summary on #82, finding on #83).
+      Rule: the doctrine test rule ("every kernel route carries a census
+      marker"); recipe: ENVIRONMENT.md. [DERIVED]
+      - Mechanism: `CORVUS_ROUTE` / `CORVUS_ROUTE_SCOPE`
+        (`src/route_census.h`, `src/ops-inl.h`). Both are empty outside
+        `-DCORVUS_ROUTE_CENSUS=ON`. The census `hunt_probe` prints the
+        routes lane 0 took, and `tools/hunt/route_census.py` takes the
+        route list from the source.
+      - Census: 311 routes in 15 families. 305 are exercised: by
+        reference rows, by a special-input grid for the `*/special/*`
+        fixups, and by two witnesses in `tools/hunt/route_witnesses.txt`
+        (beta/R2/huge_c, reachable only through betainv's forward;
+        betainv/special/fwd_unusable). No gamma or beta row disagrees
+        with the hunt's router replicas, so there is no further
+        #84-class route defect in either.
+      - Argued unreachable (`// ROUTE-UNREACHABLE:` in the source):
+        gammainv seed/fallback, restart and fwd/R2/cf_a_clamp;
+        betainv/fwd/R3/neg_cpsi. The last argument is conditional on R3's
+        gated accuracy.
+      - [OPEN] Two routes neither reached nor argued:
+        gammainv/newton/floor and betainv/seed/none. Their partial
+        arguments are `// ROUTE-OPEN:` comments at the markers. Deciding
+        them means proving and deleting each branch (a kernel change, so
+        a fix row) or keeping it with a written guard rationale.
+      - Finding: the census reached gammainv/bracket/cap via
+        `gamma_q_inv(i·2^-1074, j·2^-1074)`. Q rounds to 0 above the
+        root, the residual goes NaN, and the bracket re-proposes one
+        midpoint until its cap, giving roots 4–35% off (about 1.5e15
+        ULP). This is #83's class, far worse than its recorded 1,633
+        ULP. A new gammainv stratum adds 95 rows to `deferred:#83`
+        (posted on #83).
+      - Contract note for #76: on betainv's both-tiny-shape plateau no
+        double meets "backward ≤ 1 ulp(p)" at s + 1–2 ulp.
+      - Census limits:
+        - One tier, AVX3_ZEN4. Routes are data-dependent, not
+          tier-dependent.
+        - Routes in shared cores count hits from every caller.
+        - betainv's Newton-loop forward is unscoped, so rejected
+          candidates add forward routes.
+        - erfinv's HalleyFar scope is a heuristic (x0 ≥ 5.992).
+        - digamma and trigamma scrub specials to 1.5, which records
+          pos_zone. These limits only overstate coverage; none hides a
+          route.
+      - [OPEN] Running the census in CI. It needs a census build leg,
+        about one extra configure.
+    - **T2 DONE 2026-10-24** (`82884fa`; CI 40140431548 green on NEON,
+      Linux sweep + sanitizers, Windows; summary on #82).
+      `tools/hunt/seam_audit.py` exits 0. It covers 294 seam thresholds:
+      0 empty buckets, 0 unmapped, and 9 covered by the census or stated
+      as internal. The rule is in the doctrine test rule; the field
+      semantics are in the audit docstring. [DERIVED]
+      - Mapping: SEAMS entries gain audit-only fields:
+        - `audit_f` / `audit_value`: router orientation, region
+          membership, ratios to expression-valued seams;
+        - `sides`: domain edges;
+        - `window`: coordinates coarser than 64 ulp;
+        - `route` / `internal`: loop-internal thresholds.
+        Unary families only gain `sides`, so their strata are unchanged.
+      - Real gaps filled by new strata, 2,099 appended rows:
+        - betainv bit neighbourhoods (fwd_xi1, fwd_b1, fwd_z2split,
+          s3_min, s1_nu_min, huge_nu, fwd_gl_ridge), with targets from
+          the exact forward so the root stays within 64 ulp;
+        - gamma: tail_zhi bits, twopi_a_clamp band, out_min_normal;
+        - gammainv: cf_amax band, beyond_resolution bits and band;
+        - beta: two_pi_nu_clamp band;
+        - lbeta: walk steps 3/4/6/7/8, neg_inf band, abs_band bits.
+        No new deferred row, no pin above its ceiling, and the census is
+        unchanged.
+      - strata_append certification: the two forms must agree to 1e-4
+        ulp (was 1e-6) and the residual must sit inside the rounding cell
+        by that margin, so the side of the midpoint is still certain. The
+        large-a Temme fits agree to about 3e-6 ulp (1e-22 relative).
+        gamma and gammainv now drop no row; betainv still drops about 370
+        rows where its second form is badly wrong (residuals 1e287 to
+        1e311).
+    - **T6 DONE 2026-10-24** (`83a065c`; CI 40144717244 green on NEON,
+      Linux sweep + sanitizers, Windows; summary on #82; the new test is
+      `claims_check`). Rule: the
+      doctrine test rule ("every bound has one statement"); table semantics
+      in the `tests/data/bounds.txt` header. [DERIVED]
+      - `tests/data/bounds.txt` has 117 rows. Each holds gate|region, unit
+        (ulp or abs53), the enforced gate bound, the published contract and
+        a claim id. It was generated from the gates' own PIN lines plus the
+        three absolute bands.
+      - CheckReal / CheckBound fail on any bound the table does not hold.
+        Negative controls fire: a changed gate value, a missing row, a
+        changed absolute band.
+      - `tools/claims_check.py` (ctest `claims_check`) covers 38 claims,
+        with 95 markers across README, USER-GUIDE, corvus.h and
+        ACCURACY.md. Every claim is marked in ACCURACY.md, and every
+        "max N ULP" phrase in the contract docs is marked. Negative
+        controls fire: a wrong number, a changed published value, a
+        removed marker.
+      - Known mismatches, all #76 and corrected in 12j:
+        - gammainv deep-small and subnormal results claimed CR, gate 1
+          (M-6);
+        - trigamma on (0, 1) claimed CR, gate 1 (M-8);
+        - README's "continued-fraction ... correctly rounded" for beta,
+          where R2's direct side is 1;
+        - USER-GUIDE's stale "gamma_q: 4 in one band" (R4 has been 1
+          since #67).
+        Row 12j removes each #76 tag as it corrects the text.
+      - USER-GUIDE wording: "2 in erfc's far tail" now reads "2 ULP in
+        erfc's far tail" (unit only, so the checker can read it).
+    - **T4 phase 1 DONE 2026-10-24** (`0f00daf`; CI 40149259523 green on
+      NEON, Linux sweep + sanitizers, Windows; summary on #82). [DERIVED]
+      - Floor census: in census builds the Dekker products (TwoProd,
+        DdMul, DdMulD, ProdLow, SquareLow) take the caller's
+        `std::source_location` and record `floor:<file>:<line>` when lane
+        0's product is nonzero and below 2^-968. Normal builds are
+        unchanged: the macros are empty.
+      - 64 of the 136 sites reach the floor on reference rows, the special
+        grid or the witnesses, and all 64 carry a `// FLOOR:` argument:
+        - 61 harmless, each with its magnitude bound (a small term in a
+          larger sum, a discarded lane, or a loss that lands in an
+          exponent and becomes relative error);
+        - tracked: #71 (GammaSmallQ for a < 2^-1000), #73 (erfinv
+          subnormal y), #83 (gammainv lg1_zone for a < 2^-1000);
+        - #88's rows are noted at the beta sites they pass through.
+        No new defect. Example inputs and targeted sweeps return the same
+        bits on AVX3_ZEN4, SSE4 and SSE2 outside those issues.
+      - Closest call: beta R3 `nus` on gamma-limit-ridge lanes. nu can
+        lose up to ~2^-52 relative on no-FMA tiers but enters only through
+        a weight <= 0.09; 484 lanes matched bit for bit apart from three
+        1-ulp flips that also occur where nothing reaches the floor.
+      - floor_lint.py fixes: a head comment now covers a signature that
+        spans `template <class D>` and `HWY_INLINE ...`, and an `inline
+        constexpr` declaration no longer swallows the next function's
+        head comment.
+      - The lint reports 71 of 136 sites still without an argument: those
+        the census never saw reach the floor. They are #86's phase 3
+        (v1.2.0), after which CI runs the lint `--strict`.
+    - **Row 12f, part B DONE 2026-10-25** (#83 closed; `ebd024a`; CI
+      40165558305 green on NEON, Linux sweep + sanitizers, Windows).
+      [DERIVED]
+      - ln(1 − q) for q ≤ 2^-7 is now Log1pDd at −q. LogDd of the pair
+        added its low word as a plain double, 2^-57 relative to a result
+        of size q, which the deep-small |log x| (≤ ~745) turned into 11–16
+        ulp.
+      - For a < 2^-900 the deep-small numerator and a are formed scaled by
+        2^200, so s0's low word and lg1a's product no longer sit on the
+        subnormal grid (up to 13 ulp). GammaInvDivD keeps its own rescale
+        for betainv's subnormal alpha.
+      - Result: all 22 rows are CR and gated, and deferred:#83 is gone.
+        q deep-small pin 1.36/1.51 → 0.52. A 2,000-point q-side sweep
+        (a in [2^-1074, 1e-12], roots across the range) holds ≤ 1 ULP on
+        three tiers.
+      - Noted, not fixed: betainv forms ln(1 − σ) the same way
+        (`lnsigc`); check it under 12h or with #88.
+    - **Row 12h DONE 2026-10-25** (#74 closed; `9f47755`; CI 40222274687
+      green on NEON, Linux sweep + sanitizers, Windows). [DERIVED]
+      - erfc tail: G is now the shared dd GammaTailG, and the result
+        rounds once (DdScaleToDouble). Single rounding alone left the top
+        subnormal binade at 1.264 real (> 1.25); the user chose the dd G
+        over an erratum [DECIDED 2026-10-25, user]. The tail reads ≤ 0.50
+        real on three tiers (was 2.07 normal, 1.45 subnormal). Cost:
+        tail-only ~5.5 → ~9.8 ns/el, mixed ~8.8 → ~12.7 (ad hoc, Zen 4);
+        PERFORMANCE.md's erfc tail rows are marked stale until the next
+        quiet bench.
+      - GammaScale, BetaScale and betainv's y_ds round once too; their
+        subnormal cells fall to 0.53. No ScaleTwo(DdToDouble(…)) site
+        remains. exp's ExpDdVec still rounds twice into subnormals: that
+        is its documented 0.75-ulp design bound, a candidate only. [OPEN]
+      - Reference ties: the kernel's single rounding exposed a stored row
+        on the wrong side of a midpoint, beta_p(1, ½, denorm_min). Its
+        exact value is x/2 + x²/8, an excess of 2^-1076 relative, which
+        no 40–90-digit oracle resolves. strata_append now re-evaluates at
+        400 digits within 1e-12 of ½ and drops a row still unresolved;
+        the row is corrected. A 400-digit scan of every printed |r| = 0.5
+        row found 246 more, all i1e at subnormal x (x/2 − x²/2 …,
+        stored rounded to even). Their cells are 1 ULP, so no gate trips,
+        but the reference CR is wrong. i1 has the same structure with an
+        excess (x²/8) beyond 400 digits, so its rows are very likely
+        wrong too. Filed as #89 (v1.2.0, with #87). [OPEN]
+      - CI: the sanitizer step now builds Debug at -O1 (`f72a128`, user
+        decision 2026-10-25). Guards under ASan went 722 → 25 s, all
+        sanitizer tests 39 s, and the Linux job 25:51 → 18:44 of its
+        30-minute limit. [DECIDED, user]
+    - **Row 12i DONE 2026-10-25** (#75 closed; `b2f3a00`; CI 40225764358
+      green on NEON, Linux sweep + sanitizers, Windows). [DERIVED]
+      - Series dd depth 4 → 8 (data only). gen_bessel_data.py now picks
+        the depth on REAL error ≤ 0.51 over 3,000 dense [4, 8] points plus
+        the review's witnesses; the integer-ULP target had admitted 1.526
+        real. Its replay reproduces the SSE4 kernel bit for bit.
+      - Region skips in BesselNu0/Nu1: byte-identical over 200k outputs
+        (AVX3_ZEN4, SSE2). Zen 4 indicative: series ≈ unchanged, tail
+        2.2× faster, mixed vectors +34% (19.3–19.7 vs 14.4–14.8 ns/el).
+        PERFORMANCE.md marks its bessel rows stale.
+      - Result: dense [6, 8] at 100k per function, max real ≤ 0.506 and
+        not-CR ≤ 0.11% on three tiers; series pins 0.52–0.53 (were up to
+        1.07). Fail-first: issue75:bits strata deferred as #75 at depth 4
+        (the existing ~2,200-row [6, 8) strata never caught a row).
+      - Done-when met: the documented not-CR rate is re-measured
+        (ACCURACY.md table).
+    - **Row 12l DONE 2026-10-25** (#90 closed; `0508ef1`; CI
+      40238527638 green; 36/36 on AVX3_ZEN4, SSE4, SSE2, census and MSVC
+      Release). [DERIVED]
+      - Found by the v1.1.0 Z audit's beta hunt (85,274 rows, seed
+        2026102501): 6 gamma-limit rows 1 ULP against gate 0, certified
+        two-form near-ties (0.501–0.504 real), identical on three tiers.
+        Rates (the gate's classifier, whose direct side follows the
+        slice's series/CF choice): direct 1 of 2,315, complement 5 of
+        2,354. The hunt replica's GL side ignores that choice; harmless
+        while both GL bounds are equal.
+      - Not an erratum: v1.0.0/v1.0.1 published 1 ULP (checked in the
+        tags). #54 (`e376460`) had tightened it on dev. A v1.0.1 build
+        misses 3 of the 6 witnesses (one by 3 ULP, since fixed).
+      - Same check found gamma R2 complement mislabelled an erratum
+        (v1.0.x published 1; #56 tightened it on dev). Label removed
+        from ACCURACY and the errata list. The other errata stand
+        (v1.0.1 published them as CR).
+      - Changes: `issue90:witness` rows (6 per file), gates
+        kGateGlDir/Cmp 0 → 1, bounds.txt and the hunt GL bound 1,
+        ACCURACY cells and note, README claim.
+      - **NEXT:** the PAUSE for K and M1 (R1/R2); R0 is done (Status).
+    - **Row 12j DONE 2026-10-25** (#76 closed; `c95207b`; CI 40233142385 green; 36/36
+      on AVX3_ZEN4, SSE4, SSE2, census and MSVC Release). [DERIVED]
+      - Errata (the list under Status): lbeta, beta R2 complement,
+        trigamma (0, 1), gammainv deep-small and subnormal/zero. Each has
+        an ACCURACY "Erratum" paragraph naming its witness, and each
+        witness is a reference row. Gates: lbeta 1 / 2^-53, beta R2 cmp 1.
+      - exp: rows within 2^-15 of a tie may miss by 1 ULP (the header's
+        exception), and the report counts them. strata_append honours a
+        stratum's tie exemption for CR cells.
+      - VERSIONING gains the errata clause and its MINOR row; RELEASING
+        step 12 lists errata. The other review items (M-13, M-14, L-2,
+        L-8 to L-14, L-16, L-17, I-1) are text fixes, with figures
+        re-measured where the text quoted a number.
+      - Audits: claims_check 38 claims / 95 markers, 0 failures, 0 known
+        mismatches; pins match on three tiers; route census unchanged
+        (4 unexercised, 5 argued unreachable); floor lint clean; seam
+        audit 0 empty, 0 unmapped. No deferred:#76 section remains.
+      - The K/M1 runbook is refreshed (standards `881984f`: 36 tests,
+        Python 3 for claims_check, the R0 CI run as reference).
+
+    - **Row 12k DONE 2026-10-25** (#84, #85 closed; `502d1dc`; CI 40229577338 green;
+      36/36 on AVX3_ZEN4, SSE4, SSE2, census and MSVC Release). [DERIVED]
+      - #84: the gamma-limit ridge is gated on s = min(a, b), not ν, in
+        beta's router, betainv's forward twin, the hunt replica, and the
+        gate's and bench's region classifiers. An aimed sliver stratum
+        failed first at HEAD by up to 66,895 ULP (94 deferred rows). It
+        passes on three tiers and is gated; the gamma-limit cells stay at
+        0 ULP. Betainv's backward error on the sliver is ≤ 1 ulp.
+      - #85: misattributed in the issue — the witnesses never reach R4.
+        They are R1 complements just past both post-route gates
+        (τ > 2.5, Q above the 1 − 2⁻¹¹ bar), where PA's
+        LgammaPosDd(min) carries 2⁻⁶² absolute, amplified by P/Q. Fix:
+        the code's own planned extension, lgamma(k + f) =
+        LgammaDiffDd(k, f) + ln((k−1)!) table for min in (2.5, 16], and
+        the same in BetaInvLgamma1p on (2.5, 15]. Witness neighbourhoods
+        failed first (61 rows) and are gated. R1-complement sweep worst
+        1.23 → 0.501; pin 0.93 → 0.52. New seams lgamma_table_max (16)
+        and lgamma1p_table_max (15) are registered with rows.
+    - **Row 12g DONE 2026-10-25** (#73 closed; `940c9f9`; CI 40219413347
+      green on NEON, Linux sweep + sanitizers, Windows). [DERIVED]
+      - ErfinvCentral: for |y| < 2^-900 the product is formed at
+        |y|·2^600 with slope √π/2 (a dd exact to 7e-34, NOT the fitted
+        lead L0, which is 2^-69.7 off and flipped a near-tie) and taken
+        back with DdScaleToDouble. Behind an AllFalse skip: the central
+        path is unchanged.
+      - Result: 400k inputs below 2^-900 CR on three tiers; erfinv C pin
+        1.51 (no-FMA, #73) and 0.94 (FMA) → 0.56; seam tiny_prescale
+        registered with bits and band rows; the near-tie is a reference
+        row (issue73:tie).
+      - **NEXT:** row 12h (#74; also switches gamma/beta GammaScale and
+        betainv's y_ds to DdScaleToDouble).
+    - **Row 12f, part C DONE 2026-10-25** (#88 closed; `b5dea87`; CI
+      40217237705 green on NEON, Linux sweep + sanitizers, Windows).
+      Row 12f is complete. [DERIVED]
+      - R4: BetaR4Tiny returns its value before the 2^-700 unscale
+        (BetaR4Out); beta unscales as before (bits unchanged), betainv
+        takes log m − 700 ln 2.
+      - Deep-small: for α < 2^-900 and β ≥ 2^-500, LB(α) is re-evaluated
+        at α·2^200 and the quotient taken scaled (#83's twin). ln(1 − σ)
+        for σ ≤ 2^-7 is Log1pDd at −σ.
+      - Result: the 8 rows CR on three tiers, gated in `cross`. A 200-point
+        band sweep (subnormal shape, s/shape in [1e-2, 1e2], other shape
+        0.5–1e15), scored by an independent quadrature, reads max real
+        0.504 (p) and 0.498 (q) on all three tiers; HEAD had 28 and 98
+        points over 1.5 ulp (worst 5e20).
+      - Lesson: the scratch sweep first stored oracle roots with str(mpf)
+        (15 digits), which read as 10–30 ulp "failures". Store roots with
+        mp.nstr(v, 40). The hunt oracle is fine in this band.
+      - Seams registered (T2): lnct_log1p (gammainv) and lnsigc_log1p
+        (betainv) at 2^-7 with bits and band strata; ds_scaled_a/_b as
+        census-covered (betainv/deep-small/scaled).
+      - Routes: betainv/newton/clamp lost its #88 witness and has a
+        huge-shape witness line now; betainv/special/nonfinite_log is
+        ROUTE-OPEN (its only path was #88). Open routes: 4 (was 3).
+      - Memory guard also in gen_betainv_reference.py's executor.
+      - Pin: gamma_p_inv small-a mid seed 0.53 → 0.55, from the new
+        lnct_log1p rows (the gammainv kernel is unchanged in part C).
+      - Oracle memory guard (2026-10-25, after a hard reboot on Z):
+        refgen_common.cap_process_memory caps each oracle worker
+        (default 1024 MB, `CORVUS_ORACLE_WORKER_MB`), and core.plan_workers
+        sizes pools to free memory minus MIN_FREE_MB. Ad-hoc sweeps must
+        use the same initializer, never a bare Pool. [DECIDED, user]
+    - **Row 12f, part A DONE 2026-10-25** (#72 closed; `3e4841e`; CI
+      40163504662 green on NEON, Linux sweep + sanitizers, Windows).
+      [DERIVED]
+      - H-1: gammainv's R3 forward takes ln F = −a·φ + log(brk) on tail
+        lanes (GammaTemmeOut gains ln_e = −a·φ unclamped, brk and tail).
+        The first try used the clamped exponent and broke far iterates
+        (gated S1/beyond-resolution rows read 1e15). The unclamped −a·φ is
+        the old fallback's quantity.
+      - M-6: DdScaleToDouble (src/exp_dd-inl.h) rounds a dd times 2^e once;
+        gammainv's deep-small result uses it. The other double-rounding
+        sites (erfc's tail, #74; gamma's and beta's GammaScale; betainv's
+        deep-small y_ds) are left for row 12h to switch over.
+      - Result: all 57 #72 rows are CR and gated. Pins fall: p S1 0.90 →
+        0.58, beyond-resolution 0.65 → 0.57 (p) and 1.01 → 0.71 (q), p
+        deep-small 0.73 → 0.53. 22 #83 rows remain deferred.
+    - **Row 12e DONE 2026-10-24** (#71 closed; `1d21c7d`; CI 40160183991
+      green on NEON, Linux sweep + sanitizers, Windows; #83 progress
+      noted). **NEXT: 12f** (#72 + #83 + #88). [DERIVED]
+      - Fix: GammaSmallQ prescales a < 2^-600 by 2^400 and returns
+        (m, e = -400). Q is linear in a there to 2^-200, and every product
+        stays above the floor. gamma applies 2^e last via GammaScale;
+        gammainv's forward uses log m + e log 2. The FLOOR arguments are
+        rewritten for the scaled range.
+      - Result: gamma_q R4 dir 2.74 real (SSE2) → 0.74 on every tier.
+        #71's 30 rows are gated (no gamma deferrals remain), and the pins
+        fall 1.21/1.50 → 0.76.
+      - Side effect on #83 (row 12f): the subnormal-(a, q) bracket stall
+        is gone, because the forward's log no longer goes NaN. 110 of
+        #83's 132 deferred rows now pass and are gated. 22 remain: 17 at
+        the min-normal output seam (11–12 ULP), 4 tiny-a, 1 subnormal-x.
+        The gamma_q_inv deep-small pin (1.36/1.51, #83) is unchanged.
+      - Census: `gamma/R4/sign_clamp` is now argued unreachable;
+        `gammainv/bracket/cap` lost its only known path, so it is open
+        (`// ROUTE-OPEN:`). The census reads 3 open routes, 5 argued.
+    - **Row 12d DONE 2026-10-24** (#70 closed; `c24adf6`; CI 40156682698
+      green on NEON, Linux sweep + sanitizers, Windows). [DERIVED]
+      - Cause: the R3 core's ½ erfc(z) is 1 − erf(z) (ErfcCoreDd), whose
+        error relative to erfc grows like e^{z²}. That is about one erfc
+        ulp at z = 6, amplified to 2.51 ulp real just below the old split
+        a·φ = 36.
+      - Fix: the core/tail split moves to a·φ (cpsi) = 25, z = 5, in gamma
+        and in its twin beta, with betainv's forward on the same constant.
+        The shared dd GammaTailG is refit over [5, 28.5] at degree 17:
+        2^-64.55 fused, 2^-64.37 unfused, target 2^-63. Both branches were
+        already computed on every R3 lane, so the only cost is two Horner
+        steps. TWIN markers now sit on both core blocks.
+      - Result: gamma_q R3 dir real error 2.51 → 0.89 (AVX3_ZEN4) / 0.94
+        (SSE4, SSE2) on #70's rows, which are now gated. The pins fall:
+        gamma_q R3 dir 1.41 → 0.92/0.96 (the #70 tag is removed),
+        gamma_p 0.80 → 0.68, beta_p 1.21 → 1.03. gammainv's gates and pins
+        are unchanged. The gates stay at 1.
+      - The seams move to 25 in the gamma, beta and betainv families (the
+        old 28–36 band is kept as coverage of tail lanes), and their six
+        appendices are regenerated. Seam audit 0 gaps; route census and
+        floor census unchanged.
+    - **12-T is complete** (T1–T7). **NEXT: the 12d–12k fix rows** (order
+      in the 12-row table). Each fix row runs its deferred rows' fail-first
+      gate (`CORVUS_REF_DEFERRED=1`), lowers its pins, argues the FLOOR of
+      the functions it changes, and keeps claims_check, the seam audit and
+      the route census at their current state.
+  - Pilot results 2026-10-22, no new defects:
+    - Subnormal inputs in 13 unary families are clean.
+    - `beta_p_inv`/`beta_q_inv` at subnormal targets: CR where certified.
+    - gammainv with normal tail and median targets, a from 2.5 to 1e9:
+      ≤ 0.5 ulp.
+    - i1 SSE4 reads 1.19 real on [6.6, 8], a thin margin; covered by 12i. Then a PR from `dev/v1.1.0` to `main` (merge
+  `main`'s Dependabot commits first), the tag and the release.
+- Milestones renamed [user]: 5 is "v1.1.0 — Correctness hardening"; 7 is
+  "v1.2.0 — Throughput & new exports".
+- Rows 13–17 move to milestone 7 (#42, #45, #31, #22; #37 is closed), on
+  a branch cut from
+  `main` after the v1.1.0 tag. Measuring performance against a tagged,
+  guarded baseline keeps every speedup's accuracy check to one diff.
+- Fleet: libstats' release gate (libstats #156, retitled) and both
+  consumer pin bumps target v1.2.0. libhmm adopts and spikes (#106)
+  against the same release as libstats (fleet coherence rule). Recorded
+  in the standards workplan, libstats and libhmm PLAN.md.
+- The gated issues #18 (erfcx), #19 (von Mises complement), #20 (Hurwitz
+  zeta) and #21 (exp_dd kappa horizon) moved to v1.2.0 [user]. They are
+  still worked only if their gate opens, which keeps v1.1.0 a pure
+  correctness release.
+
+**Order row 12c (#69): DONE 2026-10-22 on Z**, `87ef42d`. CI GREEN (run
+39664514966, all three jobs, NEON first try); #69 closed. The v1.1.0
+correctness rows (2-12c) are complete; next is the PAUSE for native M1 and
+Kaby Lake runs, then PR dev/v1.1.0 -> main, tag, release. The runbook for
+M1 and K (tasks R0-R4, exact commands, expected results, recording, and
+failure handling) is in the standards workplan, section "corvus v1.1.0
+release tail" (records/CORVUS-ADOPTION-WORKPLAN.md).
+- Verdict that opened it: adversarial re-score, 3,000/3,000 certified (own
+  tanh-sinh quad + own Lentz CF, 1.3e-45), P and Q direct 4 ULP vs the
+  published 3. The scorer's B-series cost guard was broken (float lgamma
+  at a ~ 1e17), which is what left yesterday's pools pinned; fixed.
+- Fix: GammaTailG hoisted byte-for-byte into the new src/erfc_tail_dd-inl.h
+  (gamma's bits proven identical: 50k-point span dump hashes, and
+  gamma/gammainv gate output line-identical on three tiers); beta's tail
+  now uses it with a dd G/(2z) product and the z.lo fold on unsaturated
+  lanes (beta's z <= sqrt(800) is inside the [6, 28.5] fit). TWIN markers
+  updated: the copies now match. gamma_data.h regenerated, comment-only.
+- Guard: `gen_beta_reference.py --r3tail-append` (seed 6969), 2,202 rows,
+  C/D two-form certified (1.8e-46), dps+25 re-check, one-ulp control. HEAD
+  reads 4 vs gate 3 on three tiers. (The beta files are even-length,
+  41,096 -> 43,298; the test's n-3 split exercises the tail regardless.)
+- Result (re-run here, three tiers): beta R3 P/Q direct 1 ULP, complement
+  <= 1; kGateR3Dir 3 -> 1; published bound stays 3. betainv: every gated
+  max unchanged, certified backward intervals 0 outside (p 371, q 381),
+  p-side B rows 1 -> 2 (within gate 2), huge-nu not-CR fell, ridge
+  backward error halved. 35/35 x3, MSVC /W4 /WX clean.
+- Cost ~+1.2% on bench_beta R3 (indicative, ~21% ambient load).
+- Commit note (twin rule): twin gamma <-> beta tail now in step.
+
+**Twin-drift rule [DECIDED 2026-10-21, user] — committed in `3a5d63f`.**
+NUMERICAL-DOCTRINE.md hazard rules gain "copied code has twins; a fix
+reaches every twin": `// TWIN:` markers at both ends of every copy, and a
+fix commit greps and disposes of each twin. Incidents: #47 -> #55
+(BetaInvForward's router copy), #57/#64 -> beta's Temme tail (#69). Markers
+added (comment-only): gamma Temme tail <-> beta Temme tail; beta router <->
+BetaInvForward; gamma prescale <-> gammainv prescale; gamma region map <->
+gammainv region map.
+- **#69 -> order row 12c [DECIDED 2026-10-22: adversarial re-score, 3,000/3,000
+  certified (C/D forms, 1.3e-45), P and Q direct reach 4 ULP vs the published 3;
+  user pre-approved this fork].** Resolved by row 12c (`87ef42d`, #69 closed):
+  beta's tail now has gamma's dd G, dd G/(2z) and z.lo fold. [DERIVED]
+
+**Order row 12b (#64): DONE 2026-10-21 on Z**, `d0fb2e1`. CI GREEN via run
+39477235960 on 991a700 (macOS re-run after a runner shortage); #64 closed. As implemented:
+- Fix: gamma-private dd erfc tail factor GammaTailG (CORVUS_OUTLINE), one
+  interval z in [6, 28.5] (live max sqrt(800) = 28.28), degree 15 in
+  s = u - C with u = 2*DdRecip(2z) (dd), Horner in double to c3 and the
+  last 3 steps dd (1/2/3/4 dd steps measured 58.6/60.9/65.4/67.3 bits).
+  gtd = DdMul(GammaTailG(r), r); the z.lo fold and DdRecip(2z) are kept.
+  erfc_tail_data.h / ErfcTailGFromU untouched (erfc, erfinv bits same).
+- Generator: gen_gamma_data.py self-check (g) replays the evaluator and
+  G/(2z) op for op, fused and unfused, over 4,580 points: 2^-65.29 both
+  (target 2^-63, exits non-zero above); negative control (c0 low word
+  dropped, 2^-54.09) rejected. src/gamma_data.h gains kGammaTail*.
+- Guard: `gen_gamma_reference.py --r3tail-append` (seed 6464), 1,584 rows
+  (x = 2a - k ulp, k 1..8, 150 a; lambda in [1.6, 2.4] with a*phi in
+  (36, 800]; the reproducer), mpmath vs own Lentz CF at dps 70, 1e-45
+  agreement; dps-140 re-check, one-ulp control. HEAD: R3 Q 3 (gate 2) on
+  three tiers.
+- Result (identical on AVX3_ZEN4, SSE4, SSE2): R3 P direct 2 -> 1, R3 Q
+  direct 3 -> 1; complements 1. Gates R3 {2,1} -> {1,1} (tightened). The
+  published bound stays 2. gammainv gate output byte-identical.
+- Cost: +3% (n = 1e4) / +7% (n = 1e6) on bench_gamma R3, best of 5,
+  machine NOT quiet (~50% ambient): INDICATIVE, re-run quiet if needed.
+- Beta sibling (plain-double G, no z.lo fold in beta's tail): it was the
+  same exposure, filed as #69 and fixed by row 12c. [DERIVED]
+
+**CI: macOS NEON_BF16 guard integrated 2026-10-21** (`f85aa37`, cherry-pick
+of `b3f1b4a` from `ci/macos-neon-cap`). Hosted macos-26-arm64 runners can
+land on a BF16-capable core, which dispatches NEON_BF16 and fails every
+CORVUS_EXPECT_TARGET=NEON assertion (run 39452466261, the push of
+dependabot #66 to main). The macOS job now builds twice: native (keeps
+NEON_BF16 compiling under -Werror, gates unasserted) and capped with
+`(HWY_NEON-1)` (asserted NEON gates and the ULP report). The other session
+merges `ci/macos-neon-cap` to main itself.
+
+**Order row 12a (#67): DONE 2026-10-21 on Z**, `cefaf95` CI GREEN via run 39469860824 on
+f85aa37 (the cefaf95 run was cancelled by that dispatch); #67 closed. Detail as implemented:
+- Fix (GammaSmallQ): lgamma(1+a) from the centre-2 zone on every lane;
+  a <= 1/2 takes lgamma(2+a) - log(1+a) at t = a. log(1+a) must be
+  relative-accurate to dd: the first cut used LogDd(TwoSum(1, a)), whose
+  plain-double l/h correction is the whole result when 1+a rounds to 1,
+  and gamma_q(1e-16, 4) went to 104 ulp (Q ~ a*E1(x) cancels the O(a)
+  terms). Now Log1pDd(a) for a <= 2^-7, LogDd(TwoSum) above. lgamma
+  untouched.
+- Guard: `gen_gamma_reference.py --r4band-append` (seed 6767): 1,700 rows,
+  two independent forms (mpmath gammainc; own P series with Q = 1 - P),
+  1e-45 agreement, halfway guard, dps-120 re-check + one-ulp control.
+  HEAD fails (Q R4 4 ULP vs gate 1; P R4 complement 1 vs gate 0).
+- Result: Q R4 1 ULP (not-CR 4.2% -> 1.4%); P R4 complement 1 ULP on 2
+  rows (gate 0 -> 1, matching row 12's erratum). AVX3_ZEN4, SSE4, SSE2
+  identical; 35/35 each (gammainv gates within pins); MSVC /W4 /WX clean.
+- Cost: ~+6% on bench_gamma's R4 band (66.7 -> 70.8 ns/el, best of two,
+  INDICATIVE).
+- Not changed: gammainv-inl.h:702's deep-small closed form shares the
+  centre-1 use but is not amplified (~0.03 ulp); left as is.
+
+**Order row 12 (#53 remainder): DONE 2026-10-20 on Z**, `825cc60` +
+`1433978`. CI GREEN (run 39394886129); #53 closed. Next: row 12a (#67), then
+12b (#64); the Log1pmxDd option (i) change below awaits commit.
+- Beta exact ties [DONE]: five rows per beta_{p,q} file on the closed-form
+  lines (I_x(a,1) = x^a, I_x(1,b) = 1-(1-x)^b, integer exponent) are exact
+  rounding midpoints, and the mpf oracle stored the odd neighbour (lines
+  32428, 32580, 32606, 33363, 33389). gen_beta_reference.py now rounds
+  those lines from exact rationals (exact_line_value, used by write_rows)
+  and `--exact-ties-fix` corrected the 10 checked-in rows in place (one
+  ulp each, to the even neighbour). test_beta_ulp passes, gates unchanged.
+- Doc/comment drift [DONE, subagent; facts re-checked]: lgamma threshold
+  2.5599833e305 (code was right: kLgammaMaxArg); ACCURACY counts gamma
+  18,085, beta 40,845 in-domain, cos/sin 14,630; quiet_bench "fifteen";
+  log-inl kLog1pTinyCut; NUMERICAL-DOCTRINE HWY_INLINE wrappers; libstats
+  URLs (erf_data.inc regenerates identically); test/src comment drift;
+  gamma P+Q wording (not a separate bound); unreachable-clamp notes;
+  AGENTS quiet_bench wording; sweep_tiers now runs the 15 smoke/lane-mix
+  tests. Historical row counts in test comments marked as #14-era.
+- Dead LoadReference branches [DONE]: the wrappers are void (LoadRef
+  exits on failure), five tests.
+- Seam excesses re-scored [DONE, subagent; reproducers re-verified here at
+  dps 120/240]. AVX3_ZEN4 only; two mpmath forms per family. #53's table
+  rows 1, 2, 5, 6 are within bound now (the old kernel's errors are
+  gone); P+Q <= 0.5 ulp(max(P, Q)) (ACCURACY wording updated).
+- **[DECIDED 2026-10-20, user] New contract findings from the re-score:**
+  checked-in gates miss all of these:
+  - gamma_q R3 Temme tail, x just below 2a, a ~ 1150-1320 (a*phi ~ 360):
+    3 ULP vs the 2-ULP bound. `gamma_q(0x1.271e222aab03cp+10,
+    0x1.271e222aab038p+11)` = ...88cp-530, CR ...88fp-530. 45/48,008 rows.
+    Likely the plain-double erfc factor G (#64's "0.16 margin" is wrong).
+  - gamma_q R4 small-a direct, a in ~[0.25, 0.5], x in [2.5, 4]: 4 ULP vs
+    the 1-ULP bound. `gamma_q(0x1.ba7604d78e820p-2, 0x1.fe069bd940a0ap+1)`
+    = ...dbdp-9, CR ...db9p-9. 696/30k rows >= 2 ulp. Stops at a = 1/2;
+    suspect GammaSmallQ's c1 zone polynomial amplified by cancellation.
+  - Cells documented correctly rounded measure 1 ulp on 0.1-0.4% of dense
+    rows: gamma_p R2 complement, gamma_p R4 complement, beta gamma-limit
+    slice (P and Q).
+  - Diagnosis [DONE, read-only opus; harness reproduces library bits;
+    scratchpad row12-diag/]:
+    - R3 Q: plain-double erfc factor G (~1.7 x 2^-53 relative: fit 0.81 +
+      Horner 0.89) weighted 1.28 near lambda = 2 contributes -2.10 of the
+      -2.90 ulp. The 2-ULP bound was never achievable with a double G.
+      Options: (a) #64, a gamma-private dd G refit to ~2^-60 (+40-60 flops
+      on R3-tail lanes, ~+10% indicative; band worst 2.33 -> 0.86 real;
+      touches gamma R3 tail and gammainv's forward); (b) erratum R3 Q to 3.
+    - R4 Q: lgamma(1+a)'s centre-1 zone (a <= 1/2, ~2^-57 abs) amplified by
+      1/Q contributes 3.26 of 3.72 ulp; 1 ULP unachievable that way.
+      Recommended fix: for a <= 1/2, lgamma(1+a) = centre-2 zone at t = a
+      minus a dd log1p(a) (TwoSum(1, a), LogDdAny + l/h); band 3.76 -> 0.68
+      real, ~+3-5% of R4; private to GammaSmallQ (gamma R4 and gammainv's
+      forward), lgamma untouched. Alternative: erratum to 4 (not advised).
+    - CR claims: R2 complement misses come from the CF's 4 dd steps (3.9e-18)
+      plus LgammaPosDd (~2^-60); CR needs 8 dd steps (~25% of R2) AND a
+      lgamma-wide change, so recommended: document "1 ULP, ~0.4% not CR".
+      R4 complement: same cause as R4 Q; after that fix ~0.08% not CR,
+      document "1 ULP, <= 0.1% not CR". Beta gamma-limit slice CR claim
+      (0.1% not CR) not yet diagnosed. → #90 (row 12l): near-ties, both
+      sides; cells back to the published 1 ULP.
+    - Any kernel change re-measures gammainv's gates (its forward residual
+      runs through GammaTemme and GammaSmallQ).
+  - Choices per finding: fix in v1.1.0 (new order rows), erratum the bound
+    (row 9 precedent), or defer to v1.2.0.
+- **[DECIDED 2026-10-20, user: option (i) now, (ii) as #68 in v1.2.0]
+  Log1pmxDd near the 1/16 cut.** DONE (uncommitted at write time): 9,770
+  rows appended (incl. 5,257 cut-dense in (1/16, 0.064]), one unified
+  relative cell kMinRelLog1pmx = 67.77 (measured 2^-67.78 at u = 0.0625098,
+  three tiers), dd_special-inl.h states ~2^-67.6. Record as found: Widening
+  dd_special_reference.txt's LogDdAny coverage (`gen_gamma_reference.py
+  --dd-special-append`, seed 1212, 4,513 rows; mode kept, rows NOT
+  appended; widened copy in scratchpad row12-ddspecial/) shows the
+  primitive is worse than recorded: 2^-69.00 at u = 0.062565 in the file,
+  2^-67.63 at u = 0.0625809 under 100k-point probes, identical on three
+  tiers; the recorded/pinned worst is 2^-71.41 (u.lo != 0 cell) and the
+  u.lo = 0 gate is 71.64. Likely log_dd's ~2^-72.6 amplified ~2/u near
+  the cut. Consumer estimate (unmeasured): ~2^-58 relative on e^{-a*phi},
+  ~0.03 ULP. Options: (i) pin at a dense-probe floor (~67.6) with the
+  (1/16, 0.064] band sampled densely; (ii) fix the kernel near the cut
+  (raise kPhiCut with more series terms, or improve LogDdAny near 1), then
+  re-measure and unify the cells. Row 4's decision (b) waits on this.
+
+**Order row 11 (#61): DONE 2026-10-20 on Z**, `ae51623`. CI GREEN (run
+39375275542, all three jobs); #61 closed. Four subagents, disjoint files;
+results re-run here.
+- Bessel (gen_bessel_data.py): tail replay over fused/unfused x
+  scaled/unscaled (the unscaled exp_dd fold modelled as a 2^-70
+  perturbation of either sign), ~20.5k full-mantissa points each, worst
+  1.000 ULP everywhere (no margin; all just above the split); tail
+  negative control (c0 + 4 ulp) caught. Stale header comment fixed;
+  src/bessel_data.h regenerated, comment-only diff. Runtime 11 s -> 56 s.
+- Beta (verify_beta_reference.py): pass = independent value inside the
+  stored double's round-to-nearest interval (was ~2 ULP); 1-ULP negative
+  controls on all 3,727 certified rows; gamma-limit stratum at the
+  kernel's 2^47 (had drifted at 2^59) plus fresh unstored points. 0
+  failures, 4 declined midpoint rows. FINDING [OPEN, row 12]: Q(2, 1,
+  1-2^-53) and P(1, 2, 2^-53) (beta_{p,q}_reference.txt lines 32606 and
+  33363) store the odd neighbour of the exact midpoint 2^-52 - 2^-106.
+- Temme (gen_gamma_reference.py): independent P series / Q CF
+  certification at 81 points, a in (1.2e4, 1e8]; worst 8.9e-36 (the
+  "< 1e-40" claim was wrong; still ~19 orders below double resolution);
+  perturbed-c0 control rejected; new --check-only; data byte-identical.
+  a > 1e8 not certified directly.
+- Recipe: per-arm re-verify in gen_erfc/exp_dd/log_dd_reference (caps
+  removed; outputs identical); erfinv oracle self-check (dps 120 own
+  Newton re-solve of all 10,267 rows + 1-ulp control; outputs identical);
+  erf subnormal stratum, 3,001 rows appended (17,595), gate 1 ULP.
+
+**Order row 10 (#52): DONE 2026-10-20 on Z**, `806b330`. CI GREEN (run
+39373321299, all three jobs); #52 closed. A native M1 run is still owed.
+**Row 10 detail (was IMPLEMENTED, uncommitted):**
+- Cause: the tail rounded f_nu(s) to a double, then multiplied by the dd
+  1/sqrt(2*pi*x): two roundings (i0 1.56 ulp). FIX (BesselTailIveDd): plain
+  Horner down to c1, then c0 + s*acc as TwoProd + DdAddD, and DdMul by the
+  reciprocal. Fit and src/bessel_data.h unchanged (regenerated
+  byte-identical).
+- Generator: gen_bessel_data.py's tail replay mirrors the new kernel under
+  fused AND unfused semantics; ULP_TARGET_TAIL 2.0 -> 1.0 (the published
+  bound); passes at 1.0. Both generators' broader hardening is #61 (row 11).
+- Guard: `gen_bessel_reference.py --tail-append` (seed 1010) appends 8,730
+  oracle rows to the four reference files (log-uniform (8, 700], 40% at -x,
+  the #52 witnesses, a far stratum for i0e/i1e; halfway guard; none
+  declined). HEAD fails: i0 and i0e positive tails at 2 ULP, 37% of i0 tail
+  rows not CR (now 7.6%). The sweep surfaced a generator defect, fixed:
+  cross_check_sample's rescale/subtraction and own_cross_check's negation
+  ran at mpmath's default 15 digits (floor ~1e-16, hidden by the 1e-14
+  threshold); now <= 3e-26.
+- Docs: ACCURACY erratum (the bound was never met through v1.0.x; the
+  "2-ULP allowance was not needed" line removed), method text, row counts
+  18,462. Header claim (1 ULP) now true; unchanged. Minor comments fixed:
+  half_ax is inexact for subnormal ax; the sqrt scale comment says 2^-16.
+
+**Order row 9 (#55, #50, #60): DONE 2026-10-20 on Z**, `0915989`. CI GREEN
+(run 39369063011, all three jobs, NEON included); #55, #50, #60 closed with
+the fix commit and their guards. A native M1 run is still owed. Next: row
+10 (#52, Bessel tail double rounding). Full ctest 35/35 at AVX3_ZEN4, SSE4 and SSE2 with
+0 warnings; local MSVC /W4 /WX clean.
+[DECIDED 2026-10-20, user]: a convergence-checked loop (not a fixed 6
+steps, not a new seed); kappa > 2^18 as the single backward-error regime
+in header, test and ACCURACY; the two 0-ULP ACCURACY claims corrected to
+1 ULP as an erratum (no release met 0; the gate was always 1), not MAJOR.
+Diagnosis used a one-lane traced copy of BetaInvVec generated from source
+(scratchpad probe/trace/mk_trace.py).
+- #55, huge a: the orientation probe's dead band was |w*d_half| > 2^-10,
+  and w at y = 1/2 is cancellation noise there (`wl` subtracts two ~1e17
+  high words). FIX: the band is in the logit, d_half < -2^-40 (1 + |m_t|)
+  (kBetaInvTieBand). The tie example (20, 1, 2^-20) has d_half = -7.9e-23
+  and stays unswapped, returning exactly 1/2; a pure sign test would swap.
+- #55, both tiny with b << a: NOT a band problem. BetaInvForward still
+  routed y = 1/2 exactly by the pre-#47 thr_t rule (row 5 fixed it only in
+  beta-inl.h): for tiny pairs both thresholds round to 1/2, so y = 1/2 fell
+  into neither region and R2's CF ran on its divergent side (logit -1500
+  where it is ~ln(b/a)), only at the probe's own point. FIX: the router
+  mirrors beta-inl.h's (y < thr) != (beta < alpha) window.
+  - A probe at 1/2 + 2^-11 was tried first: it also cleared both bands,
+    but by stepping around the seam, not fixing it.
+  - COST [ACCEPTED 2026-10-20, user]: the correct midpoint forward costs ~0.3 us per
+    element more on joint-tiny pairs (bench plateau band +58%; HEAD's was
+    cheap because it was wrong). Every other bench band is within +-5%
+    (quiet A/B, best of two).
+- #50: four steps are too few from the tiny-alpha frame's seeds. FIX: a
+  tail of up to kBetaInvStepsExtra = 4 steps, exiting when every lane's
+  last step was < 2^-30 (quadratic), or it was rejected three times
+  running (beyond resolution), or it is deep-small. An exit test on the
+  PROPOSED step (< half an ulp) never fired: a converged lane's step is
+  forward noise (~1e-16), which cost 20-50%.
+- #60: a non-circular gate. CheckIntervals in test_betainv_ulp reads
+  tests/data/betainv_backward_reference.txt: for each of the 752 rows
+  that carry the backward contract, the doubles whose TRUE forward is
+  within 1 ulp(sigma), found by bit-pattern bisection in mpmath. 752/752
+  inside, on HEAD's kernel too. The file is in all gating lists (CMake,
+  three ci.yml jobs, sweep_tiers). The forward-scored figures are
+  report-only. Bucketize uses the kernel's real frame (x > 1/2). The
+  header states kappa > 2^18. ACCURACY has the errata, a row 9 paragraph
+  and 17,609 rows. Also a = b, s = 1/2 returns exactly 1/2.
+- Guards: all three strict bands deleted (g_bands is an empty vector). A
+  forward-free swap-identity check (2,856 points) fails 140 on HEAD and 0
+  now. The bracket check goes 798 -> 0. Smoke tests are extended to
+  1e17/1e19 (wiring only).
+- Rows (tools/gen_betainv_reference.py, subagent): `--row9-append` (seed
+  909) adds 693 N rows (huge a 196, skewed tiny 197, #50 300), each
+  certified by a positive-term 2F1 certifier with sign checks to 4x an
+  error bound. Every huge-a row is also cross-checked by a shifted
+  gamma-limit sign. `--backward-intervals` writes the interval file.
+  - Fail-first: HEAD's kernel fails four cells on the new rows (deep-small
+    to 5e16 ulp, remainder to 3e9).
+  - The inverse ULP table on the existing rows is unchanged.
+- NEXT: user review, then commit and push, CI, close #55, #50 and #60,
+  and update the standards workplan. A native M1 run is still owed.
+
+**Order row 8 (#54) DONE 2026-10-20 on Z**, `e376460` + `a82fd0e`; #54
+and #65 closed. Probe: 1,400 huge-parameter points, both orientations, against
+the ₂F₁ closed form with precision raised until 1 − I resolves.
+- Defect 1 (the slice, N >= 2^59): P small up to 11,592 ulp (huge second)
+  and 529 (huge first). FIXED: `BetaGlT` (src/beta-inl.h) forms
+  t = −(N + (s−1)/2)·log1p(−w) in dd. The slice and betainv's gamma-limit
+  transfer both use it.
+  - The prefactor stays at the full dd t. The series and CF factors are
+    corrected through their t-derivatives. A first cut applied t.lo as a
+    relative correction to a t.hi prefactor, and that broke for
+    |t.lo| ≳ 1 (betainv iterates t ~ 1e18): it added 79 #55-band
+    failures, now back to HEAD's count.
+  - Generator: `gamma_corner_value` mirrors the shift. The new
+    `--gl54-append` (seed 5454) adds 195 rows certified by a ₂F₁ oracle
+    with a doubled-dps check (worst disagreement 1e-53). 189 rows are
+    huge-second and 6 huge-first; 381 of 400 huge-first draws were lost
+    to y = 1 − x rounding to 1. The witness is included.
+  - HEAD reads the new rows at up to 11,592 ULP. The fix reads 0 in all
+    four cells on AVX3_ZEN4, SSE4 and SSE2, and the gates are re-pinned
+    1/1 -> 0/0. Full ctest passes 35/35 on all three tiers with 0
+    warnings, and the local MSVC /W4 /WX build is clean. Guard bands are
+    unchanged: #50 324, #55 101/373.
+  - `tools/gen_beta_data.py`'s downward B_GL probe now uses the shifted t
+    (defect 2 work below).
+  - Committed as `e376460`. CI is GREEN (run 39211865183, all three jobs,
+    NEON included), and #54 has a progress comment. A native M1 run is
+    still owed.
+- #65 CLOSED 2026-10-19 as not a defect [user]. The probe's ₂F₁ oracle
+  ran at dps 60 and missed the ~31 digits lost in loggamma(N) −
+  loggamma(s+N). At dps 120/240 it agrees with an independent shifted
+  gamma limit, and the kernel is within 0.03-1.7 ulp on the "1.08e8"
+  points. Re-scored with doubled-dps agreement, R3 above 2^59 reads 3 ulp
+  integer worst (its gate), the same as below. Probe lesson: any huge-N
+  oracle must budget the loggamma cancellation, or check doubled dps.
+- Defect 2 DIAGNOSED (probes: 3,800 + 2,000 points, N in [2^36, 2^59),
+  scored against a doubled-dps ₂F₁ oracle, integer ulp from CR). The
+  filed 2.2-2.4 ulp was the tip. HEAD reads up to 7 ulp (off-band R2,
+  s >= 1), 10 (R2, s in [0.02, 1]), 3 (in-band R2, nu in [20, 32)) and
+  2 (R1, s >= 10) at 2^56-59, and 1 at 2^52-55. Two causes:
+  - (a) PREFACTOR LOG NEAR 1. The R1/R2 prefactor takes OutlinedLogDd
+    of xi or y = 1 − xi when it sits within ~1e-16 of 1. A dd log there
+    is ~2^-106 ABSOLUTE, and alpha or beta ~ 2^58 multiplies it into E.
+    R1 meets it on PB lanes (E subtracts l2 explicitly). Fix: log of the
+    smaller of (xi, y), and log1p(−smaller) for the larger: BetaGlT's
+    rule. Prototyped: R1 2 -> 0, off-band R2 7 -> 1; 24 of 3,800 probe
+    outputs change; all gates and guards pass. betainv's forward
+    (lny/lnyc) has the same hazard; its fix moves the inverse's worst at
+    2^56-59 from 1.12 to 0.44 ulp (1,210-point inverse probe).
+  - (b) CF CONDITIONING. F ~ beta/20 (the generator's own upward probe),
+    so the dd CF carries ~F·2^-106: 2 ulp at 2^56-59 for s < 1, 3 ulp
+    in-band at nu in [20, 32). Only routing away from the CF cures it.
+  - Why B_GL is 2^59: the generator pinned it at the midpoint of the
+    CF ceiling and the gamma-form floor, at a DEVIATED 2^-49 target,
+    because the unshifted gamma form erred by ~t(1−s)/(2N). With the
+    #54 shift its error is ~0.3·s³/N² (measured). Re-run on the
+    generator's own oracle, plus the slice's real s range (unsaturated
+    off-band small sides need s ≲ 3,860), the 2^-60 floor is j ≈ 45
+    (worst s = 2000 at t/s = 2.05) and the ceiling is j ≈ 50.3: a
+    5.3-binade overlap at the LITERAL target, midpoint pin 2^48.
+  - Prototyped (a) + B_GL = 2^48: every probe cell <= 1 ulp (R1, R2,
+    slice, in-band now R3). The reference set moves 21 rows from R2 to
+    the slice, all 0 ulp; every gate passes except the hardcoded
+    'R2->Gl bmax=2^59' seam sweep. 2^52 measured the same.
+  - Gate gap: gen_beta_reference.py:709 has NO rows with b in
+    [1e12, 1e30] below 2^59, so the gates have never seen this band.
+    Some slice lanes read 1 ulp at 2^48-55 against the 0/0 gammalim pin
+    (row 8, unreleased; the released bound is 1).
+  - Regeneration is cheap: gen_beta_data.py runs in 11 min and
+    reproduces beta_data.h bit-identically (checked 2026-10-19). The R3
+    extension rows are fitted at P_EXT_GL = 2^-20, independent of B_GL.
+  - [DECIDED 2026-10-20, user] Option B: (a) + re-derive B_GL in the
+    generator (rejected: A, the log fix alone, leaves (b); C, a
+    hand-pinned 2^52, would disagree with its generator).
+  - IMPLEMENTED 2026-10-20 on Z, UNCOMMITTED (awaiting review):
+    - src/beta-inl.h: l1/l2 from log of the smaller of (xi, y) and
+      log1p(−smaller); 2^59 comments updated. src/betainv-inl.h: the same
+      rule for lny/lnyc.
+    - tools/gen_beta_data.py: the downward probe uses the shifted t
+      (closes the [OPEN] item above); a slice-range grid (s 10..3800 at
+      t = r·s, r in {0.45, 0.49, 2.05, 2.2, 3.0}, bxi > B1 only); a finer
+      j grid; the literal 2^-60 target with the deviation removed. It
+      derives ceiling 49.60, floor 45.00, PINNED B_GL = 2^47 (margin
+      2.00/2.60 binades). src/beta_data.h regenerated (10 min); only the
+      constant and one comment changed, every table bit-identical.
+    - tools/gen_beta_reference.py `--gl54b-append` (seed 5455): 1,098 rows
+      per file in N in [2^40, 2^59), certified by a ₂F₁ oracle with
+      doubled-dps agreement at 1e-40 on I and 1 − I, start dps
+      100 + log10(N ln N). The families are off-band 242, small-alpha 317,
+      in-band low-nu 316 and R1 with s >= 10 223, both orientations.
+      None were declined. Draws with clear underflow were pre-skipped
+      (RNG stream unchanged).
+    - tests/test_beta_ulp.cpp: the R2->Gl seam sweep is keyed to
+      kBetaGammaLim, with x holding t at 57.6 on the seam.
+    - Native (AVX3_ZEN4): every beta/betainv gate passes and the guard
+      bands are unchanged (#50 324, #55 101/373). Gammalim cells grow to
+      774/533 rows and stay at 0 ulp (the 0/0 pin holds). Fail-first on
+      HEAD's three kernel files with the new rows fails 5 cells: R2 dir
+      8 ulp (Q) and 2 (P), R1 dir 2, and both R2 cmp cells at 1 against
+      a gate of 0.
+  - Full ctest passes 35/35 on AVX3_ZEN4, SSE4 and SSE2 with 0 warnings,
+    and the local MSVC /W4 /WX build is clean (0 diagnostics), all
+    2026-10-20. The ACCURACY.md defect-2 paragraph is drafted;
+    USER-GUIDE.md cites no 2^59.
+  - Committed as `a82fd0e` after user review. CI GREEN (run 39318081144,
+    all three jobs, NEON included). #54 closed with both fix commits and
+    their guards. A native M1 run is still owed.
+- Next pickup was row 9; it is DONE (above).
+
+**Order row 7 (#48) DONE 2026-10-19 on Z**, `07ca2f6` + `8dc5623`. Full
+ctest 35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2. CI: the first run
+(39202993833) FAILED on Windows MSVC, because the phase's local `m_ok`
+shadowed GammaInvVec's input mask (C4456 under /W4 /WX; clang-cl and GCC
+are silent). It was renamed to `m_adopt` and verified with a local MSVC
+/WX build (0 diagnostics); CI GREEN at `8dc5623` (run 39205868784, all
+three jobs). #48 is closed with its fix commit and guards.
+Design [DECIDED 2026-10-19, user]: a bracketed Newton phase, not a new
+seed.
+- Diagnosis was wider than the issue's text. A 6,000-pair probe (a in
+  [1e-20, 0.5], q/a in [0.01, 100]) failed 1,648 on the Q side and 1,498
+  on the P side.
+  - No seed covers the band. S1 is barred below a = 0.3 and S3's gate
+    declines. S2's Picard iteration (contraction ~1/a) runs away, yet
+    wins anyway, since its domain flag is always set and x = a only
+    competes when every candidate is rejected.
+  - Three steps clamped at -0.9 then shrink 1e109 to 1e106.
+  - Two hypotheses were tested and rejected before this: the trust
+    clause's step size, and a relaxed S3 gate (it helps but leaves
+    ~1,458 failures and 30-ulp results).
+- Fix (`src/gammainv-inl.h`): a bracketed phase between seed selection
+  and the three steps. Newton in y = log x with w = dy/dm, inside a sign
+  bracket of the monotone logit, using rtsafe's rule (Newton only if
+  inside and at most half the previous step, else bisect if two-sided,
+  else double toward the root, cap 64).
+  - Stalls (|step| < 2^-10 with |r| > 1, w underflowed) count as slow.
+  - A NaN-forward iterate is rejected and the next step quartered; a NaN
+    seed restarts from x = 1. Deep-small lanes are excluded.
+  - Exit: an applied step below 2^-10, then the three steps.
+  - Entry: first step >= 2^-7 in log x, or a stall, and a < 1e16 (keeps
+    beyond-resolution on its seed). 2^-7 is analytic: the three steps
+    take s to ~s^8, below 2^-53 only from s <= 2^-7.
+  - Sweep (probe Q/P failures, harness, cost): 1 -> 492/12, 47; 1/4 ->
+    228/2, 26; 1/16 -> 33/0, 6; 1/64 and 2^-7 -> 0/0, 0. 2^-10 also
+    gave 0, but at +20-40%.
+- INDICATIVE cost at 2^-7 (Zen 4): +17% in the small-a mid (q) and flip
+  (p) bench bands, ~+9% q-side deep-small, flat elsewhere. Lanes below
+  the entry keep the old path bit for bit, and every pre-existing
+  gammainv cell is unchanged.
+- Guards:
+  - The #48 band is deleted (strict mode demanded it).
+  - test_guards gains a 1,200-point small-a upper-tail grid with its own
+    Rng(4848), so the other grids keep their points. It fails 211 points
+    on HEAD and 0 now.
+  - Rows: `gen_gammainv_reference.py --band48-append` (new, seed 4849):
+    184 p + 204 q certified rows, +N/-0, with all five witnesses (bit for
+    bit corvus's new outputs). 17 p-side points with p within 1e-15 to
+    2e-4 of 1 were declined, not emitted. On HEAD the rows fail all four
+    small-a buckets, at up to 4e18 ULP.
+  - Generator fix found en route: `cross_check_25` routed tiny-a
+    q-side rows with a <= x < 1 to the CF, ignoring its `conv` flag. It
+    now honours `conv`, uses the series for x < 1, and counts unconverged
+    rows as skipped, never OK. Only a <= 1e4, a <= xd < 1 rows change
+    route.
+- Witnesses: gamma_p_inv(0.1, 0.99) = 1.5884778179295045 (was 7.9e106),
+  plus #48's other four; all match their certified values.
+- Next pickup after row 7 was row 8; see above.
+
+**Order row 6 (#56 + #57) DONE 2026-10-19 on Z**, `7f0e18a`. Full ctest
+35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2; CI GREEN (run
+39194078196, all three jobs; NEON holds the re-pinned gamma cells). #56 and #57
+are closed with their fix commit and guards. Decisions this row [user,
+2026-10-19]: accept #56's cost; land #57 partially and split the rest
+into #64.
+- **#56** (`src/gamma-inl.h`): `GammaSeriesSum` now carries terms and
+  ratio in dd (a + n by exact TwoSum, x * DdRecipDd(a + n)).
+  `GammaCfRecip` runs the deep steps in double and the last
+  `kGammaCfDdSteps = 4` in dd.
+  - Tail length: 2 steps measured 0.66 ulp; 4 matches 8 on all 82 gate
+    cells and bit for bit on 20,000 R2 probe points except 9 half-ulp
+    ties.
+  - INDICATIVE cost (Zen 4 laptop): R1 77.6 -> ~108 ns/el (+~40%), R2
+    61 -> ~63 (+~3%); R3 and R4 are unchanged.
+  - Both cores are shared, so beta's gamma-limit slice, betainv's transfer
+    and gammainv's forward inherit the fix: the gammainv small-a seed
+    cells went 1 -> 0 ULP, with no inverse change.
+  - Comments corrected, the two false derivation claims #56 named:
+    "attenuated" rounding, and "complement >= ~0.4" (Q is ~0.13 in R1).
+  - Routing change ("gamma_q via R2 for x >= a"): NOT needed. The dd
+    direct side makes the complement correctly rounded on its own.
+- **#57**: the Temme tail folds z.lo through f' = 2z*f - 1/sqrt(pi) and
+  forms gt as a dd product. In the contract metric (integer ULP from
+  correctly rounded) the tail goes 3 -> 2, inside the bound. Real error
+  2.34 ulp remains, from plain-double G (erfc tail): filed as
+  OldCrow/corvus#64, corrected the same day to a margin issue (0.16 ulp
+  to the 2.5 where a point would read 3), not a violation.
+  - REGRESSION FOUND AND FIXED before landing: unguarded, the z.lo slope
+    corrupted SATURATED lanes. Its bracket subtraction is ~2^-53 noise
+    against a true ~1/z^2, at z ~ 1e50, so brk_tail stopped underflowing
+    to 0. gammainv takes the log of that dd on every R3 lane, so
+    `gamma_p_inv` beyond-resolution read 1.9e15 ULP. The slope now
+    applies only where a*phi <= 800. Tail probe bit-identical,
+    gammainv_ulp back to 1.
+  - Guard gap: test_guards' gamma bracket grid stops at a = 1e20, so the
+    harness could not see this; gammainv_ulp did.
+- **Rows** (append modes, +N/-0):
+  - `gen_gamma_reference.py --ridge56-append` (new, seed 5657): 1,326
+    rows per file, 1,024 ridge rows for a < 20 (including x bit-stepped
+    at a+1) and 302 Temme-tail rows, plus all seven witnesses.
+  - `gen_gammainv_reference.py --ridge56-append` (seed 5658): 151 rows
+    per side (near-median), plus both witnesses.
+- **Fail-first** (HEAD's gamma-inl.h on the new rows): five gamma cells
+  fail. R1 P 3 (gate 2), R2 P complement 2 (gate 1), R1 Q complement 6
+  (gate 4), R2 Q 3 (gate 2), R3 Q 3 (gate 2).
+- **Re-pinned** (house rule, measured, identical at AVX3_ZEN4, SSE4 and
+  SSE2): R1 P 2 -> 1, R1 Q complement 4 -> 1, R2 Q 2 -> 1, R2 P
+  complement 1 -> 0. R3 stays 2. ACCURACY's gamma and gammainv tables are
+  updated; NEON is at CI, the native M1 leg owed.
+- Next pickup: row 7, #48 gammainv small-a seeds (frontier; it measures
+  against this forward, which is why #56 came first). The #48 band
+  stays.
+
+**Order row 5 (#47 + #51) DONE 2026-10-19 on Z**, `50961b3`. Full ctest
+35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2 (clang-cl); CI GREEN (run
+39178966625, all three jobs; NEON confirms the new #55 band holds there).
+#47, #51, #59, #58 and #49 are closed, each with its fix commit and guard.
+#47's inverse half is DECIDED [user]: option (b), below. #47 is closed
+on the forward fix, with a comment pointing to #55. Next pickup: row 6,
+#56 gamma R1/R2 ridge + #57 Temme z.lo (frontier; K, M1, Z).
+- **#51** (`src/gamma-inl.h`, `GammaSmallQ`): a value-safe sign clamp
+  sends q.hi <= 0 to +0 (signed zero included). The true Q is positive
+  but far below denorm_min there, so the clamp only fires where the
+  answer rounds to +0. `gamma_q(2^-1074, 2)` now returns +0.
+  - Guards: the #51 band is deleted; strict mode demanded it after the
+    fix, 0 failures. Fail-first: the band's 21 failures before the fix.
+  - Rows: none. The issue's guard is the sign/range sweep, already in
+    the harness.
+- **#47** (`src/beta-inl.h` router): R4's widened window is now R2's
+  own orientation predicate, R4 taking the lane iff
+  `(x < thr) != (b < a)`. The old window evaluated the same boundary
+  as (tau+1)/(tau+B+2) in the tiny-first frame, rounded differently, so
+  for b < a a point within an ulp or so of the boundary fell to neither
+  region. Non-sw4 lanes are bit-identical, since the old expression was
+  the same arithmetic as `thr`.
+  - `tests/test_beta_ulp.cpp` and `tests/bench_beta.cpp` re-derive the
+    router and are changed identically. `tools/gen_beta_data.py`
+    `route_final` is left alone: it compares in exact arithmetic,
+    where the two expressions are equal.
+  - Guards: both #47 bands deleted (strict mode demanded it).
+  - Rows: `gen_beta_reference.py --r4seam-append` (new mode, seed 47),
+    1,414 certified rows per file (+1414/-0; regions R4 725 / R2 689;
+    cross-check worst 1.2e-51). The subagent's two deviations are
+    accepted: x below 0.5 is not mirrored where 1 - x is inexact, and
+    the issue's witnesses are added explicitly.
+  - Fail-first: with the old window, `beta_ulp` R4 direct fails at
+    8.3e18 ULP and the monotonicity post-pass flags the seam, on
+    AVX3_ZEN4 and SSE4. With the fix, every pinned cell is unchanged.
+    Witnesses: `beta_p(1e-100, 1e-140, 0.5)` = 1.0e-40 and
+    `beta_p(0.1, 1e-100, fl(1.1/2.1))` = 1.0016443244658398e-99, both
+    matching mpmath.
+- **DECIDED 2026-10-19 [user]: option (b).** #47 closes on its forward
+  fix. The inverse symptom moves to #55 (the orientation pass, row 9),
+  and #60 gets the contract gap; comments posted on both. The harness's
+  inverse bracket gains 1,500 seeded both-tiny pairs, drawn LAST so the
+  other grids keep their points, under a strict band tagged #55:
+  `a <= 1e-16 && b < a*1e-32`. It holds 373 failures (265 `beta_q_inv`,
+  108 `beta_p_inv`), identical at AVX3_ZEN4, SSE4 and SSE2; every one
+  has a > b, a <= 2.8e-17 and b/a <= 1.6e-33. Row 9 deletes both #55
+  bands. The record as found:
+  `beta_q_inv(1e-20, 1e-70, q)` still returns 0.5 for small q, and
+  0.0039 / 0.998 at q = 0.9 / 0.5; the true root is 1 for every q < 1.
+  A bracket probe over 4,000 pairs with both shapes in [1e-300, 1e-16]
+  fails 326 `beta_p_inv` and 743 `beta_q_inv` calls. Nearly all are
+  strongly skewed pairs (min/max < 1e-10), and most return exactly 0.5,
+  the orientation probe's fallback. The guard harness does not reach
+  this: its random beta grid stops at 1e-20. It is the backward-error
+  regime's orientation design, which is row 9's (#55 orientation probe,
+  #60 contract). Options:
+  (a) keep #47 open, with its inverse half moving to row 9, and add
+      harness coverage for both-tiny pairs as a strict band tagged #47;
+  (b) close #47 on the forward fix and track the inverse in #55/#60
+      (a comment on each), with the band tagged #55;
+  (c) as (a) or (b), but without harness coverage until row 9.
+  Taken: (b), with the band.
+- `bench_beta.cpp` builds as part of the full run. #50/#55 band counts
+  now read 324/101, against row 2's 322/111. That is row 4's #49 grid
+  shifting the shared RNG stream ahead of the beta grids, not a
+  behaviour change.
+
+**Order row 4 (#58 + #49; #45 not taken) DONE 2026-10-19 (Z).** Full
+ctest 35/35, 0 warnings, at AVX3_ZEN4, SSE4 and SSE2 (clang-cl);
+`c42f7e3`, CI GREEN (run 39172873272). The Log1pmxDd pin question is DECIDED [user]: option (a)
+now, (b) folded into row 12.
+- **#49** (`src/gammainv-inl.h`): `GammaInvForward`'s Stirling-side E
+  runs on every a >= 20 lane whatever x is; a tiny-p root puts
+  u = (x-a)/a near -1, and the 1-arg `Log1pmxDd` built 1 + u by
+  cancellation (the HAZARD RULE in `dd_special-inl.h`). It now passes
+  w = x/a = `DdMulD(DdRecip(a), x)` to the 2-arg form. Grep of every
+  1-arg call: the other two (gamma Temme, beta's ratio band) are bounded
+  away from -1 by routing, as the hazard comment says.
+  - Guards: the #49 band in `tests/test_guards.cpp` is DELETED (strict
+    mode demanded it: 0 failures after the fix), and the bracket grid
+    gains 600 seeded points a in [19, 28], p down to denorm_min.
+  - Rows: `gen_gammainv_reference.py --band49-append` (new mode; the
+    default path's checkpoint signature is unchanged), 82
+    bracket-certified p-rows, +82/-0. Witnesses certify at
+    8.304361203739346e-15 and 1.0387395175611068e-15, and corvus now
+    returns exactly those.
+  - Fail-first: with the 1-arg call restored, `gammainv_ulp` S1 fails at
+    1.99e17 ULP (34 rows); with the fix, every bucket max is unchanged.
+- **#58** (`src/dd_special-inl.h`): the reviewer's tested fix.
+  `kExpm1Cut` 2^-10 -> 2^-6, series through w^11/11!, and the accuracy
+  comments corrected: ~2^-64 worst, not ~2^-95.
+  - New gate sets: `tools/gen_dd_special_gates.py` (new, seed 58,
+    mpmath dps 60/100, self-checks with a negative control) writes
+    `tests/data/expm1_dd_reference.txt` (3,012 rows) and
+    `tests/data/log1pmx_ulo_reference.txt` (2,006 rows, nonzero u.lo).
+    `dd_special_reference.txt` is left alone: it comes from
+    gen_gamma_reference.py's shared RNG stream (row 12 territory).
+  - `test_dd_special` gains two pinned cells, identical on all three
+    tiers: Expm1Dd 2^-64.34 (pin 64.33), and Log1pmxDd with u.lo != 0
+    2^-71.41 (pin 71.40).
+  - Fail-first: before the fix Expm1Dd measured 2^-61.41 at
+    w = -0.003, below the pin.
+  - #58's witness `gamma_q(0x1.f9d9f993458a9p-10, 0x1.fec3334db02dbp+1)`
+    is now `…6e3p-18`, correctly rounded, at AVX3_ZEN4 and SSE2. No
+    consumer gate cell moved: gamma, beta, betainv and gammainv are all
+    within their pins on all three tiers.
+- **DECIDED 2026-10-19 [user]: (a) now, (b) in row 12 — the Log1pmxDd
+  pin.** The record as found: As #58 predicted, the
+  nonzero-u.lo set measures 2^-71.41, below the existing u.lo = 0 cell's
+  71.64 pin. Diagnosed: it is NOT u.lo's doing. The same u.hi values with
+  u.lo = 0 also give 2^-71.41 at u = 0.1166, in the LogDdAny branch
+  (|u| > 1/16). The u.lo = 0 set never sampled that point, so its 71.64
+  pin overstates the primitive by 0.23 bits there. Done for now: a
+  separate cell pinned at 71.40, so nothing tripped and nothing was
+  loosened. Options:
+  (a) keep two cells and record the primitive's true worst as 2^-71.41;
+  (b) unify on one cell at 71.40, which needs `dd_special_reference.txt`
+      to cover the large-|u| branch better: row 12's regeneration;
+  (c) investigate the LogDdAny branch (log_dd near 1).
+  Taken: (a). The primitive's measured worst (2^-71.41) is recorded in
+  `dd_special-inl.h` and at the pins.
+- Local leftovers: `%TEMP%\corvus_gammainv_ref_ckpt_20260809.tsv` (a
+  stray partial checkpoint from the subagent's mistaken flag-less run;
+  harmless, deletable). Next pickup: row 5, #47 R4 seam + #51
+  gamma_q -denorm_min, whose fixes delete the #47 and #51 bands.
+
+**Order row 3 (#59) DONE 2026-10-18 (Z).** `DdDivDd` floor fixed;
+`DdSqrt` floor DOCUMENTED, prescale DEFERRED until a caller needs it
+[DECIDED 2026-10-18, user]: comments in `src/dd-inl.h` (`DdSqrt`) and
+`src/ops-inl.h` (`ProdLow`/`SquareLow` ceiling and floor), and a floor
+rule beside the ceiling rule in NUMERICAL-DOCTRINE.md's hazard rules.
+`3462e6a`; CI GREEN (run 39111781368: Linux tier sweep incl. the
+SSE4/SSSE3/SSE2 legs over the new rows, ASan+UBSan, Windows MSVC +
+clang-cl, macOS NEON).
+- Mapped by a native-vs-SSE4 differential (clang-cl, 2,400 both-tiny
+  pairs): the defect appears only when the LARGER shape is at or below
+  ~2e-308 (`LgammaDiffDd`'s j = 0 step divides by it). At SSE4 it
+  reached 6.3e7 ULP (beta) and 6.6e4 ULP (lbeta); none with max shape at
+  1e-250.
+- Fix (`src/beta-inl.h`): divisors with |b.hi| < 2^-900 are prescaled by
+  2^600 (`kBetaDivFloor`, `kBetaDivFloorUp`), mirroring the 2^900
+  ceiling; exact, no overflow (scaled divisor < 2^-300, numerator
+  < ~2^-290). It also corrects AVX3_ZEN4: 7 of 4,800 both-subnormal
+  beta points were 1 ULP off natively and are now correctly rounded
+  (mpmath dps 120). Bit-identical for 2^-900 <= |b.hi| <= 2^900.
+- Fail-first rows via append modes (existing rows untouched, numstat
+  +N/-0): `gen_beta_reference.py --subsub-append` (289 rows, own seed
+  59, regions R1 109 / R4 157 / R2 23, cross-check worst 1.1e-51) and a
+  new `gen_lbeta_reference.py --subsub-append` (232 rows, appended in
+  generation order). Without the floor, SSE4 fails `beta_ulp` (R1 cmp
+  22,116,085 ULP at the #59 witness, R2 dir 2,194, R1 dir 50) and
+  `lbeta_ulp` (65,836 ULP, gate 0); native passes. With it, both pass
+  at AVX3_ZEN4 and SSE4 with every pinned cell unchanged. Full ctest
+  35/35, 0 warnings, at AVX3_ZEN4, SSE4 (`build-guards-sse4/`) and SSE2
+  (`build-guards-sse2/`, new) on Z.
+- `DdSqrt` floor (~2^-968 at SSE tiers): no caller reaches it. The
+  Temme/ridge sites take φ ≈ u²/2 with u = (x−a)/a either exactly 0
+  (selected) or >= ~2^-54, so the argument is >= ~2^-108·a; Bessel's
+  2πx and gamma's 2πa are O(1) or larger. Options: document the floor
+  in `DdSqrt` and `ops::ProdLow` (no bit change), or prescale like
+  `LogDdAny` (cost on every call, no current beneficiary). Documented
+  (above).
+- Next pickup: row 4, #58 Expm1Dd + #49 one-arg Log1pmxDd.
+
+**Order row 2 (#53 guard harness) DONE 2026-10-18 (Z)**, `56253a7`;
+CI GREEN at `5bbc2a8` (run 39102018831: Linux tier sweep and ASan+UBSan,
+Windows MSVC + clang-cl, macOS NEON), after the Linux job timeout went
+20 → 30 min (`guards` takes ~9 min in the Debug sanitizer build). Done on Z instead of K [user]: Ryzen 7 7445HS,
+clang-cl 22.1.3, Release `build-clangcl`. Fail-first baseline: a fresh
+worktree `../corvus-hunt` at `768c526` on Z (K keeps its own), ctest
+34/34 `AVX3_ZEN4`. New ctest `guards` (`tests/test_guards.cpp`,
+registered last, also in `tools/sweep_tiers.ps1` `$gates`; public API,
+no reference file, 1.8 s):
+- Harness self-test: `UlpDiff` across opposite signs. The `ulp_utils.h`
+  int64 overflow is fixed (uint64 difference). Fail-first only under a
+  trapping sanitizer: clang-cl happens to compute the right value, so
+  the old header traps under `-fsanitize=signed-integer-overflow
+  -fsanitize-trap` and the fixed one passes.
+- Scalar = span: the eight scalar entry points against one span call
+  over a 24-value IEEE-specials product grid, 57,600 points, 0 diffs.
+- Sign/range: gamma/beta forwards and inverses over subnormal and huge
+  shapes, 104,960 points.
+- Beta symmetry: `beta_p(a,b,x)` vs `beta_q(b,a,1-x)` for x in [1/2, 1)
+  (x = 1/2, the R4 window boundary ±3 ulp), tiny pairs, ≤ 6 ulp.
+- Inverse bracket: `F(x - 4 ulp) <= p <= F(x + 4 ulp)` with 8 ulp of
+  forward slack, seeded grids (splitmix64, seed 53), 29,078 points,
+  including the hunt's headline calls and `c85e4de`'s witness points.
+
+**Known-defect bands [DECIDED 2026-10-18, user]: strict, one per open
+issue.** The test fails on any failure outside every band AND on a band
+with no failure, so each fix row (3-10) deletes its band in the fix
+commit. Never widen a band to absorb a new failure; file it. Pinned on
+Z at `AVX3_ZEN4` and SSE4-capped, identical failing points on both:
+#51 (21, sign/range), #47 (66 sign/range + 60 symmetry), #48 (8), #49
+(5), #50 (322), #55 (111). NEON is unmeasured: the M1 runs `guards` at
+its next session; a band that fails on x86 only would need a per-tier
+rule, so ESCALATE rather than loosen.
+
+Fail-first for `c85e4de` (T6 mutation, the two "unguarded accuracy
+fixes" in #53): with the betainv prescale reverted, `guards` fails on 2
+witness points at SSE4 (2.33e-291, 6.86e-306, the hunt's values) and
+passes natively, as FMA tiers do not need it; with the exp-floor clamp
+reverted, it fails on 6 points (the 0.5 fallback) on both tiers. The
+#55 band is capped at a <= 1e20 so the clamp's a = 1e100 witnesses stay
+outside it.
+
+Scope findings, posted 2026-10-18 as comments on #50 and #47 (#47: at
+a = 0.1 the boundary value is a wrong POSITIVE beta_p, e.g.
+2.77e-24 for a true 1.0e-99, mpmath-confirmed; sign/range cannot see
+it, only the symmetry check):
+- #50 is wider than filed: big shape in [20, 1.8e4] (the order table's
+  "to a ≈ 2.6e4"), and one stray, `beta_q_inv(5.38e-6, 20.26,
+  1.3e-12)`, is 7.4e-13 relative off (mpmath dps 80, ~6,700 ulp) with
+  the small shape ~500× above the filed "b ≲ 1e-8". No other failure in
+  ~220 draws with the small shape in [1e-12, 0.1].
+- #47's symmetry failures reach a = 0.1 (filed: a ≲ 1e-4).
+
+Still owed for row 2: a native M1 `guards` run (CI's NEON leg is
+green). #53's row-2 checkboxes ticked 2026-10-18. Local state on Z: `../corvus-hunt`
+(remove after the correctness block), `build-guards-sse4/` (SSE4-capped
+clang-cl, reusable for row 3's capped legs). Next pickup: row 3, #59
+non-FMA DdDivDd floor; Z can run its capped legs.
+
+**corvus RESUMED 2026-10-16 (Kaby Lake).** libstats v2.5.0 released
+2026-10-16 (its `main` at `35f51d8`); the pause condition is met. Re-read
+of libstats `PLAN.md`: corvus stays pinned at v1.0.1 on
+`dev/v2.5.0-corvus` (libstats v3.0.0, milestone #6); the only new corvus
+asks from the v2.5.0 cycle are #44 and #45, both already in the order
+below; nothing changes #42's priority or the row order. Sync check
+clean on all three repos (`dev/v1.1.0` in sync with origin). Next
+pickup: row 2 (#53 guard harness) on K.
+
+**#62 DONE 2026-10-16 (K)**, order row 0. Root cause differs from the
+issue text: the flag is not `-I`, it is absent. With `CMAKE_OSX_SYSROOT`
+empty (CMake's default when the selected Xcode's SDK is the compiler's
+own; the hunt worktree's builds were this case) Apple Clang adds
+`/usr/local/include` as a builtin *user* directory and CMake drops the
+imported target's `-isystem` because the directory is implicit, so
+`hwy/base.h` compiles as our own code. Any explicit sysroot (`SDKROOT`,
+`-DCMAKE_OSX_SYSROOT`, the CLT SDK — which is why `build/` here was
+clean) removes clang's builtin entry and CMake's `-isystem` takes over.
+Fix in `cmake/FindOrFetchHighway.cmake`: for Apple Clang, an implicit
+Highway include directory gets an explicit `-isystem<dir>` on `hwy::hwy`
+(clang then "ignores duplicate directory" and keeps the system one).
+Verified: empty-sysroot Release, `CORVUS_DEV_WARNINGS=ON CORVUS_WERROR=ON`,
+0 warnings, ctest 34/34 (`build-xcode2/`); explicit Xcode SDK and CLT SDK
+builds unchanged (no `-isystem` added, the message does not fire). GCC
+half: `-DCORVUS_DISABLED_TARGETS=HWY_AVX10_2` alone is enough for
+Homebrew GCC 16.1 on macOS — `-Werror` clean, 34/34 under
+`CORVUS_EXPECT_TARGET=AVX2` (`build-gcc-avx10cap/`). Documented in
+`docs/ENVIRONMENT.md` (two paragraphs before "Build detail"); no
+toolchain-guard change — GCC on macOS is a diagnostics leg, not a
+validation path. Scratch build dirs `build-xcode*/`, `build-gcc-avx10cap/`
+are disposable.
+
+**Session CLOSED 2026-10-12 (M1).** `dev/v1.1.0` at the commit
+carrying this note, pushed, in sync; `main` at `76a4be8`. No work in
+progress, nothing uncommitted. Next pickup: none until libstats v2.5.0
+releases — then re-run the Session Start sync check on whichever
+machine, re-read libstats PLAN.md, and resume the v1.1.0 issue order at
+row 0 (#62) / row 2 (#53).
+
+**#43 CLOSED 2026-10-12 (M1).** All close-out steps done: K (steps
+1–4) and Z (step 5) on 2026-10-11, step 6 x86 columns by K/Z, NEON
+column and step 7 here. NEON re-confirmed at the current head (code
+unchanged since `1bcba54`): `build-m1-gg/` rebuilt warning-clean,
+`CORVUS_EXPECT_TARGET=NEON` ctest 34/34, negative check under AVX2
+33/34 fail; ULP lines identical to K and Z (erf max 1, 217 not-CR;
+cos/sin max 1; exp normal 0 ULP, subnormal 1 with 26 not-CR; log/log1p
+0 ULP in all six strata). corvus is now PAUSED until libstats v2.5.0
+releases (2026-10-10 decision below); the libstats log speedup-gate
+exemption is theirs to make. Nothing else is owed by the M1 now: the
+quiet-bench retry belongs to the release tail (PERFORMANCE.md re-run),
+and #62 (order row 0) waits with the rest of v1.1.0. The scratch
+timing harness and stress-comparison tools were scratchpad-only; the
+issue comments and this file are the record.
+
+**Session 2026-10-10 evening (M1): #43 started on `dev/v1.1.0`.**
+Pre-check validated on NEON first: branch head `6bd479b` ctest 34/34
+tier-asserted, warning-clean.
+
+#43 RESCOPED [DECIDED 2026-10-10, user]: importing libstats' exp/log
+would loosen a validated bound — corvus exp/log are correctly rounded on
+NEON (0-ULP gates), the libstats kernels ~0.52 ULP, and VERSIONING.md
+makes that MAJOR. Split instead, keeping every bound: (a) erf/cos/sin
+already share libstats' algorithms, so find the overhead; (b) exp/log
+get a correctly-rounded fast path. No libstats code or table imported;
+provenance unchanged. Findings and changes (scratch harness timing both
+libraries in one binary, n = 1e6, ns/element, libstats v2.4.1 kernels
+→ corvus before → after):
+
+| | libstats | before | after | cause / change |
+|---|---:|---:|---:|---|
+| exp | 1.0 | 4.6 | 2.4 | dd core on every lane → fast path + CRlibm rounding test, dd fall-back |
+| log | 1.7 | 13.4 | 3.9 | same; integer centring; dd path also pays a Div |
+| erf | 1.4 | 2.2 | 1.8 | d^8 correction (erfc's need) → d^6 for erf |
+| cos/sin | 2.5 | 4.1 | 2.6 | two HWY_NOINLINE calls per 2-lane vector; driver 2× unroll |
+
+vs scalar Apple libm (bench_exp/bench_log, n = 1e6, libm 6.1 / 2.8 ns):
+exp 2.4× libm (was 1.3×), log 0.7× (was 0.2×).
+- `CORVUS_OUTLINE` [DECIDED, user]: HWY_NOINLINE under MSVC only,
+  inlined elsewhere; on hot regions (trig now, exp/log fast paths).
+  AGENTS.md non-negotiable amended. DriveUnary runs two vectors per
+  iteration on 2-lane targets only [DECIDED, user].
+- Bits: exp/log/cos/sin bit-identical to `6bd479b` on 4e6 NEON stress
+  inputs per function, mpmath near-midpoint exp inputs and 72k
+  structured log hard cases. Rounding-test control: injected error
+  inside the window → 0 misrounds with the test, 291 exp / 2,003 log
+  without (the fast paths alone are CR on every natural set — real
+  error sits far below the certified bound). erf
+  moves within 1 ULP (ACCURACY.md erf note). Gates 34/34 NEON;
+  `-Werror` dev-warnings build clean (AppleClang; no GCC on M1).
+- What did NOT help, so nobody re-tries it: paired-load gather for erf
+  (Highway's NEON GatherIndex is fine); Estrin for log's series; a
+  chunked driver keeping the fall-back call out of the hot loop, and
+  inlining the fall-back (the cost was the rounding test's own ~10 ops,
+  not call-induced spills); HWY_LIKELY on the skip branch.
+
+**#43 open items [OPEN]:**
+- x86 re-gate on native silicon — the ONLY item left before #43
+  closes (CI already green, below). Close-out steps:
+  **K (Kaby Lake, AppleClang):**
+  1. `git fetch`; check out `dev/v1.1.0` at the pushed head; confirm in
+     sync (Session Start check). Leave `../corvus-hunt` alone (needed
+     until the correctness block lands).
+  2. Release per-tier sweep, docs/ENVIRONMENT.md "Per-tier validation
+     recipe", AVX2/SSE4/SSSE3/SSE2, each with
+     `-G Ninja -DCMAKE_BUILD_TYPE=Release` and
+     `CORVUS_EXPECT_TARGET=<tier>`: 34/34 at every tier. SSE4/SSSE3/SSE2
+     are the only silicon that runs the fast paths' non-FMA (Dekker)
+     budget. Negative check: `CORVUS_EXPECT_TARGET=AVX3` must fail on
+     the native build.
+  3. Per tier, read the ULP lines: exp normal 0 ULP, log/log1p 0 ULP,
+     erf max 1 ULP (not-CR count may move from 217 — record it),
+     cos/sin max 1 ULP. Any 0-ULP gate tripping is a fast-path budget
+     error: ESCALATE (frontier), don't loosen the gate.
+  4. GCC 16 leg owed from the M1 (no GCC there): GCC capped to AVX2,
+     `-DCORVUS_DEV_WARNINGS=ON -DCMAKE_CXX_FLAGS=-Werror`, ctest 34/34.
+  **K DONE 2026-10-11** at `f1db1a0` (code = `1bcba54`): macOS 13.7.8,
+  AppleClang 15.0.0, CMake 4.4.3, system Highway 1.4.0. Steps 1–4:
+  - Sync check clean; `../corvus-hunt` untouched.
+  - Release sweep in separate build dirs (`build-k43-<tier>`): AVX2, SSE4,
+    SSSE3 and SSE2 each ctest 34/34, every report line printing the
+    asserted tier.
+  - Negative check: the native build under `CORVUS_EXPECT_TARGET=AVX3`
+    fails 33/34 (only `toolchain_guard`, which asserts no tier, passes).
+  - ULP lines identical on all four tiers: exp normal 0 ULP (subnormal
+    1, 26 not-CR); log/log1p 0 ULP in all six strata; cos/sin max 1.
+  - erf max 1 ULP; not-CR 217 at AVX2 and 218 at SSE4/SSSE3/SSE2 (M1
+    figure 217).
+  - GCC 16.1.0 capped to AVX2 with `CORVUS_DEV_WARNINGS=ON
+    -DCMAKE_CXX_FLAGS=-Werror` and the CLT sysroot (#62): 0 warnings,
+    34/34.
+  - Every AppleClang build prints the system-Highway `base.h:359`
+    `-Wgnu-zero-variadic-macro-arguments` warning (Xcode.app SDK, not
+    -isystem): #62, not corvus code.
+  Next: Z step 5, then 6–7.
+  **Z (Zen 4, clang-cl):**
+  5. From a vcvars64 shell: `cmake --preset windows-clang-cl`, build,
+     `CORVUS_EXPECT_TARGET=AVX3_ZEN4` ctest 34/34; negative check
+     against `AVX2` must fail. Read the same ULP lines as step 3. The
+     lower tiers are covered by K and CI; `pwsh tools/sweep_tiers.ps1`
+     is optional here.
+  **Z DONE 2026-10-11** at `c8fa43a` (code = `1bcba54`): Ryzen 7 7445HS,
+  Windows 11, clang-cl 22.1.3 (VS 18 bundled LLVM), Highway via pinned
+  FetchContent, Release, `build-clangcl`:
+  - Sync check clean; build warning-free.
+  - `CORVUS_EXPECT_TARGET=AVX3_ZEN4` ctest 34/34, every report line
+    printing AVX3_ZEN4. Negative check under `AVX2`: 33/34 fail (only
+    `toolchain_guard` passes).
+  - ULP lines identical to K: exp normal 0 ULP (subnormal 1, 26 not-CR);
+    log/log1p 0 ULP in all six strata; cos/sin max 1; erf max 1 ULP,
+    not-CR 217 (same as M1 and Kaby AVX2).
+  Next: steps 6–7.
+  **Step 6 x86 half DONE 2026-10-11 (K):** the AVX2-column dates for erf,
+  cos, sin, exp, log and log1p moved to 2026-10-11; the erf note records
+  the four Kaby tiers; the † footnote records the #43 re-gate. The
+  AVX-512 column was Z's (`4368d45`).
+  **Steps 6 (NEON) and 7 DONE 2026-10-12 (M1):** NEON-column dates for
+  the six rows set to 2026-10-10, the re-gate note extended to NEON;
+  #43 closed; order row 1 marked DONE.
+  **Close:**
+  6. docs/ACCURACY.md: update the validation-matrix dates for the erf,
+     exp, log, cos and sin rows (NEON 2026-10-10 from the M1; x86 from
+     K/Z), and change the erf note's "x86 tiers re-gate before release"
+     to the result. One `docs(accuracy)` commit.
+  7. Close #43 with a comment linking the K/Z results; mark row 1 of
+     the v1.1.0 issue order DONE here. libstats' log-gate change stays
+     with the libstats v2.5.0 session.
+- CI on `f5f46db` GREEN (2026-10-11, run 38146468509): Linux tier
+  sweep 34/34 tier-asserted at AVX2/SSE4/SSSE3/SSE2, ASan+UBSan, MSVC
+  AVX2, macOS NEON; exp/log 0 ULP in the AVX2 ULP reports.
+- CI workflow changes [DECIDED 2026-10-11, user], on `main` and
+  cherry-picked to `dev/v1.1.0`:
+  `88dd321`/`f5f46db` add the monthly canary (`45 3 1 * *`, after
+  libhmm 03:15 and libstats 03:30) and `workflow_dispatch` — dev
+  branches without a PR now run CI via
+  `gh workflow run ci.yml --ref <branch>`. Dispatch only works once the
+  trigger is on `main`, so CI changes land there first.
+  `76a4be8`/`8d8779f` add a clang-cl build to the Windows job (no new
+  runner): `windows-clang-cl` preset inside vcvars64 found with
+  `vswhere`, capped at AVX2 and tier-asserted, because clang-cl
+  dispatches AVX-512 on runners that have it. Reason: clang-cl is the
+  recommended Windows toolchain and the source of Windows validation
+  numbers, yet no job built it, and since #43 it builds a different
+  kernel shape from MSVC. First run green on `main` (run 38162360745,
+  runner clang-cl 20.1.8, 34/34, +2.7 min). Mix otherwise unchanged:
+  MinGW needs no runner (refused at configure, guard-tested in the
+  Windows job); AVX-512 stays a Zen 4 manual stop. Dev-branch run of
+  `8d8779f` GREEN (run 38163545531): Linux tier sweep 34/34 at all four
+  tiers, ASan+UBSan, MSVC 34/34, clang-cl 34/34 (AVX2-asserted), NEON
+  34/34 — the #43 kernels under both Windows toolchains.
+- log stays at ~0.7× scalar libm (3.4× faster than before) [DECIDED
+  2026-10-11, user]; libstats exempts or re-baselines its log speedup
+  gate. The 129-slot log table is CLOSED, not worth a generator: an
+  upper-bound build at its op count ran 3.65 vs 3.89 ns (~6%). A
+  correctly rounded log on this structure cannot reach 1.5× libm
+  (~1.85 ns): exact r, the error-free assembly and the rounding test
+  are ~45 of ~60 ops, and the fall-back's cost forbids a looser test
+  window. A non-CR opt-in log entry point was considered and not taken.
+- log1p untouched (dd path with a Div per call); not in #43's text.
+- LogDd(Dd) pays a Div even for x.lo = 0 — a double-only LogDdAny would
+  speed every consumer's fall-back; touches lgamma/gamma/beta, so after
+  the correctness block.
+- `CORVUS_OUTLINE` codebase-wide [user, OPEN]: measure per family, not
+  a blind replace (rare-path regions inlined can cost hot loops register
+  pressure); after the correctness block (same files).
+- Reassess the outlining split entirely if MSVC becomes properly
+  supportable under Highway, AVX-512 dispatch included [user].
+- Release tail: PERFORMANCE.md re-run now also covers #43.
+
+**Session 2026-10-10 (Kaby Lake): `dev/v1.1.0` cut and pre-checked.**
+Branch `dev/v1.1.0` from `768c526` (main fast-forwarded first), pushed
+with tracking. v1.1.0 work lands here; `main` takes it at release.
+Pre-check: the libstats-derived skill `numerical-defect-hunt` (dotfiles
+`6c03c2d`/`0387cca`), run in worktree `../corvus-hunt` (Release, ctest
+34/34 tier-asserted AVX2) as four agents. T1/T4 identities + IEEE edges ×
+AVX2/SSE4/SSE2, T2 mpmath sweep, T5/T6 contraction A/B + mutation, T8
+structural scan; T3/T7/T9–T11 do not apply (no state, I/O, samplers or
+fits). Six defects confirmed and filed, all pre-existing, all in bands with
+zero reference rows: #47–#52; guards and doc drift: #53. Clean:
+contraction A/B (one 1-ULP `beta_p` difference at AVX2, both points within
+gate), lane isolation and NaN payloads at three tiers, scalar = span,
+dispatch, gating lists, header/ACCURACY/test bound agreement.
+
+**Same session: `numerical-code-review`** (five Opus area reviewers:
+beta, betainv, gamma family, dd/elementary/facade, erf/Bessel/oracles)
+filed #54–#61 and extended #50, #52 and #53; headline triggers re-checked
+by the orchestrator against mpmath on AVX2/SSE4/SSE2. The orchestrator
+first RETRACTED the hunt's gamma-limit-band claim on one clean row; the
+review proved it real (#54, 2.1e-12 rel at `beta_p(2000, 2^59, 1.39e-15)`)
+and the retraction is withdrawn on #53. Clean: every compensated sequence
+on FMA and non-FMA tiers, trig reduction (69 worst cases to n = 5.3e6),
+masked-lane gathers, driver tail padding, signed zero, CORVUS_FP_FLAGS on
+every kernel TU, lgamma/digamma/trigamma near poles. Lessons: (1) the
+reference sets prove the grid, not the domain — every defect sits in a
+band the generators never sampled, often because the generator shares the
+kernel's formula (#54) or caps its own self-check (#61); (2) one clean
+oracle row never refutes a band claim — re-check across the band;
+(3) several bounds were never achievable by the method (#52, #56): a
+derivation comment is a claim to test, not evidence.
+**Same session: `cpp-quality-sweep`** (cppcheck 2.22.0, clang-tidy
+23.1.2, lizard 1.23.0; baseline 2026-08-12 at 2.21/22.1.3/1.22.1).
+AppleClang AVX2 and SSE4-capped, and GCC 16 capped to AVX2, all with
+`-Werror` dev warnings: 0 warnings, ctest 34/34. cppcheck src 0. clang-tidy
+unique src 11 → 3, tests 230 → 113, examples 4, vendored Highway 0. Fix-now
+batch `2015fd7` (const, static, unused usings, reserve; library objects
+md5-identical, gate output byte-identical). New accepted checks pinned in
+`.clang-tidy` with reasons; the remaining src hits are 3 signed-bitwise
+sites, now excluded. Still accepted from the baseline: useStlAlgorithm,
+uninitMemberVarNoCtor, the betainv-ulp ternary, Case::why. Also accepted:
+21 const-correctness and 16 internal-linkage hits on test dispatch
+wrappers (tidy sees one target; const breaks the build). lizard max CCN
+14 (BetaVec), avg 1.6. DRIFT TO WATCH, not refactor: BetaVec 511 lines and
+BetaInvForward 413 exceed the 400-line tripwire; BesselSeriesS (10) and
+GammaInvConsider (11) exceed 8 parameters — BetaVec is rewritten by
+#47/#54/#42 anyway. Filed #62 (macOS: system Highway not -isystem under the
+Xcode.app SDK; GCC 16 rejects AVX10.2 mnemonics). AGENTS.md
+bench-list wording and the dead LoadReference branches went to #53.
+The pre-check is complete [user, 2026-10-10].
+
+**PAUSED [DECIDED 2026-10-10, user].** corvus work stops at the
+pre-check. The real start of v1.1.0 waits until libstats v2.5.0 has
+released; that release is in progress in another session, and its
+verification is uncovering many defects. Exception: #43 (row 1) may be
+started on the M1 before then. On resuming, re-read libstats PLAN.md for
+what v2.5.0 shipped against (pin, adopted functions). Its outcome may change
+#42's priority and this order. Re-run the git sync check, since the
+branch may have moved on another machine. Local state on Kaby Lake: the
+worktree `../corvus-hunt` (detached `768c526`; `build/`, `build-sse4/`,
+`build-sse2/`) is the unfixed baseline for showing each new guard fails
+first. Remove it once the correctness block lands. Hunt and review reports were scratchpad-only; the issues are the
+record.
+
+## v1.1.0 issue order [DECIDED 2026-10-10, user; revised same day]
+
+Rules: correctness before bit-changing performance in the same files;
+guards written fail-first and landed with their fix; the forward before
+its inverse (an inverse is measured against its forward); generators
+hardened before reference rows are regenerated, and regeneration done
+once. #43 moved AHEAD of the gamma/beta correctness block [user]: its
+files (exp/log/trig/erf span kernels) do not overlap the fixes, so
+libstats v2.5.0's NEON path proceeds while the block is designed. If #43
+touches exp_dd/log_dd, the block's gates then run once on the final cores.
+
+| # | Issue | Why here | Effort | New test code | Machines |
+|---|---|---|---|---|---|
+| 0 | ~~#62 macOS build environment~~ DONE 2026-10-16 (K) | recipe; any time, any Mac | small | none | K, M1 |
+| 1 | ~~#43 NEON elementary import~~ DONE 2026-10-12 | libstats v2.5.0 path; no file overlap with 2–10 | frontier/mid | ULP re-gate all tiers | M1 (K, Z re-gate) |
+| 2 | ~~#53 guard harness (bracket check, seam/x=½ symmetry, sign/range, scalar=span, ulp_utils UB)~~ DONE 2026-10-18 (Z; CI green; native M1 owed) | fail-first guards for 3–10; strict known-defect bands, each fix deletes its own | mid | yes — new CI tests | K, CI |
+| 3 | #59 non-FMA DdDivDd floor (+ DdSqrt policy) — DONE 2026-10-18 (Z): DdDivDd floor fixed, DdSqrt floor documented | core primitive; local prescale | small | subnormal rows; capped legs | K capped, CI |
+| 4 | #58 Expm1Dd + #49 one-arg Log1pmxDd (+ #45 after) — DONE 2026-10-19 (Z) | one file, one hazard rule; ungated dd specials get gates | small–mid | test_dd_special gates; rows | K |
+| 5 | #47 beta_p R4 seam; #51 gamma_q −denorm_min — DONE 2026-10-19 (Z; #47's inverse half moved to #55, row 9) | one comparison; one sign clamp | small | #53 symmetry, sign sweep | K, CI tiers |
+| 6 | #56 gamma R1/R2 ridge + #57 Temme z.lo — DONE 2026-10-19 (Z; #57 remainder → #64) | forward before #48; same TU | frontier + small | near-ridge rows | K, M1, Z |
+| 7 | #48 gammainv small-a seeds — DONE 2026-10-19 (Z; bracketed phase) | after #56 | frontier | rows + bracket band | K, M1, Z |
+| 8 | ~~#54 beta gamma-limit slice (+ R2 below 2^59 policy)~~ DONE 2026-10-20 (Z) | forward before #55/#50; new ₂F₁ oracle | frontier | rows b∈[2^58,1e30] | K, M1, Z |
+| 9 | ~~#55 betainv a ≳ 1e17 orientation; #50 tiny b (to a≈2.6e4); #60 betainv gates/contract~~ DONE 2026-10-20 (Z) | inverse after #47/#54; one design pass for orientation, seeds, convergence check | frontier | swap-identity guard, rows, non-circular gate | K, M1, Z |
+| 10 | ~~#52 Bessel tail double rounding~~ DONE 2026-10-20 (Z) | independent; can run parallel to 3–9 | small (fix known) | tail sweep, rows | all tiers |
+| 11 | ~~#61 generator self-check hardening~~ DONE 2026-10-20 (Z) | before regeneration | recipe–mid | generator checks | K |
+| 12 | ~~#53 remainder: regenerate band rows, ACCURACY counts and claims, doc drift, sweep_tiers smoke gap; widen `dd_special_reference.txt`'s large-\|u\| coverage (it comes from gen_gamma_reference.py) and unify test_dd_special's two Log1pmxDd cells at the true worst (row 4 decision (b))~~ DONE 2026-10-20 (Z) | once, after 3–11 | recipe | generators | K, Z (sweep) |
+| 12a | ~~#67 gamma_q R4 small-a (4 ULP vs 1): lgamma(1+a) for a <= 1/2 as centre-2 zone at t = a minus dd log1p(a), private to GammaSmallQ [ADDED 2026-10-20, user]~~ DONE 2026-10-21 (Z) | after 12; independent of 12b | mid (design settled) | certified band rows (fail first); gammainv gates re-measured | K, CI |
+| 12b | ~~#64 gamma R3 Temme tail (3 ULP vs 2): gamma-private dd erfc factor G, refit to ~2^-60 [ADDED 2026-10-20, user]~~ DONE 2026-10-21 (Z) | after 12; independent of 12a (both touch gamma-inl.h: run in sequence) | frontier (fit + budget) | certified x ~ 2a rows (fail first); gammainv gates re-measured | K, CI |
+| 12c | ~~#69 beta R3 Temme tail (4 ULP vs 3): propagate gamma's #57/#64 tail fixes to beta's copy (shared dd G, dd G/(2z), z.lo fold) [ADDED 2026-10-22, user pre-approved on a >3 ULP verdict]~~ DONE 2026-10-22 (Z) | after 12b; touches betainv's forward (log of brk) | frontier | certified R3-tail rows (fail first); betainv ULP + interval gates re-measured | K, CI |
+| 12-T | ~~#82 tooling: T1 residual column + real-error gates, T2 seam registry/audit, T3 shared strata + exact row counts, T4 floor lint, T5 hunt harness, T6 claims check, T7 route census (per-lane region/branch record in a debug build; every route, "unreachable" ones included, shown exercised) [T7 ADDED 2026-10-22, user]; then the hunt campaign (three tiers), each finding filed before 12d [ADDED 2026-10-22, user]~~ DONE 2026-10-24 (Z; T4 is phase 1 only, phases 2–3 are #86, v1.2.0) | before 12d: the fix rows' fail-first gates use it | frontier (design) + mid | annotation pass, gates, generators, CI report | Z, CI |
+| 12d | ~~#70 gamma_q R3 core (3 ULP vs 2) below the cpsi = 36 split: ErfcCoreDd consumed as dd; probe and mark beta's twin core [ADDED 2026-10-22, user; review M-1]~~ DONE 2026-10-24 (Z) | after the tooling assessment; gamma forward first | frontier | certified cpsi ∈ [34, 36) rows (fail first) | CI tiers |
+| 12e | ~~#71 gamma_q R4 subnormal a (3 ULP, no-FMA): prescale GammaSmallQ's assembly [ADDED 2026-10-22, user; review M-2]~~ DONE 2026-10-24 (Z) | after 12d (same TU) | small–mid | subnormal-a rows (fail first on SSE4/SSE2) | CI tiers |
+| 12f | ~~#72 gammainv deep-subnormal targets (5e10 ulp at a ≳ 4.5e3) + double-rounded subnormal results [ADDED 2026-10-22, user; review H-1, M-6]; + #83 gamma_q_inv tiny/subnormal a (9–1633 ULP; hunt campaign; T7 adds the bracket stall at subnormal a and q, 4–35% off) [ADDED 2026-10-22]; + #88 beta_p_inv/beta_q_inv with shape and target both denorm_min (forward value ~0 or ~313× the target; T3 cross stratum) [ADDED 2026-10-24, user]~~ — DONE 2026-10-25 (Z; #72, #83, #88 closed) | after 12d/12e (inverse after forward) | frontier | subnormal p,q × a ∈ [20, 1e6] stratum; deferred:#83, deferred:#72 and deferred:#88 rows (fail first with CORVUS_REF_DEFERRED=1) | CI tiers |
+| 12g | ~~#73 erfinv subnormal input (2 ULP, no-FMA): prescale before ProdLow [ADDED 2026-10-22, user; review M-5]~~ DONE 2026-10-25 (Z) | independent | small | subnormal-input rows (fail first on SSE4/SSE2) | CI tiers |
+| 12h | ~~#74 erfc top subnormal binade (2 ULP vs 1): single rounding of the scaled tail [ADDED 2026-10-22, user; review M-4]~~ DONE 2026-10-25 (Z; dd G chosen over an erratum) | independent | small–mid | dense x ∈ [26.543, 26.6] stratum (fail first) | CI tiers |
+| 12i | ~~#75 i0/i1/i0e/i1e series near \|x\| ≈ 7.4 (2 ULP, no-FMA) [ADDED 2026-10-22, user; review M-3]~~ DONE 2026-10-25 (Z) | independent | mid | dense [6, 8] strata, four functions (fail first on SSE4/SSE2) | CI tiers |
+| 12k | ~~#84 beta gamma-limit slice sliver ν < 20 ≤ s takes the CF at the ridge (391 ULP vs 0) + #85 beta_q R4 near-one post-route 2 ULP vs 1 at τ ≈ 2.5 [ADDED 2026-10-22; hunt campaign]~~ DONE 2026-10-25 (Z) | after 12d (beta R3 core twin); before 12j | frontier (#84 routing) + mid | bit-stepped s = 20 × N ≥ 2^47 stratum; dense τ ≈ 2.5 post-route stratum (fail first) | CI tiers |
+| 12j | ~~#76 contract text and gates: false CR claims, stale text, VERSIONING errata clause [ADDED 2026-10-22, user; review M-6..M-10, M-13..M-15, L-1, L-2, L-6, L-8..L-17, I-1]~~ DONE 2026-10-25 (Z) | last: quotes the final numbers of 12d–12i | recipe | witness rows; gates set to the documented cells | CI |
+| 12l | ~~#90 beta gamma-limit slice gated CR on dev, misses near-ties by 1 ULP: restore the published 1 ULP (not an erratum; also drops gamma R2 complement's erratum label) [ADDED 2026-10-25, user; v1.1.0 Z audit]~~ DONE 2026-10-25 (Z) | after 12j; before R0 | recipe | issue90:witness rows | CI |
+| 13 | #42 lever 1 (per-element cost); weigh #44 first | after 5–9: same region cores; guards protect it | frontier | early-exit lane-mix tests | M1, K, Z |
+| 14 | #45 export span expm1, log1pmx | after 4; off the milestone if it would hold the release | mid (new family) | generator, four gating lists | K, M1, Z |
+| 15 | #31 lgamma table band | beta/gamma consume lgamma | frontier | generator + regen | K, Z, M1 |
+| 16 | ~~#37 erf x86~~ CLOSED 2026-10-16 (K) | premise retired: libstats 2a kept corvus erf on x86 on both ISAs; 2c measured it 3.4× faster than v2.4.1 on Zen 4 | recipe | none | K |
+| 17 | #22 non-gather x86 | after #31/#43; likely slips | frontier | tier audit | K, Z |
+
+Gated, stay in v1.1.0, worked only if the gate opens [DECIDED 2026-10-10,
+user]: #18 (no filed need), #20 (libstats #62), #21 (no filed need; shared
+exp_dd core; #60 touches its contract wording), #19 (need filed; frontier
+oracle; libstats mitigates locally). #28 off every milestone; #44
+unmilestoned research, weighed in #42 lever 1 [user]. SPLIT 2026-10-20
+[user]: rows 2–12j are v1.1.0 (12-T, 12d–12k added 2026-10-22; 12j last); rows 13–17 are v1.2.0 (milestone 7), branched
+off `main` after the v1.1.0 tag (see Status). v1.1.0 release tail: native
+M1 + Kaby Lake runs for rows 2–12c, RELEASING.md checklist, M1 + Zen 4
+tier checks at the freeze head. Moved to v1.2.0: the PERFORMANCE.md
+§4/§8.2 re-run and the libstats pin note (scalar entry points replace
+their deducing wrapper). Scale: the correctness block carries five
+frontier designs (#48, #50/#55, #54, #56).
+
 ## Status [DERIVED] — 2026-10-02
 
 **Session 2026-09-30 (Kaby Lake) closed with:** `main` at `a78eddd` — #42
@@ -917,6 +2569,21 @@ watch. (lgamma zone interval splitting moved to GitHub 2026-08-23: its
 profiling trigger is #30 and the work is #31.)
 
 ## Open Items
+- [DEFERRED until the CMake minimum reaches 3.28, 2026-10-11, user]
+  **Fetched Highway builds unused targets.** Do NOT bump CMake for this
+  alone; fold it into whichever change raises the minimum to 3.28 for
+  its own reasons. The VS-generator (MSVC) build compiles `hwy_test` and
+  `hwy_list_targets`, which corvus never links — Windows CI minutes, and
+  half of the eight D9025 warnings per MSVC build (`overriding '/EHs'
+  with '/EHs-'`). The warning itself is benign, confirmed 2026-10-11:
+  Highway 1.4.0 appends `/GR- /EHs-c- -D_HAS_EXCEPTIONS=0` PRIVATE to
+  its own targets over CMake's default `/EHsc`, nothing leaks into
+  corvus targets, no exception crosses a Highway frame (HWY_ABORT;
+  corvus API `noexcept`), and corvus's `/WX` does not apply to them.
+  Fix at that bump: add `EXCLUDE_FROM_ALL` to the Highway
+  `FetchContent_Declare` (a 3.28 keyword; corvus's minimum is 3.25
+  today). Check that `hwy`/`hwy_contrib` still build as dependencies and
+  the `install` gating is unchanged.
 - [DONE 2026-09-19, travel session; PR #39 squash-merged `b222046`, all
   legs green, #36 closed] **#36 Windows configure-time
   guard** — `cmake/ToolchainGuard.cmake`. Decisions [user]: mingw GCC with

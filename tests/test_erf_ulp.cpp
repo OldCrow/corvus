@@ -16,17 +16,18 @@ using corvus_test::UlpDiff;
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char* const* argv) {
   // Before doing any work: a wrong tier makes every number below meaningless.
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   const char* path = argc > 1 ? argv[1] : "tests/data/erf_reference.txt";
   const auto rows = corvus_test::LoadRef(path, 2, 10000);
 
-  std::vector<double> in, want;
+  std::vector<double> in, want, res;
   for (const auto& row : rows) {
     in.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
     want.push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
+    res.push_back(corvus_test::Residual(row, 0));
   }
 
   std::vector<double> got(in.size());
@@ -46,7 +47,9 @@ int main(int argc, char** argv) {
   uint64_t max_ulp = 0;
   size_t worst = 0;
   size_t over_half = 0;  // count of results differing from correctly-rounded
+  corvus_test::RealMax real{};
   for (size_t i = 0; i < in.size(); ++i) {
+    real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
     // #14 N6: a reference value of exactly 0.0 must be checked bit-exact --
     // UlpDiff maps +0 and -0 to the same point (distance 0; see
     // ulp_utils.h's policy comment), so it cannot see a sign regression
@@ -77,11 +80,17 @@ int main(int argc, char** argv) {
                 std::to_string(got[worst]).c_str(), std::to_string(want[worst]).c_str());
   }
 
+  // #82 T1: real error against the contract ceiling and the regression pin.
+  const int real_rc = corvus_test::CheckReal(path, "erf", "all", 1, real);
+  std::printf("worst real: x=%.17g  got=%.17g  want=%.17g\n", in[real.worst],
+              got[real.worst], want[real.worst]);
+
   if (max_ulp > 1) {
     std::fprintf(stderr, "FAIL: max ULP %llu exceeds bound 1\n",
                  static_cast<unsigned long long>(max_ulp));
     return 1;
   }
-  std::printf("PASS: max ULP <= 1\n");
+  if (real_rc != 0) return 1;
+  std::printf("PASS: max ULP <= 1; real error within contract and pin\n");
   return 0;
 }

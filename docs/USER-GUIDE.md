@@ -38,7 +38,7 @@ gap, wherever you happen to be. Near 1.0 it is about `2.2e-16`; near 1000 it is
 about `1.1e-13`; near `1e16` it is `2` — by that magnitude, doubles cannot
 represent odd numbers at all.
 
-So "**max 1 ULP**" means the returned value is at most one neighbouring-double
+So <!-- claim: none --> "**max 1 ULP**" means the returned value is at most one neighbouring-double
 step away from the true answer. That is very close to the best possible — you
 cannot do better than landing on one of the two doubles nearest the truth.
 
@@ -88,33 +88,33 @@ Grouped by what you would use them for.
 
 | function | computes | typical bound |
 |---|---|---|
-| `erf`, `erfc` | the error function and its complement | 1 ULP (2 in erfc's far tail) |
-| `erfinv`, `erfcinv` | their inverses | 1 ULP |
+| `erf`, `erfc` | the error function and its complement | <!-- claim: erf erfc.core --> 1 ULP (<!-- claim: erfc.tail --> 2 ULP in erfc's far tail) |
+| `erfinv`, `erfcinv` | their inverses | <!-- claim: erfinv --> 1 ULP |
 
 **Gamma, chi-squared, Poisson work**
 
 | function | computes | typical bound |
 |---|---|---|
-| `gamma_p`, `gamma_q` | regularized incomplete gamma, lower and upper | 2 ULP (`gamma_q`: 4 in one band) |
-| `gamma_p_inv`, `gamma_q_inv` | their inverses | 1 ULP |
-| `lgamma` | log of the gamma function | 1 ULP |
-| `digamma`, `trigamma` | first and second derivatives of `lgamma` | 1 ULP |
+| `gamma_p`, `gamma_q` | regularized incomplete gamma, lower and upper | <!-- claim: gamma.R3.dir --> 2 ULP (<!-- claim: gamma.R4 --> 1 ULP in the small-a band since v1.1.0) |
+| `gamma_p_inv`, `gamma_q_inv` | their inverses | <!-- claim: gammainv --> 1 ULP |
+| `lgamma` | log of the gamma function | <!-- claim: lgamma.pos lgamma.neg --> 1 ULP |
+| `digamma`, `trigamma` | first and second derivatives of `lgamma` | <!-- claim: digamma trigamma --> 1 ULP |
 
 **Beta, Student's t, F, binomial work**
 
 | function | computes | typical bound |
 |---|---|---|
-| `beta_p`, `beta_q` | regularized incomplete beta, lower and upper | 3 ULP |
-| `beta_p_inv`, `beta_q_inv` | their inverses | 1 ULP |
-| `lbeta` | log of the beta function | correctly rounded |
+| `beta_p`, `beta_q` | regularized incomplete beta, lower and upper | <!-- claim: beta.R3.dir --> 3 ULP |
+| `beta_p_inv`, `beta_q_inv` | their inverses | <!-- claim: betainv --> 1 ULP |
+| `lbeta` | log of the beta function | <!-- claim: lbeta.relative --> 1 ULP |
 
 **Circular / von Mises work**
 
 | function | computes | typical bound |
 |---|---|---|
-| `i0`, `i1` | modified Bessel functions, orders 0 and 1 | 1 ULP |
-| `i0e`, `i1e` | the same, scaled by `exp(-|x|)` | 1 ULP |
-| `cos`, `sin` | cosine and sine, the FULL double range | 1 ULP |
+| `i0`, `i1` | modified Bessel functions, orders 0 and 1 | <!-- claim: bessel --> 1 ULP |
+| `i0e`, `i1e` | the same, scaled by `exp(-|x|)` | <!-- claim: bessel --> 1 ULP |
+| `cos`, `sin` | cosine and sine, the FULL double range | <!-- claim: trig --> 1 ULP |
 
 `cos`/`sin` have no domain cutoff: an argument of 1e300 is reduced
 in-vector (no per-lane libm fallback), and the 1 ULP bound holds through
@@ -127,9 +127,9 @@ nothing to guard.
 
 | function | computes | typical bound |
 |---|---|---|
-| `exp` | e^x, overflow and gradual underflow at the correct thresholds | correctly rounded (1 ULP in the subnormal band) |
-| `log` | natural logarithm | correctly rounded |
-| `log1p` | log(1 + x) without forming 1 + x | correctly rounded |
+| `exp` | e^x, overflow and gradual underflow at the correct thresholds | <!-- claim: exp.normal --> correctly rounded (<!-- claim: exp.subnormal --> 1 ULP in the subnormal band) |
+| `log` | natural logarithm | <!-- claim: log --> correctly rounded |
+| `log1p` | log(1 + x) without forming 1 + x | <!-- claim: log --> correctly rounded |
 
 "Correctly rounded" here means every row of the audited reference sets
 matches the correctly rounded result exactly (the theoretical exception

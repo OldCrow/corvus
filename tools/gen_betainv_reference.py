@@ -112,6 +112,7 @@ import gen_beta_data as gb          # noqa: E402  region cores, B_GL, T_RIDGE, Z
 import gen_beta_reference as gbr    # noqa: E402  small_side_direct (audited oracle)
 import gen_betainv_data as bid      # noqa: E402  seed_for, betainv_forward, r1_value_mp, ...
 from refgen_common import round_to_double  # noqa: E402  single-rounding mpf->double (#13 N14)
+from refgen_common import cap_process_memory  # noqa: E402  per-worker memory cap
 
 SEED = 20260810  # fixed seed for reproducible point-set generation --
                   # changing it changes the RNG draw sequence, which
@@ -2273,6 +2274,816 @@ def main():
     return 0
 
 
+# ============================================================================
+# Part 14: row-9 families (F55H / F55T / F50) and backward-error intervals.
+#
+# ORACLE (independent of mp.betainc, small_side_direct and the Temme/CF
+# routes): the positive-term 2F1 closed form
+#     I_z(s, N) = z^s (1-z)^N / (s B(s, N)) * 2F1(s+N, 1; s+1; z)
+# (gen_beta_reference._gl54_J), always evaluated on the SMALLER of x / 1-x
+# (z <= 1/2), so P = J, Q = 1-J for x <= 1/2 and Q = J, P = 1-J above.  All
+# series terms are positive (no cancellation inside the sum).  Error model
+# per evaluation at working dps: |err(J)| = |err(1-J)| <= max(J,1-J) *
+# 10^-(dps - cancel - 3), cancel = digits lost in lnB = lnG(s)+lnG(N)-lnG(s+N)
+# (log10 of N ln N, or of |ln s| for tiny s).  A sign of F(x)-tau is accepted
+# only when |F-tau| > 4*err; otherwise dps doubles, up to 2000, then the
+# row is DECLINED.  check=True additionally re-evaluates at 2*dps and
+# requires the same sign and agreement of the two differences.  Where
+# z*(s+N) exceeds IND_CAP_TERMS the series is too long to sum; the sign is
+# then inferred from monotonicity of F against two light points
+# (xl = cap/(a+b) and xh = 1-xl) or the row is declined.
+# ============================================================================
+ROW9_SEED = 909
+IND_CAP_TERMS = 3.0e4
+IND_DPS_MAX = 2000
+CKPT_ROW9_PATH = os.path.join(tempfile.gettempdir(),
+                              f"corvus_betainv_ref_ckpt_row9_{ROW9_SEED}.tsv")
+CKPT_BACK_PATH = os.path.join(tempfile.gettempdir(),
+                              f"corvus_betainv_ref_ckpt_backward_{ROW9_SEED}.tsv")
+BACKWARD_PATH = os.path.join(REPO, "tests", "data", "betainv_backward_reference.txt")
+DATA_P_PATH = os.path.join(REPO, "tests", "data", "betainv_p_reference.txt")
+DATA_Q_PATH = os.path.join(REPO, "tests", "data", "betainv_q_reference.txt")
+KAPPA_CUT_TEST = 2.0 ** 18       # tests/test_betainv_ulp.cpp kKappaCut
+KAPPA_MAX_PAR = 1.0e12           # kKappaMaxPar
+HUGE_NU_TEST = 1.0e31            # kHugeNu
+IMAX_BITS = struct.unpack("<q", struct.pack("<d", 1.0))[0]
+ORACLE_STATS = {"evals": 0, "dps_max": 0, "xcheck_gl54b": 0, "xcheck_gamma": 0,
+                "xcheck_small_side": 0, "xcheck_gamma_indecisive": 0, "xcheck_small_side_unavailable": 0,
+                "xcheck_worst": 0.0}
+
+
+class Decline(Exception):
+    pass
+
+
+def _bits_of(x):
+    return struct.unpack("<q", struct.pack("<d", x))[0]
+
+
+def _dbl_of(i):
+    return struct.unpack("<d", struct.pack("<q", i))[0]
+
+
+def _ind_split(a, b, x):
+    """(s, N, z, direct): the closed form's orientation for (a, b, x)."""
+    if x <= 0.5:
+        return a, b, x, True
+    with mp.workdps(60):
+        z = 1 - mp.mpf(x)          # exact: x is a double >= 1/2 (or 1-2^-54)
+    return b, a, z, False
+
+
+def _ind_cancel(s, N):
+    mag = 10.0
+    for v in (s, N):
+        if v > 0:
+            mag = max(mag, abs(math.log(v)))
+    if N > 1.0:
+        mag = max(mag, N * math.log(N))
+    if s > 1.0:
+        mag = max(mag, s * math.log(s))
+    return int(math.ceil(math.log10(mag))) + 1
+
+
+def _ind_eval(a, b, x, dps):
+    """(P, Q, err_abs) at working dps -- a single evaluation, no checks."""
+    s, N, z, direct = _ind_split(a, b, x)
+    if float(z) * (s + N) > IND_CAP_TERMS:
+        raise Decline("heavy")
+    J = gbr._gl54_J(s, N, z, dps)
+    ORACLE_STATS["evals"] += 1
+    ORACLE_STATS["dps_max"] = max(ORACLE_STATS["dps_max"], dps)
+    with mp.workdps(dps):
+        K = 1 - J
+        err = max(J, K) * mp.mpf(10) ** (-(dps - _ind_cancel(s, N) - 3))
+    return (J, K, err) if direct else (K, J, err)
+
+
+def _is_light(a, b, x):
+    z = _ind_split(a, b, x)[2]
+    return float(z) * (a + b) <= IND_CAP_TERMS
+
+
+def _light_points(a, b):
+    """(xl, xh): largest light double <= 1/2 and smallest light double >=
+    1/2 (xh None when no double above 1/2 is light)."""
+    cap = IND_CAP_TERMS
+    xl = min(0.5, 0.9 * cap / (a + b))
+    k = math.floor(0.9 * cap / ((a + b) * 2.0 ** -53))
+    xh = None
+    if k >= 1:
+        xh = 1.0 - min(k, 2 ** 52) * 2.0 ** -53
+    return xl, xh
+
+
+class SignCtx:
+    def __init__(self, a, b, side):
+        self.a, self.b, self.side = a, b, side
+        self.dps = 60
+        self.cache = {}
+
+
+def _sign_light(ctx, x, tau, check):
+    """sign(F(x) - tau) at a light x; raises Decline when uncertain."""
+    a, b, side = ctx.a, ctx.b, ctx.side
+    dps = ctx.dps
+    while dps <= IND_DPS_MAX:
+        P, Q, err = _ind_eval(a, b, x, dps)
+        with mp.workdps(dps):
+            F = P if side == "p" else Q
+            D = F - tau
+            ok = abs(D) > 4 * err
+            sgn = 1 if D > 0 else -1
+        if ok and check:
+            P2, Q2, err2 = _ind_eval(a, b, x, 2 * dps)
+            with mp.workdps(2 * dps):
+                D2 = (P2 if side == "p" else Q2) - tau
+                ok = (abs(D2) > 4 * err2 and (D2 > 0) == (sgn > 0)
+                      and abs(D2 - D) <= 8 * (err + err2))
+        if ok:
+            ctx.dps = max(60, dps)
+            return sgn
+        dps *= 2
+    raise Decline(f"sign uncertain by dps {IND_DPS_MAX}")
+
+
+def sign_F_minus(ctx, x, tau, check=False):
+    """sign(F(x) - tau), F = P (side p) or Q (side q); x a double, or an
+    mpf strictly inside (0,1).  Exact at x in {0,1}.  Result in {-1,0,+1}
+    (0 only at the exact endpoints)."""
+    side = ctx.side
+    if isinstance(x, float):
+        if x <= 0.0:
+            Fx = mp.mpf(0) if side == "p" else mp.mpf(1)
+            return (Fx > tau) - (Fx < tau)
+        if x >= 1.0:
+            Fx = mp.mpf(1) if side == "p" else mp.mpf(0)
+            return (Fx > tau) - (Fx < tau)
+    key = (x if isinstance(x, float) else x._mpf_, tau._mpf_, check)
+    hit = ctx.cache.get(key)
+    if hit is not None:
+        return hit
+    a, b = ctx.a, ctx.b
+    if _is_light(a, b, x):
+        r = _sign_light(ctx, x, tau, check)
+    else:
+        # heavy: monotone inference from the two light points
+        inc = (side == "p")
+        xl, xh = _light_points(a, b)
+        vl = sign_F_minus(ctx, xl, tau, check)
+        r = None
+        if (inc and vl > 0) or ((not inc) and vl < 0):
+            r = vl                  # x > xl: F(x) >= F(xl) (P) / <= (Q)
+        elif xh is not None:
+            vh = sign_F_minus(ctx, xh, tau, check)
+            if (inc and vh < 0) or ((not inc) and vh > 0):
+                r = vh              # x < xh: F(x) <= F(xh) (P) / >= (Q)
+        if r is None:
+            raise Decline("heavy x not bounded by light points")
+    ctx.cache[key] = r
+    return r
+
+
+# ----------------------------------------------------------------------------
+# Row certification on the independent oracle (Task 1).  Bit-pattern
+# bisection over all doubles in (0,1) finds the adjacent pair (x_l, x_h)
+# with g(x_l) < 0 < g(x_h), g = +/-(F - sigma) (> 0 iff x is above the
+# root); the nearest double to the root is picked from the exact midpoint;
+# the half-ulp midpoints of that double are then re-checked with check=True
+# (dps d vs 2d).  yd = 0.0 / 1.0 are certified one-sided against 2^-1075 /
+# 1-2^-54.  Marker N throughout, P when kappa(yd) > 2^52 and the
+# backward-error contract holds (same split as certify_row).
+# ----------------------------------------------------------------------------
+def certify_ind(a, b, sigma, side):
+    ctx = SignCtx(a, b, side)
+    inc = (side == "p")
+    sig_m = mp.mpf(sigma)
+
+    def g(x, check=False):
+        s_ = sign_F_minus(ctx, x, sig_m, check)
+        return s_ if inc else -s_
+
+    x_top = 1.0 - 2.0 ** -53
+    if g(x_top) < 0:
+        # root in (1-2^-53, 1): nearest double by the 1-2^-54 midpoint
+        with mp.workdps(60):
+            m = 1 - mp.mpf(2) ** -54
+        yd = x_top if g(m) > 0 else 1.0
+    elif g(5e-324) > 0:
+        m = mp.mpf(2) ** -1075
+        yd = 0.0 if g(m) > 0 else 5e-324
+    else:
+        ilo, ihi = 1, _bits_of(x_top)       # g(ilo) < 0 <= ... < g(ihi) invariant
+        while ihi - ilo > 1:
+            mid = (ilo + ihi) // 2
+            if g(_dbl_of(mid)) > 0:
+                ihi = mid
+            else:
+                ilo = mid
+        xl, xh = _dbl_of(ilo), _dbl_of(ihi)
+        with mp.workdps(60):
+            m = (mp.mpf(xl) + mp.mpf(xh)) / 2
+        yd = xl if g(m) > 0 else xh
+    bracket_check(ctx, sig_m, inc, yd)
+    return {"yd": yd, "marker": "N", "method": "ind-bracket", "dps": ctx.dps}
+
+
+def bracket_check(ctx, sig_m, inc, yd):
+    """Certified-sign check of the half-ulp midpoints of yd (raises Decline
+    when either side fails); one-sided at yd = 0.0 / 1.0."""
+    a, b = ctx.a, ctx.b
+
+    def g(x):
+        s_ = sign_F_minus(ctx, x, sig_m, True)
+        return s_ if inc else -s_
+
+    if yd > 0.0:
+        lo_d = math.nextafter(yd, -math.inf)
+        with mp.workdps(60):
+            lo_mid = (mp.mpf(yd) + mp.mpf(lo_d)) / 2
+        if not g(lo_mid) < 0:
+            raise Decline("bracket: lower midpoint not below root")
+    if yd < 1.0:
+        hi_d = math.nextafter(yd, math.inf)
+        with mp.workdps(60):
+            hi_mid = (mp.mpf(yd) + mp.mpf(hi_d)) / 2
+        if not g(hi_mid) > 0:
+            raise Decline("bracket: upper midpoint not above root")
+
+
+def finish_marker(a, b, sigma, side, res):
+    """Plateau split (same kappa rule as certify_row): kappa(yd) > 2^52 ->
+    marker P, checked against the backward-error contract on the oracle."""
+    yd = res["yd"]
+    if not (0.0 < yd < 1.0):
+        return res
+    kappa = compute_kappa(a, b, yd, sigma, dps=60)
+    if kappa > PLATEAU_KAPPA_CUT:
+        ctx = SignCtx(a, b, side)
+        sig_m = mp.mpf(sigma)
+        u2 = mp.mpf(2) * mp.mpf(ulp_of(sigma))
+        if not (sign_F_minus(ctx, yd, sig_m - u2, check=True) < 0
+                or sign_F_minus(ctx, yd, sig_m + u2, check=True) > 0):
+            res = dict(res, marker="P", method="ind-plateau")
+        # else: kappa at the double is not the kappa at the root (the whole
+        # transition sits inside one ulp of yd); same fall-through as
+        # certify_row -- the half-ulp bracket already proved the row (N).
+    res["kappa"] = float(kappa)
+    return res
+
+
+def _gamma_limit_F(a, b, x, side, dps=80):
+    """F = P or Q from the gamma limit (mp.gammainc, shifted t of #54):
+    the small side is computed directly, the other as 1 - small."""
+    small, which = gbr.gamma_corner_value_signed(a, b, x, dps)
+    with mp.workdps(dps):
+        P = small if which == "P" else 1 - small
+        Q = small if which == "Q" else 1 - small
+        return (P if side == "p" else Q), small
+
+
+def _mid_points(yd):
+    out = []
+    for d in (-math.inf, math.inf):
+        n_ = math.nextafter(yd, d)
+        if 0.0 < n_ < 1.0 or (n_ == 1.0 and d > 0):
+            with mp.workdps(60):
+                out.append((mp.mpf(yd) + mp.mpf(n_)) / 2)
+    return out
+
+
+def xcheck_row(a, b, sigma, side, yd, family):
+    """Independent cross-checks of the certified decision.
+    max(a,b) >= 1e12 (F55H, a > b): (i) at both half-ulp midpoints of yd the
+    sign of F - sigma from the gamma limit (mp.gammainc, shifted t) must
+    equal the oracle's certified sign unless |F-sigma| < 1e-6 sigma (limit
+    not decisive; counted); (ii) where the small side is >= 1e-400, values
+    at yd (or 1-2^-53) agree between the oracle at doubled dps and
+    gen_beta_reference.gl54b_oracle to 1e-30 relative.  max < 1e12: signs
+    of the audited small_side_direct at lo_d/hi_d must straddle sigma when
+    it answers."""
+    inc = (side == "p")
+    sig_m = mp.mpf(sigma)
+    if max(a, b) >= 1.0e12:
+        if not a > b:
+            raise Decline("xcheck: huge-second not supported")
+        ctx = SignCtx(a, b, side)
+        for m in _mid_points(yd):
+            Fg, small = _gamma_limit_F(a, b, m, side)
+            with mp.workdps(80):
+                dg = Fg - sig_m
+                decisive = abs(dg) > mp.mpf("1e-6") * sig_m
+                sg = 1 if dg > 0 else -1
+            ORACLE_STATS["xcheck_gamma"] += 1
+            if not decisive:
+                ORACLE_STATS["xcheck_gamma_indecisive"] += 1
+                continue
+            if sign_F_minus(ctx, m, sig_m, True) != sg:
+                raise Decline("xcheck: gamma-limit sign disagrees")
+        xv = yd if 0.5 <= yd < 1.0 else math.nextafter(1.0, 0.0)
+        Fg, small = _gamma_limit_F(a, b, xv, side)
+        if small > mp.mpf("1e-400") and small != 0:
+            P_i, Q_i, _w, _e, failed = gbr.gl54b_oracle(a, b, xv)
+            if failed:
+                raise Decline("xcheck: gl54b_oracle declined")
+            Pm, Qm, _d = ind_pq_checked(a, b, xv)
+            ORACLE_STATS["xcheck_gl54b"] += 1
+            for u_, v_ in ((Pm, P_i), (Qm, Q_i)):
+                rel = abs(u_ - v_) / abs(v_) if v_ != 0 else abs(u_)
+                ORACLE_STATS["xcheck_worst"] = max(ORACLE_STATS["xcheck_worst"],
+                                                   float(rel))
+                if rel > mp.mpf("1e-30"):
+                    raise Decline(f"xcheck: gl54b disagrees rel={float(rel):.2e}")
+        return
+    lo_d = math.nextafter(yd, -math.inf)
+    hi_d = math.nextafter(yd, math.inf)
+    try:
+        vals = []
+        for x in (lo_d, hi_d):
+            if not 0.0 < x < 1.0:
+                vals.append(None)
+                continue
+            P, Q, which, esc, failed = full_forward(a, b, x)
+            if failed:
+                raise RuntimeError("failed")
+            vals.append((P if side == "p" else Q) - sig_m)
+    except Exception:
+        ORACLE_STATS["xcheck_small_side_unavailable"] += 1
+        return
+    ORACLE_STATS["xcheck_small_side"] += 1
+    vl, vh = vals
+    if vl is not None and ((vl > 0) if inc else (vl < 0)):
+        raise Decline("xcheck: small_side_direct puts lo_d above the root")
+    if vh is not None and ((vh < 0) if inc else (vh > 0)):
+        raise Decline("xcheck: small_side_direct puts hi_d below the root")
+
+
+def ind_pq_checked(a, b, x, digits=50):
+    """(P, Q, dps): values with doubled-dps agreement (1e-40 relative on
+    both P and Q), dps escalated from a digits-aware start."""
+    s, N, z, direct = _ind_split(a, b, x)
+    dps = 50 + _ind_cancel(s, N) + 50
+    while dps <= IND_DPS_MAX * 3:
+        P, Q, err = _ind_eval(a, b, x, dps)
+        with mp.workdps(dps):
+            Lp = float("inf") if P <= 0 else float(-mp.log10(P))
+            Lq = float("inf") if Q <= 0 else float(-mp.log10(Q))
+        if min(Lp, Lq) + _ind_cancel(s, N) + digits <= dps:
+            P2, Q2, err2 = _ind_eval(a, b, x, 2 * dps)
+            rel = max(abs(P - P2) / abs(P2) if P2 != 0 else mp.mpf(0),
+                      abs(Q - Q2) / abs(Q2) if Q2 != 0 else mp.mpf(0))
+            if rel <= mp.mpf("1e-40"):
+                return P2, Q2, dps
+        dps *= 2
+    raise Decline("ind_pq_checked: no dps agreement")
+
+
+# ----------------------------------------------------------------------------
+# Row-9 point sets.  F55H (#55 huge a, root > 1/2), F55T (#55 both tiny,
+# skewed), F50 (#50 moderate a, tiny b, tiny p; q side by the swap identity).
+# ----------------------------------------------------------------------------
+def _lu(rng, lo, hi):
+    return 10.0 ** rng.uniform(lo, hi)
+
+
+def _bump(d, key):
+    d[key] = d.get(key, 0) + 1
+
+
+def gen_row9_points(rng, n_h=340, n_t=240, n_50=150, skips=None):
+    skips = skips if skips is not None else {}
+    pts, seen = [], set()
+
+    def add(a, b, s, side, tag):
+        if not (math.isfinite(a) and math.isfinite(b) and math.isfinite(s)
+                and a > 0 and b > 0 and 0.0 < s < 1.0):
+            _bump(skips, "bad-sigma")
+            return
+        key = (a, b, s, side)
+        if key in seen:
+            _bump(skips, "duplicate")
+            return
+        seen.add(key)
+        pts.append((a, b, s, side, tag))
+
+    # F55H: half the draws pick the ROOT first (x = 1 - t/a, t in [1, 700],
+    # sigma derived from the oracle), half pick sigma (log-uniform tails;
+    # most of those roots round to 1.0 or 1-2^-53).  Roots <= 1/2 are
+    # filtered after certification.
+    for _ in range(n_h):
+        a = _lu(rng, 16, 20)
+        b = _lu(rng, -300, math.log10(50.0))
+        side = rng.choice(("p", "q"))
+        if rng.random() < 0.5:
+            t = _lu(rng, 0.0, 2.85)
+            x = 1.0 - t / a
+            if not (0.5 < x < 1.0):
+                _bump(skips, "F55H x-degenerate")
+                continue
+            try:
+                P, Q, _d = ind_pq_checked(a, b, x)
+            except Decline:
+                _bump(skips, "F55H sigma-derivation declined")
+                continue
+            s = float(P if side == "p" else Q)
+            if not (1e-300 <= s < 1.0):
+                _bump(skips, "F55H derived sigma out of (1e-300,1)")
+                continue
+        else:
+            if side == "p" or rng.random() < 0.75:
+                s = _lu(rng, -300, math.log10(0.5) if side == "p" else -9.0)
+            else:
+                s = rng.uniform(0.01, 0.99)
+        add(a, b, s, side, "F55H")
+    # F55T
+    for _ in range(n_t):
+        a = _lu(rng, -300, -16)
+        U = rng.uniform(33.0, 120.0)
+        b = a * 10.0 ** (-U)
+        if b == 0.0:
+            _bump(skips, "F55T b underflow")
+            continue
+        s = _lu(rng, -300, math.log10(0.5))
+        add(a, b, s, rng.choice(("p", "q")), "F55T")
+    # F50: p side (a,b,p); q side the swap-identity mirror (b,a,p)
+    for _ in range(n_50):
+        a = _lu(rng, math.log10(20.0), math.log10(2e4))
+        b = _lu(rng, -200, -12)
+        p = _lu(rng, -300, math.log10(0.1 * b))
+        add(a, b, p, "p", "F50")
+        add(b, a, p, "q", "F50")
+    return pts
+
+
+def _row9_worker(args):
+    idx, a, b, sigma, side, tag = args
+    snap = dict(ORACLE_STATS)
+    t0 = time.time()
+    try:
+        res = certify_ind(a, b, sigma, side)
+        if tag == "F55H" and not res["yd"] > 0.5:
+            raise Decline("root <= 1/2 (family filter)")
+        res = finish_marker(a, b, sigma, side, res)
+        xcheck_row(a, b, sigma, side, res["yd"], tag)
+        out = [hexd(res["yd"]), res["marker"], res["method"]]
+    except Decline as e:
+        out = ["FAILED", str(e)]
+    except Exception as e:             # an unexpected failure is a decline too
+        out = ["FAILED", f"exception:{type(e).__name__}:{e}"[:120]]
+    delta = {k: ORACLE_STATS[k] - snap[k] for k in ORACLE_STATS
+             if k not in ("dps_max", "xcheck_worst")}
+    delta["dps_max"] = ORACLE_STATS["dps_max"]
+    delta["xcheck_worst"] = ORACLE_STATS["xcheck_worst"]
+    return idx, out, delta, time.time() - t0
+
+
+def _points_sig(pts, extra=""):
+    dig = hashlib.sha256()
+    for a, b, sigma, side, _tag in pts:
+        dig.update(struct.pack("<QQQB", as_bits(a), as_bits(b),
+                               as_bits(sigma), 0 if side == "p" else 1))
+    return f"v1-{dig.hexdigest()[:16]} SEED={ROW9_SEED} N={len(pts)}{extra}"
+
+
+def _run_pool(tasks, worker, workers, ckpt_fh):
+    import concurrent.futures as cf
+    agg = {}
+    # Each worker caps its own memory: one extreme-shape oracle can allocate
+    # gigabytes faster than anything outside it can react (Z, 2026-10-25).
+    with cf.ProcessPoolExecutor(max_workers=workers,
+                                initializer=cap_process_memory) as ex:
+        futs = [ex.submit(worker, t) for t in tasks]
+        n = 0
+        for fu in cf.as_completed(futs):
+            idx, out, delta, dt = fu.result()
+            append_checkpoint(ckpt_fh, idx, out)
+            for k, v in delta.items():
+                if k in ("dps_max", "xcheck_worst"):
+                    agg[k] = max(agg.get(k, 0), v)
+                else:
+                    agg[k] = agg.get(k, 0) + v
+            n += 1
+            if n % 20 == 0:
+                status(f"  ... {n}/{len(tasks)} done")
+    return agg
+
+
+def _append_rows_crlf(path, lines):
+    """Append lines with CRLF endings, preserving every existing byte."""
+    with open(path, "rb") as f:
+        raw = f.read()
+    if raw and not raw.endswith(b"\r\n"):
+        raise RuntimeError(f"{path}: not CRLF-terminated")
+    with open(path, "wb") as f:
+        f.write(raw + b"".join((ln + "\r\n").encode("ascii") for ln in lines))
+
+
+def negative_controls_ind():
+    """Four one-ulp-perturbed certified rows from the new certifier; each
+    must be REJECTED by the half-ulp bracket check."""
+    cases = [(100.0, 1e-15, 3e-40, "p"), (1e-15, 100.0, 3e-40, "q"),
+             (3e17, 2.5, None, "p"), (1e-30, 1e-80, 1e-10, "p")]
+    rejected = 0
+    for a, b, s, side in cases:
+        if s is None:
+            P, Q, _ = ind_pq_checked(a, b, 1.0 - 1e-15)
+            s = float(P if side == "p" else Q)
+        res = certify_ind(a, b, s, side)
+        ctx = SignCtx(a, b, side)
+        sig_m = mp.mpf(s)
+        bad = math.nextafter(res["yd"], math.inf if res["yd"] < 1.0 else -math.inf)
+        try:
+            bracket_check(ctx, sig_m, side == "p", bad)
+            status(f"ind negative control a={a:.3e} b={b:.3e}: ACCEPTED (FATAL BUG)")
+        except Decline:
+            rejected += 1
+            status(f"ind negative control a={a:.3e} b={b:.3e}: REJECTED (correct)")
+    return rejected == len(cases)
+
+
+def row9_append(workers=10):
+    t_all = time.time()
+    if not negative_controls():
+        print("\nFATAL: legacy negative control ACCEPTED. Aborting.", file=sys.stderr)
+        return 2
+    if not negative_controls_ind():
+        print("\nFATAL: row9 negative control ACCEPTED. Aborting.", file=sys.stderr)
+        return 2
+    status("negative controls: all rejected (correct).")
+
+    rng = random.Random(ROW9_SEED)
+    skips = {}
+    pts = gen_row9_points(rng, skips=skips)
+    status(f"row9 point set: {len(pts)} points; generation skips {skips}")
+    sig = _points_sig(pts)
+    done_map = load_checkpoint(CKPT_ROW9_PATH, sig)
+    existing_sig = None
+    if os.path.exists(CKPT_ROW9_PATH):
+        with open(CKPT_ROW9_PATH, "r") as f0:
+            existing_sig = f0.readline().strip()
+    mode = "a" if existing_sig == sig else "w"
+    status(f"row9 checkpoint: {len(done_map)}/{len(pts)} done")
+    todo = [(i, a, b, s, side, tag) for i, (a, b, s, side, tag) in enumerate(pts)
+            if i not in done_map]
+    agg = {}
+    with open(CKPT_ROW9_PATH, mode) as fh:
+        if mode == "w":
+            fh.write(sig + "\n")
+            fh.flush()
+        if todo:
+            agg = _run_pool(todo, _row9_worker, workers, fh)
+    status(f"oracle stats this run: {agg}")
+    done_map = load_checkpoint(CKPT_ROW9_PATH, sig)
+
+    rows = {"p": [], "q": []}
+    table = {}
+    declines = {}
+    for i, (a, b, s, side, tag) in enumerate(pts):
+        f = done_map[i]
+        if f[0] == "FAILED":
+            _bump(declines, (tag, side, f[1][:80]))
+            _bump(table, (tag, side, "declined"))
+            continue
+        yd, marker = float.fromhex(f[0]), f[1]
+        rows[side].append((a, b, s, yd, marker))
+        _bump(table, (tag, side, marker))
+    for k in sorted(table):
+        status(f"  {k[0]} side={k[1]} {k[2]}: {table[k]}")
+    for k, v in sorted(declines.items()):
+        status(f"  DECLINE {k}: {v}")
+
+    # splice (skip rows whose (a,b,sigma) already exist; CRLF preserved)
+    for path, side in ((DATA_P_PATH, "p"), (DATA_Q_PATH, "q")):
+        with open(path, "rb") as f:
+            have = {tuple(ln.split()[:3]) for ln in
+                    f.read().decode("ascii").splitlines() if ln.strip()}
+        add = []
+        for a, b, s, yd, marker in rows[side]:
+            k3 = (hexd(a), hexd(b), hexd(s))
+            if k3 in have:
+                continue
+            have.add(k3)
+            add.append(f"{k3[0]} {k3[1]} {k3[2]} {hexd(yd)} {marker}")
+        _append_rows_crlf(path, add)
+        status(f"appended {len(add)} rows to {path}")
+    status(f"row9-append runtime: {time.time() - t_all:.1f}s")
+    return 0
+
+
+# ============================================================================
+# Part 15: --backward-intervals.  For every row carrying the backward-error
+# contract, the set of DOUBLES x in [0,1] with |F(x) - sigma| <= ulp(sigma)
+# (F the TRUE forward, P for side 0 / Q for side 1) as [xlo, xhi].
+# Selection mirrors tests/test_betainv_ulp.cpp: marker P always; otherwise
+# non-B rows outside the deep-small and huge-nu buckets with max(a,b) <
+# 1e12 and LogKappa (libm lgamma, double, on the caller's (a,b,x) with
+# sigma = min(s,1-s)) > ln 2^18.  Rows within 1.0 of the cut in log are also
+# tested with the exact compute_kappa and kept when EITHER says > 2^18, so
+# libm differences cannot drop a row (extra rows are harmless to the test).
+#
+# Search: exponential gallop from the stored yd in the bit-pattern order of
+# doubles (monotone predicate), then bisection; F from the Part 14 oracle.
+# Result verified with certified signs (dps d vs 2d) at the two boundary
+# doubles and their outward neighbours; any failing sign (not certifiable by
+# dps 2000) declines the row.
+# ============================================================================
+def _logkappa_dbl(a, b, y, s):
+    if not (0.0 < y < 1.0) or not (s > 0.0):
+        return -1e300
+    ln_f = ((a - 1.0) * math.log(y) + (b - 1.0) * math.log1p(-y)
+            - (math.lgamma(a) + math.lgamma(b) - math.lgamma(a + b)))
+    return math.log(s) - math.log(y) - ln_f
+
+
+def backward_contract(a, b, s, x, marker, want_q):
+    """None, or the reason string why the row carries the backward
+    contract ('P', 'kappa', 'kappa-mpf')."""
+    if marker == "P":
+        return "P"
+    if marker == "B":
+        return None
+    flip = s > 0.5
+    swap = (not flip) if want_q else flip
+    alpha = b if swap else a
+    beta = a if swap else b
+    y = 1.0 - x if swap else x
+    if 0.0 < y < 1.0:
+        corr = 1.0 if y < 1e-8 else -math.log1p(-y) / y
+        bound = abs(1.0 - beta) * y / (1.0 + alpha) * corr
+        if bound < DEEP_SMALL_CUT:
+            return None
+    elif y == 0.0:
+        return None
+    nu = a * (b / (a + b))
+    if nu >= HUGE_NU_TEST:
+        return None
+    if max(a, b) >= KAPPA_MAX_PAR:
+        return None
+    sm = min(s, 1.0 - s)
+    lk = _logkappa_dbl(a, b, x, sm)
+    cut = math.log(KAPPA_CUT_TEST)
+    if lk > cut:
+        return "kappa"
+    if lk > cut - 1.0 and 0.0 < x < 1.0:
+        if compute_kappa(a, b, x, sm) > KAPPA_CUT_TEST:
+            return "kappa-mpf"
+    return None
+
+
+def _first_true(pred, i0, lo, hi):
+    """Smallest index in [lo,hi] with pred true; pred is monotone F..F T..T.
+    Gallops from i0.  None if never true."""
+    if pred(i0):
+        hi_t, step = i0, 1
+        while True:
+            j = max(lo, i0 - step)
+            if not pred(j):
+                lo_f = j
+                break
+            hi_t = j
+            if j == lo:
+                return lo
+            step *= 2
+    else:
+        lo_f, step = i0, 1
+        while True:
+            j = min(hi, i0 + step)
+            if pred(j):
+                hi_t = j
+                break
+            lo_f = j
+            if j == hi:
+                return None
+            step *= 2
+    while hi_t - lo_f > 1:
+        mid = (lo_f + hi_t) // 2
+        if pred(mid):
+            hi_t = mid
+        else:
+            lo_f = mid
+    return hi_t
+
+
+def backward_interval(a, b, sigma, side, yd):
+    """(xlo, xhi) doubles; raises Decline."""
+    inc = (side == "p")
+    u = math.ulp(sigma)
+    with mp.workdps(60):
+        lo_t = mp.mpf(sigma) - mp.mpf(u)
+        hi_t = mp.mpf(sigma) + mp.mpf(u)
+    ctx = SignCtx(a, b, side)
+
+    def make(check):
+        def S(i, tau):
+            return sign_F_minus(ctx, _dbl_of(i), tau, check)
+        if inc:
+            return (lambda i: S(i, lo_t) >= 0), (lambda i: S(i, hi_t) <= 0)
+        return (lambda i: S(i, hi_t) <= 0), (lambda i: S(i, lo_t) >= 0)
+
+    def search(check):
+        L, H = make(check)
+        i0 = _bits_of(yd)
+        ilo = _first_true(L, i0, 0, IMAX_BITS)
+        # H is T..T F..F : last true = first index where "not H" holds, minus 1
+        nh = _first_true(lambda i: not H(i), i0, 0, IMAX_BITS)
+        ihi = IMAX_BITS if nh is None else nh - 1
+        if ilo is None or ihi < 0 or ilo > ihi:
+            raise Decline("empty or malformed interval")
+        return ilo, ihi
+
+    ilo, ihi = search(False)
+    Lc, Hc = make(True)
+
+    def verified(ilo, ihi):
+        return (Lc(ilo) and (ilo == 0 or not Lc(ilo - 1))
+                and Hc(ihi) and (ihi == IMAX_BITS or not Hc(ihi + 1)))
+
+    if not verified(ilo, ihi):
+        ctx.cache.clear()
+        ilo, ihi = search(True)
+        if not verified(ilo, ihi):
+            raise Decline("interval endpoints failed certified verification")
+    return _dbl_of(ilo), _dbl_of(ihi)
+
+
+def _back_worker(args):
+    idx, side_i, a, b, s, x, why = args
+    snap = dict(ORACLE_STATS)
+    t0 = time.time()
+    try:
+        xlo, xhi = backward_interval(a, b, s, "p" if side_i == 0 else "q", x)
+        out = [hexd(xlo), hexd(xhi), why]
+    except Decline as e:
+        out = ["FAILED", str(e)]
+    except Exception as e:
+        out = ["FAILED", f"exception:{type(e).__name__}:{e}"[:120]]
+    return idx, out, {"evals": ORACLE_STATS["evals"] - snap["evals"],
+                      "dps_max": ORACLE_STATS["dps_max"]}, time.time() - t0
+
+
+def backward_intervals(workers=10):
+    t_all = time.time()
+    tasks_all = []
+    reasons = {}
+    for side_i, path in ((0, DATA_P_PATH), (1, DATA_Q_PATH)):
+        with open(path, "rb") as f:
+            lines = f.read().decode("ascii").splitlines()
+        for ln in lines:
+            t = ln.split()
+            if len(t) < 5:
+                continue
+            a, b, s, x = (float.fromhex(v) for v in t[:4])
+            why = backward_contract(a, b, s, x, t[4], side_i == 1)
+            if why:
+                tasks_all.append((len(tasks_all), side_i, a, b, s, x, why))
+                _bump(reasons, (side_i, why))
+    status(f"backward-contract rows: {len(tasks_all)}; by (side, reason): {reasons}")
+    dig = hashlib.sha256()
+    for _i, si, a, b, s, x, _w in tasks_all:
+        dig.update(struct.pack("<QQQQB", as_bits(a), as_bits(b), as_bits(s),
+                               as_bits(x), si))
+    sig = f"v1-{dig.hexdigest()[:16]} SEED={ROW9_SEED} N={len(tasks_all)}"
+    done_map = load_checkpoint(CKPT_BACK_PATH, sig)
+    existing_sig = None
+    if os.path.exists(CKPT_BACK_PATH):
+        with open(CKPT_BACK_PATH, "r") as f0:
+            existing_sig = f0.readline().strip()
+    mode = "a" if existing_sig == sig else "w"
+    todo = [t for t in tasks_all if t[0] not in done_map]
+    status(f"backward checkpoint: {len(done_map)}/{len(tasks_all)} done")
+    agg = {}
+    with open(CKPT_BACK_PATH, mode) as fh:
+        if mode == "w":
+            fh.write(sig + "\n")
+            fh.flush()
+        if todo:
+            agg = _run_pool(todo, _back_worker, workers, fh)
+    status(f"backward oracle stats this run: {agg}")
+    done_map = load_checkpoint(CKPT_BACK_PATH, sig)
+    out_lines, declines = [], {}
+    widths = []
+    for idx, side_i, a, b, s, x, why in tasks_all:
+        f = done_map[idx]
+        if f[0] == "FAILED":
+            _bump(declines, (side_i, f[1][:80]))
+            continue
+        xlo, xhi = float.fromhex(f[0]), float.fromhex(f[1])
+        out_lines.append(" ".join(hexd(v) for v in (float(side_i), a, b, s, xlo, xhi)))
+        ref = xhi if xhi > 0 else 1.0
+        widths.append(((xhi - xlo) / ref if ref else 0.0, side_i, a, b, s, xlo, xhi, why))
+    with open(BACKWARD_PATH, "wb") as f:
+        f.write(b"".join((ln + "\r\n").encode("ascii") for ln in out_lines))
+    status(f"wrote {BACKWARD_PATH}: {len(out_lines)} rows; declines {declines}")
+    if widths:
+        widths.sort()
+        status(f"narrowest relative interval: {widths[0]}")
+        status(f"widest relative interval: {widths[-1]}")
+        status(f"width quantiles (min/median/max): "
+               f"{widths[0][0]:.3e} / {widths[len(widths) // 2][0]:.3e} / {widths[-1][0]:.3e}")
+    status(f"backward-intervals runtime: {time.time() - t_all:.1f}s")
+    return 0
+
+
 if __name__ == "__main__":
     _parser = argparse.ArgumentParser(
         allow_abbrev=False,  # '--ful' must ERROR, not prefix-match --full (#11)
@@ -2293,7 +3104,26 @@ if __name__ == "__main__":
              "as its own flag rather than aliased to gen_beta_reference.py's "
              "--corner-append, since it appends a DIFFERENT family (the "
              "huge-B Dekker-ceiling corner, not the PB-prefactor corner).")
+    _parser.add_argument(
+        "--row9-append", action="store_true",
+        help="Certify and append the row-9 families (F55H huge a with root "
+             "> 1/2, F55T both-tiny skewed, F50 moderate a / tiny b / tiny p "
+             "and its swap-identity mirror) to both data files, seed 909, "
+             "own checkpoint, resumable. Oracle: positive 2F1 closed form "
+             "(Part 14), cross-checked; never regenerates existing rows.")
+    _parser.add_argument(
+        "--backward-intervals", action="store_true",
+        help="Write tests/data/betainv_backward_reference.txt: for every "
+             "row of both data files carrying the backward-error contract "
+             "(marker P, or kappa > 2^18 with max(a,b) < 1e12), the "
+             "doubles x with |F(x) - sigma| <= ulp(sigma) as [xlo, xhi].")
+    _parser.add_argument("--workers", type=int, default=10,
+                         help="process-pool size for the row-9 modes")
     _args = _parser.parse_args()
+    if _args.row9_append:
+        sys.exit(row9_append(_args.workers))
+    if _args.backward_intervals:
+        sys.exit(backward_intervals(_args.workers))
     if _args.huge_corner_append:
         sys.exit(huge_corner_append())
     sys.exit(main())

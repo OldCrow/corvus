@@ -11,6 +11,64 @@
 #include "hwy/highway.h"
 #include "hwy/contrib/math/math-inl.h"
 
+// Outlining for HOT per-vector regions (#43). MSVC's codegen time is
+// superlinear in function size, so under MSVC these stay HWY_NOINLINE like
+// every other region core. Elsewhere a call per vector is a measurable tax
+// on the short elementary kernels -- on NEON (2 lanes) the two outlined
+// trig regions cost cos/sin 1.6x against the same algorithm inlined -- so
+// clang and GCC inline them. Rare-path regions (behind an AllFalse skip)
+// keep HWY_NOINLINE on every compiler: outlined, they stay out of the hot
+// loop's register allocation. #ifndef-guarded: the per-target
+// re-inclusion of this file defines it once.
+#ifndef CORVUS_OUTLINE
+#if defined(_MSC_VER) && !defined(__clang__)
+#define CORVUS_OUTLINE HWY_NOINLINE
+#else
+#define CORVUS_OUTLINE HWY_INLINE
+#endif
+#endif
+
+// Route census markers (#82 T7; src/route_census.h). CORVUS_ROUTE(d,
+// "family/route", mask) records the route for lane 0 in a census build.
+// CORVUS_ROUTE_SCOPE(d, region) opens a region block: a block that runs when
+// ANY lane is in the region (padded lanes included) records routes only
+// while lane 0 is in it. Both are empty otherwise. `op` is the ops alias
+// every kernel header declares.
+#ifndef CORVUS_ROUTE
+#define CORVUS_ROUTE_CAT2(a, b) a##b
+#define CORVUS_ROUTE_CAT(a, b) CORVUS_ROUTE_CAT2(a, b)
+#if defined(CORVUS_ROUTE_CENSUS)
+#include "src/route_census.h"
+#define CORVUS_ROUTE(d, name, mask) \
+  ::corvus::census::Hit(name, op::FirstLaneTrue(d, mask))
+#define CORVUS_ROUTE_SCOPE(d, region)                                  \
+  const ::corvus::census::Scope CORVUS_ROUTE_CAT(corvus_route_scope_,  \
+                                                 __LINE__)(            \
+      op::FirstLaneTrue(d, region))
+#else
+// sizeof: the mask is named, so it counts as used, but never evaluated.
+#define CORVUS_ROUTE(d, name, mask) ((void)sizeof(mask))
+#define CORVUS_ROUTE_SCOPE(d, region) ((void)sizeof(region))
+#endif
+#endif
+
+// Floor census (#82 T4): in a census build the Dekker products take the
+// caller's source location (a defaulted trailing parameter) and record
+// `floor:<file>:<line>` when lane 0's product is nonzero and below the
+// ProdLow floor, 2^-968. The dd products forward it, so a hit names the
+// kernel's call site. Empty outside a census build.
+#ifndef CORVUS_FLOOR_LOC
+#if defined(CORVUS_ROUTE_CENSUS)
+#include <source_location>
+#define CORVUS_FLOOR_LOC \
+  , const std::source_location& corvus_loc = std::source_location::current()
+#define CORVUS_FLOOR_FWD , corvus_loc
+#else
+#define CORVUS_FLOOR_LOC
+#define CORVUS_FLOOR_FWD
+#endif
+#endif
+
 HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
@@ -24,6 +82,7 @@ template <class D> using V = hn::Vec<D>;
 template <class D> using M = hn::Mask<D>;
 
 using hn::Lanes;
+using hn::MaxLanes;  // compile-time lane bound (driver unroll choice)
 
 template <class D> HWY_INLINE V<D> Load(D d, const double* p) { return hn::LoadU(d, p); }
 template <class D> HWY_INLINE V<D> LoadN(D d, const double* p, size_t n) { return hn::LoadN(d, p, n); }
@@ -105,6 +164,12 @@ template <class D, class VI> HWY_INLINE V<D> GatherIndex(D d, const double* base
 template <class M, class V> HWY_INLINE V IfThenElse(M m, V yes, V no) { return hn::IfThenElse(m, yes, no); }
 template <class D, class M> HWY_INLINE bool AllFalse(D d, M m) { return hn::AllFalse(d, m); }
 template <class D, class M> HWY_INLINE bool AllTrue(D d, M m) { return hn::AllTrue(d, m); }
+// Mask complement; the route census marks a region's other side with it.
+template <class M> HWY_INLINE M MaskNot(M m) { return hn::Not(m); }
+// Lane 0's bit of m: the route census reads the one row it evaluates there.
+template <class D, class M> HWY_INLINE bool FirstLaneTrue(D d, M m) {
+  return hn::FindFirstTrue(d, m) == 0;
+}
 
 template <class D> HWY_INLINE V<D> Exp(D d, V<D> x) { return hn::Exp(d, x); }
 
@@ -113,7 +178,23 @@ template <class D> HWY_INLINE V<D> Exp(D d, V<D> x) { return hn::Exp(d, x); }
 // emulated mul-then-sub rounds a*a to exactly p and silently returns 0,
 // so use Dekker's split (exact: a_hi has <= 26 significant bits, all
 // partial products fit in a double).
-template <class D> HWY_INLINE V<D> SquareLow(D d, V<D> a, V<D> p) {
+#if defined(CORVUS_ROUTE_CENSUS)
+// The floor census's test: lane 0's product a*b (rounded: p) is nonzero and
+// below 2^-968, where the low part stops being exact (ProdLow, below).
+template <class D>
+HWY_INLINE void FloorCheck(D d, V<D> a, V<D> b, V<D> p,
+                           const std::source_location& loc) {
+  const auto z = hn::Zero(d);
+  const auto nz = hn::And(hn::Not(hn::Eq(a, z)), hn::Not(hn::Eq(b, z)));
+  const auto tiny = hn::And(nz, hn::Lt(hn::Abs(p), hn::Set(d, 0x1p-968)));
+  ::corvus::census::Floor(loc.file_name(), loc.line(), FirstLaneTrue(d, tiny));
+}
+#endif
+
+template <class D> HWY_INLINE V<D> SquareLow(D d, V<D> a, V<D> p CORVUS_FLOOR_LOC) {
+#if defined(CORVUS_ROUTE_CENSUS)
+  FloorCheck(d, a, a, p, corvus_loc);
+#endif
 #if HWY_NATIVE_FMA
   (void)d;
   return hn::MulSub(a, a, p);
@@ -131,9 +212,18 @@ template <class D> HWY_INLINE V<D> SquareLow(D d, V<D> a, V<D> p) {
 // Low part of a*b given p = fl(a*b), i.e. the exact residual a*b - p; the
 // two-operand form of SquareLow, and subject to the same FMA hazard, so it
 // carries the same capability guard. Dekker's product needs both operands
-// split. Exact for |a*b| within the normal range with room for the splits
-// (|a|, |b| < 2^996); corvus's dd kernels stay far inside that.
-template <class D> HWY_INLINE V<D> ProdLow(D d, V<D> a, V<D> b, V<D> p) {
+// split. Exact only between a CEILING and a FLOOR, for this and SquareLow:
+//   * ceiling: |a|, |b| < 2^996, or the 2^27+1 split overflows;
+//   * floor: |a*b| >~ 2^-968. Below it the residual is not representable
+//     on the 2^-1074 grid: Dekker's partial products round on non-FMA tiers
+//     (gross: #59 measured 2.2e7 ULP downstream), and even a fused MulSub
+//     rounds the residual (mild: 1 ULP-class downstream).
+// Every caller must sit between the two or prescale by an exact power of
+// two (DdDivDd, LogDdAny, the beta/gamma 2^900 clamps).
+template <class D> HWY_INLINE V<D> ProdLow(D d, V<D> a, V<D> b, V<D> p CORVUS_FLOOR_LOC) {
+#if defined(CORVUS_ROUTE_CENSUS)
+  FloorCheck(d, a, b, p, corvus_loc);
+#endif
 #if HWY_NATIVE_FMA
   (void)d;
   return hn::MulSub(a, b, p);

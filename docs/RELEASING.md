@@ -43,7 +43,11 @@ failed step stops the release until fixed.
 12. GitHub release from the tag. The source tarball GitHub generates
     is the release artifact — corvus distributes source only. Release
     notes cover: surface changes, bound changes (tightened or newly
-    validated cells), and notable fixes.
+    validated cells), notable fixes, and **errata**. List every published
+    bound corrected under VERSIONING.md's erratum clause, with the cell,
+    the old and new bound, and the witness input. ACCURACY.md's
+    "Erratum" paragraphs and PLAN.md's per-release list are the
+    sources.
 
 ## After
 

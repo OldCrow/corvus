@@ -52,7 +52,9 @@ constexpr uint64_t kMaxUlp = 1;
 
 // Beyond-resolution floor. Not a kernel constant -- the kernel has no such
 // branch, by design -- but a property of the domain: a*phi(1 +- ulp/a) > 800
-// once a exceeds ~3e34, which is where the certified x collapses onto a.
+// once a exceeds ~3e34, where the certified x becomes a or a neighbour
+// (exactly a only above ~5e35, where the whole transition fits in half an
+// ulp; #76, review L-2).
 constexpr double kBeyondResolutionA = 3e34;
 
 struct Bucket {
@@ -62,6 +64,7 @@ struct Bucket {
   size_t miss = 0;  // not correctly rounded
   double worst_a = 0.0;
   double worst_s = 0.0;
+  corvus_test::RealMax real{};  // #82 T1
 };
 
 void Accumulate(Bucket& b, double a, double s, uint64_t u) {
@@ -92,15 +95,17 @@ void Report(const Bucket& b, bool gated) {
 }
 
 // Rows are three hex doubles: a, s, x.
-bool LoadReference(const char* path, std::vector<double>* a,
-                   std::vector<double>* s, std::vector<double>* x) {
+// LoadRef exits on a missing, malformed or short file, so this cannot fail.
+void LoadReference(const char* path, std::vector<double>* a,
+                   std::vector<double>* s, std::vector<double>* x,
+                   std::vector<double>* res) {
   const auto rows = LoadRef(path, 3, 5000);
   for (const auto& row : rows) {
     a->push_back(ParseDouble(row.tok[0], path, row.line));
     s->push_back(ParseDouble(row.tok[1], path, row.line));
     x->push_back(ParseDouble(row.tok[2], path, row.line));
+    res->push_back(corvus_test::Residual(row, 0));
   }
-  return true;
 }
 
 enum : int { kDeep = 0, kBeyond = 1, kS1 = 2, kSmallTail = 3, kSmallMid = 4 };
@@ -119,9 +124,9 @@ int Bucketize(double a, double s, double x) {
 
 // N4: split every whole-reference-set call into [0, n-3) and [n-3, n) so the
 // trailing 3-row group always runs a masked tail, independent of whether n
-// itself happens to be a lane multiple on the tier under test. gamma's
-// 16734 rows are even (no tail on any 2-lane tier today) and gammainv-q's
-// 6520 rows are a multiple of 8 (no tail on any tier at all) -- exactly the
+// itself happens to be a lane multiple on the tier under test. when #14 added it,
+// gamma's 16734 rows were even (no tail on any 2-lane tier) and gammainv-q's
+// 6520 rows were a multiple of 8 (no tail on any tier at all) -- exactly the
 // coverage gap this closes. Downstream per-row loops are untouched: they
 // only see the fully populated `got` vector.
 void CallSplit(void (*fn)(std::span<const double>, std::span<const double>,
@@ -138,9 +143,10 @@ void CallSplit(void (*fn)(std::span<const double>, std::span<const double>,
      std::span<double>(out).subspan(split));
 }
 
-int Measure(const char* label, bool want_q, const std::vector<double>& a,
-            const std::vector<double>& s, const std::vector<double>& want,
-            const std::vector<double>& got) {
+int Measure(const char* path, const char* label, bool want_q,
+            const std::vector<double>& a, const std::vector<double>& s,
+            const std::vector<double>& want, const std::vector<double>& got,
+            const std::vector<double>& res) {
   Bucket b[5] = {
       {"deep-small closed form"}, {"beyond-resolution"}, {"S1 (a_T..3e34)"},
       {"small-a tail seed"},      {"small-a mid seed"},
@@ -168,7 +174,13 @@ int Measure(const char* label, bool want_q, const std::vector<double>& a,
     } else {
       u = UlpDiff(got[i], want[i]);
     }
-    Accumulate(b[Bucketize(a[i], s[i], want[i])], a[i], s[i], u);
+    Bucket& bk = b[Bucketize(a[i], s[i], want[i])];
+    Accumulate(bk, a[i], s[i], u);
+    // Exact-zero rows are bit-exact checked above and the report-only
+    // cross-cuts are ungated; neither carries a real gate.
+    if (want[i] != 0.0) {
+      bk.real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
+    }
     if (s[i] > 0.5) Accumulate(cross[0], a[i], s[i], u);
     if (want[i] > 0.0 && want[i] < (std::numeric_limits<double>::min)()) {
       Accumulate(cross[1], a[i], s[i], u);
@@ -189,6 +201,9 @@ int Measure(const char* label, bool want_q, const std::vector<double>& a,
                    r.name);
       std::exit(1);
     }
+    if (r.n > 0) {
+      rc |= corvus_test::CheckReal(path, label, r.name, kMaxUlp, r.real);
+    }
     if (r.n > 0 && r.max_ulp > kMaxUlp) {
       std::fprintf(stderr, "FAIL: %s %s exceeds gate\n", label, r.name);
       rc = 1;
@@ -207,7 +222,7 @@ int Measure(const char* label, bool want_q, const std::vector<double>& a,
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char* const* argv) {
   // Before doing any work: a wrong tier makes every number below meaningless.
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
@@ -218,18 +233,18 @@ int main(int argc, char** argv) {
 
   int rc = 0;
   {
-    std::vector<double> a, s, x;
-    if (!LoadReference(p_path, &a, &s, &x)) return 2;
+    std::vector<double> a, s, x, res;
+    LoadReference(p_path, &a, &s, &x, &res);
     std::vector<double> got(a.size());
     CallSplit(corvus::gamma_p_inv, a, s, got);
-    rc |= Measure("gamma_p_inv", false, a, s, x, got);
+    rc |= Measure(p_path, "gamma_p_inv", false, a, s, x, got, res);
   }
   {
-    std::vector<double> a, s, x;
-    if (!LoadReference(q_path, &a, &s, &x)) return 2;
+    std::vector<double> a, s, x, res;
+    LoadReference(q_path, &a, &s, &x, &res);
     std::vector<double> got(a.size());
     CallSplit(corvus::gamma_q_inv, a, s, got);
-    rc |= Measure("gamma_q_inv", true, a, s, x, got);
+    rc |= Measure(q_path, "gamma_q_inv", true, a, s, x, got, res);
   }
 
   if (rc == 0) std::printf("PASS: all buckets within gates\n");

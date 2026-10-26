@@ -353,7 +353,7 @@ void LaneMix() {
 void HugeDiagonal() {
   const double diag[] = {0x1.0p+996, 0x1.0p+997, 0x1.0p+1000,
                          std::numeric_limits<double>::max()};
-  for (double a : diag) {
+  for (const double a : diag) {
     const double p = One(corvus::gamma_p, a, a);
     const double q = One(corvus::gamma_q, a, a);
     if (!(p > 0.4 && p < 0.6) || !(q > 0.4 && q < 0.6)) {

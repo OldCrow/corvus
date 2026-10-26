@@ -60,6 +60,10 @@ Usage:
 writes all four files under tests/data/ directly (checkpoint-free -- this
 family's point count is small enough to regenerate in one shot; no partial-
 run resumption is needed, unlike beta/gammainv).
+
+    python tools/gen_bessel_reference.py --tail-append
+appends order row 10's (#52) dense tail sweep to the four existing files
+(tail_append below); it writes nothing unless every self-check passes.
 """
 import math
 import random
@@ -208,7 +212,8 @@ def own_cross_check(nu, x, dps=60):
     ax = abs(x)
     v = own_series_ive(nu, ax, dps) if ax <= 25.0 else own_asymptotic_ive(nu, ax, dps)
     if nu == 1 and x < 0:
-        v = -v
+        with mp.workdps(dps):  # mpf negation rounds to the working dps
+            v = -v
     return v
 
 
@@ -401,11 +406,14 @@ def cross_check_sample(nu, scaled, rows, rng, n=10):
     worst_x = None
     for x, _y in sample:
         own = own_cross_check(nu, x, dps=60)
-        if not scaled:
-            own = own * mp.exp(abs(mpf(x)))
         ref = besseli_value(nu, scaled, x, 60)
-        denom = abs(ref) if ref != 0 else mpf(1)
-        rel = abs(own - ref) / denom
+        # The rescale and the comparison run at the routes' own dps: at the
+        # module default (15) they floor the measured agreement near 1e-16.
+        with mp.workdps(60):
+            if not scaled:
+                own = own * mp.exp(abs(mpf(x)))
+            denom = abs(ref) if ref != 0 else mpf(1)
+            rel = abs(own - ref) / denom
         if rel > worst:
             worst, worst_x = rel, x
     return worst, worst_x
@@ -526,5 +534,111 @@ def main():
     return 0
 
 
+TAIL_SEED = 1010
+TAIL_N_POS = 1500       # log-uniform positive tail points per file, (8, 700]
+TAIL_N_FAR = 120        # scaled files only: log-uniform in (700, 1e300]
+TAIL_NEG_FRACTION = 0.4
+# Halfway guard: a value within this many ulps of a rounding midpoint is
+# DECLINED, since its rounding would rest on the oracle's last digits. The
+# layered oracle agrees to 1e-25 relative, ~5e-10 ulp, so 1e-6 is ample.
+TAIL_HALFWAY_ULP = mpf("1e-6")
+# The #52 witnesses (issue body and its root-cause comment), kept by name so
+# a regression names itself.
+TAIL_WITNESSES = {
+    "i0": ["0x1.3bb085af62bd0p+4", "0x1.0eee9bbb8cb2ap+5"],
+    "i0e": ["0x1.6aef2850640ddp+3"],
+    "i1": [],
+    "i1e": [],
+}
+
+
+def halfway_ulps(val, y):
+    """Distance of the exact value `val` from the nearest rounding midpoint
+    around its rounded double `y`, in ulps of y."""
+    up = math.nextafter(y, math.inf)
+    dn = math.nextafter(y, -math.inf)
+    mid = (mpf(y) + mpf(up)) / 2 if val >= mpf(y) else (mpf(y) + mpf(dn)) / 2
+    return abs(val - mid) / abs(mpf(up) - mpf(y))
+
+
+def tail_append():
+    """Order row 10 (#52): append a dense random tail sweep to all four
+    reference files. The original sets carry ~190 tail rows each, too few to
+    see a ~1e-4 per-row failure rate; the sweep is log-uniform in (8, 700],
+    where the tail's polynomial varies most, plus the #52 witnesses and, for
+    the scaled forms, a sparse far stratum. Same oracle and self-checks as
+    the full generator, plus a halfway guard and a tighter independent
+    cross-check (the own routes are near-exact for |x| <= 25 and >= 60)."""
+    ok = True
+    seed_offset = {"i0": 1, "i1": 2, "i0e": 3, "i1e": 4}
+    specs = [(0, False, "i0"), (1, False, "i1"), (0, True, "i0e"),
+             (1, True, "i1e")]
+    out = {}
+    for nu, scaled, tag in specs:
+        t0 = time.time()
+        rng = random.Random(TAIL_SEED + seed_offset[tag])
+        path = f"tests/data/{tag}_reference.txt"
+        with open(path) as f:
+            old = [ln.split() for ln in f if ln.strip()]
+        seen = {as_bits(float.fromhex(r[0])) for r in old}
+        pos = [float.fromhex(h) for h in TAIL_WITNESSES[tag]]
+        pos += [math.exp(rng.uniform(math.log(8.0), math.log(700.0)))
+                for _ in range(TAIL_N_POS)]
+        if scaled:
+            pos += [10.0 ** rng.uniform(math.log10(700.0), 300.0)
+                    for _ in range(TAIL_N_FAR)]
+        pts = []
+        for x in pos:
+            if x <= X_S:
+                continue
+            for s in ((x, -x) if rng.random() < TAIL_NEG_FRACTION else (x,)):
+                if as_bits(s) not in seen:
+                    seen.add(as_bits(s))
+                    pts.append(s)
+        rows, declined = [], 0
+        for x in pts:
+            val, good, _ = layered_value(nu, scaled, x)
+            y = round_to_double(val) if good else math.nan
+            if not good or math.isnan(y) or halfway_ulps(val, y) < TAIL_HALFWAY_ULP:
+                declined += 1
+                continue
+            rows.append((x, y))
+        # Existing files are odd-length; appending an even count keeps them so.
+        if len(rows) % 2:
+            rows.pop()
+        for w in TAIL_WITNESSES[tag]:
+            if not any(x == float.fromhex(w) for x, _ in rows):
+                print(f"[tail-append] FAILED: {tag} witness {w} not emitted",
+                      file=sys.stderr)
+                ok = False
+
+        mism = reverify_sample(nu, scaled, rows, rng, n=200)
+        caught = negative_control(nu, scaled, rows, rng)
+        near = [r for r in rows if abs(r[0]) <= 25.0 or abs(r[0]) >= 60.0]
+        worst, worst_x = cross_check_sample(nu, scaled, near, rng, n=40)
+        print(f"[tail-append] {tag}: +{len(rows)} rows (declined {declined}), "
+              f"re-verify mismatches {len(mism)}, negative control "
+              f"{'CAUGHT' if caught else 'NOT CAUGHT'}, cross-check worst rel "
+              f"{float(worst):.2e} @ {worst_x!r}, {time.time()-t0:.0f}s",
+              file=sys.stderr)
+        if mism or not caught or worst > mpf("1e-20"):
+            ok = False
+        out[path] = (old, rows)
+
+    if not ok:
+        print("[tail-append] ABORTING: no file written (self-check failure)",
+              file=sys.stderr)
+        return 1
+    for path, (old, rows) in out.items():
+        with open(path, "a") as f:
+            for x, y in rows:
+                f.write(f"{x.hex()} {y.hex()}\n")
+        print(f"[tail-append] {path}: {len(old)} -> {len(old) + len(rows)}",
+              file=sys.stderr)
+    return 0
+
+
 if __name__ == "__main__":
+    if "--tail-append" in sys.argv[1:]:
+        sys.exit(tail_append())
     sys.exit(main())

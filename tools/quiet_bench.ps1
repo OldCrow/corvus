@@ -38,7 +38,7 @@
     anything else measures the wrong program.
 
 .PARAMETER Targets
-    Bench targets to run. Default: all twelve. Narrow it to keep the quiet
+    Bench targets to run. Default: all fifteen. Narrow it to keep the quiet
     window short -- e.g. just bench_lgamma when only its per-region
     zone/recurrence/Stirling breakdown is wanted.
 
@@ -63,7 +63,7 @@
 
 .EXAMPLE
     tools\quiet_bench.ps1 -BuildDir build-clangcl -ExpectTarget AVX3_ZEN4
-    Full twelve-target sweep.
+    Full fifteen-target sweep.
 #>
 [CmdletBinding()]
 param(

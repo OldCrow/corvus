@@ -112,6 +112,9 @@ HWY_INLINE Dd<D> ZoneBracket(D d, op::V<D> t, M c1) {
   for (int k = 1; k >= 0; --k) {
     acc = DdAdd(d, Dd<D>{Sel2(d, c1, lh[0][k], lh[1][k]),
                          Sel2(d, c1, ll[0][k], ll[1][k])},
+                // FLOOR: |acc*t| < 2^-968 needs |t| < 2^-964 (|acc| >= 0.067);
+                // the <= 2^-1072 loss lands on L1 or L0 (>= 0.32), 2^-1070
+                // relative in B for every caller (LgammaLow, R4, gammainv).
                 DdMulD(d, acc, t));
   }
   return acc;
@@ -124,7 +127,7 @@ HWY_INLINE Dd<D> ZoneBracket(D d, op::V<D> t, M c1) {
 // Grouped as x*(log x - 1) - log(x)/2 + ..., NOT as the textbook
 // (x - 1/2)*log x - x. The two are algebraically identical but the textbook
 // form computes a product that exceeds the result by x, and near the overflow
-// threshold (x ~ 2.556e305) that is enough to send the intermediate to
+// threshold (x ~ 2.5599833e305) that is enough to send the intermediate to
 // infinity -- and its dd residual to NaN -- while the true lgamma is still
 // finite, over a band ~0.1% wide in x. Grouped this way the intermediate
 // exceeds the result by only ~log(x)/2, which is ~351 against an ulp of
@@ -178,6 +181,24 @@ template <class D>
 HWY_INLINE Dd<D> LgammaLow(D d, op::V<D> x) {
   const auto one = op::Set(d, 1.0);
   const auto small = op::Lt(x, op::Set(d, detail::kLgammaZoneLo));
+  {
+    // Region routes; each mask is bounded on both sides so Stirling lanes
+    // (which LgammaPosDd may also pass through here) and NaN match none.
+    const auto pos = op::Gt(x, op::Zero(d));
+    const auto below_x0 = op::Lt(x, op::Set(d, detail::kLgammaX0));
+    CORVUS_ROUTE(d, "lgamma/small", op::And(pos, small));
+    CORVUS_ROUTE(d, "lgamma/small_subnormal",
+                 op::And(pos, op::Lt(x, op::Set(d, 0x1p-1022))));
+    CORVUS_ROUTE(d, "lgamma/zone1",
+                 op::And(op::Ge(x, op::Set(d, detail::kLgammaZoneLo)),
+                         op::Lt(x, op::Set(d, detail::kLgammaZoneMid))));
+    CORVUS_ROUTE(d, "lgamma/zone2",
+                 op::And(op::Ge(x, op::Set(d, detail::kLgammaZoneMid)),
+                         op::Lt(x, op::Set(d, 0x1.4000000000001p+1))));
+    CORVUS_ROUTE(d, "lgamma/walk",
+                 op::And(op::Gt(x, op::Set(d, detail::kLgammaZoneHi)),
+                         below_x0));
+  }
 
   // All-zone fast path. When every lane sits in [kLgammaZoneLo, kLgammaZoneHi]
   // the recurrence multiplies P by exact ones and the log runs on P == 1,
@@ -221,6 +242,9 @@ HWY_INLINE Dd<D> LgammaLow(D d, op::V<D> x) {
   const auto t = op::IfThenElse(
       small, x,
       op::IfThenElse(c1, op::Sub(x, one), op::Sub(y, op::Set(d, 2.0))));
+  // FLOOR: below it only on small lanes, x < ~2^-966 (|B| >= 0.42; other t
+  // are >= 2^-53). The <= 2^-1072 loss joins -log x >= 669, ~2^-975 under
+  // that sum's own dd rounding -- invisible to lgamma, gamma and beta alike.
   const auto base = DdMulD(d, ZoneBracket(d, t, c1), t);
 
   // One log for both outer bands: x when shifting, P otherwise (P == 1, hence
@@ -240,6 +264,7 @@ HWY_INLINE Dd<D> LgammaLow(D d, op::V<D> x) {
 template <class D>
 HWY_INLINE Dd<D> LgammaPosDd(D d, op::V<D> x) {
   const auto big = op::Ge(x, op::Set(d, detail::kLgammaX0));
+  CORVUS_ROUTE(d, "lgamma/stirling", big);
 
   // Both paths are domain-clamped so the unused one cannot fault or produce a
   // NaN that a select would then have to launder: Stirling needs x >= X0 for
@@ -262,6 +287,9 @@ HWY_INLINE Dd<D> LgammaPosDd(D d, op::V<D> x) {
 // -pi^2 v/6, large enough that v's own rounding would show.
 template <class D>
 HWY_INLINE Dd<D> LogSinc(D d, op::V<D> u) {
+  // FLOOR: u*u < 2^-968 needs |u| < 2^-484, so x = u (|x| >= 1/2 leaves |u|
+  // 0 or >= 2^-53); LogSinc is then < 2^-966 in all, against lgamma(x) ~
+  // -log|x| >= 335, so its few-2^-1074 loss is invisible.
   const auto v = TwoProd(d, u, u);
   auto s = op::Set(d, detail::kLgammaSinCoef[detail::kLgammaSinNCoef - 1]);
   for (int k = detail::kLgammaSinNCoef - 2; k >= 0; --k) {
@@ -293,6 +321,8 @@ HWY_INLINE op::V<D> LgammaVec(D d, op::V<D> x) {
 
   Dd<D> res = g;
   if (!op::AllFalse(d, neg)) {
+    CORVUS_ROUTE_SCOPE(d, neg);
+    CORVUS_ROUTE(d, "lgamma/neg", neg);
     // u = x - round(x), exact; |u| <= 1/2. u == 0 marks a pole.
     const auto u = op::Sub(x, op::Round(x));
     const auto au = op::Abs(u);
@@ -301,6 +331,7 @@ HWY_INLINE op::V<D> LgammaVec(D d, op::V<D> x) {
     r = DdAdd(d, r, DdAdd(d, OutlinedLogDd(d, ax), g));
     const Dd<D> refl{op::Neg(r.hi), op::Neg(r.lo)};
     const auto pole = op::Eq(u, zero);
+    CORVUS_ROUTE(d, "lgamma/special/pole", pole);
     res = Dd<D>{op::IfThenElse(neg, op::IfThenElse(pole, inf, refl.hi), res.hi),
                 op::IfThenElse(neg, op::IfThenElse(pole, zero, refl.lo), res.lo)};
   }
@@ -314,9 +345,15 @@ HWY_INLINE op::V<D> LgammaVec(D d, op::V<D> x) {
 
   // lgamma(+-0) = +inf, and so is every pole. The magnitude test covers three
   // cases at once and is written on |x| deliberately: +inf and overflow above
-  // ~2.556e305, and the whole negative range below -2.556e305, where every
+  // ~2.5599833e305, and the whole negative range below -2.5599833e305, where every
   // double is an integer and therefore a pole (so -inf lands right too). NaN
   // propagates with its payload, matching erf/erfc.
+  CORVUS_ROUTE(d, "lgamma/special/zero", op::Eq(x, zero));
+  CORVUS_ROUTE(d, "lgamma/special/overflow",
+               op::And(op::Gt(ax, op::Set(d, detail::kLgammaMaxArg)),
+                       op::Lt(ax, inf)));
+  CORVUS_ROUTE(d, "lgamma/special/inf", op::Eq(ax, inf));
+  CORVUS_ROUTE(d, "lgamma/special/nan", op::IsNaN(x));
   out = op::IfThenElse(op::Eq(x, zero), inf, out);
   out = op::IfThenElse(op::Gt(ax, op::Set(d, detail::kLgammaMaxArg)), inf, out);
   return op::IfThenElse(op::IsNaN(x), x, out);

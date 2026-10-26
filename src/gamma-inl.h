@@ -11,16 +11,23 @@
 // THE ONE RULE THE WHOLE DESIGN TURNS ON: always compute the SMALLER of the
 // pair directly, and get the other one as 1 (-) it, as a double-double
 // subtraction rounded once. A directly computed side keeps full relative
-// accuracy however tiny it gets; the complement is by construction >= ~0.4,
-// where 1 (-) small costs nothing. Computing the large side directly and
-// subtracting would be the opposite trade and is never done.
+// accuracy however tiny it gets. The complement is NOT always large: in R1
+// with a just above 3/2 and x near a+1, Q is ~0.13 (#56), which amplifies
+// P's error ~5x. What keeps it correctly rounded is that the complement is
+// taken from the direct side's DD, before any rounding -- so the direct
+// side's dd must be accurate to well below a double ulp, which is why R1's
+// terms and R2's last CF steps are carried in dd. Computing the large side
+// directly and subtracting would be the opposite trade and is never done.
 //
 // REGIONS (lambda = x/a, a_T = kGammaAT = 20)
 //   R1  series, P-direct   {a < 20, x <= a+1} u {a >= 20, lambda <= 1/2}
 //       P = e^E' * sum_{n>=0} x^n / ((a+1)...(a+n)),  E' = E - log a.
-//       Fixed cap kGammaSeriesN with a per-lane freeze mask; terms are
-//       plain double (each is a factor of the next, so their rounding is
-//       attenuated by the tail they head), the sum is dd.
+//       Fixed cap kGammaSeriesN with a per-lane freeze mask; terms AND sum
+//       are dd (#56). A plain-double term's rounding is NOT attenuated:
+//       each term is a factor of the next, so a rounding at step k rides
+//       into every later term, and near the ridge (x/(a+n) ~ 1) those
+//       terms do not decay -- the plain form measured 3.11 ulp on P and 6.08
+//       on its complement.
 //   R2  backward CF, Q-direct  {a < 20, x > a+1} u {a >= 20, lambda >= 2}
 //       Legendre's continued fraction run BACKWARD from a fixed depth
 //       kGammaCfN with NO convergence test. Backward is not a stylistic
@@ -73,6 +80,7 @@
 #include "src/dd-inl.h"
 #include "src/dd_special-inl.h"
 #include "src/erfc_core-inl.h"
+#include "src/erfc_tail_dd-inl.h"  // GammaTailG, shared with beta (#69)
 #include "src/exp_dd-inl.h"
 #include "src/gamma_data.h"
 #include "src/lgamma-inl.h"
@@ -103,11 +111,23 @@ inline constexpr double kGammaR4AMax = detail::kLgammaZoneHi - 1.0;  // 3/2
 // Per-lane freeze threshold for the two summed series: a term below this
 // times the running sum cannot move the dd result.
 inline constexpr double kGammaFreezeEps = 0x1.0p-60;
+// GammaCfRecip's double-double tail (#56): the last kGammaCfDdSteps steps of
+// the backward CF run in dd, the deeper ones in double. The recurrence
+// contracts the deep steps' rounding, so only the last few reach the
+// answer: 2 steps left R2 at 0.66 ulp on a 6,000-point ridge probe, 4
+// steps are correctly rounded there and bit-identical to 8 on all but 9 of
+// 20,000 R2 probe points (all half-ulp ties, both within 0.51 ulp), at ~3%
+// cost against 8's ~25% (Zen 4, indicative).
+inline constexpr int kGammaCfDdSteps = 4;
 
-// Temme core/tail split, exact: a*phi = 36 <=> z = sqrt(a*phi) = 6, the same
-// threshold erfc's own core/tail split uses, so the two halves of this
-// kernel consume exactly the two halves of erfc's machinery.
-inline constexpr double kGammaTemmeZ2Split = 36.0;
+// Temme core/tail split, exact: a*phi = 25 <=> z = sqrt(a*phi) = 5 (#70).
+// The core takes 1/2 erfc(z) from ErfcCoreDd, i.e. 1 - erf(z): its error
+// relative to erfc grows like e^{z^2}, ~1 ulp of erfc at z = 6, which the
+// assembly amplified to 2.5 ulp at the old split a*phi = 36 (erfc's own
+// split). At z = 5 it is e^-11 of that. Above the split the tail's dd
+// GammaTailG (fitted on [kGammaTailZLo, kGammaTailZHi] = [5, 28.5] since
+// #70) supplies erfc. TWIN: beta-inl.h kBetaZ2Split moves with this.
+inline constexpr double kGammaTemmeZ2Split = 25.0;
 
 // Ceiling on a when forming 1/sqrt(2*pi*a): 2*pi*a overflows above ~2.9e307
 // and DdSqrt would then return NaN. Above this clamp the only non-saturated
@@ -166,15 +186,17 @@ struct GammaVal {
 };
 
 // Apply exp_dd's power-of-two scaling LAST (the erfc pattern), twice over.
-//   v  = ScaleTwo(round(m), e): the direct answer, ONE rounding even when the
-//        result lands in the subnormal band.
+//   v  = DdScaleToDouble(m, e): the direct answer, ONE rounding even when the
+//        result lands in the subnormal band. (Until #74/row 12h this was
+//        ScaleTwo(round(m), e), which rounds twice there.)
 //   dd = the scaled pair, for the complement. Where the complement is taken
-//        the result is >= ~0.4 and the scaling is exact, so the pair is a
-//        faithful dd there; where it is not, the complement rounds to 1
-//        regardless.
+//        the direct side is at most ~0.87 (Q ~ 0.13 at worst, #56) and far
+//        from the subnormal band, so the scaling is exact and the pair is a
+//        faithful dd; where the direct side is subnormal the complement
+//        rounds to 1 regardless.
 template <class D>
 HWY_INLINE GammaVal<D> GammaScale(D d, Dd<D> m, op::V<op::SignedTag<D>> e) {
-  return {ScaleTwo(d, DdToDouble(m), e),
+  return {DdScaleToDouble(d, m, e),
           Dd<D>{ScaleTwo(d, m.hi, e), ScaleTwo(d, m.lo, e)}};
 }
 
@@ -211,7 +233,10 @@ HWY_INLINE GammaExpArg<D> GammaClampE(D d, op::V<D> eh, op::V<D> el) {
 // Every term is positive and t_n / t_{n-1} = x/(a+n) <= 1 on the whole
 // region (x <= a+1 in the small-a band, x <= a/2 in the large-a band), so
 // the terms are non-increasing and the freeze mask below is monotone by
-// construction. The cap kGammaSeriesN is a worst-case bound from the
+// construction. Terms and ratio are dd (#56): a+n is an exact TwoSum and
+// x/(a+n) = x * DdRecipDd(a+n), so no step adds a double's rounding to the
+// chain every later term inherits (the cost: ~40% on R1, Zen 4,
+// indicative). The cap kGammaSeriesN is a worst-case bound from the
 // generator's self-check (d), not a guess: the deepest point in the region
 // (a -> 20-, x = a+1) needs 52 terms.
 //
@@ -247,15 +272,20 @@ HWY_NOINLINE Dd<D> GammaSeriesSum(D d, op::V<D> a, op::V<D> x) {
   const auto eps = op::Set(d, kGammaFreezeEps);
   const auto xc = op::Min(x, op::Add(a, one));
 
-  auto t = one;
+  Dd<D> t{one, zero};
   Dd<D> s{one, zero};
   auto live = one;
   for (int n = 1; n <= detail::kGammaSeriesN; ++n) {
-    t = op::Mul(t, op::Div(xc, op::Add(a, op::Set(d, static_cast<double>(n)))));
+    const auto apn = TwoSum(d, a, op::Set(d, static_cast<double>(n)));  // exact
+    // FLOOR: tiny x (or a decayed term) puts these below it; each step loses
+    // <= 2^-1071 absolute against s >= 1 (terms >= 0, ratio <= 1), <= 2^-1065
+    // relative over 64 steps; every caller (gamma, gammainv, beta, betainv)
+    // scales s or takes its log, so it stays relative.
+    t = DdMul(d, t, DdMulD(d, DdRecipDd(d, apn), xc));
     const auto lm = op::Gt(live, half);
-    const auto sn = DdAddD(d, s, t);
+    const auto sn = DdAdd(d, s, t);
     s = Dd<D>{op::IfThenElse(lm, sn.hi, s.hi), op::IfThenElse(lm, sn.lo, s.lo)};
-    live = op::IfThenElse(op::Lt(t, op::Mul(s.hi, eps)), zero, live);
+    live = op::IfThenElse(op::Lt(t.hi, op::Mul(s.hi, eps)), zero, live);
     if (op::AllTrue(d, op::Eq(live, zero))) break;
   }
   return s;
@@ -267,21 +297,37 @@ HWY_NOINLINE Dd<D> GammaSeriesSum(D d, op::V<D> a, op::V<D> x) {
 //
 // Started from the bare tail K_N = x + 2N + 1 - a and walked down to j = 1
 // at a FIXED depth, with no convergence test at all -- see the file header
-// for why a test is worse than useless here. 1/K is taken as a dd because Q
-// is directly proportional to it, so a rounded reciprocal would put its own
-// half ulp straight into the answer.
+// for why a test is worse than useless here. The last kGammaCfDdSteps steps
+// run in dd (#56): the recurrence contracts what the deep steps round, but
+// the last few each put a plain double's half ulp into K, which is worth
+// ~2 ulp on Q near the ridge. j - a and x + 2j - 1 - a are formed as exact
+// TwoSums for the same reason. 1/K is a dd (DdRecipDd) because Q is
+// directly proportional to it.
 template <class D>
 HWY_NOINLINE Dd<D> GammaCfRecip(D d, op::V<D> a, op::V<D> x) {
-  auto k = op::Sub(
+  const auto ma = op::Neg(a);
+  auto kd = op::Sub(
       op::Add(x, op::Set(d, static_cast<double>(2 * detail::kGammaCfN + 1))), a);
-  for (int j = detail::kGammaCfN; j >= 1; --j) {
+  for (int j = detail::kGammaCfN; j > kGammaCfDdSteps; --j) {
     const auto jv = op::Set(d, static_cast<double>(j));
     const auto num = op::Mul(jv, op::Sub(jv, a));
     const auto den =
         op::Sub(op::Add(x, op::Set(d, static_cast<double>(2 * j - 1))), a);
-    k = op::Sub(den, op::Div(num, k));
+    kd = op::Sub(den, op::Div(num, kd));
   }
-  return DdRecip(d, k);
+  Dd<D> k{kd, op::Zero(d)};
+  for (int j = kGammaCfDdSteps; j >= 1; --j) {
+    const auto jv = op::Set(d, static_cast<double>(j));
+    const auto num = DdMulD(d, TwoSum(d, jv, ma), jv);  // j*(j-a)
+    const auto den = DdAddD(
+        d, TwoSum(d, x, op::Set(d, static_cast<double>(2 * j - 1))), ma);
+    // FLOOR: |num| = j|j-a| is 0 (exact) or >= 2^-52 (j - a exact), so
+    // q < 2^-968 needs |k| > 2^916, i.e. x > ~2^915 (bracket iterates); K =
+    // den - q is then as large, and q's <= 2^-1072 loss is ~2^-1987 of K.
+    const auto q = DdMul(d, num, DdRecipDd(d, k));
+    k = DdAdd(d, den, Dd<D>{op::Neg(q.hi), op::Neg(q.lo)});
+  }
+  return DdRecipDd(d, k);
 }
 
 // R4: Q(a,x) for 0 < a <= 3/2, 0 < x <= 4, computed DIRECTLY.
@@ -309,8 +355,26 @@ HWY_NOINLINE Dd<D> GammaCfRecip(D d, op::V<D> a, op::V<D> x) {
 // against centre 1 for a <= 1/2, t = a-1 (exact by Sterbenz) against centre 2
 // for the rest -- which is exactly what lgamma-inl.h does internally for
 // x in (0, 1/2) and [3/2, 5/2].
+//
+// THE PRESCALE (#71). For a below 2^-600 the answer is computed at
+// a_s = a * 2^400 and returned as Q = m * 2^e with e = -400. Q(a, x) =
+// a E1(x) (1 + O(a)) is linear in a far below an ulp there, so Q(a_s, x) *
+// 2^-400 equals Q(a, x) to O(a_s) <= 2^-200 relative. Unscaled, every term
+// of num is O(a): for subnormal a each Dekker product sat below the
+// ProdLow floor, and the no-FMA tiers lost 2-3 ulp of a subnormal Q (FMA:
+// a residue that read denorm_min where Q rounds to +0). At a_s >= 2^-674
+// every product is above the floor (a_s * |log x| >= 2^-727; num ~ a_s *
+// E1(x) >= 2^-683; the tiny-x S terms are dominated by a_s * |log x|). The
+// caller applies 2^e LAST: GammaScale's one rounding into the subnormal
+// grid for gamma, log m + e log 2 for gammainv's forward.
 template <class D>
-HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
+struct GammaSmallQOut {
+  Dd<D> m;
+  op::V<op::SignedTag<D>> e;
+};
+
+template <class D>
+HWY_NOINLINE GammaSmallQOut<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   const auto one = op::Set(d, 1.0);
   const auto zero = op::Zero(d);
   const auto half = op::Set(d, 0.5);
@@ -321,13 +385,60 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   // and out of the zone polynomials' extrapolation range.
   a = op::Min(a, op::Set(d, kGammaR4AMax));
   x = op::Min(x, op::Set(d, kGammaR4XMax));
+  // Prescale (#71, see above): exact, a power of two.
+  const auto tiny_a = op::Gt(op::Set(d, 0x1.0p-600), a);
+  CORVUS_ROUTE(d, "gamma/R4/prescale", tiny_a);
+  a = op::IfThenElse(tiny_a, op::Mul(a, op::Set(d, 0x1.0p400)), a);
+  const op::SignedTag<D> di;
+  const auto e = op::ConvertToInt(
+      di, op::IfThenElse(tiny_a, op::Set(d, -400.0), zero));
 
+  // lgamma(1+a), always from the CENTRE-2 zone (#67): t = a - 1 (Sterbenz)
+  // for a > 1/2, and for a <= 1/2 t = a with lgamma(1+a) = lgamma(2+a) -
+  // log(1+a). The centre-1 zone is ~2^-57 relative; Q's error is lg1a's
+  // ABSOLUTE error over Q, and Q reaches ~3e-3 in this box, so centre-1
+  // cost up to 4 ulp at a ~ 0.43, x ~ 4. Centre-2 is 50-100x tighter there.
+  // log(1+a) must be RELATIVE-accurate to dd: for tiny a the O(a) terms of
+  // num cancel to Q ~ a*E1(x), so a 2^-53 relative error in log(1+a) costs
+  // ~100 ulp. For a <= 2^-7 it is Log1pDd(a) (dd, relative to itself). Above,
+  // 1 + a is exact as TwoSum(1, a) and LogDd of that dd is accurate: its
+  // plain-double l/h correction is <= 2^-53 against a result >= 2^-7. Then
+  // lg1a = a*(B2(a) - 1) keeps its relative accuracy down to subnormal a
+  // (the cancellation is ~1.7x).
   const auto c1 = op::Ge(op::Set(d, detail::kLgammaZoneLo), a);  // a <= 1/2
+  CORVUS_ROUTE(d, "gamma/R4/a_le_half", c1);
+  CORVUS_ROUTE(d, "gamma/R4/a_gt_half",
+               op::Gt(a, op::Set(d, detail::kLgammaZoneLo)));
   const auto t = op::IfThenElse(c1, a, op::Sub(a, one));
-  const auto lg1a = DdMulD(d, ZoneBracket(d, t, c1), t);  // lgamma(1+a)
+  const auto centre2 = op::Gt(zero, one);  // all false: centre-2 coefficients
+  // FLOOR: (R4 note, for every site in this function) a here is >= 2^-674
+  // after the prescale above (#71), so a*log x >= 2^-727, Q ~ a*E1(x) >=
+  // 2^-683 and |B*t| >= 2^-676: no product of the O(a) terms reaches 2^-968.
+  // Only tiny x puts the S terms below it; that loss (<= 2^-1065) is scaled
+  // by a*xa against num ~ a*|log x|, so it stays below 2^-370 relative to Q.
+  auto lg1a = DdMulD(d, ZoneBracket(d, t, centre2), t);  // lgamma(2+t)
+  if (!op::AllFalse(d, c1)) {
+    CORVUS_ROUTE_SCOPE(d, c1);
+    const auto r_cut = op::Set(d, 0x1.0p-7);  // Log1pDd's domain
+    const auto tiny = op::Ge(r_cut, a);
+    CORVUS_ROUTE(d, "gamma/R4/a_le_half/log", op::Gt(a, r_cut));
+    Dd<D> l1a = LogDd(d, TwoSum(d, one, op::Max(a, r_cut)));  // 1+a exact
+    if (!op::AllFalse(d, tiny)) {
+      CORVUS_ROUTE_SCOPE(d, tiny);
+      CORVUS_ROUTE(d, "gamma/R4/a_le_half/log1p", tiny);
+      const auto ls = Log1pDd(d, Dd<D>{op::Min(a, r_cut), zero});
+      l1a = Dd<D>{op::IfThenElse(tiny, ls.hi, l1a.hi),
+                  op::IfThenElse(tiny, ls.lo, l1a.lo)};
+    }
+    const auto sub = DdAdd(d, lg1a, Dd<D>{op::Neg(l1a.hi), op::Neg(l1a.lo)});
+    lg1a = Dd<D>{op::IfThenElse(c1, sub.hi, lg1a.hi),
+                 op::IfThenElse(c1, sub.lo, lg1a.lo)};
+  }
   const auto g1a_m1 = Expm1Dd(d, lg1a);                   // Gamma(1+a) - 1
   const auto g1a = DdAddD(d, g1a_m1, one);
 
+  // FLOOR: |a*log x| >= 2^-727 or exactly 0 (a >= 2^-674 after the prescale,
+  // log x is 0 or in [2^-53, 745]); see the R4 note at lg1a.
   const auto xa_m1 = Expm1Dd(d, DdMulD(d, LogDdAny(d, x), a));  // x^a - 1
   const auto xa = DdAddD(d, xa_m1, one);
 
@@ -343,11 +454,14 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   Dd<D> s{zero, zero};
   auto live = one;
   for (int n = 1; n <= detail::kGammaR4N; ++n) {
+    // FLOOR: live terms fall below it only for x < ~2^-900 (contrib >=
+    // 2^-60 |S|, S ~ x); see the R4 note at lg1a.
     term = DdMul(d, DdMulD(d, term, negx),
                  Dd<D>{op::Set(d, detail::kGammaRecipNHi[n - 1]),
                        op::Set(d, detail::kGammaRecipNLo[n - 1])});
     const auto wgt =
         DdRecipDd(d, TwoSum(d, a, op::Set(d, static_cast<double>(n))));
+    // FLOOR: as the term above (wgt <= 1); see the R4 note at lg1a.
     const auto contrib = DdMul(d, term, wgt);
     const auto lm = op::Gt(live, half);  // sticky; see GammaSeriesSum
     const auto sn = DdAdd(d, s, contrib);
@@ -358,9 +472,24 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   }
 
   auto num = DdAdd(d, g1a_m1, Dd<D>{op::Neg(xa_m1.hi), op::Neg(xa_m1.lo)});
+  // FLOOR: below it for tiny S (x < ~2^-900) or a; see the R4 note at lg1a.
   const auto axs = DdMulD(d, DdMul(d, xa, s), a);
   num = DdAdd(d, num, Dd<D>{op::Neg(axs.hi), op::Neg(axs.lo)});
-  return DdMul(d, num, DdRecipDd(d, g1a));
+  // FLOOR: num ~ Q >= 2^-683 after the prescale (R4 note at lg1a).
+  const auto q = DdMul(d, num, DdRecipDd(d, g1a));
+  // SIGN CLAMP (#51). Q > 0 always. Before the #71 prescale the three O(a)
+  // terms of num cancelled, for subnormal a, to a rounding residue that
+  // could come out as -denorm_min or -0; with a >= 2^-674 here num is far
+  // above the floor and the clamp should not fire. It stays as the guard on
+  // the contract that a probability is never negative, signed zero included.
+  const auto nonpos = op::Ge(zero, q.hi);
+  // ROUTE-UNREACHABLE: since the #71 prescale a >= 2^-674 here, so num is
+  // Q to dd relative accuracy, and Q > 0 on R4's box (Q >= a E1(4) for
+  // tiny a, >= Q(3/2, 4) ~ 0.06 otherwise): q.hi is never <= 0.
+  CORVUS_ROUTE(d, "gamma/R4/sign_clamp", nonpos);
+  return {Dd<D>{op::IfThenElse(nonpos, zero, q.hi),
+                op::IfThenElse(nonpos, zero, q.lo)},
+          e};
 }
 
 // R3: Temme's uniform asymptotic expansion on the ridge.
@@ -386,12 +515,14 @@ HWY_NOINLINE Dd<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
 //  4. z is a dd and its low word is the first-order correction to erfc:
 //     1/2*erfc(z.hi + z.lo) = 1/2*erfc(z.hi) - z.lo/sqrt(pi) * e^{-z^2}, so
 //     the correction folds into the same bracket S already multiplies.
-//  5. The core/tail split is on a*phi against an exact 36.0, i.e. z against
-//     6 -- erfc's own split. Below it ErfcCoreDd supplies 1/2*erfc(z) as a
-//     dd and nothing underflows. Above it the whole expression carries the
+//  5. The core/tail split is on a*phi against an exact 25.0, i.e. z against
+//     5 (#70: at erfc's own split, 6, ErfcCoreDd's 1 - erf form carried ~1
+//     ulp of erfc into a 2.5-ulp result). Below it ErfcCoreDd supplies
+//     1/2*erfc(z) as a dd and nothing underflows. Above it the whole expression carries the
 //     factor e^{-a*phi}, so erfc is taken in its tail form
-//     e^{-z^2} G(1/z)/z (REUSING erfc_tail_data's G -- z <= sqrt(800) ~ 28.3
-//     stays inside its fitted range) and the power-of-two scaling is applied
+//     e^{-z^2} G(1/z)/z (G from gamma's own dd fit, GammaTailG -- erfc's
+//     plain-double G cost up to 2.1 ulp here, #64) and the power-of-two
+//     scaling is applied
 //     last, which is what keeps the subnormal band a*phi in [700, 760] at a
 //     single rounding.
 template <class D>
@@ -399,6 +530,15 @@ struct GammaTemmeOut {
   GammaVal<D> val;
   op::V<D> is_p;  // 1.0 where the directly computed side is P
   op::M<D> sat;
+  // For gammainv's forward (#72): on tail lanes the value is exactly
+  // e^{ln_e} * brk, so ln value = ln_e + log(brk) without ever forming a
+  // subnormal value and taking its log.
+  Dd<D> ln_e;     // -a*phi, UNclamped (#72: the clamped exponent misled far
+                  // Newton iterates; log(brk) is then O(log z) off, which
+                  // keeps the step's sign and size, as the old -a*phi
+                  // fallback did)
+  Dd<D> brk;      // the tail bracket
+  op::M<D> tail;  // a*phi > kGammaTemmeZ2Split
 };
 
 template <class D>
@@ -412,12 +552,17 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
 
   const auto xma = op::Sub(x, a);  // exact by Sterbenz on this region
   const auto sgn = op::CopySign(one, xma);
+  CORVUS_ROUTE(d, "gamma/R3/p_direct", op::Lt(xma, zero));
+  CORVUS_ROUTE(d, "gamma/R3/q_direct", op::Ge(xma, zero));
+  // TWIN: gammainv-inl.h repeats this prescale for its own forward (search
+  // kGammaScaleAbove there).
   // Dekker-ceiling prescale (kGammaScaleAbove): u and phi are computed in
   // the scaled frame, a*phi scaled back with two exact multiplies. A
   // DISCARDED tiny-x lane's x*dn can underflow inexactly; such a lane fed
   // these sites NaN before the prescale existed, and its z is scrubbed at
   // the gather below either way.
   const auto big = op::Gt(a, op::Set(d, kGammaScaleAbove));
+  CORVUS_ROUTE(d, "gamma/R3/prescale", big);
   const auto dn = op::IfThenElse(big, op::Set(d, kGammaScaleDown), one);
   const auto up = op::IfThenElse(big, op::Set(d, kGammaScaleUp), one);
   const auto as = op::Mul(a, dn);
@@ -467,7 +612,9 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
       IndMask(d, op::Mul(Ind(d, op::IsNaN(aphi.hi)), Ind(d, op::Eq(x, a))))));
   const auto ea = GammaClampE(d, op::Neg(aphi.hi), op::Neg(aphi.lo));
 
-  // --- core, a*phi <= 36 --------------------------------------------------
+  // TWIN: beta-inl.h BetaR3Temme core (cpsi <= kBetaZ2Split), a copy of
+  // this block: the same ErfcCoreDd consumption and the same split (#70).
+  // --- core, a*phi <= 25 --------------------------------------------------
   // ErfcCoreDd's table index is round(min(z,6+1/1024)*256) and is NOT masked,
   // so a NaN z from a discarded lane must be scrubbed before it -- the same
   // one-op guard erfinv's HalleyMid carries (AGENTS.md, value-derived
@@ -479,20 +626,59 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
   const auto exd = ExpDd(d, ea.hi, ea.lo);
   const auto brk_core = DdAddD(
       d, s_rv, op::Neg(op::Mul(z.lo, op::Set(d, detail::kGammaInvSqrtPiHi))));
+  // FLOOR: brk_core*exd < 2^-968 on tail lanes (a*phi > 25, exd tiny), whose
+  // core the tm select below discards; on core lanes (z <= 5) the sum is
+  // ~1/2 erfc(z) >= 2^-41, so the <= 2^-1072 loss is invisible.
   const auto core = DdAdd(d, half_erfc, DdMul(d, brk_core, exd));
 
-  // --- tail, a*phi > 36 ---------------------------------------------------
-  const auto uz = op::Div(one, zs);
-  const auto gt = op::Div(ErfcTailGFromU(d, zs, uz), op::Add(zs, zs));
-  const auto brk_tail = DdAddD(d, s_rv, gt);
+  // TWIN: beta-inl.h BetaR3Temme tail (cpsi > kBetaZ2Split), a copy of this
+  // block; it matches since #69 (same GammaTailG, dd G/(2z), guarded z.lo
+  // fold) and #70 (the split at 25).
+  // --- tail, a*phi > 25 ---------------------------------------------------
+  // gt = G/(2z) = 1/2 erfc(z) e^{z^2} at z.hi, as a dd (#57: it was a
+  // rounded double, and z.lo was dropped; #64: G itself is now a dd, and
+  // GammaTailG's comment in src/erfc_tail_dd-inl.h covers the z clamp
+  // below). z.lo enters through the
+  // slope:
+  // with f(z) = 1/2 erfc(z) e^{z^2}, f' = 2z f - 1/sqrt(pi), so
+  // f(z.hi + z.lo) = gt - z.lo (1/sqrt(pi) - 2 z gt) + O(z.lo^2) -- the same
+  // first-order fold the core applies to its own erfc term.
+  //
+  // ONLY ON UNSATURATED LANES (a*phi <= -kGammaExpFloor = 800, i.e.
+  // z <= 28.3). The bracket 1/sqrt(pi) - 2z*gt is ~1/(2 sqrt(pi) z^2) but
+  // is formed by a subtraction carrying ~2^-53 absolute, so the computed
+  // correction's error relative to gt is ~2^-105 z^2: 2^-94 at z = 28.3,
+  // and garbage for the huge z of a saturated lane (z ~ 1e50 at a ~ 1e172),
+  // where it kept brk_tail from underflowing to zero. The forward forces
+  // those lanes to an exact 0/1 anyway, but gammainv takes the LOG of this
+  // dd on every R3 lane, and a nonzero garbage tail there returned a wrong
+  // root (beyond-resolution bucket, 1.9e15 ULP).
+  const auto zt = op::Min(op::Max(zs, op::Set(d, detail::kGammaTailZLo)),
+                          op::Set(d, detail::kGammaTailZHi));
+  const auto two_z = op::Add(zt, zt);
+  const auto r2z = DdRecip(d, two_z);
+  const auto gtd = DdMul(d, GammaTailG(d, r2z), r2z);
+  const auto live_tail =
+      op::Ge(op::Set(d, -detail::kGammaExpFloor), aphi.hi);
+  const auto zlo_corr = op::IfThenElse(
+      live_tail,
+      op::Mul(z.lo, op::Sub(op::Set(d, detail::kGammaInvSqrtPiHi),
+                            op::Mul(two_z, gtd.hi))),
+      zero);
+  const auto brk_tail = DdAdd(d, s_rv, DdAddD(d, gtd, op::Neg(zlo_corr)));
   const auto exf = ExpDdFrac(d, ea.hi, ea.lo);
   const auto tail = GammaScale(d, DdMul(d, exf.m, brk_tail), exf.e);
 
   const auto tm = op::Gt(aphi.hi, op::Set(d, kGammaTemmeZ2Split));
+  CORVUS_ROUTE(d, "gamma/R3/core",
+               op::Ge(op::Set(d, kGammaTemmeZ2Split), aphi.hi));
+  CORVUS_ROUTE(d, "gamma/R3/tail", tm);
   const GammaVal<D> val{op::IfThenElse(tm, tail.v, DdToDouble(core)),
                         Dd<D>{op::IfThenElse(tm, tail.dd.hi, core.hi),
                               op::IfThenElse(tm, tail.dd.lo, core.lo)}};
-  return {val, Ind(d, op::Lt(xma, zero)), ea.sat};
+  return {val, Ind(d, op::Lt(xma, zero)), ea.sat,
+          Dd<D>{op::Neg(aphi.hi), op::Neg(aphi.lo)}, brk_tail,
+          tm};
 }
 
 // ------------------------------------------------------------------------
@@ -537,6 +723,8 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
     x = op::IfThenElse(m, safe_x, x);
   }
 
+  // TWIN: gammainv-inl.h repeats this region map ("region map: GammaVec's");
+  // a routing change here must be mirrored there.
   // --- region map ---------------------------------------------------------
   // lambda <= 1/2 and lambda >= 2 are tested as 2x <= a and x >= 2a: the
   // doublings are exact, and where one overflows to inf the comparison is
@@ -567,6 +755,10 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
   const auto m_r2 = IndMask(d, i_r2);
   const auto m_r3 = IndMask(d, i_r3);
   const auto m_r4 = IndMask(d, i_r4);
+  CORVUS_ROUTE(d, "gamma/R1", m_r1);
+  CORVUS_ROUTE(d, "gamma/R2", m_r2);
+  CORVUS_ROUTE(d, "gamma/R3", m_r3);
+  CORVUS_ROUTE(d, "gamma/R4", m_r4);
 
   // --- assembled per-lane direct side -------------------------------------
   GammaVal<D> val{zero, Dd<D>{zero, zero}};
@@ -575,6 +767,9 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
   const bool need12 = !op::AllFalse(d, m_r1) || !op::AllFalse(d, m_r2);
   if (need12) {
     // E = a*log(x) - x - lgamma(a), the log of the common prefactor.
+    // FLOOR: |a*log x| < 2^-968 needs a < 2^-915 (|log x| is 0 exactly or in
+    // [2^-53, 745]); then lgamma(a) >= 634 dominates E, whose own dd rounding
+    // (~2^-97) dwarfs the <= 2^-1072 loss, and e^E makes it relative error.
     auto eb = DdMulD(d, LogDdAny(d, x), a);
     eb = DdAddD(d, eb, op::Neg(x));
     const auto lg = LgammaPosDd(d, a);
@@ -587,6 +782,7 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
     // hundreds of e-foldings ABOVE E, so sharing R2's mask would scrub live
     // R1 lanes.
     if (!op::AllFalse(d, m_r1)) {
+      CORVUS_ROUTE_SCOPE(d, m_r1);
       // (-) log a turns Gamma(a) into Gamma(a+1) without forming 1 + a and
       // without a 1/a that would be +inf for subnormal a. The two logs
       // cancel to ~0 for tiny a, but only their ABSOLUTE error matters here
@@ -595,6 +791,8 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
       const auto e1 =
           DdAdd(d, eb, Dd<D>{op::Neg(la.hi), op::Neg(la.lo)});
       const auto ea = GammaClampE(d, e1.hi, e1.lo);
+      CORVUS_ROUTE(d, "gamma/R1/saturated", ea.sat);
+      CORVUS_ROUTE(d, "gamma/R1/nan_exponent", op::IsNaN(e1.hi));
       const auto as = op::IfThenElse(ea.sat, safe_a, a);
       const auto xs = op::IfThenElse(ea.sat, safe_x, x);
       const auto ex = ExpDdFrac(d, ea.hi, ea.lo);
@@ -602,13 +800,19 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
       r1.v = op::IfThenElse(ea.sat, zero, r1.v);
       r1.dd.hi = op::IfThenElse(ea.sat, zero, r1.dd.hi);
       r1.dd.lo = op::IfThenElse(ea.sat, zero, r1.dd.lo);
+      CORVUS_ROUTE(d, "gamma/R1/subnormal",
+                   op::And(op::Lt(r1.v, op::Set(d, 0x1.0p-1022)),
+                           op::MaskNot(ea.sat)));
       val.v = op::IfThenElse(m_r1, r1.v, val.v);
       val.dd.hi = op::IfThenElse(m_r1, r1.dd.hi, val.dd.hi);
       val.dd.lo = op::IfThenElse(m_r1, r1.dd.lo, val.dd.lo);
       is_p = op::IfThenElse(m_r1, one, is_p);
     }
     if (!op::AllFalse(d, m_r2)) {
+      CORVUS_ROUTE_SCOPE(d, m_r2);
       const auto ea = GammaClampE(d, eb.hi, eb.lo);
+      CORVUS_ROUTE(d, "gamma/R2/saturated", ea.sat);
+      CORVUS_ROUTE(d, "gamma/R2/nan_exponent", op::IsNaN(eb.hi));
       const auto as = op::IfThenElse(ea.sat, safe_a, a);
       const auto xs = op::IfThenElse(ea.sat, safe_x, x);
       const auto ex = ExpDdFrac(d, ea.hi, ea.lo);
@@ -616,26 +820,39 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
       r2.v = op::IfThenElse(ea.sat, zero, r2.v);
       r2.dd.hi = op::IfThenElse(ea.sat, zero, r2.dd.hi);
       r2.dd.lo = op::IfThenElse(ea.sat, zero, r2.dd.lo);
+      CORVUS_ROUTE(d, "gamma/R2/subnormal",
+                   op::And(op::Lt(r2.v, op::Set(d, 0x1.0p-1022)),
+                           op::MaskNot(ea.sat)));
       val.v = op::IfThenElse(m_r2, r2.v, val.v);
       val.dd.hi = op::IfThenElse(m_r2, r2.dd.hi, val.dd.hi);
       val.dd.lo = op::IfThenElse(m_r2, r2.dd.lo, val.dd.lo);
     }
   }
   if (!op::AllFalse(d, m_r3)) {
+    CORVUS_ROUTE_SCOPE(d, m_r3);
     auto t = GammaTemme(d, a, x);
+    CORVUS_ROUTE(d, "gamma/R3/saturated", t.sat);
     t.val.v = op::IfThenElse(t.sat, zero, t.val.v);
     t.val.dd.hi = op::IfThenElse(t.sat, zero, t.val.dd.hi);
     t.val.dd.lo = op::IfThenElse(t.sat, zero, t.val.dd.lo);
+    CORVUS_ROUTE(d, "gamma/R3/subnormal",
+                 op::And(op::Lt(t.val.v, op::Set(d, 0x1.0p-1022)),
+                         op::MaskNot(t.sat)));
     val.v = op::IfThenElse(m_r3, t.val.v, val.v);
     val.dd.hi = op::IfThenElse(m_r3, t.val.dd.hi, val.dd.hi);
     val.dd.lo = op::IfThenElse(m_r3, t.val.dd.lo, val.dd.lo);
     is_p = op::IfThenElse(m_r3, t.is_p, is_p);
   }
   if (!op::AllFalse(d, m_r4)) {
-    const auto q4 = GammaSmallQ(d, a, x);
-    val.v = op::IfThenElse(m_r4, DdToDouble(q4), val.v);
-    val.dd.hi = op::IfThenElse(m_r4, q4.hi, val.dd.hi);
-    val.dd.lo = op::IfThenElse(m_r4, q4.lo, val.dd.lo);
+    CORVUS_ROUTE_SCOPE(d, m_r4);
+    // 2^e applied last (#71): one rounding into the subnormal grid.
+    const auto s4 = GammaSmallQ(d, a, x);
+    const auto q4 = GammaScale(d, s4.m, s4.e);
+    CORVUS_ROUTE(d, "gamma/R4/subnormal",
+                 op::Lt(q4.v, op::Set(d, 0x1.0p-1022)));
+    val.v = op::IfThenElse(m_r4, q4.v, val.v);
+    val.dd.hi = op::IfThenElse(m_r4, q4.dd.hi, val.dd.hi);
+    val.dd.lo = op::IfThenElse(m_r4, q4.dd.lo, val.dd.lo);
   }
 
   // The complement is formed from the dd BEFORE any rounding, so the single
@@ -653,15 +870,25 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
   // only when both are.
   const auto p_at = kP ? one : zero;   // value at "x exhausted": P=1, Q=0
   const auto p_at0 = kP ? zero : one;  // value at "no mass yet":  P=0, Q=1
+  CORVUS_ROUTE(d, "gamma/special/x_zero", op::Eq(x_in, zero));
   res = op::IfThenElse(op::Eq(x_in, zero), p_at0, res);
+  CORVUS_ROUTE(d, "gamma/special/a_zero", op::Eq(a_in, zero));
   res = op::IfThenElse(op::Eq(a_in, zero), p_at, res);
+  CORVUS_ROUTE(d, "gamma/special/x_inf", op::Eq(x_in, inf));
   res = op::IfThenElse(op::Eq(x_in, inf), p_at, res);
+  CORVUS_ROUTE(d, "gamma/special/a_inf", op::Eq(a_in, inf));
   res = op::IfThenElse(op::Eq(a_in, inf), p_at0, res);
+  CORVUS_ROUTE(d, "gamma/special/sum_zero", op::Eq(op::Add(a_in, x_in), zero));
   res = op::IfThenElse(op::Eq(op::Add(a_in, x_in), zero), qnan, res);
+  CORVUS_ROUTE(d, "gamma/special/both_inf", op::Eq(op::Min(a_in, x_in), inf));
   res = op::IfThenElse(op::Eq(op::Min(a_in, x_in), inf), qnan, res);
+  CORVUS_ROUTE(d, "gamma/special/a_neg", op::Lt(a_in, zero));
   res = op::IfThenElse(op::Lt(a_in, zero), qnan, res);
+  CORVUS_ROUTE(d, "gamma/special/x_neg", op::Lt(x_in, zero));
   res = op::IfThenElse(op::Lt(x_in, zero), qnan, res);
+  CORVUS_ROUTE(d, "gamma/special/a_nan", op::IsNaN(a_in));
   res = op::IfThenElse(op::IsNaN(a_in), a_in, res);  // payload preserved
+  CORVUS_ROUTE(d, "gamma/special/x_nan", op::IsNaN(x_in));
   res = op::IfThenElse(op::IsNaN(x_in), x_in, res);
   return res;
 }

@@ -35,11 +35,13 @@ any visible way.
   `PLAN.md` (full design texts live in its git history).
 - Audited accuracy claims → `docs/ACCURACY.md`; update it in the same
   change set as any kernel or gate change.
-- Performance numbers → `docs/PERFORMANCE.md`. PROVISIONAL, and not the
-  same standing as ACCURACY.md: one machine, one libm, two families not
-  yet reproducible. Never quote it as a claim, and never compare its two
-  tables against each other — only erf/erfc/lgamma are timed against a
-  libm; the rest are corvus against corvus called per element.
+- Performance numbers → `docs/PERFORMANCE.md`. MEASURED on three
+  machines (its own status line), but not the same standing as
+  ACCURACY.md: two families (§5) are not yet reproducible, and rows marked
+  stale await the next quiet bench. Never quote it as an accuracy claim,
+  and never compare ratios across different libms — only erf/erfc/lgamma
+  are timed against a libm; the rest are corvus against corvus called per
+  element.
 - Anything user-facing — examples, API advice, explaining a bound to a
   consumer → `docs/USER-GUIDE.md` (what corvus does/does not provide,
   the returned-vs-composed accuracy rule, pair-selection rules of thumb).
@@ -52,6 +54,8 @@ any visible way.
   `docs/ARCHITECTURE.md` (band diagram + layer-by-layer notes). VISUAL
   REFERENCE ONLY: it restates the Architecture section below in picture
   form and adds no constraint the non-negotiables do not already carry.
+  Update `docs/architecture-layers.svg` when a band is added, removed, or
+  moved; file names in it are examples, not an inventory.
 
 ## Architecture
 - `include/corvus/corvus.h` — public API: `std::span` in/out, std-only,
@@ -108,15 +112,20 @@ capping recipes, sweep scripts: `docs/ENVIRONMENT.md`.
 - Call `HWY_DYNAMIC_DISPATCH` from inside `namespace corvus` — a
   single-target cap build breaks otherwise, and only the SSE2 sweep
   catches it.
-- Outline region cores AND per-lane drivers (`HWY_NOINLINE`) from day one;
-  MSVC codegen time is superlinear in function size.
+- Outline region cores AND per-lane drivers from day one; MSVC codegen
+  time is superlinear in function size. Hot per-vector regions use
+  `CORVUS_OUTLINE` (src/ops-inl.h): `HWY_NOINLINE` under MSVC, inlined
+  elsewhere, because a call per 2-lane vector cost NEON cos/sin 1.6× (#43).
+  Rare-path regions behind an `AllFalse`/`AllTrue` skip stay `HWY_NOINLINE`
+  everywhere. Reassess the whole split if MSVC ever becomes properly
+  supportable under Highway (AVX-512 dispatch included) — PLAN.md.
 - A new function family goes, in dependency position, into all FOUR
   gating lists: tests/CMakeLists.txt, the three ULP-report steps in ci.yml,
   and the `$gates` array in tools/sweep_tiers.ps1. ctest auto-discovers;
   the other three silently omit. A fifth, non-gating list — the default
   `-Targets` array in tools/quiet_bench.ps1 and the TARGETS default in
-  tools/quiet_bench.sh — enumerate the benches the
-  same way and needs the family's `bench_*` too.
+  tools/quiet_bench.sh — list every family bench (component benches
+  excepted, see docs/PERFORMANCE.md) and need the family's `bench_*` too.
 - Assert the tier, never assume it: validate under
   `CORVUS_EXPECT_TARGET=<tier>` and confirm the active target before
   trusting any tier result. Windows validation numbers come from clang-cl

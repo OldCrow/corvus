@@ -6,9 +6,10 @@
 // The split matters more here than in the other ULP tests. Every region
 // computes the smaller of the pair directly and gets the other by
 // subtraction from one; the direct side is the one carrying a relative
-// accuracy claim down to the subnormal band, while the complement is always
-// >= ~0.4 and its bound is a different (easier) statement. Reporting them
-// together would average a hard claim with an easy one.
+// accuracy claim down to the subnormal band, while the complement is a
+// different statement: usually large, but as small as ~0.13 in R1 (#56),
+// where it inherits the direct side's error amplified ~5x. Reporting them
+// together would average two different claims.
 //
 // The routing below is re-derived from the same src/gamma_data.h constants
 // the kernel reads, so the two cannot drift apart silently.
@@ -33,22 +34,35 @@ using corvus_test::ParseDouble;
 using corvus_test::SameBits;
 using corvus_test::UlpDiff;
 
-// Gates pinned to the values measured on AVX2 native plus the
-// SSE4/SSSE3/SSE2 caps (Kaby Lake, AppleClang) -- max ULP was identical in
-// every cell on all four tiers; only two not-CR counts moved by 1. No
-// margin, per house rule. Indexed [region][0 = direct, 1 = complement];
-// cells that hold no points for a function carry 0 so any routing change
-// that populates them trips the gate and forces a re-measure.
+// Gates pinned to the values measured, no margin, per house rule. Indexed
+// [region][0 = direct, 1 = complement]; cells that hold no points for a
+// function carry 0 so any routing change that populates them trips the gate
+// and forces a re-measure. R1 and R2 re-pinned 2026-10-19 (#56: dd series
+// terms and dd CF tail; the reference set gained 1,024 ridge rows for
+// a < 20 and 302 Temme-tail rows for #57), measured on Zen 4 clang-cl at
+// AVX3_ZEN4, SSE4 and SSE2: R1 P 2 -> 1, R1 Q complement 4 -> 1 (was 6 on
+// the new rows), R2 Q 2 -> 1, R2 P complement 1 -> 0. R3 Q stays 2: the
+// new tail rows read 3 before #57's z.lo fix and 2 after (#64 tracks the
+// remaining real-error margin). Earlier pins: Kaby Lake, AppleClang, AVX2
+// plus the SSE4/SSSE3/SSE2 caps. Row 12a (#67, 2026-10-20): 1,700 rows in
+// R4's small-a band; R4 Q 4 -> 1 with lgamma(1+a) from the centre-2 zone,
+// and R4 P complement 0 -> 1 (2 rows, 0.03%; the published bound is 1 ULP
+// since row 12's erratum). R2 P complement still measures 0 on these rows,
+// but its published bound is also 1 ULP (dense seam rows miss by 1).
+// Row 12b (#64, 2026-10-21): 1,584 Temme-tail rows near lambda = 2 (x = 2a -
+// k ulp, k = 1..8, and lambda in [1.6, 2.4]); R3 Q direct read 3 on them
+// with erfc's plain-double tail G. With gamma's own dd G (GammaTailG) R3 Q
+// direct 2 -> 1 and R3 P direct 2 -> 1, at AVX3_ZEN4, SSE4 and SSE2.
 constexpr uint64_t kGateP[4][2] = {
-    {2, 0},  // R1: direct P max 2
-    {0, 1},  // R2: complement P max 1
-    {2, 1},  // R3
-    {0, 0},  // R4: complement P max 0 (correctly rounded)
+    {1, 0},  // R1: direct P max 1
+    {0, 0},  // R2: complement P max 0 on these rows (bound 1 ULP)
+    {1, 1},  // R3
+    {0, 1},  // R4: complement P max 1
 };
 constexpr uint64_t kGateQ[4][2] = {
-    {0, 4},  // R1: complement Q max 4 (worst a=1.5+ulp, x=2.25)
-    {2, 0},  // R2: direct Q max 2
-    {2, 1},  // R3
+    {0, 1},  // R1: complement Q max 1
+    {1, 0},  // R2: direct Q max 1
+    {1, 1},  // R3
     {1, 0},  // R4: direct Q max 1
 };
 
@@ -60,6 +74,7 @@ struct Region {
   size_t miss = 0;
   double worst_a = 0.0;
   double worst_x = 0.0;
+  corvus_test::RealMax real{};  // #82 T1
 };
 
 // Region codes, in the kernel's own order.
@@ -95,17 +110,20 @@ int Route(double a, double x, bool want_p, bool* direct_is_p) {
   return kR2;
 }
 
-bool LoadReference(const char* path, std::vector<double>* a,
+// LoadRef exits on a missing, malformed or short file, so this cannot fail.
+void LoadReference(const char* path, std::vector<double>* a,
                    std::vector<double>* x, std::vector<double>* p,
-                   std::vector<double>* q) {
+                   std::vector<double>* q, std::vector<double>* rp,
+                   std::vector<double>* rq) {
   const auto rows = LoadRef(path, 4, 10000);
   for (const auto& row : rows) {
     a->push_back(ParseDouble(row.tok[0], path, row.line));
     x->push_back(ParseDouble(row.tok[1], path, row.line));
     p->push_back(ParseDouble(row.tok[2], path, row.line));
     q->push_back(ParseDouble(row.tok[3], path, row.line));
+    rp->push_back(corvus_test::Residual(row, 0));
+    rq->push_back(corvus_test::Residual(row, 1));
   }
-  return true;
 }
 
 // `live[i]` says whether region-cell i CAN receive any row for the function
@@ -115,8 +133,8 @@ bool LoadReference(const char* path, std::vector<double>* a,
 // -- that is the "cells that hold no points for a function carry 0" case the
 // gate table above already documents, not a regression. R3's direct side
 // varies with (a, x), so both of its cells are always live.
-int ReportRegions(const char* label, const Region* r, const bool* live,
-                  int n) {
+int ReportRegions(const char* path, const char* label, const Region* r,
+                  const bool* live, int n) {
   int rc = 0;
   for (int i = 0; i < n; ++i) {
     std::printf(
@@ -129,6 +147,12 @@ int ReportRegions(const char* label, const Region* r, const bool* live,
                      static_cast<double>(r[i].n)
                : 0.0,
         r[i].worst_a, r[i].worst_x);
+    // #82 T1: real error for every cell that received rows (exact-zero
+    // reference rows are bit-exact checked and carry no real gate).
+    if (r[i].n > 0) {
+      rc |= corvus_test::CheckReal(path, label, r[i].name, r[i].bound,
+                                   r[i].real);
+    }
     // N10: a LIVE bucket that never received a row passes every gate above
     // vacuously -- a routing or reference-set regression, not a clean run.
     if (live[i] && r[i].n == 0) {
@@ -146,9 +170,9 @@ int ReportRegions(const char* label, const Region* r, const bool* live,
 
 // N4: split every whole-reference-set call into [0, n-3) and [n-3, n) so the
 // trailing 3-row group always runs a masked tail, independent of whether n
-// itself happens to be a lane multiple on the tier under test. gamma's
-// 16734 rows are even (no tail on any 2-lane tier today) and gammainv-q's
-// 6520 rows are a multiple of 8 (no tail on any tier at all) -- exactly the
+// itself happens to be a lane multiple on the tier under test. when #14 added it,
+// gamma's 16734 rows were even (no tail on any 2-lane tier) and gammainv-q's
+// 6520 rows were a multiple of 8 (no tail on any tier at all) -- exactly the
 // coverage gap this closes. Downstream per-row loops are untouched: they
 // only see the fully populated `got` vector.
 void CallSplit(void (*fn)(std::span<const double>, std::span<const double>,
@@ -165,9 +189,10 @@ void CallSplit(void (*fn)(std::span<const double>, std::span<const double>,
      std::span<double>(out).subspan(split));
 }
 
-int Measure(const char* label, bool want_p, const std::vector<double>& a,
-            const std::vector<double>& x, const std::vector<double>& got,
-            const std::vector<double>& want) {
+int Measure(const char* path, const char* label, bool want_p,
+            const std::vector<double>& a, const std::vector<double>& x,
+            const std::vector<double>& got, const std::vector<double>& want,
+            const std::vector<double>& res) {
   // Index [region][0 = direct side, 1 = complement].
   const auto& g = want_p ? kGateP : kGateQ;
   Region reg[8] = {
@@ -200,6 +225,7 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
       u = 0;
     } else {
       u = UlpDiff(got[i], want[i]);
+      r.real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
     }
     ++r.n;
     if (u > 0) ++r.miss;
@@ -219,12 +245,12 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
   live[want_p ? 1 : 0] = false;  // R1: the side Route() never fires here
   live[want_p ? 2 : 3] = false;  // R2: ditto
   live[want_p ? 6 : 7] = false;  // R4: ditto
-  return ReportRegions(label, reg, live, 8) | signed_zero_fail;
+  return ReportRegions(path, label, reg, live, 8) | signed_zero_fail;
 }
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char* const* argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   const char* p_path = argc > 1 ? argv[1] : "tests/data/gamma_p_reference.txt";
@@ -232,18 +258,18 @@ int main(int argc, char** argv) {
 
   int rc = 0;
   {
-    std::vector<double> a, x, p, q;
-    if (!LoadReference(p_path, &a, &x, &p, &q)) return 2;
+    std::vector<double> a, x, p, q, rp, rq;
+    LoadReference(p_path, &a, &x, &p, &q, &rp, &rq);
     std::vector<double> got(a.size());
     CallSplit(corvus::gamma_p, a, x, got);
-    rc |= Measure("gamma_p", true, a, x, got, p);
+    rc |= Measure(p_path, "gamma_p", true, a, x, got, p, rp);
   }
   {
-    std::vector<double> a, x, p, q;
-    if (!LoadReference(q_path, &a, &x, &p, &q)) return 2;
+    std::vector<double> a, x, p, q, rp, rq;
+    LoadReference(q_path, &a, &x, &p, &q, &rp, &rq);
     std::vector<double> got(a.size());
     CallSplit(corvus::gamma_q, a, x, got);
-    rc |= Measure("gamma_q", false, a, x, got, q);
+    rc |= Measure(q_path, "gamma_q", false, a, x, got, q, rq);
   }
 
   if (rc == 0) std::printf("PASS: all regions within gates\n");

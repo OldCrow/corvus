@@ -34,7 +34,7 @@
 //   log1p tail rounding   ~2^-70   (r^3*q evaluated in plain double)
 //   table representation  2^-107.5 dd split of -log(R_j)
 //   dd assembly           ~2^-104
-// Total ~2^-70 relative, matching exp_dd's ~2^-68.
+// Total ~2^-70 relative, matching exp_dd's ~2^-70.
 //
 // DOMAIN
 //   x must be a POSITIVE NORMAL double. Zero, negatives, Inf and NaN are the
@@ -81,6 +81,9 @@ HWY_INLINE Dd<D> Log1pDd(D d, Dd<D> r) {
   q = op::MulAdd(q, rh, op::Set(d, 1.0 / 3.0));
 
   // r^2 in dd (halving by 0.5 is exact), then r - r^2/2.
+  // FLOOR: |rh| < 2^-484 (only callers passing a tiny r, e.g. gamma R4's
+  // log1p(a); LogDd's r is 0 or >= 2^-106); sq.lo is off by
+  // <= min(2^-1073, 1.01 rh^2) < 2^-535 |result|, below the dd contract.
   const auto sq = TwoProd(d, rh, rh);
   const auto half = op::Set(d, 0.5);
   const Dd<D> half_sq{op::Mul(sq.hi, half),
@@ -110,6 +113,7 @@ HWY_INLINE Dd<D> LogDd(D d, op::V<D> x) {
   // condition is exactly "j >= kLogSplitSlot" and no slot straddles it --
   // which is what lets one R_j serve the whole slot.
   const auto hi_half = op::Ge(m0, op::Set(d, detail::kLogSplit));
+  CORVUS_ROUTE(d, "log_dd/upper_half", hi_half);
   const auto m = op::IfThenElse(hi_half, op::Mul(m0, op::Set(d, 0.5)), m0);
   const auto kf =
       op::Add(op::ConvertToDouble(d, k0),
@@ -159,6 +163,7 @@ HWY_INLINE Dd<D> LogDd(D d, Dd<D> x) {
 template <class D>
 HWY_INLINE Dd<D> LogDdAny(D d, Dd<D> x) {
   const auto tiny = op::Lt(x.hi, op::Set(d, 0x1p-500));
+  CORVUS_ROUTE(d, "log_dd/tiny_prescale", tiny);
   const auto s = op::IfThenElse(tiny, op::Set(d, 0x1p600), op::Set(d, 1.0));
   const auto e = op::IfThenElse(tiny, op::Set(d, -600.0), op::Zero(d));
   const Dd<D> xs{op::Mul(x.hi, s), op::Mul(x.lo, s)};  // exact: power of two

@@ -13,6 +13,34 @@ and machine it was measured against, and ratios against different libms
 are not comparable (§6); §5's two families still do not reproduce
 run-to-run and stay provisional inside an otherwise settled document.
 
+**v1.1.0 (2026-10-25): partly stale.** The figures below were measured on
+v0.9.0 code. v1.1.0's accuracy fixes made several families slower, and
+its elementary-family work (#43) made that family faster. The only v1.1.0
+measurement is one ad-hoc Zen 4 run of every family bench on the freeze
+code (`0508ef1`, `AVX3_ZEN4`, clang-cl Release) at 20–69% ambient load.
+It is not a quiet-bench pass and is INDICATIVE only: differences below
+about 10% are within its noise. Against §3/§9 (ns/el, corvus only):
+
+| family | v0.9.0 quiet → v1.1.0 ad-hoc | cause |
+|---|---|---|
+| `erf`, `erfinv`/`erfcinv`, `lgamma`, `digamma`, `trigamma`, `lbeta` | unchanged within noise | — |
+| `cos` / `sin` | 1.6 → 1.1 | #43 |
+| `exp` | 2.1 → 1.5 | #43 |
+| `log` | 4.9 → 2.7 (0.64× → 1.34–1.51× against UCRT) | #43 |
+| `log1p` | 4.9 → 4.9–5.4 (0.84–0.93× against UCRT) | — |
+| `erfc` tail / mixed | 4.1 → 9.9 / 6.3 → 14.2 | #74 (§3) |
+| `gamma_p`/`gamma_q` R1 / R2 / R3 / R4 | 66 / 54 / 49 / 77 → 109 / 68 / 57 / 85 | #56, #57, #64, #67, #70 |
+| `beta_p`/`beta_q` | R1, R2 and gamma-limit +32–37%; R3, R4, post-route +9–12% | #47, #54, #69, #84, #85 |
+| `gamma_p_inv`/`gamma_q_inv` | +15–55% by band | the forward, plus #48, #72, #83 |
+| `beta_p_inv`/`beta_q_inv` | +10–25% by band; joint-tiny plateau 529 → 829 | the forward, plus #50, #55, #60 |
+| `i0`/`i1`/`i0e`/`i1e` | series 13.9–14.2 → 14.0–25.4; tail 13.9–14.2 → 6.4; mixed 13.9–14.2 → 19.3–19.8 | #75 (§4) |
+
+The beta row ran at the 69% load peak, so its size is the least certain.
+Kaby Lake and M1 were not re-measured; the same code changes apply there.
+The §4 and §8.2 upper bounds are stale on two counts, these changes and
+#42's per-element baseline (§2). A quiet full-surface pass on each
+machine is planned for v1.2.0, and it replaces this note.
+
 ---
 
 ## 1. What was measured
@@ -103,6 +131,13 @@ Much of the spread here is that, not vectorisation.
 The mixed band is slowest because lanes in a vector can land in different
 regions, and the kernel pays for both.
 
+**Stale since row 12h (2026-10-25).** The tail now evaluates the dd G
+(#74, docs/ACCURACY.md erfc). An ad-hoc Zen 4 run, not a quiet-bench run,
+put the tail-only band at ~9.8 ns/el against ~5.5 for the plain-double G,
+and the mixed band at ~12.7 against ~8.8. The core band is unchanged. The
+tail and mixed rows above, and in §8.1, predate the change; re-measure at
+the next quiet bench.
+
 ### lgamma
 
 | band | corvus ns/el | libm ns/el | ratio |
@@ -139,6 +174,19 @@ bands at the largest n.
 | `lbeta` | 7.99× main band, 12.73× big band |
 | `erfinv` / `erfcinv` | 5.17 – 14.94× — see §5 |
 | `i0` / `i1` / `i0e` / `i1e` | 8.31 – 8.45× — see §5 |
+
+**Stale for v1.1.0 (2026-10-25)** for every family above: the per-element
+baseline changed (#42, §2), and `gamma`, `beta` and both inverses got
+slower (Status note).
+
+**Bessel rows stale since row 12i (2026-10-25).** The series now carries
+eight dd terms (#75), and each regime runs only when some lane needs it.
+Ad-hoc Zen 4 runs, not quiet-bench runs (ns/el, before → after): series
+band 14.3–14.8 → 13.9–14.3, tail band 14.5–14.8 → 6.4–6.5, mixed band
+14.4–14.8 → 19.3–19.7. Re-measure at the next quiet bench. The v1.1.0
+ad-hoc run (Status note) agrees on the tail and mixed bands, but read the
+`i1`/`i1e` series at 25.4/20.8 against `i0`/`i0e`'s 14.0/14.2; check
+that at the next quiet bench.
 
 The very large figures at the top of the `gammainv` range are a property of the
 baseline, not of the kernel: an iterative solve has a lot of per-call setup to
@@ -304,6 +352,12 @@ machine's published numbers come from a single full-surface run.
 | `log` | 4.9 | **0.61–0.64× — slower than UCRT** |
 | `log1p` | 4.9 | 0.86–0.92× |
 
+**Stale for v1.1.0 (2026-10-25).** #43 moved the elementary kernels. The
+ad-hoc v1.1.0 run (Status note) reads `cos`/`sin` 1.1 ns/el, `exp` 1.5
+and `log` 2.7, which is 1.34–1.51× against UCRT: faster than UCRT, where
+this table has it slower. `log1p` is unchanged. The `log` paragraph
+below describes v0.9.0.
+
 `log` below 1.0 is the accuracy trade stated plainly: corvus `log` is
 correctly rounded on every reference row (see ACCURACY.md), UCRT's is a
 fast table method. There is no configuration in which corvus wins this
@@ -391,6 +445,11 @@ The quotable section. Sources: §9 (Zen 4, 5% gate,
 n = 10⁶, tier-asserted (`AVX3_ZEN4` / `AVX2` / `NEON`). Ratios in one
 COLUMN share a libm; ratios across columns do not, and §2's rule
 against comparing them still applies row by row.
+
+**v0.9.0 figures (2026-10-25 note).** On Zen 4, v1.1.0 `log` beats UCRT
+(1.34–1.51×, ad-hoc; Status note), so §11.1's "`log` loses everywhere"
+no longer holds for that column. The Kaby and M1 columns were not
+re-measured.
 
 ### 11.1 Elementary family, three libms
 

@@ -40,9 +40,18 @@ void SplitCall(const std::vector<double>& in, std::vector<double>& out) {
 // every NORMAL result in the set is correctly rounded (the core's ~2^-17
 // ulp tie window never bites on these rows -- gate 0), and the subnormal
 // band's fl(m.hi+m.lo)-then-ScaleTwo composition measures 1 (design bound
-// ~0.51 ulp in the output's own ulp).
+// ~0.75 ulp in the output's own ulp; 0.7495 measured in the top subnormal
+// binade, see docs/ACCURACY.md).
 constexpr uint64_t kGateNormal = 0;
 constexpr uint64_t kGateSubnormal = 1;
+// The contract's near-tie exception (corvus.h: "correctly rounded exp
+// except within ~2^-15 ulp of a rounding tie"; #76, review L-6): a NORMAL
+// result that close to a midpoint may land on either neighbour. Such a row
+// -- stored residual |r| >= 1/2 - kTieWindow and the kernel 1 ULP off --
+// counts as a tie, reported but not a gate miss. The witness
+// exp(2^-53) = 1 + 2^-53 + 2^-107 (CR 1 + 2^-52, kernel 1.0) is in the set.
+// Same window as the hunt family's TIE (tools/hunt/families/elementary.py).
+constexpr double kTieWindow = 0x1p-15;
 
 constexpr double kMinNormal = 0x1p-1022;
 
@@ -53,11 +62,19 @@ struct Region {
   size_t n = 0;
   size_t miss = 0;
   double worst_x = 0.0;
+  size_t ties = 0;  // near-tie rows under the contract's exception
+  corvus_test::RealMax real{};
 };
 
-void Accumulate(Region& r, double x, uint64_t u) {
+void Accumulate(Region& r, double x, uint64_t u, double real_err, size_t row,
+                bool tie = false) {
+  r.real.Add(real_err, row);
   ++r.n;
   if (u > 0) ++r.miss;
+  if (tie && u == 1) {
+    ++r.ties;
+    return;
+  }
   if (u > r.max_ulp) {
     r.max_ulp = u;
     r.worst_x = x;
@@ -66,29 +83,31 @@ void Accumulate(Region& r, double x, uint64_t u) {
 
 void Report(const Region& r) {
   std::printf(
-      "  %-10s n=%6zu  max ULP=%3llu (gate %llu)  not-CR: %zu (%.2f%%)  "
-      "worst x=%.17g\n",
+      "  %-10s n=%6zu  max ULP=%3llu (gate %llu)  not-CR: %zu (%.2f%%), "
+      "near-ties %zu  worst x=%.17g\n",
       r.name, r.n, static_cast<unsigned long long>(r.max_ulp),
       static_cast<unsigned long long>(r.gate), r.miss,
       r.n ? 100.0 * static_cast<double>(r.miss) / static_cast<double>(r.n)
           : 0.0,
-      r.worst_x);
+      r.ties, r.worst_x);
 }
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char* const* argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   const char* path = argc > 1 ? argv[1] : "tests/data/exp_reference.txt";
   const auto rows = corvus_test::LoadRef(path, 2, 10000);
 
-  std::vector<double> in, want;
+  std::vector<double> in, want, res;
   in.reserve(rows.size());
   want.reserve(rows.size());
+  res.reserve(rows.size());
   for (const auto& row : rows) {
     in.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
     want.push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
+    res.push_back(corvus_test::Residual(row, 0));
   }
 
   std::vector<double> got(in.size());
@@ -126,7 +145,10 @@ int main(int argc, char** argv) {
       continue;
     }
     const uint64_t u = UlpDiff(got[i], w);
-    Accumulate(w < kMinNormal ? subnormal : normal, x, u);
+    // The +inf and +0 rows above are exact-match checks and carry no real gate.
+    const bool tie = w >= kMinNormal && std::fabs(res[i]) >= 0.5 - kTieWindow;
+    Accumulate(w < kMinNormal ? subnormal : normal, x, u,
+               corvus_test::RealErr(got[i], w, res[i]), i, tie);
   }
 
   std::printf("exp (%s):\n", path);
@@ -149,6 +171,10 @@ int main(int argc, char** argv) {
       std::fprintf(stderr, "FAIL: exp %s max ULP %llu exceeds gate %llu\n",
                    r->name, static_cast<unsigned long long>(r->max_ulp),
                    static_cast<unsigned long long>(r->gate));
+      rc = 1;
+    }
+    // #82 T1: real error against the contract ceiling and the regression pin.
+    if (corvus_test::CheckReal(path, "exp", r->name, r->gate, r->real) != 0) {
       rc = 1;
     }
   }

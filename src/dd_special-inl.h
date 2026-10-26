@@ -29,10 +29,15 @@ namespace HWY_NAMESPACE {
 
 namespace op = ops;
 
-// Expm1Dd series/exponential crossover. Below it the k <= 6 series truncates
-// at w^7/5040 <= 2^-72 relative; above it e^w (-) 1 loses at most
-// log2(1/|w|) = 10 bits of the dd's ~2^-105, i.e. lands at ~2^-95.
-inline constexpr double kExpm1Cut = 0x1.0p-10;
+// Expm1Dd series/exponential crossover (#58: was 2^-10). Above it e^w (-) 1
+// inherits ExpDd's ~2^-70 relative error on e^w -- not the dd's 2^-105:
+// ExpDd's p2 = rh^2*q is a plain double -- amplified by 1/|w|, so at the
+// old 2^-10 cut it reached 2^-61.4 (measured). Moving the cut to 2^-6 caps
+// the amplification at 2^6 (~2^-64 just above the cut); below it the series
+// runs to w^11/11!, whose truncation w^11/12! is <= 2^-94.8 relative at the
+// cut, and whose plain-double tail from w^3 rounds at |w^2/6| * 2^-53 <=
+// 2^-67.6 relative.
+inline constexpr double kExpm1Cut = 0x1.0p-6;
 
 // Log1pmxDd's series: how many leading terms of T get dd treatment. A
 // rounding introduced at Horner step k reaches T attenuated by u^k, so with
@@ -79,9 +84,14 @@ inline constexpr int kPhiLead = 6;
 // LARGE |u|: no cancellation to protect against (phi >= 2^-9 while u <= 1),
 // so the direct difference is used, with 1 + u handed to LogDdAny as a dd.
 // At the cut this inherits log_dd's error amplified by 2/u; log_dd near
-// argument 1 is far better than its ~2^-68 global bound (the table's L_j is
-// exact to 2^-107 and log1p(r) is relative to itself), which is what keeps
-// the seam continuous in accuracy as well as in value.
+// argument 1 is better than its ~2^-68 global bound (the table's L_j is
+// exact to 2^-107 and log1p(r) is relative to itself), but not enough to
+// make the seam continuous in accuracy. Measured worst for the whole
+// primitive: ~2^-67.6 relative, just above the cut (2^-67.78 at
+// u = 0.0625098 on the reference rows, 2^-67.63 near u = 0.0625809 in
+// 100k-point probes; tests/test_dd_special.cpp, row 12). The 2^-71.41
+// recorded at #58 came from rows that never sampled (1/16, 0.064]. A fix
+// near the cut is tracked for v1.2.0.
 //
 // TWO SPELLINGS OF 1 + u. The 2-arg overload takes w = 1 + u from the
 // CALLER, for use where the caller owns an exact closed form (beta's
@@ -96,6 +106,18 @@ inline constexpr int kPhiLead = 6;
 // the 2-arg overload with an independently computed w. Every 1-arg call
 // site today satisfies this (gamma's Temme band has u in [-1/2, 1], beta's
 // R3 ratio band likewise, Log1pDdWide's arguments are >= -1 + 2^-12-class).
+//
+// FLOOR: |u| < 2^-484. The t*uh steps lose <= 2^-1073 against T >= 0.47.
+// u^2 and u^2*T leave phi off by <= min(2^-1072, 1.1 u^2) ABSOLUTE (not
+// relative to phi), which each caller absorbs:
+//  * Log1pDdWide (w - phi): <= 2^-535 |w|.
+//  * LgammaDiffDd (z*phi(m/z)): <= 1.1 m*w, under 2^-483 of m ln z (z >= Z0).
+//  * BetaPsiCore (p*phi): |u| < 2^-484 needs y < 2^-326 (lambda is 0 or
+//    >= 2^-157 alpha*y; x + y = 1), so alpha/beta > 2^326 and the other
+//    term dominates cs: error <= 2^-324 cs (mirrored for v).
+//  * gamma Temme, gammainv forward: u = x/a - 1 of doubles is 0 or >= 2^-54.
+//  * BetaInvPhiOverSq: S1 seed only; BetaInvConsider scores it on the forward
+//    and Newton polishes, so the error cannot reach a result.
 template <class D>
 HWY_INLINE Dd<D> Log1pmxDd(D d, Dd<D> u, Dd<D> w) {
   const auto one = op::Set(d, 1.0);
@@ -124,6 +146,8 @@ HWY_INLINE Dd<D> Log1pmxDd(D d, Dd<D> u, Dd<D> w) {
   const auto big = DdAdd(d, u, Dd<D>{op::Neg(lg.hi), op::Neg(lg.lo)});
 
   const auto m = op::Ge(op::Set(d, detail::kPhiCut), op::Abs(uh));
+  CORVUS_ROUTE(d, "dd_special/log1pmx_series", m);
+  CORVUS_ROUTE(d, "dd_special/log1pmx_direct", op::MaskNot(m));
   return Dd<D>{op::IfThenElse(m, ser.hi, big.hi),
                op::IfThenElse(m, ser.lo, big.lo)};
 }
@@ -135,23 +159,35 @@ HWY_INLINE Dd<D> Log1pmxDd(D d, Dd<D> u) {
   return Log1pmxDd(d, u, w);
 }
 
-// e^w - 1 for a dd w, to dd precision relative to the result.
+// e^w - 1 for a dd w, relative to the result: ~2^-64 worst (just above
+// kExpm1Cut, where ExpDd's own error is amplified), ~2^-67.6 in the series
+// -- NOT the dd's 2^-105 (#58; tests/test_dd_special.cpp gates it).
 //
-// Small |w| is the only interesting case: e^w (-) 1 there is a subtraction of
-// two numbers within 2^-10 of each other, which throws away ten bits of the
-// exponential's hundred. The series keeps them. Structured like Log1pDd:
-// w and w^2/2 in dd (w^2/2 is 2^-11 relative to w, so a rounded w^2 would
-// already show), everything from w^3 on in plain double, where |w^3/6| is
-// 2^-23 relative and its own rounding lands at 2^-76.
+// Small |w| is the only interesting case: e^w (-) 1 there is a subtraction
+// of two numbers within |w| of each other, which throws away log2(1/|w|)
+// bits of the exponential's accuracy. The series keeps them. Structured
+// like Log1pDd: w and w^2/2 in dd (w^2/2 is 2^-7 relative to w at the cut,
+// so a rounded w^2 would show), everything from w^3 on in plain double,
+// where |w^3/6| is 2^-14.6 relative at the cut and its own rounding lands
+// at 2^-67.6.
 template <class D>
 HWY_INLINE Dd<D> Expm1Dd(D d, Dd<D> w) {
   const auto one = op::Set(d, 1.0);
   const auto wh = w.hi;
 
-  auto q = op::Set(d, 1.0 / 720.0);
+  // q = 1/6 + w/24 + ... + w^8/11!, so w^3*q runs the series to w^11/11!.
+  auto q = op::Set(d, 1.0 / 39916800.0);
+  q = op::MulAdd(q, wh, op::Set(d, 1.0 / 3628800.0));
+  q = op::MulAdd(q, wh, op::Set(d, 1.0 / 362880.0));
+  q = op::MulAdd(q, wh, op::Set(d, 1.0 / 40320.0));
+  q = op::MulAdd(q, wh, op::Set(d, 1.0 / 5040.0));
+  q = op::MulAdd(q, wh, op::Set(d, 1.0 / 720.0));
   q = op::MulAdd(q, wh, op::Set(d, 1.0 / 120.0));
   q = op::MulAdd(q, wh, op::Set(d, 1.0 / 24.0));
   q = op::MulAdd(q, wh, op::Set(d, 1.0 / 6.0));
+  // FLOOR: |wh| < 2^-484 (series lanes); sq.lo is off by <= min(2^-1073,
+  // 1.01 wh^2) < 2^-535 |result|, inside the relative contract every caller
+  // (gamma R4, beta, betainv) relies on.
   const auto sq = TwoProd(d, wh, wh);
   const auto half = op::Set(d, 0.5);
   // w^2/2 as a dd; halving is exact and the 2*w.hi*w.lo cross term is kept
@@ -165,6 +201,8 @@ HWY_INLINE Dd<D> Expm1Dd(D d, Dd<D> w) {
   const auto big = DdAddD(d, ex, op::Neg(one));
 
   const auto m = op::Ge(op::Set(d, kExpm1Cut), op::Abs(wh));
+  CORVUS_ROUTE(d, "dd_special/expm1_series", m);
+  CORVUS_ROUTE(d, "dd_special/expm1_exp", op::MaskNot(m));
   return Dd<D>{op::IfThenElse(m, ser.hi, big.hi),
                op::IfThenElse(m, ser.lo, big.lo)};
 }

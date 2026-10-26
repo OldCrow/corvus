@@ -35,17 +35,24 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   relief, and was reverted. MEASURED EXEMPTIONS (recorded 2026-08-29;
   the rule is a build-time tool, not an end in itself): lgamma's cores
   and LgammaVec stay HWY_INLINE — the 2026-08-11 retro pass measured that
-  outlining LgammaLog alone met the build-time goal (193 s → 72 s) and
+  outlining its log call alone (today the shared OutlinedLogDd,
+  log_dd-inl.h) met the build-time goal (193 s → 72 s) and
   stopped there deliberately; erf/erfc carry no HWY_NOINLINE at all —
   they are the cheapest TUs in the library and have never shown a
-  build-time problem. Either exemption is void the moment its TU shows up
+  build-time problem; the elementary family's Vec wrappers (ExpVec,
+  LogVec, Log1pVec, CosVec, SinVec; TrigVec under Cos/Sin) stay HWY_INLINE
+  too, because each is a thin composition (fast path, AllTrue check, dd
+  fallback) and the heavy regions it calls (ExpFast, LogFast, ExpDdVec,
+  LogDdVec, OutlinedLogDd, TrigReduce, TrigCores, TrigReducePh) are the
+  outlined ones. Each exemption is void the moment its TU shows up
   in a slow-build report. The per-family DRIVER loop lives in
   src/driver-inl.h (DriveUnary/Binary/Ternary): each family's exported
   Impl is a dispatch-table root that is never inlined, so every
   instantiation is one outlined driver per family per target and the
   MSVC rule applies per instantiation, unchanged. MSVC additionally gets
-  `/d2ReducedOptimizeHugeFunctions` on the heaviest TUs (gamma.cpp,
-  beta.cpp; CMakeLists; real MSVC only, clang-cl rejects /d2 flags) —
+  `/d2ReducedOptimizeHugeFunctions` on the four heaviest TUs (gamma.cpp,
+  beta.cpp, gammainv.cpp, betainv.cpp; CMakeLists; real MSVC only,
+  clang-cl rejects /d2 flags) —
   erfinv needed no such flag once outlined.
 - dd layer: `src/dd-inl.h` holds the double-double primitives (Fast2Sum,
   TwoSum, TwoProd, DdAdd/DdMul/DdRecip, DdSqrt, DdRecipDd), written
@@ -90,9 +97,60 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   code path for every target rather than a non-FMA special case. lgamma's
   Stirling product is the first kernel to need it; it read as correct on
   every FMA target and only the capped SSE sweep exposed it.
+- The same residual has a FLOOR: once |a*b| falls below ~2^-968 it is not
+  representable on the 2^-1074 grid, so Dekker's partial products round
+  on non-FMA tiers (gross) and even a fused MulSub rounds it (mild). A
+  dd primitive fed tiny operands prescales UP by an exact power of two:
+  LogDdAny (2^600), DdDivDd (#59: 2^600 below a 2^-900 divisor). DdSqrt
+  has the floor documented, not prescaled [DECIDED 2026-10-18, user]: no
+  caller reaches it, so a new caller that can is the one that adds the
+  prescale.
+- **Every Dekker-product site states its floor argument** [2026-10-22,
+  user; #82 T4]. The two bullets above say what a caller must do, but
+  nothing checked that callers did. M-5/#73 is the incident: erfinv fed
+  subnormal y through DdMulD with no prescale, 2 ULP on SSE4/SSE2. Every
+  call of TwoProd, DdMul, DdMulD or ProdLow/SquareLow outside
+  dd-inl.h/ops-inl.h carries
+  `// FLOOR: <operand range, and the predicate, clamp or prescale that
+  guarantees it>`, on the call or once at the head of its function.
+  "Operands are O(1)" counts only when it names the predicate that bounds
+  them. An argument that turns out false is a finding: fix it in the same
+  change or file it. `tools/hunt/floor_lint.py` lists every site without
+  one; there were 136 at `cbd1373`. Phasing:
+  1. Row 12-T (v1.1.0) argues every site whose operands can reach the
+     floor: subnormal or tiny inputs, tiny-a/tiny-shape paths, subnormal
+     results formed through a product. These are the no-FMA tiers' gross
+     cases. DONE 2026-10-24: the floor census (the route census build;
+     `route_census.py --floor-json`) records each call site whose lane-0
+     product falls below 2^-968 on a reference row, a special-input row
+     or a witness. That is 64 of the 136 sites, and all 64 carry an
+     argument. A kernel change reruns it, and a newly hit site needs its
+     argument before it lands.
+  2. Each fix row argues every site in the functions it changes.
+  3. #86 (v1.2.0) argues the rest. Until then the lint is report-only. At
+     zero, CI runs it with `--strict` and new sites cannot land without
+     an argument.
 - FP contraction is OFF project-wide (`CORVUS_FP_FLAGS`): the dd exactness
   proofs assume IEEE ops as written; fusion is requested in source
   (`ops::MulAdd`), never inferred by the compiler.
+- **Copied code has twins; a fix reaches every twin** [2026-10-21, user].
+  Several kernels carry deliberate copies of another's logic, and a copy
+  passes its own gates while it drifts: each family's gates measure only
+  that family's bound. Two rules:
+  1. Every copied site carries `// TWIN: <file> <function or block>`
+     naming its source, and the source names each copy back the same way.
+     A call into shared code (gammainv's forward calling GammaTemme) is not
+     a twin; a re-implementation of the same steps is.
+  2. A fix commit greps the changed pattern and the TWIN markers, then
+     either fixes each twin in the same change or files an issue naming it.
+     The commit message lists the twins and what happened to each.
+  Incidents: #47's R4 seam fix (beta-inl.h, order row 5) missed
+  BetaInvForward's copy of the router until #55 traced a betainv failure
+  to it (row 9). #57's z.lo fold and #64's dd G (gamma's Temme tail) missed
+  beta's copy of that tail, whose 3-ULP R3 bound absorbed it (row 12b);
+  #69 (row 12c) brought beta's tail level, and the shared GammaTailG now
+  serves gamma, beta and erfc (#74). #84's router predicate reached all
+  its twins in one change (row 12k).
 
 ## Test doctrine
 
@@ -122,6 +180,68 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   applies `CORVUS_HWY_TARGET_DEFS` so the test sees the same target set as
   the library. Such a test also asserts its own dispatched target equals
   `corvus::active_target()`.
+- `tests/test_guards.cpp` (#53) checks what the reference sets cannot
+  reach: scalar = span, sign/range, beta reflection symmetry and the
+  inverse bracket over seeded grids. An open defect the grids reach is a
+  STRICT known-defect band tagged with its issue: the test fails on any
+  failure outside the bands and on a band that stops failing, so a fix
+  deletes its own band in the same commit. Never widen a band to absorb
+  a new failure; file an issue.
+- **Every public ULP gate also gates real error** (#82 T1; method in
+  ACCURACY.md, Methodology). Regenerating a reference file means
+  re-annotating it (`python tools/hunt/annotate.py <key>`, which fails on
+  any row that is not correctly rounded) and re-measuring its pins
+  (`python tools/hunt/pins.py --write`, then review the diff). Never raise
+  a pin to absorb a regression: a pin above the contract ceiling names its
+  issue, and only the fix row lowers it.
+- **Every public reference file carries the hunt strata** (#82 T3): seam
+  bit-neighbourhoods and full-mantissa bands, subnormal inputs and
+  outputs, dense fills, near-tie rows (within 1/32 ulp of a midpoint) and
+  extreme cross-products, drawn by `tools/hunt/strata_append.py` from the
+  same strata definitions the hunt runs (point helpers in
+  `refgen_common`). A new seam or stratum goes into its hunt family and
+  reaches the gates through a `--replace` run. `tests/data/ref_counts.txt`
+  fixes every file's row count per stratum; LoadRef fails on any
+  difference, so a generator change that adds or drops rows updates the
+  counts in the same commit (`strata_append.py --count FILE`). A row that
+  breaks a published bound sits in a `deferred:#NN` section that names
+  its issue: counted, not gated, until the fix row deletes the section
+  header and shows the gate failing first with `CORVUS_REF_DEFERRED=1`.
+- **Every bound has one statement** (#82 T6). `tests/data/bounds.txt`
+  carries each gated region's enforced bound and its published contract.
+  The gates fail on any bound the table does not hold (CheckBound in
+  tests/ulp_utils.h). The `claims_check` ctest (`tools/claims_check.py`)
+  fails when a marked claim in README, USER-GUIDE, corvus.h or
+  ACCURACY.md states anything but the published value, or when a
+  "max N ULP" phrase carries no `<!-- claim: id -->` marker. So a gate
+  change edits the table, and a contract change edits the table and every
+  marked statement, in one commit. A known wrong statement names its
+  issue on the marker or row (`#76`) and stays reported until that row
+  corrects it.
+- **Every kernel threshold is a registered seam with populated buckets**
+  (#82 T2). Each threshold a kernel compares against (a data-table
+  constant, a region edge, a saturation or clamp level) is a SEAMS entry
+  in its hunt family. `tools/hunt/seam_audit.py` must report rows within
+  64 ulp of it and in a 5% band on each side. A seam whose coordinate
+  needs the router's orientation or an expression carries `audit_f`. A
+  domain edge names the one side that exists (`sides`). A threshold on a
+  loop-internal quantity names the census route that marks it (`route`)
+  or, failing that, states why no row can carry it (`internal`). A new
+  kernel constant gets its SEAMS entry and strata in the same commit, and
+  the audit exits 0.
+- **Every kernel route carries a census marker** (#82 T7,
+  `src/route_census.h`). A router region, a sub-map branch, a rare-path
+  block, a saturation or clamp, or a special-value fixup gets
+  `CORVUS_ROUTE(d, "family/route", mask)`. A block that runs when any lane
+  is in a region opens `CORVUS_ROUTE_SCOPE(d, region)`. Both are empty
+  outside a census build. `tools/hunt/route_census.py` must report every
+  route exercised by a reference row, or by a witness in
+  `tools/hunt/route_witnesses.txt` where no certified row can be stored,
+  and no row whose region differs from the hunt's router replica. A
+  route nothing can reach carries `// ROUTE-UNREACHABLE: <argument>` on
+  the line above, and that argument is the claim the census records.
+  "Unreachable" without an argument is a gap. A kernel change that adds,
+  removes or re-routes a branch reruns the census in the same commit.
 - Where the kernel carries more than working precision, the reference file
   carries a double-double pair and the test measures relative error below
   the last bit of a double; rounding first would hide what is being

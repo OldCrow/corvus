@@ -23,6 +23,11 @@ Three independent pieces:
   dd constants  2*pi and 1/sqrt(pi), for Temme's sqrt(2*pi*a) and the z.lo
                 erfc correction.
 
+  Tail G        dd fit of G(z) = z e^{z^2} erfc(z), shared by the gamma
+                and beta (#69) R3 Temme tails, over the
+                Temme tail's z range (#64), separate from erfc's own
+                erfc_tail_data.h so erfc/erfinv bits stay put.
+
 (The phi series for Log1pmxDd moved with the shared dd primitives to
 src/dd_special-inl.h; it is emitted by tools/gen_dd_special_data.py,
 self-checks included.)
@@ -40,6 +45,10 @@ emit nothing):
       a-grid can miss this boundary's true supremum entirely, since it
       sits at a->1.5+ rather than at any conveniently round sample point).
   (f) R4 alternating-series length N=kGammaR4N.
+  (g) tail G: op-for-op replay of GammaTailG (and the gt = G/(2z) product
+      GammaTemme forms from it) under FUSED and UNFUSED MulAdd, over
+      uniform and edge-bit-stepped arms, vs mpmath; budget 2^-63 relative.
+      Negative control: dropping c0's low word must fail the same budget.
   (Former checks (g)/(h) covered the phi series and moved with it to
   gen_dd_special_data.py as its checks (a)/(b).)
 
@@ -49,6 +58,7 @@ Usage:
 
 import math
 import sys
+from fractions import Fraction
 
 import mpmath as mp
 
@@ -74,6 +84,24 @@ CF_TARGET = mp.mpf(2) ** -56
 R4_NMAX = 36
 R4_TARGET = mp.mpf(2) ** -58
 REPLAY_TARGET = mp.mpf(2) ** -56
+
+# Shared gamma/beta erfc tail factor G(z) = z e^{z^2} erfc(z) (#64, #69; see the
+# "Tail G" block below). One interval over the Temme tail's live z range,
+# TAIL_DEG + 1 monomial coefficients in s = 1/z - C, the first TAIL_NDD of
+# them dd and evaluated by dd Horner steps. TAIL_ZHI sits above
+# sqrt(-kGammaExpFloor) = sqrt(800) ~ 28.28, the largest z of a live tail lane.
+# TAIL_ZLO = 5 since #70: the core/tail split moved from a*phi (cpsi) = 36 to
+# 25, because the core's 1 - erf form of erfc carries ~1 ulp of erfc at z = 6,
+# which the R3 assembly amplified to 2.5 ulp; at z = 5 that error is e^-11
+# smaller. Degree 17 holds the budget over the wider range (deg 15 reads
+# 2^-62.5 at z = 5; 17 reads 2^-64.4, 19 no better: the dd-step floor).
+TAIL_ZLO = 5.0
+TAIL_ZHI = 28.5
+TAIL_DEG = 17
+TAIL_NDD = 3
+TAIL_NNODES = 96
+TAIL_TARGET = mp.mpf(2) ** -63
+EXP_FLOOR = -800.0
 
 # --- Temme band + lambda(eta) ------------------------------------------------
 def phi_lam(lam):
@@ -243,6 +271,195 @@ def r4_series_contribution(a, x, nterms):
         term *= -x / n
         s += term / (a + n)
     return s
+
+
+# --- Tail G: gamma-private dd erfc tail factor (#64) --------------------------
+# GammaTemme's tail (a*phi in (36, 800], z = sqrt(a*phi) in (6, 28.29]) used
+# erfc's plain-double G from erfc_tail_data.h: ~1.7 x 2^-53 relative (fit
+# 0.81 + Horner 0.89), entering gamma_q at weight up to (lambda-1)/eta = 1.28
+# near lambda = 2 -- worth 2.1 of the 2.9 ulp at #64's witness. This is a
+# separate fit so erfc's and erfinv's bits do not move.
+#
+# Variable: u = 1/z (erfc's choice -- G is a function of u^2 analytic off the
+# imaginary u axis, so on [1/28.5, 1/5] the nearest trouble is u = 0), used
+# UNSCALED as s = u - C with C = the interval midpoint rounded to double: the
+# kernel forms s from the dd u = 2 * DdRecip(2z) by one DdAddD, so s is a dd
+# with no scale-constant rounding at all. Chebyshev interpolation on
+# TAIL_NNODES nodes, truncated at degree TAIL_DEG (|a_17|/a_0 ~ 2e-20), then
+# re-expanded exactly into monomials in s; coefficients 0..TAIL_NDD-1 are dd,
+# the rest doubles.
+#
+# Why 3 dd steps (measured with this replay, both MulAdd semantics, deg 15,
+# on the original [6, 28.5]; #70 widened it to [5, 28.5] at degree 17):
+# 1 dd step (c0 dd only) 2^-58.6; 2 steps 2^-60.9 (floor set by the double
+# step-2 rounding, |s q_2| / G ~ 2^-10); 3 steps 2^-65.4; 4 steps 2^-67.3.
+# Degree at 3 steps: 13 -> 2^-59.3, 14 -> 2^-62.8, 15 -> 2^-65.4, 16 -> same.
+# One interval at degree 17 beats erfc's three at degree 11: no per-lane
+# coefficient selects at all.
+def tail_g_exact(z):
+    z = mp.mpf(z)
+    return z * mp.exp(z * z) * mp.erfc(z)
+
+
+def tail_g_fit():
+    """(C, hi[TAIL_DEG+1], lo[TAIL_NDD], cheb) for the emitted table."""
+    ulo, uhi = 1 / mp.mpf(TAIL_ZHI), 1 / mp.mpf(TAIL_ZLO)
+    c, h = (ulo + uhi) / 2, (uhi - ulo) / 2
+    n = TAIL_NNODES
+    th = [mp.pi * (j + mp.mpf(1) / 2) / n for j in range(n)]
+    vals = [tail_g_exact(1 / (c + h * mp.cos(t))) for t in th]
+    cheb = []
+    for k in range(TAIL_DEG + 1):
+        acc = mp.fsum(vals[j] * mp.cos(k * th[j]) for j in range(n))
+        cheb.append(acc / n if k == 0 else 2 * acc / n)
+    # Chebyshev -> monomial in t = (u - c)/h.
+    tp, tc = [mp.mpf(1)], [mp.mpf(0), mp.mpf(1)]
+    mono_t = [mp.mpf(0)] * len(cheb)
+    for i, p in enumerate(tp):
+        mono_t[i] += cheb[0] * p
+    for i, p in enumerate(tc):
+        mono_t[i] += cheb[1] * p
+    for k in range(2, len(cheb)):
+        tn = [mp.mpf(0)] + [2 * x for x in tc]
+        for i, x in enumerate(tp):
+            tn[i] -= x
+        for i, p in enumerate(tn):
+            mono_t[i] += cheb[k] * p
+        tp, tc = tc, tn
+    # t = alpha*s + beta, s = u - C exactly: re-expand in s.
+    cd = rd(c)
+    alpha, beta = 1 / h, (mp.mpf(cd) - c) / h
+    mono_s = [mp.mpf(0)] * len(mono_t)
+    for k, m in enumerate(mono_t):
+        for j in range(k + 1):
+            mono_s[j] += m * mp.binomial(k, j) * alpha ** j * beta ** (k - j)
+    hi = [rd(m) for m in mono_s]
+    lo = [rd(mono_s[k] - mp.mpf(hi[k])) for k in range(TAIL_NDD)]
+    return cd, hi, lo, cheb
+
+
+# Op-for-op replay of GammaTailG and its caller's DdRecip / DdMul, in IEEE
+# double (python floats) with MulAdd modelled FUSED (one rounding, exact
+# rationals) or UNFUSED (mul then add -- Highway's emulation on SSE2/SSSE3/
+# SSE4). ProdLow is exact on both (FMA residual or Dekker split; no operand
+# here is near the 2^996 split ceiling or the 2^-968 residual floor).
+def _fma(a, b, c, fused):
+    if fused:
+        return float(Fraction(a) * Fraction(b) + Fraction(c))
+    return (a * b) + c
+
+
+def _prodlow(a, b, p):
+    return float(Fraction(a) * Fraction(b) - Fraction(p))
+
+
+def _two_sum(a, b):
+    s = a + b
+    bv = s - a
+    return s, (a - (s - bv)) + (b - bv)
+
+
+def _fast2sum(a, b):
+    s = a + b
+    return s, b - (s - a)
+
+
+def _two_prod(a, b):
+    p = a * b
+    return p, _prodlow(a, b, p)
+
+
+def _dd_add(a, b):
+    s = _two_sum(a[0], b[0])
+    t = _two_sum(a[1], b[1])
+    v = _fast2sum(s[0], s[1] + t[0])
+    return _fast2sum(v[0], v[1] + t[1])
+
+
+def _dd_add_d(a, b):
+    s = _two_sum(a[0], b)
+    return _fast2sum(s[0], s[1] + a[1])
+
+
+def _dd_mul(a, b, fused):
+    p = _two_prod(a[0], b[0])
+    lo = _fma(a[0], b[1], _fma(a[1], b[0], p[1], fused), fused)
+    return _fast2sum(p[0], lo)
+
+
+def _dd_recip(a):
+    q = 1.0 / a
+    p = a * q
+    rem = (1.0 - p) - _prodlow(a, q, p)
+    return _fast2sum(q, rem * q)
+
+
+def tail_g_replay(z, tab, fused):
+    """(G, gt) as the kernel computes them at the double z: G dd, and the
+    gt = G/(2z) dd GammaTemme consumes."""
+    cd, hi, lo = tab
+    zc = min(max(z, TAIL_ZLO), TAIL_ZHI)
+    r = _dd_recip(zc + zc)
+    u = (2.0 * r[0], 2.0 * r[1])
+    s = _dd_add_d(u, -cd)
+    q = hi[TAIL_DEG]
+    for k in range(TAIL_DEG - 1, TAIL_NDD - 1, -1):
+        q = _fma(q, s[0], hi[k], fused)
+    k = TAIL_NDD - 1
+    g = _dd_add((hi[k], lo[k]), _two_prod(s[0], q))
+    for k in range(TAIL_NDD - 2, -1, -1):
+        g = _dd_add((hi[k], lo[k]), _dd_mul(s, g, fused))
+    return g, _dd_mul(g, r, fused)
+
+
+def tail_g_points():
+    """Per-arm sample: uniform in z and in u, plus bit-stepped neighbourhoods
+    of the domain edges (z_lo, sqrt(800), 28.5) and of u = C (s ~ 0, where
+    DdAddD's Fast2Sum ordering is tightest)."""
+    import random
+    import struct
+
+    def bits(x):
+        return struct.unpack("<Q", struct.pack("<d", x))[0]
+
+    def unbits(b):
+        return struct.unpack("<d", struct.pack("<Q", b))[0]
+
+    rng = random.Random(6464)
+    zlive = math.sqrt(-EXP_FLOOR)
+    arms = {
+        "uniform-z": [rng.uniform(TAIL_ZLO, zlive) for _ in range(2000)],
+        "uniform-u": [1.0 / rng.uniform(1.0 / zlive, 1.0 / TAIL_ZLO)
+                      for _ in range(2000)],
+    }
+    for name, e in (("edge-zlo", TAIL_ZLO), ("edge-sqrt800", zlive),
+                    ("edge-28.5", TAIL_ZHI)):
+        arms[name] = [unbits(bits(e) + k) for k in range(-96, 97)]
+    cd = rd((1 / mp.mpf(TAIL_ZHI) + 1 / mp.mpf(TAIL_ZLO)) / 2)
+    arms["s~0"] = [1.0 / unbits(bits(cd) + k) for k in range(-96, 97)]
+    for name in arms:
+        arms[name] = [z for z in arms[name] if TAIL_ZLO <= z <= TAIL_ZHI]
+    return arms
+
+
+def tail_g_worst(tab, arms):
+    """Worst relative error of G and of gt over every arm, both semantics."""
+    worst = {}
+    for fused in (True, False):
+        wg = wt = mp.mpf(0)
+        at = None
+        for pts in arms.values():
+            for z in pts:
+                g, gt = tail_g_replay(z, tab, fused)
+                want = tail_g_exact(z)
+                eg = abs((mp.mpf(g[0]) + mp.mpf(g[1]) - want) / want)
+                wgt = want / (2 * mp.mpf(z))
+                et = abs((mp.mpf(gt[0]) + mp.mpf(gt[1]) - wgt) / wgt)
+                if eg > wg:
+                    wg, at = eg, z
+                wt = max(wt, et)
+        worst[fused] = (wg, wt, at)
+    return worst
 
 
 # --- self-checks ---------------------------------------------------------------
@@ -454,6 +671,37 @@ def main():
         print("    FAILED: exceeds 2^-58", file=sys.stderr)
         rc = 1
 
+    # --- self-check (g): tail G replay, fused AND unfused, + negative control -
+    print(f"(g) tail G: z in [{TAIL_ZLO}, {TAIL_ZHI}], degree {TAIL_DEG}, "
+          f"{TAIL_NDD} dd steps, {TAIL_NNODES} nodes:", file=sys.stderr)
+    tail_c, tail_hi, tail_lo, tail_cheb = tail_g_fit()
+    tail_tab = (tail_c, tail_hi, tail_lo)
+    arms = tail_g_points()
+    print("    arms: " + ", ".join(f"{k} {len(v)}" for k, v in arms.items())
+          + f"; |a_{TAIL_DEG}|/a_0 = "
+          f"{float(abs(tail_cheb[-1] / tail_cheb[0])):.2e}", file=sys.stderr)
+    tail_w = tail_g_worst(tail_tab, arms)
+    for fused in (True, False):
+        wg, wt, at = tail_w[fused]
+        print(f"    {'fused  ' if fused else 'unfused'}: G worst rel "
+              f"2^{float(mp.log(wg, 2)):.2f} at z={at!r}; gt = G/(2z) worst "
+              f"2^{float(mp.log(wt, 2)):.2f}; target 2^-63", file=sys.stderr)
+        if max(wg, wt) > TAIL_TARGET:
+            print("    FAILED: exceeds 2^-63", file=sys.stderr)
+            rc = 1
+    # Negative control: the same replay must reject a table whose leading
+    # coefficient is a plain double (c0's low word dropped).
+    bad_lo = [0.0] + tail_lo[1:]
+    bad_w = tail_g_worst((tail_c, tail_hi, bad_lo), arms)
+    bad = max(max(bad_w[f][0], bad_w[f][1]) for f in (True, False))
+    caught = bad > TAIL_TARGET
+    print(f"    negative control (c0 low word dropped): worst "
+          f"2^{float(mp.log(bad, 2)):.2f} -> "
+          f"{'REJECTED' if caught else 'NOT REJECTED'}", file=sys.stderr)
+    if not caught:
+        print("    FAILED: negative control not rejected", file=sys.stderr)
+        rc = 1
+
     if rc:
         print("One or more self-checks failed -- emitting nothing.", file=sys.stderr)
         return rc
@@ -465,7 +713,8 @@ def main():
 
     print("// Auto-generated by tools/gen_gamma_data.py. DO NOT EDIT.")
     print("// Fits and their error budgets are documented in the generator;")
-    print("// the kernel that consumes them is src/gamma-inl.h.")
+    print("// the kernel that consumes them is src/gamma-inl.h (the tail G table also")
+    print("// feeds src/beta-inl.h through src/erfc_tail_dd-inl.h).")
     print("#ifndef CORVUS_GAMMA_DATA_H_")
     print("#define CORVUS_GAMMA_DATA_H_")
     print()
@@ -498,7 +747,20 @@ def main():
     print(f"inline constexpr int kGammaSeriesN = {SERIES_NMAX};")
     print(f"inline constexpr int kGammaCfN = {CF_N};")
     print(f"inline constexpr int kGammaR4N = {R4_NMAX};")
-    print(f"inline constexpr double kGammaExpFloor = {hexf(-800.0)};")
+    print(f"inline constexpr double kGammaExpFloor = {hexf(EXP_FLOOR)};")
+    print()
+    print("// erfc tail factor G(z) = z e^{z^2} erfc(z) (#64), for the gamma and")
+    print("// beta (#69) R3 Temme tails via src/erfc_tail_dd-inl.h (erfc keeps its own).")
+    print(f"// z in [{TAIL_ZLO}, {TAIL_ZHI}]: monomial coefficients (ascending) in")
+    print("// s = 1/z - kGammaTailC; the first kGammaTailNDd are dd")
+    print("// (kGammaTailCoef holds the high words, kGammaTailCoefLo the low).")
+    print(f"inline constexpr double kGammaTailZLo = {hexf(TAIL_ZLO)};")
+    print(f"inline constexpr double kGammaTailZHi = {hexf(TAIL_ZHI)};")
+    print(f"inline constexpr double kGammaTailC = {hexf(tail_c)};")
+    print(f"inline constexpr int kGammaTailNCoef = {TAIL_DEG + 1};")
+    print(f"inline constexpr int kGammaTailNDd = {TAIL_NDD};")
+    emit_hex_array_1d("kGammaTailCoef", tail_hi)
+    emit_hex_array_1d("kGammaTailCoefLo", tail_lo)
     print()
     print("}  // namespace corvus::detail")
     print()

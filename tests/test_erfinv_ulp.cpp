@@ -34,19 +34,23 @@ struct Region {
   size_t n = 0;
   size_t miss = 0;
   double worst_x = 0.0;
+  corvus_test::RealMax real{};
 };
 
-bool LoadReference(const char* path, std::vector<double>* in,
-                   std::vector<double>* want) {
+// LoadRef exits on a missing, malformed or short file, so this cannot fail.
+void LoadReference(const char* path, std::vector<double>* in,
+                   std::vector<double>* want,
+                   std::vector<double>* res) {
   const auto rows = corvus_test::LoadRef(path, 2, 5000);
   for (const auto& row : rows) {
     in->push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
     want->push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
+    res->push_back(corvus_test::Residual(row, 0));
   }
-  return true;
 }
 
-int ReportRegions(const char* label, const Region* regions, int n_regions) {
+int ReportRegions(const char* path, const char* label, const Region* regions,
+                  int n_regions) {
   int rc = 0;
   for (int i = 0; i < n_regions; ++i) {
     const Region& r = regions[i];
@@ -62,13 +66,17 @@ int ReportRegions(const char* label, const Region* regions, int n_regions) {
       std::fprintf(stderr, "FAIL: %s %s exceeds gate\n", label, r.name);
       rc = 1;
     }
+    // #82 T1: real error against the contract ceiling and the regression pin.
+    if (corvus_test::CheckReal(path, label, r.name, r.bound, r.real) != 0) {
+      rc = 1;
+    }
   }
   return rc;
 }
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char* const* argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   const char* erfinv_path =
@@ -80,8 +88,8 @@ int main(int argc, char** argv) {
 
   // --- erfinv: C (|y| <= 1/2) vs T (1/2 < |y| < 1); T never reaches "far" ---
   {
-    std::vector<double> in, want;
-    if (!LoadReference(erfinv_path, &in, &want)) return 2;
+    std::vector<double> in, want, res;
+    LoadReference(erfinv_path, &in, &want, &res);
     std::vector<double> got(in.size());
     // Two calls, not one: the second covers only the last 3 rows, a length
     // below every lane count, forcing the masked tail path on every tier
@@ -97,6 +105,7 @@ int main(int argc, char** argv) {
     for (size_t i = 0; i < in.size(); ++i) {
       Region& r = std::abs(in[i]) <= 0.5 ? regions[0] : regions[1];
       const uint64_t u = UlpDiff(got[i], want[i]);
+      r.real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
       ++r.n;
       if (u > 0) ++r.miss;
       if (u > r.max_ulp) {
@@ -130,13 +139,13 @@ int main(int argc, char** argv) {
         return 1;
       }
     }
-    rc |= ReportRegions("erfinv", regions, 2);
+    rc |= ReportRegions(erfinv_path, "erfinv", regions, 2);
   }
 
   // --- erfcinv: C ([1/2,3/2]) vs T-mid (|x|<6) vs T-far (|x|>=6) ---
   {
-    std::vector<double> in, want;
-    if (!LoadReference(erfcinv_path, &in, &want)) return 2;
+    std::vector<double> in, want, res;
+    LoadReference(erfcinv_path, &in, &want, &res);
     std::vector<double> got(in.size());
     // Two calls, not one: the second covers only the last 3 rows, a length
     // below every lane count, forcing the masked tail path on every tier
@@ -157,6 +166,7 @@ int main(int argc, char** argv) {
                   : (std::abs(want[i]) < 6.0) ? regions[1]
                                               : regions[2];
       const uint64_t u = UlpDiff(got[i], want[i]);
+      r.real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
       ++r.n;
       if (u > 0) ++r.miss;
       if (u > r.max_ulp) {
@@ -187,7 +197,7 @@ int main(int argc, char** argv) {
         return 1;
       }
     }
-    rc |= ReportRegions("erfcinv", regions, 3);
+    rc |= ReportRegions(erfcinv_path, "erfcinv", regions, 3);
   }
 
   if (rc == 0) std::printf("PASS: all regions within gates\n");

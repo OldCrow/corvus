@@ -465,27 +465,20 @@ def small_val_via_cf(a, b, x, dps, n_start=128, n_max=4096):
 # at j~11 would contradict check_b_r2's own existing gamma-limit lattice,
 # which already tests -- and passes -- beta up to 1e12~=2^40).
 #
-# TARGET DEVIATION (also flagged): at the literal 2^-60 bar, the rescaled
-# upward ceiling (~j=50, see the printed budget line) sits BELOW the
-# downward floor (~j=69) -- NO overlap. 2^-60 is the right bar for a
-# TRUNCATION component (R1/R2/R3/R4's own self-checks all target
-# 2^-56..2^-60 there), but kBetaGammaLim is a ROUTING threshold, not a
-# truncation depth -- the kernel's actual end-to-end accuracy budget is a
-# few ULP of a double (direct side <= 3-4 ULP; complements relative
-# <= ~6 ULP). Both measured curves are log-linear in j over their trusted
-# range, which makes the pin location (the midpoint of ceil(target) and
-# floor(target)) INVARIANT to which reasonable target is chosen -- only
-# the MARGIN around it changes. TARGET=2^-49 (~5.7 ULP, matching the
-# "complements relative <= ~6 ULP" bar almost exactly, rather than an
-# arbitrarily chosen number) gives a comfortable several-binade-wide
-# overlap (see the printed budget line); the tighter 2^-50 (~4 ULP, the
-# direct-side bar) misses the required 2-binade margin by a hair (gap
-# 1.75, not 2). This generator uses 2^-49 for the frontier search; the
-# printed lines report the 2^-60-target numbers too so a reviewer can see
-# exactly where the literal bar falls short.
+# TARGET: the literal 2^-60 bar (#54 defect 2, 2026-10-20). The pin was
+# once taken at a deviated 2^-49 target, because the UNSHIFTED gamma form
+# t = -beta*log1p(-xi) errs by ~t(1-alpha)/(2 beta), which put the 2^-60
+# floor near j = 69, above the ceiling (~j = 50): no overlap. That pin,
+# 2^59, left the CF in charge where its F*2^-106 reaches several ulp
+# (measured: up to 10 ulp at beta in [2^56, 2^59) for alpha < 1). The
+# kernel's slice now uses the SHIFTED t (#54 defect 1), whose error is
+# ~0.3*alpha^3/beta^2; with the slice-range points the 2^-60 floor drops to
+# ~j = 45 against the ~j = 50.3 ceiling, a 5-binade overlap, so the pin
+# needs no deviation.
 #
 # DOWNWARD direction (gamma-form adequacy floor): |I_xi(alpha,beta) -
-# P_or_Q_gamma(alpha,t)| / value, t=-beta*log1p(-xi) exact in mpf, where
+# P_or_Q_gamma(alpha,t)| / value, t=-(beta+(alpha-1)/2)*log1p(-xi) exact
+# in mpf (the kernel's shifted form), where
 # P_or_Q_gamma is whichever of the lower/upper regularized incomplete gamma
 # matches the CF orientation's own selected side (native -> P_gamma(alpha,t)
 # approximates I_xi(alpha,beta) directly; swap -> Q_gamma(alpha,t)
@@ -495,7 +488,8 @@ def small_val_via_cf(a, b, x, dps, n_start=128, n_max=4096):
 # arbitrary-precision CF (small_val_via_cf, same orientation) -- mpmath's
 # own betainc is not used here since (matching check_b_r2's own "gen1/gen2"
 # oracle note) it times out at every point in this magnitude range.
-GAMMA_LIM_JS = [40, 45, 50, 55, 60, 65, 70, 80, 100, 120, 160, 200, 260, 332]
+GAMMA_LIM_JS = [36, 40, 42, 44, 46, 48, 50, 52, 55, 60, 65, 70, 80, 100, 120,
+                160, 200, 260, 332]
 # ^ the design's own required grid ({40,60,80,100,120,160,200,260,332}) plus
 # a few intermediate points (45,50,55,65,70) purely for interpolation
 # RESOLUTION near where the two frontiers meet (~j=55-60, see below) -- the
@@ -503,10 +497,30 @@ GAMMA_LIM_JS = [40, 45, 50, 55, 60, 65, 70, 80, 100, 120, 160, 200, 260, 332]
 GAMMA_LIM_ALPHAS = [mp.mpf("0.05"), mp.mpf("0.25"), mp.mpf(1)]
 GAMMA_LIM_BXIS_FULL = [8, 20, 50, 200, 800]  # design's literal set
 GAMMA_LIM_BXIS_R2 = [20, 50, 200, 800]  # excludes bxi=8=B1 (R1's own box edge)
+# SLICE-RANGE points (#54 defect 2): the slice serves s far beyond the tiny
+# alphas above -- up to the largest s whose off-band small side is still
+# above the double underflow, ~745/phi(-1/2) ~ 3860 at t/s -> 1/2 and
+# ~2400 at t/s -> 2 -- and the shifted gamma form's error grows ~s^3/N^2.
+# Each s is probed at t = r*s just outside the ratio band and further out;
+# points whose small side is below 1e-300 are skipped (saturated, so their
+# accuracy is immaterial). Measured worst: s = 2000, t/s = 2.05.
+GAMMA_LIM_SLICE_S = [10, 100, 1000, 2000, 2400, 3000, 3800]
+GAMMA_LIM_SLICE_R = ["0.45", "0.49", "2.05", "2.2", "3.0"]
 GAMMA_LIM_MARGIN_BINADES = 2
-GAMMA_LIM_TARGET_60 = mp.mpf(2) ** -60  # literal escalation-text bar
-GAMMA_LIM_TARGET = mp.mpf(2) ** -49     # used bar (deviation, see above)
+GAMMA_LIM_TARGET_60 = mp.mpf(2) ** -60  # the literal bar, used for the pin
 GAMMA_LIM_EPS_DD = mp.mpf(2) ** -106
+
+
+def _gl_grid(alphas, bxis):
+    """(alpha, bxi list) pairs: the tiny-alpha gamma line, then the
+    slice-range points at t = r*s."""
+    for alpha in alphas:
+        yield alpha, bxis
+    for s in GAMMA_LIM_SLICE_S:
+        # bxi <= B1 is R1's own box (no CF, no slice): excluded, as for
+        # GAMMA_LIM_BXIS_R2.
+        yield mp.mpf(s), [mp.mpf(r) * s for r in GAMMA_LIM_SLICE_R
+                          if mp.mpf(r) * s > B1]
 
 
 def _gl_orient(alpha, beta, xi):
@@ -536,8 +550,8 @@ def _probe_gl_upward_F(js, alphas, bxis, N):
         beta = mp.mpf(2) ** j
         worst = mp.mpf(0)
         worst_at = None
-        for alpha in alphas:
-            for bxi in bxis:
+        for alpha, bxis_a in _gl_grid(alphas, bxis):
+            for bxi in bxis_a:
                 xi = mp.mpf(bxi) / beta
                 if not (0 < xi < 1):
                     continue
@@ -547,7 +561,7 @@ def _probe_gl_upward_F(js, alphas, bxis, N):
                 except (ZeroDivisionError, ValueError):
                     continue
                 if F > worst:
-                    worst, worst_at = F, (float(alpha), bxi, native)
+                    worst, worst_at = F, (float(alpha), float(bxi), native)
         out[j] = (worst, worst_at)
     return out
 
@@ -561,8 +575,8 @@ def _probe_gl_downward(js, alphas, bxis, dps):
         worst = mp.mpf(0)
         worst_at = None
         n_tested = 0
-        for alpha in alphas:
-            for bxi in bxis:
+        for alpha, bxis_a in _gl_grid(alphas, bxis):
+            for bxi in bxis_a:
                 xi = mp.mpf(bxi) / beta
                 if not (0 < xi < 1):
                     continue
@@ -570,15 +584,16 @@ def _probe_gl_downward(js, alphas, bxis, dps):
                 old = mp.mp.dps
                 mp.mp.dps = dps
                 try:
-                    t = -beta * mp.log1p(-xi)
+                    # The kernel's SHIFTED t (#54): -(N + (s-1)/2) log1p(-xi).
+                    t = -(beta + (alpha - 1) / 2) * mp.log1p(-xi)
                     gform = (mp.gammainc(alpha, 0, t, regularized=True) if native
                               else mp.gammainc(alpha, t, mp.inf, regularized=True))
                     try:
                         truth = small_val_via_cf(a1, b1, x1, dps, n_start=128, n_max=8192)
                     except (RuntimeError, ZeroDivisionError, ValueError):
                         continue
-                    if truth == 0:
-                        continue
+                    if truth < mp.mpf(10) ** -300:
+                        continue  # saturated in double: accuracy immaterial
                     err = abs((gform - truth) / truth)
                 except (ValueError, OverflowError, ZeroDivisionError):
                     continue
@@ -586,7 +601,7 @@ def _probe_gl_downward(js, alphas, bxis, dps):
                     mp.mp.dps = old
                 n_tested += 1
                 if err > worst:
-                    worst, worst_at = err, (float(alpha), bxi, native)
+                    worst, worst_at = err, (float(alpha), float(bxi), native)
         out[j] = (worst, worst_at, n_tested)
     return out
 
@@ -671,35 +686,26 @@ def _derive_gamma_lim():
         return _log2_interp_crossing_increasing(GAMMA_LIM_JS, up_F, f_crit, get=lambda v: v[0])
 
     ceil_60 = up_err_target(GAMMA_LIM_TARGET_60)
-    ceil_52 = up_err_target(GAMMA_LIM_TARGET)
     floor_60 = _log2_interp_crossing_decreasing(down_js_clean, down, GAMMA_LIM_TARGET_60)
-    floor_52 = _log2_interp_crossing_decreasing(down_js_clean, down, GAMMA_LIM_TARGET)
 
-    print(f"    at target 2^-60 (literal): upward ceiling j~={ceil_60}, "
-          f"downward floor j~={floor_60} "
-          f"({'OVERLAP' if (ceil_60 is not None and floor_60 is not None and ceil_60 >= floor_60) else 'NO OVERLAP -- flagged, see module comment'})",
-          file=sys.stderr)
-    print(f"    at target 2^-49 (used, deviation flagged above): upward "
-          f"ceiling j~={ceil_52}, downward floor j~={floor_52}", file=sys.stderr)
+    print(f"    at target 2^-60: upward ceiling j~={ceil_60}, "
+          f"downward floor j~={floor_60}", file=sys.stderr)
 
-    if ceil_52 is None or floor_52 is None or ceil_52 < floor_52 + GAMMA_LIM_MARGIN_BINADES:
+    if ceil_60 is None or floor_60 is None or ceil_60 < floor_60 + GAMMA_LIM_MARGIN_BINADES:
         raise RuntimeError(
-            "kBetaGammaLim: even at the deviated 2^-49 target the upward/"
-            "downward frontiers do not overlap with the required "
-            f"{GAMMA_LIM_MARGIN_BINADES}-binade margin (ceiling={ceil_52}, "
-            f"floor={floor_52}) -- ESCALATE.")
+            "kBetaGammaLim: at the 2^-60 target the upward/downward "
+            "frontiers do not overlap with the required "
+            f"{GAMMA_LIM_MARGIN_BINADES}-binade margin (ceiling={ceil_60}, "
+            f"floor={floor_60}) -- ESCALATE.")
 
-    j_pin = (ceil_52 + floor_52) / 2
+    j_pin = (ceil_60 + floor_60) / 2
     b_gl = mp.mpf(2) ** round(j_pin)
     print(f"    PINNED kBetaGammaLim = 2^{round(j_pin)} (overlap "
-          f"[{floor_52:.2f}, {ceil_52:.2f}], margin "
-          f"{round(j_pin) - floor_52:.2f}/{ceil_52 - round(j_pin):.2f} binades "
-          f"below/above the pin) -- 2^-49-class overlap target accepted: "
-          f"this pins a routing threshold, "
-          f"not a truncation depth -- end-to-end ULP bar applies; pin midpoint "
-          f"is target-invariant (log-linear frontiers); validated on silicon "
-          f"by beta's shipped gammalim gates + seam sweeps.",
-          file=sys.stderr)
+          f"[{floor_60:.2f}, {ceil_60:.2f}], margin "
+          f"{round(j_pin) - floor_60:.2f}/{ceil_60 - round(j_pin):.2f} binades "
+          f"below/above the pin) at the literal 2^-60 target; validated on "
+          f"silicon by beta's gammalim gates, the #54 band rows and the seam "
+          f"sweeps.", file=sys.stderr)
     return b_gl
 
 
@@ -2282,8 +2288,8 @@ def main():
     print("// kBetaGammaLim (B_GL), 'gamma-limit slice':")
     print("// max(alpha,beta) >= this, on the CF-oriented triple, routes R2 to")
     print("// the gamma-limit path instead of the backward CF (which is")
-    print("// structurally degenerate up there -- see the derivation/deviation")
-    print("// comment at _derive_gamma_lim in this generator).")
+    print("// ill-conditioned up there -- see the derivation comment at")
+    print("// _derive_gamma_lim in this generator).")
     print(f"inline constexpr double kBetaGammaLim = {hexf(B_GL)};")
     print("// kBetaNearOne (near-one post-route bar): after the R1 pass,")
     print("// any lane whose R1 dd value EXCEEDS this folds into the R4")

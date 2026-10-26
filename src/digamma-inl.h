@@ -207,6 +207,13 @@ HWY_NOINLINE Dd<D> DigammaLowDd(D d, op::V<D> x_in) {
   const auto one = op::Set(d, 1.0);
   const auto x = op::Min(x_in, op::Set(d, detail::kDigammaX0));
   const auto lo1 = op::Lt(x, one);
+  // Clamped lanes (x_in >= X0) sit at x == X0 here and match none of these.
+  CORVUS_ROUTE(d, "digamma/pos_01", lo1);
+  CORVUS_ROUTE(d, "digamma/pos_zone",
+               op::And(op::Ge(x, one), op::Lt(x, op::Set(d, 2.0))));
+  CORVUS_ROUTE(d, "digamma/pos_walk",
+               op::And(op::Ge(x, op::Set(d, 2.0)),
+                       op::Lt(x_in, op::Set(d, detail::kDigammaX0))));
 
   Dd<D> s{op::Zero(d), op::Zero(d)};
   auto y = x;
@@ -286,6 +293,7 @@ HWY_NOINLINE Dd<D> DigammaAsymDd(D d, op::V<D> x) {
   res = DdAdd(d, res, Dd<D>{op::Neg(term.hi), op::Neg(term.lo)});
 
   const auto big = op::Gt(x, cut);
+  CORVUS_ROUTE(d, "digamma/asym_log_only", big);
   return Dd<D>{op::IfThenElse(big, l.hi, res.hi),
                op::IfThenElse(big, l.lo, res.lo)};
 }
@@ -296,6 +304,7 @@ template <class D>
 HWY_INLINE Dd<D> DigammaPosDd(D d, op::V<D> x) {
   const auto x0 = op::Set(d, detail::kDigammaX0);
   const auto big = op::Ge(x, x0);
+  CORVUS_ROUTE(d, "digamma/pos_asym", big);
 
   // Both branches are domain-clamped (DigammaLowDd clamps its own input), so
   // whichever one a lane is not taking cannot fault or manufacture a NaN that
@@ -327,6 +336,7 @@ HWY_NOINLINE op::V<D> DigammaRoughTrigamma(D d, op::V<D> y_in) {
   const auto floorv = op::Set(d, detail::kDigammaRoughTrigammaFloor);
   for (int k = 0; k < 5; ++k) {
     const auto fire = op::Lt(y, floorv);
+    CORVUS_ROUTE(d, "digamma/neg_trigamma_walk", fire);
     if (op::AllFalse(d, fire)) break;
     const auto inc = op::Div(one, op::Mul(y, y));
     s = op::IfThenElse(fire, op::Add(s, inc), s);
@@ -362,6 +372,9 @@ HWY_NOINLINE op::V<D> DigammaRoughTrigamma(D d, op::V<D> y_in) {
 // directly.
 template <class D>
 HWY_NOINLINE Dd<D> DigammaCotDd(D d, op::V<D> u) {
+  // FLOOR: v < 2^-968 for |u| < 2^-484 (live lanes keep |u| >= 2^-960; lanes
+  // below are floored to it and replaced by -1/u). v enters sinc and cos
+  // after their exact leading 1, so the loss is ~2^-1072 relative to each.
   const auto v = TwoProd(d, u, u);  // exact
   const auto sinc =
       LeadTailDd(d, v, detail::kDigammaSincLeadHi, detail::kDigammaSincLeadLo,
@@ -409,6 +422,10 @@ HWY_NOINLINE op::V<D> DigammaVec(D d, op::V<D> x) {
 
   const auto u = op::Sub(xs, op::Round(xs));  // exact; |u| <= 1/2
   if (!op::AllFalse(d, neg)) {
+    // Negative integers and -inf are scrubbed to -1.5 and answered by the
+    // specials below; only non-integer negative lanes take the reflection.
+    CORVUS_ROUTE_SCOPE(d, op::And(neg, op::Or(op::Lt(x, op::Round(x)),
+                                              op::Gt(x, op::Round(x)))));
     // psi(1 - x) at the exact dd argument: the pipeline ran on y.hi, so the
     // residual enters as y.lo * psi'(y.hi). Selected in rather than added
     // unconditionally -- y.lo is not zero on positive lanes (1 - x is inexact
@@ -422,6 +439,13 @@ HWY_NOINLINE op::V<D> DigammaVec(D d, op::V<D> x) {
     const auto cot = DigammaCotDd(d, ucot);
     const auto r = DdAdd(d, gc, Dd<D>{op::Neg(cot.hi), op::Neg(cot.lo)});
     g = Dd<D>{op::IfThenElse(neg, r.hi, g.hi), op::IfThenElse(neg, r.lo, g.lo)};
+    // Reflection split by result size, as the ULP gate buckets it; lanes
+    // below the direct-reciprocal cut are answered by the division instead.
+    const auto refl = op::Ge(op::Abs(u), cut);
+    CORVUS_ROUTE(d, "digamma/neg",
+                 op::And(refl, op::Ge(op::Abs(r.hi), one)));
+    CORVUS_ROUTE(d, "digamma/neg_small",
+                 op::And(refl, op::Lt(op::Abs(r.hi), one)));
   }
 
   auto out = DdToDouble(g);
@@ -431,6 +455,12 @@ HWY_NOINLINE op::V<D> DigammaVec(D d, op::V<D> x) {
   // also delivers the documented +-inf when 1/x or 1/u overflows -- and note
   // x = -0 lands here rather than in the branch below, since -0 < 0 is false,
   // giving +inf as required.
+  CORVUS_ROUTE(d, "digamma/direct_recip_neg",
+               op::And(neg, op::And(op::Lt(op::Abs(u), cut),
+                                    op::Or(op::Lt(x, op::Round(x)),
+                                           op::Gt(x, op::Round(x))))));
+  CORVUS_ROUTE(d, "digamma/direct_recip_pos",
+               op::And(op::Gt(x, zero), op::Lt(x, cut)));
   out = op::IfThenElse(
       neg,
       op::IfThenElse(op::Lt(op::Abs(u), cut), op::Neg(op::Div(one, u)), out),
@@ -439,6 +469,10 @@ HWY_NOINLINE op::V<D> DigammaVec(D d, op::V<D> x) {
   // Specials, outermost last. psi(+-0) = -+inf is the signed-zero pole
   // convention (scipy parity); every negative integer is a pole and gives
   // NaN, which also covers -inf and every double <= -2^53 (all integers).
+  CORVUS_ROUTE(d, "digamma/special/zero", op::Eq(x, zero));
+  CORVUS_ROUTE(d, "digamma/special/neg_int", op::And(neg, isint));
+  CORVUS_ROUTE(d, "digamma/special/inf", op::Gt(x, maxf));
+  CORVUS_ROUTE(d, "digamma/special/nan", op::IsNaN(x));
   out = op::IfThenElse(op::Eq(x, zero), op::Neg(op::CopySign(inf, x)), out);
   out = op::IfThenElse(neg, op::IfThenElse(isint, qnan, out), out);
   out = op::IfThenElse(op::Gt(x, maxf), inf, out);  // psi(+inf) = +inf

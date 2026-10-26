@@ -36,7 +36,6 @@
 
 namespace {
 
-using corvus_test::OrderedBits;
 using corvus_test::SameBits;
 using corvus_test::UlpDiff;
 
@@ -61,10 +60,27 @@ using corvus_test::UlpDiff;
 // the OLD row, so its true error there is 1 ulp -- the old 0 was an
 // artifact of the reference's own double rounding, not a kernel change.
 constexpr uint64_t kGateR1Dir = 1, kGateR1Cmp = 1;
-constexpr uint64_t kGateR2Dir = 1, kGateR2Cmp = 0;
-constexpr uint64_t kGateR3Dir = 3, kGateR3Cmp = 1;
+// R2-cmp 0 -> 1 at #76 (order row 12j, review M-9): beta_p at
+// (0x1.7ebfd5597637bp+4, 0x1.390d72284b741p+4, 0x1.1e9d7495b0b32p-1) is a
+// near-tie miss, 0.5015 ulp real, 1 ULP. The cell was never CR; it is now
+// gated at 1 with that witness row (measured CR elsewhere in the set).
+constexpr uint64_t kGateR2Dir = 1, kGateR2Cmp = 1;
+// R3-dir 3 -> 1 at #69 (order row 12c): the Temme tail (cpsi > 36) took
+// erfc's plain-double G, a rounded G/(2z) and no z.lo fold; gamma's twin
+// had all three fixed (#57, #64). 2202 --r3tail-append rows at G weight
+// up to 1.28 read 4 ulp on P and Q direct at HEAD on all three tiers; with
+// the shared dd GammaTailG, dd G/(2z) and the guarded fold every R3 row
+// reads <= 1 (AVX3_ZEN4, SSE4, SSE2 alike). The old 3-ULP rows were tail
+// rows too.
+constexpr uint64_t kGateR3Dir = 1, kGateR3Cmp = 1;
 constexpr uint64_t kGateR4Dir = 2, kGateR4Cmp = 0;
 constexpr uint64_t kGatePrDir = 1, kGatePrCmp = 0;
+// Gl 1/1 -> 0/0 at #54 defect 1: the slice forms t = -(N + (s-1)/2) *
+// log1p(-w) in dd, and 195 2F1-certified rows (--gl54-append) read 0 on
+// every tier; HEAD's bare t = -N*log(x) reads up to 11592 ulp on them.
+// 0/0 -> 1/1 at #90: near-ties miss by 1 ULP on both sides (1 of 2,315
+// direct and 5 of 2,354 complement hunt rows, every tier); the witnesses
+// are issue90:witness rows. v1.0.x published 1, so the bound is unchanged.
 constexpr uint64_t kGateGlDir = 1, kGateGlCmp = 1;
 
 struct Region {
@@ -74,6 +90,7 @@ struct Region {
   size_t n = 0;
   size_t miss = 0;
   double wa = 0.0, wb = 0.0, wx = 0.0;
+  corvus_test::RealMax real{};  // #82 T1; the specials cells never feed it
 };
 
 enum : int { kR1 = 0, kR2 = 1, kR3 = 2, kR4 = 3, kSp = 4, kPr = 5, kGl = 6 };
@@ -106,12 +123,14 @@ int Route(double a, double b, double x, double pref, double qref,
   const bool sw4 = b < a;
   const double xt = sw4 ? y : x;
 
-  // 0. tiny-min box, evaluated tiny-first. The xi cap is the WIDENED one --
-  // see the routing note in src/beta-inl.h.
-  const double thr_t = 1.0 / (1.0 + (bmax + 1.0) / (tau + 1.0));
+  // 0. tiny-min box, evaluated tiny-first. The xi cap is the WIDENED one,
+  // stated as R2's own orientation predicate (#47) -- see the routing note
+  // in src/beta-inl.h.
+  const double thr = 1.0 / (1.0 + (b + 1.0) / (a + 1.0));
+  const bool r2_tiny_first = (x < thr) != sw4;
   const bool r4 = tau <= kBetaEpsR4 &&
                   tau * std::fabs(std::log(xt)) <= kBetaLn2 &&
-                  (xt <= kBetaXi1 || xt < thr_t) && bmax * xt <= kBetaB1;
+                  (xt <= kBetaXi1 || r2_tiny_first) && bmax * xt <= kBetaB1;
   if (r4) {
     *direct_is_p = sw4;  // R4 computes the COMPLEMENT of its own triple
     return kR4;
@@ -144,7 +163,7 @@ int Route(double a, double b, double x, double pref, double qref,
                     rat2 >= kBetaXiRatioLo && rat2 <= kBetaXiRatioHi;
   const bool gl_hi = bmax >= corvus::detail::kBetaGammaLim;
   if (band && (nu >= kBetaTRidge ||
-               (gl_hi && nu >= corvus::detail::kBetaGlRidgeMin))) {
+               (gl_hi && std::min(a, b) >= corvus::detail::kBetaGlRidgeMin))) {  // on s (#84)
     // The kernel decides R3's direct side from lambda's EXACT sign, not from
     // the router's rounded ratio, so this mirrors that (see BetaR3Out). The
     // two can disagree only where lambda is within an ulp of zero, i.e. where
@@ -158,7 +177,6 @@ int Route(double a, double b, double x, double pref, double qref,
   // kBetaGammaLim, where the lane takes the (C) gamma-limit slice and val
   // holds the NATURALLY COMPUTED gamma side (series -> P_gamma, CF ->
   // Q_gamma; see the slice block in src/beta-inl.h for the mapping).
-  const double thr = 1.0 / (1.0 + (b + 1.0) / (a + 1.0));
   const bool sw = !(x < thr);
   // Both-huge lanes are EXCLUDED from the slice (kernel mirror): the
   // small/huge mapping needs exactly one parameter above the limit;
@@ -180,9 +198,9 @@ int Route(double a, double b, double x, double pref, double qref,
   return kR2;
 }
 
-// #14 N4: masked-tail split. beta_p_reference.txt/beta_q_reference.txt are
-// both 38100 rows -- a multiple of 4, so a single whole-set call never
-// exercises the masked-tail path below AVX-512. Splitting into subspans
+// #14 N4: masked-tail split. beta_p_reference.txt/beta_q_reference.txt were
+// both 38100 rows when #14 added this -- a multiple of 4, so a single
+// whole-set call never exercised the masked-tail path below AVX-512. Splitting into subspans
 // [0, n-3) and [n-3, n) makes neither half a lane multiple regardless of
 // what n is, so the tail path always runs; each call is independently
 // masked and stateless, so this is row-for-row identical to one call.
@@ -201,26 +219,32 @@ void SplitCall(Fn fn, std::vector<double>& out, const In&... in) {
      std::span<double>(out).subspan(split));
 }
 
-bool LoadReference(const char* path, std::vector<double>* a,
+// LoadRef exits on a missing, malformed or short file, so this cannot fail.
+void LoadReference(const char* path, std::vector<double>* a,
                    std::vector<double>* b, std::vector<double>* x,
-                   std::vector<double>* p, std::vector<double>* q) {
+                   std::vector<double>* p, std::vector<double>* q,
+                   std::vector<double>* rp, std::vector<double>* rq) {
   const auto rows = corvus_test::LoadRef(path, 5, 10000);
   a->reserve(rows.size());
   b->reserve(rows.size());
   x->reserve(rows.size());
   p->reserve(rows.size());
   q->reserve(rows.size());
+  rp->reserve(rows.size());
+  rq->reserve(rows.size());
   for (const auto& row : rows) {
     a->push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
     b->push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
     x->push_back(corvus_test::ParseDouble(row.tok[2], path, row.line));
     p->push_back(corvus_test::ParseDouble(row.tok[3], path, row.line));
     q->push_back(corvus_test::ParseDouble(row.tok[4], path, row.line));
+    rp->push_back(corvus_test::Residual(row, 0));  // residual 0 belongs to P
+    rq->push_back(corvus_test::Residual(row, 1));  // residual 1 to Q
   }
-  return true;
 }
 
-int ReportRegions(const char* label, const Region* r, int n, bool want_p) {
+int ReportRegions(const char* path, const char* label, const Region* r, int n,
+                  bool want_p) {
   int rc = 0;
   for (int i = 0; i < n; ++i) {
     std::printf(
@@ -249,14 +273,20 @@ int ReportRegions(const char* label, const Region* r, int n, bool want_p) {
       std::fprintf(stderr, "FAIL: %s %s exceeds gate\n", label, r[i].name);
       rc = 1;
     }
+    // #82 T1: the specials cells (8, 9) are exact-match, no real gate.
+    if (i != 8 && i != 9) {
+      rc |= corvus_test::CheckReal(path, label, r[i].name, r[i].bound,
+                                   r[i].real);
+    }
   }
   return rc;
 }
 
-int Measure(const char* label, bool want_p, const std::vector<double>& a,
-            const std::vector<double>& b, const std::vector<double>& x,
-            const std::vector<double>& pref, const std::vector<double>& qref,
-            const std::vector<double>& got, const std::vector<double>& want) {
+int Measure(const char* path, const char* label, bool want_p,
+            const std::vector<double>& a, const std::vector<double>& b,
+            const std::vector<double>& x, const std::vector<double>& pref,
+            const std::vector<double>& qref, const std::vector<double>& got,
+            const std::vector<double>& want, const std::vector<double>& res) {
   Region reg[14] = {
       {"R1 series dir", kGateR1Dir}, {"R1 series cmp", kGateR1Cmp},
       {"R2 cf     dir", kGateR2Dir}, {"R2 cf     cmp", kGateR2Cmp},
@@ -295,6 +325,9 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
       u = ok ? 0 : ~uint64_t{0};
     } else {
       u = UlpDiff(got[i], want[i]);
+      // Only these rows are judged by integer ULP against the stored value;
+      // specials, NaN and zero-reference rows are exact-match, no real gate.
+      r.real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
     }
     ++r.n;
     if (u > 0) ++r.miss;
@@ -323,7 +356,7 @@ int Measure(const char* label, bool want_p, const std::vector<double>& a,
       r.wx = x[i];
     }
   }
-  return ReportRegions(label, reg, 14, want_p);
+  return ReportRegions(path, label, reg, 14, want_p);
 }
 
 // ---- Post-pass (i): monotonicity in x over the reference set -------------
@@ -415,7 +448,11 @@ int SeamSweeps() {
       {"R2->R3  nu=TRidge    [a]", 1, 0.0, 100.0, 0.4, 40.0, 55.0, false},
       {"R1->Pr->R2 near-one  [x]", 0, 0.5, 100.0, 0.0, 0.03, 0.10, false},
       {"Pr->R1  bar in a     [a]", 1, 0.0, 20.0, 0.4, 0.2, 3.0, false},
-      {"R2->Gl  bmax=2^59    [b]", 2, 0.5, 0.0, 1e-16, 0x1p58, 0x1p60, true},
+      // Keyed to the constant (#54 moved it from 2^59); fx holds t = b*x
+      // at ~57.6 on the seam, well past R1's B1 = 8 across the whole line.
+      {"R2->Gl  bmax=B_GL    [b]", 2, 0.5, 0.0,
+       57.6 / corvus::detail::kBetaGammaLim, corvus::detail::kBetaGammaLim / 2,
+       corvus::detail::kBetaGammaLim * 2, true},
       {"R1->Gl ser->Gl cf    [x]", 0, 10.0, 0x1p60, 0.0, 7.0 / 0x1p60,
        14.0 / 0x1p60, false},
       {"Gl->R3  nu=GlMin     [a]", 1, 0.0, 0x1p60, 1.735e-17, 15.0, 26.0,
@@ -483,7 +520,7 @@ int SeamSweeps() {
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char* const* argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
 
   const char* p_path = argc > 1 ? argv[1] : "tests/data/beta_p_reference.txt";
@@ -491,20 +528,20 @@ int main(int argc, char** argv) {
 
   int rc = 0;
   {
-    std::vector<double> a, b, x, p, q;
-    if (!LoadReference(p_path, &a, &b, &x, &p, &q)) return 2;
+    std::vector<double> a, b, x, p, q, rp, rq;
+    LoadReference(p_path, &a, &b, &x, &p, &q, &rp, &rq);
     std::vector<double> got(a.size());
     SplitCall(SpanFn(corvus::beta_p), got, a, b, x);
-    rc |= Measure("beta_p", true, a, b, x, p, q, got, p);
+    rc |= Measure(p_path, "beta_p", true, a, b, x, p, q, got, p, rp);
     rc |= MonoPostPass(a, b, x, p, got);
     rc |= SeamSweeps();
   }
   {
-    std::vector<double> a, b, x, p, q;
-    if (!LoadReference(q_path, &a, &b, &x, &p, &q)) return 2;
+    std::vector<double> a, b, x, p, q, rp, rq;
+    LoadReference(q_path, &a, &b, &x, &p, &q, &rp, &rq);
     std::vector<double> got(a.size());
     SplitCall(SpanFn(corvus::beta_q), got, a, b, x);
-    rc |= Measure("beta_q", false, a, b, x, p, q, got, q);
+    rc |= Measure(q_path, "beta_q", false, a, b, x, p, q, got, q, rq);
   }
 
   if (rc == 0) std::printf("PASS: all regions within G4 pinned gates\n");

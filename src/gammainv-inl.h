@@ -66,7 +66,9 @@
 // objective the steps then reduce, so seed choice and refinement cannot
 // disagree about what "closer" means. The winner's forward evaluation is
 // REUSED as the first step's, so three candidates cost three forward
-// evaluations and the three steps cost three more.
+// evaluations and the three steps cost three more. Between the two sits
+// a bracketed phase (#48) for lanes whose seed is still far off -- no seed
+// covers small a on the upper tail -- see GammaInvVec.
 //
 // DEEP-SMALL CLOSED FORM. Where the correction factor e^-x * Sum(a,x) is
 // below the resolution of a double, the equation collapses to
@@ -142,15 +144,43 @@ inline constexpr double kGammaInvSeedEps = 0x1.0p-60;
 // refinement from ever seeing an infinite first quotient.
 inline constexpr double kGammaInvQuotMax = 0x1.0p+11;
 
-// a below this has 1/a overflowing or losing its low word, so the deep-small
-// quotient rescales both operands by an exact power of two first. 2^-900
-// leaves room for the smallest subnormal a (2^-1074) to land at 2^-874.
+// a below this has 1/a overflowing or s0 = ln p + lgamma(1+a) near the
+// subnormal grid, so the deep-small numerator and a are formed scaled by an
+// exact power of two (#83). 2^-900 leaves room for the smallest subnormal a
+// (2^-1074) to land at 2^-874.
 inline constexpr double kGammaInvTinyA = 0x1.0p-900;
 inline constexpr double kGammaInvTinyAScale = 0x1.0p+200;
 
 // Residual below which a Newton step is taken on trust rather than tested
 // against the previous one. See the step loop.
 inline constexpr double kGammaInvTrustResid = 0.5;
+
+// The bracketed phase (#48; see GammaInvVec). Tol: the log-x step below
+// which a lane hands over to the three quadratic steps (2^-10 -> 2^-80 in
+// three). MaxStep: the cap on a doubling step while only one side of the
+// root is known (e^64), so the ramp spans the whole log range in a handful
+// of steps and bisection cleans up any overshoot. YMin/YMax: log of the
+// double range, so the iterate always maps back to a finite positive x.
+inline constexpr double kGammaInvBracketTol = 0x1.0p-10;
+// Entry: a lane's first Newton step must be at least this in log x (or its
+// slope have stalled). The lanes #48 lost started orders of magnitude off;
+// every seed the three steps already handled starts well inside a factor of
+// e, so it keeps HEAD's path bit for bit and pays nothing. A lower bar
+// (kGammaInvBracketTol itself) cost 20-40% in the small-a mid, flip and
+// q-side deep-small bands (Zen 4, indicative) for no accuracy.
+inline constexpr double kGammaInvBracketEntry = 0x1.0p-7;
+inline constexpr double kGammaInvBracketMaxStep = 64.0;
+inline constexpr double kGammaInvBracketYMin = -744.0;  // ~ log(denorm_min)
+inline constexpr double kGammaInvBracketYMax = 709.0;   // ~ log(DBL_MAX)
+// Iteration cap: a full-range bisection (1453 wide in log x) reaches 2^-10
+// in ~21 halvings; the cap leaves room for the one-sided ramp before it.
+inline constexpr int kGammaInvBracketN = 40;
+// A residual above this with a Newton step below kGammaInvBracketTol is a
+// stalled slope, not convergence (see the phase's STALL note).
+inline constexpr double kGammaInvBracketRStall = 1.0;
+// The phase runs only below this a: beyond-resolution (a >~ 3e34) must keep
+// its seed (see the phase's entry note), and 1e16 is far below that band.
+inline constexpr double kGammaInvBracketAMax = 1e16;
 
 // Scrub value for the CF's a: j*(j-a) overflows to -inf for a above ~4e306.
 // No R2 lane with a that large is ever live (a*phi is hundreds of thousands
@@ -164,9 +194,10 @@ inline constexpr double kGammaInvCfAMax = 0x1.0p+996;
 // residual num (-) q0*den (TwoProd supplies q0*den exactly) divided again.
 // Two guards make it total. The power-of-two RESCALE of both operands is
 // exact and leaves the quotient unchanged, so a subnormal den -- routine
-// here, since a is allowed to be subnormal -- never reaches the division as
-// an operand whose reciprocal is infinite. The quotient CLAMP catches the
-// case the rescale cannot: |num/den| genuinely exceeding the double range,
+// here, since betainv's alpha is allowed to be subnormal -- never reaches the
+// division as an operand whose reciprocal is infinite. (gammainv prescales
+// its own tiny a first, for the numerator's sake, so the rescale is idle
+// there.) The quotient CLAMP catches the case the rescale cannot: |num/den| genuinely exceeding the double range,
 // which happens whenever the answer underflows to zero, and which would
 // otherwise put an infinity into TwoProd and a NaN into the result. A clamped
 // lane drops its refinement term (it is meaningless) and exponentiates to the
@@ -184,6 +215,9 @@ HWY_INLINE Dd<D> GammaInvDivD(D d, Dd<D> num, op::V<D> den) {
   auto q0 = op::Div(n.hi, b);
   const auto over = op::Gt(op::Abs(q0), lim);
   q0 = op::IfThenElse(over, op::CopySign(lim, q0), q0);
+  // FLOOR: q0*b ~ n.hi < 2^-968 when ln p + lgamma(1+a) is tiny; the
+  // <= 2^-1072 loss divided by b >= 2^-900 (the rescale) is <= 2^-172 in
+  // uds = log x_ds, i.e. relative in x_ds -- harmless.
   const auto pr = TwoProd(d, q0, b);
   const auto rem = DdAdd(d, n, Dd<D>{op::Neg(pr.hi), op::Neg(pr.lo)});
   const auto q1 = op::IfThenElse(over, zero, op::Div(DdToDouble(rem), b));
@@ -212,7 +246,9 @@ HWY_NOINLINE op::V<D> GammaInvLamOfEta(D d, op::V<D> eta) {
   const auto lam_ser = op::MulAdd(eta, s, one);
 
   const auto m_ser = op::Lt(op::Abs(eta), op::Set(d, detail::kGammaInvEtaSeriesCut));
+  CORVUS_ROUTE(d, "gammainv/S1/lam_series", m_ser);
   if (op::AllTrue(d, m_ser)) return lam_ser;
+  CORVUS_ROUTE(d, "gammainv/S1/lam_newton", op::MaskNot(m_ser));
 
   const auto target = op::Mul(op::Set(d, 0.5), op::Mul(eta, eta));
   // log1p(target) for the eta >= 0 branch: target >= 1/8 there, so the plain
@@ -324,6 +360,7 @@ HWY_NOINLINE op::V<D> GammaInvSeedS2(D d, op::V<D> a, op::V<D> lsum) {
     // the indicator arithmetic because the ops facade exposes no mask AND.
     const auto good = IndMask(d, op::Mul(Ind(d, op::Gt(xn, zero)),
                                          Ind(d, op::Lt(xn, dmax))));
+    CORVUS_ROUTE(d, "gammainv/S2/hold", op::MaskNot(good));
     x = op::IfThenElse(good, xn, x);
   }
   return x;
@@ -352,6 +389,7 @@ HWY_NOINLINE op::V<D> GammaInvSeedS3(D d, op::V<D> a, op::V<D> lnq,
     const auto xn = op::MulAdd(op::Sub(a, one), OutlinedLogDd(d, x).hi, L);
     const auto good = IndMask(d, op::Mul(Ind(d, op::Gt(xn, zero)),
                                          Ind(d, op::Lt(xn, dmax))));
+    CORVUS_ROUTE(d, "gammainv/S3/hold", op::MaskNot(good));
     x = op::IfThenElse(good, xn, x);
   }
   *ok_out = gate;
@@ -415,27 +453,46 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
   const bool need_big = !op::AllFalse(d, m_big);
   Dd<D> e_small{zero, zero};
   Dd<D> e_big{zero, zero};
+  CORVUS_ROUTE(d, "gammainv/fwd/E_direct", op::MaskNot(m_big));
+  CORVUS_ROUTE(d, "gammainv/fwd/E_stirling", m_big);
   if (need_small) {
+    CORVUS_ROUTE_SCOPE(d, op::MaskNot(m_big));
     const auto lx = OutlinedLogDd(d, x);
+    // FLOOR: |a*lx| < 2^-968 needs a < 2^-915 (lx is 0 exactly or in
+    // [2^-53, 745]); lga >= 634 then dominates E, whose dd rounding dwarfs
+    // the <= 2^-1072 loss, and m sees it as relative error in P or Q.
     e_small = DdAddD(d, DdMulD(d, lx, a), op::Neg(x));
     e_small = DdAdd(d, e_small, Dd<D>{op::Neg(lga.hi), op::Neg(lga.lo)});
   }
   if (need_big) {
+    CORVUS_ROUTE_SCOPE(d, m_big);
     // a is clamped up to a_T for the lanes this branch is evaluated on but
     // does not own: 1/a and the Stirling remainder both need a bounded away
     // from zero, and a subnormal a among the discarded lanes would otherwise
     // reach them.
     const auto ac = op::Max(a, at);
+    // TWIN: gamma-inl.h GammaTemme's prescale.
     // Dekker-ceiling prescale, GammaTemme's twin site (kGammaScaleAbove,
     // gamma-inl.h): without it a >= 2^997 NaN'd the forward through
     // ProdLow's non-FMA split and every Newton candidate was rejected.
     const auto big = op::Gt(ac, op::Set(d, kGammaScaleAbove));
+    CORVUS_ROUTE(d, "gammainv/fwd/prescale", big);
     const auto dn = op::IfThenElse(big, op::Set(d, kGammaScaleDown), one);
     const auto up = op::IfThenElse(big, op::Set(d, kGammaScaleUp), one);
     const auto acs = op::Mul(ac, dn);
     const auto xcs = op::Mul(x, dn);
-    const auto u = DdMul(d, TwoSum(d, xcs, op::Neg(acs)), DdRecip(d, acs));
-    const auto aphi_s = DdMulD(d, Log1pmxDd(d, u), acs);
+    const auto ra = DdRecip(d, acs);
+    const auto u = DdMul(d, TwoSum(d, xcs, op::Neg(acs)), ra);
+    // 1 + u = x/a, formed directly and handed to the 2-arg Log1pmxDd (#49).
+    // Unlike the forward's Temme band, this E runs on EVERY a >= a_T lane
+    // whatever x is, and a tiny-p root puts x near 0, i.e. u near -1: the
+    // 1-arg form then derives 1 + u by cancellation, which dd_special-inl.h's
+    // HAZARD RULE forbids (gamma_p_inv(20, 1e-300) came back 9.7e-5 off).
+    // FLOOR: x/a < 2^-968 gives log P < -13000 (a >= 20), far past any
+    // target: a representable root has x/a > e^-38, where w is exact, so
+    // the loss only perturbs far iterates, whose m keeps its sign and size.
+    const auto w = DdMulD(d, ra, xcs);
+    const auto aphi_s = DdMulD(d, Log1pmxDd(d, u, w), acs);
     aphi = Dd<D>{op::Mul(aphi_s.hi, up), op::Mul(aphi_s.lo, up)};
     // mu(a), the Stirling remainder, is lgamma's own tail polynomial in 1/a^2
     // divided by a -- the same coefficients LgammaStirling evaluates, valid
@@ -457,6 +514,7 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
   e = Dd<D>{op::IfThenElse(m_big, e_big.hi, e_small.hi),
             op::IfThenElse(m_big, e_big.lo, e_small.lo)};
 
+  // TWIN: gamma-inl.h GammaVec's region map; mirror any routing change.
   // --- region map: GammaVec's, with kP carried per lane --------------------
   const auto i_small = Ind(d, op::Lt(a, at));
   const auto i_xle = Ind(d, op::Ge(op::Add(a, one), x));
@@ -479,11 +537,16 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
   const auto m_r2 = IndMask(d, i_r2);
   const auto m_r3 = IndMask(d, i_r3);
   const auto m_r4 = IndMask(d, i_r4);
+  CORVUS_ROUTE(d, "gammainv/fwd/R1", m_r1);
+  CORVUS_ROUTE(d, "gammainv/fwd/R2", m_r2);
+  CORVUS_ROUTE(d, "gammainv/fwd/R3", m_r3);
+  CORVUS_ROUTE(d, "gammainv/fwd/R4", m_r4);
 
   // --- ln of the directly computed side ------------------------------------
   Dd<D> lnf{zero, zero};
   auto i_pdir = zero;
   if (!op::AllFalse(d, m_r1)) {
+    CORVUS_ROUTE_SCOPE(d, m_r1);
     // P = e^{E - log a} * Sum, so ln P needs no exponential at all.
     const auto l = DdAdd(d, DdAdd(d, e, Dd<D>{op::Neg(lna.hi), op::Neg(lna.lo)}),
                          LogDd(d, GammaSeriesSum(d, a, x)));
@@ -492,30 +555,45 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
     i_pdir = op::IfThenElse(m_r1, one, i_pdir);
   }
   if (!op::AllFalse(d, m_r2)) {
+    CORVUS_ROUTE_SCOPE(d, m_r2);
+    // ROUTE-UNREACHABLE: needs a live lane evaluated at x >= 2a with a > 2^996;
+    // every seed and Newton point stays within a(1 +- 1e-12) there, and the
+    // bracket is barred above 1e16. It does work for dead lanes in a mixed
+    // vector, which the scope does not record.
+    CORVUS_ROUTE(d, "gammainv/fwd/R2/cf_a_clamp",
+                 op::Gt(a, op::Set(d, kGammaInvCfAMax)));
     const auto as = op::Min(a, op::Set(d, kGammaInvCfAMax));
     const auto l = DdAdd(d, e, OutlinedLogDd(d, GammaCfRecip(d, as, x)));
     lnf = Dd<D>{op::IfThenElse(m_r2, l.hi, lnf.hi),
                 op::IfThenElse(m_r2, l.lo, lnf.lo)};
   }
   if (!op::AllFalse(d, m_r3)) {
+    CORVUS_ROUTE_SCOPE(d, m_r3);
     const auto t3 = GammaTemme(d, a, x);
-    // Past a*phi ~ 745 the assembled Temme value underflows to zero, and its
-    // log would then be the log of the smallest normal rather than a number
-    // with any bearing on the residual. -a*phi is the leading term of ln F
-    // there and is exact to the dd; using it keeps the step's SIGN and
-    // magnitude right, which is what pulls such a lane back toward the root
-    // instead of stranding it. (No live lane is ever there: a target below
-    // e^-745 is not a representable double.)
-    const auto lg3 = OutlinedLogDd(d, t3.val.dd);
-    const auto pos = op::Gt(t3.val.dd.hi, zero);
-    const auto l = Dd<D>{op::IfThenElse(pos, lg3.hi, op::Neg(aphi.hi)),
-                         op::IfThenElse(pos, lg3.lo, op::Neg(aphi.lo))};
+    // ln F in LOG SPACE on tail lanes (#72): the tail value is exactly
+    // e^{ln_e} * brk, so ln F = ln_e + log(brk) and no subnormal value is
+    // ever formed. Taking the log of the assembled value instead quantised
+    // the residual once F was subnormal (targets below 2^-1022 at a >~ 4.5e3:
+    // up to 1e11 ulp in the root), and gave the log of zero past a*phi ~ 745.
+    // Core lanes (a*phi <= 25) are >= ~1e-12 and keep log(value).
+    const auto lgv = OutlinedLogDd(d, t3.val.dd);
+    const auto lgt = DdAdd(d, t3.ln_e, OutlinedLogDd(d, t3.brk));
+    CORVUS_ROUTE(d, "gammainv/fwd/R3/log_tail", t3.tail);
+    const auto l = Dd<D>{op::IfThenElse(t3.tail, lgt.hi, lgv.hi),
+                         op::IfThenElse(t3.tail, lgt.lo, lgv.lo)};
     lnf = Dd<D>{op::IfThenElse(m_r3, l.hi, lnf.hi),
                 op::IfThenElse(m_r3, l.lo, lnf.lo)};
     i_pdir = op::IfThenElse(m_r3, t3.is_p, i_pdir);
   }
   if (!op::AllFalse(d, m_r4)) {
-    const auto l = OutlinedLogDd(d, GammaSmallQ(d, a, x));
+    CORVUS_ROUTE_SCOPE(d, m_r4);
+    // Q = m * 2^e (#71: m from the prescaled core): log Q = log m + e log 2,
+    // so a tiny-a Q keeps full relative accuracy in log space.
+    const auto s4 = GammaSmallQ(d, a, x);
+    const Dd<D> ln2{op::Set(d, detail::kLogLn2Hi), op::Set(d, detail::kLogLn2Lo)};
+    // FLOOR: e is 0 or -400, so e*ln2 is 0 or ~277: never below 2^-968.
+    const auto l = DdAdd(d, OutlinedLogDd(d, s4.m),
+                         DdMulD(d, ln2, op::ConvertToDouble(d, s4.e)));
     lnf = Dd<D>{op::IfThenElse(m_r4, l.hi, lnf.hi),
                 op::IfThenElse(m_r4, l.lo, lnf.lo)};
     i_pdir = op::IfThenElse(m_r4, zero, i_pdir);
@@ -538,6 +616,8 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
     const auto ln_half = op::Set(d, -0.6931471805599453);
     const auto m_cmp = op::Gt(lnf.hi, ln_half);
     if (!op::AllFalse(d, m_cmp)) {
+      CORVUS_ROUTE_SCOPE(d, m_cmp);
+      CORVUS_ROUTE(d, "gammainv/fwd/swap", m_cmp);
       const auto vb = OutlinedExpDd(d, lnf.hi, lnf.lo);
       const auto cb =
           DdAdd(d, Dd<D>{one, zero}, Dd<D>{op::Neg(vb.hi), op::Neg(vb.lo)});
@@ -551,7 +631,10 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
   // before exp_dd sees it: exp_dd's Cody-Waite reduction assumes |x| in
   // the exp over/underflow range, and an astronomically negative log
   // walks it to NaN (betainv's u-site derives the hazard; exp(-800) is
-  // already an exact 0, so the clamp is value-identical for u).
+  // already an exact 0, so the clamp is value-identical for u). The
+  // 2026-10-10 defect hunt (#53) found no reachable effect over 3e5 points:
+  // the clamp is unreachable from the API or a provable no-op.
+  CORVUS_ROUTE(d, "gammainv/fwd/u_floor", op::Lt(lnf.hi, op::Set(d, -800.0)));
   const auto lnf_u = op::Max(lnf.hi, op::Set(d, -800.0));
   const auto lnf_ul = op::IfThenElse(op::Eq(lnf_u, lnf.hi), lnf.lo, zero);
   const auto u = OutlinedExpDd(d, lnf_u, lnf_ul);
@@ -639,13 +722,27 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   const auto i_wq = kQ ? IndNot(d, i_flip) : i_flip;
   const auto i_wp = IndNot(d, i_wq);
   const auto m_wq = IndMask(d, i_wq);
+  CORVUS_ROUTE(d, "gammainv/flip", m_flip);
+  CORVUS_ROUTE(d, "gammainv/solve_q", m_wq);
 
   // --- quantities that do not depend on x ----------------------------------
   // Both sides' logs. 1 (-) t is formed EXACTLY, as a pair: when fl(1 - t)
   // rounds to 1 the low word is the entire signal, and it is what the tiny-a
   // q-side answers rest on.
+  //
+  // Below t = 2^-7, log(1 - t) is Log1pDd at the exact argument -t (#83).
+  // LogDd of the pair adds its low word through a plain-double t - t^2/2,
+  // whose rounding is ~2^-108 ABSOLUTE: against a result of size t that is
+  // 2^-57 relative, and the deep-small branch multiplies it by |log x|
+  // (up to ~745), i.e. 16 ulp in x. Above 2^-7 the result is at least 2^-7
+  // and the same rounding is negligible.
   const auto lnt = OutlinedLogDd(d, t);  // log of the solved side; may be subnormal
-  const auto lnct = OutlinedLogDd(d, TwoSum(d, one, op::Neg(t)));  // log(1 - t)
+  const auto lnct_log = OutlinedLogDd(d, TwoSum(d, one, op::Neg(t)));
+  const auto lnct_1p = Log1pDd(d, Dd<D>{op::Neg(t), zero});
+  const auto m_ct1p = op::Ge(op::Set(d, 0x1.0p-7), t);
+  CORVUS_ROUTE(d, "gammainv/lnct_log1p", m_ct1p);
+  const Dd<D> lnct{op::IfThenElse(m_ct1p, lnct_1p.hi, lnct_log.hi),
+                   op::IfThenElse(m_ct1p, lnct_1p.lo, lnct_log.lo)};  // log(1 - t)
   const Dd<D> lnp{op::IfThenElse(m_wq, lnct.hi, lnt.hi),
                   op::IfThenElse(m_wq, lnct.lo, lnt.lo)};
 
@@ -661,9 +758,16 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   const auto ac = op::Min(a, op::Set(d, kGammaR4AMax));
   const auto c1 = op::Ge(op::Set(d, detail::kLgammaZoneLo), a);
   const auto tz = op::IfThenElse(c1, ac, op::Sub(ac, one));  // exact both ways
-  const auto lg1_zone = DdMulD(d, ZoneBracket(d, tz, c1), tz);
+  const auto zb = ZoneBracket(d, tz, c1);
+  // FLOOR: |B*tz| < 2^-968 needs a < ~2^-967 (|B| >= 0.42). This unscaled
+  // lg1a feeds only s0, i.e. the S2 seed, where 2^-1072 absolute is
+  // harmless; the deep-small quotient uses the scaled lg1a_s below (#83).
+  const auto lg1_zone = DdMulD(d, zb, tz);
   const auto lg1_gen = DdAdd(d, lga, lna);
   const auto m_zone = op::Ge(op::Set(d, kGammaR4AMax), a);
+  CORVUS_ROUTE(d, "gammainv/lg1a_zone", m_zone);
+  CORVUS_ROUTE(d, "gammainv/lg1a_zone/centre1", op::And(m_zone, c1));
+  CORVUS_ROUTE(d, "gammainv/lg1a_general", op::MaskNot(m_zone));
   const Dd<D> lg1a{op::IfThenElse(m_zone, lg1_zone.hi, lg1_gen.hi),
                    op::IfThenElse(m_zone, lg1_zone.lo, lg1_gen.lo)};
 
@@ -684,15 +788,46 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   // for every a; above it the S2 seed's Picard iteration, which IS the exact
   // fixed point of the dropped factor, supplies the same answer to full
   // precision.
+  //
+  // SCALED NUMERATOR (#83). For a < kGammaInvTinyA the deep-small answer
+  // needs |s0| <= kGammaInvQuotMax * a, so s0 itself sits near the subnormal
+  // grid, where its low word -- and lg1a's, a subnormal product -- is
+  // quantised to 2^-1074: up to 2^-57 relative, i.e. 13 ulp in x after the
+  // division. Both terms are therefore formed scaled by kGammaInvTinyAScale
+  // (lnp's scaling is exact; lg1a scales its exact tz) and divided by the
+  // scaled a, which GammaInvDivD's own rescale then leaves alone. Unscaled
+  // s0 still feeds the S2 seed, which needs no such precision.
   const auto s0 = DdAdd(d, lnp, lg1a);
-  const auto uds = GammaInvDivD(d, s0, a);
+  const auto m_tiny = op::Lt(a, op::Set(d, kGammaInvTinyA));
+  const auto sc = op::IfThenElse(m_tiny, op::Set(d, kGammaInvTinyAScale), one);
+  const auto tzs = op::Mul(tz, sc);
+  // FLOOR: never reached. tzs is 0 exactly (a = 1, product exact) or at
+  // least 2^-900 in magnitude (tiny a scaled to >= 2^-874; otherwise
+  // a >= 2^-900, or |a - 1| >= 2^-53), so |B*tzs| >= 0.42 * 2^-900.
+  const auto lg1_zone_s = DdMulD(d, zb, tzs);
+  const Dd<D> lg1a_s{op::IfThenElse(m_zone, lg1_zone_s.hi, op::Mul(lg1_gen.hi, sc)),
+                     op::IfThenElse(m_zone, lg1_zone_s.lo, op::Mul(lg1_gen.lo, sc))};
+  const auto s0s =
+      DdAdd(d, Dd<D>{op::Mul(lnp.hi, sc), op::Mul(lnp.lo, sc)}, lg1a_s);
+  const auto uds = GammaInvDivD(d, s0s, op::Mul(a, sc));
   const auto eds = ExpDdFrac(d, uds.hi, uds.lo);
-  const auto x_ds = ScaleTwo(d, DdToDouble(eds.m), eds.e);
+  // One rounding into the subnormal grid (#72 M-6; was ScaleTwo of the
+  // rounded dd, two roundings).
+  const auto x_ds = DdScaleToDouble(d, eds.m, eds.e);
   const auto m_ds = op::Lt(op::Mul(x_ds, op::Add(one, a)),
                            op::Set(d, detail::kGammaInvDeepSmallCut));
+  CORVUS_ROUTE(d, "gammainv/deep_small", m_ds);
+  CORVUS_ROUTE(d, "gammainv/deep_small/rescale",
+               op::And(m_ds, m_tiny));
+  CORVUS_ROUTE(d, "gammainv/deep_small/quot_clamp",
+               op::And(m_ds, op::Ge(op::Abs(uds.hi),
+                                    op::Set(d, kGammaInvQuotMax))));
+  CORVUS_ROUTE(d, "gammainv/deep_small/subnormal",
+               op::And(m_ds, op::Lt(x_ds, op::Set(d, 0x1.0p-1022))));
 
   auto x = x_ds;
   if (!op::AllTrue(d, m_ds)) {
+    CORVUS_ROUTE_SCOPE(d, op::MaskNot(m_ds));
     // --- seed candidates -------------------------------------------------
     const auto sgn = op::IfThenElse(m_wq, one, op::Neg(one));
     op::V<D> eta0;
@@ -731,19 +866,21 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
                      &best_f);
     GammaInvConsider(d, a, x3, i_ok3, i_wp, lga, lna, mt, &best_x, &best_r,
                      &best_f);
+    CORVUS_ROUTE(d, "gammainv/seed/S1",
+                 op::And(op::And(op::Eq(best_x, x1), IndMask(d, i_ok1)),
+                         op::Lt(best_r, inf)));
+    CORVUS_ROUTE(d, "gammainv/seed/S2",
+                 op::And(op::Eq(best_x, x2), op::Lt(best_r, inf)));
+    CORVUS_ROUTE(d, "gammainv/seed/S3",
+                 op::And(op::And(op::Eq(best_x, x3), IndMask(d, i_ok3)),
+                         op::Lt(best_r, inf)));
 
-    // --- log-residual Newton, kGammaInvStepsN steps -----------------------
-    // The step is Delta log x = -+ w*(ln F (-) ln t), applied MULTIPLICATIVELY
-    // through expm1: x1 = x + x*expm1(step). Two reasons, and the first is
-    // exactness, not robustness. For |step| below the expm1 series cut,
-    // expm1(step) IS step to the last bit, so the converged step is the same
-    // single rounding the additive form would have made -- nothing is given
-    // up where it matters. Away from convergence the multiplicative form is
-    // the correct one: ln F is close to linear in ln x in every tail (a*log x
-    // in R1, -x in R2), and x*exp(step) cannot walk through zero, which
-    // x*(1 - step) does the moment w*resid exceeds 1 -- a p-side deep-tail
-    // seed with a residual of 40 does exactly that, and the positivity guard
-    // would then strand the lane on its seed forever.
+    // --- Newton, kGammaInvStepsN steps ------------------------------------
+    // The step is ADDITIVE in x: x1 = x*(1 + ls), ls = -scale*w*resid,
+    // floored at ls >= -0.9 (no expm1; the loop below explains the form). The
+    // floor keeps a runaway step, where w*resid exceeds 1, from reaching zero
+    // or a negative x, which the positivity guard would then strand on the
+    // seed.
     //
     // EVERY STEP IS SAFEGUARDED: it is accepted only if it does not increase
     // |ln F (-) ln t|, and a rejected step is retried from the same point at
@@ -776,9 +913,155 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
     GammaInvFwdOut<D> cur = best_f;
     auto rbest = best_r;
     if (!op::AllFalse(d, op::Eq(best_r, inf))) {
+      // ROUTE-UNREACHABLE: S2 is always considered and yields a finite x in (0,
+      // inf) for every non-deep-small lane, and its forward residual is finite
+      // there (Q_comp >= 2^-1074 by Kummer; a*phi cannot overflow within 1e-12
+      // of a).
+      CORVUS_ROUTE(d, "gammainv/seed/fallback", op::Eq(best_r, inf));
       cur = GammaInvForward(d, a, xn_state, i_wp, lga, lna);
       rbest = op::Abs(GammaInvResid(d, cur, mt));
     }
+    // --- bracketed phase (#48): get every lane to within 2^-10 in log x ----
+    // The three steps below converge quadratically from a good seed, and
+    // only from one. Where no seed covers the input -- small a on the upper
+    // tail, where S1 is barred (a < kGammaInvS1AMin), S3's far-tail gate
+    // declines and S2's Picard iteration (contraction ~1/a there) runs away
+    // to 1e100-class values -- the old kernel kept S2 anyway (its domain flag
+    // is always set) and three steps clamped at -0.9 could only shrink it
+    // 1000-fold: gamma_p_inv(0.1, 0.99) returned 7.9e106 for 1.588.
+    //
+    // m(x) is monotone increasing in x on both orientations, so each
+    // evaluation tells which side of the root it sits on. The phase works in
+    // y = log x (w is exactly dy/dm) and keeps a sign bracket [lo, hi] in y,
+    // with rtsafe's acceptance rule: a Newton step is taken only if it lands
+    // inside what is known and is at most half the previous step. Otherwise
+    // the step is a bisection once both sides are known, and a DOUBLING of
+    // the previous step toward the root while only one side is -- which is
+    // what crosses an exponential tail, where Newton in y crawls at ~1 per
+    // step (log Q ~ -x, w ~ 1/x). A tiny Newton step against a large
+    // residual is a slope that has underflowed, not convergence, and is
+    // treated as slow. An iterate whose forward is unusable (NaN) is not
+    // adopted; the next step from the old point is a quarter as long.
+    //
+    // A lane enters only if its first Newton step is at least
+    // kGammaInvBracketTol in y and leaves once an applied step is below it;
+    // well-seeded lanes never enter, and a vector of them costs one
+    // comparison. Beyond-resolution lanes (w -> 0 there IS the answer) never
+    // enter either.
+    {
+      const auto ninf = op::Set(d, -std::numeric_limits<double>::infinity());
+      const auto tol = op::Set(d, kGammaInvBracketTol);
+      const auto cap = op::Set(d, kGammaInvBracketMaxStep);
+      const auto rstall = op::Set(d, kGammaInvBracketRStall);
+      const auto ylo_dom = op::Set(d, kGammaInvBracketYMin);
+      const auto yhi_dom = op::Set(d, kGammaInvBracketYMax);
+      // A seed whose forward is unusable (NaN residual -- a tiny-a S2 that ran
+      // off to ~1e18) carries no direction at all: restart such a lane from
+      // x = 1, an ordinary interior point, rather than leave it on the seed.
+      auto r = GammaInvResid(d, cur, mt);
+      {
+        // Deep-small lanes are overwritten by the closed form at the end:
+        // never spend a forward on them.
+        const auto bad0 = IndMask(
+            d, op::Mul(Ind(d, op::IsNaN(r)), IndNot(d, Ind(d, m_ds))));
+        if (!op::AllFalse(d, bad0)) {
+          CORVUS_ROUTE_SCOPE(d, bad0);
+          // ROUTE-UNREACHABLE: without the seed fallback (unreachable above),
+          // cur is a candidate adopted only with a finite residual, and the
+          // residual recomputed here is the same one.
+          CORVUS_ROUTE(d, "gammainv/restart", bad0);
+          xn_state = op::IfThenElse(bad0, one, xn_state);
+          const auto f1 = GammaInvForward(d, a, xn_state, i_wp, lga, lna);
+          cur.m = Dd<D>{op::IfThenElse(bad0, f1.m.hi, cur.m.hi),
+                        op::IfThenElse(bad0, f1.m.lo, cur.m.lo)};
+          cur.w = op::IfThenElse(bad0, f1.w, cur.w);
+          r = GammaInvResid(d, cur, mt);
+        }
+      }
+      auto y = OutlinedLogDd(d, xn_state).hi;
+      auto lo = ninf;
+      auto hi = inf;
+      auto dxold = inf;  // |previous applied step|
+      // Entry: a large Newton step, OR a large residual whose slope has
+      // underflowed (w ~ 0 at a seed far out in a tail -- the same stall the
+      // loop handles). Only below kGammaInvBracketAMax: in the
+      // beyond-resolution band (a >~ 3e34) w -> 0 with a sizable residual IS
+      // the converged state, and the seed is the answer.
+      auto live = op::Mul(
+          op::Mul(op::Max(Ind(d, op::Ge(op::Abs(op::Mul(cur.w, r)),
+                                        op::Set(d, kGammaInvBracketEntry))),
+                          Ind(d, op::Gt(op::Abs(r), rstall))),
+                  Ind(d, op::Gt(op::Set(d, kGammaInvBracketAMax), a))),
+          op::Mul(IndNot(d, Ind(d, op::IsNaN(r))), IndNot(d, Ind(d, m_ds))));
+      CORVUS_ROUTE(d, "gammainv/bracket", IndMask(d, live));
+      for (int it = 0; it < kGammaInvBracketN; ++it) {
+        const auto m_live = IndMask(d, live);
+        if (op::AllFalse(d, m_live)) break;
+        CORVUS_ROUTE_SCOPE(d, m_live);
+        // Bracket update from the residual's sign at y.
+        lo = op::IfThenElse(
+            m_live, op::IfThenElse(op::Lt(r, zero), op::Max(lo, y), lo), lo);
+        hi = op::IfThenElse(
+            m_live, op::IfThenElse(op::Gt(r, zero), op::Min(hi, y), hi), hi);
+        const auto both =
+            op::Mul(Ind(d, op::Gt(lo, ninf)), Ind(d, op::Lt(hi, inf)));
+
+        const auto sn = op::Neg(op::Mul(cur.w, r));  // Newton step in y
+        const auto ynewt = op::Add(y, sn);
+        const auto stall = op::Mul(Ind(d, op::Gt(tol, op::Abs(sn))),
+                                   Ind(d, op::Gt(op::Abs(r), rstall)));
+        const auto inside = op::Mul(Ind(d, op::Gt(ynewt, lo)),
+                                    Ind(d, op::Gt(hi, ynewt)));
+        const auto fast = Ind(d, op::Ge(op::Mul(dxold, half), op::Abs(sn)));
+        const auto take_newton =
+            op::Mul(op::Mul(inside, fast), IndNot(d, stall));
+        // Not Newton: bisect a two-sided bracket, else double toward the root.
+        const auto dir = op::CopySign(one, op::Neg(r));
+        const auto grow = op::Min(op::Mul(op::Min(dxold, cap), op::Set(d, 2.0)), cap);
+        const auto ygrow = op::Add(y, op::Mul(dir, op::Max(grow, tol)));
+        const auto ybis = op::Mul(op::Add(lo, hi), half);
+        CORVUS_ROUTE(d, "gammainv/bracket/stall", IndMask(d, stall));
+        CORVUS_ROUTE(d, "gammainv/bracket/newton", IndMask(d, take_newton));
+        CORVUS_ROUTE(d, "gammainv/bracket/bisect",
+                     IndMask(d, op::Mul(IndNot(d, take_newton), both)));
+        CORVUS_ROUTE(d, "gammainv/bracket/grow",
+                     IndMask(d, op::Mul(IndNot(d, take_newton),
+                                        IndNot(d, both))));
+        auto yn = op::IfThenElse(IndMask(d, take_newton), ynewt,
+                                 op::IfThenElse(IndMask(d, both), ybis, ygrow));
+        CORVUS_ROUTE(d, "gammainv/bracket/clamp_y",
+                     op::Or(op::Lt(yn, ylo_dom), op::Gt(yn, yhi_dom)));
+        yn = op::Min(op::Max(yn, ylo_dom), yhi_dom);
+        const auto applied = op::Abs(op::Sub(yn, y));
+
+        const auto xb = OutlinedExp(d, yn);
+        const auto fb = GammaInvForward(d, a, xb, i_wp, lga, lna);
+        const auto rb = GammaInvResid(d, fb, mt);
+        CORVUS_ROUTE(d, "gammainv/bracket/reject_nan", op::IsNaN(rb));
+        // (Not m_ok: that name is GammaInvVec's input mask -- MSVC C4456.)
+        const auto i_adopt = op::Mul(live, IndNot(d, Ind(d, op::IsNaN(rb))));
+        const auto m_adopt = IndMask(d, i_adopt);
+        y = op::IfThenElse(m_adopt, yn, y);
+        xn_state = op::IfThenElse(m_adopt, xb, xn_state);
+        cur.m = Dd<D>{op::IfThenElse(m_adopt, fb.m.hi, cur.m.hi),
+                      op::IfThenElse(m_adopt, fb.m.lo, cur.m.lo)};
+        cur.w = op::IfThenElse(m_adopt, fb.w, cur.w);
+        r = op::IfThenElse(m_adopt, rb, r);
+        // A rejected (NaN) iterate shrinks the next step instead.
+        dxold = op::IfThenElse(m_adopt, applied,
+                               op::IfThenElse(m_live, op::Mul(op::Min(dxold, cap),
+                                                              op::Set(d, 0.25)),
+                                              dxold));
+        live = op::Mul(live, IndNot(d, Ind(d, op::Gt(tol, applied))));
+      }
+      // ROUTE-OPEN (#82 T7): its only known path was #83's stall, where Q
+      // rounded to 0 above the root at subnormal (a, q), the residual went
+      // NaN and the bracket re-proposed one midpoint. #71's prescaled R4
+      // forward (log m + e log 2) removed that NaN; no other path is known.
+      CORVUS_ROUTE(d, "gammainv/bracket/cap", IndMask(d, live));
+      rbest = op::Abs(GammaInvResid(d, cur, mt));
+    }
+
     auto scale = one;
     for (int k = 0; k < detail::kGammaInvStepsN; ++k) {
       const auto resid = GammaInvResid(d, cur, mt);
@@ -798,6 +1081,12 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
       // times w exceeding 1 would put the iterate at a negative x, which the
       // positivity guard then has to throw away entirely.
       auto ls = op::Neg(op::Mul(op::Mul(scale, cur.w), resid));
+      // ROUTE-OPEN (#82 T7): needs w*r > 0.9 at a Newton iterate, i.e. x
+      // at least e^0.9 above the root. Excluded: a >= 1e16 (|w*r| <= 2e-5)
+      // and the q = 2^-1074 staircase (r <= 0). Lanes leaving the bracket
+      // sit within 2^-9 in log x and others start below 2^-7; reaching 0.9
+      // needs a forward jump, not found in subnormal (a, q) sweeps.
+      CORVUS_ROUTE(d, "gammainv/newton/floor", op::Lt(ls, op::Set(d, -0.9)));
       ls = op::Max(ls, op::Set(d, -0.9));
       const auto cand = op::MulAdd(xn_state, ls, xn_state);
 
@@ -814,6 +1103,7 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
           d, op::Mul(op::Mul(Ind(d, op::Gt(cand, zero)),
                              Ind(d, op::Lt(cand, inf))),
                      op::Max(trust, Ind(d, op::Ge(rbest, rnew)))));
+      CORVUS_ROUTE(d, "gammainv/newton/backtrack", op::MaskNot(acc));
       xn_state = op::IfThenElse(acc, cand, xn_state);
       rbest = op::IfThenElse(acc, rnew, rbest);
       cur.m = Dd<D>{op::IfThenElse(acc, f.m.hi, cur.m.hi),
@@ -828,13 +1118,21 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   // --- specials (SciPy limits; see the public header) ----------------------
   const auto at0 = kQ ? inf : zero;   // s = 0
   const auto at1 = kQ ? zero : inf;   // s = 1
+  CORVUS_ROUTE(d, "gammainv/special/s_zero", op::Eq(s_in, zero));
   auto res = op::IfThenElse(op::Eq(s_in, zero), at0, x);
+  CORVUS_ROUTE(d, "gammainv/special/s_one", op::Eq(s_in, one));
   res = op::IfThenElse(op::Eq(s_in, one), at1, res);
+  CORVUS_ROUTE(d, "gammainv/special/s_neg", op::Lt(s_in, zero));
   res = op::IfThenElse(op::Lt(s_in, zero), qnan, res);
+  CORVUS_ROUTE(d, "gammainv/special/s_gt_one", op::Gt(s_in, one));
   res = op::IfThenElse(op::Gt(s_in, one), qnan, res);
+  CORVUS_ROUTE(d, "gammainv/special/a_nonpos", op::Ge(zero, a_in));
   res = op::IfThenElse(op::Ge(zero, a_in), qnan, res);  // a <= 0, -0 included
+  CORVUS_ROUTE(d, "gammainv/special/a_inf", op::Eq(a_in, inf));
   res = op::IfThenElse(op::Eq(a_in, inf), qnan, res);
+  CORVUS_ROUTE(d, "gammainv/special/a_nan", op::IsNaN(a_in));
   res = op::IfThenElse(op::IsNaN(a_in), a_in, res);  // payload preserved
+  CORVUS_ROUTE(d, "gammainv/special/s_nan", op::IsNaN(s_in));
   res = op::IfThenElse(op::IsNaN(s_in), s_in, res);
   return res;
 }

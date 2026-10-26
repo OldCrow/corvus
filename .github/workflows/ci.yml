@@ -39,7 +39,9 @@ jobs:
   linux-x86:
     name: Linux x86-64 (tier sweep + sanitizers)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 30, not 20: the #53 `guards` test takes ~9 min in the Debug ASan+UBSan
+    # build (1.8 s in Release), which pushed the job to ~24 min.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -103,7 +105,8 @@ jobs:
             tests/data/gammainv_q_reference.txt
           ./build/tests/test_betainv_ulp \
             tests/data/betainv_p_reference.txt \
-            tests/data/betainv_q_reference.txt
+            tests/data/betainv_q_reference.txt \
+            tests/data/betainv_backward_reference.txt
           ./build/tests/test_bessel_ulp \
             tests/data/i0_reference.txt tests/data/i1_reference.txt \
             tests/data/i0e_reference.txt tests/data/i1e_reference.txt
@@ -127,9 +130,15 @@ jobs:
             echo "::endgroup::"
           done
 
-      - name: Sanitizers (ASan+UBSan, Debug)
+      # Debug (asserts on, no NDEBUG) but at -O1, the level ASan recommends:
+      # at -O0 no Highway op inlines, every vector temporary is a stack
+      # store ASan instruments, and the guards test alone ran 722 s of a
+      # 30-minute job (2026-10-25). The local `sanitize` preset stays -O0
+      # for debugger sessions.
+      - name: Sanitizers (ASan+UBSan, Debug -O1)
         run: |
           cmake -B build-san -G Ninja -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS_DEBUG="-O1 -g" \
             -DCORVUS_SANITIZE="address;undefined"
           cmake --build build-san
           UBSAN_OPTIONS=halt_on_error=1 \
@@ -275,7 +284,8 @@ jobs:
             tests/data/gammainv_q_reference.txt
           ./build/tests/Release/test_betainv_ulp.exe \
             tests/data/betainv_p_reference.txt \
-            tests/data/betainv_q_reference.txt
+            tests/data/betainv_q_reference.txt \
+            tests/data/betainv_backward_reference.txt
           ./build/tests/Release/test_bessel_ulp.exe \
             tests/data/i0_reference.txt tests/data/i1_reference.txt \
             tests/data/i0e_reference.txt tests/data/i1e_reference.txt
@@ -401,7 +411,8 @@ jobs:
             tests/data/gammainv_q_reference.txt
           ./build/tests/test_betainv_ulp \
             tests/data/betainv_p_reference.txt \
-            tests/data/betainv_q_reference.txt
+            tests/data/betainv_q_reference.txt \
+            tests/data/betainv_backward_reference.txt
           ./build/tests/test_bessel_ulp \
             tests/data/i0_reference.txt tests/data/i1_reference.txt \
             tests/data/i0e_reference.txt tests/data/i1e_reference.txt

@@ -35,7 +35,7 @@ namespace HWY_NAMESPACE {
 // One masked loop shape for every driver, mirroring src/driver-inl.h. The
 // kernel body is a lambda V -> V so each component driver below is one line.
 template <class Body>
-HWY_NOINLINE void DriveComponent(const double* in, double* out, size_t n,
+static HWY_NOINLINE void DriveComponent(const double* in, double* out, size_t n,
                                  Body body) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
@@ -53,13 +53,13 @@ using DTag = op::ScalableTag<double>;
 using V = op::V<DTag>;
 
 // --- floor: load + store only, the driver/memory cost every row pays. ------
-void FloorImpl(const double* in, double* out, size_t n) {
+static void FloorImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag, V x) HWY_ATTR { return x; });
 }
 
 // --- zone band [0.5, 2.5]: is the Horner chain the zone's cost? -----------
 // The shipped all-zone fast path (select, exact t, bracket, final DdMulD).
-void ZoneFullImpl(const double* in, double* out, size_t n) {
+static void ZoneFullImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
     const auto c1 = op::Lt(x, op::Set(d, detail::kLgammaZoneMid));
     const auto t = op::IfThenElse(c1, op::Sub(x, op::Set(d, 1.0)),
@@ -70,7 +70,7 @@ void ZoneFullImpl(const double* in, double* out, size_t n) {
 
 // The 32-coefficient double Horner exactly as ZoneBracket runs it, per-lane
 // Sel2 coefficients included; stops before the dd lead-term ladder.
-void ZoneHornerImpl(const double* in, double* out, size_t n) {
+static void ZoneHornerImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
     const auto c1 = op::Lt(x, op::Set(d, detail::kLgammaZoneMid));
     const auto t = op::IfThenElse(c1, op::Sub(x, op::Set(d, 1.0)),
@@ -87,7 +87,7 @@ void ZoneHornerImpl(const double* in, double* out, size_t n) {
 
 // The same Horner on ONE coefficient set (no Sel2): the delta against
 // zone_horner is what the per-coefficient select machinery costs.
-void ZoneHorner1cImpl(const double* in, double* out, size_t n) {
+static void ZoneHorner1cImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
     const auto t = op::Sub(x, op::Set(d, 1.0));
     const auto* co = detail::kLgammaZoneCoef;
@@ -101,7 +101,7 @@ void ZoneHorner1cImpl(const double* in, double* out, size_t n) {
 
 // The dd lead-term ladder with a trivial s: the three-level DdAdd/DdMulD
 // structure plus the closing DdMulD and rounding, without the Horner.
-void ZoneLeadImpl(const double* in, double* out, size_t n) {
+static void ZoneLeadImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
     const auto c1 = op::Lt(x, op::Set(d, detail::kLgammaZoneMid));
     const auto t = op::IfThenElse(c1, op::Sub(x, op::Set(d, 1.0)),
@@ -121,14 +121,14 @@ void ZoneLeadImpl(const double* in, double* out, size_t n) {
 }
 
 // --- recurrence band (2.5, 8): walk-down vs the log on P vs the floor. ----
-void RecFullImpl(const double* in, double* out, size_t n) {
+static void RecFullImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
     return DdToDouble(LgammaLow(d, x));
   });
 }
 
 // The masked walk-down exactly as LgammaLow runs it, nothing after it.
-void RecWalkImpl(const double* in, double* out, size_t n) {
+static void RecWalkImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
     const auto one = op::Set(d, 1.0);
     const auto xr = op::Min(x, op::Set(d, detail::kLgammaX0));
@@ -148,20 +148,20 @@ void RecWalkImpl(const double* in, double* out, size_t n) {
 
 // The outlined dd log alone. Band inputs (2.5, 8) sit inside the magnitude
 // range the real P spans on this band, so the table-gather behaviour matches.
-void RecLogImpl(const double* in, double* out, size_t n) {
+static void RecLogImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
     return OutlinedLogDd(d, Dd<DTag>{x, op::Zero(d)}).hi;
   });
 }
 
 // --- Stirling band [8, 1000]: the log vs the remainder polynomial. --------
-void StirFullImpl(const double* in, double* out, size_t n) {
+static void StirFullImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
     return DdToDouble(LgammaStirling(d, x));
   });
 }
 
-void StirLogImpl(const double* in, double* out, size_t n) {
+static void StirLogImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
     return LogDd(d, x).hi;
   });
@@ -169,7 +169,7 @@ void StirLogImpl(const double* in, double* out, size_t n) {
 
 // The 1/x^2 remainder Horner plus its divisions, without the log or the dd
 // assembly around it.
-void StirRemImpl(const double* in, double* out, size_t n) {
+static void StirRemImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
     const auto w = op::Div(op::Set(d, 1.0), op::Mul(x, x));
     auto p = op::Set(d, detail::kLgammaStirCoef[detail::kLgammaStirNCoef - 1]);
@@ -182,13 +182,13 @@ void StirRemImpl(const double* in, double* out, size_t n) {
 
 // --- reflection band [-30, -0.01]: the two extra logs vs LogSinc vs the ---
 // positive pipeline it wraps.
-void ReflFullImpl(const double* in, double* out, size_t n) {
+static void ReflFullImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
     return LgammaVec(d, x);
   });
 }
 
-void ReflPosImpl(const double* in, double* out, size_t n) {
+static void ReflPosImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
     return DdToDouble(LgammaPosDd(d, op::Abs(x)));
   });
@@ -196,7 +196,7 @@ void ReflPosImpl(const double* in, double* out, size_t n) {
 
 // The reflection's two extra dd logs (-log|u| and -log(-x)) and their DdAdd,
 // on the exact u the kernel forms.
-void ReflLogsImpl(const double* in, double* out, size_t n) {
+static void ReflLogsImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
     const auto ax = op::Abs(x);
     const auto au = op::Abs(op::Sub(x, op::Round(x)));
@@ -204,7 +204,7 @@ void ReflLogsImpl(const double* in, double* out, size_t n) {
   });
 }
 
-void ReflSincImpl(const double* in, double* out, size_t n) {
+static void ReflSincImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
     return LogSinc(d, op::Sub(x, op::Round(x))).hi;
   });
@@ -212,7 +212,7 @@ void ReflSincImpl(const double* in, double* out, size_t n) {
 
 // This TU carries its own dispatch table; main() asserts it agrees with the
 // library's (test_exp_dd pattern).
-const char* BenchTargetNameImpl() { return hwy::TargetName(HWY_TARGET); }
+static const char* BenchTargetNameImpl() { return hwy::TargetName(HWY_TARGET); }
 
 }  // namespace HWY_NAMESPACE
 }  // namespace corvus
@@ -244,11 +244,11 @@ HWY_EXPORT(BenchTargetNameImpl);
 // Dispatch inside namespace corvus (single-target cap collapse; see the
 // shipped kernels).
 using ComponentFn = void (*)(const double*, double*, size_t);
-const char* BenchTargetName() {
+static const char* BenchTargetName() {
   return HWY_DYNAMIC_DISPATCH(BenchTargetNameImpl)();
 }
 #define CORVUS_COMPONENT(name)                                     \
-  void name(const double* in, double* out, size_t n) {             \
+  static void name(const double* in, double* out, size_t n) {      \
     HWY_DYNAMIC_DISPATCH(name##Impl)(in, out, n);                  \
   }
 CORVUS_COMPONENT(Floor)
