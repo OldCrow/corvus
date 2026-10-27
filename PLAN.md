@@ -14,8 +14,10 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 and pushed.** Milestone 7 has 14 open issues. The v1.2.0 issue order
 (section "v1.2.0 issue order") is DECIDED 2026-10-26 [user]. [DERIVED]
 
-**Row A3 (#87 + #89) in progress on Z, run unattended overnight
-2026-10-26/27; UNCOMMITTED, for the user's review [DERIVED].**
+**Row A3 (#87 + #89) DONE 2026-10-27 on Z: `1780304` (generators
+only). #87 and #89 stay open until A4 regenerates the references; each
+has a comment naming the commit and what remains. Next: row A4 (#79,
+then the one regeneration for A3 + A4).** [DERIVED]
 - **#87 diagnosed and fixed** in `tools/gen_betainv_reference.py`. No
   design decision surfaced.
   - **Cause:** at a = 1, Q = (1 - y)^b is exact, so the deep-small
@@ -174,10 +176,9 @@ and pushed.** Milestone 7 has 14 open issues. The v1.2.0 issue order
     defect, unrelated to ties.
   - `gen_betainv_reference.status()` appends to an old scratchpad file
     outside the repo.
-- **A3 state:** 20 files changed (PLAN.md, refgen_common.py and 18
-  generators), all uncommitted on `dev/v1.2.0`; no
-  `tests/data/` change and no kernel change. A4 regenerates the
-  affected references once.
+- **A3 scope:** refgen_common.py and 18 generators; no `tests/data/`
+  change and no kernel change. A4 regenerates the affected references
+  once.
 
 **Row A2 (#78) DONE 2026-10-26 on Z: `b01b162`, CI 40441318445 green
 on all three jobs; both guard tests pass on Linux GCC, macOS AppleClang,
@@ -1887,7 +1888,7 @@ reference rows are regenerated, and regeneration done once. Two more:
 |---|---|---|---|---|---|
 | A1 | ~~#81~~ DONE 2026-10-26 (Z, `d54ab11`) — chore: `sweep_tiers.ps1` defaults to clang-cl and passes `test_dd_special` all three data paths (ci.yml too) — first, because every later row sweeps tiers with it; hwy version floor in `corvus-config.cmake.in`; dead generated constants (stop emitting them); stale comments; one NEON-provenance wording, Highway version logged on macOS CI | tooling the later rows run on; no kernel bits | recipe | none | Z, CI |
 | A2 | ~~#78~~ DONE 2026-10-26 (Z, `b01b162`) — fast-math guard: `#error` on `__FAST_MATH__` / `__FINITE_MATH_ONLY__` / `_M_FP_FAST` and/or `-fno-fast-math` / `/fp:precise` in `CORVUS_FP_FLAGS`, shown to fire under a fast-math consumer build; README sentence; decide I-5 (tests without `CORVUS_FP_FLAGS`) | independent; early because libstats fetches corvus at the pin bump | small | fast-math consumer configure (fail-first) | Z, K (AppleClang), CI |
-| A3 | #87 betainv certifier (negative control fails at HEAD, then fix); #89 i1/i1e subnormal midpoint rows resolved by the sign of the first neglected term, and the base generators take `strata_append`'s tie rule | generator fixes before the one regeneration (A4); #87's constraint binds any betainv regen | mid; #89's kernel question is a decision [user] | generator negative controls | Z |
+| A3 | generators DONE 2026-10-27 (Z, `1780304`; #87/#89 close at A4) — #87 betainv certifier (negative control fails at HEAD, then fix); #89 i1/i1e subnormal midpoint rows resolved by the sign of the first neglected term, and the base generators take `strata_append`'s tie rule | generator fixes before the one regeneration (A4); #87's constraint binds any betainv regen | mid; #89's kernel question is a decision [user] | generator negative controls | Z |
 | A4 | #79 guards at real behaviour: exact row counts (truncation fails), beta symmetry guard 6 → measured, every-lane-position blocks for erf/erfc/lgamma/erfinv/lbeta, `consumer_example` erf(1) bit-exact; adversarial strata (trig > 2^-26, betainv huge-ν tail p, lbeta [0.25, 4]^2), beta R4 tiny-min generator re-budget + cap population. Then regenerate once for A3 + A4 and re-pin on SSE4 | lane-position blocks are the base of lever 1's lane-mix tests; regeneration once, after A3 | mid | yes — strata, guards, row counts | Z (sweep), CI |
 | B1 | #86 `// FLOOR:` at every remaining Dekker site; `floor_lint.py --strict` in CI | before lever 1, so its new dd sites cannot land without an argument; a false argument is a finding (escalate) | mid | CI lint step | Z, CI |
 | B2 | #77 TWIN markers on every copied pair (or recorded not-a-twin); gammainv's lgamma(1+a) copy measured, then re-synced to #67's centre-2 form or reworded; ACCURACY claim twins | lever 1 edits the region cores that are the twins | small–mid | gammainv gates re-measured | Z, CI |
