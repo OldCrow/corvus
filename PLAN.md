@@ -14,9 +14,12 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 and pushed.** Milestone 7 has 14 open issues. The v1.2.0 issue order
 (section "v1.2.0 issue order") is DECIDED 2026-10-26 [user]. [DERIVED]
 
-**Row A1 (#81) done on Z 2026-10-26, awaiting commit [DERIVED].** No
-kernel arithmetic changed; the five regenerated headers differ from HEAD
-only by the removed constants.
+**Row A1 (#81) DONE 2026-10-26 on Z: `d54ab11`, CI 40437030819 green
+on all three jobs (dispatched on `dev/v1.2.0`); #81 closed. Next: row
+A2 (#78).** [DERIVED] No kernel arithmetic changed; the five regenerated
+headers differ from HEAD only by the removed constants. CI's ULP reports
+now print the Log1pmxDd `u.lo` and Expm1Dd cells, and macOS CI logged
+Homebrew `highway 1.4.0`.
 - L-20: `sweep_tiers.ps1` defaults to clang-cl and declares
   `#Requires -Version 7`. Under 5.1, Highway's CMake deprecation warning
   on stderr aborted the first configure.
@@ -47,7 +50,6 @@ only by the removed constants.
     `CORVUS_EXPECT_TARGET=AVX3_ZEN4`.
   - `pwsh tools/sweep_tiers.ps1 -Tier SSE2` into a fresh dir, on its new
     defaults: all gates pass, tier-asserted.
-- Not yet run: CI, which exercises the ci.yml edits.
 - Environment note: vcvars64 needs the VS Installer directory (vswhere)
   on PATH, or a fresh clang-cl configure cannot find rc.exe.
 
@@ -1682,7 +1684,7 @@ reference rows are regenerated, and regeneration done once. Two more:
 
 | # | Issue | Why here | Effort | New test code | Machines |
 |---|---|---|---|---|---|
-| A1 | #81 chore: `sweep_tiers.ps1` defaults to clang-cl and passes `test_dd_special` all three data paths (ci.yml too) — first, because every later row sweeps tiers with it; hwy version floor in `corvus-config.cmake.in`; dead generated constants (stop emitting them); stale comments; one NEON-provenance wording, Highway version logged on macOS CI | tooling the later rows run on; no kernel bits | recipe | none | Z, CI |
+| A1 | ~~#81~~ DONE 2026-10-26 (Z, `d54ab11`) — chore: `sweep_tiers.ps1` defaults to clang-cl and passes `test_dd_special` all three data paths (ci.yml too) — first, because every later row sweeps tiers with it; hwy version floor in `corvus-config.cmake.in`; dead generated constants (stop emitting them); stale comments; one NEON-provenance wording, Highway version logged on macOS CI | tooling the later rows run on; no kernel bits | recipe | none | Z, CI |
 | A2 | #78 fast-math guard: `#error` on `__FAST_MATH__` / `__FINITE_MATH_ONLY__` / `_M_FP_FAST` and/or `-fno-fast-math` / `/fp:precise` in `CORVUS_FP_FLAGS`, shown to fire under a fast-math consumer build; README sentence; decide I-5 (tests without `CORVUS_FP_FLAGS`) | independent; early because libstats fetches corvus at the pin bump | small | fast-math consumer configure (fail-first) | Z, K (AppleClang), CI |
 | A3 | #87 betainv certifier (negative control fails at HEAD, then fix); #89 i1/i1e subnormal midpoint rows resolved by the sign of the first neglected term, and the base generators take `strata_append`'s tie rule | generator fixes before the one regeneration (A4); #87's constraint binds any betainv regen | mid; #89's kernel question is a decision [user] | generator negative controls | Z |
 | A4 | #79 guards at real behaviour: exact row counts (truncation fails), beta symmetry guard 6 → measured, every-lane-position blocks for erf/erfc/lgamma/erfinv/lbeta, `consumer_example` erf(1) bit-exact; adversarial strata (trig > 2^-26, betainv huge-ν tail p, lbeta [0.25, 4]^2), beta R4 tiny-min generator re-budget + cap population. Then regenerate once for A3 + A4 and re-pin on SSE4 | lane-position blocks are the base of lever 1's lane-mix tests; regeneration once, after A3 | mid | yes — strata, guards, row counts | Z (sweep), CI |
