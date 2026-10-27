@@ -57,7 +57,7 @@ import sys
 
 import mpmath as mp
 
-from refgen_common import round_to_double
+from refgen_common import round_resolving_ties
 
 SEED = 20260806
 X0 = 8.0
@@ -387,6 +387,7 @@ def emit(strata):
     seen = set()
     counts = {}
     skipped_overflow = 0
+    declined = 0  # unresolved near-ties (#89)
     rows = []  # (x_float, y_float) for spot-check reuse
     lines = []
     for name, points in strata:
@@ -412,7 +413,11 @@ def emit(strata):
             if not mp.isfinite(y):
                 skipped_overflow += 1
                 continue
-            yf = round_to_double(y)
+            # #89: a near-tie is re-evaluated at 400 digits; None = unresolved.
+            yf = round_resolving_ties(y, lambda dps, x=x: mp.digamma(mp.mpf(x)))
+            if yf is None:
+                declined += 1
+                continue
             if not math.isfinite(yf):
                 skipped_overflow += 1
                 continue
@@ -423,7 +428,7 @@ def emit(strata):
         if n_here == 0:
             print(f"FATAL: stratum '{name}' emitted zero rows", file=sys.stderr)
             sys.exit(2)
-    return lines, rows, counts, skipped_overflow
+    return lines, rows, counts, skipped_overflow, declined
 
 
 def spot_check(rows, rng, n=25):
@@ -496,11 +501,12 @@ def main():
     strata += strata_negative(rng)
     strata += strata_huge_positive()
 
-    lines, rows, counts, skipped_overflow = emit(strata)
+    lines, rows, counts, skipped_overflow, declined = emit(strata)
 
     for name, c in counts.items():
         print(f"  stratum '{name}': {c} rows", file=sys.stderr)
     print(f"  skipped (oracle result overflows double): {skipped_overflow}", file=sys.stderr)
+    print(f"  declined (unresolved near-tie, #89): {declined}", file=sys.stderr)
 
     spot_check(rows, rng)
 

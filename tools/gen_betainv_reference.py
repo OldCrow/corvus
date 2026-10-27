@@ -111,7 +111,7 @@ sys.path.insert(0, os.path.join(REPO, "tools"))
 import gen_beta_data as gb          # noqa: E402  region cores, B_GL, T_RIDGE, ZETA_MAX
 import gen_beta_reference as gbr    # noqa: E402  small_side_direct (audited oracle)
 import gen_betainv_data as bid      # noqa: E402  seed_for, betainv_forward, r1_value_mp, ...
-from refgen_common import round_to_double  # noqa: E402  single-rounding mpf->double (#13 N14)
+from refgen_common import TIE_DPS, TIE_RESOLVE, round_to_double  # noqa: E402  single-rounding mpf->double (#13 N14)
 from refgen_common import cap_process_memory  # noqa: E402  per-worker memory cap
 
 SEED = 20260810  # fixed seed for reproducible point-set generation --
@@ -586,10 +586,15 @@ def deep_small_ly0(a, b, sigma, side, dps):
         # correctly rounded. Single-rounding matters here specifically
         # because this yd_rounded IS the certified value (yd_override
         # aside), not a seed.
+        # q side (#87): y = 1 - z is rounded ONCE, from the mpf, onto y's
+        # own grid. Rounding z first and returning 1.0 - fl(z) rounds
+        # twice, and for z >= 1/2 (reachable at a = 1, where the closed
+        # form is exact and routing admits any y) z's grid is coarser
+        # than y's, so the result can be a whole y-ulp off.
         if side == "p":
             yd_rounded = round_to_double(y0_mpf) if y0_mpf > 0 else 0.0
         else:
-            yd_rounded = 1.0 - round_to_double(y0_mpf) if y0_mpf > 0 else 1.0
+            yd_rounded = round_to_double(1 - y0_mpf) if y0_mpf > 0 else 1.0
         bound = bid._deep_small_dropped_rel(a_m, b_m, y0_mpf, side, dps=dps)
         return ln_t, yd_rounded, bound
 
@@ -606,29 +611,82 @@ def certify_deep_small(a, b, sigma, side, dps, yd_override=None):
     yd = yd_override if yd_override is not None else yd_from_ln
     if not math.isfinite(yd):
         return {"yd": None, "certified": False, "note": "non-finite"}
-    yp = yd if side == "p" else (1.0 - yd)
+    if side == "q":
+        out = _certify_deep_small_q(yd, ln_t, bound, dps)
+        if "z_hi" not in out:
+            return out
+        with mp.workdps(dps):
+            lz_hi = mp.log(out["z_hi"])
+            if out["z_lo"] > 0:
+                lz_lo = mp.log(out["z_lo"])
+                gap = min(abs(ln_t - bound - lz_lo), abs(lz_hi - ln_t - bound))
+                width = lz_hi - lz_lo
+            else:  # yd = 1.0: one-sided; the next cell up in z spans ln 3
+                gap, width = abs(lz_hi - ln_t - bound), mp.log(3)
+    else:
+        yp = yd
+        with mp.workdps(dps):
+            if yp <= 0.0:
+                # yd rounds to 0.0: round-to-zero boundary at MIN_SUBNORMAL/2.
+                boundary = mp.mpf(MIN_SUBNORMAL) / 2
+                certified = (ln_t + bound) < mp.log(boundary)
+                out = {"yd": yd, "certified": bool(certified), "note": "round-to-zero"}
+                # log-width of the cell above 0: (2^-1075, 3 * 2^-1075)
+                gap, width = abs(mp.log(boundary) - ln_t - bound), mp.log(3)
+            else:
+                lo_d = math.nextafter(yp, -math.inf)
+                hi_d = math.nextafter(yp, math.inf)
+                yp_m = mp.mpf(yp)
+                # #89: yd = 2^-1074 has lo_d = 0 and lower midpoint 2^-1075;
+                # the old `lo_d > 0` test made it 0, so a root at 2^-1075
+                # (or below) passed.
+                lo_mid = (yp_m + mp.mpf(lo_d)) / 2
+                hi_mid = (yp_m + mp.mpf(hi_d)) / 2
+                ln_lo = mp.log(lo_mid)
+                ln_hi = mp.log(hi_mid)
+                certified = (ln_lo < ln_t - bound) and (ln_t + bound < ln_hi)
+                out = {"yd": yd, "certified": bool(certified), "ln_t": ln_t, "bound": bound,
+                       "ln_lo": ln_lo, "ln_hi": ln_hi}
+                gap = min(abs(ln_t - bound - ln_lo), abs(ln_hi - ln_t - bound))
+                width = ln_hi - ln_lo
+    # #89, both sides: an interval edge within TIE_RESOLVE cells of a
+    # midpoint is a near-tie the strict tests decide on rounding noise (at
+    # a = 1 the q closed form is exact, bound = 0, and an exact midpoint
+    # root then passes or fails on the last digit of ln_t). Re-certify at
+    # TIE_DPS; still that close there -> not certified (declined; an exact
+    # rational tie lands here deliberately: unresolved means drop).
     with mp.workdps(dps):
-        if yp <= 0.0:
-            # p-side: yd rounds to 0.0 (round-to-zero boundary, compare
-            # against MIN_SUBNORMAL/2). q-side: yd rounds to 1.0 (the
-            # SMALL quantity z=1-y rounds below ulp(1.0)/2=2^-53) -- the
-            # q-side boundary differs from the p-side one by ~700
-            # decades, so the two must NOT be conflated.
-            boundary = (mp.mpf(MIN_SUBNORMAL) / 2 if side == "p"
-                        else mp.mpf(2) ** -53)
-            certified = (ln_t + bound) < mp.log(boundary)
-            return {"yd": yd, "certified": bool(certified),
-                    "note": "round-to-zero" if side == "p" else "round-to-one"}
-        lo_d = math.nextafter(yp, -math.inf)
-        hi_d = math.nextafter(yp, math.inf)
-        yp_m = mp.mpf(yp)
-        lo_mid = (yp_m + mp.mpf(lo_d)) / 2 if lo_d > 0 else mp.mpf(lo_d) / 2
-        hi_mid = (yp_m + mp.mpf(hi_d)) / 2
-        ln_lo = mp.log(lo_mid) if lo_mid > 0 else mp.mpf(-1e30)
-        ln_hi = mp.log(hi_mid)
-        certified = (ln_lo < ln_t - bound) and (ln_t + bound < ln_hi)
-        return {"yd": yd, "certified": bool(certified), "ln_t": ln_t, "bound": bound,
-                "ln_lo": ln_lo, "ln_hi": ln_hi}
+        near = gap <= TIE_RESOLVE * width
+        unresolved = gap <= mp.mpf(10) ** -(TIE_DPS - 40) * width
+    if near and dps < TIE_DPS:
+        return certify_deep_small(a, b, sigma, side, TIE_DPS, yd_override=yd)
+    if near and unresolved:
+        out["certified"] = False
+    return out
+
+
+def _certify_deep_small_q(yd, ln_t, bound, dps):
+    """q side (#87): certify y on Y's grid. ln_t is ln(z), z = 1 - y. The
+    half-ulp cell of yd is [lo_mid, hi_mid] in y, so z must lie in
+    (1 - hi_mid, 1 - lo_mid), both formed exactly in mpf. Certifying
+    1.0 - yd on z's own grid (the pre-#87 form) checks the wrong cell
+    whenever the grids differ. yd = 1.0 needs no special branch: its
+    upper midpoint lies above 1, so only z < 1 - lo_mid = 2^-54 is
+    required. Below 1 the spacing is 2^-53, so the half-ulp is 2^-54;
+    the pre-#87 round-to-one branch compared against 2^-53 and accepted
+    1.0 for z in [2^-54, 2^-53)."""
+    if not (0.0 < yd <= 1.0):
+        return {"yd": yd, "certified": False, "note": "q-side yd outside (0, 1]"}
+    with mp.workdps(dps):
+        y_m = mp.mpf(yd)
+        lo_mid = (y_m + mp.mpf(math.nextafter(yd, -math.inf))) / 2
+        hi_mid = (y_m + mp.mpf(math.nextafter(yd, math.inf))) / 2
+        z_lo = 1 - hi_mid
+        z_hi = 1 - lo_mid
+        lo_ok = z_lo <= 0 or mp.log(z_lo) < ln_t - bound
+        hi_ok = ln_t + bound < mp.log(z_hi)
+        return {"yd": yd, "certified": bool(lo_ok and hi_ok), "ln_t": ln_t,
+                "bound": bound, "z_lo": z_lo, "z_hi": z_hi}
 
 
 # ============================================================================
@@ -641,12 +699,59 @@ def _sign(v):
     return 1 if v > 0 else (-1 if v < 0 else 0)
 
 
+def _value_tie_dps(a, b, side, mid, fwd_kind):
+    """#89: value(mid) at TIE_DPS, or None. The 400-digit forms:
+    fast_series at TIE_DPS, and for "full" the hunt strata's bounded oracle
+    (gen_beta_reference.tie_pq -> _beta_oracles.betainc_pq; a cap hit is
+    None). None too for the Temme routes (guard, route2, full_forward's
+    both-huge branch), whose accuracy is fixed whatever the dps."""
+    with mp.workdps(TIE_DPS):
+        if fwd_kind == "fast_series":
+            r = fast_series_pq(a, b, mid, TIE_DPS)
+        elif fwd_kind == "full" and not both_huge_balanced(a, b):
+            r = gbr.tie_pq(a, b, mid, TIE_DPS)
+        else:
+            r = None
+        if r is None:
+            return None
+        return r[0] if side == "p" else r[1]
+
+
+def _tie_sign(v4, t, span, v=None):
+    """#89: sign of v4 - t at TIE_DPS. 0 = unresolved: v4 None, v4 not
+    reproducing the layer value v to TIE_AGREE (when v is trustworthy), or
+    still within 10^-(TIE_DPS-40) of the cell's forward span. An exact
+    rational tie stays 0 and is declined deliberately: unresolved means
+    drop."""
+    if v4 is None or span == 0:
+        return 0
+    with mp.workdps(TIE_DPS):
+        if v is not None and abs(v4 - v) > abs(v) * gbr.TIE_AGREE:
+            return 0
+        f = v4 - t
+        if abs(f) <= mp.mpf(10) ** -(TIE_DPS - 40) * span:
+            return 0
+        return _sign(f)
+
+
+def tie_step(side, slo, shi):
+    """#89: +1 / -1 when TIE_DPS signs agree (both midpoints on one side
+    of the root, the candidate a whole cell off), naming the neighbour
+    they point to; 0 otherwise. P rises in y, Q falls."""
+    if slo != shi or slo == 0:
+        return 0
+    return -slo if side == "p" else slo
+
+
 def bracket_signs(a, b, target, side, yd, dps, fwd_kind):
+    """(slo, shi, tied): signs of value - target at yd's half-ulp
+    midpoints; 0 is a near-tie unresolved at TIE_DPS (#89), which never
+    certifies. tied: some sign came from a TIE_DPS re-sign."""
     lo_d = math.nextafter(yd, -math.inf)
     hi_d = math.nextafter(yd, math.inf)
     with mp.workdps(dps):
         yd_m = mp.mpf(yd)
-        lo_mid = (yd_m + mp.mpf(lo_d)) / 2 if lo_d > 0 else mp.mpf(lo_d) / 2
+        lo_mid = (yd_m + mp.mpf(lo_d)) / 2  # #89: 2^-1075 at yd = 2^-1074, not 0
         hi_mid = (yd_m + mp.mpf(hi_d)) / 2
         t = mp.mpf(target)
 
@@ -668,22 +773,46 @@ def bracket_signs(a, b, target, side, yd, dps, fwd_kind):
         vlo = val_at(lo_mid)
         vhi = val_at(hi_mid)
         if vlo is None or vhi is None:
-            return None, None
+            return None, None, False
         flo = vlo - t
         fhi = vhi - t
-    return _sign(flo), _sign(fhi)
+        span = abs(fhi - flo)
+        slo, shi = _sign(flo), _sign(fhi)
+        tied = False
+        if span == 0 or (slo == 0 and shi == 0):
+            # #89: a forward flat across the cell at this dps says nothing:
+            # re-sign both midpoints at TIE_DPS, the span measured there
+            # (no agreement check -- the layer values are what failed).
+            v4lo = _value_tie_dps(a, b, side, lo_mid, fwd_kind)
+            v4hi = _value_tie_dps(a, b, side, hi_mid, fwd_kind)
+            span4 = 0 if v4lo is None or v4hi is None else abs(v4hi - v4lo)
+            slo, shi, tied = _tie_sign(v4lo, t, span4), _tie_sign(v4hi, t, span4), True
+        else:
+            if abs(flo) <= TIE_RESOLVE * span:
+                slo = _tie_sign(_value_tie_dps(a, b, side, lo_mid, fwd_kind), t, span, vlo)
+                tied = True
+            if abs(fhi) <= TIE_RESOLVE * span:
+                shi = _tie_sign(_value_tie_dps(a, b, side, hi_mid, fwd_kind), t, span, vhi)
+                tied = True
+    return slo, shi, tied
 
 
 def certify_bracket(a, b, target, side, yd, dps_layers, fwd_kind):
+    """(ok, layer_results, step); step (#89) is tie_step's verdict from the
+    first layer whose TIE_DPS re-sign put the root a whole cell off yd."""
     layer_results = []
+    step = 0
     for dps in dps_layers:
-        slo, shi = bracket_signs(a, b, target, side, yd, dps, fwd_kind)
+        slo, shi, tied = bracket_signs(a, b, target, side, yd, dps, fwd_kind)
         if slo is None:
             layer_results.append(False)
             continue
-        ok = (slo != shi and slo != 0 and shi != 0) or slo == 0 or shi == 0
+        # #89: a zero sign is an unresolved near-tie -- no longer accepted.
+        ok = slo != shi and slo != 0 and shi != 0
         layer_results.append(ok)
-    return all(layer_results), layer_results
+        if tied and not step:
+            step = tie_step(side, slo, shi)
+    return all(layer_results), layer_results, step
 
 
 # ============================================================================
@@ -970,8 +1099,10 @@ def certify_row(a, b, sigma, side, tag, dps_layers=(60, 100), yd_override=None):
                 "marker": "N", "kappa": None}
     if yd in (0.0, 1.0):
         # boundary collapse -- treat as deep-small-zero on the appropriate
-        # side (mirrors gammainv's own xd==0 branch).
-        layer_results = [certify_deep_small(a, b, sigma, side, dps)["certified"]
+        # side (mirrors gammainv's own xd==0 branch). yd_override=yd (#89):
+        # certify this candidate (a tie step can land here), not the closed
+        # form's own rounding.
+        layer_results = [certify_deep_small(a, b, sigma, side, dps, yd_override=yd)["certified"]
                           for dps in dps_layers]
         return {"yd": yd, "certified": all(layer_results), "method": "deep-small-boundary",
                 "marker": "N", "kappa": None}
@@ -1001,7 +1132,7 @@ def certify_row(a, b, sigma, side, tag, dps_layers=(60, 100), yd_override=None):
         # on a single failed contract.
 
     # --- standard bracket certification ---
-    ok, layer_results = certify_bracket(a, b, sigma, side, yd, dps_layers, fwd_kind)
+    ok, layer_results, step = certify_bracket(a, b, sigma, side, yd, dps_layers, fwd_kind)
     marker = "N"
     method = "bracket"
     if not ok and min(a, b) >= 1.0e15:
@@ -1013,10 +1144,25 @@ def certify_row(a, b, sigma, side, tag, dps_layers=(60, 100), yd_override=None):
                 N_BEYOND_RESOLUTION[0] += 1
                 break
 
+    if not ok and step and yd_override is None:
+        # #89: TIE_DPS signs put the root a whole cell off yd. Step ONCE to
+        # the neighbour they name and run the full certification on it
+        # (yd_override: no further step); it passes or the row is
+        # declined. Never for yd_override calls -- negative controls,
+        # q_side_grid_controls and the audited huge-corner / gamma-limit
+        # roots certify exactly the value they are given.
+        nb = math.nextafter(yd, math.inf if step > 0 else -math.inf)
+        if not (0.0 <= nb <= 1.0):
+            return {"yd": None, "certified": False, "method": "bracket-tie-step",
+                    "marker": "N", "kappa": float(kappa)}
+        r = certify_row(a, b, sigma, side, tag, dps_layers, yd_override=nb)
+        r["method"] = r["method"] + "-tie-step"
+        return r
+
     route2_ok = None
     if min(a, b) >= HUGE_NU_THRESHOLD:
         N_ROUTE2_CHECKED[0] += 1
-        ok2, _ = certify_bracket(a, b, sigma, side, yd, (100,), "route2")
+        ok2, _, _step2 = certify_bracket(a, b, sigma, side, yd, (100,), "route2")
         if not ok2:
             ok2 = certify_beyond_resolution(a, b, sigma, side, yd, 150, "route2")
         route2_ok = ok2
@@ -1106,7 +1252,47 @@ def negative_controls():
         status(f"negative control [{name}]: {status_str}")
         if r["certified"]:
             all_rejected = False
-    return all_rejected
+    return all_rejected and q_side_grid_controls()
+
+
+def q_side_grid_controls():
+    """#87: fixed-value controls on the q side's deep-small grid. At a = 1
+    the closed form Q = (1 - y)^b is exact, so its dropped-term bound is 0
+    and deep-small routing admits any y -- including y <= 1/2, where
+    z = 1 - y has a COARSER grid than y. The generator once rounded z to
+    a double and returned 1 - fl(z), and certified fl(z) on z's grid, so
+    it produced and certified a value one y-ulp off. Each control fixes
+    the correctly rounded y (the expected good yd) and a wrong neighbour
+    that must be rejected; the +1-ulp controls above cannot express
+    either, because there the generator's own yd was the wrong one."""
+    sqrt_half = float.fromhex("0x1.6a09e667f3bcdp-1")      # fl(1/sqrt 2)
+    cases = [
+        # The #87 row: root 1 - sigma^2 = 1/2 - 1.2314 * 2^-54.
+        ("q-grid-coarse-z", 1.0, 0.5, sqrt_half,
+         float.fromhex("0x1.fffffffffffffp-2"),            # 1/2 - 2^-54
+         float.fromhex("0x1.ffffffffffffep-2")),           # 1/2 - 2^-53
+        # The round-to-one band: a = b = 1 gives Q = 1 - y, so z = sigma =
+        # 1.5 * 2^-54. Below 1 the spacing is 2^-53, so y rounds to 1.0
+        # only for z < 2^-54; here the correct y is 1 - 2^-53.
+        ("q-grid-round-to-one", 1.0, 1.0, math.ldexp(1.5, -54),
+         1.0 - math.ldexp(1.0, -53), 1.0),
+    ]
+    ok = True
+    for name, a, b, s, want, bad in cases:
+        good = certify_row(a, b, s, "q", "moderate")
+        good_ok = good["certified"] and good["yd"] == want
+        r = certify_row(a, b, s, "q", "moderate", yd_override=bad)
+        bad_ok = not r["certified"]
+        print(f"  [{name}] a={a!r} b={b!r} s={float.hex(s)} "
+              f"good_yd={float.hex(good['yd']) if good['yd'] is not None else None} "
+              f"(want {float.hex(want)}, certified={good['certified']}) -> "
+              f"{'OK' if good_ok else 'WRONG (FATAL BUG)'}; bad_yd={float.hex(bad)} -> "
+              f"{'REJECTED (correct)' if bad_ok else 'ACCEPTED (FATAL BUG)'}",
+              file=sys.stderr)
+        status(f"negative control [{name}]: good {'OK' if good_ok else 'WRONG'}, "
+               f"bad {'REJECTED' if bad_ok else 'ACCEPTED'}")
+        ok = ok and good_ok and bad_ok
+    return ok
 
 
 # ============================================================================
@@ -1816,7 +2002,8 @@ def compute_all(ps):
     for a, b, sigma, side, _tag in ps.pts:
         dig.update(struct.pack("<QQQB", as_bits(a), as_bits(b),
                                as_bits(sigma), 0 if side == "p" else 1))
-    sig = f"v1-{dig.hexdigest()[:16]} SEED={SEED} N={total}"
+    # -t89: rows certified before the #89 tie rule are not reused.
+    sig = f"v1-t89-{dig.hexdigest()[:16]} SEED={SEED} N={total}"
     done_map = load_checkpoint(CKPT_PATH, sig)
     status(f"checkpoint: {len(done_map)}/{total} points already computed ({CKPT_PATH})")
 
@@ -2007,7 +2194,8 @@ def compute_huge_corner(pts):
     for a, b, sigma, side, _tag in pts:
         dig.update(struct.pack("<QQQB", as_bits(a), as_bits(b),
                                as_bits(sigma), 0 if side == "p" else 1))
-    sig = f"v1-{dig.hexdigest()[:16]} SEED={SEED} N={total}"
+    # -t89: rows certified before the #89 tie rule are not reused.
+    sig = f"v1-t89-{dig.hexdigest()[:16]} SEED={SEED} N={total}"
     done_map = load_checkpoint(CKPT_HUGE_CORNER_PATH, sig)
     status(f"huge-corner checkpoint: {len(done_map)}/{total} already computed "
            f"({CKPT_HUGE_CORNER_PATH})")
@@ -2156,10 +2344,20 @@ def _x0_certified(a, b, s, side, dps=_X0_DPS):
     the correctly-rounded double is +0.0) -- see the module comment above
     for the two per-side inequalities."""
     p_tiny = bid.r1_value_mp(a, b, _X0_Y_TINY, dps)
-    s_m = mp.mpf(s)
-    if side == "p":
-        return bool(p_tiny > s_m)
-    return bool((1 - p_tiny) < s_m)
+    with mp.workdps(dps):
+        s_m = mp.mpf(s)
+        f = p_tiny - s_m if side == "p" else s_m - (1 - p_tiny)  # > 0: certified
+        # #89: f within TIE_RESOLVE of P's span over the cell above 0 puts
+        # the root at (or too close to call) 2^-1075: re-decide at TIE_DPS;
+        # still that close there -> not certified (an exact tie included,
+        # deliberately: unresolved means drop).
+        span = bid.r1_value_mp(a, b, 3 * _X0_Y_TINY, dps) - p_tiny
+        if abs(f) <= TIE_RESOLVE * span:
+            if dps < TIE_DPS:
+                return _x0_certified(a, b, s, side, TIE_DPS)
+            if abs(f) <= mp.mpf(10) ** -(TIE_DPS - 40) * span:
+                return False
+        return bool(f > 0)
 
 
 def gen_x_zero_rows():

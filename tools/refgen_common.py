@@ -55,6 +55,56 @@ def round_to_double(v):
     return math.copysign(math.ldexp(float(n), -1074), 1.0 if v > 0 else -1.0)
 
 
+# ---- near-tie resolution (#89) ------------------------------------------------
+# The rule tools/hunt/strata_append.py adopted in row 12h, shared so every base
+# generator applies it too. A value within TIE_RESOLVE ulp of a rounding
+# midpoint does not say which side of the midpoint it is on at the precision
+# that produced it: an algebraic near-tie such as i1e(x) = x/2 - x|x|/2 at an
+# odd-mantissa subnormal x reads exactly 1/2 at 40-90 digits, and ties-to-even
+# then stores the wrong neighbour (#89: 246 i1e rows).
+TIE_RESOLVE = mp.mpf("1e-12")  # in ulps of the rounding cell; strata_append's cut
+TIE_DPS = 400
+
+
+def tie_distance(v, cr: float):
+    """|v - midpoint| / cell width, for the midpoint between cr and its
+    neighbour on v's side; 1/2 when v == cr. Measured on the neighbour's
+    side, so a cell straddling a binade edge uses its true width."""
+    with mp.workprec(max(mp.mp.prec, int(v.man).bit_length()) + 64):
+        if v == cr:
+            return mp.mpf(0.5)
+        nb = math.nextafter(cr, math.inf if v > cr else -math.inf)
+        lo, hi = mp.mpf(cr), mp.mpf(nb)
+        return abs(v - (lo + hi) / 2) / abs(hi - lo)
+
+
+def round_resolving_ties(v, recompute=None):
+    """round_to_double(v), unless v lies within TIE_RESOLVE ulp of a rounding
+    midpoint. Then re-evaluate with recompute(TIE_DPS) -- a callable that
+    returns the same value as an mpf at that many digits -- and round from
+    that. Returns None, meaning drop the row, never guess, when there is no
+    recompute or the value is still within 10^-(TIE_DPS-40) ulp of the
+    midpoint at TIE_DPS digits. Zero, infinite and NaN values pass through
+    as round_to_double gives them."""
+    if not isinstance(v, mp.mpf):
+        return round_to_double(v)
+    cr = round_to_double(v)
+    if v == 0 or not mp.isfinite(v) or not math.isfinite(cr):
+        return cr
+    if tie_distance(v, cr) > TIE_RESOLVE:
+        return cr
+    if recompute is None:
+        return None
+    with mp.workdps(TIE_DPS):
+        v3 = +recompute(TIE_DPS)
+        if not mp.isfinite(v3):
+            return None
+        cr3 = round_to_double(v3)
+        if v3 == 0 or tie_distance(v3, cr3) <= mp.mpf(10) ** -(TIE_DPS - 40):
+            return None
+    return cr3
+
+
 # ---- point selection (#82 T3) -------------------------------------------------
 # Shared by the reference generators, the hunt strata (tools/hunt) and the
 # strata appendix writer (tools/hunt/strata_append.py), so a stratum means
@@ -229,6 +279,35 @@ def _self_test():
     # (a generator that restored mp.dps before rounding) must not re-round.
     with mp.workprec(53):
         assert round_to_double(u) == math.ldexp(17.0, -1074)
+
+    # #89 near-tie resolution. x = 3 * 2^-1074 makes x/2 a midpoint.
+    # i1e-like, x/2 - x^2/2: the excess is ~2^-1072 relative, invisible at
+    # 60 digits (ties-to-even would store 2 * 2^-1074) and resolved at 400
+    # (toward zero: 1 * 2^-1074).
+    x = mp.mpf(3) * mp.mpf(2) ** -1074
+
+    def i1e_like(dps):
+        with mp.workdps(dps):
+            return x / 2 - x * x / 2
+
+    assert round_to_double(i1e_like(60)) == math.ldexp(2.0, -1074)
+    assert round_resolving_ties(i1e_like(60), i1e_like) == math.ldexp(1.0, -1074)
+    # i1-like, x/2 + x^3/16: the excess (~2^-2147 relative) is beyond 400
+    # digits, so the row is dropped, not guessed.
+    def i1_like(dps):
+        with mp.workdps(dps):
+            return x / 2 + x ** 3 / 16
+
+    assert round_resolving_ties(i1_like(60), i1_like) is None
+    # A near-tie with no higher-precision form is dropped too.
+    assert round_resolving_ties(i1e_like(60)) is None
+    # Away from a midpoint the result is round_to_double's, recompute unused.
+    third = mp.mpf(1) / 3
+    assert round_resolving_ties(third, None) == float(third)
+    # A cell straddling a binade edge: just above the 1 - 2^-54 midpoint
+    # between 1 - 2^-53 and 1.0 rounds to 1.0, and is not a near-tie.
+    v = 1 - mp.mpf(2) ** -54 + mp.mpf(2) ** -70
+    assert round_resolving_ties(v) == 1.0
 
 
 # #35 M1: run under explicit precision -- module import happens BEFORE the

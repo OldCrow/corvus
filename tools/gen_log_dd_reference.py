@@ -30,7 +30,7 @@ import sys
 
 import mpmath as mp
 
-from refgen_common import round_to_double
+from refgen_common import round_resolving_ties, round_to_double
 
 DPS = 60
 mp.mp.dps = DPS
@@ -47,13 +47,21 @@ def from_bits(u: int) -> float:
     return struct.unpack("<d", struct.pack("<Q", u))[0]
 
 
+def log_dd(xh, xl):
+    """Oracle log(xh + xl) at the ambient dps."""
+    return mp.log(mp.mpf(xh) + mp.mpf(xl))
+
+
 def emit(rows, xh, xl=0.0):
     if not (xh >= MIN_NORMAL and math.isfinite(xh)):
         return
-    v = mp.log(mp.mpf(xh) + mp.mpf(xl))
+    v = log_dd(xh, xl)
     if v == 0:
         return  # log(1) = 0 exactly; no relative error to measure
-    hi = round_to_double(v)
+    # #89: near-tie hi re-evaluated at 400 digits; None = unresolved, decline.
+    hi = round_resolving_ties(v, lambda dps: log_dd(xh, xl))
+    if hi is None:
+        return
     lo = round_to_double(v - mp.mpf(hi))
     rows.append((xh, xl, hi, lo))
 
@@ -80,8 +88,11 @@ def self_check(rows):
     with mp.workdps(2 * DPS):
         for i in sample:
             xh, xl, hi, lo = rows[i]
-            v = mp.log(mp.mpf(xh) + mp.mpf(xl))
-            hi2 = round_to_double(v)
+            v = log_dd(xh, xl)
+            # #89: same near-tie path as emit; unresolved never matches.
+            hi2 = round_resolving_ties(v, lambda dps, xh=xh, xl=xl: log_dd(xh, xl))
+            if hi2 is None:
+                hi2 = math.nan
             lo2 = round_to_double(v - mp.mpf(hi2))
             if as_bits(hi2) != as_bits(hi) or as_bits(lo2) != as_bits(lo):
                 bad.append((xh, xl, hi, lo, hi2, lo2))

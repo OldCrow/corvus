@@ -29,7 +29,7 @@ import sys
 
 import mpmath as mp
 
-from refgen_common import round_to_double
+from refgen_common import round_resolving_ties
 
 DPS = 50
 mp.mp.dps = DPS
@@ -99,8 +99,9 @@ def emit(points):
         y = oracle(xm)
         if not mp.isfinite(y):
             continue
-        yf = round_to_double(y)
-        if not math.isfinite(yf):
+        # #89: a near-tie is re-evaluated at 400 digits; None = unresolved.
+        yf = round_resolving_ties(y, lambda dps, xm=xm: oracle(xm))
+        if yf is None or not math.isfinite(yf):
             continue
         rows.append((x, yf))
     return rows
@@ -122,7 +123,12 @@ def self_check(rows):
     with mp.workdps(2 * DPS):
         for i in sample:
             x, yf = rows[i]
-            y2 = round_to_double(oracle(mp.mpf(x)))
+            xm = mp.mpf(x)
+            # #89: same near-tie path as emit; unresolved never matches.
+            y2 = round_resolving_ties(
+                oracle(xm), lambda dps, xm=xm: oracle(xm))
+            if y2 is None:
+                y2 = math.nan
             if as_bits(y2) != as_bits(yf):
                 bad.append((x, yf, y2))
     if bad:

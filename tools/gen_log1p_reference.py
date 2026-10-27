@@ -38,7 +38,7 @@ import sys
 
 import mpmath as mp
 
-from refgen_common import round_to_double
+from refgen_common import round_resolving_ties
 
 DPS = 60
 mp.mp.dps = DPS
@@ -54,6 +54,14 @@ def from_bits(u: int) -> float:
     return struct.unpack("<d", struct.pack("<Q", u))[0]
 
 
+def ref_value(x):
+    """The stored double for x. #89: a value within 1e-12 ulp of a rounding
+    midpoint is re-evaluated at 400 digits; None means unresolved (drop)."""
+    return round_resolving_ties(
+        mp.log1p(mp.mpf(x)),
+        lambda dps, x=x: mp.log1p(mp.mpf(x)))
+
+
 def emit(points):
     seen = set()
     rows = []
@@ -64,7 +72,10 @@ def emit(points):
         if b in seen:
             continue
         seen.add(b)
-        rows.append((x, round_to_double(mp.log1p(mp.mpf(x)))))
+        y = ref_value(x)
+        if y is None:  # unresolved near-tie (#89): decline the row
+            continue
+        rows.append((x, y))
     return rows
 
 
@@ -86,7 +97,9 @@ def self_check(rows):
     with mp.workdps(2 * DPS):
         for i in sample:
             x, y = rows[i]
-            y2 = round_to_double(mp.log1p(mp.mpf(x)))
+            y2 = ref_value(x)
+            if y2 is None:  # unresolved near-tie (#89): never matches a stored row
+                y2 = float("nan")
             if as_bits(y2) != as_bits(y):
                 bad.append((x, y, y2))
     if bad:

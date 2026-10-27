@@ -14,6 +14,171 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 and pushed.** Milestone 7 has 14 open issues. The v1.2.0 issue order
 (section "v1.2.0 issue order") is DECIDED 2026-10-26 [user]. [DERIVED]
 
+**Row A3 (#87 + #89) in progress on Z, run unattended overnight
+2026-10-26/27; UNCOMMITTED, for the user's review [DERIVED].**
+- **#87 diagnosed and fixed** in `tools/gen_betainv_reference.py`. No
+  design decision surfaced.
+  - **Cause:** at a = 1, Q = (1 - y)^b is exact, so the deep-small
+    closed form's dropped-term bound is 0. Deep-small routing then
+    admits any y, including y <= 1/2, where z = 1 - y has a coarser
+    grid than y.
+  - **Fault 1:** `deep_small_ly0` returned `1.0 - fl(z)`, which rounds
+    twice. For the #87 row, fl(z) = 1/2 + 2^-53, so it produced
+    1/2 - 2^-53; the correct value is 1/2 - 2^-54.
+  - **Fault 2:** `certify_deep_small` certified `1 - yd` on z's grid,
+    so it accepted that value.
+  - **Second defect in the same code:** the q-side round-to-one
+    boundary was 2^-53 ("ulp(1.0)/2"). Below 1 the spacing is 2^-53, so
+    y rounds to 1.0 only for z < 2^-54.
+  - **Fix:** y is rounded once from the mpf (`round_to_double(1 - z)`).
+    The q side is certified on y's grid by `_certify_deep_small_q`, with
+    z's cell (1 - hi_mid, 1 - lo_mid) formed exactly; this also covers
+    yd = 1.0.
+  - **Fail-first:** a new `q_side_grid_controls()` runs from
+    `negative_controls()`. Its two fixed-value controls are the #87 row,
+    and a = b = 1 with sigma = 1.5 * 2^-54 (want 1 - 2^-53; 1.0 must be
+    rejected). Both failed at HEAD and pass after the fix.
+  - **Reach:** of 12,235 q rows, 73 route deep-small. Only line 8276
+    (the #87 row) changes, and it is the only stored value the fixed
+    certifier rejects, as the issue predicted.
+  - **Left for A4:** the reference regeneration (once, per the order),
+    then removing the row's `annotate.py` KNOWN_BAD entry.
+- **#89 i1/i1e rows: settled by an analytic rule** in
+  `tools/gen_bessel_reference.py` (`half_x_rule`).
+  - **Band:** |x| < 2^-1021, where x = m * 2^-1074 and x/2 is a midpoint
+    for odd m.
+  - **Side:** i1 = x/2 + x^3/16 rounds away from zero, to (m+1)/2.
+    i1e = x/2 - x|x|/2 rounds toward zero, to (m-1)/2. Even m is exact.
+  - The rule needs no oracle precision; i1's excess (~2^-2148 relative)
+    is beyond 400 digits.
+  - **Checked against mpmath at 1000 digits on every in-band row:** the
+    rule matches everywhere, and no stored row near the band (< 2^-1015)
+    is wrong.
+  - **Stored rows wrong today:** i1 212 (of 406 odd-m rows), i1e 226 (of
+    469). The issue's "246 i1e rows" is a miscount. Every wrong row is
+    one of the file's `r=+-0.5` rows; i0 and i0e have none.
+  - The generator's emit, tail and re-verify paths all use
+    `expected_value` (the rule, else the tie-resolving rounding).
+  - **Left for A4:** regenerate the four files once. Then state in
+    ACCURACY.md that the kernels' tie-to-even reads 1 ULP at these rows
+    (decided 2026-10-26), with the counts from the regenerated files.
+- **#89 shared tie rule:** `tools/refgen_common.py` gains
+  `round_resolving_ties(v, recompute)` and `tie_distance`, with
+  `strata_append`'s rule: within 1e-12 ulp of a midpoint, re-evaluate at
+  400 digits; unresolved means drop, never guess. Self-tests: the
+  i1e-like case resolves, the i1-like case drops, binade-edge cells.
+  - **The 12 forward-value generators are wired:** erf, erfc, exp,
+    exp_dd, log, log_dd, log1p, lgamma, digamma, trigamma, trig, lbeta.
+    - Each output rounding goes through `round_resolving_ties`, with the
+      generator's own oracle as the recompute. lbeta adds the pair's
+      cancellation depth to the 400 digits. exp_dd/log_dd apply the rule
+      to `hi` only; `lo` is the residual from the 60-digit value.
+    - An unresolved tie declines the row. In the self-check and
+      re-verify passes it reads NaN, so it never matches a stored row.
+    - Verified: all import, and 30-50 sampled rows per generator (the
+      `r=+-0.5` rows included where the file has them) recompute bit for
+      bit to the stored values. The near-tie branch itself is exercised
+      only by the refgen_common self-test until the A4 regeneration.
+    - exp, log, log1p and trig had no declined-row counter, so a dropped
+      row there is not counted.
+  - **Beta, gamma and the three inverses are wired (beta, gamma,
+    erfinv, gammainv, betainv)** [DERIVED]:
+    - **Forward (beta, gamma):** output rounding goes through
+      `round_resolving_ties`.
+      - gamma recomputes with `oracle_pq` at 400 digits, and declines
+        near-ties on its Temme routes (a > A_SWITCH: fixed ~1e-35
+        fits).
+      - beta: exact-line rows keep their exact rational result. Other
+        rows recompute through a new `_beta_pq_at(a, b, x, dps)` built
+        from the generator's own routes (the stock CF gate is a fixed
+        1e-15). Custom oracles (gl54, gl54b, r3tail), gamma-corner, the
+        near-diagonal linearisation and the subprocess rescue decline.
+      - beta_p(1, 1/2, 2^-1074) resolves at 400 digits to the stored
+        2^-1074.
+    - **Inverses:**
+      - `bracket_signs` treats |f(mid)| <= TIE_RESOLVE * cell span as a
+        near-tie and re-signs it at 400 digits (Temme/guard routes:
+        decline).
+      - The `or slo == 0 or shi == 0` acceptance is removed from
+        gammainv `certify_row` and betainv `certify_bracket`.
+      - The deep-small and x0 paths re-check near-tie edges at 400
+        digits. The betainv q-side wrapper sits in the caller;
+        `_certify_deep_small_q` is unedited.
+    - **Beyond the tie swap:** at yd = 2^-1074 the lower midpoint was
+      set to 0, an empty check that accepted roots at or below 2^-1075.
+      It is now 2^-1075, in gammainv, betainv's bracket and betainv's
+      p-side deep-small.
+    - Checkpoint signatures carry a `-t89` tag (gamma ridge56: v2), so
+      old checkpoints recompute.
+    - **Subagent verification** (single process; rescue stubbed; no
+      huge shapes or B rows):
+      - erfinv 38 rows, gamma 22 (a <= 1e4), beta 40 (16 exact-line):
+        all match.
+      - gammainv: 21 rows plus 55 p-side 2^-1074 rows certify, and the
+        near-tie row 11897 resolves to its stored value.
+      - betainv: 27 rows certify, and the near-tie row 11824 resolves
+        to its stored value, with its neighbour rejected.
+      - Three gammainv q strata rows (8335, 8346, 8406; a ~ 1e-63,
+        xd = 2^-1074) no longer certify. Their forward is flat at
+        60/100 digits; HEAD passed them only through the empty lower
+        check. Their stored values are correct at 400 digits, but the
+        generator would now decline such points.
+    - **Checked here:** all five import; both #87 controls still pass;
+      the 73-row deep-small recheck still changes only line 8276.
+- **Decided 2026-10-27 [user] and applied, verified on Z [DERIVED]:**
+  1. **One beta 400-digit form:** strata_append's
+     `_beta_oracles.betainc_pq`, loaded by file path through
+     `gen_beta_reference.tie_pq` (`_beta_oracles.py` is unedited).
+     `_beta_pq_at`/`_cf_at` are removed, and betainv's "full" tie path
+     uses `tie_pq` too.
+     - The agreement check is `TIE_AGREE = 2^-60` against the ladder.
+       DISAGREE_60_40 (2^-80) was finer than the gamma-corner ladder's
+       ~1e-22: on row (1544.8, 1.67e15, 1.75e-12) the two differ by
+       1.4e-22.
+     - The custom oracles (gl54, gl54b, r3tail) now resolve their
+       near-ties instead of declining them.
+  2. **Exact rational ties stay declined.** The decline sites say this
+     is deliberate; beta's exact-line rows are the one exact path.
+  3. **Wrong-side candidates step once:** gammainv and betainv
+     `tie_step` move to the neighbour the 400-digit sign indicates and
+     run full certification on it; if that fails, the row is declined.
+     - There is no step for `x_hint` / `yd_override` (negative
+       controls, audited roots), for the deep-small paths, or for
+       erfinv (it re-rounds from the 400-digit value instead).
+     - Two fixes the step needed, because a step can land on a
+       boundary:
+       - gammainv's q-side `xd == 0` branch checked q targets with the
+         P closed form, so it accepted 0.0 a whole cell low (HEAD
+         does the same). The new `certify_zero_q` requires
+         Q(a, 2^-1075) < s.
+       - The boundary branches (gammainv p, betainv) certified the
+         closed form's own rounding; they now certify the candidate
+         itself through the override.
+  4. **The 2^-1074 fix is kept, and a flat forward escalates:** a cell
+     span of 0, or zero signs at both midpoints, re-signs both
+     midpoints at 400 digits. The three gammainv q rows 8335, 8346 and
+     8406 certify again on that evidence. In each, Q - q changes sign
+     across the cell of 2^-1074: +8.7e-64 / -5.1e-64 for row 8335.
+  - **Checked here, independently:**
+    - All five generators import, and `_beta_oracles.py` is untouched.
+    - Both #87 controls pass, and the 73-row recheck still changes
+      only line 8276.
+    - The step tests in both generators: one cell off steps back and
+      certifies; two off steps once and declines; an override never
+      steps.
+    - beta: rows match, and the beta_p(1, 1/2, 2^-1074) witness
+      resolves to 2^-1074.
+- **Noted, not changed:**
+  - gammainv's `deep-small-zero` branch certifies its own rounding of
+    x0, not the stored 0.0 (no `xd_override`). This is a latent
+    defect, unrelated to ties.
+  - `gen_betainv_reference.status()` appends to an old scratchpad file
+    outside the repo.
+- **A3 state:** 20 files changed (PLAN.md, refgen_common.py and 18
+  generators), all uncommitted on `dev/v1.2.0`; no
+  `tests/data/` change and no kernel change. A4 regenerates the
+  affected references once.
+
 **Row A2 (#78) DONE 2026-10-26 on Z: `b01b162`, CI 40441318445 green
 on all three jobs; both guard tests pass on Linux GCC, macOS AppleClang,
 and Windows MSVC and clang-cl; #78 closed. Next: row A3 (#87 + #89).**
