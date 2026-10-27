@@ -14,7 +14,10 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 and pushed.** Milestone 7 has 14 open issues. The v1.2.0 issue order
 (section "v1.2.0 issue order") is DECIDED 2026-10-26 [user]. [DERIVED]
 
-**Row A2 (#78) done on Z 2026-10-26, awaiting commit [DERIVED].**
+**Row A2 (#78) DONE 2026-10-26 on Z: `b01b162`, CI 40441318445 green
+on all three jobs; both guard tests pass on Linux GCC, macOS AppleClang,
+and Windows MSVC and clang-cl; #78 closed. Next: row A3 (#87 + #89).**
+[DERIVED]
 - **Override:** `CORVUS_FP_FLAGS` now turns fast-math off as well as
   contraction: `-fno-fast-math -ffp-contract=off` (GCC, Clang,
   IntelLLVM), the same through `/clang:` on clang-cl, `/fp:precise` on
@@ -44,8 +47,9 @@ and pushed.** Milestone 7 has 14 open issues. The v1.2.0 issue order
   failed: `erf(nan) is nan`, `log(+0) is -inf`, real errors reading 1.0.
 - README's FP sentence is reworded; ENVIRONMENT.md's FP-flags notes and
   the IntelLLVM placeholder are updated (icpx still unvalidated).
-- Normal `build-clangcl`: 0 warnings, ctest 38/38 under AVX3_ZEN4.
-  Not yet run: CI (MSVC `/fp:precise`, Linux GCC, macOS AppleClang).
+- Normal `build-clangcl`: 0 warnings, ctest 38/38 under AVX3_ZEN4. On
+  CI's MSVC leg, cl prints D9025 ("overriding /fp:fast with
+  /fp:precise") for `fp_guard_override` only, as expected.
 
 **Row A1 (#81) DONE 2026-10-26 on Z: `d54ab11`, CI 40437030819 green
 on all three jobs (dispatched on `dev/v1.2.0`); #81 closed.** [DERIVED] No kernel arithmetic changed; the five regenerated
@@ -1717,7 +1721,7 @@ reference rows are regenerated, and regeneration done once. Two more:
 | # | Issue | Why here | Effort | New test code | Machines |
 |---|---|---|---|---|---|
 | A1 | ~~#81~~ DONE 2026-10-26 (Z, `d54ab11`) — chore: `sweep_tiers.ps1` defaults to clang-cl and passes `test_dd_special` all three data paths (ci.yml too) — first, because every later row sweeps tiers with it; hwy version floor in `corvus-config.cmake.in`; dead generated constants (stop emitting them); stale comments; one NEON-provenance wording, Highway version logged on macOS CI | tooling the later rows run on; no kernel bits | recipe | none | Z, CI |
-| A2 | #78 fast-math guard: `#error` on `__FAST_MATH__` / `__FINITE_MATH_ONLY__` / `_M_FP_FAST` and/or `-fno-fast-math` / `/fp:precise` in `CORVUS_FP_FLAGS`, shown to fire under a fast-math consumer build; README sentence; decide I-5 (tests without `CORVUS_FP_FLAGS`) | independent; early because libstats fetches corvus at the pin bump | small | fast-math consumer configure (fail-first) | Z, K (AppleClang), CI |
+| A2 | ~~#78~~ DONE 2026-10-26 (Z, `b01b162`) — fast-math guard: `#error` on `__FAST_MATH__` / `__FINITE_MATH_ONLY__` / `_M_FP_FAST` and/or `-fno-fast-math` / `/fp:precise` in `CORVUS_FP_FLAGS`, shown to fire under a fast-math consumer build; README sentence; decide I-5 (tests without `CORVUS_FP_FLAGS`) | independent; early because libstats fetches corvus at the pin bump | small | fast-math consumer configure (fail-first) | Z, K (AppleClang), CI |
 | A3 | #87 betainv certifier (negative control fails at HEAD, then fix); #89 i1/i1e subnormal midpoint rows resolved by the sign of the first neglected term, and the base generators take `strata_append`'s tie rule | generator fixes before the one regeneration (A4); #87's constraint binds any betainv regen | mid; #89's kernel question is a decision [user] | generator negative controls | Z |
 | A4 | #79 guards at real behaviour: exact row counts (truncation fails), beta symmetry guard 6 → measured, every-lane-position blocks for erf/erfc/lgamma/erfinv/lbeta, `consumer_example` erf(1) bit-exact; adversarial strata (trig > 2^-26, betainv huge-ν tail p, lbeta [0.25, 4]^2), beta R4 tiny-min generator re-budget + cap population. Then regenerate once for A3 + A4 and re-pin on SSE4 | lane-position blocks are the base of lever 1's lane-mix tests; regeneration once, after A3 | mid | yes — strata, guards, row counts | Z (sweep), CI |
 | B1 | #86 `// FLOOR:` at every remaining Dekker site; `floor_lint.py --strict` in CI | before lever 1, so its new dd sites cannot land without an argument; a false argument is a finding (escalate) | mid | CI lint step | Z, CI |
