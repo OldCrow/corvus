@@ -8,7 +8,12 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-10-20
+## Status [DERIVED] — 2026-10-26
+
+**R4 DONE 2026-10-26 on Z: `dev/v1.2.0` cut from `main` at `c668080`
+and pushed.** Milestone 7 has 14 open issues. The v1.2.0 issue order
+is DRAFTED below (section "v1.2.0 issue order") and awaits the user's
+review. No v1.2.0 code work starts before it is decided. [DERIVED]
 
 **Release split [DECIDED 2026-10-20, user]: v1.1.0 = correctness, v1.2.0 =
 performance.**
@@ -1618,7 +1623,62 @@ worktree `../corvus-hunt` (detached `768c526`; `build/`, `build-sse4/`,
 first. Remove it once the correctness block lands. Hunt and review reports were scratchpad-only; the issues are the
 record.
 
+## v1.2.0 issue order [DRAFT 2026-10-26, Z — for user review; no code work before it is decided]
+
+Milestone 7, "Throughput & new exports", on `dev/v1.2.0` (cut from `main`
+at `c668080`, the v1.1.0 tag plus the R3 plan commit). It replaces rows
+13–17 of the v1.1.0 order below, which placed 4 of the milestone's 14 open
+issues; the other ten arrived from the 2026-10-22 review (#77–#81), the
+row-12 work (#68, #89), T1 (#87) and T4's deferred part (#86).
+
+Rules: the v1.1.0 rules carry over — correctness before bit-changing
+performance in the same files; guards written fail-first and landed with
+their fix; the forward before its inverse; generators hardened before
+reference rows are regenerated, and regeneration done once. Two more:
+- **The libstats/libhmm pin bump is the critical path.** What libstats
+  adopts in v3.0.0 — #42 lever 1, #45, #31 — gates the release. Anything
+  else comes off the milestone if it would hold the release, as #45 was
+  in v1.1.0.
+- **Guards that protect the performance rewrite land before it.** The
+  v1.1.0 hunt found gates that could not fail; lever 1 is measured
+  against the tightened guards (A4), the stated floors (B1) and the
+  marked twins (B2), not against what the review called loose.
+
+| # | Issue | Why here | Effort | New test code | Machines |
+|---|---|---|---|---|---|
+| A1 | #81 chore: `sweep_tiers.ps1` defaults to clang-cl and passes `test_dd_special` all three data paths (ci.yml too) — first, because every later row sweeps tiers with it; hwy version floor in `corvus-config.cmake.in`; dead generated constants (stop emitting them); stale comments; one NEON-provenance wording, Highway version logged on macOS CI | tooling the later rows run on; no kernel bits | recipe | none | Z, CI |
+| A2 | #78 fast-math guard: `#error` on `__FAST_MATH__` / `__FINITE_MATH_ONLY__` / `_M_FP_FAST` and/or `-fno-fast-math` / `/fp:precise` in `CORVUS_FP_FLAGS`, shown to fire under a fast-math consumer build; README sentence; decide I-5 (tests without `CORVUS_FP_FLAGS`) | independent; early because libstats fetches corvus at the pin bump | small | fast-math consumer configure (fail-first) | Z, K (AppleClang), CI |
+| A3 | #87 betainv certifier (negative control fails at HEAD, then fix); #89 i1/i1e subnormal midpoint rows resolved by the sign of the first neglected term, and the base generators take `strata_append`'s tie rule | generator fixes before the one regeneration (A4); #87's constraint binds any betainv regen | mid; #89's kernel question is a decision [user] | generator negative controls | Z |
+| A4 | #79 guards at real behaviour: exact row counts (truncation fails), beta symmetry guard 6 → measured, every-lane-position blocks for erf/erfc/lgamma/erfinv/lbeta, `consumer_example` erf(1) bit-exact; adversarial strata (trig > 2^-26, betainv huge-ν tail p, lbeta [0.25, 4]^2), beta R4 tiny-min generator re-budget + cap population. Then regenerate once for A3 + A4 and re-pin on SSE4 | lane-position blocks are the base of lever 1's lane-mix tests; regeneration once, after A3 | mid | yes — strata, guards, row counts | Z (sweep), CI |
+| B1 | #86 `// FLOOR:` at every remaining Dekker site; `floor_lint.py --strict` in CI | before lever 1, so its new dd sites cannot land without an argument; a false argument is a finding (escalate) | mid | CI lint step | Z, CI |
+| B2 | #77 TWIN markers on every copied pair (or recorded not-a-twin); gammainv's lgamma(1+a) copy measured, then re-synced to #67's centre-2 form or reworded; ACCURACY claim twins | lever 1 edits the region cores that are the twins | small–mid | gammainv gates re-measured | Z, CI |
+| B3 | #80 part 1: erf j = 0 (dd 2/√π, single rounding); beta_q R3 gamma-limit ridge margin (pin 1.38 → ≤ 1.25, or documented). Part 2 waits for C3 | erf_core and beta R3 are in lever 1's and #22's files; within-bound, so it never holds the release | mid | real-error pins lowered | CI tiers |
+| B4 | #68 Log1pmxDd seam at the 1/16 cut (raise `kPhiCut` or a log1p-of-small-dd path); measure consumer gates first | before C2 publishes `log1pmx` | small–mid | cut-dense rows re-pinned | Z, CI |
+| C1 | #42 lever 1, per-element cost (was row 13); weigh #44's fixed-cost regions against masked early exit first | the libstats throughput gate; after A–B | frontier | early-exit lane-mix tests | M1, K, Z |
+| C2 | #45 export span `expm1`, `log1pmx` (was row 14) | after B4; libstats adopts both in v3.0.0 | mid (new family) | generator, four gating lists + quiet_bench lists | K, M1, Z |
+| C3 | #31 lgamma table band + single reflection log (was row 15); then #80 part 2 (lbeta near (1, 1); the lbeta CR option) against the new lgamma | beta/gamma/lbeta consume lgamma; libstats' PMF lgamma routing returns when it lands | frontier | generator + regen | K, Z, M1 |
+| C4 | #22 non-gather x86 (was row 17) — conditional: off the milestone if it would hold the release; a Kaby Lake quiet bench sizes it first | after #31; likely slips | frontier | tier audit | K, Z |
+| D | Release tail: `docs/PERFORMANCE.md` §4/§8.2 re-run and the quiet bench on three machines; the libstats pin note (scalar entry points replace its deducing `corvus_scalar` wrapper) in the release notes; native M1 + Kaby Lake validation at the freeze head; RELEASING.md | then libstats and libhmm bump to v1.2.0 (workplan tasks 2 and 7) | recipe | — | all three |
+
+Row 16 (#37) closed 2026-10-16. Gated, worked only if the gate opens:
+#18 (no filed need), #19 (filed need, P3, frontier oracle; libstats
+mitigates locally), #20 (opens only if libstats takes Zipf's closed-form
+CDF at its v3.1.0 planning), #21 (no filed need). #44 stays unmilestoned
+research, answered at C1. #28 and #29 stay off every milestone.
+
+**Open for the user before row A1:** [OPEN]
+1. Phases A–B ahead of C1 delay the libstats-facing work by eight rows,
+   most of them small. The alternative runs C1 after A1, A2 and B2 and
+   moves A4, B1 and B3 after C3. Recommendation: keep the order above.
+2. #89: should i1/i1e round the exact-midpoint ties at subnormal x
+   correctly (the kernel needs the sign of the neglected term), or is
+   1 ULP at those ties accepted and stated?
+3. The #80 split (part 1 in B3, part 2 after #31).
+4. #22 conditional, as above.
+
 ## v1.1.0 issue order [DECIDED 2026-10-10, user; revised same day]
+
+Rows 13–17 below are superseded by the v1.2.0 order above (2026-10-26).
 
 Rules: correctness before bit-changing performance in the same files;
 guards written fail-first and landed with their fix; the forward before
