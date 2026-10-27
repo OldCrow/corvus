@@ -740,7 +740,6 @@ def main():
     print(f"inline constexpr double kGammaTwoPiHi = {hexf(two_pi[0])};")
     print(f"inline constexpr double kGammaTwoPiLo = {hexf(two_pi[1])};")
     print(f"inline constexpr double kGammaInvSqrtPiHi = {hexf(inv_sqrt_pi[0])};")
-    print(f"inline constexpr double kGammaInvSqrtPiLo = {hexf(inv_sqrt_pi[1])};")
     print()
     print("// Region-map and fixed-length constants (all probe-validated).")
     print(f"inline constexpr double kGammaAT = {hexf(20.0)};")

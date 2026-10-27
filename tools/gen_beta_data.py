@@ -48,14 +48,9 @@ Four independent pieces:
                  decided elsewhere -- this generator only emits the
                  numbers.
 
-  DigammaRough   poly(w), w in [Z0, Z0+1), degree chosen by residual decay,
-                 fit directly against mpmath's psi (NOT the asymptotic
-                 series -- ordinary Chebyshev interpolation on the base
-                 zone is far cheaper at this loose ~2^-40 target). Any
-                 z in (0, 2*Z0] reaches the zone by the SAME up-recurrence
-                 pattern as lgamma's own zone walk: psi(z) = poly(z_final)
-                 - sum(1/z_j) accumulated while walking z up by integer
-                 steps until z_final in [Z0, Z0+1).
+  (A DigammaRough table, a 2^-40 Chebyshev fit of psi, was emitted here
+  until #81 L-21: no kernel consumed it -- beta-inl.h's LgammaDiffDd
+  explains why -- so it and its self-check (i) were removed.)
 
 Region map / routing constants (binding, reproduced verbatim in
 route_final(); not re-derived here): the region map, N1=64, N2=64,
@@ -63,11 +58,11 @@ T_ridge=32, B1=8, xi1=0.45, eps_R4=2^-6 (and its box: xi_tau<=xi1 AND
 B*xi_tau<=B1), Z0=10, K_B=16, C_lg=256 (provisional), the R2 orientation
 rule xi < (alpha+1)/(c+2), and the routing order (0: tiny-min-first -> R4;
 1: R1; 2: R3; 3: R2). What this generator itself pins: R4's series depth,
-the R3 table's K/degrees within the 32 KB budget, and the Binet/
-DigammaRough coefficient values.
+the R3 table's K/degrees within the 32 KB budget, and the Binet
+coefficient values.
 
 Self-checks (mandatory, budget lines to stderr; ANY miss -> exit nonzero,
-emit nothing), (a)-(i):
+emit nothing), (a)-(h):
   (a) R1 series truncation sup at N1=64 over the full membership boundary
       (both boundary edges, alpha down to 1e-300).
   (b) R2 CF depth sup at N2=64: near-ridge/moderate-middle/gamma-limit
@@ -94,7 +89,6 @@ emit nothing), (a)-(i):
   (h) e_k(zeta,p) == -e_k(-zeta, 1-p) (the symmetry identity; sign is
       "-", not "+" -- see the derivation comment at check_h_symmetry for
       the algebra).
-  (i) DigammaRough <= 2^-40 relative on (0, 2*Z0].
 
 Trust the stderr budget lines over any comment in this file, including
 this one -- AGENTS.md house rule, restated because the R3 section below
@@ -258,7 +252,6 @@ R1_TARGET = mp.mpf(2) ** -60
 R2_TARGET = mp.mpf(2) ** -60
 R4_TARGET = mp.mpf(2) ** -58
 BINET_TARGET = mp.mpf(2) ** -70
-DIGAMMA_TARGET = mp.mpf(2) ** -40
 ROUTE_THRESH = 1 - mp.mpf(2) ** -12
 
 # BETA_NEAR_ONE (kBetaNearOne): route_final()'s post-route threshold. R1
@@ -2110,85 +2103,6 @@ def check_g_binet(coefs):
 
 
 # ============================================================================
-# DigammaRough (self-check (i)): base zone [Z0, Z0+1), Chebyshev fit
-# against mpmath's psi directly (loose 2^-40 target -- ordinary
-# interpolation is far cheaper than the asymptotic series at this bar).
-# Any z in (0, 2*Z0] reaches the zone via the standard up-recurrence
-# psi(z) = psi(z+1) - 1/z, walked until z_final in [Z0, Z0+1).
-# ============================================================================
-DIGAMMA_DEG = 10  # Chebyshev nodes on the base zone (degree up to 9);
-                   # chosen generously for a target this loose -- checked,
-                   # not assumed, by check_i_digamma.
-
-
-def digamma_rough_coeffs(dps):
-    old = mp.mp.dps
-    mp.mp.dps = dps
-    try:
-        n = DIGAMMA_DEG
-        nodes_t = _cheb_nodes(n)
-        # base zone [Z0, Z0+1) -> t in (-1,1]
-        ws = [Z0 + mp.mpf("0.5") + mp.mpf("0.5") * t for t in nodes_t]
-        vals = [mp.digamma(w) for w in ws]
-        return _cheb_coeffs_1d(vals)
-    finally:
-        mp.mp.dps = old
-
-
-def digamma_rough_eval(coefs, w):
-    t = 2 * (w - Z0) - 1
-    return _clenshaw(coefs, t)
-
-
-def digamma_rough_full(coefs, z):
-    """psi(z) for z in (0, 2*Z0], via recurrence to the base zone [Z0,Z0+1)
-    then the zone polynomial. Two directions: z<Z0 walks UP (psi(z) =
-    poly(z_final) - sum 1/z_j accumulated on the way up); z>=Z0+1 walks
-    DOWN (psi(z) = poly(z_final) + sum 1/z_j accumulated on the way down)
-    -- the domain is (0, 2*Z0], so z can exceed the zone's upper edge too;
-    walking up only for z<Z0 would silently extrapolate the zone
-    polynomial WAY outside its fitted range for z in [Z0+1, 2*Z0]."""
-    zz = mp.mpf(z)
-    s = mp.mpf(0)
-    if zz < Z0:
-        while zz < Z0:
-            s += 1 / zz
-            zz += 1
-        return digamma_rough_eval(coefs, zz) - s
-    while zz >= Z0 + 1:
-        zz -= 1
-        s += 1 / zz
-    return digamma_rough_eval(coefs, zz) + s
-
-
-def check_i_digamma(coefs):
-    print(f"(i) DigammaRough <= 2^-40 relative on (0, {float(2*Z0)}]:", file=sys.stderr)
-    dps = 60
-    worst = mp.mpf(0)
-    worst_at = None
-    test_zs = []
-    for i in range(1, 400):
-        test_zs.append(mp.mpf(i) * (2 * Z0) / 400)
-    test_zs += [mp.mpf(v) for v in ("1e-10", "1e-5", "0.01", "0.5", "0.999",
-                                     "1.001", "9.999", "10.0", "10.001",
-                                     "19.999", "20.0")]
-    for z in test_zs:
-        if z <= 0:
-            continue
-        true_v = mp.digamma(z)
-        approx = digamma_rough_full(coefs, z)
-        if true_v == 0:
-            continue
-        rel = abs((approx - true_v) / true_v)
-        if rel > worst:
-            worst, worst_at = rel, float(z)
-    log2w = float(mp.log(worst, 2)) if worst > 0 else float("-inf")
-    print(f"    worst rel err {float(worst):.3e} (2^{log2w:.2f}) at z={worst_at}, "
-          f"target 2^-40", file=sys.stderr)
-    return 0 if worst <= DIGAMMA_TARGET else 1
-
-
-# ============================================================================
 # main
 # ============================================================================
 def main():
@@ -2208,14 +2122,11 @@ def main():
     binet = binet_coeffs(K_B, 100)
     rc |= check_g_binet(binet)
 
-    digamma_coefs = digamma_rough_coeffs(100)
-    rc |= check_i_digamma(digamma_coefs)
-
     rc |= check_d_anchor()
     rc |= check_h_symmetry()
 
     if rc:
-        print("Self-checks (a)/(b)/(f)/(g)/(i)/(d)/(h) failed -- aborting "
+        print("Self-checks (a)/(b)/(f)/(g)/(d)/(h) failed -- aborting "
               "before the expensive R3 grid.", file=sys.stderr)
         return rc
 
@@ -2400,14 +2311,6 @@ def main():
     print(f"// sum_k kBetaBinetCoef[k-1]/z^(2k-1), z >= kBetaZ0, Horner in 1/z^2.")
     binet_d = [rd(c) for c in binet]
     emit_hex_array_1d("kBetaBinetCoef", binet_d)
-    print()
-    print(f"// DigammaRough: base zone [Z0,Z0+1), Chebyshev fit against psi")
-    print(f"// directly (target 2^-40 relative on (0,2*Z0], self-check (i)).")
-    print(f"// Any z reaches the zone via psi(z)=psi(z+1)-1/z walked upward;")
-    print(f"// evaluate poly(w) via Clenshaw at t=2*(w-Z0)-1, w in [Z0,Z0+1).")
-    print(f"inline constexpr int kBetaDigammaDeg = {DIGAMMA_DEG};")
-    digamma_d = [rd(c) for c in digamma_coefs]
-    emit_hex_array_1d("kBetaDigammaCoef", digamma_d)
     print()
     print("}  // namespace corvus::detail")
     print()

@@ -3,7 +3,7 @@
 // defect hunt found every one of #47-#61 in such a band; the ULP gates pass
 // there because they have no rows to fail on.
 //
-// FIVE CHECKS, every one over the public API on the dispatched tier:
+// SIX CHECKS, every one over the public API on the dispatched tier:
 //   1. harness self-test -- UlpDiff across opposite signs (ulp_utils.h UB).
 //   2. scalar = span     -- the eight scalar entry points are bit-identical
 //      to a length-N span call over an IEEE-specials product grid (the span
@@ -20,6 +20,9 @@
 //      for. Coarse by design: k and the F slack sit well above every gate,
 //      so a failure here is a wrong root, not a last-bit miss. The ULP
 //      gates own the last bits.
+//   6. swap identity     -- beta_p_inv(a, b, p) = 1 - beta_q_inv(b, a, p),
+//      compared from whichever end is accurate; needs no forward call
+//      (#55).
 //
 // No check here has an oracle beyond corvus's own forward functions, so a
 // pass proves consistency, not accuracy. What they buy is coverage: seeded

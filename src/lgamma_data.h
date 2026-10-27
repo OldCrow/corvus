@@ -21,7 +21,6 @@ inline constexpr double kLgammaMaxArg = 0x1.754d9278b51a7p+1014;
 // B(t) = L0 + t*(L1 + t*(L2 + t*S(t))), t = x - centre, index 0 is
 // centre 1 and index 1 is centre 2. L* are double-double; S is the
 // plain-double tail, zero-padded to one degree for a single Horner.
-inline constexpr int kLgammaZoneLead = 3;
 inline constexpr int kLgammaZoneNCoef = 32;
 inline constexpr double kLgammaZoneLeadHi[2][3] = {
     {-0x1.2788cfc6fb619p-1, 0x1.a51a6625307d3p-1, -0x1.9a4d55beab2d7p-2},
@@ -121,7 +120,6 @@ inline constexpr double kLgammaHalfLog2PiHi = 0x1.d67f1c864beb5p-1;
 inline constexpr double kLgammaHalfLog2PiLo = -0x1.65b5a1b7ff5dfp-55;
 
 // log(sin(pi u)/(pi u)) = v*(M0 + v*(M1 + v*T(v))), v = u^2.
-inline constexpr int kLgammaSinLead = 2;
 inline constexpr int kLgammaSinNCoef = 16;
 inline constexpr double kLgammaSinLeadHi[2] = {-0x1.a51a6625307d3p+0, -0x1.151322ac7d848p-1};
 inline constexpr double kLgammaSinLeadLo[2] = {-0x1.18733e75f65a2p-55, -0x1.c2130eaef9fe3p-56};

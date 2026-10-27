@@ -31,7 +31,6 @@ inline constexpr double kGammaInvLamSeriesCoef[12] = {
 // eta in [-kGammaInvEtaMax, kGammaInvEtaMax] (WIDE domain -- NOT
 // gamma_data.h's kGammaTemmeCheb, which is fit only over the ridge
 // band lambda in [1/2,2] and is the wrong table for this seed).
-inline constexpr int kGammaInvCkRows = 2;
 inline constexpr int kGammaInvSeedNCorr = 2;
 inline constexpr int kGammaInvCkNCoef = 25;
 inline constexpr double kGammaInvEtaMax = 0x1.27d1135318e42p+3;

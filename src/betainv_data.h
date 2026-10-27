@@ -81,13 +81,10 @@ inline constexpr int kBetaInvS2NCorr = 6;
 // This is seed_S2's own zeroth iterate (either orientation, picked
 // by which branch applies) -- S4 and S2 share one mechanism at
 // leading order. Offered as a GLOBAL seed candidate at every (a,b,s)
-// (selected by cheap-residual comparison like the other four);
-// kBetaInvTJt is NOT a candidacy gate: t_jt gates
-// only where the closed form could ship WITHOUT Newton refinement
-// under the plateau backward-error contract, a kernel
-// decision this generator does not make. Kept, PROVISIONAL, at its
-// original measured value pending that decision.
-inline constexpr double kBetaInvTJt = 0x1.0000000000000p-8;
+// (selected by cheap-residual comparison like the other four).
+// No t_jt route gate is emitted: the kernel ships S4 only through
+// Newton refinement (#81 L-21; the generator's T_JT still shapes
+// self-check (d) and the gap-band strata).
 
 // S5 (last-resort family):
 // logit-normal via EXACT digamma/trigamma moments of logit(Y) =

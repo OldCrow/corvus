@@ -348,7 +348,6 @@ def main():
     print("// B(t) = L0 + t*(L1 + t*(L2 + t*S(t))), t = x - centre, index 0 is")
     print("// centre 1 and index 1 is centre 2. L* are double-double; S is the")
     print("// plain-double tail, zero-padded to one degree for a single Horner.")
-    print(f"inline constexpr int kLgammaZoneLead = {ZONE_LEAD};")
     print(f"inline constexpr int kLgammaZoneNCoef = {n_zone};")
     for part, idx in (("Hi", 0), ("Lo", 1)):
         print(f"inline constexpr double kLgammaZoneLead{part}[2][{ZONE_LEAD}] = {{")
@@ -372,7 +371,6 @@ def main():
     print(f"inline constexpr double kLgammaHalfLog2PiLo = {float.hex(hl2pi[1])};")
     print()
     print("// log(sin(pi u)/(pi u)) = v*(M0 + v*(M1 + v*T(v))), v = u^2.")
-    print(f"inline constexpr int kLgammaSinLead = {SIN_LEAD};")
     print(f"inline constexpr int kLgammaSinNCoef = {len(sin_tail)};")
     print("inline constexpr double kLgammaSinLeadHi[" + str(SIN_LEAD) + "] = {"
           + ", ".join(float.hex(p[0]) for p in sin_lead) + "};")

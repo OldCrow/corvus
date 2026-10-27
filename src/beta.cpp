@@ -17,8 +17,9 @@ namespace HWY_NAMESPACE {
 // region cores, the same two prefactor paths and the same router, and differ
 // only in the final handout -- splitting them would instantiate every core
 // (and the R3 table's ten nested Clenshaw passes) twice per target for
-// nothing. The TU does NOT include src/gamma-inl.h: R2's sweep covers the
-// gamma-limit corner, so there is no gamma-core reuse to share.
+// nothing. src/beta-inl.h includes src/gamma-inl.h for the gamma-limit
+// slice's two template cores (GammaSeriesSum, GammaCfRecip); templates
+// instantiate only what is called, so none of gamma's other cores land here.
 static void BetaPImpl(std::span<const double> a, std::span<const double> b,
                        std::span<const double> x, std::span<double> out) {
   DriveTernary(

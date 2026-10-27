@@ -149,8 +149,9 @@ int RunOne(const char* label, const char* path, Fn fn, bool has_inf) {
       u = UlpDiff(got[i], want[i]);
     }
     const bool series = std::fabs(x) <= corvus::detail::kBesselSplit;
-    Region& r = x >= 0.0 ? (series ? pos_series : pos_tail)
-                         : (series ? neg_series : neg_tail);
+    // signbit, not x >= 0: x = -0 belongs to the negative buckets (#81 L-23).
+    Region& r = !std::signbit(x) ? (series ? pos_series : pos_tail)
+                                 : (series ? neg_series : neg_tail);
     Accumulate(r, x, u);
     // Exact-zero rows are bit-exact checked above; they carry no real gate.
     if (want[i] != 0.0) {

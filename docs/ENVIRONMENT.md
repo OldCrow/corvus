@@ -63,12 +63,11 @@ GCC-built runs that completed produced valid numbers; the
 disqualification is about reliability, not past results. (The
 long-standing mingw test-binary "exit crash" was this bug firing
 in-kernel.) GCC remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4),
-where the ABI's 16-byte guarantee already covers the temporaries. The
-`tools/sweep_tiers.ps1` `g++` default is therefore qualified only for
-those capped tiers; run the sweep under `-CxxCompiler clang-cl
--CCompiler clang-cl` (verified clean) for AVX2 and wider, and the
-uncapped native build must be clang-cl (from a VS dev shell so link.exe
-resolves).
+where the ABI's 16-byte guarantee already covers the temporaries.
+`tools/sweep_tiers.ps1` therefore defaults to clang-cl (since #81 L-20;
+it defaulted to `g++` before, and ToolchainGuard refused its own first
+tier), and the uncapped native build must be clang-cl too. Run both from
+a vcvars64 environment, so link.exe and the SDK's rc.exe resolve.
 
 **Both Windows hazards are enforced at configure time**
 (`cmake/ToolchainGuard.cmake`, #36), not only described here:

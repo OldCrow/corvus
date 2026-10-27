@@ -382,8 +382,9 @@ HWY_NOINLINE BesselPair<D> BesselNu1(D d, op::V<D> x) {
         detail::kBesselI1SeriesLeadLo, detail::kBesselI1SeriesLead,
         detail::kBesselI1SeriesCoef, detail::kBesselI1SeriesNCoef,
         detail::kBesselI1SeriesDCoef, kBesselI1SeriesNDCoef);
-    // Exact for normal ax; for subnormal ax the halving rounds, so i1 there is
-    // within 1 ulp but not always correctly rounded (i1(0x1p-1074) = +0).
+    // Exact for normal ax; for subnormal ax the halving rounds, so i1 and i1e
+    // there are within 1 ulp but not always correctly rounded
+    // (i1(0x1p-1074) = +0; the exact-midpoint ties are #89).
     const auto half_ax = op::Mul(ax_s, half);
     // FLOOR: s1*half_ax < 2^-968 only for ax < 2^-967, where ax^2 rounds to 0
     // and s1 == {1, 0}: TwoProd(1, b) is exact on every tier, so mag == half_ax.

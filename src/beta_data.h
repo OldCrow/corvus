@@ -410,15 +410,6 @@ inline constexpr double kBetaBinetCoef[16] = {
     0x1.5555555555555p-4, -0x1.6c16c16c16c17p-9, 0x1.a01a01a01a01ap-11, -0x1.3813813813814p-11, 0x1.b951e2b18ff23p-11, -0x1.f6ab0d9993c7dp-10, 0x1.a41a41a41a41ap-8, -0x1.e4286cb0f5398p-6, 0x1.6fe96381e0680p-3, -0x1.6476701181f3ap+0, 0x1.ace44322ce006p+3, -0x1.39b2525cccc1bp+7, 0x1.12234e81b4e82p+11, -0x1.1a198ae1c4ab8p+15, 0x1.51a2089a6e11ap+19, -0x1.d1089b142d357p+23,
 };
 
-// DigammaRough: base zone [Z0,Z0+1), Chebyshev fit against psi
-// directly (target 2^-40 relative on (0,2*Z0], self-check (i)).
-// Any z reaches the zone via psi(z)=psi(z+1)-1/z walked upward;
-// evaluate poly(w) via Clenshaw at t=2*(w-Z0)-1, w in [Z0,Z0+1).
-inline constexpr int kBetaDigammaDeg = 10;
-inline constexpr double kBetaDigammaCoef[10] = {
-    0x1.26b44a2ba1ca5p+1, 0x1.9983d075f9025p-5, -0x1.4745bafe2e4f2p-11, 0x1.5c70f7b310cfbp-17, -0x1.a1028fb3687a5p-23, 0x1.09f49326551e2p-28, -0x1.6115c802c8162p-34, 0x1.e1c46066bfd09p-40, -0x1.4f41606fa87d0p-45, 0x1.d96585664c09bp-51,
-};
-
 }  // namespace corvus::detail
 
 #endif  // CORVUS_BETA_DATA_H_

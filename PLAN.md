@@ -12,8 +12,44 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 **R4 DONE 2026-10-26 on Z: `dev/v1.2.0` cut from `main` at `c668080`
 and pushed.** Milestone 7 has 14 open issues. The v1.2.0 issue order
-is DRAFTED below (section "v1.2.0 issue order") and awaits the user's
-review. No v1.2.0 code work starts before it is decided. [DERIVED]
+(section "v1.2.0 issue order") is DECIDED 2026-10-26 [user]. [DERIVED]
+
+**Row A1 (#81) done on Z 2026-10-26, awaiting commit [DERIVED].** No
+kernel arithmetic changed; the five regenerated headers differ from HEAD
+only by the removed constants.
+- L-20: `sweep_tiers.ps1` defaults to clang-cl and declares
+  `#Requires -Version 7`. Under 5.1, Highway's CMake deprecation warning
+  on stderr aborted the first configure.
+- L-19: ci.yml's three ULP-report steps and the sweep pass
+  `test_dd_special` all three data files.
+- I-4: `find_dependency(hwy 1.4 CONFIG)`.
+- L-18: the native M1 runs are the source of the NEON cells, and CI's
+  capped NEON job re-checks them on every push (ci.yml, ACCURACY.md).
+  macOS CI logs the Homebrew Highway version; Homebrew cannot pin it.
+- L-21: pruned.
+  - From the generators and headers: `kBetaDigammaDeg`/`Coef` (with the
+    generator's DigammaRough fit and self-check (i)), `kBetaInvTJt` (the
+    last PROVISIONAL in `src/`; T_JT stays in the generator for check
+    (d) and the strata), `kGammaInvCkRows`, `kGammaInvSqrtPiLo`,
+    `kLgammaZoneLead`, `kLgammaSinLead`.
+  - From beta-inl.h: `kBetaInvSqrtPiHi`, and also `kBetaTwoPiHi/Lo`.
+    beta now uses gamma_data.h's bit-identical constants, which it
+    already reached through gamma-inl.h.
+  - `ops::LoadN` is kept, labelled test-only: six component tests drive
+    dd cores with it.
+- L-22: stale comments fixed in beta.cpp, beta-inl.h (the z clamp under
+  betainv), bessel-inl.h (i1e too) and test_guards.cpp (six checks).
+- L-23: the Bessel ULP gate buckets x = -0 as negative (signbit).
+- ENVIRONMENT.md's g++-default paragraph is updated.
+- Verified on Z, all regenerated headers from generators that passed
+  their self-checks:
+  - build-clangcl: 0 compiler warnings; ctest 36/36 under
+    `CORVUS_EXPECT_TARGET=AVX3_ZEN4`.
+  - `pwsh tools/sweep_tiers.ps1 -Tier SSE2` into a fresh dir, on its new
+    defaults: all gates pass, tier-asserted.
+- Not yet run: CI, which exercises the ci.yml edits.
+- Environment note: vcvars64 needs the VS Installer directory (vswhere)
+  on PATH, or a fresh clang-cl configure cannot find rc.exe.
 
 **Release split [DECIDED 2026-10-20, user]: v1.1.0 = correctness, v1.2.0 =
 performance.**
@@ -1623,7 +1659,7 @@ worktree `../corvus-hunt` (detached `768c526`; `build/`, `build-sse4/`,
 first. Remove it once the correctness block lands. Hunt and review reports were scratchpad-only; the issues are the
 record.
 
-## v1.2.0 issue order [DRAFT 2026-10-26, Z — for user review; no code work before it is decided]
+## v1.2.0 issue order [DECIDED 2026-10-26, user; drafted the same day on Z]
 
 Milestone 7, "Throughput & new exports", on `dev/v1.2.0` (cut from `main`
 at `c668080`, the v1.1.0 tag plus the R3 plan commit). It replaces rows
@@ -1666,15 +1702,15 @@ mitigates locally), #20 (opens only if libstats takes Zipf's closed-form
 CDF at its v3.1.0 planning), #21 (no filed need). #44 stays unmilestoned
 research, answered at C1. #28 and #29 stay off every milestone.
 
-**Open for the user before row A1:** [OPEN]
-1. Phases A–B ahead of C1 delay the libstats-facing work by eight rows,
-   most of them small. The alternative runs C1 after A1, A2 and B2 and
-   moves A4, B1 and B3 after C3. Recommendation: keep the order above.
-2. #89: should i1/i1e round the exact-midpoint ties at subnormal x
-   correctly (the kernel needs the sign of the neglected term), or is
-   1 ULP at those ties accepted and stated?
-3. The #80 split (part 1 in B3, part 2 after #31).
-4. #22 conditional, as above.
+**Decided 2026-10-26 [user]:**
+1. Phases A–B run before C1, as ordered above.
+2. #89: the kernels keep their tie-to-even result at the subnormal
+   exact-midpoint ties of i1/i1e. 1 ULP there is accepted and stated in
+   ACCURACY.md. A3 fixes the reference rows and the generators' tie rule
+   only.
+3. #80 is split: part 1 in B3, part 2 after #31 (C3).
+4. #22 is conditional: it comes off the milestone if it would hold the
+   release.
 
 ## v1.1.0 issue order [DECIDED 2026-10-10, user; revised same day]
 

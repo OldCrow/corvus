@@ -11,8 +11,13 @@
 
     Caps only ever REMOVE targets, so the sweep starts below the machine's
     native ceiling. On the Ryzen box, run the uncapped build separately for
-    the AVX3* tiers -- and with GCC or clang-cl, never MSVC, whose Highway
-    blocklist silently removes every AVX-512 target (see AGENTS.md).
+    the AVX3* tiers (the windows-clang-cl preset).
+
+    The compiler is clang-cl, so run the script from a vcvars64 environment
+    (docs/ENVIRONMENT.md). The other two Windows compilers do not work
+    here. MSVC's Highway blocklist caps it at AVX2. mingw GCC miscompiles
+    by-value vector calls at AVX2 and above (GCC PR 126741), so
+    cmake/ToolchainGuard.cmake refuses it at this script's first tier.
 
     Aborts on the first configure, build, or gate failure. That matters: a
     build failure leaves the PREVIOUS tier's binaries in place, so continuing
@@ -23,8 +28,8 @@
     that differs from the cache makes CMake delete the cache mid-configure
     and re-detect from PATH -- the re-detect DROPS this script's
     -DCORVUS_DISABLED_TARGETS, so the tier binary silently compiles every
-    target (observed 2026-08-29: cached clang-cl tree + default -CCompiler
-    gcc). The CORVUS_EXPECT_TARGET gate is what catches it.
+    target (observed 2026-08-29: cached clang-cl tree + the then-default
+    -CCompiler gcc). The CORVUS_EXPECT_TARGET gate is what catches it.
 
 .PARAMETER Tier
     Restrict the sweep to one tier (AVX2, SSE4, SSSE3, SSE2). Default: all.
@@ -32,19 +37,25 @@
 .PARAMETER BuildDir
     Build directory, reused across iterations so Highway is built once.
 
+    Needs PowerShell 7 (pwsh). Windows PowerShell 5.1 fails two ways: it
+    drops the pipe-delimited CORVUS_DISABLED_TARGETS caps
+    (docs/ENVIRONMENT.md), and it turns a native command's stderr into an
+    error record, so under $ErrorActionPreference = "Stop" Highway's CMake
+    deprecation warning aborts the first configure.
+
 .EXAMPLE
-    tools\sweep_tiers.ps1
-    tools\sweep_tiers.ps1 -Tier SSE2
+    pwsh tools\sweep_tiers.ps1
+    pwsh tools\sweep_tiers.ps1 -Tier SSE2
 #>
+#Requires -Version 7
 [CmdletBinding()]
 param(
   [ValidateSet("AVX2", "SSE4", "SSSE3", "SSE2")]
   [string[]] $Tier,
   [string] $BuildDir = "build-cap",
-  [string] $CxxCompiler = "g++",
-  # "cc" is a Unix convention that mingw-w64 does not ship; Highway's own
-  # CMakeLists enables C, so an unresolvable name fails at configure.
-  [string] $CCompiler = "gcc"
+  # Highway's own CMakeLists enables C, so the C compiler must resolve too.
+  [string] $CxxCompiler = "clang-cl",
+  [string] $CCompiler = "clang-cl"
 )
 
 $ErrorActionPreference = "Stop"
@@ -68,7 +79,7 @@ $caps = [ordered]@{
 $gates = @(
   @{ exe = "test_exp_dd";   data = "exp_dd_reference.txt" },
   @{ exe = "test_log_dd";   data = "log_dd_reference.txt" },
-  @{ exe = "test_dd_special"; data = "dd_special_reference.txt" },
+  @{ exe = "test_dd_special"; data = "dd_special_reference.txt", "log1pmx_ulo_reference.txt", "expm1_dd_reference.txt" },
   # Each family's smoke / lane-mix test (no reference file) runs just before
   # its ULP gate, as in tests/CMakeLists.txt: the capped tiers are where the
   # masked-tail and lane-mix paths differ, and the ULP gates alone skip them.

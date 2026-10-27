@@ -178,9 +178,10 @@ none).
 
 Validation legs: Kaby Lake i7-7820HQ, AppleClang (AVX2+FMA native; SSE
 tiers via capping, which also exercises the no-FMA paths); Linux/GCC CI
-tier sweep; NEON on the Apple Silicon GitHub runner (native silicon,
-native FMA — per-run measured values appear in the CI "ULP report"
-steps) and natively on the Mac Mini M1 (Apple M1, AppleClang 21, macOS
+tier sweep; NEON natively on the Mac Mini M1 (the source of the NEON
+cells), re-checked on every push by the Apple Silicon GitHub runner's
+capped NEON job (native silicon, native FMA; per-run values in its "ULP
+report" step, Homebrew Highway version logged); the M1 runs (Apple M1, AppleClang 21, macOS
 Tahoe then 27, Homebrew Highway 1.4.0 via find_package): 27 gates
 2026-08-23 on the pre-elementary surface, all 33 gates 2026-08-30, log1p
 re-validated 2026-09-01 after the tiny-band fix, 34/34 at the #43

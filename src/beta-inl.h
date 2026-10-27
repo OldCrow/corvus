@@ -191,12 +191,9 @@ inline constexpr double kBetaGlTCap = 4e306;
 // carry any z > 0 into [Z0, Z0+1) with Z0 = 10.
 inline constexpr int kBetaWalkSteps = 10;
 
-// 2*pi, 1/sqrt(pi) and ln(2*pi) as dd pairs. Same bit patterns as
-// src/gamma_data.h's kGammaTwoPi*/kGammaInvSqrtPi*; repeated here rather than
-// included because beta deliberately does not depend on gamma's TU.
-inline constexpr double kBetaTwoPiHi = 0x1.921fb54442d18p+2;
-inline constexpr double kBetaTwoPiLo = 0x1.1a62633145c07p-52;
-inline constexpr double kBetaInvSqrtPiHi = 0x1.20dd750429b6dp-1;
+// ln(2*pi) as a dd pair. 2*pi and 1/sqrt(pi) come from src/gamma_data.h
+// (detail::kGammaTwoPi*, kGammaInvSqrtPiHi), which reaches this file through
+// gamma-inl.h (#81 L-21: the copies here duplicated them bit for bit).
 inline constexpr double kBetaLnTwoPiHi = 0x1.d67f1c864beb5p+0;
 inline constexpr double kBetaLnTwoPiLo = -0x1.65b5a1b7ff5dfp-54;
 
@@ -496,10 +493,10 @@ HWY_NOINLINE Dd<D> BinetDiffDd(D d, Dd<D> z, Dd<D> w) {
 //   * it removes the rounded lgamma argument outright rather than
 //     correcting for it with a c.lo*digamma(c.hi) term, which is the
 //     exact-c doctrine taken one step further; and
-//   * beta_data.h's DigammaRough table is fitted and self-checked (check (i))
-//     only on (0, 2*Z0] = (0, 20], while c reaches C_lg = 256 on the PA
-//     path, so the shipped table cannot serve that correction anyway.
-// kBetaDigammaCoef/kBetaDigammaDeg are consequently unused by this kernel.
+//   * the generator's DigammaRough table was fitted only on (0, 2*Z0] =
+//     (0, 20], while c reaches C_lg = 256 on the PA path, so it could not
+//     serve that correction anyway. Nothing consumed it, and it is no
+//     longer emitted (#81 L-21).
 //
 // TWO PIECES.
 //  (a) An up-walk. For M < Z0 the Stirling tail is out of its table's range,
@@ -1145,7 +1142,8 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
   }
 
   const auto z = DdSqrt(d, ps.cpsi);
-  const Dd<D> twopi{op::Set(d, kBetaTwoPiHi), op::Set(d, kBetaTwoPiLo)};
+  const Dd<D> twopi{op::Set(d, detail::kGammaTwoPiHi),
+                    op::Set(d, detail::kGammaTwoPiLo)};
   const auto rv = DdRecipDd(
       d, DdSqrt(d, DdMulD(d, twopi,
                           op::Min(ps.nu.hi, op::Set(d, kBetaTwoPiNuClamp)))));
@@ -1166,7 +1164,7 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
   const Dd<D> half_erfc{op::Mul(ec.hi, half), op::Mul(ec.lo, half)};
   const auto exd = OutlinedExpDd(d, ea.hi, ea.lo);
   const auto brk_core = DdAddD(
-      d, s_rv, op::Neg(op::Mul(z.lo, op::Set(d, kBetaInvSqrtPiHi))));
+      d, s_rv, op::Neg(op::Mul(z.lo, op::Set(d, detail::kGammaInvSqrtPiHi))));
   // FLOOR: a product below 2^-968 errs by <= 2^-1071, added to half_erfc >=
   // erfc(5)/2 > 2^-41 (core lanes have cpsi <= 25): far below ulp(core);
   // tail lanes discard core.
@@ -1182,8 +1180,11 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
   // the band edge, y/q or x/p -> 2) those three terms read 4 ulp against
   // the 3-ULP bound. G is now GammaTailG's dd fit (src/erfc_tail_dd-inl.h;
   // live tail z = sqrt(cpsi) is in (6, 28.29] under kBetaExpFloor = -800,
-  // inside its [6, 28.5] fit; the clamp below only keeps discarded lanes
-  // finite). z.lo enters through the slope: with f(z) = 1/2 erfc(z) e^{z^2},
+  // inside its [6, 28.5] fit. For beta_p/q the clamp below only keeps
+  // discarded lanes finite. betainv's Newton iterates can be live lanes
+  // past the fit, and the clamp does change their forward value; roots are
+  // unaffected, because an iterate near its root is inside the fit (#81
+  // L-22). z.lo enters through the slope: with f(z) = 1/2 erfc(z) e^{z^2},
   // f' = 2z f - 1/sqrt(pi), so f(z.hi + z.lo) = gt - z.lo (1/sqrt(pi) -
   // 2 z gt) + O(z.lo^2) -- the fold the core applies to its own erfc term.
   //
@@ -1202,7 +1203,7 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
       op::Ge(op::Set(d, -detail::kBetaExpFloor), ps.cpsi.hi);
   const auto zlo_corr = op::IfThenElse(
       live_tail,
-      op::Mul(z.lo, op::Sub(op::Set(d, kBetaInvSqrtPiHi),
+      op::Mul(z.lo, op::Sub(op::Set(d, detail::kGammaInvSqrtPiHi),
                             op::Mul(two_z, gtd.hi))),
       zero);
   const auto brk_tail = DdAdd(d, s_rv, DdAddD(d, gtd, op::Neg(zlo_corr)));

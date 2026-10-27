@@ -8,7 +8,8 @@
 # hn::ReduceMax, removed from the facade at #10; the audited pin, not
 # any single op, is what the floor protects). Better to fall back to
 # the fetched pin than to accept any system version. Bump the floor
-# together with the pin and a revalidation pass.
+# together with the pin and a revalidation pass, here and in
+# cmake/corvus-config.cmake.in's find_dependency.
 
 find_package(hwy 1.4 CONFIG QUIET)
 

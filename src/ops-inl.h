@@ -85,6 +85,10 @@ using hn::Lanes;
 using hn::MaxLanes;  // compile-time lane bound (driver unroll choice)
 
 template <class D> HWY_INLINE V<D> Load(D d, const double* p) { return hn::LoadU(d, p); }
+// Zero-filled LoadN: no kernel or driver uses it (the driver pads with
+// LoadNOr below). Kept for the component tests (test_exp_dd, test_dd_special,
+// bench_lgamma_components and others), which drive internal dd cores with a
+// masked tail of their own (#81 L-21).
 template <class D> HWY_INLINE V<D> LoadN(D d, const double* p, size_t n) { return hn::LoadN(d, p, n); }
 // LoadN with the lanes past n filled from `no` instead of zero (#42): the
 // driver pads a masked tail with a live element so the padding lanes share

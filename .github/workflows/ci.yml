@@ -88,7 +88,9 @@ jobs:
           # fail here under its own name, not a consumer's.
           ./build/tests/test_exp_dd tests/data/exp_dd_reference.txt
           ./build/tests/test_log_dd tests/data/log_dd_reference.txt
-          ./build/tests/test_dd_special tests/data/dd_special_reference.txt
+          ./build/tests/test_dd_special \
+            tests/data/dd_special_reference.txt \
+            tests/data/log1pmx_ulo_reference.txt tests/data/expm1_dd_reference.txt
           ./build/tests/test_erf_ulp tests/data/erf_reference.txt
           ./build/tests/test_erfc_ulp tests/data/erfc_reference.txt
           ./build/tests/test_lgamma_ulp tests/data/lgamma_reference.txt
@@ -267,7 +269,9 @@ jobs:
           # fail here under its own name, not a consumer's.
           ./build/tests/Release/test_exp_dd.exe tests/data/exp_dd_reference.txt
           ./build/tests/Release/test_log_dd.exe tests/data/log_dd_reference.txt
-          ./build/tests/Release/test_dd_special.exe tests/data/dd_special_reference.txt
+          ./build/tests/Release/test_dd_special.exe \
+            tests/data/dd_special_reference.txt \
+            tests/data/log1pmx_ulo_reference.txt tests/data/expm1_dd_reference.txt
           ./build/tests/Release/test_erf_ulp.exe tests/data/erf_reference.txt
           ./build/tests/Release/test_erfc_ulp.exe tests/data/erfc_reference.txt
           ./build/tests/Release/test_lgamma_ulp.exe tests/data/lgamma_reference.txt
@@ -352,8 +356,14 @@ jobs:
         with:
           persist-credentials: false
 
+      # Homebrew installs its current Highway, not the audited 1.4.0 pin;
+      # it cannot pin a formula version. Log the version so a NEON
+      # difference can be traced to a Highway bump (the configure steps
+      # also print "using system Highway <version>").
       - name: Install Highway
-        run: brew install highway
+        run: |
+          brew install highway
+          brew list --versions highway
 
       # Hosted Apple silicon is not guaranteed: one runner image can land on
       # an M1 (dispatches NEON) or a BF16-capable core (dispatches NEON_BF16),
@@ -372,9 +382,11 @@ jobs:
           cmake --build build-native
           ctest --test-dir build-native -V
 
-      # The sole source of the NEON row in docs/ACCURACY.md. (HWY_NEON-1)
-      # disables every target better than NEON, so dispatch is NEON on any
-      # host; the assertion still catches a cap that fails to take effect.
+      # The standing check of the NEON row in docs/ACCURACY.md, whose cells
+      # come from the native Mac Mini M1 runs; each M1 run's ULP report is
+      # compared with this job's. (HWY_NEON-1) disables every target better
+      # than NEON, so dispatch is NEON on any host; the assertion still
+      # catches a cap that fails to take effect.
       - name: Build and test (capped at NEON)
         run: |
           cmake -B build -G Ninja -DCORVUS_WERROR=ON \
@@ -389,12 +401,14 @@ jobs:
       - name: ULP report
         run: |
           export CORVUS_EXPECT_TARGET=NEON
-          # This job is the only source of ACCURACY.md's NEON numbers.
+          # Compared with each native M1 run's report (ACCURACY.md, NEON).
           # Dependency order, dd cores first: a foundation regression should
           # fail here under its own name, not a consumer's.
           ./build/tests/test_exp_dd tests/data/exp_dd_reference.txt
           ./build/tests/test_log_dd tests/data/log_dd_reference.txt
-          ./build/tests/test_dd_special tests/data/dd_special_reference.txt
+          ./build/tests/test_dd_special \
+            tests/data/dd_special_reference.txt \
+            tests/data/log1pmx_ulo_reference.txt tests/data/expm1_dd_reference.txt
           ./build/tests/test_erf_ulp tests/data/erf_reference.txt
           ./build/tests/test_erfc_ulp tests/data/erfc_reference.txt
           ./build/tests/test_lgamma_ulp tests/data/lgamma_reference.txt
