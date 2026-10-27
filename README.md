@@ -292,10 +292,18 @@ worth knowing:
   `corvus::active_target()` reports the tier runtime dispatch actually
   selected, and is the only reliable way to know.
 
-Accuracy is independent of optimization level and of compiler FP-contraction
-settings: the kernels use explicit, capability-guarded FMA rather than
-relying on the compiler to contract, so Debug and Release produce
-bit-identical results.
+Accuracy is independent of optimization level: the kernels use explicit,
+capability-guarded FMA rather than relying on the compiler to contract, so
+Debug and Release produce bit-identical results. It is independent of
+your project's floating-point flags because corvus sets its own: its
+targets compile with contraction off and fast-math off
+(`-fno-fast-math -ffp-contract=off`, or `/fp:precise` on MSVC), after any
+`-ffast-math` or `/fp:fast` your `CMAKE_CXX_FLAGS` hand down through
+`add_subdirectory` or FetchContent. If something re-enables fast-math
+after those flags, corvus refuses to compile (`src/fp_guard.h`) rather
+than build a library whose double-double arithmetic is silently wrong.
+Your own code can use fast-math; only corvus's translation units need
+IEEE semantics.
 
 > **Naming note:** Highway calls AVX-512 "AVX3" — so `HWY_AVX3`,
 > `AVX3_DL`, `AVX3_ZEN4`, and `AVX3_SPR` in build output, target lists, and

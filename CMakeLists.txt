@@ -199,12 +199,25 @@ if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND MSVC_VERSION LESS 1930
 endif()
 # Contraction is OFF project-wide. GCC defaults to -ffp-contract=fast for
 # non-ISO modes, and Clang defaults to "on" (contract within a statement), so
-# both need the explicit flag; real MSVC gets no flag (the version floor above).
+# both need the explicit flag; real MSVC needs none (the version floor above).
+#
+# Value-unsafe modes are OFF too (#78): a parent project's -ffast-math or
+# /fp:fast reaches corvus through CMAKE_CXX_FLAGS under add_subdirectory or
+# FetchContent, and would break the dd identities and fold the NaN scrubs.
+# These target flags come after CMAKE_CXX_FLAGS on the command line, so they
+# win. -fno-fast-math resets every component, flags given one by one
+# included (checked on clang-cl's -### output and GCC's predefined macros,
+# 2026-10-26); it also resets Clang's contraction, so it goes BEFORE
+# -ffp-contract=off. src/fp_guard.h is the tripwire if anything re-enables
+# them later on the line.
 set(CORVUS_FP_FLAGS "")
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND MSVC)
-  list(APPEND CORVUS_FP_FLAGS /clang:-ffp-contract=off)  # clang-cl driver
+  # clang-cl driver
+  list(APPEND CORVUS_FP_FLAGS /clang:-fno-fast-math /clang:-ffp-contract=off)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU|IntelLLVM")
-  list(APPEND CORVUS_FP_FLAGS -ffp-contract=off)
+  list(APPEND CORVUS_FP_FLAGS -fno-fast-math -ffp-contract=off)
+elseif(MSVC)
+  list(APPEND CORVUS_FP_FLAGS /fp:precise)
 endif()
 target_compile_options(corvus PRIVATE ${CORVUS_FP_FLAGS})
 

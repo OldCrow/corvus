@@ -14,9 +14,41 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 and pushed.** Milestone 7 has 14 open issues. The v1.2.0 issue order
 (section "v1.2.0 issue order") is DECIDED 2026-10-26 [user]. [DERIVED]
 
+**Row A2 (#78) done on Z 2026-10-26, awaiting commit [DERIVED].**
+- **Override:** `CORVUS_FP_FLAGS` now turns fast-math off as well as
+  contraction: `-fno-fast-math -ffp-contract=off` (GCC, Clang,
+  IntelLLVM), the same through `/clang:` on clang-cl, `/fp:precise` on
+  real MSVC. A parent project's `-ffast-math` or `/fp:fast` comes in
+  through `CMAKE_CXX_FLAGS`, and these target flags win over it.
+  `-fno-fast-math` also resets each component flag given alone (checked
+  on clang-cl `-###` and GCC macros). It goes first because it also
+  resets Clang's contraction.
+- **Tripwire:** `src/fp_guard.h`, included by `ops-inl.h`, has an
+  `#error` on the fast-math macros the compilers define. Probed on Z:
+  GCC defines one for every component flag; Clang defines none for
+  `-fassociative-math` or `-freciprocal-math` alone, so the override is
+  the only defence there. `__FINITE_MATH_ONLY__` is tested by value.
+- **Fail-first:** a clang-cl build with `/fp:fast` in `CMAKE_CXX_FLAGS`
+  stopped on the guard (28 TUs) before the override was added. With it:
+  0 warnings, ctest 38/38 under AVX3_ZEN4.
+- **Permanent guard:** two ctests on `tests/fp_guard_probe.cpp`.
+  - `fp_guard_override` puts the fast flag first, then
+    `CORVUS_FP_FLAGS`. It is built in ALL, and at run time checks NaN
+    and signed zero.
+  - `fp_guard_tripwire` uses the fast flag alone and passes on the
+    `#error` text.
+  - mingw g++ checked by hand: the override runs IEEE-clean, and the
+    tripwire fires for `-ffast-math` and for the component flags.
+- **I-5 decided: the public-API tests take `CORVUS_FP_FLAGS`.** In the
+  first fast-math build they had no override, and their own checks
+  failed: `erf(nan) is nan`, `log(+0) is -inf`, real errors reading 1.0.
+- README's FP sentence is reworded; ENVIRONMENT.md's FP-flags notes and
+  the IntelLLVM placeholder are updated (icpx still unvalidated).
+- Normal `build-clangcl`: 0 warnings, ctest 38/38 under AVX3_ZEN4.
+  Not yet run: CI (MSVC `/fp:precise`, Linux GCC, macOS AppleClang).
+
 **Row A1 (#81) DONE 2026-10-26 on Z: `d54ab11`, CI 40437030819 green
-on all three jobs (dispatched on `dev/v1.2.0`); #81 closed. Next: row
-A2 (#78).** [DERIVED] No kernel arithmetic changed; the five regenerated
+on all three jobs (dispatched on `dev/v1.2.0`); #81 closed.** [DERIVED] No kernel arithmetic changed; the five regenerated
 headers differ from HEAD only by the removed constants. CI's ULP reports
 now print the Log1pmxDd `u.lo` and Expm1Dd cells, and macOS CI logged
 Homebrew `highway 1.4.0`.

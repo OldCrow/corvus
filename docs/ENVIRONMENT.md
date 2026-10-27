@@ -126,9 +126,10 @@ the dd layer's TwoSum/Fast2Sum. Rejecting user `/arch:` flags at
 configure was considered and declined: on the enforced floor
 `/fp:precise` does not contract regardless of `/arch:`, so the flag is
 harmless there and policing it adds nothing. The IntelLLVM branch of the
-contraction regex remains a separate, unvalidated hazard (icpx
-`-fp-model=fast` is not overridden) — unvalidated because no icpx machine
-is in the fleet.
+contraction regex is unvalidated, because no icpx machine is in the
+fleet. Since #78 it gets `-fno-fast-math` against icpx's default
+`-fp-model=fast`, and `src/fp_guard.h` refuses the build if that override
+does not take.
 
 **macOS: system Highway under an empty `CMAKE_OSX_SYSROOT` (#62).** When
 the selected Xcode's default SDK is the compiler's own, CMake leaves
@@ -196,12 +197,23 @@ Manual alternative (no preset): `cmake -B build -DCMAKE_BUILD_TYPE=Release -G Ni
   see the MSVC/AVX-512 caveat above — configuring with it ON emits a
   deliberate `message(WARNING)`), `CORVUS_ALLOW_UNSUPPORTED_TOOLCHAIN`
   (OFF; the toolchain guard's escape hatch, above).
-- Contraction flags (`CORVUS_FP_FLAGS`): `-ffp-contract=off` for
-  GCC/Clang/AppleClang/mingw, `/clang:-ffp-contract=off` for clang-cl.
-  Real MSVC relies on cl ≥ 19.30's no-contraction default — the version
-  floor above is enforced fatally at configure. The `IntelLLVM` branch
-  of the same regex gets `-ffp-contract=off` only and leaves icpx's default `-fp-model=fast`
-  (reassociation, FTZ) in place: unvalidated, unclaimed, a placeholder.
+- FP flags (`CORVUS_FP_FLAGS`): `-fno-fast-math -ffp-contract=off` for
+  GCC/Clang/AppleClang/mingw/IntelLLVM, the same through `/clang:` for
+  clang-cl, `/fp:precise` for real MSVC (whose contraction default is
+  covered by the version floor above, enforced fatally at configure).
+  `-fno-fast-math` (#78) resets a parent project's `-ffast-math` or
+  `/fp:fast`, and each component flag given alone, and comes before
+  `-ffp-contract=off` because it also resets Clang's contraction.
+  `src/fp_guard.h` is the tripwire: `#error` on `__FAST_MATH__`,
+  `__FINITE_MATH_ONLY__` = 1, GCC's `__ASSOCIATIVE_MATH__` /
+  `__RECIPROCAL_MATH__` / `__NO_SIGNED_ZEROS__`, and `_M_FP_FAST`. Clang
+  defines no macro for `-fassociative-math` or `-freciprocal-math` given
+  alone, so for those the override is the only defence. ctest checks
+  both halves: `fp_guard_override` (fast flag, then `CORVUS_FP_FLAGS`;
+  the guard stays silent, and NaN and signed zero stay IEEE) and
+  `fp_guard_tripwire` (fast flag alone; the build must stop on the
+  guard's text). The public-API tests take `CORVUS_FP_FLAGS` too (#78
+  I-5). For icpx (`IntelLLVM`), the override is unvalidated.
 - Highway: uses system install if `find_package(hwy)` succeeds, else
   FetchContent of a pinned version (network on first configure). The pin
   tracks the version the accuracy audit ran against — bump only with a

@@ -1,6 +1,11 @@
 // SIMD op facade. Kernels use only corvus::HWY_NAMESPACE::ops — never hn::
 // directly. To migrate to std::simd later, reimplement this file; kernels
 // are untouched. Per-target include guard (Highway -inl.h idiom).
+
+// Every kernel TU includes this file, so the fast-math tripwire (#78) lives
+// here, outside the per-target guard.
+#include "src/fp_guard.h"
+
 #if defined(CORVUS_OPS_INL_H_) == defined(HWY_TARGET_TOGGLE)
 #ifdef CORVUS_OPS_INL_H_
 #undef CORVUS_OPS_INL_H_

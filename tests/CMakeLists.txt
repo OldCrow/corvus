@@ -1,8 +1,11 @@
 # Apply the same dev warnings as the library (CORVUS_WARN_FLAGS from the
-# top-level lists; empty unless CORVUS_DEV_WARNINGS).
+# top-level lists; empty unless CORVUS_DEV_WARNINGS). CORVUS_FP_FLAGS too
+# (#78 I-5): these targets only call the public API, but the harness's own
+# arithmetic -- ULP distances, real-error residuals -- should not change
+# with the compiler's contraction or fast-math default.
 function(corvus_test_target name)
   target_link_libraries(${name} PRIVATE corvus::corvus)
-  target_compile_options(${name} PRIVATE ${CORVUS_WARN_FLAGS})
+  target_compile_options(${name} PRIVATE ${CORVUS_WARN_FLAGS} ${CORVUS_FP_FLAGS})
 endfunction()
 
 # A test that compiles an INTERNAL kernel header instead of linking the public
@@ -49,6 +52,32 @@ endif()
 # #36: the Windows toolchain verdicts, in script mode so every leg runs them.
 add_test(NAME toolchain_guard
   COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchain_guard_test.cmake)
+
+# #78: the fast-math override and its tripwire (tests/fp_guard_probe.cpp).
+# The compiler's fast-math spelling goes first, where a parent project's
+# CMAKE_CXX_FLAGS would put it. MSVC covers clang-cl.
+if(MSVC)
+  set(corvus_fast_math_flag /fp:fast)
+else()
+  set(corvus_fast_math_flag -ffast-math)
+endif()
+# CORVUS_FP_FLAGS after it must silence the guard. Built in ALL, so an
+# override that stops working breaks the build.
+add_executable(fp_guard_override fp_guard_probe.cpp)
+target_include_directories(fp_guard_override PRIVATE ${PROJECT_SOURCE_DIR})
+target_compile_options(fp_guard_override PRIVATE
+  ${corvus_fast_math_flag} ${CORVUS_FP_FLAGS})
+add_test(NAME fp_guard_override COMMAND fp_guard_override)
+# Without them the guard must fire. Built only by its test, which passes on
+# the #error text, so a build failing for any other reason does not pass.
+add_executable(fp_guard_tripwire EXCLUDE_FROM_ALL fp_guard_probe.cpp)
+target_include_directories(fp_guard_tripwire PRIVATE ${PROJECT_SOURCE_DIR})
+target_compile_options(fp_guard_tripwire PRIVATE ${corvus_fast_math_flag})
+add_test(NAME fp_guard_tripwire
+  COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}
+          --target fp_guard_tripwire --config $<CONFIG>)
+set_tests_properties(fp_guard_tripwire PROPERTIES
+  PASS_REGULAR_EXPRESSION "corvus: value-unsafe floating-point mode")
 
 add_executable(test_exp_dd test_exp_dd.cpp)
 corvus_kernel_test_target(test_exp_dd)
