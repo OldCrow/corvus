@@ -18,9 +18,8 @@ digamma/trigamma LeadTail evaluators, GammaSeriesSum/GammaInvSeedSum
 not re-synced: <= 2^-57.8 relative in x; deep-small real max 0.5012 /
 0.4994 ulp). Doctrine rule 3: claim twins in ACCURACY.md carry
 `<!-- TWIN: -->` markers. Optional slice-prefactor hoist not done.
-Next: row B3 (#80 part 1).** [DERIVED]
-- **#77 close [OPEN]:** `gh issue close 77` was blocked by the auto-mode
-  classifier; close it with the commit and guard.
+#77 closed with the commit and its guard. Next: row B3 (#80 part 1).**
+[DERIVED]
 
 **Row B1 (#86) DONE 2026-10-28 on Z: `537ba3b`, CI 40782653042 green
 on all three jobs. All 140 Dekker-product sites carry a `// FLOOR:`
