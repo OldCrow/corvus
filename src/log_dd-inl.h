@@ -134,9 +134,12 @@ HWY_INLINE Dd<D> LogDd(D d, op::V<D> x) {
   // Fast2Sum because r passes through zero inside each slot, so no ordering
   // between the two halves can be assumed.
   const auto p = op::Mul(rj, m);
+  // FLOOR: m is centred on 1 and R_j ~ 1/m, so R_j*m ~ 1.
   const auto r = TwoSum(d, op::Sub(p, op::Set(d, 1.0)), op::ProdLow(d, rj, m, p));
 
   const Dd<D> ln2{op::Set(d, detail::kLogLn2Hi), op::Set(d, detail::kLogLn2Lo)};
+  // FLOOR: kf is an integer exponent (|kf| <= 1024 for the positive normal
+  // x.hi this takes), so ln2*kf is 0 or >= 0.69.
   return DdAdd(d, DdAdd(d, DdMulD(d, ln2, kf), lj), Log1pDd(d, r));
 }
 
@@ -169,6 +172,7 @@ HWY_INLINE Dd<D> LogDdAny(D d, Dd<D> x) {
   const Dd<D> xs{op::Mul(x.hi, s), op::Mul(x.lo, s)};  // exact: power of two
   const Dd<D> ln2{op::Set(d, detail::kLogLn2Hi), op::Set(d, detail::kLogLn2Lo)};
   // e is exactly zero on the common path, so this add is a no-op there.
+  // FLOOR: e is 0 or -600, so ln2*e is 0 or ~416.
   return DdAdd(d, LogDd(d, xs), DdMulD(d, ln2, e));
 }
 

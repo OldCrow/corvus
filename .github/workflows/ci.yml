@@ -47,6 +47,12 @@ jobs:
         with:
           persist-credentials: false
 
+      # #86: every Dekker-product site states its floor argument
+      # (docs/NUMERICAL-DOCTRINE.md, hazard rules). A new site without a
+      # `// FLOOR:` argument fails here, before the build.
+      - name: Floor lint (strict)
+        run: python3 tools/hunt/floor_lint.py --strict
+
       # Every tier is capped explicitly and the reached target is ASSERTED via
       # CORVUS_EXPECT_TARGET — hosted runner ISA is not guaranteed (some are
       # AVX-512-capable), so an uncapped run would silently test whatever

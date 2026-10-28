@@ -321,6 +321,11 @@ HWY_INLINE Dd<D> BetaGlT(D d, op::V<D> huge, op::V<D> ss, Dd<D> w, Dd<D> lv) {
   const auto hs = op::Mul(half, gdn);             // exact power of two
   auto neff = TwoSum(d, op::Mul(huge, gdn), op::Mul(sm1.hi, hs));
   neff = DdAddD(d, neff, op::Mul(sm1.lo, hs));
+  // FLOOR: callers pass only R2 lanes (beta's and betainv's gamma-limit
+  // slices), and R1 claims every lane whose tiny side has w <= xi1 = 0.45
+  // and huge*w <= B1 = 8 in either orientation. So w <= 0.45 gives t >=
+  // huge*w*(1 - 2^-48) > 7.9, and w > 0.45 gives |lx| > 0.59 with huge >=
+  // 2^47: t >= ~8, or >= ~2^-197 in the 2^-200 frame.
   const auto tds = DdMul(d, lx, Dd<D>{op::Neg(neff.hi), op::Neg(neff.lo)});
   return Dd<D>{op::Mul(tds.hi, gup), op::Mul(tds.lo, gup)};
 }
@@ -691,14 +696,15 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   const auto bs = op::Mul(b, dn);
   const auto c = TwoSum(d, as, bs);  // exact and finite by construction
 
-  const auto a0 = TwoProd(d, as, y.hi);
   // FLOOR: a residual word (y.lo, xi.lo: possibly subnormal) or a tiny xi
-  // puts a product at the floor; it enters lambda additively with <=
+  // or y puts a product at the floor; it enters lambda additively with <=
   // 2^-1071 error, far under lambda's nu*2^-157 budget (nu >= 5*2^-200).
+  const auto a0 = TwoProd(d, as, y.hi);
+  // FLOOR: as a0 above.
   const auto a1 = TwoProd(d, as, y.lo);
-  // FLOOR: as a1 above.
+  // FLOOR: as a0 above.
   const auto b0 = TwoProd(d, bs, xi.hi);
-  // FLOOR: as a1 above.
+  // FLOOR: as a0 above.
   const auto b1 = TwoProd(d, bs, xi.lo);
   const auto lead = TwoSum(d, a0.hi, op::Neg(b0.hi));  // exact
   Dd<D> lam{lead.hi, lead.lo};
@@ -709,6 +715,8 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   lam = DdAddD(d, lam, a1.lo);
   lam = DdAddD(d, lam, op::Neg(b1.lo));
 
+  // FLOOR: as v below, mirrored: alpha*phi(u) ~ lambda*u/2 moves by <=
+  // |lambda|*2^-1071 in cpsi.
   const auto u = DdMul(d, DdNeg(d, lam), DdRecip(d, as));
   // FLOOR: |v| < 2^-968 errs by <= 2^-1071, moving beta*phi(v) ~ lambda*v/2
   // by <= |lambda|*2^-1071 in cpsi (unscaled). Unsaturated lanes (cpsi <=
@@ -756,8 +764,10 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   // FLOOR: c*xi < 2^-968 gives 1 + u = c*xi/alpha < 2^-771 (alpha >= 10 *
   // 2^-200 scaled), so cpsi > 10*530 > 800 even if the error moves ln(1+u)
   // by O(1): the lane saturates in BetaClampE (and for betainv sits e^-5000
-  // below any target). Same for wuc's DdDivDd.
+  // below any target). Same for wuc's DdDivDd, and mirrored for c*y (1 + v
+  // = c*y/beta, beta >= 10) and wvc.
   const auto cxi = DdMul(d, c, xi);
+  // FLOOR: as c*xi above, mirrored.
   const auto cyv = DdMul(d, c, y);
   const Dd<D> num_u{op::IfThenElse(cor_u, cxi.hi, as),
                     op::IfThenElse(cor_u, cxi.lo, mzero)};
@@ -775,6 +785,11 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
                  op::IfThenElse(cor_v, wvc.lo, wvg.lo)};
 
   // Both phi are >= 0, so this sum never cancels.
+  // FLOOR: alpha*phi(u) and beta*phi(v) reach the floor only for tiny
+  // lambda (phi ~ u^2/2); each then errs by <= 2^-1071 absolute in cpsi
+  // (<= 2^-871 after the 2^200 scale-back). That is absolute in e^-cpsi's
+  // exponent, and moves z = sqrt(cpsi) and zeta by <= 2^-435 absolute
+  // where cpsi ~ 0, i.e. on the ridge crest, where the result is ~1/2.
   const auto cs = DdAdd(d, DdMulD(d, Log1pmxDd(d, u, wu), as),
                         DdMulD(d, Log1pmxDd(d, v, wv), bs));
 
@@ -789,6 +804,10 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   // on 484 such lanes (max 2^1000..2^1023) SSE2 = AVX3 bits but for three
   // 1-ulp flips, which recur identically at max ~2^650 (no floor there).
   const auto nus = DdMulD(d, DdMulD(d, rc, bs), as);
+  // FLOOR: z2 = cpsi/nu = zeta^2 reaches the floor only with cs (tiny
+  // lambda); its <= 2^-1071 absolute error moves zeta = sqrt(z2) by
+  // <= 2^-535, a Chebyshev-variable shift in S, which enters as
+  // S/sqrt(2 pi nu) next to an O(1) result.
   const auto z2 = DdMul(d, cs, DdRecipDd(d, nus));
 
   // Aggregate-initialized, never default-constructed: an implicitly
@@ -1144,10 +1163,16 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
   const auto z = DdSqrt(d, ps.cpsi);
   const Dd<D> twopi{op::Set(d, detail::kGammaTwoPiHi),
                     op::Set(d, detail::kGammaTwoPiLo)};
+  // FLOOR: live R3 lanes have nu >= 20 (T_ridge, or kBetaGlRidgeMin on the
+  // gamma-limit ridge) and nu is clamped to 2^900, so 2*pi*nu >= 125;
+  // discarded lanes are selected away.
   const auto rv = DdRecipDd(
       d, DdSqrt(d, DdMulD(d, twopi,
                           op::Min(ps.nu.hi, op::Set(d, kBetaTwoPiNuClamp)))));
   const auto sg = op::Neg(op::CopySign(one, ps.lam));
+  // FLOOR: rv > 2^-452 (the clamp). A product below the floor (a tiny sum)
+  // errs by <= 2^-1071 absolute, and s_rv only enters next to half_erfc >=
+  // 2^-41 (core, under exd <= 1) or gtd >= 2^-7 (tail). GammaTemme's twin.
   const auto s_rv = DdMulD(d, rv, op::Mul(sg, sum));
 
   const auto ea = BetaClampE(d, op::Neg(ps.cpsi.hi), op::Neg(ps.cpsi.lo));
@@ -1198,6 +1223,8 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
                           op::Set(d, detail::kGammaTailZHi));
   const auto two_z = op::Add(zt, zt);
   const auto r2z = DdRecip(d, two_z);
+  // FLOOR: r2z in [1/57, 1/10] (zt clamped to [5, 28.5]), G ~ 0.56: gtd >=
+  // 2^-7.
   const auto gtd = DdMul(d, GammaTailG(d, r2z), r2z);
   const auto live_tail =
       op::Ge(op::Set(d, -detail::kBetaExpFloor), ps.cpsi.hi);
@@ -1208,6 +1235,12 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
       zero);
   const auto brk_tail = DdAdd(d, s_rv, DdAddD(d, gtd, op::Neg(zlo_corr)));
   const auto exf = ExpDdFrac(d, ea.hi, ea.lo);
+  // FLOOR: exf.m in ~[1, 2]; brk_tail = e^cpsi*(the direct side) > 0, whose
+  // leading uniform term is O(1)/(|xi/p - 1| sqrt(2 pi nu)), >= ~1/sqrt(2 pi
+  // nu) on the ridge box (xi/p in [1/2, 2]); a live tail lane has nu <=
+  // 2^900 (above it only lambda == 0 is unsaturated, a core lane), so
+  // brk_tail > ~2^-452.
+  // GammaTemme's twin; core and saturated lanes discard tail.
   const auto tail = BetaScale(d, DdMul(d, exf.m, brk_tail), exf.e);
 
   const auto tm = op::Gt(ps.cpsi.hi, op::Set(d, kBetaZ2Split));
@@ -1378,6 +1411,9 @@ HWY_NOINLINE BetaR4Out<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb,
       d, op::IfThenElse(gt1, op::Add(one, one), one),
       op::IfThenElse(gt1, op::Sub(tau, one), tau));
 
+  // FLOOR: both callers pass R4-box lanes (routed R4 or near-one R1, xi <=
+  // xi1 = 0.45) or the scrub point (2^-6, xi = 1/4), so |ln xi| >= 0.79; tau
+  // is >= 2^-950, or tau*2^700 >= 2^-374 on tsub lanes: |w| > 2^-951.
   auto w = DdMulD(d, lxi, tau);
   w = DdAdd(d, w, LgammaDiffDd(d, bb, tau));
   w = DdSub(d, w, lg1);
@@ -1786,6 +1822,8 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       const auto bs = op::IfThenElse(ea.sat, safe_b, beta);
       const auto xs = op::IfThenElse(ea.sat, safe_x, xi.hi);
       const auto ex = ExpDdFrac(d, ea.hi, ea.lo);
+      // FLOOR: ex.m in ~[1, 2]; the series factor 1 + alpha*s is >= e^-10.6
+      // on R1's box (BetaR1Series' note); saturated lanes run at safe_*.
       auto r1 = BetaScale(d, DdMul(d, ex.m, BetaR1Series(d, as, bs, xs)), ex.e);
       r1.v = op::IfThenElse(ea.sat, zero, r1.v);
       r1.dd.hi = op::IfThenElse(ea.sat, zero, r1.dd.hi);
@@ -1809,6 +1847,9 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       const Dd<D> xs{op::IfThenElse(ea.sat, safe_x, xi.hi),
                      op::IfThenElse(ea.sat, zero, xi.lo)};
       const auto ex = ExpDdFrac(d, ea.hi, ea.lo);
+      // FLOOR: ex.m in ~[1, 2]; F = 2F1(alpha+beta, 1; alpha+1; xi) >= 1
+      // (DLMF 8.17.8: every series coefficient is positive), and saturated
+      // lanes run at safe_*.
       auto r2 =
           BetaScale(d, DdMul(d, ex.m, BetaR2Cf(d, as, bs, cs, xs)), ex.e);
       r2.v = op::IfThenElse(ea.sat, zero, r2.v);
@@ -2010,6 +2051,10 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
         d, rk0, op::Neg(op::Mul(tlr, op::MulAdd(smt, rk0.hi, one))));
     const Dd<D> fac{op::IfThenElse(m_ser, ser.hi, cfr.hi),
                     op::IfThenElse(m_ser, ser.lo, cfr.lo)};
+    // FLOOR: ex.m in ~[1, 2]. Series lanes: fac = Sum (>= 1) plus a t.lo/t
+    // ~ 2^-53 first-order term. CF lanes: fac ~ 1/K >= ~1/(t + 1), and an
+    // unsaturated lane has E_g = s ln t - t - lgamma(s) > -800 with s <
+    // 2^47, so t < 2^53 and fac > 2^-54; saturated lanes run at (1, SatT).
     auto gl = BetaScale(d, DdMul(d, ex.m, fac), ex.e);
     gl.v = op::IfThenElse(ea.sat, zero, gl.v);
     gl.dd.hi = op::IfThenElse(ea.sat, zero, gl.dd.hi);
@@ -2166,6 +2211,8 @@ HWY_NOINLINE op::V<D> LbetaVec(D d, op::V<D> a, op::V<D> b) {
   const auto cs = TwoSum(d, mms, ms);  // c' = (m + M)*2^-64, exact dd
   const auto lr1 = OutlinedLogDd(d, DdDivDd(d, cs, Dd<D>{ms, zero}));   // ln(c/m)
   const auto lr2 = OutlinedLogDd(d, DdDivDd(d, cs, Dd<D>{mms, zero}));  // ln(c/M)
+  // FLOOR: ms, mms >= 2^990*2^-64 = 2^926 (and <= 2^960); lr1 = ln(c/m) >=
+  // ln 2 and lr2 = ln(1 + m/M) >= ~2^-35 (m >= 2^990, M < 2^1024).
   auto acc = DdAdd(d, DdMulD(d, lr1, ms), DdMulD(d, lr2, mms));
   // Scale back exactly; overflow here IS the -inf boundary (see header).
   const auto up = op::Set(d, kLbetaScaleUp);

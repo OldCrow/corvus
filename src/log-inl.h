@@ -136,6 +136,8 @@ CORVUS_OUTLINE LogFastResult<D> LogFast(D d, op::V<D> x) {
   // below ProdLow's (<= ulp(p)/2) and Fast2Sum is exact.
   const auto p = op::Mul(rj, m);
   const auto a = op::Sub(p, op::Set(d, 1.0));
+  // FLOOR: m is centred on 1 (~[0.70, 1.41]) and R_j ~ 1/m, so p ~ 1; lanes
+  // outside the positive normal range are discarded (ok below).
   const auto pl = op::ProdLow(d, rj, m, p);
   const auto rh = op::Add(a, pl);
   const auto rl = op::Sub(pl, op::Sub(rh, a));
@@ -149,6 +151,8 @@ CORVUS_OUTLINE LogFastResult<D> LogFast(D d, op::V<D> x) {
   q = op::MulAdd(q, rh, op::Set(d, -0.25));
   q = op::MulAdd(q, rh, op::Set(d, 1.0 / 3.0));
   const auto sq = op::Mul(rh, rh);
+  // FLOOR: rh is 0 or a multiple of ulp(R_j)*ulp(m) >= 2^-107 (a is a
+  // multiple of ulp(p), pl of that product grid), so rh^2 >= 2^-214.
   const auto sql = op::SquareLow(d, rh, sq);  // exact
   const auto half = op::Set(d, 0.5);
   const auto h = op::Mul(sq, half);  // exact halving
@@ -160,6 +164,7 @@ CORVUS_OUTLINE LogFastResult<D> LogFast(D d, op::V<D> x) {
   //   S3 = S2 - h: Fast2Sum (|S2| >= ~2^-8 >> h, or S2 = rh >= h near 1).
   const auto ln2hi = op::Set(d, detail::kLogLn2Hi);
   const auto A = op::Mul(kf, ln2hi);
+  // FLOOR: kf is an integer exponent, |kf| <= 1075: k*ln2hi is 0 or >= 0.69.
   const auto al = op::ProdLow(d, kf, ln2hi, A);
   const auto s1 = Fast2Sum(d, A, lhi);
   const auto s2 = TwoSum(d, s1.hi, rh);

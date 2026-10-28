@@ -215,6 +215,8 @@ HWY_INLINE op::V<D> HalleyFar(D d, op::V<D> x0, Dd<D> wneg) {
   // evaluated alongside (mixed vectors) from recording erfc_core routes.
   CORVUS_ROUTE_SCOPE(d, op::Ge(x0, op::Set(d, 0x1.7fp+2)));
   const auto ssq = op::Mul(x0, x0);
+  // FLOOR: far lanes have x0 in [~6, ~28]; the caller discards this result
+  // on the other lanes (IfThenElse on far).
   const auto slo = op::ProdLow(d, x0, x0, ssq);  // exact: x0 <= ~28 << 2^996
 
   const auto u = op::Div(op::Set(d, 1.0), x0);   // double accuracy suffices

@@ -117,6 +117,13 @@ HWY_INLINE TrigRed<D> TrigReduceSmall(D d, op::V<D> ax) {
 
 // Large-region (Payne-Hanek) reduction on ax. Executes for every lane; the
 // caller blends. See the file header for the exactness derivation.
+//
+// FLOOR: mf is in [2^52, 2^53) and every table chunk is nonzero, the
+// smallest being |c3| >= 2^-167.4 (trig_ph_data.inc, all 1001 rows), so each
+// mf*c_k is >= 2^-115.4; discarded lanes gather a clamped row. On live lanes
+// |f - n| >= ~2^-61.5 (binary64's deepest reduction cancellation, e = 849;
+// the reference set carries every exponent's CF worst cases), so
+// (f - n)*pi/2 is >= 2^-61; other lanes are discarded.
 template <class D>
 HWY_NOINLINE TrigRed<D> TrigReducePh(D d, op::V<D> ax) {
   const op::SignedTag<D> di;

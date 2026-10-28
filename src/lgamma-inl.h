@@ -153,6 +153,9 @@ HWY_INLINE Dd<D> LgammaStirling(D d, op::V<D> x) {
   // the low end), and x <= kLgammaMaxArg keeps the split under its ceiling.
   const auto down = op::Set(d, 0x1p-200);
   const auto up = op::Set(d, 0x1p200);
+  // FLOOR: x in [8, kLgammaMaxArg ~ 2^1014] (Stirling lanes; the driver
+  // passes Max(x, X0) on mixed vectors), so log x - 1 is in [1.07, 703] and
+  // x*2^-200 in [2^-197, 2^814]: the product is >= 2^-197.
   auto st = DdMulD(d, DdAddD(d, l, op::Set(d, -1.0)), op::Mul(x, down));
   st = Dd<D>{op::Mul(st.hi, up), op::Mul(st.lo, up)};
 
@@ -213,6 +216,8 @@ HWY_INLINE Dd<D> LgammaLow(D d, op::V<D> x) {
     const auto c1 = op::Lt(x, op::Set(d, detail::kLgammaZoneMid));
     const auto t =
         op::IfThenElse(c1, op::Sub(x, one), op::Sub(x, op::Set(d, 2.0)));
+    // FLOOR: no small lane here, so t = x - 1 or x - 2 is 0 or in
+    // [2^-53, 1/2] (exact by Sterbenz), and |B| >= 0.42: B*t >= 2^-55.
     return DdMulD(d, ZoneBracket(d, t, c1), t);
   }
 
@@ -232,6 +237,8 @@ HWY_INLINE Dd<D> LgammaLow(D d, op::V<D> x) {
     // breaking out returns the identical result.
     if (op::AllFalse(d, fire)) break;
     const auto step = op::Sub(xr, op::Set(d, static_cast<double>(k)));  // exact
+    // FLOOR: prod >= 1 and each factor is 1 or a step >= 3/2 (xr <= X0 keeps
+    // prod <= 7!).
     prod = DdMulD(d, prod, op::IfThenElse(fire, step, one));
     y = op::IfThenElse(fire, step, y);
   }
@@ -300,8 +307,8 @@ HWY_INLINE Dd<D> LogSinc(D d, op::V<D> u) {
   acc = DdAddD(d, acc, op::Mul(s, v.hi));
   acc = DdAdd(d, Dd<D>{op::Set(d, detail::kLgammaSinLeadHi[0]),
                        op::Set(d, detail::kLgammaSinLeadLo[0])},
-              DdMul(d, acc, v));
-  return DdMul(d, acc, v);
+              DdMul(d, acc, v));  // FLOOR: only with v, argued at v above.
+  return DdMul(d, acc, v);        // FLOOR: as acc*v above.
 }
 
 template <class D>

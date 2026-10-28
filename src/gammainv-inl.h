@@ -482,6 +482,9 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
     const auto acs = op::Mul(ac, dn);
     const auto xcs = op::Mul(x, dn);
     const auto ra = DdRecip(d, acs);
+    // FLOOR: the product is u = x/a - 1 itself (0-homogeneous under the
+    // prescale): 0, or >= 2^-54 in magnitude (x - a exact by Sterbenz for x
+    // in [a/2, 2a], a multiple of ulp(a/2); |u| >= 1/2 otherwise).
     const auto u = DdMul(d, TwoSum(d, xcs, op::Neg(acs)), ra);
     // 1 + u = x/a, formed directly and handed to the 2-arg Log1pmxDd (#49).
     // Unlike the forward's Temme band, this E runs on EVERY a >= a_T lane
@@ -492,6 +495,8 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
     // target: a representable root has x/a > e^-38, where w is exact, so
     // the loss only perturbs far iterates, whose m keeps its sign and size.
     const auto w = DdMulD(d, ra, xcs);
+    // FLOOR: phi(u) ~ u^2/2 is 0 or >= 2^-110 (and grows as u -> -1), and
+    // acs >= 20 (or > 2^700 scaled).
     const auto aphi_s = DdMulD(d, Log1pmxDd(d, u, w), acs);
     aphi = Dd<D>{op::Mul(aphi_s.hi, up), op::Mul(aphi_s.lo, up)};
     // mu(a), the Stirling remainder, is lgamma's own tail polynomial in 1/a^2

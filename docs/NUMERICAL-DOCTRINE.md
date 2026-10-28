@@ -127,9 +127,9 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
      argument. A kernel change reruns it, and a newly hit site needs its
      argument before it lands.
   2. Each fix row argues every site in the functions it changes.
-  3. #86 (v1.2.0) argues the rest. Until then the lint is report-only. At
-     zero, CI runs it with `--strict` and new sites cannot land without
-     an argument.
+  3. #86 (v1.2.0) argues the rest. DONE 2026-10-28: all 140 sites carry an
+     argument, and CI's Linux job runs the lint with `--strict`, so a new
+     site cannot land without one.
 - FP contraction is OFF project-wide (`CORVUS_FP_FLAGS`): the dd exactness
   proofs assume IEEE ops as written; fusion is requested in source
   (`ops::MulAdd`), never inferred by the compiler.

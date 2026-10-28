@@ -129,6 +129,14 @@ constexpr double kDigammaDirectRecip = 0x1p-960;
 // t is an ordinary double and whose seam is therefore one honest rounding.
 // The generator replays this exact shape and refuses to emit a table that
 // misses budget -- see tools/gen_digamma_data.py.
+//
+// FLOOR: t is the zone's x - root (|t| in [2^-56, 0.54]: x - root.hi is a
+// multiple of 2^-54 and root.lo = 1.72*2^-54, so |t| >= 0.28*2^-54; the
+// (0, 1) branch shares root.lo and the grid) or the reflection's
+// v = u^2 (<= 1/4, below the floor for |u| < 2^-484). t*s and acc*t reach
+// the floor only for tiny v or a tiny partial sum; each then errs by
+// <= 2^-1071 absolute, added to a lead coefficient (zone |L1| ~ 0.44;
+// sinc/cos leads >= 0.8), so P is off by < 2^-1070 of itself.
 template <class D>
 HWY_INLINE Dd<D> LeadTailDd(D d, Dd<D> t, const double* lead_hi,
                             const double* lead_lo, int n_lead,
@@ -151,6 +159,9 @@ HWY_INLINE Dd<D> LeadTailDd(D d, Dd<D> t, const double* lead_hi,
 // Same shape for a plain-double argument (the asymptotic's w = x^-2): the
 // lead/tail seam IS one rounding, because w carries no more than working
 // precision to begin with.
+//
+// FLOOR: the one caller (DigammaAsymDd) passes w = x^-2 with x in [8, 2^85],
+// so w is in [2^-170, 1/64]; acc stays near H0 = 1/12, so acc*w > 2^-174.
 template <class D>
 HWY_INLINE Dd<D> LeadTailScalar(D d, op::V<D> t, const double* lead_hi,
                                 const double* lead_lo, int n_lead,
@@ -172,6 +183,9 @@ HWY_INLINE Dd<D> LeadTailScalar(D d, op::V<D> t, const double* lead_hi,
 // region core here: fully inlined, the single export becomes one enormous
 // function per target and MSVC's optimizer is superlinear in function size
 // (AGENTS.md). Contraction is off, so outlining cannot change FP semantics.
+//
+// FLOOR: |t| >= 2^-56 (LeadTailDd's note) and P(t) = psi(x)/t is in
+// [0.64, 1.65] (psi' over [1, 2)), so t*P >= 2^-57.
 template <class D>
 HWY_NOINLINE Dd<D> DigammaZoneDd(D d, Dd<D> t) {
   return DdMul(d, t,
@@ -281,6 +295,8 @@ HWY_NOINLINE Dd<D> DigammaAsymDd(D d, op::V<D> x) {
   const auto r = op::Div(one, xc);  // never 1/(x*x): x*x overflows past 1.3e154
   const auto w = op::Mul(r, r);
 
+  // FLOOR: x >= X0 = 8 (the driver passes Max(x, X0) on mixed vectors) and
+  // xc <= 2^85, so w is in [2^-170, 1/64] and S(w) ~ 1/12: term > 2^-174.
   const auto term = DdMulD(
       d,
       LeadTailScalar(d, w, detail::kDigammaAsymHeadHi,
@@ -385,6 +401,10 @@ HWY_NOINLINE Dd<D> DigammaCotDd(D d, op::V<D> u) {
                  detail::kDigammaCosLead, detail::kDigammaCosCoef,
                  detail::kDigammaCosNCoef);
   // u * sinc(u) = sin(pi u)/pi, so the ratio below already carries the pi.
+  // FLOOR: sinc is in [2/pi, 1] and |u| >= 2^-960, so sinc*u > 2^-961. cs
+  // falls below the floor only in cos(pi u)'s zero band at |u| = 1/2, where
+  // the reciprocal is ~pi and the fit is held to absolute 2^-58 anyway: the
+  // floor's <= 2^-1071 error adds < 2^-1069 absolute.
   return DdMul(d, cs, DdRecipDd(d, DdMulD(d, sinc, u)));
 }
 

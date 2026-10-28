@@ -69,6 +69,11 @@ namespace op = ops;
 // discarded lanes (core lanes, saturated lanes with huge z, NaN-scrubbed
 // z = 0) finite. Hot per-vector region inside the outlined Temme cores, so
 // CORVUS_OUTLINE (AGENTS.md).
+//
+// FLOOR: the clamp puts u = 2r in [1/28.5, 1/5], so s = u - C is in
+// [-0.083, 0.083] and g stays within 2% of c[0] ~ 0.56. s*q and s*g reach
+// the floor only for |s| < ~2^-960, and then err by <= 2^-1071 absolute,
+// added to c[k]: the last step adds c[0], far above that error.
 template <class D>
 CORVUS_OUTLINE Dd<D> GammaTailG(D d, Dd<D> r) {
   const auto two = op::Set(d, 2.0);

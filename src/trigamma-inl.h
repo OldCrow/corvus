@@ -116,6 +116,12 @@ constexpr double kTrigammaTinyScale = 0x1p512;
 // invokes the byte-identity protocol on digamma's whole gate set, and ~30
 // duplicated lines are cheaper than a revalidation pass. If a third consumer
 // appears, hoist all of it at once.
+//
+// FLOOR: t is the zone's x - c (|t| <= 1/2; 0 or >= 2^-54, x a double) or
+// the reflection's v = u^2 >= 2^-960 (|u| floored at 2^-480). t*s and acc*t
+// reach the floor only for a tiny partial sum; each then errs by <= 2^-1071
+// absolute, added to a lead coefficient (all >= 0.7 here), so P is off by
+// < 2^-1070 of itself.
 template <class D>
 HWY_INLINE Dd<D> TrigammaLeadTailDd(D d, Dd<D> t, const double* lead_hi,
                                     const double* lead_lo, int n_lead,
@@ -138,6 +144,9 @@ HWY_INLINE Dd<D> TrigammaLeadTailDd(D d, Dd<D> t, const double* lead_hi,
 // Same shape for a plain-double argument (the asymptotic's w = x^-2): the
 // lead/tail seam IS one rounding, because w carries no more than working
 // precision to begin with.
+//
+// FLOOR: the one caller (TrigammaAsymDd) passes w = x^-2 with x in [8, 2^89],
+// so w is in [2^-178, 1/64] and acc stays near the head 1/6: acc*w > 2^-181.
 template <class D>
 HWY_INLINE Dd<D> TrigammaLeadTailScalar(D d, op::V<D> t, const double* lead_hi,
                                         const double* lead_lo, int n_lead,
@@ -165,6 +174,10 @@ HWY_INLINE Dd<D> TrigammaLeadTailScalar(D d, op::V<D> t, const double* lead_hi,
 // (a ~ 2^-480) the split's low limb squares to ~2^-1014, one binade from
 // subnormal, where the residual quietly loses bits. Reciprocating first keeps
 // every operand of every ProdLow inside [2^-480, 2^512] for every caller here.
+//
+// FLOOR: a is a walk step in [1, 7], an (0, 1) lane clamped to [2^-480, 1),
+// or TrigammaTinyRecipSq's as in [1, 2^60]; so r is in [2^-60, 2^480] and
+// r*r in [2^-120, 2^960].
 template <class D>
 HWY_INLINE Dd<D> TrigammaRecipSqDd(D d, op::V<D> a) {
   const auto r = DdRecip(d, a);
@@ -307,12 +320,15 @@ HWY_NOINLINE Dd<D> TrigammaAsymDd(D d, op::V<D> x) {
   // 1/(2x^2) from the dd reciprocal, not from a rounded 2*x*x: that term is
   // ~6% of the result at X0, so a half ulp of its own would land at 2^-57 of
   // the answer -- inside the budget rather than under it.
+  // FLOOR: x >= X0 = 8 (the driver passes Max(x, X0) on mixed vectors) and
+  // xc <= 2^89, so r is in [2^-89, 1/8]: r*r and its half are >= 2^-179.
   const auto half = DdMulD(d, DdMul(d, r, r), op::Set(d, 0.5));
 
   const auto s = TrigammaLeadTailScalar(
       d, w, detail::kTrigammaAsymHeadHi, detail::kTrigammaAsymHeadLo,
       detail::kTrigammaAsymHead, detail::kTrigammaAsymCoef,
       detail::kTrigammaAsymNCoef);
+  // FLOOR: w >= 2^-178 and s ~ 1/6, so s*w > 2^-181 and s*w*r > 2^-270.
   const auto term = DdMul(d, DdMulD(d, s, w), r);  // x^-3 S(x^-2)
 
   // Every term is positive and strictly decreasing, so summing smallest-first
@@ -398,6 +414,10 @@ HWY_NOINLINE op::V<D> TrigammaRoughTetragamma(D d, op::V<D> y_in) {
 // 2^-960 and a quotient near 2^960, whose split intermediate reaches 2^987 --
 // nine binades from the 2^996 ceiling, which is not a margin worth taking for
 // no accuracy gain.
+//
+// FLOOR: |u| is in [2^-480, 1/2] (the caller's floor), so v = u^2 >= 2^-960;
+// sinc is in [2/pi, 1], so |denom| is in [2^-481, 1/pi] and rec*rec in
+// [pi^2, 2^962].
 template <class D>
 HWY_NOINLINE Dd<D> TrigammaReflDd(D d, op::V<D> u) {
   const auto v = TwoProd(d, u, u);  // exact

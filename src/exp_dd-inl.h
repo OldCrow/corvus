@@ -128,6 +128,8 @@ HWY_INLINE ExpDdParts<D> ExpDdFrac(D d, op::V<D> xh, op::V<D> xl) {
   const auto l2 = op::Set(d, detail::kExpL2);
   const auto kl1 = op::Mul(kf, op::Set(d, detail::kExpL1));  // exact
   const auto kl2 = op::Mul(kf, l2);
+  // FLOOR: kf is an integer, |kf| <= 203132 (the 1100 clamp), and L2 ~
+  // 2^-43: kf*L2 is 0 (exact) or in [2^-43, 2^-25].
   const auto kl2_lo = op::ProdLow(d, kf, l2, kl2);  // exact residual
   const auto s0 = TwoSum(d, xh, op::Neg(kl1));
   const auto s1 = TwoSum(d, s0.hi, op::Neg(kl2));

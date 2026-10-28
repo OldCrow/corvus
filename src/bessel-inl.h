@@ -193,6 +193,13 @@ HWY_NOINLINE Dd<D> BesselSeriesS(D d, op::V<D> q_hi, op::V<D> q_lo,
 // decides whether this is the final scaled answer or an input to the
 // unscaled exp_dd assembly, and either way there should be exactly one
 // rounding). HWY_NOINLINE like every other region core.
+// FLOOR: the callers pass ax = Max(ax, 8), finite (inf/NaN lanes are
+// scrubbed to 1 first), so t = 1/ax in (0, 1/8] and s in [-1, 1].
+// acc*s is either 0 (exact) or added to coef[0] ~ 1 with |acc*s| < 0.03:
+// below the floor its <= 2^-1071 error is far under ulp(poly). ax*2^-32 <=
+// 2^992 keeps twopi*ax_ds under the 2^996 ceiling and >= 2^-27 over the
+// floor; denom_ds in [2^-14, 2^497] times 2^16 is exact; recip >= (2*pi*2^1024)^-1/2 >
+// 2^-514 and poly in [0.95, 1.02], so recip*poly > 2^-515.
 template <class D>
 HWY_NOINLINE Dd<D> BesselTailIveDd(D d, op::V<D> ax, const double* coef,
                                    int n_coef, double scale, double shift) {
@@ -288,6 +295,7 @@ HWY_NOINLINE BesselPair<D> BesselNu0(D d, op::V<D> x) {
         detail::kBesselI0SeriesCoef, detail::kBesselI0SeriesNCoef,
         detail::kBesselI0SeriesDCoef, kBesselI0SeriesNDCoef);
     const auto exp_neg = OutlinedExpDd(d, op::Neg(ax_s), zero);
+    // FLOOR: s0 = S0(q) >= 1 and exp_neg = e^-ax_s >= e^-8 (ax_s <= split).
     i0e_series = DdMul(d, s0, exp_neg);
     i0_series_val = op::Add(s0.hi, s0.lo);
   }
@@ -301,6 +309,7 @@ HWY_NOINLINE BesselPair<D> BesselNu0(D d, op::V<D> x) {
         detail::kBesselI0TailScale, detail::kBesselI0TailShift);
 
     const auto parts = BesselExpDdFrac(d, ax_t, zero);
+    // FLOOR: ive_tail > 2^-515 (BesselTailIveDd's note), parts.m in ~[1, 2].
     const auto prod = DdMul(d, ive_tail, parts.m);
     const auto sc_hi = ScaleTwo(d, prod.hi, parts.e);
     const auto sc_lo = ScaleTwo(d, prod.lo, parts.e);
@@ -405,6 +414,7 @@ HWY_NOINLINE BesselPair<D> BesselNu1(D d, op::V<D> x) {
         detail::kBesselI1TailScale, detail::kBesselI1TailShift);
 
     const auto parts = BesselExpDdFrac(d, ax_t, zero);
+    // FLOOR: ive_tail > 2^-515 (BesselTailIveDd's note), parts.m in ~[1, 2].
     const auto prod = DdMul(d, ive_tail, parts.m);
     const auto sc_hi = ScaleTwo(d, prod.hi, parts.e);
     const auto sc_lo = ScaleTwo(d, prod.lo, parts.e);

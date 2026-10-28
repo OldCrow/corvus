@@ -318,6 +318,9 @@ HWY_NOINLINE Dd<D> GammaCfRecip(D d, op::V<D> a, op::V<D> x) {
   Dd<D> k{kd, op::Zero(d)};
   for (int j = kGammaCfDdSteps; j >= 1; --j) {
     const auto jv = op::Set(d, static_cast<double>(j));
+    // FLOOR: fl(j - a) is 0 (a == j, exact) or >= 2^-53 in magnitude (exact
+    // by Sterbenz for a in [j/2, 2j], hence a nonzero multiple of ulp(a/2);
+    // >= j/2 otherwise), and j >= 1.
     const auto num = DdMulD(d, TwoSum(d, jv, ma), jv);  // j*(j-a)
     const auto den = DdAddD(
         d, TwoSum(d, x, op::Set(d, static_cast<double>(2 * j - 1))), ma);
@@ -567,8 +570,13 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
   const auto up = op::IfThenElse(big, op::Set(d, kGammaScaleUp), one);
   const auto as = op::Mul(a, dn);
   const auto xs = op::Mul(x, dn);
+  // FLOOR: the product is u = (x - a)/a itself (0-homogeneous, so the
+  // prescale leaves it alone). On live lanes x - a is exact (Sterbenz) and
+  // either 0 or a multiple of ulp(a/2), so |u| is 0 or >= 2^-54; discarded
+  // lanes (tiny x among them) are scrubbed downstream.
   const auto u = DdMul(d, TwoSum(d, xs, op::Neg(as)), DdRecip(d, as));
   const auto phi = Log1pmxDd(d, u);
+  // FLOOR: phi ~ u^2/2 is 0 or >= 2^-110 and as >= 20 (or > 2^700 scaled).
   const auto aphi_s = DdMulD(d, phi, as);
   const auto aphi = Dd<D>{op::Mul(aphi_s.hi, up), op::Mul(aphi_s.lo, up)};
 
@@ -598,9 +606,13 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
 
   const Dd<D> twopi{op::Set(d, detail::kGammaTwoPiHi),
                     op::Set(d, detail::kGammaTwoPiLo)};
+  // FLOOR: a is clamped to [20, 2^900], so 2*pi*a >= 125.
   const auto rv = DdRecipDd(
       d, DdSqrt(d, DdMulD(d, twopi,
                           op::Min(a, op::Set(d, kGammaTwoPiAClamp)))));
+  // FLOOR: rv >= (2*pi*2^900)^-1/2 > 2^-452. A product below the floor (a
+  // tiny sum) errs by <= 2^-1071 absolute, and s_rv only enters next to
+  // half_erfc >= 2^-41 (core, under exd <= 1) or gtd >= 2^-7 (tail).
   const auto s_rv = DdMulD(d, rv, op::Mul(sgn, sum));
 
   // GammaClampE's NaN -> floor rule assumes every NaN lane is hundreds of
@@ -657,6 +669,8 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
                           op::Set(d, detail::kGammaTailZHi));
   const auto two_z = op::Add(zt, zt);
   const auto r2z = DdRecip(d, two_z);
+  // FLOOR: r2z = 1/(2 zt) is in [1/57, 1/10] (zt clamped to [5, 28.5]) and
+  // G ~ 0.56 (GammaTailG), so gtd >= 2^-7.
   const auto gtd = DdMul(d, GammaTailG(d, r2z), r2z);
   const auto live_tail =
       op::Ge(op::Set(d, -detail::kGammaExpFloor), aphi.hi);
@@ -667,6 +681,11 @@ HWY_NOINLINE GammaTemmeOut<D> GammaTemme(D d, op::V<D> a, op::V<D> x) {
       zero);
   const auto brk_tail = DdAdd(d, s_rv, DdAddD(d, gtd, op::Neg(zlo_corr)));
   const auto exf = ExpDdFrac(d, ea.hi, ea.lo);
+  // FLOOR: exf.m is in ~[1, 2]. brk_tail = e^{a phi}*(the direct side) > 0;
+  // its leading uniform term is ~1/(|lambda - 1| sqrt(2 pi a)) >= 1/sqrt(2 pi
+  // a), and a live tail lane has a <= 2^900 (above the clamp only x == a is
+  // unsaturated, a core lane): brk_tail > ~2^-452. Core and saturated lanes
+  // discard tail.
   const auto tail = GammaScale(d, DdMul(d, exf.m, brk_tail), exf.e);
 
   const auto tm = op::Gt(aphi.hi, op::Set(d, kGammaTemmeZ2Split));
@@ -796,6 +815,7 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
       const auto as = op::IfThenElse(ea.sat, safe_a, a);
       const auto xs = op::IfThenElse(ea.sat, safe_x, x);
       const auto ex = ExpDdFrac(d, ea.hi, ea.lo);
+      // FLOOR: ex.m is in ~[1, 2] and the series sum is >= 1 (terms >= 0).
       auto r1 = GammaScale(d, DdMul(d, ex.m, GammaSeriesSum(d, as, xs)), ex.e);
       r1.v = op::IfThenElse(ea.sat, zero, r1.v);
       r1.dd.hi = op::IfThenElse(ea.sat, zero, r1.dd.hi);
@@ -816,6 +836,10 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
       const auto as = op::IfThenElse(ea.sat, safe_a, a);
       const auto xs = op::IfThenElse(ea.sat, safe_x, x);
       const auto ex = ExpDdFrac(d, ea.hi, ea.lo);
+      // FLOOR: ex.m is in ~[1, 2]; 1/K ~ 1/(x + 1 - a), and saturated lanes
+      // run at (a, x) = (1, 3), so live lanes have E > -800, which bounds x
+      // below ~8000 (a < 20: x < ~900; a >= 20 needs x >= 2a, a < ~2600):
+      // 1/K > 2^-14.
       auto r2 = GammaScale(d, DdMul(d, ex.m, GammaCfRecip(d, as, xs)), ex.e);
       r2.v = op::IfThenElse(ea.sat, zero, r2.v);
       r2.dd.hi = op::IfThenElse(ea.sat, zero, r2.dd.hi);
