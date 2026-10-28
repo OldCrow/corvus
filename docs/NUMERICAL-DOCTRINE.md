@@ -144,6 +144,11 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   2. A fix commit greps the changed pattern and the TWIN markers, then
      either fixes each twin in the same change or files an issue naming it.
      The commit message lists the twins and what happened to each.
+  3. Claims have twins too [#77]. When docs/ACCURACY.md states the same
+     mechanism or bound for two families (gammainv's and betainv's
+     deep-small and subnormal errata), each statement carries
+     `<!-- TWIN: "<section>", <paragraph> -->` naming the other. A
+     correction to one claim reaches the other in the same change.
   Incidents: #47's R4 seam fix (beta-inl.h, order row 5) missed
   BetaInvForward's copy of the router until #55 traced a betainv failure
   to it (row 9). #57's z.lo fold and #64's dd G (gamma's Temme tail) missed

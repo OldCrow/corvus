@@ -1247,6 +1247,7 @@ where the root lies about 2e-17 ulp above 2^-1075, so denorm_min is
 the correctly rounded value. #72's single rounding now returns
 denorm_min there. Both witnesses are reference rows, and both cells
 state 1 ULP, as betainv's do.
+<!-- TWIN: "beta_p_inv and beta_q_inv", Errata bullet (deep-small and subnormal results) -->
 
 **Small a on the upper tail, closed (#48).** For a below ~0.5 and
 targets with q/a between ~0.01 and ~100 no seed applied: S1 is barred
@@ -1427,6 +1428,7 @@ regime always contains but does not end at).
   (798 failures) are gone, and a forward-free swap-identity check
   (x = 1 − beta_q_inv(b, a, p)) now covers the same grids; on the
   previous kernel it fails 140 points.
+<!-- TWIN: "gamma_p_inv and gamma_q_inv", Erratum (#76) (deep-small and subnormal results) -->
 - *Errata.* Two rows of the table above once read "0 ULP — correctly
   rounded": the deep-small closed form and subnormal/x = 1 results.
   No release met that: the gate was always 1 ULP and 1 ULP is what

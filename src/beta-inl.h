@@ -1957,6 +1957,9 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // ~ s^2/(2*huge), not O(1/huge) -- 11,592 ulp at s = 2000 on the pin.
   // With it, < 2^-60 at huge >= 2^45 for every unsaturated s (BetaGlT;
   // gated as its own ULP row -- gammalim).
+  // TWIN: gamma-inl.h GammaVec's region map (the R1/R2 rule, as i_ser
+  // below), and betainv-inl.h BetaInvForward's slice (C), which copies
+  // this whole slice.
   // The sub-map mirrors gamma-inl.h's own routing verbatim (series for
   // s < kGammaAT and t <= s+1, or s >= kGammaAT and s >= 2t; CF otherwise;
   // gamma's in-band Temme case cannot occur here, those lanes are R3's --
@@ -2003,6 +2006,9 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     // t > 0, dd, with the (s-1)/2 shift (#54), the log1p-form lx and the
     // huge-parameter prescale -- see BetaGlT.
     const auto t_dd = BetaGlT(d, huge, ss, w_gl, lv_gl);
+    // TWIN: betainv-inl.h BetaInvForward slice (C): e_g, i_ser, tlr,
+    // sum0/rk0 and the t.lo corrections. betainv keeps the value in log
+    // space; everything else must stay in step.
     // PREFACTOR AT THE FULL dd t, FACTOR CORRECTED FOR t.lo (#54). E_g =
     // s*ln t - t - lgamma(s) takes t as a dd, which carries the e^-t
     // sensitivity exactly however large t.lo is in absolute terms (betainv

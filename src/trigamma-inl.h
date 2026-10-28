@@ -116,6 +116,8 @@ constexpr double kTrigammaTinyScale = 0x1p512;
 // invokes the byte-identity protocol on digamma's whole gate set, and ~30
 // duplicated lines are cheaper than a revalidation pass. If a third consumer
 // appears, hoist all of it at once.
+// TWIN: digamma-inl.h LeadTailDd (and TrigammaLeadTailScalar below:
+// digamma-inl.h LeadTailScalar).
 //
 // FLOOR: t is the zone's x - c (|t| <= 1/2; 0 or >= 2^-54, x a double) or
 // the reflection's v = u^2 >= 2^-960 (|u| floored at 2^-480). t*s and acc*t
@@ -143,7 +145,7 @@ HWY_INLINE Dd<D> TrigammaLeadTailDd(D d, Dd<D> t, const double* lead_hi,
 
 // Same shape for a plain-double argument (the asymptotic's w = x^-2): the
 // lead/tail seam IS one rounding, because w carries no more than working
-// precision to begin with.
+// precision to begin with. TWIN: digamma-inl.h LeadTailScalar.
 //
 // FLOOR: the one caller (TrigammaAsymDd) passes w = x^-2 with x in [8, 2^89],
 // so w is in [2^-178, 1/64] and acc stays near the head 1/6: acc*w > 2^-181.

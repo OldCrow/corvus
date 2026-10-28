@@ -309,7 +309,7 @@ HWY_NOINLINE op::V<D> GammaInvSeedS1(D d, op::V<D> a, op::V<D> t,
 }
 
 // Sum(a, x) = sum_{n>=0} x^n / ((a+1)...(a+n)), plain double, for the S2
-// Picard correction only. Same shape as the forward's GammaSeriesSum (same
+// Picard correction only. TWIN: gamma-inl.h GammaSeriesSum. Same shape (same
 // cap, same clamp of x to the region's own a+1 bound so a discarded lane's
 // enormous x cannot run the terms up to inf and never freeze), but the
 // accumulator is a double: this feeds a seed, and its own rounding is far
@@ -754,12 +754,21 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   const auto lga = LgammaPosDd(d, a);
   const auto lna = OutlinedLogDd(d, a);
   // lgamma(1+a). For a <= 3/2 this MUST come from lgamma's own zone
-  // polynomial at the exact shifted argument, exactly as GammaSmallQ does:
-  // lga (+) lna is a cancellation of two ~|log a| terms whose dd residue is
-  // 2^-105*|log a| ABSOLUTE, and the deep-small branch divides that by a. The
-  // zone form is relative-accurate in a, which is what the tiny-a answers
-  // need. Above 3/2 there is nothing to cancel and the identity is exact
-  // enough (and covers every a up to the overflow boundary).
+  // polynomial at the exact shifted argument: lga (+) lna is a cancellation
+  // of two ~|log a| terms whose dd residue is 2^-105*|log a| ABSOLUTE, and
+  // the deep-small branch divides that by a. The zone form is
+  // relative-accurate in a, which is what the tiny-a answers need. Above 3/2
+  // there is nothing to cancel and the identity is exact enough (and covers
+  // every a up to the overflow boundary).
+  // TWIN: gamma-inl.h GammaSmallQ's lg1a, which since #67 uses centre 2 with
+  // lgamma(2+a) - log(1+a) for a <= 1/2. This copy keeps centre 1 there on
+  // purpose (#77): the zone's ~2^-57 relative error reaches x only as
+  // lg1a's error over a, i.e. <= 2^-57*|B| <= 2^-57.8 relative in x.
+  // GammaSmallQ needed centre 2 because its Q is lg1a's ABSOLUTE error over
+  // a tiny Q.
+  // Measured on the deep-small closed-form strata (2026-10-28, AVX3_ZEN4):
+  // real max 0.5012 ulp (p, worst at a = 0.496, a centre-1 lane) and 0.4994
+  // (q).
   const auto ac = op::Min(a, op::Set(d, kGammaR4AMax));
   const auto c1 = op::Ge(op::Set(d, detail::kLgammaZoneLo), a);
   const auto tz = op::IfThenElse(c1, ac, op::Sub(ac, one));  // exact both ways

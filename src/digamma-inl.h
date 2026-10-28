@@ -129,6 +129,7 @@ constexpr double kDigammaDirectRecip = 0x1p-960;
 // t is an ordinary double and whose seam is therefore one honest rounding.
 // The generator replays this exact shape and refuses to emit a table that
 // misses budget -- see tools/gen_digamma_data.py.
+// TWIN: trigamma-inl.h TrigammaLeadTailDd (a deliberate copy, not shared).
 //
 // FLOOR: t is the zone's x - root (|t| in [2^-56, 0.54]: x - root.hi is a
 // multiple of 2^-54 and root.lo = 1.72*2^-54, so |t| >= 0.28*2^-54; the
@@ -158,7 +159,7 @@ HWY_INLINE Dd<D> LeadTailDd(D d, Dd<D> t, const double* lead_hi,
 
 // Same shape for a plain-double argument (the asymptotic's w = x^-2): the
 // lead/tail seam IS one rounding, because w carries no more than working
-// precision to begin with.
+// precision to begin with. TWIN: trigamma-inl.h TrigammaLeadTailScalar.
 //
 // FLOOR: the one caller (DigammaAsymDd) passes w = x^-2 with x in [8, 2^85],
 // so w is in [2^-170, 1/64]; acc stays near H0 = 1/12, so acc*w > 2^-174.

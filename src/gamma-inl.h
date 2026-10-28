@@ -264,6 +264,9 @@ HWY_INLINE GammaExpArg<D> GammaClampE(D d, op::V<D> eh, op::V<D> el) {
 // function the optimizer sees. Results are bit-identical (contraction is
 // off, so inlining cannot change FP semantics) and the call cost is a few
 // cycles per vector against the cores' hundreds of flops.
+//
+// TWIN: gammainv-inl.h GammaInvSeedSum, a plain-double copy (seed only):
+// same cap, same x clamp, same freeze. A change to any of those reaches it.
 template <class D>
 HWY_NOINLINE Dd<D> GammaSeriesSum(D d, op::V<D> a, op::V<D> x) {
   const auto one = op::Set(d, 1.0);
@@ -396,6 +399,8 @@ HWY_NOINLINE GammaSmallQOut<D> GammaSmallQ(D d, op::V<D> a, op::V<D> x) {
   const auto e = op::ConvertToInt(
       di, op::IfThenElse(tiny_a, op::Set(d, -400.0), zero));
 
+  // TWIN: gammainv-inl.h GammaInvVec's lg1a, which keeps centre-1 for
+  // a <= 1/2 on purpose (its comment says why).
   // lgamma(1+a), always from the CENTRE-2 zone (#67): t = a - 1 (Sterbenz)
   // for a > 1/2, and for a <= 1/2 t = a with lgamma(1+a) = lgamma(2+a) -
   // log(1+a). The centre-1 zone is ~2^-57 relative; Q's error is lg1a's
@@ -743,7 +748,9 @@ HWY_NOINLINE op::V<D> GammaVec(D d, op::V<D> a_in, op::V<D> x_in) {
   }
 
   // TWIN: gammainv-inl.h repeats this region map ("region map: GammaVec's");
-  // a routing change here must be mirrored there.
+  // a routing change here must be mirrored there. The R1/R2 rule is also
+  // copied as i_ser into beta-inl.h's and betainv-inl.h's gamma-limit
+  // slices.
   // --- region map ---------------------------------------------------------
   // lambda <= 1/2 and lambda >= 2 are tested as 2x <= a and x >= 2a: the
   // doublings are exact, and where one overflows to inf the comparison is
