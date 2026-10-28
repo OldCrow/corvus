@@ -8,7 +8,17 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-10-27
+## Status [DERIVED] — 2026-10-28
+
+**Row B1 (#86) DONE 2026-10-28 on Z: `537ba3b`, CI 40782653042 green
+on all three jobs. All 140 Dekker-product sites carry a `// FLOOR:`
+argument (72 new, none false; the R3 tail-bracket and GL CF-factor bounds
+rest on asymptotic estimates, the rest are exact). CI's Linux job runs
+`floor_lint.py --strict` before the build; the lint now lets a comment
+above a multi-line statement cover all of it. Next: row B2 (#77).**
+[DERIVED]
+- **#86 close [OPEN]:** the auto-mode classifier blocked `gh issue close
+  86`; close it with the commit and guard if still open.
 
 **Row A4 (#79 + the A3/A4 regeneration) DONE 2026-10-27 on Z:
 `78c1bbf` + `f9835f0` (MSVC C4456 in the new test blocks), CI
@@ -1919,7 +1929,7 @@ reference rows are regenerated, and regeneration done once. Two more:
 | A2 | ~~#78~~ DONE 2026-10-26 (Z, `b01b162`) — fast-math guard: `#error` on `__FAST_MATH__` / `__FINITE_MATH_ONLY__` / `_M_FP_FAST` and/or `-fno-fast-math` / `/fp:precise` in `CORVUS_FP_FLAGS`, shown to fire under a fast-math consumer build; README sentence; decide I-5 (tests without `CORVUS_FP_FLAGS`) | independent; early because libstats fetches corvus at the pin bump | small | fast-math consumer configure (fail-first) | Z, K (AppleClang), CI |
 | A3 | generators DONE 2026-10-27 (Z, `1780304`; #87/#89 close at A4) — #87 betainv certifier (negative control fails at HEAD, then fix); #89 i1/i1e subnormal midpoint rows resolved by the sign of the first neglected term, and the base generators take `strata_append`'s tie rule | generator fixes before the one regeneration (A4); #87's constraint binds any betainv regen | mid; #89's kernel question is a decision [user] | generator negative controls | Z |
 | A4 | ~~#79 guards at real behaviour: exact row counts (truncation fails), beta symmetry guard 6 → measured, every-lane-position blocks for erf/erfc/lgamma/erfinv/lbeta, `consumer_example` erf(1) bit-exact; adversarial strata (trig > 2^-26, betainv huge-ν tail p, lbeta [0.25, 4]^2), beta R4 tiny-min generator re-budget + cap population. Then regenerate once for A3 + A4 and re-pin on SSE4~~ DONE 2026-10-27 (Z, `78c1bbf` + `f9835f0`; #79/#87/#89 closed; #94 filed) | lane-position blocks are the base of lever 1's lane-mix tests; regeneration once, after A3 | mid | yes — strata, guards, row counts | Z (sweep), CI |
-| B1 | #86 `// FLOOR:` at every remaining Dekker site; `floor_lint.py --strict` in CI | before lever 1, so its new dd sites cannot land without an argument; a false argument is a finding (escalate) | mid | CI lint step | Z, CI |
+| B1 | ~~#86 `// FLOOR:` at every remaining Dekker site; `floor_lint.py --strict` in CI~~ DONE 2026-10-28 (Z, `537ba3b`; CI 40782653042) | before lever 1, so its new dd sites cannot land without an argument; a false argument is a finding (escalate) | mid | CI lint step | Z, CI |
 | B2 | #77 TWIN markers on every copied pair (or recorded not-a-twin); gammainv's lgamma(1+a) copy measured, then re-synced to #67's centre-2 form or reworded; ACCURACY claim twins | lever 1 edits the region cores that are the twins | small–mid | gammainv gates re-measured | Z, CI |
 | B3 | #80 part 1: erf j = 0 (dd 2/√π, single rounding); beta_q R3 gamma-limit ridge margin (pin 1.38 → ≤ 1.25, or documented). Part 2 waits for C3 | erf_core and beta R3 are in lever 1's and #22's files; within-bound, so it never holds the release | mid | real-error pins lowered | CI tiers |
 | B4 | #68 Log1pmxDd seam at the 1/16 cut (raise `kPhiCut` or a log1p-of-small-dd path); measure consumer gates first | before C2 publishes `log1pmx` | small–mid | cut-dense rows re-pinned | Z, CI |
