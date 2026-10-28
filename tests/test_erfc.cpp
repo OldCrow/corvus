@@ -106,7 +106,6 @@ int main() {
   // Every lane position (#79): core, the 6/10/17 splits, the subnormal
   // tail, underflow, the negative axis, specials.
   {
-    const double inf = std::numeric_limits<double>::infinity();
     std::vector<std::array<double, 1>> probes;
     for (const double v : {0.0, 5e-324, 1e-300, 1e-8, 0.25, 0.5, 0.84375, 1.0,
                            2.0, 3.5, 5.9, 6.0, 6.5, 10.0, 17.0, 26.0, 26.5,
@@ -114,7 +113,7 @@ int main() {
       probes.push_back({v});
       probes.push_back({-v});
     }
-    probes.push_back({std::numeric_limits<double>::quiet_NaN()});
+    probes.push_back({nan});
     failures += corvus_test::LaneMix(
         "erfc", probes, [](const auto& c, auto& o) { corvus::erfc(c[0], o); });
   }

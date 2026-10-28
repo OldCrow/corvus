@@ -140,13 +140,12 @@ int main() {
   // each table zone, Stirling, overflow, poles, the reflection side,
   // specials.
   {
-    const double inf = std::numeric_limits<double>::infinity();
     std::vector<std::array<double, 1>> probes;
     for (const double v :
          {5e-324, 1e-310, 1e-300, 1e-8, 0.25, 0.5, 1.0, 1.5, 2.0, 2.5, 3.5,
           4.5, 6.5, 8.0, 10.0, 100.0, 1e5, 1e15, 1e300, 0x1.754d9278b51a7p+1014,
           std::numeric_limits<double>::max(), inf, 0.0, -0.0, -0.5, -1.0, -1.5, -2.5, -7.25, -100.5,
-          -1e15, -1e300, -inf, std::numeric_limits<double>::quiet_NaN()}) {
+          -1e15, -1e300, -inf, nan}) {
       probes.push_back({v});
     }
     failures += corvus_test::LaneMix(

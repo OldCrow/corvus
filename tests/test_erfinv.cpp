@@ -215,8 +215,6 @@ int main() {
   // --- every lane position (#79): central, mid and tail routes, the
   // subnormal tail, the domain edges and outside them, specials -----------
   {
-    const double inf = std::numeric_limits<double>::infinity();
-    const double nan = std::numeric_limits<double>::quiet_NaN();
     std::vector<std::array<double, 1>> pi, pc;
     for (const double v : {0.0, 5e-324, 1e-300, 1e-8, 0.25, 0.5, 0.75, 0.9,
                            0.99, 0.999999, 1.0 - 0x1p-53, 1.0, 1.5, inf}) {
