@@ -1371,7 +1371,7 @@ HWY_NOINLINE BetaR4Out<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb,
   // cancels below it. Original R4 lanes (tau <= eps_R4) are immune --
   // there |lg1| ~ gamma*tau and Qtilde ~ tau*O(10), no amplification --
   // but take the analytic form too: one code path, and the walk is
-  // cheap next to the N=48 series above.
+  // cheap next to the N = kBetaR4N series above.
   const auto gt1 = op::Gt(tau, one);
   CORVUS_ROUTE(d, "beta/R4/lg1_shift", gt1);
   const auto lg1 = LgammaDiffDd(
@@ -1520,9 +1520,10 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   //
   // The window is narrow -- its edge (tau+1)/(tau+B+2) exceeds xi1 only for
   // B < ~0.24, and is always below 1/2 -- and inside it the series is
-  // untroubled: worst N = 48 truncation over the whole extension is
-  // 2^-57.3 (2^-71.9 inside the unwidened box, generator target 2^-58),
-  // because B < 0.24 keeps every term ratio below xi_tau. The other two
+  // untroubled: worst N = kBetaR4N = 56 truncation over the extension is
+  // 2^-67.9 relative to Qtilde (generator check (f); target 2^-58, which
+  // the box and post-route arms gate, #79), because B < 0.24 keeps every
+  // term ratio below xi_tau. The other two
   // caps are the box's own.
   const auto r2_tiny_first = op::Abs(
       op::Sub(BetaInd(d, op::Lt(x, thr)), BetaInd(d, sw4)));

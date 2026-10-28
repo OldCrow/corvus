@@ -99,6 +99,10 @@ class Stratum:
     # ulps: a 1-ULP miss whose exact value lies within this distance of a
     # rounding midpoint is reported as "tie", not as a violation.
     seam: Optional[str] = None                # registry key it targets (T2)
+    ref_cap: Optional[int] = None
+    # ref_cap: rows strata_append.py takes into the reference file, where the
+    # default per-kind cap (120 for a population) is too few to measure the
+    # stratum's not-CR rate (#79's adversarial strata).
     note: str = ""
 
 

@@ -84,7 +84,9 @@ emit nothing), (a)-(h):
       <= 1-2^-12 over a boundary lattice including both escalation
       witnesses and their families.
   (f) R4 series truncation over the corrected closed box (xi_tau<=xi1,
-      B*xi_tau<=B1, tau*|ln xi_tau|<=ln2).
+      B*xi_tau<=B1, tau*|ln xi_tau|<=ln2) and the post-route domain,
+      relative to the returned small side Qtilde (not to the series sum:
+      the assembly cancels S, #79 L-3).
   (g) Binet truncation at Z0=10, K_B=16 vs the dd target.
   (h) e_k(zeta,p) == -e_k(-zeta, 1-p) (the symmetry identity; sign is
       "-", not "+" -- see the derivation comment at check_h_symmetry for
@@ -1568,120 +1570,120 @@ def check_h_symmetry():
 
 # ============================================================================
 # Self-check (f): R4 series truncation over the CORRECTED closed box
-# (xi_tau<=xi1, B*xi_tau<=B1, tau*|ln xi_tau|<=ln2).
+# (xi_tau<=xi1, B*xi_tau<=B1, tau*|ln xi_tau|<=ln2), budgeted RELATIVE TO
+# THE RETURNED SMALL SIDE Qtilde = -expm1(w + log1p(tau*S)), not to S.
 # Series: S = sum_{n>=1} (1-beta)_n*xi^n/(n!(alpha+n)) (R1's shape minus
 # n=0, matching the shipped gamma R4).
+#
+# WHY Qtilde AND NOT S (#79 L-3). Qtilde/tau = -(ln xi + [lgamma(B+tau) -
+# lgamma(B)]/tau + gamma + S) + O(tau): the assembly CANCELS S against the
+# log terms. On the B*xi_tau = B1 wall Qtilde/tau -> E1(8) ~ 3.8e-5 while
+# |S| ~ 2.6 (2^16 of cancellation), and at the (xi1, B1/xi1) corner
+# Qtilde/tau ~ 3e-6 (2^20). A depth pinned at 2^-58 relative to S therefore
+# leaves 2^-42..2^-38 relative to the result -- the doctrine's "budget
+# proven relative to a COMPONENT is void once the assembly cancels below
+# it". N = 48 (pinned under the old S-relative metric) reads 2^-52.7
+# relative to Qtilde on this lattice (2^-51.6 at B ~ 1e76) toward the
+# huge-B end of the B1 wall: the one-signed -0.9..-1.5 ulp (result below
+# exact) the kernel shows there, tracking the predicted truncation row by
+# row to within the final rounding (hunt cap population, 2026-10-27).
+# Truncation is tau-independent to first order (tau enters only through
+# the 1/(tau+n) weights), but tau is swept anyway, down to 1e-30, so the
+# xi floor exp(-ln2/tau) reaches the huge-B end of the B1 wall.
 # ============================================================================
+def _r4_q_trunc(tau, beta, xi, ns, dps=60, nref=6000):
+    """{N: |Qtilde_N - Qtilde| / Qtilde} for N in ns. The series runs at
+    dps (its terms are O(e^B1) against a Qtilde/tau >= ~1e-6, so 60 digits
+    leave > 45); w's lgamma difference runs at enough extra digits to
+    resolve tau against B (lgamma(B+tau) - lgamma(B) is a difference of two
+    equal-to-many-digits numbers). The full sum stops once a term falls
+    below 10^-(dps-5) of the sum past max(ns), raising if nref runs out."""
+    old = mp.mp.dps
+    try:
+        mp.mp.dps = dps
+        tau, beta, xi = mp.mpf(tau), mp.mpf(beta), mp.mpf(xi)
+        t = mp.mpf(1)
+        s = mp.mpf(0)
+        parts = {}
+        nmax = max(ns)
+        tol = mp.mpf(10) ** (5 - dps)
+        for n in range(1, nref + 1):
+            t *= (n - beta) * xi / n
+            c = t / (tau + n)
+            s += c
+            if n in ns:
+                parts[n] = s
+            if n > nmax and abs(c) <= abs(s) * tol:
+                break
+        else:
+            raise RuntimeError(f"R4 reference sum did not converge by n={nref} "
+                               f"at (tau,B,xi)=({tau},{beta},{xi})")
+        extra = max(0, int(mp.log10(beta)) + 1) + max(0, int(-mp.log10(tau)) + 1)
+        mp.mp.dps = dps + extra
+        w = (tau * mp.log(xi) + (mp.loggamma(beta + tau) - mp.loggamma(beta))
+             - mp.loggamma(1 + tau))
+        mp.mp.dps = dps
+        q = -mp.expm1(w + mp.log1p(tau * s))
+        if not q > 0:
+            raise RuntimeError(f"R4 Qtilde not positive at ({tau},{beta},{xi})")
+        return {N: abs((-mp.expm1(w + mp.log1p(tau * parts[N])) - q) / q)
+                for N in ns}
+    finally:
+        mp.mp.dps = old
+
+
+def _r4_arm_sup(pts, ns):
+    """Per-N sup of the Qtilde-relative truncation over (tau, B, xi) pts."""
+    worst = {N: (mp.mpf(0), None) for N in ns}
+    for tau, beta, xi in pts:
+        rel = _r4_q_trunc(tau, beta, xi, ns)
+        for N in ns:
+            if rel[N] > worst[N][0]:
+                worst[N] = (rel[N], (float(tau), float(beta), float(xi)))
+    return worst
+
+
+def _log2s(v):
+    return f"2^{float(mp.log(v, 2)):.2f}" if v > 0 else "0"
+
+
 def check_f_r4():
-    print("(f) R4 series truncation over the corrected box:", file=sys.stderr)
-    dps = 60
-    N_REF = 4000
+    print("(f) R4 series truncation over the corrected box, relative to "
+          "Qtilde:", file=sys.stderr)
     candidates = [40, 48, 56, 64, 80, 96]
-    alpha = EPS_R4
-    pts = []
-    # xi capped at xi1=0.45; beta*xi=B1 boundary and the
-    # tau*|ln xi|<=ln2 boundary, both swept.
-    xi_floor_ln2 = mp.exp(-LN2 / alpha)
-    los = math.log10(float(max(xi_floor_ln2, mp.mpf("1e-30"))))
-    his = math.log10(float(XI1))
-    for i in range(30):
-        e = los + (his - los) * i / 29
-        xi = mp.mpf(10) ** mp.mpf(e)
-        beta = min(B1 / xi, mp.mpf("1e25"))
-        pts.append((beta, xi))
-    # also beta swept directly at xi=xi1 (the other box wall)
-    for i in range(20):
-        e = math.log10(1e-10) + (math.log10(float(B1 / XI1)) - math.log10(1e-10)) * i / 19
-        beta = mp.mpf(10) ** mp.mpf(e)
-        pts.append((beta, XI1))
 
-    worst = {N: (mp.mpf(0), None) for N in candidates}
-    for beta, xi in pts:
-        partials = series_partial_sums(alpha, beta, xi, N_REF, dps)
-        # R1's series includes n=0 (=1/alpha); R4's S excludes it, so
-        # subtract the n=0 term (t_0/(alpha+0) = 1/alpha) from each partial.
-        n0 = 1 / alpha
-        ref = partials[N_REF] - n0
-        if ref == 0:
-            continue
-        for N in candidates:
-            val = partials[N] - n0
-            e = abs((val - ref) / ref)
-            if e > worst[N][0]:
-                worst[N] = (e, (float(alpha), float(beta), float(xi)))
-    chosen = None
-    for N in candidates:
-        w, at = worst[N]
-        log2w = float(mp.log(w, 2)) if w > 0 else float("-inf")
-        print(f"    N={N:3d}: worst rel err {float(w):.3e} (2^{log2w:.2f}) at {at}",
-              file=sys.stderr)
-        if chosen is None and w <= R4_TARGET:
-            chosen = N
-    if chosen is None:
-        print("    FAILED: no candidate N meets target 2^-58", file=sys.stderr)
-        return None, 1
-    print(f"    pinned R4_NMAX={chosen} (target 2^-58)", file=sys.stderr)
+    # --- Arm 1: the native box (GATING) --------------------------------------
+    # Walls: B*xi_tau = B1 (the cap the series' t_n ~ (-8)^n/n! peak sits
+    # on), xi_tau = xi1 (both walls meet at the deepest cancellation,
+    # Qtilde/tau ~ 3e-6), and the ln2 floor xi_tau = exp(-ln2/tau), swept
+    # for each tau. The xi grid bottoms at 1e-307 (B ~ 8e307 < DBL_MAX).
+    box_pts = []
+    for tau in (EPS_R4, mp.mpf(2) ** -10, mp.mpf("1e-8"), mp.mpf("1e-30")):
+        xi_lo = max(mp.exp(-LN2 / tau), mp.mpf("1e-307"))
+        los, his = float(mp.log10(xi_lo)), float(mp.log10(XI1))
+        for i in range(30):
+            xi = mp.mpf(10) ** mp.mpf(los + (his - los) * i / 29)
+            box_pts.append((tau, B1 / xi, xi))            # B*xi = B1 wall
+        for i in range(20):
+            e = -10 + (float(mp.log10(B1 / XI1)) + 10) * i / 19
+            beta = mp.mpf(10) ** mp.mpf(e)
+            if beta >= tau:  # tau is the min; smaller B is the other orientation
+                box_pts.append((tau, beta, XI1))          # xi = xi1 wall
+        for f in ("0.9", "0.97", "0.99"):                 # just inside the corner
+            box_pts.append((tau, B1 / (XI1 * mp.mpf(f)), XI1 * mp.mpf(f)))
 
-    # --- Widened-window budget (a REPORT, not a re-pin -- R4 depth stays
-    # chosen=48; any bump is decided from measured kernel ULP) -----------
-    # Window: B<0.24 (where thr_t=(tau+1)/(tau+Bp+2) exceeds xi1), xi_tau in
-    # (xi1, thr_t]. Sweep tau (the tiny param) across its full range and Bp
-    # across (0, 0.24), sampling xi_tau densely inside the widened sliver.
-    win_pts = []
-    for Bp_f in (0.001, 0.01, 0.05, 0.1, 0.15, 0.2, 0.239):
-        Bp = mp.mpf(Bp_f)
-        # tau is R4's OWN tiny-min parameter -- must stay <= eps_R4=2^-6
-        # (the R4 membership predicate's own tau bound). A lattice that
-        # sweeps tau outside this domain can dominate the reported sup
-        # with a physically meaningless out-of-domain point -- always
-        # cross-check the reported witness against EPS_R4 before trusting
-        # the printed sup.
-        tau_list = sorted(set(
-            [mp.mpf(10) ** e for e in range(-300, -5, 30)] +
-            [mp.mpf(v) for v in ("1e-10", "1e-3", "1e-2")] +
-            [EPS_R4 / 2, EPS_R4]
-        ))
-        for tau in tau_list:
-            thr_t = (tau + 1) / (tau + Bp + 2)
-            if thr_t <= XI1:
-                continue  # window only exists where thr_t>xi1
-            for frac in (mp.mpf("0.02"), mp.mpf("0.3"), mp.mpf("0.6"),
-                         mp.mpf("0.9"), mp.mpf("0.999")):
-                xi_tau = XI1 + frac * (thr_t - XI1)
-                if 0 < xi_tau < 1 and tau * abs(mp.log(xi_tau)) <= LN2:
-                    win_pts.append((tau, Bp, xi_tau))
-
-    worst_win = mp.mpf(0)
-    worst_win_at = None
-    for tau, Bp, xi_tau in win_pts:
-        partials = series_partial_sums(tau, Bp, xi_tau, N_REF, dps)
-        n0 = 1 / tau
-        ref = partials[N_REF] - n0
-        if ref == 0:
-            continue
-        val48 = partials[48] - n0
-        e = abs((val48 - ref) / ref)
-        if e > worst_win:
-            worst_win, worst_win_at = e, (float(tau), float(Bp), float(xi_tau))
-    log2w = float(mp.log(worst_win, 2)) if worst_win > 0 else float("-inf")
-    print(f"    FOURTH-CORRECTION widened window (B<0.24, xi_tau in "
-          f"(xi1,thr_t]): {len(win_pts)} points, N=48 truncation sup "
-          f"{float(worst_win):.3e} (2^{log2w:.2f}) at "
-          f"(tau,Bp,xi_tau)={worst_win_at} -- R4 depth stays {chosen} "
-          f"(G4 decides any bump from measured kernel ULP)", file=sys.stderr)
-
-    # --- Post-route domain (GATING, target 2^-58) ----------------------------
-    # Near-one R1 lanes now enter THIS series in their fired orientation
+    # --- Arm 2: post-route domain (GATING) -----------------------------------
+    # Near-one R1 lanes enter THIS series in their fired orientation
     # (route_final tag "R4-postroute") instead of the opposite-orientation
     # CF -- that CF destination stalls at 2^-55.5 on (0.0234, 1e6, 4e-6)
     # because it inherits the small-second-parameter weakness. Domain
     # swept here: the R1 box with alpha ABOVE eps_R4 (at or below it, step
     # 0 owns the point), restricted to lanes the post-route model actually
     # fires on (_r1_native_value > BETA_NEAR_ONE -- the identical model
-    # route_final uses). tau appears only in the 1/(tau+n) weights and the
-    # exact assembly, so truncation is expected AT OR BELOW the in-box
-    # sup; this lattice PROVES it rather than assuming. Both known
-    # witnesses must post-route and be covered (hard assert).
+    # route_final uses). Their Qtilde is ~2^-11..2^-17 against tau*S of
+    # order 1, so this arm is where a component-relative budget would lie
+    # most; it is budgeted against Qtilde like arm 1. Both known witnesses
+    # must post-route and be covered (hard assert).
     pr_pts = []
     alpha_pr = sorted(set(
         [EPS_R4 * mp.mpf(m) for m in ("1.01", "1.5", "3")] +
@@ -1719,38 +1721,69 @@ def check_f_r4():
             pr_pts.append(w3)
         else:
             n_wit_missed += 1
-    worst_pr = mp.mpf(0)
-    worst_pr_at = None
-    for tau, Bp, xi_tau in pr_pts:
-        partials = series_partial_sums(tau, Bp, xi_tau, N_REF, dps)
-        n0 = 1 / tau
-        ref = partials[N_REF] - n0
-        if ref == 0:
-            continue
-        valc = partials[chosen] - n0
-        e = abs((valc - ref) / ref)
-        if e > worst_pr:
-            worst_pr, worst_pr_at = e, (float(tau), float(Bp), float(xi_tau))
-    log2pr = float(mp.log(worst_pr, 2)) if worst_pr > 0 else float("-inf")
-    tau_sup = max((float(t) for t, _, _ in pr_pts), default=0.0)
-    print(f"    SEVENTH-CORRECTION post-route domain: {len(pr_pts)} "
-          f"post-routing points, N={chosen} truncation sup "
-          f"{float(worst_pr):.3e} (2^{log2pr:.2f}) at "
-          f"(tau,B,xi_tau)={worst_pr_at}, target 2^-58; fired-tau sup "
-          f"{tau_sup:.4f} [must be <= kBetaPrTauMax = "
-          f"{float(BETA_PR_TAU_MAX)}]; witnesses not post-routing: "
-          f"{n_wit_missed} [MUST be 0]",
+
+    # --- Arm 3: widened window (a REPORT at the pinned depth) ---------------
+    # Window: B<0.24 (where thr_t=(tau+1)/(tau+Bp+2) exceeds xi1), xi_tau in
+    # (xi1, thr_t]. Sweep tau (the tiny param) across its full range and Bp
+    # across (0, 0.24), sampling xi_tau densely inside the widened sliver.
+    win_pts = []
+    for Bp_f in (0.001, 0.01, 0.05, 0.1, 0.15, 0.2, 0.239):
+        Bp = mp.mpf(Bp_f)
+        # tau is R4's OWN tiny-min parameter -- must stay <= eps_R4=2^-6
+        # (the R4 membership predicate's own tau bound). A lattice that
+        # sweeps tau outside this domain can dominate the reported sup
+        # with a physically meaningless out-of-domain point -- always
+        # cross-check the reported witness against EPS_R4 before trusting
+        # the printed sup.
+        tau_list = sorted(set(
+            [mp.mpf(10) ** e for e in range(-300, -5, 30)] +
+            [mp.mpf(v) for v in ("1e-10", "1e-3", "1e-2")] +
+            [EPS_R4 / 2, EPS_R4]
+        ))
+        for tau in tau_list:
+            thr_t = (tau + 1) / (tau + Bp + 2)
+            if thr_t <= XI1:
+                continue  # window only exists where thr_t>xi1
+            for frac in (mp.mpf("0.02"), mp.mpf("0.3"), mp.mpf("0.6"),
+                         mp.mpf("0.9"), mp.mpf("0.999")):
+                xi_tau = XI1 + frac * (thr_t - XI1)
+                if 0 < xi_tau < 1 and tau * abs(mp.log(xi_tau)) <= LN2:
+                    win_pts.append((tau, Bp, xi_tau))
+
+    print(f"    points: box {len(box_pts)}, post-route {len(pr_pts)}, "
+          f"widened window {len(win_pts)} (per-arm, no shared cap)",
           file=sys.stderr)
+    w_box = _r4_arm_sup(box_pts, candidates)
+    w_pr = _r4_arm_sup(pr_pts, candidates)
+    w_win = _r4_arm_sup(win_pts, candidates)
+    chosen = None
+    for N in candidates:
+        (eb, ab), (ep, ap), (ew, aw) = w_box[N], w_pr[N], w_win[N]
+        print(f"    N={N:3d}: box {float(eb):.3e} ({_log2s(eb)}) at {ab}; "
+              f"post-route {float(ep):.3e} ({_log2s(ep)}) at {ap}; "
+              f"window {float(ew):.3e} ({_log2s(ew)})", file=sys.stderr)
+        if chosen is None and eb <= R4_TARGET and ep <= R4_TARGET:
+            chosen = N
+    if chosen is None:
+        print("    FAILED: no candidate N meets target 2^-58 (relative to "
+              "Qtilde) on the box and post-route arms", file=sys.stderr)
+        return None, 1
+    ew, aw = w_win[chosen]
+    print(f"    pinned R4_NMAX={chosen} (target 2^-58 relative to Qtilde, "
+          f"box + post-route arms); widened window at N={chosen}: "
+          f"{float(ew):.3e} ({_log2s(ew)}) at (tau,Bp,xi_tau)={aw} [report]",
+          file=sys.stderr)
+
+    tau_sup = max((float(t) for t, _, _ in pr_pts), default=0.0)
+    print(f"    post-route: fired-tau sup {tau_sup:.4f} [must be <= "
+          f"kBetaPrTauMax = {float(BETA_PR_TAU_MAX)}]; witnesses not "
+          f"post-routing: {n_wit_missed} [MUST be 0]", file=sys.stderr)
     if tau_sup > float(BETA_PR_TAU_MAX):
         print("    FAILED: a post-routing point exceeds the tau ceiling.",
               file=sys.stderr)
         return chosen, 1
     if n_wit_missed:
         print("    FAILED: a G3 (B)-witness did not post-route -- ESCALATE.",
-              file=sys.stderr)
-        return chosen, 1
-    if worst_pr > R4_TARGET:
-        print("    FAILED: post-route-domain truncation misses 2^-58.",
               file=sys.stderr)
         return chosen, 1
 
@@ -1797,8 +1830,8 @@ def route_final(a, b, x):
          xi1 alone would strand a B<~0.24 window (xi1,thr_t) where
          NEITHER R1 orientation fires and R2 evaluates the near-one
          tiny-first side -- see beta-inl.h's own "R4's xi cap, WIDENED"
-         comment for the witness and measured N=48 truncation (2^-57.3)
-         over the widened window); else fall through.
+         comment for the witness and the widened window's truncation,
+         which check (f) reports at the pinned N); else fall through.
       1. R1 fires in EITHER orientation whose box holds (x<=xi1 AND
          b*x<=B1 for native; (1-x)<=xi1 AND a*(1-x)<=B1 for swap; native
          checked first) -- a lambda>=0 orientation restriction is too

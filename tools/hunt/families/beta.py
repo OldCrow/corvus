@@ -879,6 +879,49 @@ def g_r4_dense_b8(rng, n):
     return _fill(rng, n, d)
 
 
+def _r4_cap_point(r):
+    """One R4 row on or just inside a cap wall (#79 L-3), tiny-first frame
+    (tau, B, xi_tau) mapped to either orientation. Three walls, equal odds:
+      b1     B*xi_tau = B1: on the wall (largest B the float predicate
+             admits) or up to 2^-8 inside, xi_tau down to the ln2 floor.
+             Qtilde/tau -> E1(8) here, so the series truncation (relative
+             to Qtilde, not S) is fully exposed as B grows.
+      xi1    xi_tau within 2^-8 of xi1 (or exactly xi1), B across (0, B1/xi1].
+      corner xi_tau in [0.40, xi1] with B*xi_tau in [0.97, 1]*B1: the
+             deepest cancellation in the box (Qtilde/tau ~ 3e-6).
+    Swapped rows take x = 1 - xi_tau and re-derive xi_tau = 1 - x (exact,
+    x >= 1/2), so B is placed against the xi the kernel actually sees."""
+    tau = log_uniform(r, 1e-30, EPS_R4)
+    swap = r.random() < 0.5
+    wall = r.choice(("b1", "xi1", "corner"))
+    if wall == "b1":
+        lo = max(math.exp(-LN2 / tau), 2.0 ** -52 if swap else 1e-300)
+        xi = log_uniform(r, lo, XI1)
+    elif wall == "xi1":
+        xi = XI1 if r.random() < 0.1 else full_mantissa(r, XI1 * (1 - 2.0 ** -8), XI1)
+    else:
+        xi = full_mantissa(r, 0.40, XI1)
+    if swap:
+        xi = 1.0 - (1.0 - xi)
+    if wall == "xi1":
+        B = log_uniform(r, max(tau, 1e-6), B1 / xi)
+    else:
+        top = B1 / xi
+        while top * xi > B1:
+            top = math.nextafter(top, 0.0)
+        span = 2.0 ** -8 if wall == "b1" else 0.03
+        B = top if r.random() < 0.2 else full_mantissa(r, top * (1 - span), top)
+        B = min(B, top)
+    if not (B > tau and math.isfinite(B)):
+        return None
+    a, b, x = (B, tau, 1.0 - xi) if swap else (tau, B, xi)
+    return (a, b, x) if route(a, b, x) == [("R4", swap)] else None
+
+
+def g_r4_cap(rng, n):
+    return _fill(rng, n, _r4_cap_point)
+
+
 def g_r2_comp_mid(rng, n):
     def d(r):
         a, b = log_uniform(r, 3, 40), log_uniform(r, 3, 40)
@@ -896,11 +939,11 @@ def g_witness(rng, n):
 
 
 # ---- assembly -------------------------------------------------------------------
-def _pair(name, gen, n, seam=None, note=""):
+def _pair(name, gen, n, seam=None, note="", ref_cap=None):
     out = []
     for fn in ("beta_p", "beta_q"):
         out.append(Stratum(fn, name, gen, n, _oracle(fn), _bound(fn),
-                           oracle2=_oracle2(fn), seam=seam, note=note))
+                           oracle2=_oracle2(fn), seam=seam, note=note, ref_cap=ref_cap))
     return out
 
 
@@ -997,6 +1040,9 @@ def strata():
     # dense populations
     S += _pair("dense:r4_tiny_min_B8", g_r4_dense_b8, 3000, None,
                "R4 tiny-min corner around B ~ 8 (known one-signed -1.60 ulp)")
+    S += _pair("dense:r4_cap", g_r4_cap, 3000, None,
+               "R4 cap walls B*xi_tau = B1, xi_tau = xi1 and their corner, "
+               "full mantissas, both orientations (#79 L-3)", ref_cap=900)
     S += _pair("dense:r2_complement_mid", g_r2_comp_mid, 3000, "r2_thr",
                "R2 moderate shapes around the mean; complement 0-ULP cell (#76)")
     S += _pair("witness:r2_complement", g_witness, 33, None,

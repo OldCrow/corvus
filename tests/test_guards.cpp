@@ -394,10 +394,12 @@ void CheckRange() {
 // ---------------------------------------------------------------------------
 // 4. Beta reflection symmetry I_x(a, b) = 1 - I_{1-x}(b, a).
 //
-// Both sides are corvus values of the same number, each within its region
-// gate (<= 3 ulp, test_beta_ulp.cpp), so they may differ by the sum.
+// Both sides are corvus values of the same number, and the kernel measures
+// bit-symmetric: 0 ulp on this grid and on every beta reference row with an exact 1 - x (26,360
+// points; AVX3_ZEN4, SSE4, SSE2; #79). The region gates' sum (6 ulp, the old
+// value here) let an asymmetry of up to 6 ulp pass.
 
-constexpr uint64_t kSymUlp = 6;
+constexpr uint64_t kSymUlp = 0;
 
 void CheckSymmetry() {
   Check c{"beta symmetry"};

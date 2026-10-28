@@ -54,6 +54,8 @@ from mpmath import mpf
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import annotate  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import gen_bessel_reference  # noqa: E402  the #89 half-x rule
 from core import (LowMemory, MAX_WORKERS, MIN_FREE_MB, REPO, TASKS_PER_WORKER,  # noqa: E402
                   TIERS, evaluate, free_mb, plan_workers, quantum, round_double, ulp_dist)
 
@@ -66,7 +68,7 @@ TIE_RESOLVE = mpf("1e-12")  # |r| this close to 1/2: re-evaluate at TIE_DPS
 TIE_DPS = 400
 TIE = 1 / 32          # near_tie: distance to the rounding midpoint, in ulps
 TIE_ROWS, TIE_POOL = 128, 1024
-CAPS = {"bits": 48, "band": 80, "other": 120}  # rows per hunt stratum
+CAPS = {"bits": 48, "band": 80, "other": 120}  # rows per hunt stratum (Stratum.ref_cap overrides)
 
 # file key -> the probe function whose strata feed it (FILES lists outputs).
 PRIMARY = {k: k for k in annotate.FILES}
@@ -158,12 +160,42 @@ def _exact(fn, args):
     return cr, float(r2), form
 
 
+def _half_x(fn, args):
+    """(cr, r) by gen_bessel_reference's #89 rule for i1 / i1e at |x| <
+    2^-1021, where x/2 is a midpoint for odd x / 2^-1074 and the excess
+    (~2^-2148 relative for i1) is beyond any oracle precision; else None."""
+    if fn not in ("i1", "i1e"):
+        return None
+    cr = gen_bessel_reference.half_x_rule(1, fn == "i1e", args[0])
+    if cr is None:
+        return None
+    with mp.workdps(30):
+        r = float((mpf(args[0]) / 2 - mpf(cr)) / quantum(cr)) if cr else 0.0
+    return cr, r
+
+
+def _apply_half_x(fns, args, out):
+    """A row's [(cr hex, r)] with the #89 rule applied (cached rows too)."""
+    if out is None:
+        return out
+    fixed = []
+    for fn, o in zip(fns, out):
+        hx = _half_x(fn, args)
+        fixed.append((hx[0].hex(), hx[1]) if hx else o)
+    return fixed
+
+
 def _work(task):
     """task = (outputs, args) -> (args, [(cr, r)] or None, note, v1 of first)."""
     fns, args = task
     out = []
     try:
         for fn in fns:
+            hx = _half_x(fn, args)
+            if hx is not None:
+                out.append((hx[0].hex(), hx[1]))
+                note = "#89 half-x rule"
+                continue
             cr, r, note = _exact(fn, args)
             if cr is None:
                 return args, None, note
@@ -279,7 +311,7 @@ def _draw(key, fn, strata, nargs, seen):
     the near_tie candidate pool (returned separately, unfiltered)."""
     plan, pool_pts = [], []
     for s in strata:
-        cap = min(s.n, CAPS[_kind(s.name)])
+        cap = min(s.n, s.ref_cap or CAPS[_kind(s.name)])
         pts = [tuple(float(a) for a in p) for p in s.gen(_rng(key, s.name), cap)]
         rng = _rng(key, s.name + "|take")
         if len(pts) > cap:
@@ -392,6 +424,10 @@ def append(key, workers, dry_run, replace):
         return 0
     args_all = [p for _, pts in plan for p in pts] + tie_pool
     results, k_of = _pool(families, fns, args_all, CKPT_DIR / f"{key}.ckpt.jsonl", workers)
+    # Checkpoints written before #89 hold ties-to-even values for these rows.
+    for p in args_all:
+        out, note = results[k_of(p)]
+        results[k_of(p)] = (_apply_half_x(fns, p, out), note)
 
     sections, dropped = [], {}
     for name, pts in plan:

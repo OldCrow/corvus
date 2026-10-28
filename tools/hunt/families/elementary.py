@@ -503,8 +503,11 @@ def _log1p_strata():
 
 
 def _trig_strata(fn):
+    # #79: small_random is the generic population above the tiny band; 2000
+    # reference rows, not 120 (83% of the base rows sit within 2^-53 of 0 or
+    # +-1, where any kernel is correctly rounded).
     S = [_stratum(fn, "small_random", _gen_trig_small, 3000, tie_exempt=0.0,
-                  note="full-mantissa, exponent uniform in [-27, 22]"),
+                  note="full-mantissa, exponent uniform in [-27, 22]", ref_cap=2000),
          _stratum(fn, "huge_random", _gen_trig_huge, 3000, tie_exempt=0.0,
                   note="full-mantissa, exponent uniform in [23, 1023]"),
          _stratum(fn, "tiny_random", _gen_trig_tiny, 500, tie_exempt=0.0),

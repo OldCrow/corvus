@@ -37,7 +37,11 @@ ORACLE, three binding constructions:
      module's GAMMA-side anchor cross-check; the R3 extraction
      apparatus it validates against is what this generator actually
      calls). This same route is also route-2 (the huge-nu stratum's
-     independent second certification).
+     second certification -- NOT independent of route 1: both ladders
+     go through extract_e_monomial). Below GUARD_NU_FLOOR the extraction
+     is not accurate enough to certify, and guard rows certify against
+     the strata oracle with a quadrature second form instead
+     (quadc_route).
      SCOPE: the anchor-ladder extraction holds p=a/(a+b) FIXED across
      anchors at a MODEST nu (so alpha=nu/(1-p), beta=nu/p at each
      anchor stay CF-safe) -- this is safe exactly when the skew ratio
@@ -148,6 +152,8 @@ SKEW_SAFE_CAP = 2.0e6                    # construction #2 scope bound -- covers
                                           # decimal digits, ample for double-
                                           # precision certification).
 HUGE_NU_THRESHOLD = 1.0e16               # route-2 dual-certification trigger (gammainv's own)
+GUARD_NU_FLOOR = 1.0e28                  # guard rows below this nu certify via betainc_pq (quadc_route)
+NU_FLOOR_TAG = "@nufloor"                # checkpoint method suffix: certified under GUARD_NU_FLOOR
 BEYOND_RESOLUTION_THRESHOLD = 3.0e34     # measured empirically (see huge_nu_beyond_resolution below)
 PLATEAU_KAPPA_CUT = 2.0 ** 52            # contract split between bracket and backward-error certification
 DEEP_SMALL_CUT = bid.DEEP_SMALL_CUT      # 2^-60, both orientations
@@ -184,6 +190,24 @@ def both_huge_balanced(a, b):
     if hi < B_GL or lo < GUARD_MIN_THRESHOLD:
         return False
     return (hi / lo) <= SKEW_SAFE_CAP
+
+
+def quadc_route(a, b):
+    """Guard rows with nu = ab/(a+b) < GUARD_NU_FLOOR: root-find and
+    certify against the strata oracle (gbr.tie_pq ->
+    _beta_oracles.betainc_pq, a quadrature for min(a, b) >= 30), with
+    quad_side as the second form, instead of the Temme extraction.
+    Measured 2026-10-27 (A4) against a direct quadrature: the extraction
+    is off by ~(0.1-1.5)/sqrt(nu) relative in P/Q, which puts y 0.66-2.21
+    ulp off at nu ~ 1e14-1e15 (11 stored rows were wrong), 6e-3 ulp at
+    1e17, 1e-9 at 1e23, 4e-12 at 1e26 and 7e-16 at 1e30 -- under the #89
+    tie resolution only from ~1e28. Route 2 shares extract_e_monomial
+    with route 1, so it cannot catch this. betainc_pq agreed with
+    quad_side to < 1e-24 ulp at every nu tested (1e16-1e35), ~0.13 s a
+    call."""
+    if not both_huge_balanced(a, b):
+        return False
+    return b * (a / (a + b)) < GUARD_NU_FLOOR
 
 
 # ============================================================================
@@ -262,6 +286,44 @@ def guarded_temme_pq(a, b, x, dps, route=1):
     if side == "p":
         return small_val, 1 - small_val
     return 1 - small_val, small_val
+
+
+def quad_side(a, b, x, side, dps):
+    """P (side "p") or Q (side "q") by direct tanh-sinh quadrature of the
+    log-space beta density over 64 equal panels, cut 60 sd (normal-scale
+    width) past the mode -- quadc_route's second form, sharing no code
+    with betainc_pq or the Temme extraction. Valid for the shapes
+    quadc_route admits (min(a, b) >= GUARD_MIN_THRESHOLD, so the density
+    is unimodal and near-normal on that span). Working precision adds
+    log10(a+b) digits for the (a-1)ln t + (b-1)ln(1-t) - lnB
+    cancellation."""
+    use = dps + int(math.log10(float(a) + float(b))) + 10
+    with mp.workdps(use):
+        a, b, x = mp.mpf(a), mp.mpf(b), mp.mpf(x)
+        lnB = mp.loggamma(a) + mp.loggamma(b) - mp.loggamma(a + b)
+        m = (a - 1) / (a + b - 2)
+        sd = mp.sqrt(a * b / ((a + b) ** 2 * (a + b + 1)))
+
+        def dens(t):
+            return mp.exp((a - 1) * mp.log(t) + (b - 1) * mp.log1p(-t) - lnB)
+
+        if side == "p":
+            lo, hi = max(mp.mpf(0), min(x, m) - 60 * sd), min(x, m + 60 * sd)
+        else:
+            lo, hi = max(x, m - 60 * sd), min(mp.mpf(1), max(x, m) + 60 * sd)
+        v = mp.quad(dens, [lo + (hi - lo) * k / 64 for k in range(65)])
+    return +v
+
+
+def quadc_value(a, b, y, side, dps, kind):
+    """The solved side's value at y for quadc_route rows: "quadc" is the
+    strata oracle (None when it declines), "quad2" is quad_side."""
+    if kind == "quad2":
+        return quad_side(a, b, y, side, dps)
+    r = gbr.tie_pq(a, b, y, dps)
+    if r is None:
+        return None
+    return r[0] if side == "p" else r[1]
 
 
 # ============================================================================
@@ -703,12 +765,15 @@ def _value_tie_dps(a, b, side, mid, fwd_kind):
     """#89: value(mid) at TIE_DPS, or None. The 400-digit forms:
     fast_series at TIE_DPS, and for "full" the hunt strata's bounded oracle
     (gen_beta_reference.tie_pq -> _beta_oracles.betainc_pq; a cap hit is
-    None). None too for the Temme routes (guard, route2, full_forward's
-    both-huge branch), whose accuracy is fixed whatever the dps."""
+    None), the same for "quadc", and quad_side for "quad2". None for the
+    Temme routes (guard, route2, full_forward's both-huge branch), whose
+    accuracy is fixed whatever the dps."""
     with mp.workdps(TIE_DPS):
+        if fwd_kind == "quad2":
+            return quad_side(a, b, mid, side, TIE_DPS)
         if fwd_kind == "fast_series":
             r = fast_series_pq(a, b, mid, TIE_DPS)
-        elif fwd_kind == "full" and not both_huge_balanced(a, b):
+        elif fwd_kind == "quadc" or (fwd_kind == "full" and not both_huge_balanced(a, b)):
             r = gbr.tie_pq(a, b, mid, TIE_DPS)
         else:
             r = None
@@ -756,6 +821,8 @@ def bracket_signs(a, b, target, side, yd, dps, fwd_kind):
         t = mp.mpf(target)
 
         def val_at(y):
+            if fwd_kind in ("quadc", "quad2"):
+                return quadc_value(a, b, y, side, dps, fwd_kind)
             if fwd_kind == "fast_series":
                 P, Q = fast_series_pq(a, b, y, dps)
                 return P if side == "p" else Q
@@ -827,12 +894,17 @@ def ulp_of(v):
     return math.ulp(v)
 
 
-def certify_plateau(a, b, sigma, side, yd, dps=100):
+def certify_plateau(a, b, sigma, side, yd, dps=100, fwd_kind="full"):
     with mp.workdps(dps):
-        P, Q, which, esc, failed = full_forward(a, b, yd)
-        if failed:
-            return False
-        got = P if side == "p" else Q
+        if fwd_kind == "quadc":
+            got = quadc_value(a, b, yd, side, dps, "quadc")
+            if got is None:
+                return False
+        else:
+            P, Q, which, esc, failed = full_forward(a, b, yd)
+            if failed:
+                return False
+            got = P if side == "p" else Q
         diff = abs(float(got) - sigma)
     return diff <= 2.0 * ulp_of(sigma)
 
@@ -874,6 +946,8 @@ def certify_beyond_resolution(a, b, target, side, yd, dps, fwd_kind):
         t = mp.mpf(target)
 
         def val_at(y):
+            if fwd_kind in ("quadc", "quad2"):
+                return quadc_value(a, b, y, side, dps, fwd_kind)
             if fwd_kind == "guard":
                 P, Q = guarded_temme_pq(a, b, y, dps, route=1)
                 return P if side == "p" else Q
@@ -901,6 +975,8 @@ def certify_beyond_resolution(a, b, target, side, yd, dps, fwd_kind):
 N_BEYOND_RESOLUTION = [0]
 N_ROUTE2_CHECKED = [0]
 N_ROUTE2_DISAGREE = [0]
+N_QUAD2_CHECKED = [0]
+N_QUAD2_DISAGREE = [0]
 
 
 def refine_guard_root(a, b, target, side, yd, dps=60, max_nudge=12):
@@ -912,7 +988,8 @@ def refine_guard_root(a, b, target, side, yd, dps=60, max_nudge=12):
     orders of magnitude BELOW 1 ULP (density there scales ~sqrt(nu), so
     Delta-y ~ Delta-P/sqrt(nu) ~ nu^-1 relative to ulp(y)~2^-53 --
     verified empirically), so this search is a defensive bound, not the
-    expected common path."""
+    expected common path. Rows below GUARD_NU_FLOOR use refine_quadc_root
+    instead: the extraction itself is not accurate enough there."""
     with mp.workdps(dps):
         t = mp.mpf(target)
 
@@ -938,6 +1015,42 @@ def refine_guard_root(a, b, target, side, yd, dps=60, max_nudge=12):
                     break
                 cur, fcur = nxt, fnxt
         return best_y
+
+
+def refine_quadc_root(a, b, target, side, yd, dps=60, max_iter=40):
+    """quadc_route's refinement: secant iteration on the strata oracle
+    from yd, then whichever of round(y*) and its two neighbours has the
+    smallest |value - target| (certify_bracket then proves it). Not
+    refine_guard_root's 12-ulp walk: the bisection seed there is
+    leading_only_pq, whose y error grows like 2^52/nu ulp as nu falls
+    toward GUARD_MIN_THRESHOLD. Raises ArithmeticError when the oracle
+    declines (compute_all records the row FAILED)."""
+    with mp.workdps(dps):
+        t = mp.mpf(target)
+
+        def f(y):
+            v = quadc_value(a, b, y, side, dps, "quadc")
+            if v is None:
+                raise ArithmeticError("strata oracle declined")
+            return v - t
+
+        y0 = mp.mpf(yd)
+        y1 = y0 + 64 * mp.mpf(ulp_of(yd))
+        f0, f1 = f(y0), f(y1)
+        for _ in range(max_iter):
+            if f1 == f0:
+                break
+            y2 = y1 - f1 * (y1 - y0) / (f1 - f0)
+            if not 0 < y2 < 1:
+                break
+            if abs(y2 - y1) <= y1 * mp.mpf(2) ** -90:
+                y1 = y2
+                break
+            y0, f0, y1, f1 = y1, f1, y2, f(y2)
+        c = round_to_double(y1)
+        cands = [y for y in (math.nextafter(c, -math.inf), c, math.nextafter(c, math.inf))
+                 if 0.0 < y < 1.0]
+        return min(cands, key=lambda y: abs(f(mp.mpf(y))))
 
 
 def oracle_y_audited(a, b, target, side, seed_hint, dps=60,
@@ -1029,7 +1142,12 @@ def oracle_y_audited(a, b, target, side, seed_hint, dps=60,
 def certify_row(a, b, sigma, side, tag, dps_layers=(60, 100), yd_override=None):
     is_r1tiny = tag in ("r1-tiny", "joint-tiny", "r1-tiny-seam")
     huge_bal = both_huge_balanced(a, b)
-    fwd_kind = "fast_series" if is_r1tiny else ("guard" if huge_bal else "full")
+    if is_r1tiny:
+        fwd_kind = "fast_series"
+    elif huge_bal:
+        fwd_kind = "quadc" if quadc_route(a, b) else "guard"
+    else:
+        fwd_kind = "full"
 
     # --- deep-small routing decision (BOTH orientations) -- cheap
     # native-double check first. yd_override (negative
@@ -1113,11 +1231,13 @@ def certify_row(a, b, sigma, side, tag, dps_layers=(60, 100), yd_override=None):
     # root, defeating the control.
     if fwd_kind == "guard" and yd_override is None:
         yd = refine_guard_root(a, b, sigma, side, yd, dps=dps_layers[0])
+    elif fwd_kind == "quadc" and yd_override is None:
+        yd = refine_quadc_root(a, b, sigma, side, yd, dps=dps_layers[0])
 
     # --- kappa / plateau routing ---
     kappa = compute_kappa(a, b, yd, sigma, dps=dps_layers[0])
     if kappa > PLATEAU_KAPPA_CUT:
-        ok = certify_plateau(a, b, sigma, side, yd, dps=100)
+        ok = certify_plateau(a, b, sigma, side, yd, dps=100, fwd_kind=fwd_kind)
         if ok:
             return {"yd": yd, "certified": True, "method": "plateau-backward",
                      "marker": "P", "kappa": float(kappa)}
@@ -1160,7 +1280,17 @@ def certify_row(a, b, sigma, side, tag, dps_layers=(60, 100), yd_override=None):
         return r
 
     route2_ok = None
-    if min(a, b) >= HUGE_NU_THRESHOLD:
+    if fwd_kind == "quadc":
+        # Second form for quadc_route rows, whatever min(a, b): quad_side,
+        # independent of betainc_pq (route 2 would replay the extraction).
+        N_QUAD2_CHECKED[0] += 1
+        ok2, _, _step2 = certify_bracket(a, b, sigma, side, yd, (80,), "quad2")
+        if not ok2:
+            ok2 = certify_beyond_resolution(a, b, sigma, side, yd, 80, "quad2")
+        route2_ok = ok2
+        if not ok2:
+            N_QUAD2_DISAGREE[0] += 1
+    elif min(a, b) >= HUGE_NU_THRESHOLD:
         N_ROUTE2_CHECKED[0] += 1
         ok2, _, _step2 = certify_bracket(a, b, sigma, side, yd, (100,), "route2")
         if not ok2:
@@ -2013,6 +2143,16 @@ def compute_all(ps):
             existing_sig = f0.readline().strip()
     mode = "a" if existing_sig == sig else "w"
 
+    def stale(idx):
+        # quadc_route rows certified before GUARD_NU_FLOOR replay the Temme
+        # extraction's value: recompute them (a later entry wins on load).
+        a, b = ps.pts[idx][:2]
+        return quadc_route(a, b) and not done_map[idx][-1].endswith(NU_FLOOR_TAG)
+
+    n_stale = sum(1 for idx in done_map if idx < total and stale(idx))
+    if n_stale:
+        status(f"checkpoint: {n_stale} rows below GUARD_NU_FLOOR to recompute")
+
     t_start = time.time()
     newly_done = 0
     with open(CKPT_PATH, mode) as fh:
@@ -2020,7 +2160,7 @@ def compute_all(ps):
             fh.write(sig + "\n")
             fh.flush()
         for idx, (a, b, sigma, side, tag) in enumerate(ps.pts):
-            if idx in done_map:
+            if idx in done_map and not stale(idx):
                 continue
             if time.time() - t_start > WALL_CLOCK_BUDGET_S:
                 status(f"wall-clock budget ({WALL_CLOCK_BUDGET_S:.0f}s) hit at "
@@ -2032,10 +2172,11 @@ def compute_all(ps):
             except Exception as e:
                 r = {"yd": None, "certified": False, "method": f"exception:{e}",
                      "marker": "N", "kappa": None}
+            method = r.get("method", "?") + (NU_FLOOR_TAG if quadc_route(a, b) else "")
             if r["yd"] is None or not r["certified"]:
-                append_checkpoint(fh, idx, ["FAILED", r.get("method", "?")])
+                append_checkpoint(fh, idx, ["FAILED", method])
             else:
-                append_checkpoint(fh, idx, [hexd(r["yd"]), r["marker"], r["method"]])
+                append_checkpoint(fh, idx, [hexd(r["yd"]), r["marker"], method])
             newly_done += 1
             if newly_done % 25 == 0:
                 status(f"  ... {idx + 1}/{total} ({time.time() - t_start:.0f}s this run)")
@@ -2464,10 +2605,12 @@ def main():
     write_rows(rows_p, rows_q)
     status(f"beyond-resolution certifications used: {N_BEYOND_RESOLUTION[0]}")
     status(f"route2 dual-checks: {N_ROUTE2_CHECKED[0]}, disagreements: {N_ROUTE2_DISAGREE[0]}")
+    status(f"quad2 checks (quadc_route): {N_QUAD2_CHECKED[0]}, disagreements: {N_QUAD2_DISAGREE[0]}")
     status(f"total generator runtime (this invocation): {time.time()-t_all:.1f}s")
     print(f"\nDONE. p-rows={len(rows_p)} q-rows={len(rows_q)} "
           f"beyond-resolution={N_BEYOND_RESOLUTION[0]} "
           f"route2-disagree={N_ROUTE2_DISAGREE[0]}/{N_ROUTE2_CHECKED[0]} "
+          f"quad2-disagree={N_QUAD2_DISAGREE[0]}/{N_QUAD2_CHECKED[0]} "
           f"fast-vs-full worst={worst:.3e} (n={n_done})", file=sys.stderr)
     return 0
 

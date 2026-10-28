@@ -212,6 +212,29 @@ int main() {
     }
   }
 
+  // --- every lane position (#79): central, mid and tail routes, the
+  // subnormal tail, the domain edges and outside them, specials -----------
+  {
+    const double inf = std::numeric_limits<double>::infinity();
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    std::vector<std::array<double, 1>> pi, pc;
+    for (const double v : {0.0, 5e-324, 1e-300, 1e-8, 0.25, 0.5, 0.75, 0.9,
+                           0.99, 0.999999, 1.0 - 0x1p-53, 1.0, 1.5, inf}) {
+      pi.push_back({v});
+      pi.push_back({-v});
+    }
+    pi.push_back({nan});
+    for (const double v : {0.0, 5e-324, 1e-310, 1e-300, 1e-100, 1e-10, 0.01,
+                           0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.9, 2.0 - 0x1p-52,
+                           2.0, 2.5, -1.0, inf, -inf, nan}) {
+      pc.push_back({v});
+    }
+    failures += corvus_test::LaneMix(
+        "erfinv", pi, [](const auto& c, auto& o) { corvus::erfinv(c[0], o); });
+    failures += corvus_test::LaneMix(
+        "erfcinv", pc, [](const auto& c, auto& o) { corvus::erfcinv(c[0], o); });
+  }
+
   if (failures == 0) {
     std::printf("all checks passed\n");
     return 0;

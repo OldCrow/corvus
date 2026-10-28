@@ -781,9 +781,31 @@ margin.
 | R1 power series | <!-- claim: beta.R1 --> **1 ULP** (0.02% not-CR) | <!-- claim: beta.R1 --> 1 ULP |
 | R2 continued fraction | <!-- claim: beta.R2.dir --> **1 ULP** (0.03% not-CR) | <!-- claim: beta.R2.cmp --> 1 ULP (erratum, #76; measured CR except near-ties) |
 | R3 Temme ridge | <!-- claim: beta.R3.dir --> **3 ULP** published; 1 measured since #69 (8–10% not-CR) | <!-- claim: beta.R3.cmp --> 1 ULP |
-| R4 tiny-min corner | <!-- claim: beta.R4.dir --> **2 ULP** (≤1.3% not-CR) | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
+| R4 tiny-min corner | <!-- claim: beta.R4.dir --> **2 ULP** (not-CR 1.3% of beta_q's 14,618 direct rows, 3.9% of beta_p's 2,939; 11–12% of the 900-row cap population, #79/#94) | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
 | R4 near-one post-route | <!-- claim: beta.R4pr.dir --> **1 ULP** | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
 | R2 gamma-limit slice | <!-- claim: beta.GL --> **1 ULP** (measured CR except near-ties; 0.04% not-CR dense, #90) | <!-- claim: beta.GL --> 1 ULP (measured CR except near-ties; 0.21% not-CR dense, #90) |
+
+**R4 at its cap walls (#79 L-3, order row A4, v1.2.0).** The review
+found R4 one-signed near B·ξ = 8, about 0.4 ulp from the 2-ULP cell, and
+a dense population there reading 75–78% not-CR. The documented 1.3% rate
+came from base rows that rarely sit on R4's cap. Two causes:
+- **The B·ξ_τ = B1 wall: series truncation.** The depth was budgeted to
+  2^−58 relative to the series sum S. The result Q~ = −expm1(w +
+  log1p(τS)) cancels S by about 2^16 on that wall (2^20 at the ξ1
+  corner), which left 2^−52.7 relative to Q~ at N = 48. The kernel's
+  signed error (−1.51 ulp worst, ~70% not-CR) tracked that truncation
+  row by row. gen_beta_data.py check (f) now budgets relative to Q~ and
+  pins kBetaR4N = 56 (2^−74.5 worst).
+- **The ξ_τ = ξ1 corner (B ≈ 18): not truncation, #94.** The error is
+  one-signed positive, up to +1.80 ulp (1.84 real in the gate), about
+  62% not-CR there, identical on every tier. It behaves as an absolute
+  floor of about 2^−70.5 per unit τ in w + log1p(τS), which the
+  cancellation amplifies. The cell stays 2 ULP; #94 tracks the
+  component.
+
+The `dense:r4_cap` stratum (900 rows per file, both walls and the
+corner, both orientations) now gates the cell: 12.4% (beta_p) and
+10.6% (beta_q) not-CR, max 2 ULP, the same on AVX3_ZEN4, SSE4 and SSE2.
 
 **Erratum (#76, order row 12j, v1.1.0).** Through v1.0.x the R2
 complement cell read 0 ULP (correctly rounded), and the gate held 0.
@@ -1343,11 +1365,11 @@ propagates from either argument (payload preserved).
 
 ## beta_p_inv and beta_q_inv
 
-**Bounds, measured on the 17,609-row certified reference set and
+**Bounds, measured on the 17,799-row certified reference set and
 identical on every validated leg** — clang-cl AVX3_ZEN4 native, the
-capped AVX2/SSE4/SSSE3/SSE2 sweep, Linux CI, NEON, and MSVC AVX2 (row
-9's 693 rows and the certified intervals: AVX3_ZEN4, SSE4 and SSE2 on
-2026-10-20; the other legs at the next CI run):
+capped AVX2/SSE4/SSSE3/SSE2 sweep, Linux CI, NEON, and MSVC AVX2 (the
+A4 regeneration, 2026-10-27: AVX3_ZEN4 and the capped sweep locally;
+the other legs at the next CI run):
 
 | Regime | Bound |
 |---|---|
@@ -1422,6 +1444,25 @@ regime always contains but does not end at).
   tiny shapes. On them the previous kernel fails four cells, up to
   5·10¹⁶ ulp in deep-small (#55's roots at 1 returned as ~½) and
   3·10⁹ ulp in the remainder (#50).
+
+**Reference regeneration (A4, 2026-10-27): #87 and a generator floor.**
+No kernel changed; three stored-value problems in the reference set did.
+- *#87.* The q-side row a = 1, b = ½, q = 1/√2 had stored ½ − 2 ulp
+  for a root at ½ − 1.23 ulp. The q-side deep-small grid fix (A3)
+  regenerates it as ½ − 1 ulp, and annotate's known-bad list is empty.
+- *A generator floor.* Where both shapes are huge and balanced, the
+  generator certified with a Temme extraction whose error is
+  ~(0.1–1.5)/√ν relative. Its second route shares that extraction, so
+  it could not catch the error. The regenerated sample first reached
+  ν ≈ 10¹⁴–10¹⁵, where 11 certified rows sat 0.66–2.21 ulp off,
+  confirmed by direct quadrature. Below ν = 10²⁸ these rows now
+  certify against the strata oracle, cross-checked by an independent
+  quadrature (`GUARD_NU_FLOOR` in tools/gen_betainv_reference.py).
+  The 11 rows moved to their correct values; 14 rows the old route
+  declined now certify.
+- *Huge-ν tail stratum.* `dense:huge_nu_tail` is now 389 (p) and 394
+  (q) rows. It reads 6.7% and 8.4% not correctly rounded, max 1 ULP,
+  on every tier.
 
 Method: per-lane analytic seed — five candidates (a beta-Temme
 normal-quantile ridge inversion through the 1-ULP erfcinv core; the
@@ -1529,6 +1570,17 @@ handling.)
 region, every tier** — the first family since erf with a single
 uniform bound and no conditioning caveats. Gate pinned at 1 with no
 margin.
+
+**Subnormal midpoints (#89, decided 2026-10-26).** For |x| < 2^−1021,
+x = m·2^−1074 and x/2 is an exact rounding midpoint when m is odd. The
+series fixes the side: i1 = x/2 + x³/16 + … rounds away from zero and
+i1e = x/2 − x|x|/2 + … rounds toward zero. The excess is ~2^−2148
+relative for i1, beyond any oracle precision, so the generator states
+these rows by that rule (`half_x_rule`). Before A4 they were stored
+ties-to-even, wrong in 212 i1 and 226 i1e rows. The kernels keep their
+ties-to-even result there, which is 1 ULP (0.5 ulp real) at
+212 of the 406 odd-m i1 rows and 254 of the 469 odd-m i1e rows, the
+same on every tier. That is inside the 1-ULP bound and accepted.
 
 **Erratum (#52, order row 10, v1.1.0).** Through v1.0.x the tail did
 not meet this bound: it rounded the fitted polynomial to a double
@@ -1646,8 +1698,9 @@ No release met that. The review found near-tie misses:
 lbeta(0x1.5c788bfb641a0p+1, 0x1.5f0d82e6d1d90p+0) is 1 ULP, and
 lbeta(0x1.62f92a1b0bb25p+0, 0x1.9546088f2e3ccp+0) is 0.5012·2^−53
 absolute, both 0.5012 ulp real on every tier. The hunt measured ~2%
-not-CR on [0.25, 4]². The gates had held 0 only because the reference
-set held no such row. Both witnesses are now reference rows, the
+not-CR on [0.25, 4]²; the reference set's 1,000-row full-mantissa
+stratum there (#79) reads 0.3–0.4% on every tier, max 1 ULP. The gates
+had held 0 only because the reference set held no such row. Both witnesses are now reference rows, the
 contract is 1 ULP / 2^−53 absolute, and the set measures correctly
 rounded except near-ties.
 Both-parameters-huge band (min > 2^990): 0 ULP. True values below
@@ -1699,7 +1752,7 @@ the missing fusion, and they have headroom.
 
 | Region | Bound | Notes |
 |---|---|---|
-| \|x\| ≤ 2^23 (exact-split reduction) | 1 ULP | ~1.4–1.8% not-CR, concentrated where the reduced \|r\| nears π/4 (~11% in the last decile; none of the ~7,100 rows per function at the k·π/2 bit-neighborhoods; #76, review L-13) |
+| \|x\| ≤ 2^23 (exact-split reduction) | 1 ULP | 1.2% not-CR over the base rows, which are mostly structured points (k·π/2 and seam neighbourhoods, tiny \|x\|). Full-mantissa \|x\| in [1/2, 2^23) (the 2,000-row `small_random` stratum, #79): cos 3.5%, sin 2.5%. Concentrated where the reduced \|r\| nears π/4 (~11% in the last decile; none of the ~7,100 rows per function at the k·π/2 bit-neighborhoods; #76, review L-13) |
 | \|x\| > 2^23 (Payne–Hanek) | 1 ULP | ≤ 0.6% not-CR; rows include every exponent's CF worst cancellation and binary64's global worst case (\|r\| = 2^−60.89 at e = 849) |
 
 Method: quadrant reduction x = n·(π/2) + r with shared degree-6 parity

@@ -49,7 +49,7 @@ inline constexpr double kBetaPrTauMax = 0x1.4000000000000p+1;
 inline constexpr double kBetaGlRidgeMin = 0x1.4000000000000p+4;
 inline constexpr int kBetaN1 = 64;
 inline constexpr int kBetaN2 = 64;
-inline constexpr int kBetaR4N = 48;
+inline constexpr int kBetaR4N = 56;
 inline constexpr int kBetaKB = 16;
 
 // dd pairs of 1/n, n = 1..64 -- shared by R1's power

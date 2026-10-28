@@ -1,6 +1,7 @@
 // Smoke: lbeta domain policy, specials, symmetry, exact values, the -inf
 // saturation edge, and the masked-tail path (odd vector lengths). The
 // dense accuracy work lives in test_lbeta_ulp.cpp.
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -9,6 +10,7 @@
 
 #include "corvus/corvus.h"
 #include "expect_target.h"
+#include "ulp_utils.h"
 
 namespace {
 
@@ -88,6 +90,22 @@ int main() {
 
   // Monotonic sanity: increasing b decreases ln B (fixed a).
   Check(One(2.5, 3.0) > One(2.5, 4.0), "monotone decreasing in b");
+
+  // Every lane position (#79): the cross product of points spanning the
+  // bands -- tiny, near the zero curve, moderate, the big band, overflow --
+  // and the domain policy's specials.
+  {
+    const double vals[] = {5e-324, 1e-300, 1e-8, 0.25, 0.5, 1.0, 2.0, 3.75,
+                           7.5, 256.5, 1e5, 1e100, 0x1.1p+990, dmax, 0.0,
+                           -1.0, inf, nan};
+    std::vector<std::array<double, 2>> probes;
+    for (const double a : vals) {
+      for (const double b : vals) probes.push_back({a, b});
+    }
+    g_fail += corvus_test::LaneMix("lbeta", probes, [](const auto& c, auto& o) {
+      corvus::lbeta(c[0], c[1], o);
+    });
+  }
 
   if (g_fail == 0) {
     std::printf("PASS: lbeta smoke\n");

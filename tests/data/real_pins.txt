@@ -31,12 +31,12 @@ beta_p|R3 temme  dir|fma|1.03
 beta_p|R3 temme  dir|nofma|1.18
 beta_p|R4 postrt cmp|fma|0.50
 beta_p|R4 postrt cmp|nofma|0.50
-beta_p|R4 postrt dir|fma|0.58
-beta_p|R4 postrt dir|nofma|0.58
+beta_p|R4 postrt dir|fma|0.47
+beta_p|R4 postrt dir|nofma|0.47
 beta_p|R4 tiny   cmp|fma|0.50
 beta_p|R4 tiny   cmp|nofma|0.50
-beta_p|R4 tiny   dir|fma|0.55
-beta_p|R4 tiny   dir|nofma|0.55
+beta_p|R4 tiny   dir|fma|1.86|#94
+beta_p|R4 tiny   dir|nofma|1.86|#94
 beta_q_inv|B rows (neighbour semantics)|fma|0.97
 beta_q_inv|B rows (neighbour semantics)|nofma|0.97
 beta_q_inv|deep-small closed form|fma|0.52
@@ -67,15 +67,15 @@ beta_q|R3 temme  dir|fma|1.38|#80
 beta_q|R3 temme  dir|nofma|1.13
 beta_q|R4 postrt cmp|fma|0.48
 beta_q|R4 postrt cmp|nofma|0.48
-beta_q|R4 postrt dir|fma|1.25
-beta_q|R4 postrt dir|nofma|1.25
+beta_q|R4 postrt dir|fma|0.98
+beta_q|R4 postrt dir|nofma|0.98
 beta_q|R4 tiny   cmp|fma|0.50
 beta_q|R4 tiny   cmp|nofma|0.50
 beta_q|R4 tiny   dir|fma|1.64
-beta_q|R4 tiny   dir|nofma|1.38
+beta_q|R4 tiny   dir|nofma|1.57|#94
 cos|neg huge|fma|0.72
 cos|neg huge|nofma|0.72
-cos|neg small|fma|0.74
+cos|neg small|fma|0.75
 cos|neg small|nofma|0.74
 cos|pos huge|fma|0.71
 cos|pos huge|nofma|0.71
@@ -214,7 +214,7 @@ log|subnormal-in|nofma|0.50
 sin|neg huge|fma|0.76
 sin|neg huge|nofma|0.76
 sin|neg small|fma|0.81
-sin|neg small|nofma|0.67
+sin|neg small|nofma|0.73
 sin|pos huge|fma|0.76
 sin|pos huge|nofma|0.76
 sin|pos small|fma|0.79

@@ -21,6 +21,7 @@
 #ifndef CORVUS_TESTS_ULP_UTILS_H_
 #define CORVUS_TESTS_ULP_UTILS_H_
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -48,6 +49,48 @@ inline bool SameBits(double a, double b) {
   std::memcpy(&ba, &a, sizeof(ba));
   std::memcpy(&bb, &b, sizeof(bb));
   return ba == bb;
+}
+
+// Every lane position (#79): each probe alone, then the whole probe list at
+// offsets 0..8 behind filler drawn from the far end of the list. On every
+// tier up to AVX-512 each probe then lands in every lane, next to a
+// different region's point each time. A result that depends on its
+// neighbours -- a vector-wide branch or early exit, a lane-crossing op --
+// differs from the probe alone. `fn(cols, out)` makes one call over the K
+// argument columns. Returns the number of drifted results; each is reported.
+template <size_t K, class Fn>
+int LaneMix(const char* name, const std::vector<std::array<double, K>>& probes,
+            Fn fn) {
+  const size_t n = probes.size();
+  auto call = [&](size_t off, size_t first, size_t count) {
+    std::array<std::vector<double>, K> cols;
+    for (size_t k = 0; k < off; ++k) {
+      for (size_t j = 0; j < K; ++j) cols[j].push_back(probes[(n - 1 - k) % n][j]);
+    }
+    for (size_t i = first; i < first + count; ++i) {
+      for (size_t j = 0; j < K; ++j) cols[j].push_back(probes[i][j]);
+    }
+    std::vector<double> out(cols[0].size());
+    fn(cols, out);
+    return out;
+  };
+  std::vector<double> alone(n);
+  for (size_t i = 0; i < n; ++i) alone[i] = call(0, i, 1)[0];
+  int drift = 0;
+  for (size_t off = 0; off < 9; ++off) {
+    const std::vector<double> got = call(off, 0, n);
+    for (size_t i = 0; i < n; ++i) {
+      if (SameBits(got[off + i], alone[i])) continue;
+      std::fprintf(stderr, "FAIL: %s lane-mix drift at (", name);
+      for (size_t j = 0; j < K; ++j) {
+        std::fprintf(stderr, "%s%a", j ? ", " : "", probes[i][j]);
+      }
+      std::fprintf(stderr, ") offset %zu: batched %a vs alone %a\n", off,
+                   got[off + i], alone[i]);
+      ++drift;
+    }
+  }
+  return drift;
 }
 
 inline uint64_t UlpDiff(double a, double b) {

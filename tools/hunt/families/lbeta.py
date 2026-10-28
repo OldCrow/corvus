@@ -68,9 +68,9 @@ def _abs_tol(args, v):
     return ABS_TOL if abs(v) < 1 else None
 
 
-def _st(name, gen, n, seam=None, note=""):
+def _st(name, gen, n, seam=None, note="", ref_cap=None):
     return Stratum("lbeta", name, gen, n, _oracle, _bound, oracle2=_oracle2,
-                   abs_tol=_abs_tol, seam=seam, note=note)
+                   abs_tol=_abs_tol, seam=seam, note=note, ref_cap=ref_cap)
 
 
 def _ok(a, b):
@@ -220,7 +220,7 @@ def strata():
     # dense
     S.append(_st("dense:quarter_to_four", lambda rng, n: _fill(rng, n, lambda r: (
         full_mantissa(r, 0.25, 4.0), full_mantissa(r, 0.25, 4.0))), 20000, None,
-        "[0.25, 4]^2 (known ~2% not CR, #76)"))
+        "[0.25, 4]^2 (known ~2% not CR, #76)", ref_cap=1000))  # #79: 36 base rows
     S.append(_st("dense:moderate", lambda rng, n: _fill(rng, n, lambda r: (
         log_uniform(r, 1e-3, 1e6), log_uniform(r, 1e-3, 1e6))), 6000))
     S.append(_st("witness", g_witness, 17, None,

@@ -93,11 +93,7 @@ FILES = {
 # Rows whose stored value is known not to be correctly rounded, with the
 # issue that tracks the generator defect. They keep their true residual,
 # so the gates measure real error against the exact value regardless.
-KNOWN_BAD = {
-    ("betainv_q", "0x1.0000000000000p+0 0x1.0000000000000p-1 "
-                  "0x1.6a09e667f3bcdp-1 0x1.ffffffffffffep-2"):
-        "a=1, b=1/2: root is 1/2 - 1.23 ulp, stored 1/2 - 2 ulp; generator, #87",
-}
+KNOWN_BAD: dict = {}  # empty since #87's row was regenerated (A4)
 HALF_SLACK = mpf("1e-9")  # |r| <= 1/2 + this is a correct row
 with mp.workprec(64):  # 2^1024 - 2^970 needs 54 bits
     OVERFLOW = mpf(2 ** 54 - 1) * mpf(2) ** 970  # rounds to infinity
@@ -219,16 +215,25 @@ def _ckey(fn, args):
     return fn + "|" + ",".join(a.hex() for a in args)
 
 
-def _pool(family_names, tasks, ckpt: Path, workers, batch=256, batch_seconds=1200):
+def _pool(family_names, tasks, ckpt: Path, workers, batch=256, batch_seconds=1200,
+          fresh=frozenset()):
     done = {}
     if ckpt.exists():
         for line in ckpt.read_text().splitlines():
             d = json.loads(line)
             done[d["key"]] = (d["r"], d["cert"], d["note"], d.get("cr"))
     # A residual is relative to the stored value: a regenerated row whose
-    # value changed is computed again.
-    todo = [t for t in tasks if _ckey(t[0], t[1]) not in done
-            or done[_ckey(t[0], t[1])][3] not in (None, t[2].hex())]
+    # value changed is computed again. Entries written before the checkpoint
+    # recorded the value (no "cr") are trusted only for rows that still carry
+    # their r= token; a row a generator rewrote (`fresh`) is computed again
+    # (A4: 92 i1/i1e rows replayed the residual of their old, even value).
+    def stale(t):
+        k = _ckey(t[0], t[1])
+        if k not in done:
+            return True
+        cr = done[k][3]
+        return cr != t[2].hex() if cr is not None else k in fresh
+    todo = [t for t in tasks if stale(t)]
     print(f"  {len(tasks) - len(todo)} rows from checkpoint, {len(todo)} to compute",
           file=sys.stderr, flush=True)
     if not todo:
@@ -303,7 +308,7 @@ def annotate(key: str, workers: int, check_only: bool) -> int:
     families, outs = FILES[key]
     path = path_of(key)
     lines = _split_lines(path.read_bytes())
-    tasks, seen = [], set()
+    tasks, seen, fresh = [], set(), set()
     for line in lines:
         tok = _data_tokens(line)
         if tok is None:
@@ -311,11 +316,14 @@ def annotate(key: str, workers: int, check_only: bool) -> int:
         for fn, acols, ocol in outs:
             args = tuple(float.fromhex(tok[c]) for c in acols)
             k = _ckey(fn, args)
+            if " r=" not in line:
+                fresh.add(k)
             if k not in seen:
                 seen.add(k)
                 tasks.append((fn, args, float.fromhex(tok[ocol])))
     print(f"{key}: {len(tasks)} oracle evaluations", file=sys.stderr, flush=True)
-    done = _pool(families, tasks, CKPT_DIR / f"{families[0]}.ckpt.jsonl", workers)
+    done = _pool(families, tasks, CKPT_DIR / f"{families[0]}.ckpt.jsonl", workers,
+                 fresh=frozenset(fresh))
 
     findings, out_lines, worst = [], [], 0.0
     for ln, line in enumerate(lines, 1):
