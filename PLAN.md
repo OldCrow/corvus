@@ -10,6 +10,18 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-28
 
+**Row B2 (#77) DONE 2026-10-28 on Z: `11ab298`, CI 40788554389 green
+on all three jobs. TWIN markers at both ends of the gamma-limit slice
+(beta/betainv), gamma's R1/R2 rule (i_ser in both slices),
+digamma/trigamma LeadTail evaluators, GammaSeriesSum/GammaInvSeedSum
+(decided: a twin). gammainv's lg1a keeps centre 1 for a <= 1/2 (reworded,
+not re-synced: <= 2^-57.8 relative in x; deep-small real max 0.5012 /
+0.4994 ulp). Doctrine rule 3: claim twins in ACCURACY.md carry
+`<!-- TWIN: -->` markers. Optional slice-prefactor hoist not done.
+Next: row B3 (#80 part 1).** [DERIVED]
+- **#77 close [OPEN]:** `gh issue close 77` was blocked by the auto-mode
+  classifier; close it with the commit and guard.
+
 **Row B1 (#86) DONE 2026-10-28 on Z: `537ba3b`, CI 40782653042 green
 on all three jobs. All 140 Dekker-product sites carry a `// FLOOR:`
 argument (72 new, none false; the R3 tail-bracket and GL CF-factor bounds
@@ -1928,7 +1940,7 @@ reference rows are regenerated, and regeneration done once. Two more:
 | A3 | generators DONE 2026-10-27 (Z, `1780304`; #87/#89 close at A4) — #87 betainv certifier (negative control fails at HEAD, then fix); #89 i1/i1e subnormal midpoint rows resolved by the sign of the first neglected term, and the base generators take `strata_append`'s tie rule | generator fixes before the one regeneration (A4); #87's constraint binds any betainv regen | mid; #89's kernel question is a decision [user] | generator negative controls | Z |
 | A4 | ~~#79 guards at real behaviour: exact row counts (truncation fails), beta symmetry guard 6 → measured, every-lane-position blocks for erf/erfc/lgamma/erfinv/lbeta, `consumer_example` erf(1) bit-exact; adversarial strata (trig > 2^-26, betainv huge-ν tail p, lbeta [0.25, 4]^2), beta R4 tiny-min generator re-budget + cap population. Then regenerate once for A3 + A4 and re-pin on SSE4~~ DONE 2026-10-27 (Z, `78c1bbf` + `f9835f0`; #79/#87/#89 closed; #94 filed) | lane-position blocks are the base of lever 1's lane-mix tests; regeneration once, after A3 | mid | yes — strata, guards, row counts | Z (sweep), CI |
 | B1 | ~~#86 `// FLOOR:` at every remaining Dekker site; `floor_lint.py --strict` in CI~~ DONE 2026-10-28 (Z, `537ba3b`; CI 40782653042) | before lever 1, so its new dd sites cannot land without an argument; a false argument is a finding (escalate) | mid | CI lint step | Z, CI |
-| B2 | #77 TWIN markers on every copied pair (or recorded not-a-twin); gammainv's lgamma(1+a) copy measured, then re-synced to #67's centre-2 form or reworded; ACCURACY claim twins | lever 1 edits the region cores that are the twins | small–mid | gammainv gates re-measured | Z, CI |
+| B2 | ~~#77 TWIN markers on every copied pair (or recorded not-a-twin); gammainv's lgamma(1+a) copy measured, then re-synced to #67's centre-2 form or reworded; ACCURACY claim twins~~ DONE 2026-10-28 (Z, `11ab298`; CI 40788554389) | lever 1 edits the region cores that are the twins | small–mid | gammainv gates re-measured | Z, CI |
 | B3 | #80 part 1: erf j = 0 (dd 2/√π, single rounding); beta_q R3 gamma-limit ridge margin (pin 1.38 → ≤ 1.25, or documented). Part 2 waits for C3 | erf_core and beta R3 are in lever 1's and #22's files; within-bound, so it never holds the release | mid | real-error pins lowered | CI tiers |
 | B4 | #68 Log1pmxDd seam at the 1/16 cut (raise `kPhiCut` or a log1p-of-small-dd path); measure consumer gates first | before C2 publishes `log1pmx` | small–mid | cut-dense rows re-pinned | Z, CI |
 | C1 | #42 lever 1, per-element cost (was row 13); weigh #44's fixed-cost regions against masked early exit first | the libstats throughput gate; after A–B | frontier | early-exit lane-mix tests | M1, K, Z |
