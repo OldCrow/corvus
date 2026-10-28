@@ -15,10 +15,8 @@ on all three jobs. All 140 Dekker-product sites carry a `// FLOOR:`
 argument (72 new, none false; the R3 tail-bracket and GL CF-factor bounds
 rest on asymptotic estimates, the rest are exact). CI's Linux job runs
 `floor_lint.py --strict` before the build; the lint now lets a comment
-above a multi-line statement cover all of it. Next: row B2 (#77).**
-[DERIVED]
-- **#86 close [OPEN]:** the auto-mode classifier blocked `gh issue close
-  86`; close it with the commit and guard if still open.
+above a multi-line statement cover all of it. Next: row B2 (#77).
+#86 closed with the commit and its guard.** [DERIVED]
 
 **Row A4 (#79 + the A3/A4 regeneration) DONE 2026-10-27 on Z:
 `78c1bbf` + `f9835f0` (MSVC C4456 in the new test blocks), CI
