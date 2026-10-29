@@ -10,15 +10,15 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-28
 
-**Row B3 (#80 part 1) implemented on Z, uncommitted (awaiting go-ahead).
+**Row B3 (#80 part 1) DONE 2026-10-28 on Z: `9429cf3`, CI 40804958773 green
+on all three jobs (NEON and AVX2 read the same R3 and erf maxima as Z).
 erf cell j = 0: dd 2/sqrt(pi) path, every hunt point CR on 3 tiers;
 reference not-CR 345 -> 28 (AVX3) / 37 (SSE4/SSE2); pin fma 0.98 -> 0.88.
 beta R3: p-direction rows in Reinsch's form; beta_q dir 1.356 -> 1.12,
 beta_p dir 1.03 -> 1.15 (pins 1.14 / 1.17, #80 tag dropped); ridge hunt
 max 1.02. Decided (user, 2026-10-28): keep Reinsch although its gain is
 modest (population p95 0.37 -> 0.33 bracket ulp). #80 stays open for part
-2 (C3). Next: commit, CI (NEON/AVX2 may move the two R3 pins), then row
-B4.** [DERIVED]
+2 (C3). Next: row B4 (#68).** [DERIVED]
 - R3 S-sum compensated k = 0 evaluation: the remaining S error is fixed
   per-row rounding at p ~ 0; rounding the k = 0 order once halves it
   (replay max 0.69 -> 0.33 bracket ulp). Costs R3 perf; frontier design;
@@ -1954,7 +1954,7 @@ reference rows are regenerated, and regeneration done once. Two more:
 | A4 | ~~#79 guards at real behaviour: exact row counts (truncation fails), beta symmetry guard 6 → measured, every-lane-position blocks for erf/erfc/lgamma/erfinv/lbeta, `consumer_example` erf(1) bit-exact; adversarial strata (trig > 2^-26, betainv huge-ν tail p, lbeta [0.25, 4]^2), beta R4 tiny-min generator re-budget + cap population. Then regenerate once for A3 + A4 and re-pin on SSE4~~ DONE 2026-10-27 (Z, `78c1bbf` + `f9835f0`; #79/#87/#89 closed; #94 filed) | lane-position blocks are the base of lever 1's lane-mix tests; regeneration once, after A3 | mid | yes — strata, guards, row counts | Z (sweep), CI |
 | B1 | ~~#86 `// FLOOR:` at every remaining Dekker site; `floor_lint.py --strict` in CI~~ DONE 2026-10-28 (Z, `537ba3b`; CI 40782653042) | before lever 1, so its new dd sites cannot land without an argument; a false argument is a finding (escalate) | mid | CI lint step | Z, CI |
 | B2 | ~~#77 TWIN markers on every copied pair (or recorded not-a-twin); gammainv's lgamma(1+a) copy measured, then re-synced to #67's centre-2 form or reworded; ACCURACY claim twins~~ DONE 2026-10-28 (Z, `11ab298`; CI 40788554389) | lever 1 edits the region cores that are the twins | small–mid | gammainv gates re-measured | Z, CI |
-| B3 | #80 part 1: erf j = 0 (dd 2/√π, single rounding); beta_q R3 gamma-limit ridge margin (pin 1.38 → ≤ 1.25, or documented). Part 2 waits for C3 | erf_core and beta R3 are in lever 1's and #22's files; within-bound, so it never holds the release | mid | real-error pins lowered | CI tiers |
+| B3 | ~~#80 part 1: erf j = 0 (dd 2/√π, single rounding); beta_q R3 gamma-limit ridge margin (pin 1.38 → ≤ 1.25, or documented)~~ DONE 2026-10-28 (Z, `9429cf3`; CI 40804958773). Part 2 waits for C3 | erf_core and beta R3 are in lever 1's and #22's files; within-bound, so it never holds the release | mid | real-error pins lowered | CI tiers |
 | B4 | #68 Log1pmxDd seam at the 1/16 cut (raise `kPhiCut` or a log1p-of-small-dd path); measure consumer gates first | before C2 publishes `log1pmx` | small–mid | cut-dense rows re-pinned | Z, CI |
 | C1 | #42 lever 1, per-element cost (was row 13); weigh #44's fixed-cost regions against masked early exit first | the libstats throughput gate; after A–B | frontier | early-exit lane-mix tests | M1, K, Z |
 | C2 | #45 export span `expm1`, `log1pmx` (was row 14) | after B4; libstats adopts both in v3.0.0 | mid (new family) | generator, four gating lists + quiet_bench lists | K, M1, Z |
