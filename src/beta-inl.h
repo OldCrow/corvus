@@ -1024,7 +1024,8 @@ HWY_NOINLINE Dd<D> BetaR2Cf(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi) {
 //
 // S is the tensor table in beta_data.h, evaluated exactly as that header's
 // recipe states: nested Clenshaw, in the p direction inside each of the 25
-// zeta rows and in the zeta direction across them, then Horner in 1/nu across
+// zeta rows (in Reinsch's form since #80: same sum, see BetaClenshawP) and in
+// the zeta direction across them, then Horner in 1/nu across
 // the 10 orders. The stored half is p <= 1/2; for p > 1/2 the table is
 // evaluated at (-zeta, q) and NEGATED (self-check (h),
 // e_k(zeta,p) = -e_k(-zeta,1-p)).
@@ -1076,17 +1077,33 @@ struct BetaR3Out {
   Dd<D> brk;
 };
 
+// One p-direction row, sum_m row[m] T_m(u), by Reinsch's form of the Clenshaw
+// recurrence (#80). Plain Clenshaw amplifies rounding near u = +-1, and the
+// gamma-limit ridge sits at u = -1 + 4p with p ~ 1e-11, where every lane
+// evaluates the same rows, so their rounding is a fixed per-row error: S read
+// up to +0.92 ulp of the bracket high, all of beta_q's 1.36-ULP real error.
+// This form shrinks that error but does not remove it (ACCURACY.md, beta R3,
+// #80; rounding the k = 0 order once is the open remedy). With x = u =
+// -sg + s, sg = +1 below u = 0 and -1 from it, and d_k = b_k + sg*b_{k+1}:
+//   d_k = c_k + 2s*b_{k+1} - sg*d_{k+1},  b_k = d_k - sg*b_{k+1},
+//   sum = c_0 + s*b_1 - sg*d_1.
+// s = 4p or 4p - 2 is exact (Sterbenz for 4p in [1, 2]), so the endpoint
+// distance carries no rounding. The products by -sg are exact, so each
+// MulAdd(nsg, ...) is one rounded add on every tier. Mid-range the two forms
+// err alike; at p -> 0 the worst row error fell from 4.5 to 1.9 (2^-53
+// sum|c| units), and over 390 ridge points the S error's p95 from 0.37 to
+// 0.33 bracket ulp.
 template <class D>
-HWY_INLINE op::V<D> BetaClenshawP(D d, const double* row, op::V<D> u,
-                                  op::V<D> u2) {
+HWY_INLINE op::V<D> BetaClenshawP(D d, const double* row, op::V<D> s,
+                                  op::V<D> s2, op::V<D> nsg) {
   auto b1 = op::Set(d, row[detail::kBetaR3NP - 1]);
-  auto b2 = op::Zero(d);
+  auto d1 = b1;
   for (int m = detail::kBetaR3NP - 2; m >= 1; --m) {
-    const auto nb = op::Sub(op::MulAdd(u2, b1, op::Set(d, row[m])), b2);
-    b2 = b1;
-    b1 = nb;
+    const auto dn = op::MulAdd(nsg, d1, op::MulAdd(s2, b1, op::Set(d, row[m])));
+    b1 = op::MulAdd(nsg, b1, dn);
+    d1 = dn;
   }
-  return op::Sub(op::MulAdd(u, b1, op::Set(d, row[0])), b2);
+  return op::MulAdd(nsg, d1, op::MulAdd(s, b1, op::Set(d, row[0])));
 }
 
 // i_gl: 1.0 on gamma-limit lanes (max(alpha,beta) >= kBetaGammaLim), which
@@ -1110,9 +1127,15 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
 
   const auto t = op::Mul(ze, op::Set(d, 1.0 / detail::kBetaZetaMax));
   const auto t2 = op::Add(t, t);
-  const auto u = op::Mul(op::Sub(pe, op::Set(d, detail::kBetaR3PMid)),
-                         op::Set(d, 1.0 / detail::kBetaR3PHalf));
-  const auto u2 = op::Add(u, u);
+  // u = (pe - kBetaR3PMid)/kBetaR3PHalf = 4pe - 1 in [-1, 1]; BetaClenshawP
+  // takes its distance s to the nearer endpoint instead.
+  static_assert(detail::kBetaR3PMid == 0.25 && detail::kBetaR3PHalf == 0.25,
+                "BetaClenshawP's endpoint distance assumes u = 4p - 1");
+  const auto low = op::Lt(pe, op::Set(d, 0.25));  // u < 0: near -1
+  const auto pe4 = op::Mul(pe, op::Set(d, 4.0));
+  const auto s = op::IfThenElse(low, pe4, op::Sub(pe4, op::Set(d, 2.0)));
+  const auto s2 = op::Add(s, s);
+  const auto nsg = op::IfThenElse(low, op::Set(d, -1.0), one);
   const auto r = op::Div(one, ps.nu.hi);
 
   auto sum = zero;
@@ -1120,12 +1143,12 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
     auto b1 = zero;
     auto b2 = zero;
     for (int n = detail::kBetaR3NZ - 1; n >= 1; --n) {
-      const auto rn = BetaClenshawP(d, detail::kBetaR3Cheb[k][n], u, u2);
+      const auto rn = BetaClenshawP(d, detail::kBetaR3Cheb[k][n], s, s2, nsg);
       const auto nb = op::Sub(op::MulAdd(t2, b1, rn), b2);
       b2 = b1;
       b1 = nb;
     }
-    const auto r0 = BetaClenshawP(d, detail::kBetaR3Cheb[k][0], u, u2);
+    const auto r0 = BetaClenshawP(d, detail::kBetaR3Cheb[k][0], s, s2, nsg);
     const auto row = op::Sub(op::MulAdd(t, b1, r0), b2);
     sum = op::MulAdd(sum, r, op::Mul(tsign, row));
   }

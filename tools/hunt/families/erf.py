@@ -63,7 +63,7 @@ def strata():
                        1500, s["name"]))
     out += [
         _st("cell_j0_uniform", lambda r, n: [(_sgn(r, full_mantissa(r, 0.0, 1 / 512)),) for _ in range(n)],
-            5000, note="table cell j=0 (~24% not CR, within bound)"),
+            5000, note="table cell j=0: dd 2/sqrt(pi) path since #80"),
         _st("cell_j0_log", lambda r, n: [(_sgn(r, log_uniform(r, 2.0 ** -1022, 1 / 512)),) for _ in range(n)],
             3000, note="tiny normals, erf ~ 2x/sqrt(pi)"),
         _st("cell_edges_all", _cell_edges, 6000, note="+-2^20 ulps of every (j+1/2)/256 edge"),

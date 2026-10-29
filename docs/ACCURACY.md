@@ -273,8 +273,9 @@ reaches AppleClang, whose default is `on`.
 
 ## erf
 
-<!-- claim: erf --> **Bound: max 1 ULP over the full domain** (~98.7% correctly rounded on the
-17,595-point reference). Until row 11 (#61) the reference held no
+<!-- claim: erf --> **Bound: max 1 ULP over the full domain** (99.86% correctly rounded on the
+19,439-row reference at AVX3_ZEN4, 99.81% at SSE4/SSE2; see the cell
+j = 0 note below). Until row 11 (#61) the reference held no
 subnormal x (smallest |x| ~1.7e-300), so the bound was ungated there;
 `gen_erf_reference.py --subnormal-append` added 3,001 subnormal rows
 (both signs, the smallest subnormals and the 2^-1022 boundary), which
@@ -303,6 +304,22 @@ NEON. AVX2, SSE4, SSSE3 and SSE2 re-gated 2026-10-11 on Kaby Lake
 (AVX2 native, lower tiers by capping, AppleClang 15.0.0, each
 tier-asserted): max 1 ULP; not-CR 217 at AVX2 and 218 at the three
 no-FMA tiers.
+
+Cell j = 0 (|x| <= 1/512), #80 (dev/v1.2.0). The table path returned
+RN(S·RN(p)) there, with S = 2/√π rounded: two roundings plus S's own
+error, and ~26% of the cell was not correctly rounded (real error up to
+1.13 ULP; 3.7% of subnormal inputs too). erf now takes that cell
+through a dd 2/√π and the Maclaurin series to x^7, splitting Shi·x
+exactly and rounding once. Inputs below 2^-900 are scaled by 2^1074,
+so subnormal outputs round once on their own grid. Measured on Z
+(AVX3_ZEN4, SSE4, SSE2, certified oracles): every one of 15,758 hunt
+points is correctly rounded, across uniform and log-spaced j = 0,
+subnormals and the 2^-1022 edge. On the reference, not-CR fell from 345
+to 28 (AVX3_ZEN4) and 37 (SSE4/SSE2). The real-error maximum is 0.86
+with FMA (pin 0.98 → 0.88) and 1.10 without (pin unchanged). The 1.10 lies in cell j = 1
+next to the seam, where S·p still rounds in double next to an E only
+about twice its size. It is within the bound and not addressed here.
+erfc is unchanged.
 
 ## erfc
 
@@ -841,7 +858,27 @@ gamma's to cpsi = 25 (z = 5), where the shared dd G now starts. beta_p's R3
 direct real-error maximum falls from 1.21 to 1.03; the gates stay at 1 on
 every tier. betainv's forward reads the same constant. beta_q's R3 margin
 at the gamma-limit ridge entry (#80, 1.38) is unchanged: it does not sit
-at the split.
+at the split. (#80 later traced and narrowed it; see the next paragraph.)
+
+**R3 p-direction rows in Reinsch's form (#80, dev/v1.2.0).** beta_q's R3
+direct cell read 1.356 real (FMA) at the gamma-limit ridge entry. The
+cause is the S table's evaluation, not its fit (the fit is exact to
+2^-61 there). Ridge lanes have p ~ 1e-11, so the p-direction Clenshaw
+runs at u = -1 with the same inputs on every lane. Its rounding is
+therefore a fixed error per row, and the zeta-direction sum turns it
+into a zeta-dependent bias: S read up to +0.92 ulp of the Temme bracket
+high (mean -0.39 ulp on the result around the worst row). The rows now
+use Reinsch's form of the recurrence, which carries the exact endpoint
+distance 4p or 4p - 2. That cuts the worst row error at p -> 0 from 4.5
+to 1.9 (2^-53 sum|c|), but over 390 ridge points the S error falls only
+modestly (p95 0.37 -> 0.33 bracket ulp, max 0.67 either way). The
+remaining error is the same fixed-rounding mechanism. Measured on Z
+(AVX3_ZEN4, SSE4, SSE2): beta_q R3 direct 1.356 -> 1.12 and beta_p R3
+direct 1.03 -> 1.15 (pins 1.38 -> 1.14 and 1.03 -> 1.17), all R3 cells
+within the 1.25 ceiling; a dense ridge hunt (7,996 rows) reads max 1.02
+with no violation. betainv's forward shares this core; its gates hold.
+Rounding the k = 0 order once would halve the S error (replay: max 0.69
+-> 0.33); that compensated evaluation is open (PLAN.md).
 
 **R3 Temme tail fixed (#69, order row 12c).** Beta's tail (cpsi > 36) was
 a 2026-08-01 copy of gamma's and never received gamma's #57 (z.lo fold, dd

@@ -10,6 +10,20 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-28
 
+**Row B3 (#80 part 1) implemented on Z, uncommitted (awaiting go-ahead).
+erf cell j = 0: dd 2/sqrt(pi) path, every hunt point CR on 3 tiers;
+reference not-CR 345 -> 28 (AVX3) / 37 (SSE4/SSE2); pin fma 0.98 -> 0.88.
+beta R3: p-direction rows in Reinsch's form; beta_q dir 1.356 -> 1.12,
+beta_p dir 1.03 -> 1.15 (pins 1.14 / 1.17, #80 tag dropped); ridge hunt
+max 1.02. Decided (user, 2026-10-28): keep Reinsch although its gain is
+modest (population p95 0.37 -> 0.33 bracket ulp). #80 stays open for part
+2 (C3). Next: commit, CI (NEON/AVX2 may move the two R3 pins), then row
+B4.** [DERIVED]
+- R3 S-sum compensated k = 0 evaluation: the remaining S error is fixed
+  per-row rounding at p ~ 0; rounding the k = 0 order once halves it
+  (replay max 0.69 -> 0.33 bracket ulp). Costs R3 perf; frontier design;
+  needs its own row and issue. [OPEN]
+
 **Row B2 (#77) DONE 2026-10-28 on Z: `11ab298`, CI 40788554389 green
 on all three jobs. TWIN markers at both ends of the gamma-limit slice
 (beta/betainv), gamma's R1/R2 rule (i_ser in both slices),
