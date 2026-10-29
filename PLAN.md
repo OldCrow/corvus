@@ -10,6 +10,38 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-29
 
+**Row C1 (#42 lever 1) IN PROGRESS on Z. Design DECIDED 2026-10-29
+[user]:** [DECIDED]
+- **#44 answered: no.** A dd quadrature node (log_dd + exp_dd + dd MAC)
+  costs ~10 ns/el on AVX3_ZEN4; 24 nodes = 251 ns/el against gamma R2's
+  whole 44-step CF at 26. corvus's regions are already fixed-cost; the
+  open question was the depth, not the method.
+- **Levers, in order:** (1) beta R2 CF deep steps in plain double, last 8
+  in dd (gamma's existing split): CF 263 → ~74 ns/el, max |dF| 0.04 ×
+  2^-53 F on 4,000 points; (3) beta prefactor dead work (~270-300 ns/el
+  outside the cores); (2) per-lane late start for both backward CFs from a
+  predicted depth (lane holds the tail until k <= its own N; the vector
+  runs from the max). Not taken: beta R1 freeze 2^-105 → 2^-60 (R4
+  amplification risk).
+- **Acceptance rule: bounds, not bits** (VERSIONING.md promises bounds,
+  not cross-version bits). Every ULP gate green on every tier, no
+  published bound moves, AND per region the real maximum error before and
+  after on every runnable tier rises by no more than tie noise (0.01 ulp);
+  a targeted hunt at beta R2's large-F corners (d_1 near -1, F to 1e7);
+  an analytic bound for the double/dd split at the definition site. A
+  rise is stop-and-ask, not a re-pin; fallback for lever 1 is 16 dd steps
+  (~120 ns/el, no measured movement). Lane-mix determinism is unchanged.
+- **#42's NEON targets (gamma_p <= 40, beta_p <= 30 ns/el) are out of
+  reach under the accuracy contract** (gamma's prefactor alone is 29
+  ns/el on 8 lanes). Projection: beta 2-3x, gamma 1.2-1.5x, inverses
+  proportional. libstats must hear this before its v3.0.0 adoption.
+  [OPEN]
+- Evidence: all timings INDICATIVE (Z ambient 22-27%, quiet gate never
+  opened); depth and precision counts are deterministic. Scratch tool
+  tests/bench_igamma_components.cpp. libstats' adoption-branch tests hold
+  no stored corvus bits (batch == scalar plus tolerances). M1 and Kaby
+  Lake legs are owed at the end of C1.
+
 **Row B4 (#68) DONE 2026-10-29 on Z: option 3 (user), no kernel change.
 Shadow build (kPhiCut 9/128, phi ~2^-72 across the band): of 18,000
 consumer outputs placed in (1/16, 9/128] (gamma_p/q, inverses, beta_p/q,
