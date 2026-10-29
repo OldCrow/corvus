@@ -8,7 +8,16 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-10-28
+## Status [DERIVED] — 2026-10-29
+
+**Row B4 (#68) DONE 2026-10-29 on Z: option 3 (user), no kernel change.
+Shadow build (kPhiCut 9/128, phi ~2^-72 across the band): of 18,000
+consumer outputs placed in (1/16, 9/128] (gamma_p/q, inverses, beta_p/q,
+inverses; exponents 0.05-800), one changed, a 1-ulp near-tie flip toward
+CR. Analytic bound <= ~0.03 ULP (exponent capped near 800; LgammaDiffDd
+z*phi <= ~8). Documented in dd_special-inl.h, test_dd_special.cpp and
+ACCURACY.md (gamma section). Comment-only commit; closed citing CI
+40804958773 on identical code. Next: row C1 (#42 lever 1).** [DERIVED]
 
 **Row B3 (#80 part 1) DONE 2026-10-28 on Z: `9429cf3`, CI 40804958773 green
 on all three jobs (NEON and AVX2 read the same R3 and erf maxima as Z).
@@ -19,22 +28,6 @@ beta_p dir 1.03 -> 1.15 (pins 1.14 / 1.17, #80 tag dropped); ridge hunt
 max 1.02. Decided (user, 2026-10-28): keep Reinsch although its gain is
 modest (population p95 0.37 -> 0.33 bracket ulp). #80 stays open for part
 2 (C3). Next: row B4 (#68).** [DERIVED]
-- B4 plan (agreed with user 2026-10-28; paused, resume 2026-10-29). [OPEN]
-  Measure first, then stop at a deliberate evaluation point; no kernel
-  change before it.
-  - Measurement: replay consumer lanes with u in (1/16, ~0.07] (gamma R3
-    Temme, beta BetaPsiCore and its 2-arg overload, gammainv forward,
-    betainv seed), phi exact vs as the kernel computes it. Report real
-    ULP shift per consumer cell and whether any gate or pin moves.
-    Estimate in #68 is ~2^-58 relative, ~0.03 ULP (unmeasured).
-  - Evaluation point (user decides): (3) document and close #68 with the
-    measured figure if no consumer cell moves; (2) cancellation-free atanh
-    form, s = u/(2+u), phi = u*s - 2(s^3/3 + s^5/5 + ...), seam
-    continuous at ~2^-72, if one does -- frontier, own design review,
-    re-gates gamma/gammainv/beta/betainv. Option (1), raise kPhiCut to
-    1/8, gains ~1 bit only (2/u amplification halves); not recommended.
-  - C2 is not a driver: public log1pmx returns a double, where 2^-67.6 is
-    ~0.0003 ULP.
 - R3 S-sum compensated k = 0 evaluation: the remaining S error is fixed
   per-row rounding at p ~ 0; rounding the k = 0 order once halves it
   (replay max 0.69 -> 0.33 bracket ulp). Costs R3 perf; frontier design;
@@ -1971,7 +1964,7 @@ reference rows are regenerated, and regeneration done once. Two more:
 | B1 | ~~#86 `// FLOOR:` at every remaining Dekker site; `floor_lint.py --strict` in CI~~ DONE 2026-10-28 (Z, `537ba3b`; CI 40782653042) | before lever 1, so its new dd sites cannot land without an argument; a false argument is a finding (escalate) | mid | CI lint step | Z, CI |
 | B2 | ~~#77 TWIN markers on every copied pair (or recorded not-a-twin); gammainv's lgamma(1+a) copy measured, then re-synced to #67's centre-2 form or reworded; ACCURACY claim twins~~ DONE 2026-10-28 (Z, `11ab298`; CI 40788554389) | lever 1 edits the region cores that are the twins | small–mid | gammainv gates re-measured | Z, CI |
 | B3 | ~~#80 part 1: erf j = 0 (dd 2/√π, single rounding); beta_q R3 gamma-limit ridge margin (pin 1.38 → ≤ 1.25, or documented)~~ DONE 2026-10-28 (Z, `9429cf3`; CI 40804958773). Part 2 waits for C3 | erf_core and beta R3 are in lever 1's and #22's files; within-bound, so it never holds the release | mid | real-error pins lowered | CI tiers |
-| B4 | #68 Log1pmxDd seam at the 1/16 cut (raise `kPhiCut` or a log1p-of-small-dd path); measure consumer gates first | before C2 publishes `log1pmx` | small–mid | cut-dense rows re-pinned | Z, CI |
+| B4 | ~~#68 Log1pmxDd seam at the 1/16 cut (raise `kPhiCut` or a log1p-of-small-dd path); measure consumer gates first~~ DONE 2026-10-29 (Z): measured negligible, documented, no kernel change | before C2 publishes `log1pmx` | small–mid | cut-dense rows re-pinned | Z, CI |
 | C1 | #42 lever 1, per-element cost (was row 13); weigh #44's fixed-cost regions against masked early exit first | the libstats throughput gate; after A–B | frontier | early-exit lane-mix tests | M1, K, Z |
 | C2 | #45 export span `expm1`, `log1pmx` (was row 14) | after B4; libstats adopts both in v3.0.0 | mid (new family) | generator, four gating lists + quiet_bench lists | K, M1, Z |
 | C3 | #31 lgamma table band + single reflection log (was row 15); then #80 part 2 (lbeta near (1, 1); the lbeta CR option) against the new lgamma | beta/gamma/lbeta consume lgamma; libstats' PMF lgamma routing returns when it lands | frontier | generator + regen | K, Z, M1 |

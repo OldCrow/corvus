@@ -90,8 +90,12 @@ inline constexpr int kPhiLead = 6;
 // primitive: ~2^-67.6 relative, just above the cut (2^-67.78 at
 // u = 0.0625098 on the reference rows, 2^-67.63 near u = 0.0625809 in
 // 100k-point probes; tests/test_dd_special.cpp, row 12). The 2^-71.41
-// recorded at #58 came from rows that never sampled (1/16, 0.064]. A fix
-// near the cut is tracked for v1.2.0.
+// recorded at #58 came from rows that never sampled (1/16, 0.064]. Kept as
+// is (#68, closed): every consumer takes phi into an exponent capped near
+// 800 or a term <= ~8 (LgammaDiffDd, m <= 256), so the seam is <= ~0.03 ULP
+// downstream. Measured with a shadow build whose cut sat at 9/128: of
+// 18,000 consumer outputs placed in the band (gamma, gammainv, beta,
+// betainv), one changed, by a 1-ulp near-tie flip.
 //
 // TWO SPELLINGS OF 1 + u. The 2-arg overload takes w = 1 + u from the
 // CALLER, for use where the caller owns an exact closed form (beta's

@@ -754,6 +754,15 @@ certified directly (series/CF cost grows as √a). For η < 0
 the coefficient extraction must run on the P-side identity — the Q-side
 difference is a 1-minus-tiny cancellation that needs thousands of digits.
 
+The φ primitive's worst error is ~2^-67.6 relative, just above its 1/16
+series cut (log_dd's error amplified by 2/u). It stays (#68, dev/v1.2.0)
+because it does not reach results: every consumer takes φ into an
+exponent capped near 800, or into a term no larger than ~8, so it is at
+most ~0.03 ULP downstream. Measured on Z (AVX3_ZEN4) with a shadow build
+whose cut sat at 9/128, φ ~2^-72 across the band: of 18,000 outputs
+placed in the band (gamma_p/q, their inverses, beta_p/q, their inverses;
+exponents 0.05 to 800), one changed, a 1-ulp near-tie flip.
+
 The R4 small-a cell rests on the dd e^w − 1 primitive, whose comment
 claimed ~2⁻⁹⁵ while its exponential branch measured 2⁻⁶¹·⁴ (ExpDd's
 plain-double p2 term, amplified by 1/|w| up to the old 2⁻¹⁰ series cut).
