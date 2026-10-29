@@ -19,6 +19,22 @@ beta_p dir 1.03 -> 1.15 (pins 1.14 / 1.17, #80 tag dropped); ridge hunt
 max 1.02. Decided (user, 2026-10-28): keep Reinsch although its gain is
 modest (population p95 0.37 -> 0.33 bracket ulp). #80 stays open for part
 2 (C3). Next: row B4 (#68).** [DERIVED]
+- B4 plan (agreed with user 2026-10-28; paused, resume 2026-10-29). [OPEN]
+  Measure first, then stop at a deliberate evaluation point; no kernel
+  change before it.
+  - Measurement: replay consumer lanes with u in (1/16, ~0.07] (gamma R3
+    Temme, beta BetaPsiCore and its 2-arg overload, gammainv forward,
+    betainv seed), phi exact vs as the kernel computes it. Report real
+    ULP shift per consumer cell and whether any gate or pin moves.
+    Estimate in #68 is ~2^-58 relative, ~0.03 ULP (unmeasured).
+  - Evaluation point (user decides): (3) document and close #68 with the
+    measured figure if no consumer cell moves; (2) cancellation-free atanh
+    form, s = u/(2+u), phi = u*s - 2(s^3/3 + s^5/5 + ...), seam
+    continuous at ~2^-72, if one does -- frontier, own design review,
+    re-gates gamma/gammainv/beta/betainv. Option (1), raise kPhiCut to
+    1/8, gains ~1 bit only (2/u amplification halves); not recommended.
+  - C2 is not a driver: public log1pmx returns a double, where 2^-67.6 is
+    ~0.0003 ULP.
 - R3 S-sum compensated k = 0 evaluation: the remaining S error is fixed
   per-row rounding at p ~ 0; rounding the k = 0 order once halves it
   (replay max 0.69 -> 0.33 bracket ulp). Costs R3 perf; frontier design;
