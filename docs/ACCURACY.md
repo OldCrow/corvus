@@ -1036,8 +1036,19 @@ asserting directional monotonicity and that the line actually crossed
 its seam. Both measure **zero** violations on every validated target —
 the worst wrong-direction step anywhere is 0 ULP.
 
+**R2 precision split, #42 lever 1, 2026-10-29.** The backward CF now
+runs its deep steps in plain double and only the last 16 in dd, on lanes
+whose own F = 1/f is below 16. Lanes at or above it (F reaches ~2⁴³ in
+R2) are recomputed by the previous all-dd recurrence, bit-identical to
+it. A routed hunt (600k raw draws, both orientations, exact router
+replica) measured the split at ≤ 0.0012 ulp of F below the gate. Every
+gate cell's real maximum and not-CR count is unchanged on AVX3_ZEN4,
+AVX2, SSE4, SSSE3 and SSE2. Measured, not proven; the error mechanism
+is at `BetaR2Cf`.
+
 Method: four regions plus two overlays — the tiny-first power series
-(dd terms, per-lane freeze), a backward fixed-depth continued fraction,
+(dd terms, per-lane freeze), a backward fixed-depth continued fraction
+(double-double where F is large),
 the Temme uniform asymptotic in (ζ, p) (tensor Chebyshev in 1/ν with a
 p-edge depth extension), the tiny-min log-space assembly
 Q̃ = −expm1(τ·lnξ + lgΔ − lg1 + log1p(τΣ)) whose every component is

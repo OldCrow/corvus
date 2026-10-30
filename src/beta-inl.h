@@ -123,6 +123,13 @@ namespace op = ops;
 // full fixed cap (64 for R1, 48 for R4) instead of stopping early.
 inline constexpr double kBetaFreezeEps = 0x1.0p-105;
 
+// BetaR2Cf's precision split (#42 lever 1): the last kBetaCfDdSteps steps run
+// in dd, the deeper ones in double, on lanes whose F = 1/f is below
+// kBetaCfMixedFMax; the others take the all-dd recurrence. Both from the hunt
+// recorded at BetaR2Cf (16 steps: <= 0.0012 ulp below F = 2^4).
+inline constexpr int kBetaCfDdSteps = 16;
+inline constexpr double kBetaCfMixedFMax = 16.0;
+
 // R3 core/tail split, exact: cpsi = 25 <=> z = sqrt(cpsi) = 5 (#70). The core
 // consumes erfc's ErfcCoreDd, whose 1 - erf form of erfc carries ~1 ulp of
 // erfc at z = 6 (gamma's twin read 2.5 ulp at the old split, cpsi = 36); at
@@ -923,8 +930,9 @@ HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
 //     d_{2m+1} = -(alpha+m)(c+m)xi / ((alpha+2m)(alpha+2m+1)).
 // Fixed depth kBetaN2 with NO convergence test (gamma's GammaCfRecip lesson).
 //
-// THE RECURRENCE AND EVERY d ARE DOUBLE-DOUBLE, which gamma's are not.
-// Two independent reasons, both measured:
+// THE LAST kBetaCfDdSteps STEPS, AND EVERY STEP OF AN ILL-CONDITIONED LANE,
+// ARE DOUBLE-DOUBLE (#42 lever 1; before it every step of every lane was).
+// Two independent reasons the answer needs dd, both measured:
 //
 //  1. CONDITIONING. A relative perturbation eps in d_1 moves the returned F by
 //     (F - 1)*eps -- the recurrence's last step is f_1 = 1 + d_1/f_2 and F is
@@ -942,6 +950,24 @@ HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
 //     relative in the answer. (R1 and R4 need no such treatment: their
 //     membership forces xi <= 0.45, hence x >= 0.55 in the swapped case,
 //     hence a Sterbenz-exact 1 - x.)
+//
+// THE CONDITIONING GATE. Both effects reach the answer through the same
+// lever: a relative error e in f_{j+1} moves f_j by e*(f_j - 1)/f_j, so a
+// deep step's error arrives at F scaled by prod_j |1 - 1/f_j|, whose j = 1
+// factor is |1 - F|. The deep steps (k > kBetaCfDdSteps) therefore run in
+// plain double, on xi.hi alone, and the last kBetaCfDdSteps in dd exactly as
+// below -- which is accurate only while F is small. Each lane decides for
+// itself from the value this split returns: a lane with F >= kBetaCfMixedFMax
+// (or a NaN F) is recomputed by BetaR2CfDd, the all-dd recurrence this core
+// ran before #42, and that path runs only when some lane needs it. The
+// decision depends on the lane's own inputs only, so lane-mix determinism
+// holds. MEASURED, not proven (tests/bench_igamma_components.cpp hunt,
+// 600k raw draws routed by an exact router replica, both orientations): with
+// 16 dd steps the split moves F by at most 0.0012 ulp below F = 2^4, 0.021
+// in [2^4, 2^10), and by up to 2e9 ulp at F >= 2^30 -- F reaches ~2^43 in R2
+// (nu just under kBetaTRidge, one parameter to ~1e14), which is why the gate
+// is per lane and not a deeper fixed split. Cost (AVX3_ZEN4, indicative):
+// 263 -> ~91 ns/el on lanes that pass.
 //
 // ORDER OF OPERATIONS AND OVERFLOW -- the rule is load
 // bearing: each d is TWO factors, a ratio bounded by ~1 times a bounded
@@ -966,6 +992,48 @@ HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
 // shape and the target both denorm_min reach it too, under the same bound
 // (their #88 error was the log of R4's unscaled value; see BetaR4Out).
 template <class D>
+HWY_INLINE Dd<D> BetaCfDdStep(D d, int k, op::V<D> a, Dd<D> xi, Dd<D> xis,
+                              op::V<D> bs, Dd<D> cs, Dd<D> f) {
+  const auto zero = op::Zero(d);
+  // m = floor(k/2) BY CONSTRUCTION (d_{2m} at even k, d_{2m+1} at odd);
+  // the integer division is the point.
+  // NOLINTNEXTLINE(bugprone-integer-division)
+  const double mv = static_cast<double>(k / 2);
+  const auto m = op::Set(d, mv);
+  Dd<D> dk{zero, zero};  // brace-init: see BetaPsiCore's ctor note
+  if ((k & 1) == 0) {
+    // d_{2m} = [m/(alpha+2m-1)] * [(beta-m)xi/(alpha+2m)]
+    const auto bx = DdSub(d, DdMulD(d, xis, bs), DdMulD(d, xi, m));
+    const auto r1 = DdDivDd(d, Dd<D>{m, zero},
+                            TwoSum(d, a, op::Set(d, 2.0 * mv - 1.0)));
+    const auto r2 =
+        DdDivDd(d, bx, TwoSum(d, a, op::Set(d, 2.0 * mv)));
+    dk = DdMul(d, r1, r2);
+  } else {
+    // d_{2m+1} = -[(alpha+m)/(alpha+2m)] * [(c+m)xi/(alpha+2m+1)]
+    const auto cx = DdAdd(d, DdMul(d, xis, cs), DdMulD(d, xi, m));
+    const auto r1 = DdDivDd(d, TwoSum(d, a, m),
+                            TwoSum(d, a, op::Set(d, 2.0 * mv)));
+    const auto r2 =
+        DdDivDd(d, cx, TwoSum(d, a, op::Set(d, 2.0 * mv + 1.0)));
+    dk = DdNeg(d, DdMul(d, r1, r2));
+  }
+  return DdAddD(d, DdMul(d, dk, DdRecipDd(d, f)), op::Set(d, 1.0));
+}
+
+// The all-dd recurrence: every step of an ill-conditioned lane (see THE
+// CONDITIONING GATE). HWY_NOINLINE: a rare path behind an AllFalse skip.
+template <class D>
+HWY_NOINLINE Dd<D> BetaR2CfDd(D d, op::V<D> a, Dd<D> xi, Dd<D> xis,
+                              op::V<D> bs, Dd<D> cs) {
+  Dd<D> f{op::Set(d, 1.0), op::Zero(d)};
+  for (int k = detail::kBetaN2; k >= 1; --k) {
+    f = BetaCfDdStep(d, k, a, xi, xis, bs, cs, f);
+  }
+  return DdRecipDd(d, f);
+}
+
+template <class D>
 HWY_NOINLINE Dd<D> BetaR2Cf(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi) {
   const auto one = op::Set(d, 1.0);
   const auto zero = op::Zero(d);
@@ -981,34 +1049,40 @@ HWY_NOINLINE Dd<D> BetaR2Cf(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi) {
   const auto bs = op::Mul(b, sdn);
   const Dd<D> xis{op::Mul(xi.hi, sup), op::Mul(xi.lo, sup)};
 
-  Dd<D> f{one, zero};
-  for (int k = detail::kBetaN2; k >= 1; --k) {
-    // m = floor(k/2) BY CONSTRUCTION (d_{2m} at even k, d_{2m+1} at odd);
-    // the integer division is the point.
+  // Deep steps in plain double, same two-factor grouping as the dd step;
+  // (beta-m)xi and (c+m)xi on the prescaled pair (m*s is exact).
+  auto fd = one;
+  for (int k = detail::kBetaN2; k > kBetaCfDdSteps; --k) {
     // NOLINTNEXTLINE(bugprone-integer-division)
     const double mv = static_cast<double>(k / 2);
     const auto m = op::Set(d, mv);
-    Dd<D> dk{zero, zero};  // brace-init: see BetaPsiCore's ctor note
+    op::V<D> dk;
     if ((k & 1) == 0) {
-      // d_{2m} = [m/(alpha+2m-1)] * [(beta-m)xi/(alpha+2m)]
-      const auto bx = DdSub(d, DdMulD(d, xis, bs), DdMulD(d, xi, m));
-      const auto r1 = DdDivDd(d, Dd<D>{m, zero},
-                              TwoSum(d, a, op::Set(d, 2.0 * mv - 1.0)));
-      const auto r2 =
-          DdDivDd(d, bx, TwoSum(d, a, op::Set(d, 2.0 * mv)));
-      dk = DdMul(d, r1, r2);
+      const auto bx = op::Mul(op::Sub(bs, op::Mul(m, sdn)), xis.hi);
+      dk = op::Mul(op::Div(m, op::Add(a, op::Set(d, 2.0 * mv - 1.0))),
+                   op::Div(bx, op::Add(a, op::Set(d, 2.0 * mv))));
     } else {
-      // d_{2m+1} = -[(alpha+m)/(alpha+2m)] * [(c+m)xi/(alpha+2m+1)]
-      const auto cx = DdAdd(d, DdMul(d, xis, cs), DdMulD(d, xi, m));
-      const auto r1 = DdDivDd(d, TwoSum(d, a, m),
-                              TwoSum(d, a, op::Set(d, 2.0 * mv)));
-      const auto r2 =
-          DdDivDd(d, cx, TwoSum(d, a, op::Set(d, 2.0 * mv + 1.0)));
-      dk = DdNeg(d, DdMul(d, r1, r2));
+      const auto cx = op::Mul(op::Add(cs.hi, op::Mul(m, sdn)), xis.hi);
+      dk = op::Neg(
+          op::Mul(op::Div(op::Add(a, m), op::Add(a, op::Set(d, 2.0 * mv))),
+                  op::Div(cx, op::Add(a, op::Set(d, 2.0 * mv + 1.0)))));
     }
-    f = DdAddD(d, DdMul(d, dk, DdRecipDd(d, f)), one);
+    fd = op::Add(op::Div(dk, fd), one);
   }
-  return DdRecipDd(d, f);
+  Dd<D> f{fd, zero};
+  for (int k = kBetaCfDdSteps; k >= 1; --k) {
+    f = BetaCfDdStep(d, k, a, xi, xis, bs, cs, f);
+  }
+  const auto fm = DdRecipDd(d, f);
+
+  // The gate, on the lane's own F; NaN fails the Lt and takes the full path.
+  const auto full =
+      op::MaskNot(op::Lt(op::Abs(fm.hi), op::Set(d, kBetaCfMixedFMax)));
+  CORVUS_ROUTE(d, "beta/R2/full_dd", full);
+  if (op::AllFalse(d, full)) return fm;
+  const auto fa = BetaR2CfDd(d, a, xi, xis, bs, cs);
+  return Dd<D>{op::IfThenElse(full, fa.hi, fm.hi),
+               op::IfThenElse(full, fa.lo, fm.lo)};
 }
 
 // ------------------------------------------------------------------------

@@ -141,6 +141,8 @@ corvus_test_target(bench_lgamma)
 # NOT in the quiet_bench default target list, pass it via -Targets.
 add_executable(bench_lgamma_components bench_lgamma_components.cpp)
 corvus_kernel_test_target(bench_lgamma_components)
+add_executable(bench_igamma_components bench_igamma_components.cpp)
+corvus_kernel_test_target(bench_igamma_components)
 # Deliberately not registered with ctest: run manually on a quiet machine.
 
 add_executable(test_erfinv test_erfinv.cpp)
