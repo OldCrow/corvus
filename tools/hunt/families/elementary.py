@@ -1,4 +1,5 @@
-"""Elementary-family hunt strata: exp, log, log1p, cos, sin (#82).
+"""Elementary-family hunt strata: exp, expm1, log, log1p, log1pmx, cos,
+sin (#82; expm1 and log1pmx #45).
 
 Bounds (docs/ACCURACY.md "exp, log, log1p" and "cos and sin"):
   exp    normal results 0 ULP (CR) except within ~2^-15 ulp of a rounding tie
@@ -6,6 +7,9 @@ Bounds (docs/ACCURACY.md "exp, log, log1p" and "cos and sin"):
   log    0 ULP (same near-tie statement)
   log1p  0 ULP (same; ~2^-23 ulp below |x| = 2^-30, we exempt 2^-15 only
          outside the tiny band)
+  expm1  0 ULP, except within ~2^-11 ulp of a tie above |x| = 2^-6 (the
+         exponential branch amplifies the core up to ~65x) and ~2^-15 below
+  log1pmx 0 ULP (same near-tie statement as log)
   cos    1 ULP over the full double range
   sin    1 ULP over the full double range
 Seam constants come from src/exp-inl.h (|x| <= 708 fast path, ScaleTwo
@@ -28,6 +32,7 @@ DBL_MAX = 1.7976931348623157e308
 MIN_NORMAL = 2.2250738585072014e-308
 TIE = 2.0 ** -15          # documented near-tie exception, in ulps
 TIE_LOG1P_TINY = 2.0 ** -23
+TIE_EXPM1_EXP = 2.0 ** -11  # expm1 above the 2^-6 cut (corvus.h)
 
 
 def _f(v):
@@ -76,6 +81,20 @@ SEAMS = [
     {"fn": "log1p", "name": "plus_one", "coord": "x", "value": 1.0, "source": "1+x = 2, binade edge"},
     {"fn": "log1p", "name": "ulp_half", "coord": "x", "value": 2.0 ** -53, "source": "1+x rounding edge; TwoSum lo only"},
     {"fn": "log1p", "name": "dbl_max", "coord": "x", "value": DBL_MAX, "source": "largest finite input"},
+    # expm1 (src/exp-inl.h Expm1Vec)
+    {"fn": "expm1", "name": "cut_hi", "coord": "x", "value": 2.0 ** -6, "source": "kExpm1Cut series/exponential (dd_special-inl.h)"},
+    {"fn": "expm1", "name": "cut_lo", "coord": "x", "value": -(2.0 ** -6), "source": "kExpm1Cut series/exponential (dd_special-inl.h)"},
+    {"fn": "expm1", "name": "minus38", "coord": "x", "value": -38.0, "source": "x <= -38 returns -1 exactly (exp-inl.h)"},
+    {"fn": "expm1", "name": "overflow", "coord": "x", "value": _EXP_OVER, "source": "e^x - 1 = 2^1024(1-2^-54): RN to +inf above"},
+    # log1pmx (src/log-inl.h Log1pmxVec)
+    {"fn": "log1pmx", "name": "tiny_hi", "coord": "x", "value": 2.0 ** -480, "source": "tiny/series cut (log-inl.h)"},
+    {"fn": "log1pmx", "name": "tiny_lo", "coord": "x", "value": -(2.0 ** -480), "source": "tiny/series cut (log-inl.h)"},
+    {"fn": "log1pmx", "name": "subnormal_out", "coord": "x", "value": 2.0 ** -511, "source": "x^2/2 = 2^-1023: normal/subnormal result"},
+    {"fn": "log1pmx", "name": "cut_hi", "coord": "x", "value": 1.0 / 16, "source": "kPhiCut series/direct (dd_special_data.h)"},
+    {"fn": "log1pmx", "name": "cut_lo", "coord": "x", "value": -1.0 / 16, "source": "kPhiCut series/direct (dd_special_data.h)"},
+    {"fn": "log1pmx", "name": "minus_half", "coord": "x", "value": -0.5, "source": "1+x = 1/2, Sterbenz edge of TwoSum"},
+    {"fn": "log1pmx", "name": "minus_one", "coord": "x", "value": -1.0, "source": "domain edge, 1+x = 0"},
+    {"fn": "log1pmx", "name": "dbl_max", "coord": "x", "value": DBL_MAX, "source": "largest finite input"},
     # trig (cos and sin share the seam values)
 ] + [
     {"fn": fn, "name": nm, "coord": "x", "value": val, "source": src}
@@ -97,6 +116,8 @@ _DOMAIN = {
     "exp": lambda x: math.isfinite(x),
     "log": lambda x: math.isfinite(x) and x > 0,
     "log1p": lambda x: math.isfinite(x) and x > -1,
+    "expm1": lambda x: math.isfinite(x),
+    "log1pmx": lambda x: math.isfinite(x) and x > -1,
     "cos": lambda x: math.isfinite(x),
     "sin": lambda x: math.isfinite(x),
 }
@@ -165,6 +186,69 @@ def _log1p_o2(args, dps):
         return mp.log(1 + mpf(x))
 
 
+def _expm1_o(args, dps):
+    x = args[0]
+    if x > 800:
+        return mp.ldexp(mpf(1), 5000)
+    if x == 0:
+        return mpf(x)
+    with mp.workdps(dps + 10):
+        return mp.expm1(mpf(x))
+
+
+def _expm1_o2(args, dps):
+    """Independent form: exp(x) - 1 at enough extra digits to absorb the
+    cancellation (log10(1/|x|) digits) for small x; 2*sinh(x/2)*e^(x/2)
+    is not used, so the two oracles share no mpmath routine."""
+    x = args[0]
+    if x > 800 or x == 0:
+        return _expm1_o(args, dps)
+    extra = 60 + (int(-math.log10(abs(x))) if abs(x) < 1 else 0)
+    with mp.workdps(dps + extra):
+        return mp.exp(mpf(x)) - 1
+
+
+def _log1pmx_extra(x):
+    return 10 + (2 * int(math.ceil(-math.log10(abs(x)))) if abs(x) < 0.5 else 0)
+
+
+def _log1pmx_o(args, dps):
+    x = args[0]
+    if x < -1:
+        return mp.nan
+    if x == -1:
+        return mp.ninf
+    if x == 0:
+        return mpf(0)
+    with mp.workdps(dps + _log1pmx_extra(x)):
+        m = mpf(x)
+        return mp.log1p(m) - m
+
+
+def _log1pmx_o2(args, dps):
+    """Independent form: the alternating series -x^2/2 + x^3/3 - ... for
+    |x| < 1/4 (no cancellation), log(1 + x) - x at extra digits above."""
+    x = args[0]
+    if x <= -1 or x == 0:
+        return _log1pmx_o(args, dps)
+    if abs(x) < 0.25:
+        with mp.workdps(dps + 20):
+            m = mpf(x)
+            tot, term, k = mpf(0), m * m, 2
+            eps = mpf(10) ** -(dps + 15)
+            while True:
+                t = term / k * (1 if k % 2 else -1)
+                tot += t
+                if abs(t) < eps * abs(tot):
+                    break
+                term *= m
+                k += 1
+            return tot
+    with mp.workdps(dps + 40 + _log1pmx_extra(x)):
+        m = mpf(x)
+        return mp.log(1 + m) - m
+
+
 def _trig_extra(x):
     e = math.frexp(x)[1] if x else 0
     return 50 + (int(e * 0.30103) if e > 0 else 0)
@@ -192,7 +276,8 @@ def _sin_o2(args, dps):
 
 ORACLES = {"exp": (_exp_o, _exp_o2), "log": (_log_o, _log_o2),
            "log1p": (_log1p_o, _log1p_o2), "cos": (_cos_o, _cos_o2),
-           "sin": (_sin_o, _sin_o2)}
+           "sin": (_sin_o, _sin_o2), "expm1": (_expm1_o, _expm1_o2),
+           "log1pmx": (_log1pmx_o, _log1pmx_o2)}
 
 _MIN_N = mpf(2) ** -1022
 
@@ -210,7 +295,8 @@ def _bound1(args, v):
 
 
 BOUNDS = {"exp": _bound_exp, "log": _bound0, "log1p": _bound0,
-          "cos": _bound1, "sin": _bound1}
+          "cos": _bound1, "sin": _bound1, "expm1": _bound0,
+          "log1pmx": _bound0}
 
 
 # ---- generators -------------------------------------------------------------
@@ -502,6 +588,69 @@ def _log1p_strata():
     return S + _seam_strata("log1p")
 
 
+def _expm1_strata():
+    def cut_band(r, n):  # [2^-7, 2^-4] both signs: the amplified-error zone
+        return [(full_mantissa(r, 2.0 ** -7, 2.0 ** -4) * r.choice((-1, 1)),)
+                for _ in range(n)]
+
+    S = [_stratum("expm1", "series_logu",
+                  lambda r, n: [(_rand_exp(r, -60, -7, True),) for _ in range(n)], 2000),
+         _stratum("expm1", "cut_band", cut_band, 2000, tie_exempt=TIE_EXPM1_EXP,
+                  note="|x| in [2^-7, 2^-4]: exponential branch, ~65x amplification"),
+         _stratum("expm1", "exp_branch",
+                  lambda r, n: [(full_mantissa(r, -38.0, _EXP_OVER),) for _ in range(n)], 2000,
+                  tie_exempt=TIE_EXPM1_EXP),
+         _stratum("expm1", "neg_to_minus_one",
+                  lambda r, n: [(full_mantissa(r, -45.0, -30.0),) for _ in range(n)], 500,
+                  tie_exempt=TIE_EXPM1_EXP, note="where expm1 meets -1"),
+         _stratum("expm1", "near_tie", _near_tie("expm1", lambda r: (
+             full_mantissa(r, -30, 700) if r.random() < 0.5
+             else _rand_exp(r, -40, -7, True))), 800,
+             tie_exempt=TIE_EXPM1_EXP, note="screened within 0.01 ulp of a midpoint"),
+         _stratum("expm1", "subnormal_in", _gen_subnormal_in, 300)]
+    out = S
+    for st in _seam_strata("expm1"):
+        if st.seam in ("cut_hi", "cut_lo", "minus38", "overflow"):
+            st.tie_exempt = TIE_EXPM1_EXP
+        out.append(st)
+    return out
+
+
+def _log1pmx_strata():
+    def general(r, n):
+        out = []
+        for i in range(n):
+            if i % 3 == 0:
+                out.append((_rand_exp(r, -4, 1023),))
+            elif i % 3 == 1:
+                out.append((-full_mantissa(r, 1.0 / 16, 1.0),))
+            else:
+                out.append((-_rand_exp(r, -60, -5),))
+        return [a for a in out if a[0] > -1]
+
+    def near_minus_one(r, n):
+        return [(-1.0 + 2.0 ** -r.uniform(1, 53) * r.uniform(1, 2),) for _ in range(n)]
+
+    S = [_stratum("log1pmx", "general", general, 3000),
+         _stratum("log1pmx", "series_band",
+                  lambda r, n: [(_rand_exp(r, -480, -5, True),) for _ in range(n)], 2500,
+                  note="|x| in [2^-480, 2^-4]: the series branch"),
+         _stratum("log1pmx", "cut_band",
+                  lambda r, n: [(full_mantissa(r, 1.0 / 32, 1.0 / 8) * r.choice((-1, 1)),)
+                                for _ in range(n)], 2000,
+                  note="|x| in [1/32, 1/8]: both sides of kPhiCut"),
+         _stratum("log1pmx", "subnormal_out",
+                  lambda r, n: [(_rand_exp(r, -540, -505, True),) for _ in range(n)], 1500,
+                  note="results subnormal or rounding to zero"),
+         _stratum("log1pmx", "near_minus_one", near_minus_one, 1500),
+         _stratum("log1pmx", "near_tie", _near_tie("log1pmx", lambda r: (
+             _rand_exp(r, -4, 1023) if r.random() < 0.5
+             else -full_mantissa(r, 1.0 / 16, 0.999))), 800,
+             note="screened within 0.01 ulp of a midpoint"),
+         _stratum("log1pmx", "subnormal_in", _gen_subnormal_in, 300)]
+    return S + _seam_strata("log1pmx")
+
+
 def _trig_strata(fn):
     # #79: small_random is the generic population above the tiny band; 2000
     # reference rows, not 120 (83% of the base rows sit within 2^-53 of 0 or
@@ -524,14 +673,17 @@ def _trig_strata(fn):
 
 def strata():
     out = _exp_strata() + _log_strata() + _log1p_strata()
+    out += _expm1_strata() + _log1pmx_strata()
     out += _trig_strata("cos") + _trig_strata("sin")
     return out
 
 
 # ---- seam-audit fields (#82 T2; tools/hunt/seam_audit.py docstring) ----------
 _AUDIT = {
-    (fn, "dbl_max"): {"sides": "below"} for fn in ("log", "log1p", "cos", "sin")
+    (fn, "dbl_max"): {"sides": "below"}
+    for fn in ("log", "log1p", "log1pmx", "cos", "sin")
 }
 _AUDIT[("log1p", "minus_one")] = {"sides": "above"}  # x < -1 is outside the domain
+_AUDIT[("log1pmx", "minus_one")] = {"sides": "above"}
 for _s in SEAMS:
     _s.update(_AUDIT.get((_s["fn"], _s["name"]), {}))

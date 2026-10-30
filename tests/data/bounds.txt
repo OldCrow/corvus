@@ -66,6 +66,8 @@ erfinv|C|ulp|1|1|erfinv
 erfinv|T|ulp|1|1|erfinv
 exp|normal|ulp|0|0|exp.normal
 exp|subnormal|ulp|1|1|exp.subnormal
+expm1|series|ulp|0|0|expm1
+expm1|exp|ulp|0|0|expm1
 gamma_p|R1 series dir|ulp|1|1|gamma.R1
 gamma_p|R2 cf     cmp|ulp|0|1|gamma.R2
 gamma_p|R3 temme  cmp|ulp|1|1|gamma.R3.cmp
@@ -115,6 +117,10 @@ log|subnormal-in|ulp|0|0|log
 log1p|corner|ulp|0|0|log
 log1p|general|ulp|0|0|log
 log1p|near-0|ulp|0|0|log
+log1pmx|tiny|ulp|0|0|log1pmx
+log1pmx|series|ulp|0|0|log1pmx
+log1pmx|direct-neg|ulp|0|0|log1pmx
+log1pmx|direct-pos|ulp|0|0|log1pmx
 sin|neg huge|ulp|1|1|trig
 sin|neg small|ulp|1|1|trig
 sin|pos huge|ulp|1|1|trig

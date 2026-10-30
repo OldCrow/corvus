@@ -354,7 +354,7 @@ add_executable(bench_trig bench_trig.cpp)
 corvus_test_target(bench_trig)
 # Deliberately not registered with ctest: run manually on a quiet machine.
 
-# exp and log/log1p (#32): leaf assemblies over the exp_dd/log_dd cores
+# exp/expm1 and log/log1p/log1pmx (#32, #45): leaf assemblies over the exp_dd/log_dd cores
 # gated at the top of this file -- a core regression fails under exp_dd/
 # log_dd's own name first, then these certify the public assembly (final
 # rounding, ScaleTwo saturation, specials blends).
@@ -365,7 +365,8 @@ add_test(NAME exp COMMAND test_exp_smoke)
 add_executable(test_exp_ulp test_exp_ulp.cpp)
 corvus_test_target(test_exp_ulp)
 add_test(NAME exp_ulp
-  COMMAND test_exp_ulp ${CMAKE_CURRENT_SOURCE_DIR}/data/exp_reference.txt)
+  COMMAND test_exp_ulp ${CMAKE_CURRENT_SOURCE_DIR}/data/exp_reference.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/expm1_reference.txt)
 
 add_executable(bench_exp bench_exp.cpp)
 corvus_test_target(bench_exp)
@@ -380,7 +381,8 @@ corvus_test_target(test_log_ulp)
 add_test(NAME log_ulp
   COMMAND test_log_ulp
   ${CMAKE_CURRENT_SOURCE_DIR}/data/log_reference.txt
-  ${CMAKE_CURRENT_SOURCE_DIR}/data/log1p_reference.txt)
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/log1p_reference.txt
+  ${CMAKE_CURRENT_SOURCE_DIR}/data/log1pmx_reference.txt)
 
 add_executable(bench_log bench_log.cpp)
 corvus_test_target(bench_log)

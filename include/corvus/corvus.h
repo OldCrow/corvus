@@ -490,6 +490,22 @@ void i1e(std::span<const double> in, std::span<double> out) noexcept;
 /// propagates (payload preserved).
 void exp(std::span<const double> in, std::span<double> out) noexcept;
 
+/// rief out[i] = exp(in[i]) - 1 without the cancellation of forming
+///   exp(x) first.
+///
+/// Below |x| = 2^-6 a double-double series; above it the internal
+/// double-double exp core with the 1 subtracted before any rounding. The
+/// result is the <!-- claim: expm1 --> correctly rounded expm1 except within ~2^-11 ulp of a
+/// rounding tie (the core's error is amplified up to ~65x just above the
+/// series cut). Accuracy: measured and gate-pinned per SIMD tier
+/// (docs/ACCURACY.md). Overflow to +inf crosses at the correctly rounded
+/// threshold, and expm1(x) = -1 exactly for x <= -38.
+///
+/// Specials, as std::expm1: expm1(+-0) = +-0 with the sign preserved;
+/// expm1(-inf) = -1; expm1(+inf) = +inf; NaN propagates (payload
+/// preserved).
+void expm1(std::span<const double> in, std::span<double> out) noexcept;
+
 /// \brief out[i] = log(in[i]), natural logarithm.
 ///
 /// Assembled from corvus's internal double-double log core (audited at
@@ -516,6 +532,21 @@ void log(std::span<const double> in, std::span<double> out) noexcept;
 /// the sign preserved; log1p(+inf) = +inf; NaN propagates (payload
 /// preserved).
 void log1p(std::span<const double> in, std::span<double> out) noexcept;
+
+/// rief out[i] = log1p(in[i]) - in[i], relative-accurate everywhere,
+///   including near 0 where the two terms cancel.
+///
+/// For |x| <= 1/16 a double-double series for x^2 * T(x); above it the
+/// double-double difference with 1 + x captured exactly, which keeps full
+/// accuracy through the approach to x = -1. Below |x| = 2^-480 the result
+/// -x^2/2 is formed exactly and rounded once onto the subnormal grid.
+/// <!-- claim: log1pmx --> Correctly rounded except within ~2^-15 ulp of a rounding tie.
+/// Accuracy: measured and gate-pinned per SIMD tier (docs/ACCURACY.md).
+/// The function is <= 0 everywhere; large x gives ~ -x, finite.
+///
+/// Specials: log1pmx(+-0) = +0; log1pmx(-1) = -inf; log1pmx(x < -1) = NaN;
+/// log1pmx(+inf) = -inf; NaN propagates (payload preserved).
+void log1pmx(std::span<const double> in, std::span<double> out) noexcept;
 
 /// \brief out[i] = cos(in[i]), over the FULL double range.
 ///

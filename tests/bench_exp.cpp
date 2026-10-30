@@ -43,16 +43,21 @@ double NsPerElement(F&& fn, size_t n, int reps) {
 int main() {
   // Numbers attributed to the wrong tier are worse than no numbers.
   if (!corvus_test::ReportAndCheckTarget()) return 2;
-  std::printf("%10s %4s %14s %14s %10s\n", "n", "fn", "corvus ns/el",
+  std::printf("%10s %5s %14s %14s %10s\n", "n", "fn", "corvus ns/el",
               "libm ns/el", "speedup");
 
   std::mt19937_64 rng(20260720);
   std::uniform_real_distribution<double> dist(-700.0, 700.0);
+  // expm1 (#45): the CDF-tail range, both branches.
+  std::uniform_real_distribution<double> m1_dist(-0.5, 0.5);
 
   for (size_t n : {1000UL, 10000UL, 100000UL, 1000000UL}) {
-    std::vector<double> in(n), out(n);
+    std::vector<double> in(n), m1_in(n), out(n);
     for (auto& v : in) {
       v = dist(rng);
+    }
+    for (auto& v : m1_in) {
+      v = m1_dist(rng);
     }
     const int reps = n >= 1000000 ? 11 : 51;
 
@@ -72,8 +77,27 @@ int main() {
         },
         n, reps);
 
-    std::printf("%10zu %4s %14.2f %14.2f %9.2fx\n", n, "exp", simd_exp,
+    std::printf("%10zu %5s %14.2f %14.2f %9.2fx\n", n, "exp", simd_exp,
                 scalar_exp, scalar_exp / simd_exp);
+
+    const double simd_m1 = NsPerElement(
+        [&] {
+          corvus::expm1(m1_in, out);
+          g_sink = out[n / 2];
+        },
+        n, reps);
+
+    const double scalar_m1 = NsPerElement(
+        [&] {
+          for (size_t i = 0; i < n; ++i) {
+            out[i] = std::expm1(m1_in[i]);
+          }
+          g_sink = out[n / 2];
+        },
+        n, reps);
+
+    std::printf("%10zu %5s %14.2f %14.2f %9.2fx\n", n, "expm1", simd_m1,
+                scalar_m1, scalar_m1 / simd_m1);
   }
   return 0;
 }

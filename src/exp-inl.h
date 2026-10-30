@@ -67,6 +67,9 @@
 #define CORVUS_EXP_INL_H_
 #endif
 
+#include <limits>
+
+#include "src/dd_special-inl.h"  // Expm1DdSeries (#45)
 #include "src/exp_dd-inl.h"
 #include "src/ops-inl.h"
 
@@ -181,6 +184,65 @@ HWY_INLINE op::V<D> ExpVec(D d, op::V<D> x) {
   CORVUS_ROUTE(d, "exp/special/nan", op::IsNaN(x));
   if (op::AllTrue(d, f.ok)) return f.v;
   return op::IfThenElse(f.ok, f.v, ExpDdVec(d, x));
+}
+
+// ------------------------------------------------------------------------
+// Public expm1 (#45): e^x - 1, relative to the result, rounded once.
+//
+// SERIES, |x| <= kExpm1Cut = 2^-6: Expm1DdSeries (src/dd_special-inl.h),
+// ~2^-67.6 relative, then one rounding. Subnormal x return x: the w^2/2
+// term is below half an ulp of x (the series' FLOOR note).
+//
+// EXPONENTIAL, |x| > 2^-6: ExpDdFrac's e^x = m * 2^e (~2^-70 relative),
+// and the 1 is subtracted IN m's SCALE, m (-) 2^-e, before anything is
+// rounded: one rounding of the dd difference, then an exact power-of-two
+// scaling. e^x - 1 and e^x differ by a factor 1 - e^-x, so the core's
+// error is amplified by e^x/|e^x - 1| <= ~65 at the cut: ~2^-64 relative,
+// so correctly rounded except within ~2^-11 ulp of a tie. 2^-e is exact
+// for every e this branch sees (e >= -56 below; ScaleTwo's two steps take
+// 2^-e to zero for e > 1074, where it is negligible anyway). Overflow is
+// exp's construction: the rounded mantissa times 2^e overflows exactly
+// when the correctly rounded result does (|e| <= 1600 by the core's clamp).
+//
+// x <= -38: e^x < 2^-54.8, below half an ulp of -1, so the result is -1
+// exactly; those lanes never reach the core.
+//
+// Specials: expm1(+-0) = +-0 (the series would turn -0 into +0), expm1(-inf)
+// = -1, expm1(+inf) = +inf, NaN propagates (payload preserved).
+template <class D>
+HWY_INLINE op::V<D> Expm1Vec(D d, op::V<D> x) {
+  const auto zero = op::Zero(d);
+  const auto one = op::Set(d, 1.0);
+  const auto inf = op::Set(d, std::numeric_limits<double>::infinity());
+  const auto ax = op::Abs(x);
+  const auto m_ser = op::Ge(op::Set(d, kExpm1Cut), ax);  // NaN: false
+  const auto m_neg1 = op::Ge(op::Set(d, -38.0), x);       // -inf included
+  const auto m_exp = op::And(op::Gt(ax, op::Set(d, kExpm1Cut)),
+                             op::Gt(x, op::Set(d, -38.0)));  // +inf included
+  CORVUS_ROUTE(d, "expm1/series", m_ser);
+  CORVUS_ROUTE(d, "expm1/exp", m_exp);
+  CORVUS_ROUTE(d, "expm1/neg1", m_neg1);
+
+  auto res = op::Neg(one);  // x <= -38
+  if (!op::AllFalse(d, m_ser)) {
+    CORVUS_ROUTE_SCOPE(d, m_ser);
+    const auto xs = op::IfThenElse(m_ser, x, zero);
+    res = op::IfThenElse(m_ser, DdToDouble(Expm1DdSeries(d, Dd<D>{xs, zero})),
+                         res);
+  }
+  if (!op::AllFalse(d, m_exp)) {
+    CORVUS_ROUTE_SCOPE(d, m_exp);
+    // +inf is clamped by ExpDdFrac like any large x and overflows below.
+    const auto xe = op::IfThenElse(m_exp, x, one);
+    const auto parts = ExpDdFrac(d, xe, zero);
+    const auto t = ScaleTwo(d, one, op::Neg(parts.e));  // 2^-e, exact
+    const auto mm = DdAddD(d, parts.m, op::Neg(t));
+    res = op::IfThenElse(m_exp, ScaleTwo(d, DdToDouble(mm), parts.e), res);
+  }
+  res = op::IfThenElse(op::Eq(x, zero), x, res);  // +-0 keeps its sign
+  res = op::IfThenElse(op::Eq(x, inf), inf, res);
+  CORVUS_ROUTE(d, "expm1/special/nan", op::IsNaN(x));
+  return op::IfThenElse(op::IsNaN(x), x, res);  // payload-preserving
 }
 
 }  // namespace HWY_NAMESPACE

@@ -44,20 +44,26 @@ double NsPerElement(F&& fn, size_t n, int reps) {
 int main() {
   // Numbers attributed to the wrong tier are worse than no numbers.
   if (!corvus_test::ReportAndCheckTarget()) return 2;
-  std::printf("%10s %5s %14s %14s %10s\n", "n", "fn", "corvus ns/el",
+  // log1pmx's baseline is std::log1p(x) - x, which cancels near 0 and is
+  // NOT an accurate log1pmx: a cost reference only (#45).
+  std::printf("%10s %7s %14s %14s %10s\n", "n", "fn", "corvus ns/el",
               "libm ns/el", "speedup");
 
   std::mt19937_64 rng(20260720);
   std::uniform_real_distribution<double> log_dist(1e-6, 1e6);
   std::uniform_real_distribution<double> log1p_dist(-0.999, 10.0);
+  std::uniform_real_distribution<double> log1pmx_dist(-0.5, 0.5);
 
   for (size_t n : {1000UL, 10000UL, 100000UL, 1000000UL}) {
-    std::vector<double> log_in(n), log1p_in(n), out(n);
+    std::vector<double> log_in(n), log1p_in(n), log1pmx_in(n), out(n);
     for (auto& v : log_in) {
       v = log_dist(rng);
     }
     for (auto& v : log1p_in) {
       v = log1p_dist(rng);
+    }
+    for (auto& v : log1pmx_in) {
+      v = log1pmx_dist(rng);
     }
     const int reps = n >= 1000000 ? 11 : 51;
 
@@ -77,7 +83,7 @@ int main() {
         },
         n, reps);
 
-    std::printf("%10zu %5s %14.2f %14.2f %9.2fx\n", n, "log", simd_log,
+    std::printf("%10zu %7s %14.2f %14.2f %9.2fx\n", n, "log", simd_log,
                 scalar_log, scalar_log / simd_log);
 
     const double simd_log1p = NsPerElement(
@@ -96,8 +102,27 @@ int main() {
         },
         n, reps);
 
-    std::printf("%10zu %5s %14.2f %14.2f %9.2fx\n", n, "log1p", simd_log1p,
+    std::printf("%10zu %7s %14.2f %14.2f %9.2fx\n", n, "log1p", simd_log1p,
                 scalar_log1p, scalar_log1p / simd_log1p);
+
+    const double simd_log1pmx = NsPerElement(
+        [&] {
+          corvus::log1pmx(log1pmx_in, out);
+          g_sink = out[n / 2];
+        },
+        n, reps);
+
+    const double scalar_log1pmx = NsPerElement(
+        [&] {
+          for (size_t i = 0; i < n; ++i) {
+            out[i] = std::log1p(log1pmx_in[i]) - log1pmx_in[i];
+          }
+          g_sink = out[n / 2];
+        },
+        n, reps);
+
+    std::printf("%10zu %7s %14.2f %14.2f %9.2fx\n", n, "log1pmx",
+                simd_log1pmx, scalar_log1pmx, scalar_log1pmx / simd_log1pmx);
   }
   return 0;
 }

@@ -122,15 +122,19 @@ inline constexpr int kPhiLead = 6;
 //  * gamma Temme, gammainv forward: u = x/a - 1 of doubles is 0 or >= 2^-54.
 //  * BetaInvPhiOverSq: S1 seed only; BetaInvConsider scores it on the forward
 //    and Newton polishes, so the error cannot reach a result.
+//
+// The block above documents Log1pmxDd as a whole. Its two branches are
+// split into Log1pmxDdSeries (|u| <= kPhiCut) and Log1pmxDdDirect (#45), so
+// a consumer that knows its lanes' band can skip the branch it does not
+// need; Log1pmxDd computes both and selects, with the same bits as before.
 template <class D>
-HWY_INLINE Dd<D> Log1pmxDd(D d, Dd<D> u, Dd<D> w) {
+HWY_INLINE Dd<D> Log1pmxDdSeries(D d, Dd<D> u) {
   const auto one = op::Set(d, 1.0);
   const auto uh = u.hi;
   constexpr int kN =
       static_cast<int>(sizeof(detail::kPhiCoef) / sizeof(double));
   const auto* c = detail::kPhiCoef;
 
-  // --- |u| <= 1/16 --------------------------------------------------------
   auto s = op::Set(d, c[kN - 1]);
   for (int k = kN - 2; k >= kPhiLead; --k) {
     s = op::MulAdd(s, uh, op::Set(d, c[k]));
@@ -143,13 +147,23 @@ HWY_INLINE Dd<D> Log1pmxDd(D d, Dd<D> u, Dd<D> w) {
               Dd<D>{op::Set(d, c[k]), op::Set(d, detail::kPhiCoefLo[k])});
   }
   auto ser = DdMul(d, TwoProd(d, uh, uh), t);
-  ser = DdAddD(d, ser, op::Mul(u.lo, op::Div(uh, op::Add(one, uh))));
+  return DdAddD(d, ser, op::Mul(u.lo, op::Div(uh, op::Add(one, uh))));
+}
 
-  // --- |u| > 1/16 ---------------------------------------------------------
+// phi(u) = u - log1p(u) by the direct difference, for |u| > kPhiCut, with
+// w = 1 + u supplied as a dd (see TWO SPELLINGS OF 1 + u below).
+template <class D>
+HWY_INLINE Dd<D> Log1pmxDdDirect(D d, Dd<D> u, Dd<D> w) {
   const auto lg = LogDdAny(d, w);
-  const auto big = DdAdd(d, u, Dd<D>{op::Neg(lg.hi), op::Neg(lg.lo)});
+  return DdAdd(d, u, Dd<D>{op::Neg(lg.hi), op::Neg(lg.lo)});
+}
 
-  const auto m = op::Ge(op::Set(d, detail::kPhiCut), op::Abs(uh));
+template <class D>
+HWY_INLINE Dd<D> Log1pmxDd(D d, Dd<D> u, Dd<D> w) {
+  const auto ser = Log1pmxDdSeries(d, u);
+  const auto big = Log1pmxDdDirect(d, u, w);
+
+  const auto m = op::Ge(op::Set(d, detail::kPhiCut), op::Abs(u.hi));
   CORVUS_ROUTE(d, "dd_special/log1pmx_series", m);
   CORVUS_ROUTE(d, "dd_special/log1pmx_direct", op::MaskNot(m));
   return Dd<D>{op::IfThenElse(m, ser.hi, big.hi),
@@ -175,8 +189,7 @@ HWY_INLINE Dd<D> Log1pmxDd(D d, Dd<D> u) {
 // where |w^3/6| is 2^-14.6 relative at the cut and its own rounding lands
 // at 2^-67.6.
 template <class D>
-HWY_INLINE Dd<D> Expm1Dd(D d, Dd<D> w) {
-  const auto one = op::Set(d, 1.0);
+HWY_INLINE Dd<D> Expm1DdSeries(D d, Dd<D> w) {
   const auto wh = w.hi;
 
   // q = 1/6 + w/24 + ... + w^8/11!, so w^3*q runs the series to w^11/11!.
@@ -199,7 +212,17 @@ HWY_INLINE Dd<D> Expm1Dd(D d, Dd<D> w) {
   const Dd<D> half_sq{op::Mul(sq.hi, half),
                       op::MulAdd(wh, w.lo, op::Mul(sq.lo, half))};
   auto ser = DdAdd(d, w, half_sq);
-  ser = DdAddD(d, ser, op::Mul(op::Mul(sq.hi, wh), q));
+  return DdAddD(d, ser, op::Mul(op::Mul(sq.hi, wh), q));
+}
+
+// Expm1Dd = Expm1DdSeries below kExpm1Cut, e^w (-) 1 above (the block
+// above documents both). The series is split out (#45) so the public
+// expm1 can skip whichever branch no lane needs; the bits are unchanged.
+template <class D>
+HWY_INLINE Dd<D> Expm1Dd(D d, Dd<D> w) {
+  const auto one = op::Set(d, 1.0);
+  const auto wh = w.hi;
+  const auto ser = Expm1DdSeries(d, w);
 
   const auto ex = ExpDd(d, wh, w.lo);
   const auto big = DdAddD(d, ex, op::Neg(one));

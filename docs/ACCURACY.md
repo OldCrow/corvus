@@ -127,8 +127,15 @@ review I-1).
 | exp | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
 | log | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
 | log1p | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
+| expm1 | ✅ 2026-10-29 ‡ | ✅ | ✅ | ✅ | CI only ‡ | ✅ 2026-10-29 |
+| log1pmx | ✅ 2026-10-29 ‡ | ✅ | ✅ | ✅ | CI only ‡ | ✅ 2026-10-29 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
+
+‡ expm1 and log1pmx (v1.2.0, #45): the x86 columns come from Z (Ryzen
+7 7445HS, AVX3_ZEN4 native, clang-cl; AVX2/SSE4/SSSE3/SSE2 by capping on
+the same silicon) and the Linux/GCC CI sweep; NEON from the macOS CI job.
+Native Kaby Lake and M1 runs are owed at the v1.2.0 freeze (PLAN.md).
 
 † The beta, digamma, trigamma, inverse-gamma, inverse-beta, Bessel, and
 v0.8.0 elementary-family (cos/sin/exp/log/log1p) x86 rows come from the
@@ -1923,6 +1930,60 @@ C99 libm, which would raise invalid and return a qNaN. corvus never
 inspects the quiet bit; payload preservation is the contract. The one
 exception is lbeta, whose min/max scrub loses the input bits: it
 documents and delivers a fresh quiet NaN instead.
+
+## expm1 and log1pmx
+
+<!-- claim: expm1 --> **Bound: expm1 correctly rounded on every reference row (gate pinned
+at 0 ULP); <!-- claim: log1pmx --> log1pmx correctly rounded on every reference row (gate pinned
+at 0 ULP)**, identically on AVX3_ZEN4, AVX2, SSE4, SSSE3 and SSE2. The
+theoretical statement is "correctly rounded except near a rounding
+tie": within ~2^−11 ulp for expm1 above |x| = 2^−6 (the exponential
+branch amplifies the core's ~2^−70 by up to ~65×, ~2^−64 relative) and
+~2^−15 ulp below it, and within ~2^−15 ulp for log1pmx (~2^−67.6
+relative just above the 1/16 cut, ~2^−74 in the series). No row of
+either set lands in its window. Both are public since v1.2.0 (#45).
+
+| Function | Region | Bound |
+|---|---|---|
+| expm1 | series, \|x\| ≤ 2^−6 | 0 ULP (9,592 rows, down to subnormal inputs, where expm1(x) = x) |
+| expm1 | exponential branch | 0 ULP (8,754 rows, including the exact −1 for x ≤ −38) |
+| expm1 | overflow | exact +inf, ±160-ulp ladder at the correctly rounded threshold (190 rows) |
+| log1pmx | tiny, \|x\| < 2^−480 | 0 ULP (5,426 rows: subnormal results and rows that underflow to −0, bit-exact) |
+| log1pmx | series, \|x\| ≤ 1/16 | 0 ULP (6,851 rows) |
+| log1pmx | direct, −1 < x < −1/16 | 0 ULP (4,966 rows, down to 1 + x = 2^−53) |
+| log1pmx | direct, x > 1/16 | 0 ULP (5,056 rows, up to DBL_MAX) |
+
+Method: thin assemblies over the internal dd specials
+(src/dd_special-inl.h), each branch run only when some lane of the
+vector needs it. expm1: below 2^−6, Expm1DdSeries (to w^11/11!, w and
+w²/2 in dd); above it, ExpDdFrac's e^x = m·2^e with the 1 subtracted in
+m's scale, m (−) 2^−e, before one rounding and an exact power-of-two
+scaling, so overflow lands at the correctly rounded threshold by exp's
+construction. log1pmx = −phi(x), phi = Log1pmxDd's branches: the
+alternating series below 1/16, and above it x (−) log(1 + x) with
+1 + x captured exactly by TwoSum, which is a normalized dd for every
+double input, so the Log1pmxDd hazard rule (a non-normalized 1 + u near
+−1) cannot arise. Below |x| = 2^−480 the series' x² loses relative
+accuracy as it nears the subnormal range, so a tiny branch forms x²/2
+exactly at a 2^600 prescale and rounds it once onto the subnormal grid
+(DdScaleToDouble). Negative control: with the tiny branch disabled,
+645 of the 5,426 tiny rows (11.9%) are 1 ULP from correctly rounded.
+
+Oracle: mpmath, dps 60 (log1pmx at 60 + twice the decimal exponent of
+1/|x|, since log1p(x) − x cancels to x²/2), single rounding with the
+#89 tie re-evaluation, 2×-dps self-check (tools/gen_expm1_reference.py,
+tools/gen_log1pmx_reference.py); hunt strata appended by
+tools/hunt/strata_append.py (expm1 12 strata, log1pmx 21, 0 deferred);
+residuals from tools/hunt/annotate.py, whose second oracle for each
+(exp(x) − 1 at extra digits; the alternating series below |x| = 1/4)
+shares no mpmath routine with the first. 0 findings.
+
+Special values: expm1(±0) = ±0 (sign preserved), expm1(−inf) = −1,
+expm1(+inf) = +inf; log1pmx(±0) = +0, log1pmx(−1) = −inf,
+log1pmx(x < −1) = NaN, log1pmx(+inf) = −inf; NaN propagates with
+payload (smoke-asserted per lane position, plus a lane-mix block per
+function: the branch skips must not make a lane depend on its
+neighbours).
 
 ## exp_dd (internal)
 

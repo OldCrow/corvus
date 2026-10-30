@@ -110,9 +110,9 @@ $gates = @(
   @{ exe = "test_trig_smoke"; data = @() },
   @{ exe = "test_trig_ulp"; data = "cos_reference.txt", "sin_reference.txt" },
   @{ exe = "test_exp_smoke"; data = @() },
-  @{ exe = "test_exp_ulp"; data = "exp_reference.txt" },
+  @{ exe = "test_exp_ulp"; data = "exp_reference.txt", "expm1_reference.txt" },
   @{ exe = "test_log_smoke"; data = @() },
-  @{ exe = "test_log_ulp"; data = "log_reference.txt", "log1p_reference.txt" },
+  @{ exe = "test_log_ulp"; data = "log_reference.txt", "log1p_reference.txt", "log1pmx_reference.txt" },
   # #53 guard harness: no reference file; last, since it consumes every family.
   @{ exe = "test_guards"; data = @() }
 )

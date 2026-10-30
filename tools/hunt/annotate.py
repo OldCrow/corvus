@@ -78,6 +78,8 @@ FILES = {
     "exp": _U("elementary", "exp"),
     "log": _U("elementary", "log"),
     "log1p": _U("elementary", "log1p"),
+    "expm1": _U("elementary", "expm1"),
+    "log1pmx": _U("elementary", "log1pmx"),
     "cos": _U("elementary", "cos"),
     "sin": _U("elementary", "sin"),
     "lbeta": (["lbeta"], [("lbeta", (0, 1), 2)]),

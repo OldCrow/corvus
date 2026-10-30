@@ -9,8 +9,8 @@ multi-target dispatch. Fills the gap between basic-transcendental SIMD
 libraries (SLEEF, Highway's contrib math) and SciPy-level special-function
 coverage: erf/erfc, lgamma, regularized incomplete gamma and beta and their
 inverses, modified Bessel I0/I1, and an accuracy-first elementary family
-(exp, log, log1p, cos, sin — full double range, no domain cutoffs) — the
-functions that gate vectorized statistical CDFs, quantiles, and
+(exp, expm1, log, log1p, log1pmx, cos, sin — full double range, no domain
+cutoffs) — the functions that gate vectorized statistical CDFs, quantiles, and
 maximum-likelihood fitting.
 
 **Status: production.** All 25 functions are clean-room kernels
@@ -117,6 +117,13 @@ that promises — and what it deliberately does not.
   thresholds (exp(−inf) = +0 exactly). Thin assemblies over corvus's
   audited internal double-double cores — nothing here depends on the
   backend's or the platform's math library.
+
+- `expm1` / `log1pmx` (log1p(x) − x): <!-- claim: expm1 --> **expm1 correctly rounded** and
+  <!-- claim: log1pmx --> **log1pmx correctly rounded on every reference row** (0-ULP gates), the
+  near-tie window ~2^-11 ulp for expm1 above |x| = 2^-6. Relative
+  accuracy where e^x − 1 and log1p(x) − x cancel, which is what the
+  lower tails of exponential-family CDFs and large-shape Gamma densities
+  need. log1pmx rounds its x²/2 regime once onto the subnormal grid.
 
 - `cos` / `sin`: <!-- claim: trig --> max 1 ULP over the **full double range** on every tier —
   including the non-FMA tiers — with no domain cutoff and no per-lane

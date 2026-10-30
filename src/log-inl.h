@@ -72,6 +72,7 @@
 #include <limits>
 
 #include "src/dd-inl.h"
+#include "src/dd_special-inl.h"  // Log1pmxDd branches (#45)
 #include "src/log_dd-inl.h"
 #include "src/ops-inl.h"
 
@@ -249,6 +250,107 @@ HWY_INLINE op::V<D> Log1pVec(D d, op::V<D> x) {
   res = op::IfThenElse(op::Lt(x, neg1), qnan, res);
   res = op::IfThenElse(op::Eq(x, inf), inf, res);
   res = op::IfThenElse(op::Eq(x, zero), x, res);  // log1p(+-0) = +-0
+  return op::IfThenElse(op::IsNaN(x), x, res);  // payload-preserving
+}
+
+// ------------------------------------------------------------------------
+// Public log1pmx (#45): log1p(x) - x = -phi(x), relative to the result,
+// rounded once. phi is src/dd_special-inl.h's Log1pmxDd, run branch by
+// branch so each runs only when some lane needs it.
+//
+// SERIES, 2^-480 <= |x| <= kPhiCut = 1/16: Log1pmxDdSeries, ~2^-74
+// relative; u.lo = 0, so its first-order u.lo term is an exact zero.
+//
+// DIRECT, |x| > 1/16: Log1pmxDdDirect with w = TwoSum(1, x), the EXACT
+// 1 + x as a normalized dd for every double x (its low word is zero
+// wherever 1 + x is representable, which covers the whole approach to -1,
+// so the hazard rule's non-normalized w cannot arise from a double input).
+// ~2^-67.6 relative just above the cut, better away from it. x = -1 gives
+// w = 0; that lane is overwritten with -inf below.
+//
+// TINY, |x| < 2^-480: the series' u^2 is formed by TwoProd, whose low word
+// loses relative accuracy once u^2 nears the subnormal range, so phi is
+// only ABSOLUTELY accurate there (the FLOOR note at Log1pmxDd) -- several
+// subnormal ulps of a result that is itself subnormal below |x| = 2^-511.
+// Instead x is scaled by 2^600 (exact), phi = x^2/2 is formed exactly as a
+// dd in that scale (the dropped x^3/3 is 2^-480 relative), normalized to a
+// mantissa in [1, 2), and DdScaleToDouble applies 2^(e - 1200) with ONE
+// rounding onto the subnormal grid. Below |x| ~ 2^-537.5 that rounding
+// gives zero; the exponent is clamped at -1100, which only ever moves a
+// value that already rounds to zero.
+//
+// Specials: log1pmx(+-0) = +0 (the IEEE value of log1p(x) - x);
+// log1pmx(-1) = -inf; log1pmx(x < -1) = NaN; log1pmx(+inf) = -inf; NaN
+// propagates (payload preserved). Large finite x is ordinary: the result is
+// log1p(x) - x ~ -x, finite down to -DBL_MAX.
+template <class D>
+HWY_INLINE op::V<D> Log1pmxVec(D d, op::V<D> x) {
+  const op::SignedTag<D> di;
+  const auto zero = op::Zero(d);
+  const auto one = op::Set(d, 1.0);
+  const auto inf = op::Set(d, std::numeric_limits<double>::infinity());
+  const auto qnan = op::Set(d, std::numeric_limits<double>::quiet_NaN());
+  const auto neg1 = op::Set(d, -1.0);
+  const auto ax = op::Abs(x);
+  const auto cut = op::Set(d, detail::kPhiCut);
+  const auto tcut = op::Set(d, 0x1p-480);
+  const auto m_tiny = op::Gt(tcut, ax);  // includes +-0; NaN: false
+  const auto m_ser = op::And(op::Ge(ax, tcut), op::Ge(cut, ax));
+  // |x| > 1/16 and x > -1, finite: the direct difference. NaN: false.
+  const auto m_dir = op::And(
+      op::And(op::Gt(ax, cut), op::Gt(x, neg1)),
+      op::Gt(inf, x));
+  CORVUS_ROUTE(d, "log1pmx/tiny", m_tiny);
+  CORVUS_ROUTE(d, "log1pmx/series", m_ser);
+  CORVUS_ROUTE(d, "log1pmx/direct", m_dir);
+
+  auto res = zero;
+  if (!op::AllFalse(d, m_ser)) {
+    CORVUS_ROUTE_SCOPE(d, m_ser);
+    const auto xs = op::IfThenElse(m_ser, x, op::Set(d, 0.03125));
+    const auto phi = Log1pmxDdSeries(d, Dd<D>{xs, zero});
+    res = op::IfThenElse(m_ser, op::Neg(DdToDouble(phi)), res);
+  }
+  if (!op::AllFalse(d, m_dir)) {
+    CORVUS_ROUTE_SCOPE(d, m_dir);
+    const auto xd = op::IfThenElse(m_dir, x, one);
+    const auto w = TwoSum(d, one, xd);  // exact
+    const auto phi = Log1pmxDdDirect(d, Dd<D>{xd, zero}, w);
+    res = op::IfThenElse(m_dir, op::Neg(DdToDouble(phi)), res);
+  }
+  if (!op::AllFalse(d, m_tiny)) {
+    CORVUS_ROUTE_SCOPE(d, m_tiny);
+    // xt in [2^-474, 2^120) on live lanes; dead lanes run at 1.
+    const auto xt =
+        op::Mul(op::IfThenElse(op::And(m_tiny, op::Gt(ax, zero)), ax, one),
+                op::Set(d, 0x1p600));
+    // FLOOR: xt >= 2^-474, so xt^2 >= 2^-948 and its low word is exact.
+    const auto sq = TwoProd(d, xt, xt);
+    // 2^-eh with eh = exponent of sq.hi (normal, positive): m in [1, 2).
+    const auto eh = op::Sub(
+        op::And(op::ShiftRight<52>(op::BitCast(di, sq.hi)),
+                op::Set(di, int64_t{0x7ff})),
+        op::Set(di, int64_t{1023}));
+    const auto inv = op::BitCast(
+        d, op::ShiftLeft<52>(op::Sub(op::Set(di, int64_t{1023}), eh)));
+    const Dd<D> m{op::Mul(sq.hi, inv), op::Mul(sq.lo, inv)};  // exact
+    // phi = m * 2^(eh - 1200 - 1): the 2^1200 undoes the scaling of x^2,
+    // the extra -1 is the halving.
+    const auto e = op::Max(op::Sub(eh, op::Set(di, int64_t{1201})),
+                           op::Set(di, int64_t{-1100}));
+    const auto phi = DdScaleToDouble(d, m, e);
+    res = op::IfThenElse(m_tiny, op::Neg(phi), res);
+  }
+
+  CORVUS_ROUTE(d, "log1pmx/special/zero", op::Eq(x, zero));
+  CORVUS_ROUTE(d, "log1pmx/special/neg1", op::Eq(x, neg1));
+  CORVUS_ROUTE(d, "log1pmx/special/lt_neg1", op::Lt(x, neg1));
+  CORVUS_ROUTE(d, "log1pmx/special/inf", op::Eq(x, inf));
+  CORVUS_ROUTE(d, "log1pmx/special/nan", op::IsNaN(x));
+  res = op::IfThenElse(op::Eq(x, zero), zero, res);  // +-0 -> +0
+  res = op::IfThenElse(op::Eq(x, neg1), op::Neg(inf), res);
+  res = op::IfThenElse(op::Lt(x, neg1), qnan, res);
+  res = op::IfThenElse(op::Eq(x, inf), op::Neg(inf), res);
   return op::IfThenElse(op::IsNaN(x), x, res);  // payload-preserving
 }
 

@@ -20,6 +20,10 @@ static void Log1pImpl(std::span<const double> in, std::span<double> out) {
   DriveUnary([](auto d, auto x) { return Log1pVec(d, x); }, in, out);
 }
 
+static void Log1pmxImpl(std::span<const double> in, std::span<double> out) {
+  DriveUnary([](auto d, auto x) { return Log1pmxVec(d, x); }, in, out);
+}
+
 }  // namespace HWY_NAMESPACE
 }  // namespace corvus
 HWY_AFTER_NAMESPACE();
@@ -29,6 +33,7 @@ namespace corvus {
 
 HWY_EXPORT(LogImpl);
 HWY_EXPORT(Log1pImpl);
+HWY_EXPORT(Log1pmxImpl);
 
 // The dispatch calls stay INSIDE namespace corvus: with a single compiled
 // target (the SSE2 cap) Highway collapses HWY_DYNAMIC_DISPATCH to
@@ -41,6 +46,10 @@ void log(std::span<const double> in, std::span<double> out) noexcept {
 
 void log1p(std::span<const double> in, std::span<double> out) noexcept {
   HWY_DYNAMIC_DISPATCH(Log1pImpl)(in, out);
+}
+
+void log1pmx(std::span<const double> in, std::span<double> out) noexcept {
+  HWY_DYNAMIC_DISPATCH(Log1pmxImpl)(in, out);
 }
 
 }  // namespace corvus

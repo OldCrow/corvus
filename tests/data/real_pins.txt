@@ -113,6 +113,10 @@ exp|normal|fma|0.50
 exp|normal|nofma|0.50
 exp|subnormal|fma|0.77
 exp|subnormal|nofma|0.77
+expm1|exp|fma|0.50
+expm1|exp|nofma|0.50
+expm1|series|fma|0.50
+expm1|series|nofma|0.50
 gamma_p_inv|S1 (a_T..3e34)|fma|0.58
 gamma_p_inv|S1 (a_T..3e34)|nofma|0.58
 gamma_p_inv|beyond-resolution|fma|0.57
@@ -205,6 +209,14 @@ log1p|general|fma|0.50
 log1p|general|nofma|0.50
 log1p|near-0|fma|0.50
 log1p|near-0|nofma|0.50
+log1pmx|direct-neg|fma|0.50
+log1pmx|direct-neg|nofma|0.50
+log1pmx|direct-pos|fma|0.50
+log1pmx|direct-pos|nofma|0.50
+log1pmx|series|fma|0.50
+log1pmx|series|nofma|0.50
+log1pmx|tiny|fma|0.50
+log1pmx|tiny|nofma|0.50
 log|general|fma|0.50
 log|general|nofma|0.50
 log|near-1|fma|0.50

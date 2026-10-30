@@ -130,6 +130,8 @@ nothing to guard.
 | `exp` | e^x, overflow and gradual underflow at the correct thresholds | <!-- claim: exp.normal --> correctly rounded (<!-- claim: exp.subnormal --> 1 ULP in the subnormal band) |
 | `log` | natural logarithm | <!-- claim: log --> correctly rounded |
 | `log1p` | log(1 + x) without forming 1 + x | <!-- claim: log --> correctly rounded |
+| `expm1` | e^x − 1 without forming e^x first | <!-- claim: expm1 --> correctly rounded |
+| `log1pmx` | log1p(x) − x, relative-accurate where the two cancel | <!-- claim: log1pmx --> correctly rounded |
 
 "Correctly rounded" here means every row of the audited reference sets
 matches the correctly rounded result exactly (the theoretical exception
@@ -138,6 +140,16 @@ bounds; see docs/ACCURACY.md). In
 particular exp(−inf) = 0, exp produces true subnormals instead of
 flushing, and log1p keeps full relative accuracy for tiny x — the three
 edge behaviours vectorized exp/log replacements most often get wrong.
+expm1's near-tie window is wider, ~2^-11 ulp, just above |x| = 2^-6.
+
+Use `expm1` for the lower tail of an exponential-family CDF:
+1 − e^−y = −expm1(−y) keeps full relative accuracy where 1 − exp(−y)
+cancels to 0 (below y ≈ 1.1e-16). Use `log1pmx` wherever a large factor
+multiplies log1p(t) − t — the Stirling form of a Gamma density at large
+shape, the prefactors of incomplete gamma and beta, log-pmfs. Computed
+as `log1p(t) - t` from two separately rounded values, the subtraction
+cancels by up to ~8× near |t| = 1/4 and the factor multiplies what is
+left; `log1pmx` rounds once.
 
 Plus `active_target()`, which tells you which vector instruction set runtime
 dispatch actually chose. That is more useful than it sounds — see §9.
