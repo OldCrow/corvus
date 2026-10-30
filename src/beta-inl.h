@@ -631,12 +631,15 @@ inline constexpr double kBetaLgammaAnalyticMax = 16.0;
 // amplifies that by P/Q to 2 ULP on the no-FMA tiers. Callers split their
 // argument exactly (k = floor, f = x - k by Sterbenz).
 template <class D>
-HWY_INLINE Dd<D> LgammaIntFracDd(D d, op::V<D> k, op::V<D> f) {
+HWY_INLINE Dd<D> LgammaLnFactDd(D d, op::V<D> k) {
   const op::SignedTag<D> di;
   const auto ki = op::ConvertToInt(di, k);
-  const Dd<D> lf{op::GatherIndex(d, kBetaLnFactHi, ki),
-                 op::GatherIndex(d, kBetaLnFactLo, ki)};
-  return DdAdd(d, LgammaDiffDd(d, k, f), lf);
+  return Dd<D>{op::GatherIndex(d, kBetaLnFactHi, ki),
+               op::GatherIndex(d, kBetaLnFactLo, ki)};
+}
+template <class D>
+HWY_INLINE Dd<D> LgammaIntFracDd(D d, op::V<D> k, op::V<D> f) {
+  return DdAdd(d, LgammaDiffDd(d, k, f), LgammaLnFactDd(d, k));
 }
 
 // floor(x) for x >= 1, exact: Round then step down if it rounded up.
@@ -1861,11 +1864,6 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       const auto gt1 = op::Gt(mns, one);
       CORVUS_ROUTE(d, "beta/pre/pa/lgamma_small", lo);
       CORVUS_ROUTE(d, "beta/pre/pa/lgamma_small_gt1", gt1);
-      const auto lg1m = LgammaDiffDd(
-          d, op::IfThenElse(gt1, op::Add(one, one), one),
-          op::IfThenElse(gt1, op::Sub(mns, one), mns));
-      const auto lga = DdSub(d, lg1m, OutlinedLogDd(d, mns));
-      auto lgp = LgammaPosDd(d, mn);
       // #85: (2.5, 16] takes the analytic table form too -- the corner the
       // note above anticipated. A complement at Q ~ 2^-10 with min just past
       // 2.5 (no post-route: tau above its cap) read 2 ULP on the no-FMA tiers
@@ -1874,16 +1872,36 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       const auto mid = op::And(op::Gt(mn, op::Set(d, detail::kBetaPrTauMax)),
                                op::Ge(op::Set(d, kBetaLgammaAnalyticMax), mn));
       CORVUS_ROUTE(d, "beta/pre/pa/lgamma_table", mid);
+      // ONE LgammaDiffDd serves both analytic forms (#42 lever 3): the lo
+      // lanes' lgamma(1+min) = LgammaDiffDd(1 or 2, ...) and the mid lanes'
+      // LgammaIntFracDd(k, f) are the same call with per-lane (M, m), and
+      // LgammaDiffDd is lanewise, so every lane gets the value its own form
+      // computed before (bit-identical). Dead lanes run (1, 1), lo's scrub.
+      const auto mm = op::IfThenElse(mid, mn, op::Set(d, 3.0));  // scrub: k in [2, 16]
+      const auto kf = BetaFloorPos(d, mm);
+      const auto lgd = LgammaDiffDd(
+          d,
+          op::IfThenElse(mid, kf, op::IfThenElse(gt1, op::Add(one, one), one)),
+          op::IfThenElse(mid, op::Sub(mm, kf),  // f exact
+                         op::IfThenElse(gt1, op::Sub(mns, one), mns)));
+      Dd<D> lgmn{zero, zero};
+      if (!op::AllFalse(d, lo)) {
+        const auto lga = DdSub(d, lgd, OutlinedLogDd(d, mns));
+        lgmn = lga;
+      }
       if (!op::AllFalse(d, mid)) {
         CORVUS_ROUTE_SCOPE(d, mid);
-        const auto mm = op::IfThenElse(mid, mn, op::Set(d, 3.0));  // scrub: k in [2, 16]
-        const auto kf = BetaFloorPos(d, mm);
-        const auto lgt = LgammaIntFracDd(d, kf, op::Sub(mm, kf));  // f exact
-        lgp = Dd<D>{op::IfThenElse(mid, lgt.hi, lgp.hi),
-                    op::IfThenElse(mid, lgt.lo, lgp.lo)};
+        const auto lgt = DdAdd(d, lgd, LgammaLnFactDd(d, kf));
+        lgmn = Dd<D>{op::IfThenElse(mid, lgt.hi, lgmn.hi),
+                     op::IfThenElse(mid, lgt.lo, lgmn.lo)};
       }
-      const Dd<D> lgmn{op::IfThenElse(lo, lga.hi, lgp.hi),
-                       op::IfThenElse(lo, lga.lo, lgp.lo)};
+      // LgammaPosDd only for min > kBetaLgammaAnalyticMax.
+      const auto big = op::MaskNot(op::Or(lo, mid));
+      if (!op::AllFalse(d, big)) {
+        const auto lgp = LgammaPosDd(d, mn);
+        lgmn = Dd<D>{op::IfThenElse(big, lgp.hi, lgmn.hi),
+                     op::IfThenElse(big, lgp.lo, lgmn.lo)};
+      }
       epa = DdAdd(d, DdAdd(d, l1, l2),
                   DdSub(d, LgammaDiffDd(d, mx, mn), lgmn));
     }
