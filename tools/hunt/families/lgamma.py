@@ -1,6 +1,7 @@
 """lgamma hunt strata. Bounds: ACCURACY.md lgamma --
-  0 < x < 8                      1 ULP
-  x >= 8 (Stirling)              0 ULP (correctly rounded; no tie exemption documented)
+  0 < x <= 5/2                   1 ULP
+  5/2 < x < 8 (table)            0 ULP (correctly rounded, near-tie window TIE_TABLE)
+  x >= 8 (Stirling)              0 ULP (correctly rounded, near-tie window TIE)
   x < 0, |lgamma| >= 1           1 ULP
   x < 0, |lgamma| < 1            2^-53 absolute
 Poles (x <= 0 integer, and |x| > kLgammaMaxArg) give +inf."""
@@ -100,10 +101,15 @@ def _stirling(x):
 
 
 def _bound(args, v):
-    return 0 if args[0] >= 8 else 1
+    return 0 if args[0] > 2.5 else 1
 
 
 TIE = 2.0 ** -15  # the x >= 8 cell's near-tie exception (corvus docs, #31)
+TIE_TABLE = 2.0 ** -12  # the table's: 2^-65 relative is <= 2^-12 ulp
+
+
+def _tie(args):
+    return TIE_TABLE if args[0] < 8 else TIE
 
 
 _ABS = mp.mpf(2) ** -53
@@ -117,7 +123,7 @@ def _abs_tol(args, v):
 
 def _st(name, gen, n, seam=None, note=""):
     return Stratum("lgamma", name, gen, n, _oracle, _bound, oracle2=_oracle2,
-                   abs_tol=_abs_tol, tie_exempt=TIE, seam=seam, note=note)
+                   abs_tol=_abs_tol, tie_exempt=_tie, seam=seam, note=note)
 
 
 def _near_poles(r, n):
@@ -170,6 +176,9 @@ def strata():
         _st("stirling_tie_witness",
             lambda r, n: [(float.fromhex("0x1.9bdb8fed86e38p+3"),)], 1,
             note="1 ULP, 1.8e-5 ulp from a midpoint: the 0-ULP cell's near-tie"),
+        _st("table_tie_witness",
+            lambda r, n: [(float.fromhex("0x1.a1f3dc0403336p+1"),)], 1,
+            note="1 ULP, 3.7e-5 ulp from a midpoint: the widest of 6M inputs"),
         _st("table_edges", _table_edges, 1408, note="all 176 cell edges, +-2 ulps"),
         _st("table_edge_mantissa", _table_edge_mantissa, 2000,
             note="full-mantissa rows within 2^-12 of a random cell edge"),

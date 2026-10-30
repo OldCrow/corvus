@@ -56,7 +56,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import annotate  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import gen_bessel_reference  # noqa: E402  the #89 half-x rule
-from core import (LowMemory, MAX_WORKERS, MIN_FREE_MB, REPO, TASKS_PER_WORKER,  # noqa: E402
+from core import (tie_window, LowMemory, MAX_WORKERS, MIN_FREE_MB, REPO, TASKS_PER_WORKER,  # noqa: E402
                   TIERS, evaluate, free_mb, plan_workers, quantum, round_double, ulp_dist)
 
 DATA = REPO / "tests" / "data"
@@ -390,7 +390,7 @@ def _bounds(strata_by_fn):
             with mp.workdps(60):
                 v = mpf(cr) + mpf(r) * quantum(cr) if math.isfinite(cr) else mpf(cr)
                 tol = s.abs_tol(args, v) if s.abs_tol else None
-                return s.bound(args, v), tol, getattr(s, "tie_exempt", 0.0) or 0.0
+                return s.bound(args, v), tol, tie_window(s, args)
         out[f] = b
     return out
 

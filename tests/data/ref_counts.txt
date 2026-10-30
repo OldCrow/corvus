@@ -966,6 +966,7 @@ lgamma_reference.txt|near_zero_1|103
 lgamma_reference.txt|near_zero_2|106
 lgamma_reference.txt|pos_table|120
 lgamma_reference.txt|stirling_tie_witness|1
+lgamma_reference.txt|table_tie_witness|1
 lgamma_reference.txt|table_edges|119
 lgamma_reference.txt|table_edge_mantissa|120
 lgamma_reference.txt|pos_stirling|120

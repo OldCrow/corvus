@@ -23622,6 +23622,8 @@
 0x1.8f2aa128ceacdp+2 0x1.4c98bce2ef71dp+2 r=-0.383799
 # stratum stirling_tie_witness
 0x1.9bdb8fed86e38p+3 0x1.3a930dc48cfe5p+4 r=-0.499982
+# stratum table_tie_witness
+0x1.a1f3dc0403336p+1 0x1.e718515c6efffp-1 r=-0.499963
 # stratum table_edges
 0x1.4dffffffffffep+1 0x1.753887fb60e5dp-2 r=-0.085570
 0x1.4e00000000000p+1 0x1.753887fb60e69p-2 r=0.001209

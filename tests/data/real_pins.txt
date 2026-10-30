@@ -197,8 +197,8 @@ lgamma|neg abs(lg)>=1|fma|0.53
 lgamma|neg abs(lg)>=1|nofma|0.53
 lgamma|pos big|fma|0.50
 lgamma|pos big|nofma|0.50
-lgamma|pos mid|fma|0.53
-lgamma|pos mid|nofma|0.53
+lgamma|pos mid|fma|0.50
+lgamma|pos mid|nofma|0.50
 lgamma|pos small|fma|0.53
 lgamma|pos small|nofma|0.53
 lgamma|pos zone|fma|0.63

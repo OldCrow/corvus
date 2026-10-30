@@ -108,7 +108,7 @@ lbeta|big band|ulp|1|1|lbeta.relative
 lbeta|relative|ulp|1|1|lbeta.relative
 lgamma|neg abs(lg)>=1|ulp|1|1|lgamma.neg
 lgamma|pos big|ulp|0|0|lgamma.stirling
-lgamma|pos mid|ulp|1|1|lgamma.pos
+lgamma|pos mid|ulp|0|0|lgamma.table
 lgamma|pos small|ulp|1|1|lgamma.pos
 lgamma|pos zone|ulp|1|1|lgamma.pos
 log|general|ulp|0|0|log

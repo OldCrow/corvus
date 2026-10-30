@@ -408,7 +408,7 @@ validated tier:**
 |---|---|---|
 | 0 < x < ½ (one log shift) | <!-- claim: lgamma.pos --> 1 ULP | 0.04% |
 | ½ ≤ x ≤ 5/2 (the zeros) | <!-- claim: lgamma.pos --> 1 ULP | 0.78% |
-| 5/2 < x < 8 (Taylor table) | <!-- claim: lgamma.pos --> 1 ULP | 0.00% (the bound stays until NEON and the Linux sweep confirm it) |
+| 5/2 < x < 8 (Taylor table) | <!-- claim: lgamma.table --> **0 ULP — correctly rounded** except within ~2^−12 ulp of a rounding tie | 1 near-tie, lgamma(0x1.a1f3dc0403336p+1), 3.7·10^−5 ulp from a midpoint; the widest of 19 misses in 6·10^6 random inputs, identical on AVX3_ZEN4, SSE4 and SSE2 |
 | x ≥ 8 (Stirling) | <!-- claim: lgamma.stirling --> **0 ULP — correctly rounded** except within ~2^−15 ulp of a rounding tie | 1 near-tie, lgamma(0x1.9bdb8fed86e38p+3), 1.8·10^−5 ulp from a midpoint |
 | x < 0, \|lgamma\| ≥ 1 | <!-- claim: lgamma.neg --> 1 ULP | 0.03% |
 | x < 0, \|lgamma\| < 1 | <!-- claim: lgamma.neg_abs --> 2^−53 **absolute** | 1.25% |
@@ -446,7 +446,9 @@ Method, by region:
   unfused, on bit-stepped edges of all 176 cells: 2^−65.0 relative, against
   2^−60.3 for the walk-down. Every hunt point is correctly rounded on
   AVX3_ZEN4, SSE4 and SSE2 (24,880 points, 8,880 of them on or near cell
-  edges).
+  edges). 2^−65 relative is at most 2^−12 ulp of the result, which sets the
+  near-tie window. The measured misses sit well inside it: 19 of 6·10^6
+  random inputs, all within 3.7·10^−5 ulp of a midpoint.
 * **x ≥ 8**: Stirling with the remainder φ ≈ 1/(12x) as a degree-8 fit in
   1/x². φ is the only part in plain double; a full ULP of it is ~2^−60 of
   lgamma(8), and 8 is the tightest point in the region.

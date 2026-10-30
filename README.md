@@ -27,9 +27,10 @@ that promises — and what it deliberately does not.
   the tail, where what remains is the tail polynomial's fit, not the
   exponential.
 - `lgamma`: <!-- claim: lgamma.pos --> max 1 ULP across the positive axis — including arbitrarily
-  close to the zeros at x = 1 and x = 2, which are exact — and <!-- claim: lgamma.stirling --> correctly
-  rounded throughout the Stirling region, except within ~2^-15 ulp of a
-  rounding tie. On the negative axis the bound is
+  close to the zeros at x = 1 and x = 2, which are exact. <!-- claim: lgamma.table --> It is correctly rounded on
+  5/2 < x < 8, except within ~2^-12 ulp of a rounding tie, and
+  <!-- claim: lgamma.stirling --> correctly rounded throughout the Stirling
+  region, except within ~2^-15 ulp of one. On the negative axis the bound is
   <!-- claim: lgamma.neg --> 1 ULP where |lgamma| >= 1 and <!-- claim: lgamma.neg_abs --> 2^-53 absolute below that, because lgamma
   has infinitely many zeros there with no closed form.
 - `erfinv` / `erfcinv`: <!-- claim: erfinv --> max 1 ULP everywhere, including subnormal results

@@ -8,11 +8,30 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-10-29
+## Status [DERIVED] — 2026-10-30
 
-**Row C3 (#31) PROTOTYPED on Z 2026-10-29/30, design pending [user].
-Nothing in src/ changed.** [OPEN] Full note: side-session notes
-c3-design-note.md (scratch code under the session scratchpad, c3/).
+**Row C3 (#31) code in: `5fef537` (table band, single-log reflection); CI
+41127143361 green on all three jobs. #31 stays open: quiet numbers, the
+0-ULP tightening and the Kaby and M1 legs are owed.** [OPEN]
+- Band after `5fef537`: max ULP 0, real 0.5000 on NEON, Linux and Windows.
+- 0-ULP tightening prepared, uncommitted, for the user's decision: claim
+  `lgamma.table`, gate 0 with a near-tie window of 2^-12 ulp (the proven
+  2^-65 relative), pin 0.50, witness x = 0x1.a1f3dc0403336p+1. Measured: 19
+  misses in 6M inputs, all within 3.7e-5 ulp of a midpoint, same on
+  AVX3_ZEN4, SSE4 and SSE2. Bounds are contractual floors (VERSIONING.md).
+- Quiet A/B 2026-10-30 got no numbers: all six passes aborted at the gate
+  (ambient 11.6-21.5%, iCloudDrive > 1 core). Indicative only so far: band
+  13.1 -> 5.7 ns/el, reflection 33.1 -> 25.0. Re-run with iCloud Drive
+  stopped: quiet A/B script in the session scratchpad, c3/qab.ps1, against
+  the frozen pre-#31 binaries in c3base/.
+- #80 part 2 design ready for decision (side-session notes,
+  c3-part2-design-note.md): exact path for lbeta(1, M) = -ln M (318 ULP near
+  M = 1 today, inside the absolute band), document the off-line 2^-74 floor,
+  decline the CR option.
+- Kaby gather check owed (11 gathers per vector): it may reverse the table's
+  gain on a gather-weak part, and it sizes C4 (#22). M1 owed.
+
+Prototype record below. Full note: side-session notes c3-design-note.md.
 - Quiet baseline at `1fe08b1` (3 gated passes, AVX3_ZEN4, ns/el): lgamma
   recurrence [2.5, 8] 13.07 (UCRT 37.5), reflection 33.14, zone 5.52,
   Stirling 6.92. Recurrence = zone poly 4.7 + dd log 4.4 + walk ~1.3.
@@ -25,7 +44,7 @@ c3-design-note.md (scratch code under the session scratchpad, c3/).
   -> 0 not-CR (real 0.5014 -> 0.5000); every gamma/gammainv/beta/
   betainv/lbeta gate line unchanged.
 - Recommendation: adopt h = 1/32 D = 8 pending a Kaby gather check
-  (10 gathers per vector), the single-log reflection, and a 0-ULP claim
+  (11 gathers per vector), the single-log reflection, and a 0-ULP claim
   for the band once CI tiers confirm. #80 part 2 after #31: lbeta(1,1)'s
   2^-74 residue is LgammaDiffDd's, not this band's; the lbeta CR option
   re-evaluated on measured maxima.
