@@ -10,6 +10,25 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-29
 
+**Row C2 (#45) DONE 2026-10-29: `19bcff8` (span expm1 and log1pmx) +
+`747dce9` (hunt round_double signed zero); CI 40993748302 green on all
+three jobs; #45 closed. Next: row C3 (#31).** [DERIVED]
+- Design DECIDED [user]: correctly rounded through the dd specials, each
+  branch run only when a lane needs it; expm1 edges as std::expm1;
+  log1pmx(+-0) = +0; expm1 in exp.cpp and log1pmx in log.cpp, gated in
+  test_exp_ulp / test_log_ulp (precedent: log1p shares test_log_ulp).
+- Gates: 18,536 expm1 and 22,299 log1pmx rows, every row correctly
+  rounded on AVX3_ZEN4/AVX2/SSE4/SSSE3/SSE2 (clang-cl) and AVX2 (MSVC);
+  no existing gate line moved. Negative control: without log1pmx's tiny
+  branch (|x| < 2^-480, exact x^2/2 rounded once), 645 of 5,426 tiny
+  rows miss by 1 ULP.
+- Cost on Z (indicative): expm1 ~3 ns/el (UCRT std::expm1 ~2.6-3.4);
+  log1pmx ~11 ns/el (mixed vectors pay both branches). Against UCRT:
+  std::expm1 is not CR on 15-22% of rows (max 2 ULP); log1p(x) - x
+  returns 0 on 66% of tiny and 35% of series-band rows and errs up to
+  ~30 ULP away from 0.
+- Owed: native Kaby Lake and M1 runs at the freeze (ACCURACY.md matrix ‡).
+
 **Row C1 (#42 lever 1) DONE ON Z 2026-10-29: `6027e2d` (beta R2 CF
 precision split behind a per-lane F gate), `0967994` (one LgammaDiffDd for
 lgamma(min), bit-identical), `50ebbfc` (bench NEON fix); CI 40985511199
@@ -2021,7 +2040,7 @@ reference rows are regenerated, and regeneration done once. Two more:
 | B3 | ~~#80 part 1: erf j = 0 (dd 2/√π, single rounding); beta_q R3 gamma-limit ridge margin (pin 1.38 → ≤ 1.25, or documented)~~ DONE 2026-10-28 (Z, `9429cf3`; CI 40804958773). Part 2 waits for C3 | erf_core and beta R3 are in lever 1's and #22's files; within-bound, so it never holds the release | mid | real-error pins lowered | CI tiers |
 | B4 | ~~#68 Log1pmxDd seam at the 1/16 cut (raise `kPhiCut` or a log1p-of-small-dd path); measure consumer gates first~~ DONE 2026-10-29 (Z): measured negligible, documented, no kernel change | before C2 publishes `log1pmx` | small–mid | cut-dense rows re-pinned | Z, CI |
 | C1 | ~~#42 lever 1, per-element cost (was row 13); weigh #44's fixed-cost regions against masked early exit first~~ DONE ON Z 2026-10-29 (`6027e2d`, `0967994`; CI 40985511199); M1/K legs owed | the libstats throughput gate; after A–B | frontier | early-exit lane-mix tests | M1, K, Z |
-| C2 | #45 export span `expm1`, `log1pmx` (was row 14) | after B4; libstats adopts both in v3.0.0 | mid (new family) | generator, four gating lists + quiet_bench lists | K, M1, Z |
+| C2 | ~~#45 export span `expm1`, `log1pmx` (was row 14)~~ DONE ON Z 2026-10-29 (`19bcff8`) | after B4; libstats adopts both in v3.0.0 | mid (new family) | generator, four gating lists + quiet_bench lists | K, M1, Z |
 | C3 | #31 lgamma table band + single reflection log (was row 15); then #80 part 2 (lbeta near (1, 1); the lbeta CR option) against the new lgamma | beta/gamma/lbeta consume lgamma; libstats' PMF lgamma routing returns when it lands | frontier | generator + regen | K, Z, M1 |
 | C4 | #22 non-gather x86 (was row 17) — conditional: off the milestone if it would hold the release; a Kaby Lake quiet bench sizes it first | after #31; likely slips | frontier | tier audit | K, Z |
 | D | Release tail: `docs/PERFORMANCE.md` §4/§8.2 re-run and the quiet bench on three machines; the libstats pin note (scalar entry points replace its deducing `corvus_scalar` wrapper) in the release notes; native M1 + Kaby Lake validation at the freeze head; RELEASING.md | then libstats and libhmm bump to v1.2.0 (workplan tasks 2 and 7) | recipe | — | all three |
