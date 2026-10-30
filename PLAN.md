@@ -10,15 +10,14 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-29
 
-**Row C1 (#42 lever 1) IN PROGRESS on Z. Levers 1 and 3 landed
-2026-10-29: `6027e2d` (beta R2 CF precision split behind a per-lane F
-gate) and `0967994` (one LgammaDiffDd for lgamma(min), bit-identical).
-Every gate cell unchanged on AVX3_ZEN4/AVX2/SSE4/SSSE3/SSE2; MSVC /W4 /WX
-clean. Quiet A/B on Z: beta R1 1.32x, R2 1.85x, gamma-limit 1.52x,
-betainv 1.05-1.40x (PERFORMANCE.md §12). CI 40981894946 failed on macOS
-NEON only, compiling the bench (default-constructed Dd outside the
-per-target region; the kernel TUs built); fix pending commit. Lever 2
-DROPPED [user].** [DERIVED]
+**Row C1 (#42 lever 1) DONE ON Z 2026-10-29: `6027e2d` (beta R2 CF
+precision split behind a per-lane F gate), `0967994` (one LgammaDiffDd for
+lgamma(min), bit-identical), `50ebbfc` (bench NEON fix); CI 40985511199
+green on all three jobs at `b54754c`. Every gate cell unchanged on
+AVX3_ZEN4/AVX2/SSE4/SSSE3/SSE2. Quiet A/B on Z: beta R1 1.32x, R2 1.85x,
+gamma-limit 1.52x, betainv 0.99-1.40x (PERFORMANCE.md §12). #42 stays
+open for the M1/Kaby Lake legs; #44 answered (comment) and left open for
+its promotion candidates. Next: row C2 (#45).** [DERIVED]
 - **#44 answered: no.** [DECIDED 2026-10-29, user] A dd quadrature node
   (log_dd + exp_dd + dd MAC) costs ~10 ns/el on AVX3_ZEN4; 24 nodes = 251
   ns/el against gamma R2's whole 44-step CF at 26. corvus's regions are
@@ -52,11 +51,16 @@ DROPPED [user].** [DERIVED]
   rebuild) and are superseded.
 - **#42's NEON targets (gamma_p <= 40, beta_p <= 30 ns/el) are out of
   reach under the accuracy contract** (gamma's prefactor alone is 29
-  ns/el on 8 lanes). libstats must hear this before its v3.0.0 adoption.
-  [OPEN]
-- **Owed:** M1 (NEON) and Kaby Lake (AVX2) gate runs and the same A/B at
-  levers 1+3; a green CI run on the branch (then close #42's lever-1 part
-  and record #44's answer on the issue). The hunt and A/B tools:
+  ns/el on 8 lanes). Told to libstats on OldCrow/libstats#156
+  (2026-10-29); re-baselining its release gate is libstats' decision.
+- **Owed on M1 (NEON) and Kaby Lake (AVX2)** [OPEN]: (1) native gate run
+  at `b54754c` under `CORVUS_EXPECT_TARGET` (NEON / AVX2), diffing every
+  gate's real maxima against the same run at `3712cc3`; (2) the A/B:
+  build bench_gamma/beta/gammainv/betainv at `3712cc3` (A) and `b54754c`
+  (B) in separate trees, hash-check the binaries differ, then six
+  `tools/quiet_bench.sh` passes alternating A/B with the Z protocol;
+  summarise with docs/bench-evidence/2026-10-29-zen4-c1-ab/summarise.py
+  and add a §12 row per machine. Then close #42. The hunt and A/B tools:
   tests/bench_igamma_components.cpp (modes in its header).
 - libstats' adoption-branch tests hold no stored corvus bits (batch ==
   scalar plus tolerances).
@@ -2016,7 +2020,7 @@ reference rows are regenerated, and regeneration done once. Two more:
 | B2 | ~~#77 TWIN markers on every copied pair (or recorded not-a-twin); gammainv's lgamma(1+a) copy measured, then re-synced to #67's centre-2 form or reworded; ACCURACY claim twins~~ DONE 2026-10-28 (Z, `11ab298`; CI 40788554389) | lever 1 edits the region cores that are the twins | small–mid | gammainv gates re-measured | Z, CI |
 | B3 | ~~#80 part 1: erf j = 0 (dd 2/√π, single rounding); beta_q R3 gamma-limit ridge margin (pin 1.38 → ≤ 1.25, or documented)~~ DONE 2026-10-28 (Z, `9429cf3`; CI 40804958773). Part 2 waits for C3 | erf_core and beta R3 are in lever 1's and #22's files; within-bound, so it never holds the release | mid | real-error pins lowered | CI tiers |
 | B4 | ~~#68 Log1pmxDd seam at the 1/16 cut (raise `kPhiCut` or a log1p-of-small-dd path); measure consumer gates first~~ DONE 2026-10-29 (Z): measured negligible, documented, no kernel change | before C2 publishes `log1pmx` | small–mid | cut-dense rows re-pinned | Z, CI |
-| C1 | #42 lever 1, per-element cost (was row 13); weigh #44's fixed-cost regions against masked early exit first | the libstats throughput gate; after A–B | frontier | early-exit lane-mix tests | M1, K, Z |
+| C1 | ~~#42 lever 1, per-element cost (was row 13); weigh #44's fixed-cost regions against masked early exit first~~ DONE ON Z 2026-10-29 (`6027e2d`, `0967994`; CI 40985511199); M1/K legs owed | the libstats throughput gate; after A–B | frontier | early-exit lane-mix tests | M1, K, Z |
 | C2 | #45 export span `expm1`, `log1pmx` (was row 14) | after B4; libstats adopts both in v3.0.0 | mid (new family) | generator, four gating lists + quiet_bench lists | K, M1, Z |
 | C3 | #31 lgamma table band + single reflection log (was row 15); then #80 part 2 (lbeta near (1, 1); the lbeta CR option) against the new lgamma | beta/gamma/lbeta consume lgamma; libstats' PMF lgamma routing returns when it lands | frontier | generator + regen | K, Z, M1 |
 | C4 | #22 non-gather x86 (was row 17) — conditional: off the milestone if it would hold the release; a Kaby Lake quiet bench sizes it first | after #31; likely slips | frontier | tier audit | K, Z |
