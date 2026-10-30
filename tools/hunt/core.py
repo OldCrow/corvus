@@ -75,7 +75,11 @@ def round_double(v) -> float:
     if abs(v) >= mpf(2) ** 1024 * (1 - mpf(2) ** -54):
         return math.copysign(math.inf, float(mp.sign(v)))
     q = quantum(v)
-    return float(mp.nint(v / q) * q)
+    r = float(mp.nint(v / q) * q)
+    # An mpf zero is unsigned: a negative value that rounds to zero must come
+    # back as -0 (log1pmx's underflow, #45), as refgen_common.round_to_double
+    # does.
+    return math.copysign(r, -1.0) if r == 0 and v < 0 else r
 
 
 # ---- strata -----------------------------------------------------------------
