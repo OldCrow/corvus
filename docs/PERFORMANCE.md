@@ -41,6 +41,9 @@ The §4 and §8.2 upper bounds are stale on two counts, these changes and
 #42's per-element baseline (§2). A quiet full-surface pass on each
 machine is planned for v1.2.0, and it replaces this note.
 
+**v1.2.0 row C1 (2026-10-29):** #42 lever 1 made `beta_p`/`beta_q` and
+their inverses faster on Zen 4; quiet A/B in §12. Gamma is unchanged.
+
 ---
 
 ## 1. What was measured
@@ -535,3 +538,46 @@ table-driven (5/2, X0) band and the
 single reflection log proceed (both attack the dd-log share, largest
 exactly where corvus is weakest — Apple-libm machines); the Estrin
 zone leg is retired by (a).
+
+---
+
+## 12. Row C1, #42 lever 1: Zen 4 quiet A/B (2026-10-29, v1.2.0 dev)
+
+Two commits on `dev/v1.2.0`: `6027e2d` (beta R2's backward CF in double
+for its deep steps behind a per-lane F gate) and `0967994` (one
+LgammaDiffDd for both analytic lgamma(min) forms). Both keep every ULP
+gate cell's real maximum unchanged on five tiers (docs/ACCURACY.md, beta).
+
+**Protocol.** `AVX3_ZEN4`, clang-cl Release. A = the four family benches
+built from `3712cc3` (before both commits), B = the same benches at
+`64a085b`; binaries hash-checked distinct. Six `tools/quiet_bench.ps1`
+passes alternating A, B, A, B, A, B: gated at 3.5–4.6%, per-pass noise
+averages 2.9–4.9% (one sample each in passes 4 and 6 reached 11%).
+Median of three per variant; per-band spread under 1% except where noted.
+
+| band (ns/el, n = 4001) | A | B | A/B |
+|---|---:|---:|---:|
+| `beta_p` R1 series | 354.4 | 268.8 | 1.32× |
+| `beta_q` R2 backward CF | 517.1 | 279.9 | 1.85× |
+| `beta_q` R2 gamma-limit | 687.0 | 450.6 | 1.52× |
+| `beta_p` R3, `beta_q` R4, `beta_p` post-route | 476.5 / 264.0 / 522.7 | 476.7 / 264.2 / 518.4 | 1.00× |
+| `beta_p_inv` by band | 532–9,740 | 380–8,370 | 1.05–1.40× |
+| `beta_q_inv` by band | 810–10,680 | 658–10,790 | 0.99–1.23× |
+
+Controls: every `gamma_p`/`gamma_q` band and every `gamma_p_inv`/`gamma_q_inv`
+band reads 1.00× (0.99× for one q_inv band), and so do the beta regions
+neither commit touches. Two `beta_q_inv` bands (skewed CF,
+gamma-limit transfer) read 0.99–1.00×; their q-side forward work sits
+outside both changes.
+
+**#44 answered here.** A dd Gauss–Legendre node (log_dd + exp_dd + dd
+multiply-accumulate) costs ~10 ns/el on this machine, so a 24-node rule
+(251 ns/el, indicative) costs ten times gamma R2's whole 44-step CF.
+corvus's region cores already run at fixed cost; the depth, not the
+method, was the open question.
+
+**Owed:** the same A/B on M1 (NEON, the tier #42's targets name) and on
+Kaby Lake (AVX2). #42's NEON targets (gamma_p <= 40, beta_p <= 30
+ns/el) are out of reach under the accuracy contract; gamma's prefactor
+alone costs 29 ns/el here across 8 lanes.
+

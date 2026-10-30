@@ -14,8 +14,11 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 2026-10-29: `6027e2d` (beta R2 CF precision split behind a per-lane F
 gate) and `0967994` (one LgammaDiffDd for lgamma(min), bit-identical).
 Every gate cell unchanged on AVX3_ZEN4/AVX2/SSE4/SSSE3/SSE2; MSVC /W4 /WX
-clean. CI on the branch pending. Next: lever 2 decision [user], quiet
-bench, PERFORMANCE.md.** [DERIVED]
+clean. Quiet A/B on Z: beta R1 1.32x, R2 1.85x, gamma-limit 1.52x,
+betainv 1.05-1.40x (PERFORMANCE.md §12). CI 40981894946 failed on macOS
+NEON only, compiling the bench (default-constructed Dd outside the
+per-target region; the kernel TUs built); fix pending commit. Lever 2
+DROPPED [user].** [DERIVED]
 - **#44 answered: no.** [DECIDED 2026-10-29, user] A dd quadrature node
   (log_dd + exp_dd + dd MAC) costs ~10 ns/el on AVX3_ZEN4; 24 nodes = 251
   ns/el against gamma R2's whole 44-step CF at 26. corvus's regions are
@@ -36,22 +39,24 @@ bench, PERFORMANCE.md.** [DERIVED]
   fired on 0% of lanes in the bench and wide (a, b in [0.5, 30]) bands.
 - **Lever 3**: merged the two analytic lgamma(min) LgammaDiffDd calls,
   LgammaPosDd only for min > 16. 0 of 502,342 outputs changed.
-- **Lever 2 (per-lane late start) measured weak** [OPEN, user]: gamma R2
-  needs the full 44 steps for every x below ~5 and 14-35 above; beta's
-  remaining CF cost is mostly the 16 fixed dd steps. Estimate ~10-15
-  ns/el per region; recommendation: drop it from C1.
-- **Measured gain, interleaved A/B on a loaded Z (INDICATIVE, min of 3,
-  gamma control flat within noise):** beta R1 1.13x, R2 1.20x, gamma-limit
-  1.60x; betainv bands 1.09-1.86x. In-binary component timing puts the R2
-  CF at ~100 against 263 ns/el, so R2's A/B likely understates. Gamma is
-  untouched so far.
+- **Lever 2 (per-lane late start) DROPPED** [DECIDED 2026-10-29, user]:
+  gamma R2 needs the full 44 steps for every x below ~5 and 14-35 above;
+  beta's remaining CF cost is mostly the 16 fixed dd steps. Estimate
+  ~10-15 ns/el per region.
+- **Measured gain, quiet A/B on Z** (six gated passes, A = `3712cc3`, B =
+  `64a085b`, hash-checked distinct; evidence in
+  docs/bench-evidence/2026-10-29-zen4-c1-ab): beta R1 354 -> 269, R2 517
+  -> 280, gamma-limit 687 -> 451 ns/el; R3, R4, post-route, all gamma and
+  gammainv bands 1.00x. Earlier loaded A/B numbers measured lever 1 alone
+  (a stale build: Copy-Item keeps the old mtime, so ninja skipped the
+  rebuild) and are superseded.
 - **#42's NEON targets (gamma_p <= 40, beta_p <= 30 ns/el) are out of
   reach under the accuracy contract** (gamma's prefactor alone is 29
   ns/el on 8 lanes). libstats must hear this before its v3.0.0 adoption.
   [OPEN]
-- **Owed:** a quiet-gated bench on Z for PERFORMANCE.md (Z sat at 22-27%
-  ambient all session; needs the user to quiet it); M1 (NEON) and Kaby
-  Lake (AVX2) gate runs and benches at levers 1+3. The hunt and A/B tools:
+- **Owed:** M1 (NEON) and Kaby Lake (AVX2) gate runs and the same A/B at
+  levers 1+3; a green CI run on the branch (then close #42's lever-1 part
+  and record #44's answer on the issue). The hunt and A/B tools:
   tests/bench_igamma_components.cpp (modes in its header).
 - libstats' adoption-branch tests hold no stored corvus bits (batch ==
   scalar plus tolerances).

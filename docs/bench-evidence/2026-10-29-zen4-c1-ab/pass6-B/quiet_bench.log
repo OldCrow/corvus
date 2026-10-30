@@ -1,0 +1,32 @@
+[21:17:43] === quiet_bench start ===
+[21:17:43] build dir     : C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus\0c771f3c-f5cd-4bae-9469-28816cdac098\scratchpad\qrun\B
+[21:17:43] targets       : bench_gamma, bench_beta, bench_gammainv, bench_betainv
+[21:17:43] expect target : AVX3_ZEN4
+[21:17:43] gate          : ambient < 5% over two consecutive 10s windows
+[21:17:53] gate window 1: 4.54%
+[21:18:03] gate window 2: 5.37%
+[21:18:03]   top CPU consumers right now (% of one core):
+[21:18:06]     lightingservice             4.6%
+[21:18:06]     system                      3.6%
+[21:18:06]     acpowernotification         2.6%
+[21:18:06]     glasswire                   2.6%
+[21:18:06]     aacambientlighting          2.6%
+[21:18:06]     gwctlsrv                    1.6%
+[21:18:06]     pwsh                        1.2%
+[21:18:17] gate window 1: 3.11%
+[21:18:27] gate window 2: 4.18%
+[21:18:27] GATE PASSED at 4.18%
+[21:18:30] --- bench_gamma --- noise before: 3.45%
+[21:18:45] ok   bench_gamma -> quiet_bench_bench_gamma.txt   noise after: 3.68%
+[21:18:48] --- bench_beta --- noise before: 2.82%
+[21:18:52] ok   bench_beta -> quiet_bench_bench_beta.txt   noise after: 4.39%
+[21:18:55] --- bench_gammainv --- noise before: 2.48%
+[21:19:00] ok   bench_gammainv -> quiet_bench_bench_gammainv.txt   noise after: 2.51%
+[21:19:03] --- bench_betainv --- noise before: 10.92%
+[21:19:15] ok   bench_betainv -> quiet_bench_bench_betainv.txt   noise after: 2.84%
+[21:19:15] === quiet_bench summary ===
+[21:19:15] gated at      : 4.18%
+[21:19:15] noise held    : 2.48% - 10.92% (avg 4.14%)
+[21:19:15] targets run   : 4 of 4
+[21:19:15] Raw per-target output: C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus\0c771f3c-f5cd-4bae-9469-28816cdac098\scratchpad\qrun\pass6-B\quiet_bench_<target>.txt
+[21:19:15] This log is the evidence chain - keep it with any published number.
