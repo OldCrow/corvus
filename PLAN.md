@@ -10,6 +10,26 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-29
 
+**Row C3 (#31) PROTOTYPED on Z 2026-10-29/30, design pending [user].
+Nothing in src/ changed.** [OPEN] Full note: side-session notes
+c3-design-note.md (scratch code under the session scratchpad, c3/).
+- Quiet baseline at `1fe08b1` (3 gated passes, AVX3_ZEN4, ns/el): lgamma
+  recurrence [2.5, 8] 13.07 (UCRT 37.5), reflection 33.14, zone 5.52,
+  Stirling 6.92. Recurrence = zone poly 4.7 + dd log 4.4 + walk ~1.3.
+- Table band prototype, lgamma(x0 + r) Taylor with c0, c1 in dd, 41,848
+  rows: today 2^-60.3, 3 not-CR, 12.3 ns/el; h = 1/32 D = 8: 2^-64.8,
+  0 not-CR, 4.8 ns/el, 15.6 KB (h = 1/16 D = 9: 2^-62.6, 4.9, 8.5 KB).
+- Single-log reflection: bit-identical on 40,000 negative-axis rows,
+  33.0 -> 27.7 ns/el.
+- Shadow build (table on 5/2 < x < 8), AVX3_ZEN4 + SSE4: lgamma band 3
+  -> 0 not-CR (real 0.5014 -> 0.5000); every gamma/gammainv/beta/
+  betainv/lbeta gate line unchanged.
+- Recommendation: adopt h = 1/32 D = 8 pending a Kaby gather check
+  (10 gathers per vector), the single-log reflection, and a 0-ULP claim
+  for the band once CI tiers confirm. #80 part 2 after #31: lbeta(1,1)'s
+  2^-74 residue is LgammaDiffDd's, not this band's; the lbeta CR option
+  re-evaluated on measured maxima.
+
 **Row C2 (#45) DONE 2026-10-29: `19bcff8` (span expm1 and log1pmx) +
 `747dce9` (hunt round_double signed zero); CI 40993748302 green on all
 three jobs; #45 closed. Next: row C3 (#31).** [DERIVED]
