@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Generate src/lgamma_data.h -- every table the lgamma kernel needs.
 
-Four fits, all Chebyshev interpolation converted to monomial form:
+Three fits, all Chebyshev interpolation converted to monomial form, and one
+Taylor table:
 
   zone polys   B_c(t) = lgamma(c + t) / t  for c = 1 and c = 2, t in [-1/2, 1/2].
                lgamma's only positive-axis zeros are at x = 1 and x = 2, and
@@ -20,6 +21,18 @@ Four fits, all Chebyshev interpolation converted to monomial form:
                -log|u| - v*K(v) cancels pi analytically and keeps the u -> 0
                limit finite, where forming sin(pi*x) first would underflow.
 
+  band table   lgamma(x0 + r) on (5/2, X0) (#31): x0 = 5/2 + i*h, h = 1/32,
+               r = x - x0 exact, |r| <= h/2, and
+                 c0 + c1*r + r^2*(c2 + c3*r + ... + c8*r^6),
+               c0 = lgamma(x0) and c1 = psi(x0) as double-double, cn =
+               psi^(n-1)(x0)/n! in plain double. Taylor, not a fit: the
+               coefficients are exact values, so there is nothing to
+               converge, and the truncation (the r^9 term) is a closed
+               bound. Stored interleaved, one row per node, so a lane's
+               gathers stay in one or two cache lines. SELF-CHECK replays
+               the kernel's arithmetic, fused and unfused, at bit-stepped
+               cell edges (the doctrine's replay rules).
+
 The leading coefficients of the zone and sinpi fits are emitted as
 double-double pairs (kLgammaZoneLead*, kLgammaSinLead*): the kernel evaluates
 only the tail in plain double, so the tail's rounding is attenuated by the
@@ -32,6 +45,7 @@ Usage:
     python3 tools/gen_lgamma_data.py > src/lgamma_data.h
 """
 
+import math
 import random
 import struct
 import sys
@@ -41,10 +55,9 @@ import mpmath as mp
 mp.mp.dps = 60
 
 # --- Design constants -------------------------------------------------------
-# Stirling takes over at X0. Below it, x is walked down into the zone by the
-# product recurrence, which needs ceil(X0 - 2.5) steps -- 6 for X0 = 8. Larger
-# X0 buys a shorter psi fit (degree 6 at 13 vs 8 at 8) at one extra
-# multiply-plus-select per step; 8 is the cheapest that meets budget.
+# Stirling takes over at X0; (5/2, X0) is the band table. X0 = 8 predates the
+# table: it was the cheapest point of the old recurrence that met budget, and
+# moving it would change Stirling's fit, so it stays.
 X0 = mp.mpf(8)
 ZONE_LO = mp.mpf("0.5")    # below this, one log shift instead
 ZONE_MID = mp.mpf("1.5")   # centre-1 / centre-2 split
@@ -57,6 +70,11 @@ N_NODES = 160              # EVEN on purpose: an odd count puts a node at t = 0,
 TAIL_CUT = mp.mpf("1e-21")
 ZONE_LEAD = 3              # dd leading coefficients of B(t)
 SIN_LEAD = 2               # dd leading coefficients of K(v)
+TAB_INV_H = 32             # band table: nodes per unit x
+TAB_DEG = 8                # r^8 is the last term
+# Relative to lgamma on the band. Replay measures ~2^-64.8; the tail's
+# coefficient rounding, not the truncation, sets that floor.
+TAB_TARGET = mp.mpf(2) ** -63.5
 
 # Gates, in relative error of the replayed kernel evaluation. The floor is the
 # tail Horner's own rounding, not the fit residual (the mpmath-side fit is
@@ -270,6 +288,74 @@ def max_finite_arg():
 
 
 # --- emit -------------------------------------------------------------------
+def tab_row(i):
+    """[c0.hi, c0.lo, c1.hi, c1.lo, c8, c7, ..., c2] at node i: Horner order
+    for the tail, so a row reads front to back as the kernel uses it."""
+    x0 = mp.mpf(5) / 2 + mp.mpf(i) / TAB_INV_H
+    c0 = dd_split(mp.loggamma(x0))
+    c1 = dd_split(mp.digamma(x0))
+    tail = [rd(mp.polygamma(n - 1, x0) / mp.factorial(n))
+            for n in range(TAB_DEG, 1, -1)]
+    return [c0[0], c0[1], c1[0], c1[1]] + tail
+
+
+def replay_tab(row, x, fused):
+    """The kernel's table evaluation at double x, as an mpf: Horner, r^2 and
+    the tail in double (fused or not), the c0 + c1*r assembly exact (its dd
+    rounding is ~2^-104, far below this budget)."""
+    i = int(mp.nint((mp.mpf(x) - mp.mpf(5) / 2) * TAB_INV_H))
+    x0 = float(mp.mpf(5) / 2 + mp.mpf(i) / TAB_INV_H)
+    r = x - x0  # exact
+    assert mp.mpf(r) == mp.mpf(x) - mp.mpf(x0)
+    p = row[i][4]
+    for c in row[i][5:]:
+        p = rd(mp.mpf(p) * r + c) if fused else p * r + c
+    tail = p * (r * r)
+    return (mp.mpf(row[i][0]) + row[i][1]
+            + (mp.mpf(row[i][2]) + row[i][3]) * r + tail)
+
+
+def check_tab(rows, rng):
+    """Bit-stepped points on both sides of every cell edge and around every
+    node, plus random points per cell, both FMA models. One worst-case figure,
+    plus the per-arm counts. Coefficients are recomputed at twice the digits
+    first: a generator that disagrees with itself emits nothing."""
+    with mp.workdps(2 * mp.mp.dps):
+        for i in (0, 1, len(rows) // 2, len(rows) - 2, len(rows) - 1):
+            again = tab_row(i)
+            if again != rows[i]:
+                return mp.inf, 0.0, 0, 0, 0
+    n_edge = n_node = n_rand = 0
+    worst, wx = mp.mpf(0), 0.0
+    h = 1.0 / TAB_INV_H
+    lo, hi = float(ZONE_HI), float(X0)
+
+    def probe(x):
+        nonlocal worst, wx
+        if not lo < x < hi:
+            return 0
+        v = mp.loggamma(mp.mpf(x))
+        for fused in (True, False):
+            e = abs(replay_tab(rows, x, fused) - v) / abs(v)
+            if e > worst:
+                worst, wx = e, x
+        return 1
+
+    for i in range(len(rows)):
+        x0 = lo + i * h
+        for edge in (x0 - h / 2, x0 + h / 2):
+            a = edge
+            b = edge
+            for _ in range(4):
+                n_edge += probe(a) + probe(b)
+                a = math.nextafter(a, 0.0)
+                b = math.nextafter(b, 9.0)
+        n_node += probe(math.nextafter(x0, 0.0)) + probe(math.nextafter(x0, 9.0))
+        for _ in range(8):
+            n_rand += probe(x0 + rng.uniform(-h / 2, h / 2))
+    return worst, wx, n_edge, n_node, n_rand
+
+
 def hexes(name, vals, per_line=1):
     print(f"inline constexpr double {name} = {{")
     for v in vals:
@@ -318,12 +404,24 @@ def main():
         print(f"FAILED: sinpi exceeds {SIN_TARGET:g}", file=sys.stderr)
         rc = 1
 
+    # Band table.
+    n_tab = int((X0 - ZONE_HI) * TAB_INV_H) + 1
+    tab = [tab_row(i) for i in range(n_tab)]
+    err, wx, n_edge, n_node, n_rand = check_tab(tab, rng)
+    print(f"band table h=1/{TAB_INV_H} D={TAB_DEG}: {n_tab} nodes, {n_edge} edge, "
+          f"{n_node} node, {n_rand} random points, fused and unfused: "
+          f"max rel err {err:.3e} (2^{float(mp.log(err, 2)):.2f}) at x={wx:.17g}",
+          file=sys.stderr)
+    if err > TAB_TARGET:
+        print(f"FAILED: band table exceeds 2^{float(mp.log(TAB_TARGET, 2)):.1f}",
+              file=sys.stderr)
+        rc = 1
+
     if rc:
         return rc
 
     hl2pi = dd_split(mp.log(2 * mp.pi) / 2)
     max_arg = max_finite_arg()
-    mid_steps = int(mp.ceil(X0 - ZONE_HI))
 
     print("// Auto-generated by tools/gen_lgamma_data.py. DO NOT EDIT.")
     print("// Fits and their error budgets are documented in the generator;")
@@ -334,13 +432,12 @@ def main():
     print("namespace corvus::detail {")
     print()
     print("// Region boundaries. (0, LO) shifts by one log; [LO, MID) and")
-    print("// [MID, HI] are the zero-centred polynomials; (HI, X0) walks down")
-    print("// to [MID, HI] by the product recurrence; [X0, inf) is Stirling.")
+    print("// [MID, HI] are the zero-centred polynomials; (HI, X0) is the band")
+    print("// table; [X0, inf) is Stirling.")
     print(f"inline constexpr double kLgammaZoneLo = {float.hex(float(ZONE_LO))};")
     print(f"inline constexpr double kLgammaZoneMid = {float.hex(float(ZONE_MID))};")
     print(f"inline constexpr double kLgammaZoneHi = {float.hex(float(ZONE_HI))};")
     print(f"inline constexpr double kLgammaX0 = {float.hex(float(X0))};")
-    print(f"inline constexpr int kLgammaMidSteps = {mid_steps};")
     print()
     print("// Largest argument with a finite result; above it lgamma overflows.")
     print(f"inline constexpr double kLgammaMaxArg = {float.hex(max_arg)};")
@@ -369,6 +466,17 @@ def main():
     hexes(f"kLgammaStirCoef[{len(st_mono)}]", st_mono)
     print(f"inline constexpr double kLgammaHalfLog2PiHi = {float.hex(hl2pi[0])};")
     print(f"inline constexpr double kLgammaHalfLog2PiLo = {float.hex(hl2pi[1])};")
+    print()
+    print("// Band table: lgamma(x0 + r), x0 = HI + i/kLgammaTabInvH, one row per")
+    print("// node: c0.hi, c0.lo, c1.hi, c1.lo, then the plain-double tail")
+    print(f"// c{TAB_DEG} .. c2 in Horner order.")
+    print(f"inline constexpr int kLgammaTabN = {n_tab};")
+    print(f"inline constexpr int kLgammaTabStride = {len(tab[0])};")
+    print(f"inline constexpr double kLgammaTabInvH = {float.hex(float(TAB_INV_H))};")
+    print(f"alignas(64) inline constexpr double kLgammaTab[{n_tab * len(tab[0])}] = {{")
+    for row in tab:
+        print("    " + ", ".join(float.hex(v) for v in row) + ",")
+    print("};")
     print()
     print("// log(sin(pi u)/(pi u)) = v*(M0 + v*(M1 + v*T(v))), v = u^2.")
     print(f"inline constexpr int kLgammaSinNCoef = {len(sin_tail)};")

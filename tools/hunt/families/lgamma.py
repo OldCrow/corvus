@@ -20,17 +20,18 @@ SEAMS = [
     {"fn": "lgamma", "name": "zero_1", "coord": "x", "value": 1.0, "source": "zero at x=1, t = x-1 exact"},
     {"fn": "lgamma", "name": "zone_mid", "coord": "x", "value": 1.5, "source": "kLgammaZoneMid (centre 1|2)"},
     {"fn": "lgamma", "name": "zero_2", "coord": "x", "value": 2.0, "source": "zero at x=2, t = x-2 exact"},
-    {"fn": "lgamma", "name": "zone_hi", "coord": "x", "value": 2.5, "source": "kLgammaZoneHi (zone|walk)"},
+    {"fn": "lgamma", "name": "zone_hi", "coord": "x", "value": 2.5, "source": "kLgammaZoneHi (zone|table)"},
 ] + [
-    {"fn": "lgamma", "name": f"walk_{k}", "coord": "x", "value": 2.5 + k, "source": f"kLgammaZoneHi + {k} (walk step {k}|{k + 1})"}
-    for k in range(1, 6)
+    {"fn": "lgamma", "name": f"cell_edge_{k}", "coord": "x", "value": 2.5 + k + 1 / 64, "source": "table cell edge, |r| = 1/64 (LgammaTable)"}
+    for k in range(0, 5)
 ] + [
-    {"fn": "lgamma", "name": "x0", "coord": "x", "value": 8.0, "source": "kLgammaX0 (walk|Stirling)"},
+    {"fn": "lgamma", "name": "x0", "coord": "x", "value": 8.0, "source": "kLgammaX0 (table|Stirling)"},
     {"fn": "lgamma", "name": "stir_scale", "coord": "x", "value": 2.0 ** 200, "source": "LgammaStirling 2^-200 product scaling"},
     {"fn": "lgamma", "name": "dekker", "coord": "x", "value": 2.0 ** 996, "source": "non-FMA ProdLow Dekker split ceiling 2^996"},
     {"fn": "lgamma", "name": "max_arg", "coord": "x", "value": _MAXARG, "source": "kLgammaMaxArg (overflow)"},
     {"fn": "lgamma", "name": "min_normal_in", "coord": "x", "value": 2.0 ** -1022, "source": "subnormal input edge"},
     {"fn": "lgamma", "name": "neg_min_normal_in", "coord": "x", "value": -2.0 ** -1022, "source": "subnormal input edge, x<0"},
+    {"fn": "lgamma", "name": "neg_tiny_scale", "coord": "x", "value": -2.0 ** -400, "source": "reflection product scales by 2^600 below |x| = 2^-400"},
     {"fn": "lgamma", "name": "neg_tie_0_5", "coord": "x", "value": -0.5, "source": "u = x - round(x) sign flip"},
     {"fn": "lgamma", "name": "neg_tie_2_5", "coord": "x", "value": -2.5, "source": "u = x - round(x) sign flip"},
     {"fn": "lgamma", "name": "neg_tie_3_5", "coord": "x", "value": -3.5, "source": "u = x - round(x) sign flip"},
@@ -102,6 +103,9 @@ def _bound(args, v):
     return 0 if args[0] >= 8 else 1
 
 
+TIE = 2.0 ** -15  # the x >= 8 cell's near-tie exception (corvus docs, #31)
+
+
 _ABS = mp.mpf(2) ** -53
 
 
@@ -113,7 +117,7 @@ def _abs_tol(args, v):
 
 def _st(name, gen, n, seam=None, note=""):
     return Stratum("lgamma", name, gen, n, _oracle, _bound, oracle2=_oracle2,
-                   abs_tol=_abs_tol, seam=seam, note=note)
+                   abs_tol=_abs_tol, tie_exempt=TIE, seam=seam, note=note)
 
 
 def _near_poles(r, n):
@@ -127,6 +131,22 @@ def _near_poles(r, n):
 
 def _half_grid(r, n):
     return [(-(r.randint(2 ** 52, 2 ** 53 - 1) + 0.5 * r.randint(0, 1)),) for _ in range(n)]
+
+
+def _table_edges(r, n):
+    out = []
+    for i in range(176):
+        edge = 2.5 + (i + 0.5) / 32
+        out.extend((x,) for x in neighbours(edge, 2) if 2.5 < x < 8.0)
+    return out
+
+
+def _table_edge_mantissa(r, n):
+    out = []
+    for _ in range(n):
+        edge = 2.5 + (r.randrange(176) + 0.5) / 32
+        out.append((full_mantissa(r, edge - 2.0 ** -12, edge + 2.0 ** -12),))
+    return out
 
 
 def strata():
@@ -146,7 +166,13 @@ def strata():
                                          for _ in range(n)], 1500, note="relative bound at the zero"),
         _st("near_zero_2", lambda r, n: [(2 + (1 if r.random() < 0.5 else -1) * log_uniform(r, 2.0 ** -51, 0.1),)
                                          for _ in range(n)], 1500, note="relative bound at the zero"),
-        _st("pos_walk", lambda r, n: [(full_mantissa(r, 2.5, 8.0),) for _ in range(n)], 3000),
+        _st("pos_table", lambda r, n: [(full_mantissa(r, 2.5, 8.0),) for _ in range(n)], 3000),
+        _st("stirling_tie_witness",
+            lambda r, n: [(float.fromhex("0x1.9bdb8fed86e38p+3"),)], 1,
+            note="1 ULP, 1.8e-5 ulp from a midpoint: the 0-ULP cell's near-tie"),
+        _st("table_edges", _table_edges, 1408, note="all 176 cell edges, +-2 ulps"),
+        _st("table_edge_mantissa", _table_edge_mantissa, 2000,
+            note="full-mantissa rows within 2^-12 of a random cell edge"),
         _st("pos_stirling", lambda r, n: [(log_uniform(r, 8.0, _MAXARG),) for _ in range(n)], 3000,
             note="CR cell"),
         _st("pos_stirling_low", lambda r, n: [(full_mantissa(r, 8.0, 64.0),) for _ in range(n)], 2000,

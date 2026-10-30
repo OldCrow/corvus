@@ -27,12 +27,18 @@ using corvus_test::UlpDiff;
 // AVX2, SSE4, SSSE3 and SSE2.
 constexpr uint64_t kMaxUlpSmall = 1;   // 0 < x < 1/2   (shift by one log)
 constexpr uint64_t kMaxUlpZone = 1;    // 1/2 <= x <= 5/2 (the zeros live here)
-constexpr uint64_t kMaxUlpMid = 1;     // 5/2 < x < 8   (product recurrence)
-// Stirling is correctly rounded on every reference point, so its gate is 0 --
-// the tightest in the project, and deliberately so: this region has no fitted
+constexpr uint64_t kMaxUlpMid = 1;     // 5/2 < x < 8   (Taylor table)
+// Stirling is correctly rounded except within ~2^-15 ulp of a rounding tie
+// (log_dd's ~2^-68 reaches the result), so its gate is 0 with that window:
+// the tightest in the project, and deliberately so. This region has no fitted
 // approximation carrying error, only log_dd and dd assembly, and a single ULP
-// appearing here would mean one of those moved.
+// outside the window would mean one of those moved.
 constexpr uint64_t kMaxUlpBig = 0;     // x >= 8        (Stirling)
+// A row whose stored residual is this close to 1/2 and the kernel 1 ULP off
+// is a near-tie: counted and reported, outside the ULP and real-error gates.
+// The witness is lgamma(0x1.9bdb8fed86e38p+3), real error 0.5000178 on every
+// tier. Same window as exp's and the hunt family's TIE.
+constexpr double kTieWindow = 0x1p-15;
 constexpr uint64_t kMaxUlpNeg = 1;     // x < 0, |lgamma| >= 1
 constexpr double kMaxAbsNegSmall = 0x1p-53;  // x < 0, |lgamma| < 1
 
@@ -76,6 +82,7 @@ int main(int argc, char* const* argv) {
     corvus::lgamma(in_s.last(3), got_s.last(3));
   }
 
+  size_t big_ties = 0;
   Region regions[] = {
       {"pos small", kMaxUlpSmall}, {"pos zone", kMaxUlpZone},
       {"pos mid", kMaxUlpMid},     {"pos big", kMaxUlpBig},
@@ -123,10 +130,17 @@ int main(int argc, char* const* argv) {
     // x = 2) must be checked bit-exact -- UlpDiff maps +0 and -0 to the
     // same point, so it cannot see a sign regression there.
     const bool zero_ref = want[i] == 0.0;
-    // Zero-reference rows are judged bit-exact, so they carry no real gate.
-    if (!zero_ref) r.real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
     const uint64_t u = zero_ref ? (SameBits(got[i], want[i]) ? 0 : UINT64_MAX)
                                  : UlpDiff(got[i], want[i]);
+    if (&r == &regions[3] && u == 1 &&
+        std::fabs(res[i]) >= 0.5 - kTieWindow) {
+      ++r.n;
+      ++r.miss;
+      ++big_ties;
+      continue;
+    }
+    // Zero-reference rows are judged bit-exact, so they carry no real gate.
+    if (!zero_ref) r.real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
     if (zero_ref && u != 0) {
       std::fprintf(stderr,
                    "FAIL: signed-zero mismatch at x=%.17g: got=%.17g want=%.17g\n",
@@ -139,6 +153,8 @@ int main(int argc, char* const* argv) {
       r.worst_x = x;
     }
   }
+
+  std::printf("pos big near-ties (window 2^-15): %zu\n", big_ties);
 
   // #14 N10: a routing-threshold edit that empties a bucket must fail the
   // gate, not silently disable it by reporting on zero rows.

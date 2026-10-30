@@ -120,37 +120,16 @@ static void ZoneLeadImpl(const double* in, double* out, size_t n) {
   });
 }
 
-// --- recurrence band (2.5, 8): walk-down vs the log on P vs the floor. ----
+// --- table band (2.5, 8): the assembled path vs the table alone. -----------
 static void RecFullImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
     return DdToDouble(LgammaLow(d, x));
   });
 }
 
-// The masked walk-down exactly as LgammaLow runs it, nothing after it.
-static void RecWalkImpl(const double* in, double* out, size_t n) {
+static void RecTableImpl(const double* in, double* out, size_t n) {
   DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
-    const auto one = op::Set(d, 1.0);
-    const auto xr = op::Min(x, op::Set(d, detail::kLgammaX0));
-    auto y = x;
-    Dd<DTag> prod{one, op::Zero(d)};
-    for (int k = 1; k <= detail::kLgammaMidSteps; ++k) {
-      const auto fire =
-          op::Gt(xr, op::Set(d, detail::kLgammaZoneHi + (k - 1)));
-      if (op::AllFalse(d, fire)) break;
-      const auto step = op::Sub(xr, op::Set(d, static_cast<double>(k)));
-      prod = DdMulD(d, prod, op::IfThenElse(fire, step, one));
-      y = op::IfThenElse(fire, step, y);
-    }
-    return op::Add(prod.hi, y);
-  });
-}
-
-// The outlined dd log alone. Band inputs (2.5, 8) sit inside the magnitude
-// range the real P spans on this band, so the table-gather behaviour matches.
-static void RecLogImpl(const double* in, double* out, size_t n) {
-  DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
-    return OutlinedLogDd(d, Dd<DTag>{x, op::Zero(d)}).hi;
+    return DdToDouble(LgammaTable(d, x));
   });
 }
 
@@ -230,8 +209,7 @@ HWY_EXPORT(ZoneHornerImpl);
 HWY_EXPORT(ZoneHorner1cImpl);
 HWY_EXPORT(ZoneLeadImpl);
 HWY_EXPORT(RecFullImpl);
-HWY_EXPORT(RecWalkImpl);
-HWY_EXPORT(RecLogImpl);
+HWY_EXPORT(RecTableImpl);
 HWY_EXPORT(StirFullImpl);
 HWY_EXPORT(StirLogImpl);
 HWY_EXPORT(StirRemImpl);
@@ -257,8 +235,7 @@ CORVUS_COMPONENT(ZoneHorner)
 CORVUS_COMPONENT(ZoneHorner1c)
 CORVUS_COMPONENT(ZoneLead)
 CORVUS_COMPONENT(RecFull)
-CORVUS_COMPONENT(RecWalk)
-CORVUS_COMPONENT(RecLog)
+CORVUS_COMPONENT(RecTable)
 CORVUS_COMPONENT(StirFull)
 CORVUS_COMPONENT(StirLog)
 CORVUS_COMPONENT(StirRem)
@@ -334,11 +311,10 @@ int main() {
            {"zone_horner", corvus::ZoneHorner},
            {"zone_horner_1c", corvus::ZoneHorner1c},
            {"zone_lead", corvus::ZoneLead}});
-  RunBand("recurrence", 2.5, 8.0,
+  RunBand("table", 2.5, 8.0,
           {{"floor", corvus::Floor},
            {"rec_full", corvus::RecFull},
-           {"rec_walk", corvus::RecWalk},
-           {"rec_log", corvus::RecLog},
+           {"rec_table", corvus::RecTable},
            {"zone_full", corvus::ZoneFull}});
   RunBand("Stirling", 8.0, 1000.0,
           {{"floor", corvus::Floor},

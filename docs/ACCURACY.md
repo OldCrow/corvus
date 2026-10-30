@@ -408,8 +408,8 @@ validated tier:**
 |---|---|---|
 | 0 < x < ½ (one log shift) | <!-- claim: lgamma.pos --> 1 ULP | 0.04% |
 | ½ ≤ x ≤ 5/2 (the zeros) | <!-- claim: lgamma.pos --> 1 ULP | 0.78% |
-| 5/2 < x < 8 (recurrence) | <!-- claim: lgamma.pos --> 1 ULP | 0.11% |
-| x ≥ 8 (Stirling) | <!-- claim: lgamma.stirling --> **0 ULP — correctly rounded** | 0.00% |
+| 5/2 < x < 8 (Taylor table) | <!-- claim: lgamma.pos --> 1 ULP | 0.00% (the bound stays until NEON and the Linux sweep confirm it) |
+| x ≥ 8 (Stirling) | <!-- claim: lgamma.stirling --> **0 ULP — correctly rounded** except within ~2^−15 ulp of a rounding tie | 1 near-tie, lgamma(0x1.9bdb8fed86e38p+3), 1.8·10^−5 ulp from a midpoint |
 | x < 0, \|lgamma\| ≥ 1 | <!-- claim: lgamma.neg --> 1 ULP | 0.03% |
 | x < 0, \|lgamma\| < 1 | <!-- claim: lgamma.neg_abs --> 2^−53 **absolute** | 1.25% |
 
@@ -438,11 +438,15 @@ Method, by region:
 * **0 < x < ½**: lgamma(1 + x) − log x, evaluated as the centre-1
   polynomial at t = x. The shift is never formed: writing y = x + 1 and
   then t = y − 1 rounds y and injects ~1 ULP of ψ(y) near x = ½.
-* **5/2 < x < 8**: walk down by Γ(z) = (z−1)Γ(z−1) into (3/2, 5/2], six
-  masked steps, then the centre-2 polynomial plus log of the accumulated
-  product. The recurrence goes **down**, not up, because x − k is exactly
-  representable for every integer k < x < 2^52 while x + k is not — walking
-  up would need every shifted argument carried as a dd pair.
+* **5/2 < x < 8** (table since v1.2.0, #31; before it a walk-down plus a
+  dd log): lgamma(x₀ + r) = c₀ + c₁r + r²(c₂ + … + c₈r⁶) at the nearest node
+  x₀ = 5/2 + i/32, with r exact and |r| ≤ 1/64. c₀ = lgamma(x₀) and c₁ = ψ(x₀)
+  are double-doubles; the tail is plain double, where its rounding lands
+  near 2^−69 absolute. The generator replays this arithmetic, fused and
+  unfused, on bit-stepped edges of all 176 cells: 2^−65.0 relative, against
+  2^−60.3 for the walk-down. Every hunt point is correctly rounded on
+  AVX3_ZEN4, SSE4 and SSE2 (24,880 points, 8,880 of them on or near cell
+  edges).
 * **x ≥ 8**: Stirling with the remainder φ ≈ 1/(12x) as a degree-8 fit in
   1/x². φ is the only part in plain double; a full ULP of it is ~2^−60 of
   lgamma(8), and 8 is the tightest point in the region.
@@ -452,11 +456,12 @@ Method, by region:
   once, on |x|, for lanes of either sign. The sine factor is written
   −log|u| − log(sin(πu)/(πu)) with u = x − round(x) exact; that cancels π
   analytically and keeps the u → 0 limit finite, where forming π/|sin πx|
-  first would overflow at every pole.
+  first would overflow at every pole. −log|u| and the reflection's −log(−x)
+  are one log of the exact product |u|·|x| (#31), scaled by 2^600 per factor
+  below |x| = 2^−400, where that product is x² and could underflow.
 
 Everything is accumulated in double-double and rounded exactly once. That
-is what holds the recurrence region to 1 ULP despite ~6 bits of
-cancellation, and what keeps the negative axis — a sum of four
+is what keeps the negative axis — a sum of four
 same-magnitude terms — at 2^−53 absolute.
 
 Special values: lgamma(1) = lgamma(2) = +0 (the `+0.0` at the end of the
