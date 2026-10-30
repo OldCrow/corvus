@@ -234,8 +234,9 @@ ROW(BSerImpl, BetaR1Series(d, a, b, x).hi)
 ROW(BLgdImpl, LgammaDiffDd(d, op::Max(a, b), op::Min(a, b)).hi)
 ROW(BLogImpl, OutlinedLogDd(d, x).hi)
 static op::V<DTag> BCfRow(DTag d, V a, V b, V x, int nd) {
-  V al, be;
-  Dd<DTag> c, xi;
+  // Aggregate-initialized, never default-constructed (BetaPsiCore's note).
+  V al = op::Zero(d), be = op::Zero(d);
+  Dd<DTag> c{op::Zero(d), op::Zero(d)}, xi{op::Zero(d), op::Zero(d)};
   BetaOrient(d, a, b, x, al, be, c, xi);
   return nd == 0 ? BetaR2Cf(d, al, be, c, xi).hi
                  : BetaCfN(d, al, be, c, xi, nd).hi;
@@ -243,12 +244,15 @@ static op::V<DTag> BCfRow(DTag d, V a, V b, V x, int nd) {
 ROW(BCf64Impl, BCfRow(d, a, b, x, 0))
 ROW(BCf32Impl, BCfRow(d, a, b, x, 32))
 ROW(BCf16Impl, BCfRow(d, a, b, x, 16))
-ROW(BCfM8Impl, ([&] {
-  V al, be; Dd<DTag> c, xi; BetaOrient(d, a, b, x, al, be, c, xi);
-  return BetaCfMixed(d, al, be, c, xi, 64, 8).hi; }()))
-ROW(BCfM4Impl, ([&] {
-  V al, be; Dd<DTag> c, xi; BetaOrient(d, a, b, x, al, be, c, xi);
-  return BetaCfMixed(d, al, be, c, xi, 64, 4).hi; }()))
+static op::V<DTag> BCfMixRow(DTag d, V a, V b, V x, int kdd) {
+  // Aggregate-initialized, never default-constructed (BetaPsiCore's note).
+  V al = op::Zero(d), be = op::Zero(d);
+  Dd<DTag> c{op::Zero(d), op::Zero(d)}, xi{op::Zero(d), op::Zero(d)};
+  BetaOrient(d, a, b, x, al, be, c, xi);
+  return BetaCfMixed(d, al, be, c, xi, 64, kdd).hi;
+}
+ROW(BCfM8Impl, BCfMixRow(d, a, b, x, 8))
+ROW(BCfM4Impl, BCfMixRow(d, a, b, x, 4))
 ROW(Quad24Impl, Quad(d, a, x, 24))
 #undef ROW
 
@@ -276,8 +280,9 @@ static int GammaCfNeed(double a, double x) {
 }
 static int BetaCfNeed(double a, double b, double x) {
   const DTag d;
-  V al, be;
-  Dd<DTag> c, xi;
+  // Aggregate-initialized, never default-constructed (BetaPsiCore's note).
+  V al = op::Zero(d), be = op::Zero(d);
+  Dd<DTag> c{op::Zero(d), op::Zero(d)}, xi{op::Zero(d), op::Zero(d)};
   BetaOrient(d, op::Set(d, a), op::Set(d, b), op::Set(d, x), al, be, c, xi);
   const auto ref = BetaCfN(d, al, be, c, xi, detail::kBetaN2);
   const double rh = op::GetLane(ref.hi), rl = op::GetLane(ref.lo);
@@ -388,8 +393,9 @@ static void BetaHuntImpl(double a0, double b0, double x0, int kdd, double* F,
 static void BetaMixedCmpImpl(double a, double b, double x, int kdd,
                              int* same, double* rel) {
   const DTag d;
-  V al, be;
-  Dd<DTag> c, xi;
+  // Aggregate-initialized, never default-constructed (BetaPsiCore's note).
+  V al = op::Zero(d), be = op::Zero(d);
+  Dd<DTag> c{op::Zero(d), op::Zero(d)}, xi{op::Zero(d), op::Zero(d)};
   BetaOrient(d, op::Set(d, a), op::Set(d, b), op::Set(d, x), al, be, c, xi);
   const auto r = BetaCfN(d, al, be, c, xi, detail::kBetaN2);
   const auto m = BetaCfMixed(d, al, be, c, xi, detail::kBetaN2, kdd);
