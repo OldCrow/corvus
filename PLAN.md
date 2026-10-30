@@ -10,37 +10,51 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-29
 
-**Row C1 (#42 lever 1) IN PROGRESS on Z. Design DECIDED 2026-10-29
-[user]:** [DECIDED]
-- **#44 answered: no.** A dd quadrature node (log_dd + exp_dd + dd MAC)
-  costs ~10 ns/el on AVX3_ZEN4; 24 nodes = 251 ns/el against gamma R2's
-  whole 44-step CF at 26. corvus's regions are already fixed-cost; the
-  open question was the depth, not the method.
-- **Levers, in order:** (1) beta R2 CF deep steps in plain double, last 8
-  in dd (gamma's existing split): CF 263 → ~74 ns/el, max |dF| 0.04 ×
-  2^-53 F on 4,000 points; (3) beta prefactor dead work (~270-300 ns/el
-  outside the cores); (2) per-lane late start for both backward CFs from a
-  predicted depth (lane holds the tail until k <= its own N; the vector
-  runs from the max). Not taken: beta R1 freeze 2^-105 → 2^-60 (R4
-  amplification risk).
-- **Acceptance rule: bounds, not bits** (VERSIONING.md promises bounds,
-  not cross-version bits). Every ULP gate green on every tier, no
-  published bound moves, AND per region the real maximum error before and
-  after on every runnable tier rises by no more than tie noise (0.01 ulp);
-  a targeted hunt at beta R2's large-F corners (d_1 near -1, F to 1e7);
-  an analytic bound for the double/dd split at the definition site. A
-  rise is stop-and-ask, not a re-pin; fallback for lever 1 is 16 dd steps
-  (~120 ns/el, no measured movement). Lane-mix determinism is unchanged.
+**Row C1 (#42 lever 1) IN PROGRESS on Z. Levers 1 and 3 landed
+2026-10-29: `6027e2d` (beta R2 CF precision split behind a per-lane F
+gate) and `0967994` (one LgammaDiffDd for lgamma(min), bit-identical).
+Every gate cell unchanged on AVX3_ZEN4/AVX2/SSE4/SSSE3/SSE2; MSVC /W4 /WX
+clean. CI on the branch pending. Next: lever 2 decision [user], quiet
+bench, PERFORMANCE.md.** [DERIVED]
+- **#44 answered: no.** [DECIDED 2026-10-29, user] A dd quadrature node
+  (log_dd + exp_dd + dd MAC) costs ~10 ns/el on AVX3_ZEN4; 24 nodes = 251
+  ns/el against gamma R2's whole 44-step CF at 26. corvus's regions are
+  already fixed-cost; the open question was the depth, not the method.
+- **Acceptance rule: bounds, not bits** [DECIDED 2026-10-29, user]
+  (VERSIONING.md promises bounds, not cross-version bits). Every ULP gate
+  green on every tier, no published bound moves, AND per region the real
+  maximum before and after on every runnable tier rises by no more than
+  tie noise (0.01 ulp); a routed hunt at the conditioning corners; the
+  error mechanism at the definition site. A rise is stop-and-ask, not a
+  re-pin. Lane-mix determinism is unchanged.
+- **Lever 1, gated** [DECIDED 2026-10-29, user, after the fixed split
+  failed]: deep steps in double, last 16 in dd, on lanes with F < 16;
+  others recompute all-dd. Why gated: F reaches ~2^43 in R2 (nu just under
+  kBetaTRidge, one parameter to ~1e14) and a fixed split errs by ~F *
+  2^-53 * attenuation (16 dd steps: 2e9 ulp at F >= 2^30). Hunt on the
+  kernel: <= 0.0012 ulp below the gate, bit-identical above. The gate
+  fired on 0% of lanes in the bench and wide (a, b in [0.5, 30]) bands.
+- **Lever 3**: merged the two analytic lgamma(min) LgammaDiffDd calls,
+  LgammaPosDd only for min > 16. 0 of 502,342 outputs changed.
+- **Lever 2 (per-lane late start) measured weak** [OPEN, user]: gamma R2
+  needs the full 44 steps for every x below ~5 and 14-35 above; beta's
+  remaining CF cost is mostly the 16 fixed dd steps. Estimate ~10-15
+  ns/el per region; recommendation: drop it from C1.
+- **Measured gain, interleaved A/B on a loaded Z (INDICATIVE, min of 3,
+  gamma control flat within noise):** beta R1 1.13x, R2 1.20x, gamma-limit
+  1.60x; betainv bands 1.09-1.86x. In-binary component timing puts the R2
+  CF at ~100 against 263 ns/el, so R2's A/B likely understates. Gamma is
+  untouched so far.
 - **#42's NEON targets (gamma_p <= 40, beta_p <= 30 ns/el) are out of
   reach under the accuracy contract** (gamma's prefactor alone is 29
-  ns/el on 8 lanes). Projection: beta 2-3x, gamma 1.2-1.5x, inverses
-  proportional. libstats must hear this before its v3.0.0 adoption.
+  ns/el on 8 lanes). libstats must hear this before its v3.0.0 adoption.
   [OPEN]
-- Evidence: all timings INDICATIVE (Z ambient 22-27%, quiet gate never
-  opened); depth and precision counts are deterministic. Scratch tool
-  tests/bench_igamma_components.cpp. libstats' adoption-branch tests hold
-  no stored corvus bits (batch == scalar plus tolerances). M1 and Kaby
-  Lake legs are owed at the end of C1.
+- **Owed:** a quiet-gated bench on Z for PERFORMANCE.md (Z sat at 22-27%
+  ambient all session; needs the user to quiet it); M1 (NEON) and Kaby
+  Lake (AVX2) gate runs and benches at levers 1+3. The hunt and A/B tools:
+  tests/bench_igamma_components.cpp (modes in its header).
+- libstats' adoption-branch tests hold no stored corvus bits (batch ==
+  scalar plus tolerances).
 
 **Row B4 (#68) DONE 2026-10-29 on Z: option 3 (user), no kernel change.
 Shadow build (kPhiCut 9/128, phi ~2^-72 across the band): of 18,000
