@@ -10,8 +10,10 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-30
 
-**Row C3 on Z: #31 `5fef537` + `2001fc8`; #80 part 2 in the working tree.
-#31 stays open for its Kaby and M1 legs.** [OPEN]
+**Row C3 DONE ON Z 2026-10-30: #31 `5fef537` + `2001fc8` + `040da41`, #80
+part 2 `5612bdb`; CI 41149000287 green on all three jobs; #80 closed. #31 and
+#42 stay open for their Kaby and M1 legs. Z work in phase C is complete; next
+is the runbook below, then row C4 (#22).** [DERIVED]
 - Band after `2001fc8`: claim `lgamma.table`, 0 ULP outside a 2^-12 ulp tie
   window (proven from 2^-65 relative). Measured: 19 misses in 6M inputs, all
   within 3.7e-5 ulp of a midpoint, same on AVX3_ZEN4, SSE4 and SSE2.
@@ -21,10 +23,46 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 - #80 part 2 DECIDED [user]: lbeta(1, x) = -ln x from one log behind an
   AllFalse skip, claim `lbeta.unit` at 0 ULP, its own relative gate bucket;
   the off-line 2^-74 floor is documented; the CR option is declined. Gate on
-  AVX3_ZEN4, SSE4, SSE2; hunt 63,865 rows, 0 violations. Its bench cost is
-  not measured.
+  AVX3_ZEN4, SSE4, SSE2 and CI's tiers; hunt 63,865 rows, 0 violations. Its
+  bench cost is not measured.
 - Kaby gather check owed (11 gathers per vector): it may reverse the table's
-  gain on a gather-weak part, and it sizes C4 (#22). M1 owed.
+  gain on a gather-weak part, and it sizes C4 (#22). M1 owed. Recipe below.
+
+**K and M1 runbook for #42 and #31 (`quiet_bench.sh`, macOS).** [OPEN] One
+pass of it on each machine closes the native legs of rows C1 and C3. Set T,
+M and E per machine: Kaby Lake T=AVX2, M=5, E=kaby; M1 T=NEON, M=10 (the
+ratified Apple Silicon gate, PERFORMANCE.md section 10), E=m1.
+1. Sync: `git fetch`, check out `dev/v1.2.0` at or after the commit carrying
+   this runbook. Add A trees beside it, each configured with
+   `cmake --preset release -G Ninja`:
+   `git worktree add ../corvus-c1 3712cc3` (before C1) and
+   `git worktree add ../corvus-c3 1fe08b1` (before #31).
+2. Gates: in the HEAD tree build everything, then run
+   `CORVUS_EXPECT_TARGET=$T ctest --test-dir build --output-on-failure`.
+   Every gate must pass. Kaby only: repeat the capped tiers per
+   ENVIRONMENT.md. Compare the lgamma and lbeta real maxima with CI's lines.
+3. C1 A/B: build bench_gamma, bench_beta, bench_gammainv, bench_betainv in
+   HEAD and ../corvus-c1; confirm `shasum -a 256` differs per bench. C3 A/B:
+   build bench_lgamma, bench_gamma, bench_beta, bench_lbeta, bench_gammainv,
+   bench_betainv in HEAD and ../corvus-c3, same check.
+4. Six passes per A/B, alternating, from the HEAD tree, screen locked. For
+   each pass, with v the variant, B the HEAD build, A the old tree's build:
+   `rm -rf <build>/quiet_bench; tools/quiet_bench.sh -b <build> -t $T -m $M
+   <benches>; cp -R <build>/quiet_bench
+   docs/bench-evidence/2026-MM-DD-$E-<c1|c3>-ab/pass$i-$v`. The runner
+   overwrites its folder, so copy each pass. A non-zero exit is not
+   publishable.
+5. Summarise: `python3 docs/bench-evidence/2026-10-30-zen4-c3-ab/summarise.py
+   <evidence dir>` prints medians, spreads and A/B per band for either A/B.
+   On M1 a row publishes only if it agrees within a few percent across two
+   gated runs (section 10); flag the rest.
+6. Record: a row per machine in PERFORMANCE.md sections 12 (C1) and 13 (C3);
+   commit the evidence; push.
+7. Decide. C1: close #42 when both machines report. C3: close #31 likewise,
+   and ask the user first if the table band reads below 1.00x on Kaby (the
+   gathers lost; the table's accuracy gain stands either way). C4: the Kaby
+   table and zone rows size #22; it leaves the milestone if it would hold the
+   release.
 
 Prototype record below. Full note: side-session notes c3-design-note.md.
 - Quiet baseline at `1fe08b1` (3 gated passes, AVX3_ZEN4, ns/el): lgamma
@@ -106,14 +144,8 @@ its promotion candidates. Next: row C2 (#45).** [DERIVED]
   reach under the accuracy contract** (gamma's prefactor alone is 29
   ns/el on 8 lanes). Told to libstats on OldCrow/libstats#156
   (2026-10-29); re-baselining its release gate is libstats' decision.
-- **Owed on M1 (NEON) and Kaby Lake (AVX2)** [OPEN]: (1) native gate run
-  at `b54754c` under `CORVUS_EXPECT_TARGET` (NEON / AVX2), diffing every
-  gate's real maxima against the same run at `3712cc3`; (2) the A/B:
-  build bench_gamma/beta/gammainv/betainv at `3712cc3` (A) and `b54754c`
-  (B) in separate trees, hash-check the binaries differ, then six
-  `tools/quiet_bench.sh` passes alternating A/B with the Z protocol;
-  summarise with docs/bench-evidence/2026-10-29-zen4-c1-ab/summarise.py
-  and add a §12 row per machine. Then close #42. The hunt and A/B tools:
+- **Owed on M1 (NEON) and Kaby Lake (AVX2)** [OPEN]: the K and M1 runbook in
+  the current Status. The hunt and A/B tools:
   tests/bench_igamma_components.cpp (modes in its header).
 - libstats' adoption-branch tests hold no stored corvus bits (batch ==
   scalar plus tolerances).
