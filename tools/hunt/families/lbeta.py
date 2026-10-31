@@ -3,7 +3,9 @@
 Bound (docs/ACCURACY.md, lbeta): 1 ULP wherever |ln B| >= 1 (relative
 metric), and absolute 1 * 2^-53 in the band |ln B| < 1 around ln B's zero
 curve through (1, 1). It was documented as correctly rounded until #76
-(order row 12j) found ~2% not-CR on [0.25, 4]^2; tie_exempt = 0.
+(order row 12j) found ~2% not-CR on [0.25, 4]^2; tie_exempt = 0. The unit
+lines a = 1 and b = 1 are -ln x from one log (#80): 0 ULP, relative metric
+at every magnitude, the absolute band included.
 
 Oracle: ln B = lgamma(m) + lgamma(M) - lgamma(m + M) at cancellation-aware
 precision (_beta_oracles.ln_beta: absolute accuracy 10^-dps, digits for the
@@ -46,7 +48,13 @@ SEAMS = [
 ABS_TOL = mpf(2) ** -53  # #76: was 0.5 * 2^-53
 
 
+def _unit(args):
+    return args[0] == 1.0 or args[1] == 1.0
+
+
 def _oracle(args, dps):
+    if _unit(args):
+        return -mp.log(mpf(args[1] if args[0] == 1.0 else args[0]))
     return ln_beta(args[0], args[1], dps)
 
 
@@ -61,11 +69,11 @@ def _oracle2(args, dps):
 
 
 def _bound(args, v):
-    return 1  # #76
+    return 0 if _unit(args) else 1  # #76, #80
 
 
 def _abs_tol(args, v):
-    return ABS_TOL if abs(v) < 1 else None
+    return ABS_TOL if abs(v) < 1 and not _unit(args) else None
 
 
 def _st(name, gen, n, seam=None, note="", ref_cap=None):
@@ -172,6 +180,18 @@ def g_witness(rng, n):
     return [(a, b)] + [(x, b) for x in neighbours(a, 8) if x != a]
 
 
+def g_unit_line(rng, n):
+    def d(r):
+        k = r.randrange(6)
+        x = (1 + 2.0 ** r.uniform(-52, -3) if k == 0 else
+             1 - 2.0 ** r.uniform(-53, -3) if k == 1 else
+             full_mantissa(r, 1.125, 16.0) if k == 2 else
+             log_uniform(r, 16.0, 1.7e308) if k == 3 else
+             log_uniform(r, 2.0 ** -1022, 0.875) if k == 4 else subnormal(r))
+        return 1.0, x
+    return [(1.0, 1.0)] + _fill(rng, n - 1, d)
+
+
 def strata():
     S = []
     S.append(_st("seam:big_min:bits", lambda rng, n: _take(rng, [
@@ -223,6 +243,9 @@ def strata():
         "[0.25, 4]^2 (known ~2% not CR, #76)", ref_cap=1000))  # #79: 36 base rows
     S.append(_st("dense:moderate", lambda rng, n: _fill(rng, n, lambda r: (
         log_uniform(r, 1e-3, 1e6), log_uniform(r, 1e-3, 1e6))), 6000))
+    S.append(_st("unit_line", g_unit_line, 6000, None,
+                 "a = 1 or b = 1: -ln x, both sides of 1, subnormals (#80)",
+                 ref_cap=300))
     S.append(_st("witness", g_witness, 17, None,
                  "lbeta(0x1.5c788bfb641a0p+1, 0x1.5f0d82e6d1d90p+0) 1 ULP vs 0"))
     # T2 completion (#82): bucket gaps the audit found.

@@ -1763,7 +1763,23 @@ underflow on finite doubles (minimum ≈ 3·10⁻¹⁵⁵ at DBL_MAX).
 both-subnormal family added with #59's `DdDivDd` floor took SSE4 from
 65,836 ULP there to 0). The band around ln B's zero curve through
 (1,1), where the result itself is relative-ill-conditioned:
-<!-- claim: lbeta.abs --> 2^−53 absolute.
+<!-- claim: lbeta.abs --> 2^−53 absolute. The lines a = 1 and b = 1, where
+ln B = −ln x in closed form: <!-- claim: lbeta.unit --> **correctly rounded on
+every reference row (gate 0)**, as log is, and relative at every magnitude.
+
+**Near (1, 1) (#80, v1.2.0).** Off those two lines the absolute error floors
+near 2^−74, from the lgamma pair's walk and Stirling difference. Relative
+error there grows as ln B → 0 and stays inside the 2^−53 absolute band; no
+closed form applies and no consumer needs a bivariate expansion. On the lines
+themselves, one log replaced the assembly: lbeta(1, 1) returned −2^−74·1.53
+and now returns +0, and lbeta(1, 1 + d) read up to 6.8·10^11 ULP for
+d < 2^−20 and 318 ULP for d up to 1/8. 280,000 random points on each line,
+subnormals included, are correctly rounded on AVX3_ZEN4, SSE4 and SSE2.
+
+**Correct rounding elsewhere is declined (#80).** `relative` reads real 0.53
+and `big band` 0.52 after #31. Getting there needs ~2^−65 from every piece,
+and LgammaPosDd's zone and small bands still carry a plain-double floor (real
+0.63 and 0.53). Lifting it means a dd zone evaluation on lgamma's hottest band.
 
 **Erratum (#76, order row 12j, v1.1.0).** Through v1.0.x lbeta was
 documented and gated as correctly rounded (0 ULP; 0.5·2^−53 absolute).

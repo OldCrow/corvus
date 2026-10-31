@@ -2283,6 +2283,8 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
 //    log. A result below -DBL_MAX saturates to -inf through the exact
 //    final power-of-two scale-back's IEEE rounding, which is the correct
 //    value-driven boundary.
+// A lane with a = 1 or b = 1 takes -ln x from one log instead, behind an
+// AllFalse skip (#80).
 inline constexpr double kLbetaBigMin = 0x1.0p+990;
 inline constexpr double kLbetaScaleDown = 0x1.0p-64;
 inline constexpr double kLbetaScaleUp = 0x1.0p+64;
@@ -2364,6 +2366,17 @@ HWY_NOINLINE op::V<D> LbetaVec(D d, op::V<D> a, op::V<D> b) {
   // --- combine, one rounding, specials last ------------------------------
   auto res = op::IfThenElse(big, big_val,
                             op::Add(main_dd.hi, main_dd.lo));
+  // --- unit lines: B(1, x) = 1/x, so ln B = -ln x exactly (#80) ------------
+  // The assembly above carries the lgamma pair's ~2^-74 absolute floor, which
+  // is relatively large on these lines as x -> 1. 0 - log gives +0 at (1, 1).
+  const auto unit =
+      op::And(op::MaskNot(bad), op::Or(op::Eq(m_raw, one), op::Eq(mm_raw, one)));
+  if (!op::AllFalse(d, unit)) {
+    CORVUS_ROUTE(d, "lbeta/unit", unit);
+    const auto ld =
+        OutlinedLogDd(d, op::IfThenElse(op::Eq(m_raw, one), mm_raw, m_raw));
+    res = op::IfThenElse(unit, op::Sub(zero, op::Add(ld.hi, ld.lo)), res);
+  }
   res = op::IfThenElse(bad, nan, res);
   return res;
 }

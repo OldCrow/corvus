@@ -193,6 +193,8 @@ lbeta|big band|fma|0.52
 lbeta|big band|nofma|0.52
 lbeta|relative|fma|0.53
 lbeta|relative|nofma|0.53
+lbeta|unit line|fma|0.50
+lbeta|unit line|nofma|0.50
 lgamma|neg abs(lg)>=1|fma|0.53
 lgamma|neg abs(lg)>=1|nofma|0.53
 lgamma|pos big|fma|0.50

@@ -10,24 +10,19 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-30
 
-**Row C3 (#31) code in: `5fef537` (table band, single-log reflection); CI
-41127143361 green on all three jobs. #31 stays open: quiet numbers, the
-0-ULP tightening and the Kaby and M1 legs are owed.** [OPEN]
-- Band after `5fef537`: max ULP 0, real 0.5000 on NEON, Linux and Windows.
-- 0-ULP tightening prepared, uncommitted, for the user's decision: claim
-  `lgamma.table`, gate 0 with a near-tie window of 2^-12 ulp (the proven
-  2^-65 relative), pin 0.50, witness x = 0x1.a1f3dc0403336p+1. Measured: 19
-  misses in 6M inputs, all within 3.7e-5 ulp of a midpoint, same on
-  AVX3_ZEN4, SSE4 and SSE2. Bounds are contractual floors (VERSIONING.md).
-- Quiet A/B 2026-10-30 got no numbers: all six passes aborted at the gate
-  (ambient 11.6-21.5%, iCloudDrive > 1 core). Indicative only so far: band
-  13.1 -> 5.7 ns/el, reflection 33.1 -> 25.0. Re-run with iCloud Drive
-  stopped: quiet A/B script in the session scratchpad, c3/qab.ps1, against
-  the frozen pre-#31 binaries in c3base/.
-- #80 part 2 design ready for decision (side-session notes,
-  c3-part2-design-note.md): exact path for lbeta(1, M) = -ln M (318 ULP near
-  M = 1 today, inside the absolute band), document the off-line 2^-74 floor,
-  decline the CR option.
+**Row C3 on Z: #31 `5fef537` + `2001fc8`; #80 part 2 in the working tree.
+#31 stays open for its Kaby and M1 legs.** [OPEN]
+- Band after `2001fc8`: claim `lgamma.table`, 0 ULP outside a 2^-12 ulp tie
+  window (proven from 2^-65 relative). Measured: 19 misses in 6M inputs, all
+  within 3.7e-5 ulp of a midpoint, same on AVX3_ZEN4, SSE4 and SSE2.
+- Quiet A/B done (PERFORMANCE.md section 13): table 13.05 -> 5.35 ns/el
+  (2.44x), reflection 33.11 -> 24.16 (1.37x), mixed 1.20x. The zone and
+  lbeta's main band each read 0.97x, cause not traced. [OPEN]
+- #80 part 2 DECIDED [user]: lbeta(1, x) = -ln x from one log behind an
+  AllFalse skip, claim `lbeta.unit` at 0 ULP, its own relative gate bucket;
+  the off-line 2^-74 floor is documented; the CR option is declined. Gate on
+  AVX3_ZEN4, SSE4, SSE2; hunt 63,865 rows, 0 violations. Its bench cost is
+  not measured.
 - Kaby gather check owed (11 gathers per vector): it may reverse the table's
   gain on a gather-weak part, and it sizes C4 (#22). M1 owed.
 

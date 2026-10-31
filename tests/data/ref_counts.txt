@@ -899,6 +899,7 @@ lbeta_reference.txt|seam:neg_inf:band|80
 lbeta_reference.txt|seam:abs_band:bits|46
 lbeta_reference.txt|cross|132
 lbeta_reference.txt|near_tie|44
+lbeta_reference.txt|unit_line|300
 lgamma_reference.txt|base|19255
 lgamma_reference.txt|seam:zone_lo:bits|14
 lgamma_reference.txt|seam:zone_lo:band|80
