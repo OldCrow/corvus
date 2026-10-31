@@ -14,6 +14,10 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 part 2 `5612bdb`; CI 41149000287 green on all three jobs; #80 closed. #31 and
 #42 stay open for their Kaby and M1 legs. Z work in phase C is complete; next
 is the runbook below, then row C4 (#22).** [DERIVED]
+- `d5c731d` outlines the lgamma regions under MSVC (CORVUS_OUTLINE; #31 had
+  left them inline). CI 41155029395 green: Windows Build 26.9 -> 12.0 min,
+  job 33.1 -> 17.4 of 40. Linux stays at 23 of 30 min, the tightest budget.
+  Other HWY_INLINE regions are not audited against the rule. [OPEN]
 - Band after `2001fc8`: claim `lgamma.table`, 0 ULP outside a 2^-12 ulp tie
   window (proven from 2^-65 relative). Measured: 19 misses in 6M inputs, all
   within 3.7e-5 ulp of a midpoint, same on AVX3_ZEN4, SSE4 and SSE2.
