@@ -174,7 +174,14 @@ Mini M1 the same day (Apple M1, macOS 27.0.1, AppleClang 21.0.0, Homebrew
 Highway 1.4.0, code at `0508ef1`): 36/36 tier-asserted with the negative
 check verified, and its ULP report is identical to the CI NEON job's,
 all 147 max-ULP lines and every not-CR count and worst input. Every NEON
-cell above carries that date.
+cell above carries that date. The NEON row also covers Highway's
+`NEON_BF16` target (BF16-capable Apple cores, M2 and later): CI run
+41149000287 (2026-10-30, a macos-latest host with `FEAT_BF16: 1`)
+dispatched `NEON_BF16` natively, and its ULP-gate output matched the same
+job's capped NEON build on every line — 268 max-ULP cells, not-CR counts,
+worst inputs and real maxima. NEON_BF16 adds bf16, fp16 and int8
+instructions only, so no f64 kernel path differs; there is no separate
+column.
 
 `exp_dd` and `log_dd` are not public API; they are audited here because the
 erfc tail's bound rests on `exp_dd` and lgamma's rests on `log_dd`. Their
