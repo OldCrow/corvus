@@ -89,7 +89,7 @@ HWY_INLINE op::V<D> Sel2(D d, M m, double v0, double v1) {
 // attenuated ~8x. The generator measures what survives and refuses to emit a
 // table that misses budget -- see tools/gen_lgamma_data.py.
 template <class D, class M>
-HWY_INLINE Dd<D> ZoneBracket(D d, op::V<D> t, M c1) {
+CORVUS_OUTLINE Dd<D> ZoneBracket(D d, op::V<D> t, M c1) {
   const auto* co = detail::kLgammaZoneCoef;
   auto s = Sel2(d, c1, co[0][detail::kLgammaZoneNCoef - 1],
                 co[1][detail::kLgammaZoneNCoef - 1]);
@@ -127,7 +127,7 @@ HWY_INLINE Dd<D> ZoneBracket(D d, op::V<D> t, M c1) {
 // double. log x - 1 needs no protection of its own, since x >= 8 keeps it
 // above 1.
 template <class D>
-HWY_INLINE Dd<D> LgammaStirling(D d, op::V<D> x) {
+CORVUS_OUTLINE Dd<D> LgammaStirling(D d, op::V<D> x) {
   const auto l = LogDd(d, x);
 
   // The product is formed on x scaled down by 2^200 and scaled back after.
@@ -183,7 +183,7 @@ HWY_INLINE Dd<D> LgammaStirling(D d, op::V<D> x) {
 // Lanes outside the band must arrive clamped into it: the index is clamped
 // too, but a far-off x would still make r huge.
 template <class D>
-HWY_INLINE Dd<D> LgammaTable(D d, op::V<D> x) {
+CORVUS_OUTLINE Dd<D> LgammaTable(D d, op::V<D> x) {
   const op::SignedTag<D> di;
   const auto hi = op::Set(d, detail::kLgammaZoneHi);
   const auto invh = op::Set(d, detail::kLgammaTabInvH);
@@ -213,7 +213,7 @@ HWY_INLINE Dd<D> LgammaTable(D d, op::V<D> x) {
 // less log x on (0, 1/2), and the table on (5/2, X0). Stirling lanes, which
 // LgammaPosDd may also pass through here, take a discarded table value.
 template <class D>
-HWY_INLINE Dd<D> LgammaLow(D d, op::V<D> x) {
+CORVUS_OUTLINE Dd<D> LgammaLow(D d, op::V<D> x) {
   const auto one = op::Set(d, 1.0);
   const auto zhi = op::Set(d, detail::kLgammaZoneHi);
   const auto small = op::Lt(x, op::Set(d, detail::kLgammaZoneLo));
@@ -271,7 +271,7 @@ HWY_INLINE Dd<D> LgammaLow(D d, op::V<D> x) {
 // full precision, since on the negative axis this value is subtracted from
 // three others of comparable size.
 template <class D>
-HWY_INLINE Dd<D> LgammaPosDd(D d, op::V<D> x) {
+CORVUS_OUTLINE Dd<D> LgammaPosDd(D d, op::V<D> x) {
   const auto big = op::Ge(x, op::Set(d, detail::kLgammaX0));
   CORVUS_ROUTE(d, "lgamma/stirling", big);
 
@@ -295,7 +295,7 @@ HWY_INLINE Dd<D> LgammaPosDd(D d, op::V<D> x) {
 // v = u^2; v is formed exactly (TwoProd) because the leading term is
 // -pi^2 v/6, large enough that v's own rounding would show.
 template <class D>
-HWY_INLINE Dd<D> LogSinc(D d, op::V<D> u) {
+CORVUS_OUTLINE Dd<D> LogSinc(D d, op::V<D> u) {
   // FLOOR: u*u < 2^-968 needs |u| < 2^-484, so x = u (|x| >= 1/2 leaves |u|
   // 0 or >= 2^-53); LogSinc is then < 2^-966 in all, against lgamma(x) ~
   // -log|x| >= 335, so its few-2^-1074 loss is invisible.
