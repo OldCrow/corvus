@@ -3109,14 +3109,46 @@ def _run_pool(tasks, worker, workers, ckpt_fh):
     return agg
 
 
-def _append_rows_crlf(path, lines):
-    """Append lines with CRLF endings, preserving every existing byte."""
+def _append_rows(path, lines):
+    """Append lines with the file's own line terminator, preserving every
+    existing byte. The checked-in reference files are LF (git ls-files
+    --eol); a Windows working copy under core.autocrlf reads CRLF. The
+    old CRLF-only form refused the LF files every regeneration produced
+    on macOS and Linux (PLAN.md, row A4 open item)."""
     with open(path, "rb") as f:
         raw = f.read()
-    if raw and not raw.endswith(b"\r\n"):
-        raise RuntimeError(f"{path}: not CRLF-terminated")
+    if raw and not raw.endswith((b"\r\n", b"\n")):
+        raise RuntimeError(f"{path}: last line is not newline-terminated")
+    eol = b"\r\n" if raw.endswith(b"\r\n") else b"\n"
     with open(path, "wb") as f:
-        f.write(raw + b"".join((ln + "\r\n").encode("ascii") for ln in lines))
+        f.write(raw + b"".join(ln.encode("ascii") + eol for ln in lines))
+
+
+def _append_rows_selftest():
+    """LF and CRLF files each keep their terminator; an empty file gets LF;
+    an unterminated file is refused. Runs before every append path."""
+    import tempfile
+    cases = [(b"a b\n", b"\n"), (b"a b\r\n", b"\r\n"), (b"", b"\n")]
+    for raw, eol in cases:
+        with tempfile.NamedTemporaryFile(delete=False) as t:
+            t.write(raw)
+        _append_rows(t.name, ["c d", "e f"])
+        with open(t.name, "rb") as f:
+            got = f.read()
+        os.unlink(t.name)
+        want = raw + b"c d" + eol + b"e f" + eol
+        if got != want:
+            raise RuntimeError(f"_append_rows self-test: {raw!r} -> {got!r}, want {want!r}")
+    with tempfile.NamedTemporaryFile(delete=False) as t:
+        t.write(b"a b")
+    try:
+        _append_rows(t.name, ["c d"])
+    except RuntimeError:
+        pass
+    else:
+        raise RuntimeError("_append_rows self-test: unterminated file accepted")
+    finally:
+        os.unlink(t.name)
 
 
 def negative_controls_ind():
@@ -3193,7 +3225,8 @@ def row9_append(workers=10):
     for k, v in sorted(declines.items()):
         status(f"  DECLINE {k}: {v}")
 
-    # splice (skip rows whose (a,b,sigma) already exist; CRLF preserved)
+    # splice (skip rows whose (a,b,sigma) already exist; line ending preserved)
+    _append_rows_selftest()
     for path, side in ((DATA_P_PATH, "p"), (DATA_Q_PATH, "q")):
         with open(path, "rb") as f:
             have = {tuple(ln.split()[:3]) for ln in
@@ -3205,7 +3238,7 @@ def row9_append(workers=10):
                 continue
             have.add(k3)
             add.append(f"{k3[0]} {k3[1]} {k3[2]} {hexd(yd)} {marker}")
-        _append_rows_crlf(path, add)
+        _append_rows(path, add)
         status(f"appended {len(add)} rows to {path}")
     status(f"row9-append runtime: {time.time() - t_all:.1f}s")
     return 0
@@ -3412,8 +3445,10 @@ def backward_intervals(workers=10):
         out_lines.append(" ".join(hexd(v) for v in (float(side_i), a, b, s, xlo, xhi)))
         ref = xhi if xhi > 0 else 1.0
         widths.append(((xhi - xlo) / ref if ref else 0.0, side_i, a, b, s, xlo, xhi, why))
+    # LF, as checked in (git ls-files --eol); CRLF here only looked right on
+    # a Windows working copy that normalised it away at commit.
     with open(BACKWARD_PATH, "wb") as f:
-        f.write(b"".join((ln + "\r\n").encode("ascii") for ln in out_lines))
+        f.write(b"".join((ln + "\n").encode("ascii") for ln in out_lines))
     status(f"wrote {BACKWARD_PATH}: {len(out_lines)} rows; declines {declines}")
     if widths:
         widths.sort()
