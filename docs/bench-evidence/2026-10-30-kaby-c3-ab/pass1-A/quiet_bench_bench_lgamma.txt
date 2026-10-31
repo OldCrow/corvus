@@ -1,0 +1,21 @@
+corvus active SIMD target: AVX2
+input range [0.5, 2.5] (zone (the zeros))
+         n   corvus ns/el     libm ns/el    speedup
+     10000          20.92          15.90      0.76x
+   1000000          16.50          15.44      0.94x
+input range [2.5, 8] (recurrence)
+         n   corvus ns/el     libm ns/el    speedup
+     10000          41.89          11.70      0.28x
+   1000000          44.69          12.44      0.28x
+input range [8, 1000] (Stirling)
+         n   corvus ns/el     libm ns/el    speedup
+     10000          25.63          20.70      0.81x
+   1000000          25.44          20.32      0.80x
+input range [0.01, 100] (mixed positive)
+         n   corvus ns/el     libm ns/el    speedup
+     10000          37.19          19.43      0.52x
+   1000000          36.45          20.70      0.57x
+input range [-30, -0.01] (reflection)
+         n   corvus ns/el     libm ns/el    speedup
+     10000         110.30          46.92      0.43x
+   1000000         105.60          46.14      0.44x

@@ -10,9 +10,33 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-10-30
 
+**K legs of rows C1 and C3 DONE 2026-10-30 (Kaby Lake, AVX2, AppleClang
+15.0.0, code `0708fed` + docs commits): gates 38/38 on AVX2 native and
+SSE4/SSSE3/SSE2 by capping, tier-asserted; AVX2's lgamma and lbeta maxima
+match CI 41149000287's AVX2 lines in every band; the three no-FMA tiers
+are bit-identical to each other. Quiet A/Bs in PERFORMANCE.md §12.1 and
+§13.1 (evidence in docs/bench-evidence/2026-10-30-kaby-{c1,c3}-ab). C1:
+beta R1 1.31x, R2 1.86x, gamma-limit 1.57x, Zen 4's ratios within 0.05x.
+C3: table band 1.61x (Zen 4 2.44x), reflection 1.32x, zone 0.99x; the
+table band is above 1.00x, so no stop-and-ask. #42 and #31 stay open for
+the M1 leg only. Next: the M1 leg of the runbook, then row C3b (#94), then
+row C4 (#22).** [DERIVED]
+- The Zen 4 0.97x readings are within spread on Kaby too (zone 0.99x, lbeta
+  main 0.98x, same sign); recorded in §13.1, no issue. [DECIDED 2026-10-30
+  rule applied]
+- C4 (#22) sizing from the Kaby table band: Kaby runs it 5.2x slower per
+  element than Zen 4 against 2.9x (zone) and 3.6x (Stirling); the 1.5-1.8x
+  excess is the gather penalty and is the most a non-gather variant can
+  recover on this band. #22 stays conditional.
+- B in both A/Bs is the branch head, so C1's gamma/gammainv controls read
+  1.03-1.12x: the C3 A/B shows the same uplift against an A that already
+  has lever 1, so it is #31's through gamma's lgamma prefactor.
+- The two A trees (`../corvus-c1` at `3712cc3`, `../corvus-c3` at
+  `1fe08b1`) remain as worktrees on Kaby; remove after the M1 leg.
+
 **Row C3 DONE ON Z 2026-10-30: #31 `5fef537` + `2001fc8` + `040da41`, #80
 part 2 `5612bdb`; CI 41149000287 green on all three jobs; #80 closed. #31 and
-#42 stay open for their Kaby and M1 legs. Z work in phase C is complete; next
+#42 stay open for their ~~Kaby and~~ M1 legs. Z work in phase C is complete; next
 is the runbook below, then row C3b (#94), then row C4 (#22).** [DERIVED]
 
 **PLAN review on Kaby Lake, 2026-10-30 [DECIDED, user], before the K
@@ -54,7 +78,8 @@ runbook:**
 - Kaby gather check owed (11 gathers per vector): it may reverse the table's
   gain on a gather-weak part, and it sizes C4 (#22). M1 owed. Recipe below.
 
-**K and M1 runbook for #42 and #31 (`quiet_bench.sh`, macOS).** [OPEN] One
+**K and M1 runbook for #42 and #31 (`quiet_bench.sh`, macOS).** [OPEN; K
+DONE 2026-10-30, M1 owed] One
 pass of it on each machine closes the native legs of rows C1 and C3. Set T,
 M and E per machine: Kaby Lake T=AVX2, M=5, E=kaby; M1 T=NEON, M=10 (the
 ratified Apple Silicon gate, PERFORMANCE.md section 10), E=m1.

@@ -1,0 +1,19 @@
+00:16:38 quiet_bench.sh  build=/Users/wolfman/Development/corvus/.claude/worktrees/corvus-v1-2-0-review-3728c2/build  expect=AVX2  targets=6
+00:16:38 gate          : ambient < 5% over two consecutive 10s windows
+00:16:38 machine       : Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz; macOS 13.7.8
+00:16:49 ambient sample : 3.33%
+00:17:00 ambient sample : 3.34%
+00:17:00 gate passed at: 3.33 3.34%
+00:17:10 bench_lgamma: noise before 3.41%  top: 5.0%opendirectoryd 2.0%locationd 1.6%sysmond 
+00:17:14 bench_lgamma: rc=0 4s target=AVX2
+00:17:25 bench_gamma: noise before 4.33%  top: 18.3%airportd 4.4%locationd 4.1%WindowServer 
+00:17:47 bench_gamma: rc=0 22s target=AVX2
+00:17:58 bench_beta: noise before 3.46%  top: 1.5%iPulse 1.2%bluetoothd 1.1%opendirectoryd 
+00:18:01 bench_beta: rc=0 3s target=AVX2
+00:18:11 bench_lbeta: noise before 3.27%  top: 0.9%iPulse 0.6%sysmond 0.5%bluetoothd 
+00:18:12 bench_lbeta: rc=0 1s target=AVX2
+00:18:22 bench_gammainv: noise before 3.10%  top: 3.2%opendirectoryd 1.2%locationd 1.1%WiFi 
+00:18:27 bench_gammainv: rc=0 5s target=AVX2
+00:18:37 bench_betainv: noise before 3.22%  top: 0.6%bluetoothd 0.4%Application 0.4%Application 
+00:18:54 bench_betainv: rc=0 17s target=AVX2
+00:18:54 done fail=0. Raw per-target output: /Users/wolfman/Development/corvus/.claude/worktrees/corvus-v1-2-0-review-3728c2/build/quiet_bench/quiet_bench_<target>.txt

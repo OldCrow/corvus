@@ -1,0 +1,3 @@
+corvus active SIMD target: AVX2
+lbeta main band:  317.94 ns/el SIMD, 1098.04 ns/el scalar-walk, 3.45x
+lbeta big band :  247.48 ns/el SIMD,  948.86 ns/el scalar-walk, 3.83x

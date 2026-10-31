@@ -1,0 +1,64 @@
+23:52:40 quiet_bench.sh  build=/Users/wolfman/Development/corvus-c1/build  expect=AVX2  targets=4
+23:52:40 gate          : ambient < 5% over two consecutive 10s windows
+23:52:40 machine       : Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz; macOS 13.7.8
+23:52:51 ambient sample : 11.79%
+23:52:51   top consumers:
+     12.6 /usr/libexec/TouchBarServer
+      1.1 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+      0.9 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+      0.4 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/300ae7409767/claude.app/Contents/MacOS/claude
+      0.3 /Applications/iPulse.app/Contents/MacOS/iPulse
+23:53:02 ambient sample : 6.03%
+23:53:02   top consumers:
+     13.0 /usr/libexec/TouchBarServer
+      5.0 /usr/libexec/opendirectoryd
+      2.0 /usr/libexec/locationd
+      1.0 /Applications/WiFi Signal.app/Contents/MacOS/WiFi Signal
+      0.8 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/300ae7409767/claude.app/Contents/MacOS/claude
+23:53:13 ambient sample : 5.63%
+23:53:13   top consumers:
+     12.6 /usr/libexec/TouchBarServer
+      2.9 /usr/sbin/bluetoothd
+      2.4 /Applications/iPulse.app/Contents/MacOS/iPulse
+      2.3 /usr/libexec/opendirectoryd
+      0.9 /usr/libexec/locationd
+23:53:23 ambient sample : 5.12%
+23:53:23   top consumers:
+     11.9 /usr/libexec/TouchBarServer
+      1.4 /usr/sbin/bluetoothd
+      0.5 /usr/libexec/sharingd
+      0.5 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/300ae7409767/claude.app/Contents/MacOS/claude
+      0.4 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+23:53:34 ambient sample : 5.53%
+23:53:34   top consumers:
+     12.4 /usr/libexec/TouchBarServer
+      4.9 /usr/libexec/opendirectoryd
+      1.9 /usr/libexec/locationd
+      1.1 /Applications/WiFi Signal.app/Contents/MacOS/WiFi Signal
+      0.7 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/300ae7409767/claude.app/Contents/MacOS/claude
+23:53:45 ambient sample : 5.42%
+23:53:45   top consumers:
+     12.0 /usr/libexec/TouchBarServer
+      1.6 /Applications/iPulse.app/Contents/MacOS/iPulse
+      1.4 /usr/libexec/opendirectoryd
+      1.0 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/300ae7409767/claude.app/Contents/MacOS/claude
+      1.0 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+23:53:56 ambient sample : 5.24%
+23:53:56   top consumers:
+     11.0 /usr/libexec/TouchBarServer
+      9.2 /usr/libexec/sandboxd
+      1.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      1.3 /usr/libexec/trustd
+      1.1 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+23:54:06 ambient sample : 4.47%
+23:54:17 ambient sample : 3.56%
+23:54:17 gate passed at: 4.47 3.56%
+23:54:28 bench_gamma: noise before 3.76%  top: 3.1%bluetoothd 2.2%tccd 1.1%Application 
+23:54:51 bench_gamma: rc=0 23s target=AVX2
+23:55:02 bench_beta: noise before 4.43%  top: 12.2%cloudd 7.8%trustd 4.7%nsurlsessiond 
+23:55:05 bench_beta: rc=0 3s target=AVX2
+23:55:16 bench_gammainv: noise before 3.12%  top: 1.4%bluetoothd 1.3%iPulse 0.9%opendirectoryd 
+23:55:21 bench_gammainv: rc=0 5s target=AVX2
+23:55:32 bench_betainv: noise before 3.50%  top: 1.3%identityservicesd 0.7%WindowServer 0.4%Amphetamine 
+23:55:51 bench_betainv: rc=0 19s target=AVX2
+23:55:51 done fail=0. Raw per-target output: /Users/wolfman/Development/corvus-c1/build/quiet_bench/quiet_bench_<target>.txt

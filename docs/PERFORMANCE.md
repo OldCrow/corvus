@@ -43,6 +43,9 @@ machine is planned for v1.2.0, and it replaces this note.
 
 **v1.2.0 row C1 (2026-10-29):** #42 lever 1 made `beta_p`/`beta_q` and
 their inverses faster on Zen 4; quiet A/B in §12. Gamma is unchanged.
+Reproduced on Kaby Lake 2026-10-30 (§12.1). **Row C3 (2026-10-30):** #31's
+lgamma table band and single-log reflection, Zen 4 in §13, Kaby Lake in
+§13.1; the §8.1 lgamma-against-Apple-libm ratios are superseded there.
 
 ---
 
@@ -577,9 +580,42 @@ corvus's region cores already run at fixed cost; the depth, not the
 method, was the open question.
 
 **Owed:** the same A/B on M1 (NEON, the tier #42's targets name) and on
-Kaby Lake (AVX2). #42's NEON targets (gamma_p <= 40, beta_p <= 30
+Kaby Lake (AVX2, §12.1 below). #42's NEON targets (gamma_p <= 40, beta_p <= 30
 ns/el) are out of reach under the accuracy contract; gamma's prefactor
 alone costs 29 ns/el here across 8 lanes.
+
+### 12.1 Kaby Lake AVX2 (2026-10-30)
+
+Evidence: `docs/bench-evidence/2026-10-30-kaby-c1-ab/`.
+
+**Protocol.** `AVX2`, MacBook Pro 2017 (i7-7820HQ, macOS 13), AppleClang
+15.0.0 Release. A = the four family benches built from `3712cc3`, B = the
+same benches at `0708fed` (the `dev/v1.2.0` head, so B also carries rows C2
+and C3); binaries hash-checked distinct. Six `tools/quiet_bench.sh` passes
+alternating A, B, A, B, A, B: gated at 3.2–3.6%, per-bench noise 3.1–5.5%
+with one sample at 8.7%. Median of three per variant; spread under 5% on
+the rows below except `beta_q` R2 gamma-limit (B 10.6%) and `beta_p` R1
+(A 6.3%).
+
+| band (ns/el, n = 4001) | A | B | A/B | Zen 4 (§12) |
+|---|---:|---:|---:|---:|
+| `beta_p` R1 series | 1,025.8 | 785.3 | 1.31× | 1.32× |
+| `beta_q` R2 backward CF | 1,462.2 | 787.5 | 1.86× | 1.85× |
+| `beta_q` R2 gamma-limit | 2,010.9 | 1,284.7 | 1.57× | 1.52× |
+| `beta_p` R3, `beta_q` R4, `beta_p` post-route | 1,285.5 / 757.0 / 1,545.2 | 1,237.1 / 733.9 / 1,514.3 | 1.02–1.04× | 1.00× |
+| `beta_p_inv` by band | 1,534–21,509 | 1,114–17,840 | 1.05–1.38× | 1.05–1.40× |
+| `beta_q_inv` by band | 2,194–23,768 | 1,805–23,113 | 1.03–1.22× | 0.99–1.23× |
+
+The three lever-1 bands reproduce Zen 4's ratios within 0.05×, on four
+lanes instead of eight. Per element, Kaby Lake runs these bands 2.8–2.9×
+slower than Zen 4.
+
+Controls: `gamma_p`/`gamma_q` read 1.00–1.06× and `gamma_p_inv`/`gamma_q_inv`
+1.03–1.12× by band. Those are not lever 1's: the C3 A/B (§13.1), whose B
+is the same binary, reads the same 1.04–1.05× on gamma R1/R2 and
+1.03–1.11× on the gammainv bands against an A that already has lever 1,
+so they belong to #31's lgamma, which gamma's prefactor consumes. The beta
+regions neither commit touches read 1.02–1.04×, within their spread.
 
 ## 13. Row C3, #31: Zen 4 quiet A/B (2026-10-30, v1.2.0 dev)
 
@@ -613,6 +649,59 @@ variants, which bounds the machine's drift across the run.
 **Costs.** The zone and lbeta's main band each read 3% slower. The cause is
 not traced.
 
-**Owed:** the same A/B on Kaby Lake (11 gathers on a gather-weak part) and on
-M1.
+**Owed:** ~~the same A/B on Kaby Lake (11 gathers on a gather-weak part)~~
+(§13.1) and on M1.
+
+### 13.1 Kaby Lake AVX2 (2026-10-30)
+
+Evidence: `docs/bench-evidence/2026-10-30-kaby-c3-ab/`. The gather check
+the Zen 4 row owed: Kaby Lake is the fleet's gather-weak part.
+
+**Protocol.** `AVX2`, MacBook Pro 2017 (i7-7820HQ, macOS 13), AppleClang
+15.0.0 Release, Apple libm. A = the six family benches built from
+`1fe08b1` (before #31), B = the same benches at `0708fed`; binaries
+hash-checked distinct. Six `tools/quiet_bench.sh` passes alternating A, B,
+A, B, A, B: gated at 3.2–4.8%; pass 1 (A) saw 12–15% noise before its
+beta, lbeta and gammainv benches, the rest 3.0–6.6%. Median of three per
+variant; spread at most 6% on the lgamma rows below (B zone 5.3%, A mixed
+6.1%); the beta rows carry 8–14% A spread from pass 1 and are listed as
+controls only.
+
+| band (ns/el, n = 10^6) | A | B | A/B | Apple libm | B / libm | §8.1 (v0.9.0) |
+|---|---:|---:|---:|---:|---:|---:|
+| `lgamma` [1/2, 5/2], zone | 16.47 | 16.59 | 0.99× | 15.8 | 0.95× | 0.93× |
+| `lgamma` [5/2, 8], table | 44.69 | 27.78 | 1.61× | 12.2 | 0.44× | 0.28× |
+| `lgamma` [8, 1000], Stirling | 25.20 | 24.95 | 1.01× | 20.9 | 0.84× | 0.84× |
+| `lgamma` [0.01, 100], mixed | 36.94 | 34.98 | 1.06× | 20.2 | 0.58× | 0.57× |
+| `lgamma` [−30, −0.01], reflection | 106.34 | 80.62 | 1.32× | 47.0 | 0.58× | 0.45× |
+| `gamma_p` R1 series | 298.1 | 286.0 | 1.04× | | | |
+| `gamma_q` R2 backward CF | 195.9 | 186.7 | 1.05× | | | |
+| `lbeta` main band (n as the bench sets it) | 315.5 | 323.1 | 0.98× | | | |
+
+The libm column reads 0.97–1.02× between variants, bounding the drift.
+
+**The gathers did not lose.** The table band gains 1.61× here against
+2.44× on Zen 4: the 11 gathers per vector cost on this part, but the band
+still leaves the walk-down and dd log well behind. The accuracy gain
+stands either way. Relative to Zen 4, Kaby Lake runs the table band 5.2×
+slower per element, the zone 2.9× and Stirling 3.6×; the ~1.5–1.8× excess
+on the table band over the gather-free bands is the gather penalty, and
+it sizes #22 (row C4): a non-gather variant can recover at most that much
+on this band on this class of part.
+
+**Against Apple's libm.** The §8.1 statement that corvus `lgamma` is 3.6×
+slower than Apple's in the recurrence band is superseded: 2.3× (0.44×)
+after #31, and the reflection moves from 0.45× to 0.58×. Apple's lgamma
+is still ahead in every band but the zone on this machine; the README's
+no-figures positioning stands.
+
+**The Zen 4 0.97× readings.** The zone reads 0.99× (spread 2.5% / 5.3%)
+and lbeta's main band 0.98× (3.1% / 5.1%): the same sign as Zen 4, both
+within spread on both machines. Recorded as within spread, no issue
+(PLAN.md, 2026-10-30 decisions); a third machine with the same sign
+reopens it.
+
+Controls: `gamma_p` R3, `gamma_q` R4, lbeta's big band and every
+`beta_p_inv`/`beta_q_inv` band read 0.98–1.02×; `gamma_p_inv`/`gamma_q_inv`
+read 1.03–1.11× by band, the same uplift as §12.1 sees, through lgamma.
 
