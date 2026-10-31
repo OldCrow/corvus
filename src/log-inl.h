@@ -207,7 +207,7 @@ HWY_INLINE op::V<D> LogVec(D d, op::V<D> x) {
 }
 
 template <class D>
-HWY_INLINE op::V<D> Log1pVec(D d, op::V<D> x) {
+CORVUS_OUTLINE op::V<D> Log1pVec(D d, op::V<D> x) {
   const auto one = op::Set(d, 1.0);
   const auto s = TwoSum(d, one, x);  // exact 1 + x for every double
   const Dd<D> r = OutlinedLogDd(d, Dd<D>{s.hi, s.lo});
@@ -284,7 +284,7 @@ HWY_INLINE op::V<D> Log1pVec(D d, op::V<D> x) {
 // propagates (payload preserved). Large finite x is ordinary: the result is
 // log1p(x) - x ~ -x, finite down to -DBL_MAX.
 template <class D>
-HWY_INLINE op::V<D> Log1pmxVec(D d, op::V<D> x) {
+CORVUS_OUTLINE op::V<D> Log1pmxVec(D d, op::V<D> x) {
   const op::SignedTag<D> di;
   const auto zero = op::Zero(d);
   const auto one = op::Set(d, 1.0);

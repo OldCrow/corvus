@@ -79,7 +79,7 @@ static HWY_INLINE op::V<D> ErfcCoreVec(D d, op::V<D> x, op::V<D> ax, M nan) {
 }
 
 template <class D>
-static HWY_INLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
+static CORVUS_OUTLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
   CORVUS_ROUTE_SCOPE(d, op::Gt(ax, op::Set(d, detail::kErfcTailLo)));
   CORVUS_ROUTE(d, "erfc/tail_clamp", op::Gt(ax, op::Set(d, detail::kErfcTailHi)));
   const auto at = op::Max(op::Min(ax, op::Set(d, detail::kErfcTailHi)),
@@ -108,7 +108,7 @@ static HWY_INLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
 }
 
 template <class D>
-static HWY_INLINE op::V<D> ErfcVec(D d, op::V<D> x) {
+static CORVUS_OUTLINE op::V<D> ErfcVec(D d, op::V<D> x) {
   const auto ax = op::Abs(x);
   const auto nan = op::IsNaN(x);
   // NaN lanes have tail_m false and are handled in the core branch.

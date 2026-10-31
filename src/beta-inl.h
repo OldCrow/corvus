@@ -246,7 +246,7 @@ HWY_INLINE Dd<D> DdSub(D d, Dd<D> a, Dd<D> b) {
 // every lane with 2^-900 <= |b.hi| <= 2^900 multiplies by 1.0:
 // bit-identical there.
 template <class D>
-HWY_INLINE Dd<D> DdDivDd(D d, Dd<D> a, Dd<D> b) {
+CORVUS_OUTLINE Dd<D> DdDivDd(D d, Dd<D> a, Dd<D> b) {
   const auto one = op::Set(d, 1.0);
   const auto ab = op::Abs(b.hi);
   CORVUS_ROUTE(d, "beta/dddiv/scale_down",
@@ -310,7 +310,7 @@ HWY_INLINE Dd<D> Log1pDdWide(D d, Dd<D> w) {
 // taken down by an exact power of two (both terms of the sum alike) and the
 // product scaled back.
 template <class D>
-HWY_INLINE Dd<D> BetaGlT(D d, op::V<D> huge, op::V<D> ss, Dd<D> w, Dd<D> lv) {
+CORVUS_OUTLINE Dd<D> BetaGlT(D d, op::V<D> huge, op::V<D> ss, Dd<D> w, Dd<D> lv) {
   const auto small_w = op::Lt(w.hi, op::Set(d, 0.5));
   CORVUS_ROUTE(d, "beta/GL/w_large", op::MaskNot(small_w));
   const auto l1p = Log1pDdWide(
@@ -995,7 +995,7 @@ HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
 // shape and the target both denorm_min reach it too, under the same bound
 // (their #88 error was the log of R4's unscaled value; see BetaR4Out).
 template <class D>
-HWY_INLINE Dd<D> BetaCfDdStep(D d, int k, op::V<D> a, Dd<D> xi, Dd<D> xis,
+CORVUS_OUTLINE Dd<D> BetaCfDdStep(D d, int k, op::V<D> a, Dd<D> xi, Dd<D> xis,
                               op::V<D> bs, Dd<D> cs, Dd<D> f) {
   const auto zero = op::Zero(d);
   // m = floor(k/2) BY CONSTRUCTION (d_{2m} at even k, d_{2m+1} at odd);

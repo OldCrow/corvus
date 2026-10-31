@@ -125,7 +125,7 @@ constexpr double kTrigammaTinyScale = 0x1p512;
 // absolute, added to a lead coefficient (all >= 0.7 here), so P is off by
 // < 2^-1070 of itself.
 template <class D>
-HWY_INLINE Dd<D> TrigammaLeadTailDd(D d, Dd<D> t, const double* lead_hi,
+CORVUS_OUTLINE Dd<D> TrigammaLeadTailDd(D d, Dd<D> t, const double* lead_hi,
                                     const double* lead_lo, int n_lead,
                                     const double* coef, int n_coef) {
   auto s = op::Set(d, coef[n_coef - 1]);

@@ -88,7 +88,7 @@ HWY_NOINLINE op::V<D> ErfCellZeroVec(D d, op::V<D> ac) {
 // NaN is masked explicitly rather than relying on per-target Min/convert
 // NaN semantics.
 template <class D>
-static HWY_INLINE op::V<D> ErfVec(D d, op::V<D> x) {
+static CORVUS_OUTLINE op::V<D> ErfVec(D d, op::V<D> x) {
   const auto one = op::Set(d, 1.0);
   const auto amax = op::Set(d, detail::kErfAMax);
 

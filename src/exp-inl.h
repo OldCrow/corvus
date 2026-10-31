@@ -210,7 +210,7 @@ HWY_INLINE op::V<D> ExpVec(D d, op::V<D> x) {
 // Specials: expm1(+-0) = +-0 (the series would turn -0 into +0), expm1(-inf)
 // = -1, expm1(+inf) = +inf, NaN propagates (payload preserved).
 template <class D>
-HWY_INLINE op::V<D> Expm1Vec(D d, op::V<D> x) {
+CORVUS_OUTLINE op::V<D> Expm1Vec(D d, op::V<D> x) {
   const auto zero = op::Zero(d);
   const auto one = op::Set(d, 1.0);
   const auto inf = op::Set(d, std::numeric_limits<double>::infinity());

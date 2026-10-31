@@ -65,7 +65,7 @@ namespace HWY_NAMESPACE {
 // absolute, 2^-61 relative). Everything from r^3 down fits in a plain double:
 // r^3/3 is already 2^-24, so its own rounding is 2^-77 absolute.
 template <class D>
-HWY_INLINE Dd<D> Log1pDd(D d, Dd<D> r) {
+CORVUS_OUTLINE Dd<D> Log1pDd(D d, Dd<D> r) {
   const auto rh = r.hi;
 
   // Series tail q(r) = 1/3 - r/4 + r^2/5 - ... + r^8/11, so that
@@ -97,7 +97,7 @@ HWY_INLINE Dd<D> Log1pDd(D d, Dd<D> r) {
 
 // log(x) for a positive normal double. See the file header.
 template <class D>
-HWY_INLINE Dd<D> LogDd(D d, op::V<D> x) {
+CORVUS_OUTLINE Dd<D> LogDd(D d, op::V<D> x) {
   const op::SignedTag<D> di;
 
   const auto bits = op::BitCast(di, x);
@@ -148,7 +148,7 @@ HWY_INLINE Dd<D> LogDd(D d, op::V<D> x) {
 // near x = 1 the whole result can be the same size as t, where dropping it
 // would cost ~2^-54 RELATIVE (it is only negligible against an O(1) result).
 template <class D>
-HWY_INLINE Dd<D> LogDd(D d, Dd<D> x) {
+CORVUS_OUTLINE Dd<D> LogDd(D d, Dd<D> x) {
   const auto t = op::Div(x.lo, x.hi);
   const auto c = op::Mul(t, op::MulAdd(t, op::Set(d, -0.5), op::Set(d, 1.0)));
   return DdAddD(d, LogDd(d, x.hi), c);

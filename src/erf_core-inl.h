@@ -45,7 +45,7 @@ struct ErfCoreParts {
 // [-6, 6] matches kDeg = 8 to within 3 points. kDeg = 5 was measured at
 // ~0.075% more not-CR points and rejected. erfc keeps the default.
 template <int kDeg = 8, class D>
-HWY_INLINE ErfCoreParts<D> ErfTableCore(D d, op::V<D> ac) {
+CORVUS_OUTLINE ErfCoreParts<D> ErfTableCore(D d, op::V<D> ac) {
   const op::SignedTag<D> di;
 
   const auto rf = op::Round(op::Mul(ac, op::Set(d, 256.0)));  // integral, <= 1536

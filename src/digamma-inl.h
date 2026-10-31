@@ -139,7 +139,7 @@ constexpr double kDigammaDirectRecip = 0x1p-960;
 // <= 2^-1071 absolute, added to a lead coefficient (zone |L1| ~ 0.44;
 // sinc/cos leads >= 0.8), so P is off by < 2^-1070 of itself.
 template <class D>
-HWY_INLINE Dd<D> LeadTailDd(D d, Dd<D> t, const double* lead_hi,
+CORVUS_OUTLINE Dd<D> LeadTailDd(D d, Dd<D> t, const double* lead_hi,
                             const double* lead_lo, int n_lead,
                             const double* coef, int n_coef) {
   auto s = op::Set(d, coef[n_coef - 1]);

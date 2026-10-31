@@ -248,7 +248,7 @@ CORVUS_OUTLINE void TrigCores(D d, op::V<D> r, op::V<D> rlo, op::V<D>& s_core,
 // sin: q=0:+s 1:+c 2:-s 3:-c -> swap on bit0, sign on bit1; input sign
 //      applied afterwards (|x| symmetry, header).
 template <bool kIsCos, class D>
-HWY_INLINE op::V<D> TrigVec(D d, op::V<D> x) {
+CORVUS_OUTLINE op::V<D> TrigVec(D d, op::V<D> x) {
   const op::SignedTag<D> di;
 
   const auto ax = op::Abs(x);

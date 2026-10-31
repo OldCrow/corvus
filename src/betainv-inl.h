@@ -1126,7 +1126,7 @@ HWY_NOINLINE op::V<D> BetaInvLamOfZeta(D d, op::V<D> zeta, op::V<D> as,
 // p > 1/2 the table is evaluated at (-zeta, q) and NEGATED, exactly as R3's
 // own e_k symmetry (the generator's _s1_ck_eval).
 template <class D>
-HWY_INLINE op::V<D> BetaInvS1Ck(D d, int k, op::V<D> t, op::V<D> t2,
+CORVUS_OUTLINE op::V<D> BetaInvS1Ck(D d, int k, op::V<D> t, op::V<D> t2,
                                 op::V<D> u, op::V<D> u2) {
   auto b1 = op::Zero(d);
   auto b2 = op::Zero(d);

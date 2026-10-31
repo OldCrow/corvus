@@ -89,7 +89,7 @@ HWY_INLINE Dd<D> ErfcCoreDd(D d, op::V<D> x, op::V<D> ax_safe) {
 // double accuracy in u -- see src/erfinv-inl.h -- and computes it more
 // cheaply). See tools/gen_erfc_tail_poly.py for the fit.
 template <class D>
-HWY_INLINE op::V<D> ErfcTailGFromU(D d, op::V<D> at, op::V<D> u) {
+CORVUS_OUTLINE op::V<D> ErfcTailGFromU(D d, op::V<D> at, op::V<D> u) {
   const auto m1 = op::Lt(at, op::Set(d, detail::kErfcTailBound1));
   const auto m2 = op::Lt(at, op::Set(d, detail::kErfcTailBound2));
   // Callers' scopes cover their own regions; erfinv's far Halley step opens

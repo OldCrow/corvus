@@ -159,7 +159,7 @@ HWY_INLINE Dd<D> ErfinvCentralDd(D d, op::V<D> v) {
 // units from the midpoint in a 200k sweep. The branch runs only when a
 // lane needs it: the central path is the cheapest and most travelled.
 template <class D>
-HWY_INLINE op::V<D> ErfinvCentral(D d, op::V<D> y) {
+CORVUS_OUTLINE op::V<D> ErfinvCentral(D d, op::V<D> y) {
   const auto v = op::Mul(y, y);
   const auto pc = ErfinvCentralDd(d, v);
   // FLOOR: tiny lanes are recomputed below; on the rest |y| >= 2^-900, so
@@ -210,7 +210,7 @@ HWY_INLINE op::V<D> HalleyMid(D d, op::V<D> x0, op::V<D> s) {
 
 // far: delta = -2F / (2F' + F*(2x0 + F')), F = w - x0^2 - log(x0/G(1/x0)).
 template <class D>
-HWY_INLINE op::V<D> HalleyFar(D d, op::V<D> x0, Dd<D> wneg) {
+CORVUS_OUTLINE op::V<D> HalleyFar(D d, op::V<D> x0, Dd<D> wneg) {
   // Far lanes have x0 >= ~6 (seed error 2^-19); the margin keeps mid lanes
   // evaluated alongside (mixed vectors) from recording erfc_core routes.
   CORVUS_ROUTE_SCOPE(d, op::Ge(x0, op::Set(d, 0x1.7fp+2)));

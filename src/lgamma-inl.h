@@ -314,7 +314,7 @@ CORVUS_OUTLINE Dd<D> LogSinc(D d, op::V<D> u) {
 }
 
 template <class D>
-HWY_INLINE op::V<D> LgammaVec(D d, op::V<D> x) {
+CORVUS_OUTLINE op::V<D> LgammaVec(D d, op::V<D> x) {
   const auto zero = op::Zero(d);
   const auto inf = op::Set(d, std::numeric_limits<double>::infinity());
   const auto neg = op::Lt(x, zero);

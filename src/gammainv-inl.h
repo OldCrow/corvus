@@ -203,7 +203,7 @@ inline constexpr double kGammaInvCfAMax = 0x1.0p+996;
 // lane drops its refinement term (it is meaningless) and exponentiates to the
 // same exact zero the unclamped value would have.
 template <class D>
-HWY_INLINE Dd<D> GammaInvDivD(D d, Dd<D> num, op::V<D> den) {
+CORVUS_OUTLINE Dd<D> GammaInvDivD(D d, Dd<D> num, op::V<D> den) {
   const auto zero = op::Zero(d);
   const auto tiny = op::Lt(den, op::Set(d, kGammaInvTinyA));
   const auto sc =
@@ -665,7 +665,7 @@ HWY_INLINE op::V<D> GammaInvResid(D d, const GammaInvFwdOut<D>& f, Dd<D> mt) {
 // the winner's evaluation becomes the first Newton step's and no candidate is
 // evaluated twice.
 template <class D>
-HWY_INLINE void GammaInvConsider(D d, op::V<D> a, op::V<D> xc, op::V<D> i_ok,
+CORVUS_OUTLINE void GammaInvConsider(D d, op::V<D> a, op::V<D> xc, op::V<D> i_ok,
                                  op::V<D> i_wp, Dd<D> lga, Dd<D> lna,
                                  Dd<D> mt, op::V<D>* best_x,
                                  op::V<D>* best_r, GammaInvFwdOut<D>* best_f) {

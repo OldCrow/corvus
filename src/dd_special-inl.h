@@ -128,7 +128,7 @@ inline constexpr int kPhiLead = 6;
 // a consumer that knows its lanes' band can skip the branch it does not
 // need; Log1pmxDd computes both and selects, with the same bits as before.
 template <class D>
-HWY_INLINE Dd<D> Log1pmxDdSeries(D d, Dd<D> u) {
+CORVUS_OUTLINE Dd<D> Log1pmxDdSeries(D d, Dd<D> u) {
   const auto one = op::Set(d, 1.0);
   const auto uh = u.hi;
   constexpr int kN =
@@ -189,7 +189,7 @@ HWY_INLINE Dd<D> Log1pmxDd(D d, Dd<D> u) {
 // where |w^3/6| is 2^-14.6 relative at the cut and its own rounding lands
 // at 2^-67.6.
 template <class D>
-HWY_INLINE Dd<D> Expm1DdSeries(D d, Dd<D> w) {
+CORVUS_OUTLINE Dd<D> Expm1DdSeries(D d, Dd<D> w) {
   const auto wh = w.hi;
 
   // q = 1/6 + w/24 + ... + w^8/11!, so w^3*q runs the series to w^11/11!.
@@ -219,7 +219,7 @@ HWY_INLINE Dd<D> Expm1DdSeries(D d, Dd<D> w) {
 // above documents both). The series is split out (#45) so the public
 // expm1 can skip whichever branch no lane needs; the bits are unchanged.
 template <class D>
-HWY_INLINE Dd<D> Expm1Dd(D d, Dd<D> w) {
+CORVUS_OUTLINE Dd<D> Expm1Dd(D d, Dd<D> w) {
   const auto one = op::Set(d, 1.0);
   const auto wh = w.hi;
   const auto ser = Expm1DdSeries(d, w);

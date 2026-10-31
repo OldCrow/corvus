@@ -92,7 +92,7 @@ HWY_INLINE op::V<D> ScaleTwo(D d, op::V<D> v, op::V<op::SignedTag<D>> e) {
 // is what is returned. Same precondition as ScaleTwo; m.hi in [1, 2) or
 // zero, as ExpDdFrac and the callers' mantissas are.
 template <class D>
-HWY_INLINE op::V<D> DdScaleToDouble(D d, Dd<D> m, op::V<op::SignedTag<D>> e) {
+CORVUS_OUTLINE op::V<D> DdScaleToDouble(D d, Dd<D> m, op::V<op::SignedTag<D>> e) {
   const auto v_norm = ScaleTwo(d, op::Add(m.hi, m.lo), e);
   const auto r = ScaleTwo(d, m.hi, e);
   const auto back = ScaleTwo(d, r, op::Neg(e));
@@ -113,7 +113,7 @@ HWY_INLINE op::V<D> DdScaleToDouble(D d, Dd<D> m, op::V<op::SignedTag<D>> e) {
 
 // exp(x_hi + x_lo) in mantissa/exponent form. See the file header.
 template <class D>
-HWY_INLINE ExpDdParts<D> ExpDdFrac(D d, op::V<D> xh, op::V<D> xl) {
+CORVUS_OUTLINE ExpDdParts<D> ExpDdFrac(D d, op::V<D> xh, op::V<D> xl) {
   const op::SignedTag<D> di;
 
   const auto lim = op::Set(d, detail::kExpXMax);
