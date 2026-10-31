@@ -1,0 +1,26 @@
+[19:36:41] === quiet_bench start ===
+[19:36:41] build dir     : C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus\0c771f3c-f5cd-4bae-9469-28816cdac098\scratchpad\c3\qab\B
+[19:36:41] targets       : bench_lgamma, bench_gamma, bench_beta, bench_lbeta, bench_gammainv, bench_betainv
+[19:36:41] expect target : AVX3_ZEN4
+[19:36:41] gate          : ambient < 5% over two consecutive 10s windows
+[19:36:52] gate window 1: 3.49%
+[19:37:02] gate window 2: 3.80%
+[19:37:02] GATE PASSED at 3.80%
+[19:37:05] --- bench_lgamma --- noise before: 5.31%
+[19:37:11] ok   bench_lgamma -> quiet_bench_bench_lgamma.txt   noise after: 9.05%
+[19:37:14] --- bench_gamma --- noise before: 5.13%
+[19:37:29] ok   bench_gamma -> quiet_bench_bench_gamma.txt   noise after: 3.22%
+[19:37:32] --- bench_beta --- noise before: 3.53%
+[19:37:36] ok   bench_beta -> quiet_bench_bench_beta.txt   noise after: 3.62%
+[19:37:39] --- bench_lbeta --- noise before: 3.77%
+[19:37:42] ok   bench_lbeta -> quiet_bench_bench_lbeta.txt   noise after: 5.28%
+[19:37:45] --- bench_gammainv --- noise before: 3.03%
+[19:37:51] ok   bench_gammainv -> quiet_bench_bench_gammainv.txt   noise after: 3.59%
+[19:37:54] --- bench_betainv --- noise before: 4.64%
+[19:38:05] ok   bench_betainv -> quiet_bench_bench_betainv.txt   noise after: 6.21%
+[19:38:05] === quiet_bench summary ===
+[19:38:05] gated at      : 3.80%
+[19:38:05] noise held    : 3.03% - 9.05% (avg 4.70%)
+[19:38:05] targets run   : 6 of 6
+[19:38:05] Raw per-target output: C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus\0c771f3c-f5cd-4bae-9469-28816cdac098\scratchpad\c3\qab\pass4-B\quiet_bench_<target>.txt
+[19:38:05] This log is the evidence chain - keep it with any published number.

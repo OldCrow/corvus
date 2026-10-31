@@ -581,3 +581,38 @@ Kaby Lake (AVX2). #42's NEON targets (gamma_p <= 40, beta_p <= 30
 ns/el) are out of reach under the accuracy contract; gamma's prefactor
 alone costs 29 ns/el here across 8 lanes.
 
+## 13. Row C3, #31: Zen 4 quiet A/B (2026-10-30, v1.2.0 dev)
+
+`5fef537` replaces lgamma's walk-down and dd log on 5/2 < x < 8 with a
+Taylor table (11 gathers per vector) and takes the reflection's two logs as
+one. Evidence: `docs/bench-evidence/2026-10-30-zen4-c3-ab/`.
+
+**Protocol.** `AVX3_ZEN4`, clang-cl Release. A = the six family benches
+built from `1fe08b1` (before #31), B = the same benches at `2001fc8`, whose
+kernels match `5fef537`; binaries hash-checked distinct. Six
+`tools/quiet_bench.ps1` passes alternating A, B, A, B, A, B: gated at
+3.5–4.5%, per-pass noise averages 3.9–4.9%, except pass 2 (B) at 7.9%, with
+one sample reaching 13.6%. Median of three per variant; spread at most 2.2%
+on the rows below, except `gamma_q` R2 (3.8%).
+
+| band (ns/el, n = 10^6) | A | B | A/B | UCRT |
+|---|---:|---:|---:|---:|
+| `lgamma` [1/2, 5/2], zone | 5.50 | 5.67 | 0.97× | 29.0 |
+| `lgamma` [5/2, 8], table | 13.05 | 5.35 | 2.44× | 37.6 |
+| `lgamma` [8, 1000], Stirling | 6.90 | 6.88 | 1.00× | 13.3 |
+| `lgamma` [0.01, 100], mixed | 13.31 | 11.05 | 1.20× | 55.7 |
+| `lgamma` [−30, −0.01], reflection | 33.11 | 24.16 | 1.37× | 48.5 |
+| `gamma_p` R1 series | 102.4 | 97.7 | 1.05× | |
+| `gamma_q` R2 backward CF | 63.3 | 58.4 | 1.09× | |
+| `lbeta` main band (n as the bench sets it) | 106.8 | 109.8 | 0.97× | |
+
+Controls: `gamma_p` R3, `gamma_q` R4, every `beta_p`/`beta_q` band, and every
+inverse band read 0.99–1.02×. The UCRT column reads 0.99–1.00× between
+variants, which bounds the machine's drift across the run.
+
+**Costs.** The zone and lbeta's main band each read 3% slower. The cause is
+not traced.
+
+**Owed:** the same A/B on Kaby Lake (11 gathers on a gather-weak part) and on
+M1.
+

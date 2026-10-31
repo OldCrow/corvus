@@ -1,0 +1,7 @@
+pass 1 A exit 0 2026-10-30T19:33:48
+pass 2 B exit 0 2026-10-30T19:35:16
+pass 3 A exit 0 2026-10-30T19:36:41
+pass 4 B exit 0 2026-10-30T19:38:05
+pass 5 A exit 0 2026-10-30T19:39:30
+pass 6 B exit 0 2026-10-30T19:40:54
+DONE
