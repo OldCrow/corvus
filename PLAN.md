@@ -13,7 +13,26 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 **Row C3 DONE ON Z 2026-10-30: #31 `5fef537` + `2001fc8` + `040da41`, #80
 part 2 `5612bdb`; CI 41149000287 green on all three jobs; #80 closed. #31 and
 #42 stay open for their Kaby and M1 legs. Z work in phase C is complete; next
-is the runbook below, then row C4 (#22).** [DERIVED]
+is the runbook below, then row C3b (#94), then row C4 (#22).** [DERIVED]
+
+**PLAN review on Kaby Lake, 2026-10-30 [DECIDED, user], before the K
+runbook:**
+- #94 was on milestone 7 with no row. Placed as row C3b, diagnosis on the
+  milestone, fix conditional (issue order below; comment on #94).
+- The R3 compensated k = 0 S-sum (row B3's open bullet) is filed as #95,
+  off every milestone: frontier, costs R3 throughput, the bound holds.
+- The A3 "noted, not changed" gammainv `deep-small-zero` note was stale:
+  `1780304` already certifies the candidate 0.0 through `xd_override`
+  (decided item 3 of the same row). Struck, no issue.
+- betainv generator line endings fixed (tools only, no data change): the
+  three checked-in files are LF, the backward writer emitted CRLF and the
+  appender refused anything else. The appender now keeps the file's own
+  terminator, with a self-test run before every append; the backward
+  writer emits LF. Closes row A4's open item.
+- The Zen 4 0.97x readings (lgamma zone, lbeta main band, section 13) are
+  decided after this machine's C3 A/B: reproduced here, they get an issue
+  with both data sets; not reproduced, section 13 records them as within
+  Zen 4's spread.
 - Outlining rule applied: `d5c731d` (lgamma regions, which #31 had left
   inline) and `ca066a2` (28 definitions in 17 headers, from an audit of the 89
   HWY_INLINE functions by size and call sites; CORVUS_OUTLINE, unchanged off
@@ -177,8 +196,8 @@ modest (population p95 0.37 -> 0.33 bracket ulp). #80 stays open for part
 2 (C3). Next: row B4 (#68).** [DERIVED]
 - R3 S-sum compensated k = 0 evaluation: the remaining S error is fixed
   per-row rounding at p ~ 0; rounding the k = 0 order once halves it
-  (replay max 0.69 -> 0.33 bracket ulp). Costs R3 perf; frontier design;
-  needs its own row and issue. [OPEN]
+  (replay max 0.69 -> 0.33 bracket ulp). Costs R3 perf; frontier design.
+  Filed as #95, off every milestone (2026-10-30).
 
 **Row B2 (#77) DONE 2026-10-28 on Z: `11ab298`, CI 40788554389 green
 on all three jobs. TWIN markers at both ends of the gamma-limit slice
@@ -223,9 +242,11 @@ truncation). Next: row B1 (#86).** [DERIVED]
 - **Pins:** beta R4 post-route fell (0.58 → 0.47, 1.25 → 0.98), R4 tiny
   rose and names #94 (1.86; q nofma 1.57), trig neg small +0.01/+0.06.
   NEON and Linux CI pass them.
-- **Open [OPEN]:** `gen_betainv_reference.py` writes the main file with
+- ~~**Open:** `gen_betainv_reference.py` writes the main file with
   LF but `_append_rows_crlf` refuses non-CRLF input, so every
-  regeneration needs a manual conversion before `--row9-append`.
+  regeneration needs a manual conversion before `--row9-append`.~~
+  FIXED 2026-10-30 (Kaby): `_append_rows` keeps the file's terminator,
+  self-tested; the backward writer emits LF like the checked-in file.
   Native M1 and Kaby Lake validation stays at row D.
 
 **R4 DONE 2026-10-26 on Z: `dev/v1.2.0` cut from `main` at `c668080`
@@ -389,9 +410,10 @@ then the one regeneration for A3 + A4).** [DERIVED]
     - beta: rows match, and the beta_p(1, 1/2, 2^-1074) witness
       resolves to 2^-1074.
 - **Noted, not changed:**
-  - gammainv's `deep-small-zero` branch certifies its own rounding of
-    x0, not the stored 0.0 (no `xd_override`). This is a latent
-    defect, unrelated to ties.
+  - ~~gammainv's `deep-small-zero` branch certifies its own rounding of
+    x0, not the stored 0.0 (no `xd_override`).~~ Stale: decided item 3
+    above already covers it, and `1780304` certifies the candidate 0.0
+    through `xd_override` (checked 2026-10-30).
   - `gen_betainv_reference.status()` appends to an old scratchpad file
     outside the repo.
 - **A3 scope:** refgen_common.py and 18 generators; no `tests/data/`
@@ -2115,6 +2137,7 @@ reference rows are regenerated, and regeneration done once. Two more:
 | C1 | ~~#42 lever 1, per-element cost (was row 13); weigh #44's fixed-cost regions against masked early exit first~~ DONE ON Z 2026-10-29 (`6027e2d`, `0967994`; CI 40985511199); M1/K legs owed | the libstats throughput gate; after A–B | frontier | early-exit lane-mix tests | M1, K, Z |
 | C2 | ~~#45 export span `expm1`, `log1pmx` (was row 14)~~ DONE ON Z 2026-10-29 (`19bcff8`) | after B4; libstats adopts both in v3.0.0 | mid (new family) | generator, four gating lists + quiet_bench lists | K, M1, Z |
 | C3 | #31 lgamma table band + single reflection log (was row 15); then #80 part 2 (lbeta near (1, 1); the lbeta CR option) against the new lgamma | beta/gamma/lbeta consume lgamma; libstats' PMF lgamma routing returns when it lands | frontier | generator + regen | K, Z, M1 |
+| C3b | #94 beta R4 cap corner (+1.80 ulp one-signed, inside the 2-ULP cell, 0.45 ulp margin): confirm the component (suspect LgammaDiffDd's Stirling `rest`, budgeted relative to phi) and re-derive its budget against Qtilde's cancellation depth. A kernel fix lands only if it is one site and the beta / gamma-limit / lbeta real maxima hold on every runnable tier; else the issue moves to the next milestone and ACCURACY.md's R4 row states the margin | filed at A4, after the order was drafted; inside the bound, so it never holds the release | frontier (diagnosis); fix conditional | r4_cap stratum exists | Z |
 | C4 | #22 non-gather x86 (was row 17) — conditional: off the milestone if it would hold the release; a Kaby Lake quiet bench sizes it first | after #31; likely slips | frontier | tier audit | K, Z |
 | D | Release tail: `docs/PERFORMANCE.md` §4/§8.2 re-run and the quiet bench on three machines; the libstats pin note (scalar entry points replace its deducing `corvus_scalar` wrapper) in the release notes; native M1 + Kaby Lake validation at the freeze head; RELEASING.md | then libstats and libhmm bump to v1.2.0 (workplan tasks 2 and 7) | recipe | — | all three |
 
@@ -2133,6 +2156,9 @@ research, answered at C1. #28 and #29 stay off every milestone.
 3. #80 is split: part 1 in B3, part 2 after #31 (C3).
 4. #22 is conditional: it comes off the milestone if it would hold the
    release.
+5. [2026-10-30] #94 is row C3b, diagnosis on the milestone and the fix
+   conditional as above. #95 (R3 k = 0 compensated sum) is off every
+   milestone.
 
 ## v1.1.0 issue order [DECIDED 2026-10-10, user; revised same day]
 
