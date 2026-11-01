@@ -220,7 +220,7 @@ behaviour is the leading suspect, not a finding. The v0.9.0 `i0` outlier here
 against 14.94×) has not recurred in these six runs (14.04–15.12 ns/el).
 
 Read a band's fast mode as its speed, and repeat a surprising reading before
-trusting it.
+trusting it. #97 tracks the cause.
 
 ---
 

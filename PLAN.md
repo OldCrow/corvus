@@ -15,8 +15,9 @@ Milestone v1.2.0 has 0 open issues. Zen 4 leg DONE 2026-11-01: PERFORMANCE.md
 §4, §5 and §8.2's Zen 4 column rewritten from two gated full passes plus four
 repeats (evidence `docs/bench-evidence/2026-11-01-zen4-v1.2.0/`). `i1`/`i1e`
 read with `i0`/`i0e`. §5 is now a finding without a cause: three bands read
-1.50× slower in 1-2 of 6 fresh processes. [OPEN] Whether v1.2.0 waits for that
-cause (leading suspect: buffer addresses, so it may reach real callers).
+1.50× slower in 1-2 of 6 fresh processes. Decided 2026-11-01: v1.2.0 does not
+wait for the cause; #97 (v1.3.0) owns it (leading suspect: buffer addresses, so
+it may reach real callers).
 Next, K and M1 legs, from `git pull` on `dev/v1.2.0`:
 1. Release build; every gate under `CORVUS_EXPECT_TARGET` (AVX2 native and
    SSE4/SSSE3/SSE2 capped on K, NEON on M1), `CORVUS_WERROR=ON`. Confirm
