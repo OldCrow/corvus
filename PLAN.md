@@ -8,7 +8,33 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-10-31
+## Status [DERIVED] — 2026-11-01
+
+**Row C3b, #94: fix verified, not yet committed (2026-11-01).** The corner
+error was BinetDiffDd's k = 2 term in plain double, 2^-71.1 per unit tau in
+lgamma(1+tau) at z = 10; it is now a dd with c_2's low word
+(`kBetaBinetC2Lo`, generator reproduces `beta_data.h`). All five tiers: only
+R4 cells moved, all down; beta_p/beta_q R4 tiny direct max 1 ULP (real 0.52,
+0.61, was 1.84, 1.62), beta_q R4 near-one 0.50 (was 0.96). Pins lowered, #94
+tags dropped. Beta hunt 90,125 rows, 0 violations. Cost 1-2% on beta and
+lbeta, PERFORMANCE.md §14. Gate 2 -> 1 ULP, published stays 2 [DECIDED
+2026-11-01, user]: every run was on the Zen 4 box, so AVX2 and below were
+capped and NEON has not run the fix. [OPEN] Row D: raise the published R4
+tiny bound to 1 ULP if CI's native AVX2 and NEON lines read 1 ULP.
+
+**Milestones re-cut 2026-11-01 [DECIDED, user].** v1.2.0 is rows C3b (#94)
+and D. New milestone v1.3.0 holds #19 (filed need, frontier oracle) and #22
+(row C4, moved; sized by the Kaby leg, needs a selection mechanism and a new
+accuracy audit). Gated work no longer rolls between versions: #18, #20, #21
+sit off every milestone with their trigger stated on the issue, as #28, #29,
+#44 (retitled to its promotion candidates) and #95 do.
+- Residual risk of moving #22: v1.2.0 regresses nothing (table band 1.61x on
+  Kaby), but it leans harder on gathers, and gather cost is unmeasured on
+  parts running the Downfall microcode mitigation and on older AMD parts.
+  Row D's release notes say so. [OPEN] Before writing that note, check two
+  things from memory, briefly, with a source: the Downfall mitigation's gather
+  cost on Skylake through Ice Lake, and gather weakness on older AMD parts.
+  Enough for one accurate sentence, no more.
 
 **M1 legs of rows C1 and C3 DONE 2026-10-31 (Mac Mini M1, NEON, macOS 27.2,
 AppleClang 21.0.0, Highway 1.4.0, code `4f78527`, kernels identical to K's
@@ -29,10 +55,10 @@ Both machines report: #42 and #31 CLOSED 2026-11-01 (runbook step 7;
 closing comments carry the M1 tables). The zone's same-sign 0.99x on the
 third machine (and lbeta's main band, 0.97-0.98x on Z and K) is filed as
 #96 [DECIDED 2026-11-01, user]: off every milestone, a record with the
-three data sets and a one-session Zen 4 bisect over the four kernel-side
-commits between `1fe08b1` and the head (`5fef537`, `5612bdb`, `d5c731d`,
-`ca066a2`); not worth a session now. Next: row C3b
-(#94), then row C4 (#22); remove the `../corvus-c1`/`../corvus-c3`
+three data sets. Corrected 2026-11-01 on the issue: Zen 4's B was `2001fc8`,
+so its 0.97x readings come from `5fef537` alone, and the outlining commits
+change no source token off MSVC. Not worth a session now. Next: commit
+and close row C3b (#94), then row D; remove the `../corvus-c1`/`../corvus-c3`
 worktrees on both Macs.** [DERIVED]
 
 **K legs of rows C1 and C3 DONE 2026-10-30 (Kaby Lake, AVX2, AppleClang
@@ -2190,8 +2216,8 @@ reference rows are regenerated, and regeneration done once. Two more:
 | C2 | ~~#45 export span `expm1`, `log1pmx` (was row 14)~~ DONE ON Z 2026-10-29 (`19bcff8`) | after B4; libstats adopts both in v3.0.0 | mid (new family) | generator, four gating lists + quiet_bench lists | K, M1, Z |
 | C3 | ~~#31 lgamma table band + single reflection log (was row 15); then #80 part 2 (lbeta near (1, 1); the lbeta CR option) against the new lgamma~~ DONE: Z 2026-10-30 (`5fef537`, `2001fc8`, `040da41`; #80 part 2 `5612bdb`; CI 41149000287), K 2026-10-30 (§13.1), M1 2026-10-31 (§13.2) | beta/gamma/lbeta consume lgamma; libstats' PMF lgamma routing returns when it lands | frontier | generator + regen | K, Z, M1 |
 | C3b | #94 beta R4 cap corner (+1.80 ulp one-signed, inside the 2-ULP cell, 0.45 ulp margin): confirm the component (suspect LgammaDiffDd's Stirling `rest`, budgeted relative to phi) and re-derive its budget against Qtilde's cancellation depth. A kernel fix lands only if it is one site and the beta / gamma-limit / lbeta real maxima hold on every runnable tier; else the issue moves to the next milestone and ACCURACY.md's R4 row states the margin | filed at A4, after the order was drafted; inside the bound, so it never holds the release | frontier (diagnosis); fix conditional | r4_cap stratum exists | Z |
-| C4 | #22 non-gather x86 (was row 17) — conditional: off the milestone if it would hold the release; a Kaby Lake quiet bench sizes it first | after #31; likely slips | frontier | tier audit | K, Z |
-| D | Release tail: `docs/PERFORMANCE.md` §4/§8.2 re-run and the quiet bench on three machines; the libstats pin note (scalar entry points replace its deducing `corvus_scalar` wrapper) in the release notes; native M1 + Kaby Lake validation at the freeze head; RELEASING.md | then libstats and libhmm bump to v1.2.0 (workplan tasks 2 and 7) | recipe | — | all three |
+| C4 | ~~#22 non-gather x86 (was row 17)~~ MOVED to v1.3.0 2026-11-01 [user], sized by the Kaby leg of C3 | after #31; likely slips | frontier | tier audit | K, Z |
+| D | Release tail: `docs/PERFORMANCE.md` §4/§8.2 re-run and the quiet bench on three machines; the libstats pin note (scalar entry points replace its deducing `corvus_scalar` wrapper) in the release notes; native M1 + Kaby Lake validation at the freeze head; the stale Bessel rows (§4, with the `i1`/`i1e` series reading against `i0`/`i0e`) and §5's `erfinv`/`bessel` reproducibility re-read at the same quiet run; a larger n for bench_gammainv's deep-small band, whose 46% spread on the M1 is the bench's short timing; allow for `mediaanalysisd` holding the M1 gate (5 of 12 passes lost in C1/C3); a release note and a README line that gather-weak x86 carries more gathers and #22 is on v1.3.0; RELEASING.md | then libstats and libhmm bump to v1.2.0 (workplan tasks 2 and 7) | recipe | — | all three |
 
 Row 16 (#37) closed 2026-10-16. Gated, worked only if the gate opens:
 #18 (no filed need), #19 (filed need, P3, frontier oracle; libstats

@@ -816,3 +816,30 @@ flagged `gamma_p_inv` deep-small band (§12.2). `gamma_p` R1 / `gamma_q` R2
 read 1.09× / 1.14×, #31's lgamma through gamma's prefactor; the C1 A/B
 (§12.2) reads the same from an A without lever 1, so lever 1 adds nothing
 to gamma here either.
+
+## 14. Row C3b, #94: Zen 4 quiet A/B (2026-11-01, v1.2.0 dev)
+
+Evidence: `docs/bench-evidence/2026-11-01-zen4-c3b-ab/`; read it with
+`docs/bench-evidence/2026-10-30-zen4-c3-ab/summarise.py <dir>`.
+
+**Protocol.** `AVX3_ZEN4`, clang-cl Release, the six family benches. A is
+`6684208`, B the same tree with BinetDiffDd's k = 2 term in dd; binaries
+hash-checked distinct. Six `tools/quiet_bench.ps1` passes alternating A, B;
+all six met the gate. Median of three per variant, ns/element.
+
+| Band | A | B | A/B |
+|---|---:|---:|---:|
+| `beta_p` R1 | 268.91 | 273.53 | 0.98× |
+| `beta_q` R2 | 281.00 | 284.58 | 0.99× |
+| `beta_p` R3 | 476.58 | 476.56 | 1.00× |
+| `beta_q` R4 tiny-min | 263.91 | 268.63 | 0.98× |
+| `beta_p` R4 near-one | 518.50 | 528.32 | 0.98× |
+| `beta_q` gamma-limit | 446.39 | 450.16 | 0.99× |
+| `lbeta` main band | 110.37 | 112.32 | 0.98× |
+| `lbeta` big band | 71.46 | 74.71 | 0.96× |
+
+**Reading.** The dd term costs 1–2% wherever BinetDiffDd runs. The
+`lbeta` big band's 0.96× has a 5.6% spread on A, so it says little beyond
+that. `betainv` bands read 0.99–1.01× and `gammainv`, `gamma_p`/`gamma_q`
+and `lgamma` read 1.00–1.01×. Not measured on Kaby Lake or M1: the
+change adds no gather, and the cost is a few dd operations per lane.

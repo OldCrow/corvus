@@ -1,0 +1,19 @@
+corvus active SIMD target: AVX3_ZEN4
+beta_p, R1 series: n=4001, region=R1 membership 4001/4001 (100.0%)
+         n     simd ns/el   scalar ns/el    speedup
+      4001         268.66        1801.32      6.70x
+beta_q, R2 backward CF: n=4001, region=R2 membership 4001/4001 (100.0%)
+         n     simd ns/el   scalar ns/el    speedup
+      4001         279.88        2064.06      7.37x
+beta_p, R3 Temme ridge: n=4001, region=R3 membership 4001/4001 (100.0%)
+         n     simd ns/el   scalar ns/el    speedup
+      4001         476.58        3830.02      8.04x
+beta_q, R4 tiny-min: n=4001, region=R4 membership 4001/4001 (100.0%)
+         n     simd ns/el   scalar ns/el    speedup
+      4001         263.91        1835.09      6.95x
+beta_p, R4 postroute near-one: n=4001, region=Pr membership 4001/4001 (100.0%)
+         n     simd ns/el   scalar ns/el    speedup
+      4001         518.32        4105.57      7.92x
+beta_q, R2 gamma-limit: n=4001, region=Gl membership 4001/4001 (100.0%)
+         n     simd ns/el   scalar ns/el    speedup
+      4001         444.89        2777.03      6.24x

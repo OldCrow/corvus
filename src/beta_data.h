@@ -409,6 +409,7 @@ inline constexpr double kBetaR3GlExt[3][25] = {
 inline constexpr double kBetaBinetCoef[16] = {
     0x1.5555555555555p-4, -0x1.6c16c16c16c17p-9, 0x1.a01a01a01a01ap-11, -0x1.3813813813814p-11, 0x1.b951e2b18ff23p-11, -0x1.f6ab0d9993c7dp-10, 0x1.a41a41a41a41ap-8, -0x1.e4286cb0f5398p-6, 0x1.6fe96381e0680p-3, -0x1.6476701181f3ap+0, 0x1.ace44322ce006p+3, -0x1.39b2525cccc1bp+7, 0x1.12234e81b4e82p+11, -0x1.1a198ae1c4ab8p+15, 0x1.51a2089a6e11ap+19, -0x1.d1089b142d357p+23,
 };
+inline constexpr double kBetaBinetC2Lo = 0x1.f49f49f49f49fp-64;
 
 }  // namespace corvus::detail
 

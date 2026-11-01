@@ -2344,6 +2344,9 @@ def main():
     print(f"// sum_k kBetaBinetCoef[k-1]/z^(2k-1), z >= kBetaZ0, Horner in 1/z^2.")
     binet_d = [rd(c) for c in binet]
     emit_hex_array_1d("kBetaBinetCoef", binet_d)
+    # c_2 = -1/360's low word: BinetDiffDd carries k = 2 as a dd (#94).
+    print(f"inline constexpr double kBetaBinetC2Lo = "
+          f"{float(binet[1] - mp.mpf(binet_d[1])).hex()};")
     print()
     print("}  // namespace corvus::detail")
     print()

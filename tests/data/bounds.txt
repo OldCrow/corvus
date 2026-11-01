@@ -21,7 +21,7 @@ beta_p|R3 temme  dir|ulp|1|3|beta.R3.dir
 beta_p|R4 postrt cmp|ulp|0|0|beta.R4.cmp
 beta_p|R4 postrt dir|ulp|1|1|beta.R4pr.dir
 beta_p|R4 tiny   cmp|ulp|0|0|beta.R4.cmp
-beta_p|R4 tiny   dir|ulp|2|2|beta.R4.dir
+beta_p|R4 tiny   dir|ulp|1|2|beta.R4.dir
 beta_p_inv|B rows (neighbour semantics)|ulp|2|2|betainv.B
 beta_p_inv|deep-small closed form|ulp|1|1|betainv
 beta_p_inv|gamma-limit transfer|ulp|1|1|betainv
@@ -39,7 +39,7 @@ beta_q|R3 temme  dir|ulp|1|3|beta.R3.dir
 beta_q|R4 postrt cmp|ulp|0|0|beta.R4.cmp
 beta_q|R4 postrt dir|ulp|1|1|beta.R4pr.dir
 beta_q|R4 tiny   cmp|ulp|0|0|beta.R4.cmp
-beta_q|R4 tiny   dir|ulp|2|2|beta.R4.dir
+beta_q|R4 tiny   dir|ulp|1|2|beta.R4.dir
 beta_q_inv|B rows (neighbour semantics)|ulp|2|2|betainv.B
 beta_q_inv|deep-small closed form|ulp|1|1|betainv
 beta_q_inv|gamma-limit transfer|ulp|1|1|betainv

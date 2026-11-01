@@ -156,7 +156,8 @@ bit-identical to each other (every max-ULP cell, not-CR count and
 worst-case input). AVX2 differs from them only in the usual FMA/no-FMA
 not-CR spread (32 report lines across the 12 ULP gates) and two max-ULP
 cells that move *within* their gates without FMA: `beta_q` R4 tiny-min
-direct 1 → 2 ULP (gate 2) and trigamma (0, 1) 0 → 1 ULP (gate 1).
+direct 1 → 2 ULP (gate 2; 1 on every tier since #94) and trigamma (0, 1)
+0 → 1 ULP (gate 1).
 The #43 re-gate (2026-10-11) moved the erf, cos, sin, exp, log and log1p
 AVX2-column dates to Kaby Lake (AVX2 native; SSE4, SSSE3 and SSE2 by
 capping; AppleClang 15.0.0); AVX-512 is from the Ryzen box (AVX3_ZEN4
@@ -831,8 +832,8 @@ margin.
 | R1 power series | <!-- claim: beta.R1 --> **1 ULP** (0.02% not-CR) | <!-- claim: beta.R1 --> 1 ULP |
 | R2 continued fraction | <!-- claim: beta.R2.dir --> **1 ULP** (0.03% not-CR) | <!-- claim: beta.R2.cmp --> 1 ULP (erratum, #76; measured CR except near-ties) |
 | R3 Temme ridge | <!-- claim: beta.R3.dir --> **3 ULP** published; 1 measured since #69 (8–10% not-CR) | <!-- claim: beta.R3.cmp --> 1 ULP |
-| R4 tiny-min corner | <!-- claim: beta.R4.dir --> **2 ULP** (not-CR 1.3% of beta_q's 14,618 direct rows, 3.9% of beta_p's 2,939; 11–12% of the 900-row cap population, #79/#94) | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
-| R4 near-one post-route | <!-- claim: beta.R4pr.dir --> **1 ULP** | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
+| R4 tiny-min corner | <!-- claim: beta.R4.dir --> **2 ULP** published; 1 measured since #94 (not-CR 5 of beta_q's 14,618 direct rows, 2 of beta_p's 2,939) | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
+| R4 near-one post-route | <!-- claim: beta.R4pr.dir --> **1 ULP** published; 0 measured since #94 | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
 | R2 gamma-limit slice | <!-- claim: beta.GL --> **1 ULP** (measured CR except near-ties; 0.04% not-CR dense, #90) | <!-- claim: beta.GL --> 1 ULP (measured CR except near-ties; 0.21% not-CR dense, #90) |
 
 **R4 at its cap walls (#79 L-3, order row A4, v1.2.0).** The review
@@ -846,16 +847,21 @@ came from base rows that rarely sit on R4's cap. Two causes:
   signed error (−1.51 ulp worst, ~70% not-CR) tracked that truncation
   row by row. gen_beta_data.py check (f) now budgets relative to Q~ and
   pins kBetaR4N = 56 (2^−74.5 worst).
-- **The ξ_τ = ξ1 corner (B ≈ 18): not truncation, #94.** The error is
-  one-signed positive, up to +1.80 ulp (1.84 real in the gate), about
-  62% not-CR there, identical on every tier. It behaves as an absolute
-  floor of about 2^−70.5 per unit τ in w + log1p(τS), which the
-  cancellation amplifies. The cell stays 2 ULP; #94 tracks the
-  component.
+- **The ξ_τ = ξ1 corner (B ≈ 18): Binet's k = 2 term, #94, fixed.** The
+  error was one-signed positive, up to +1.80 ulp (1.84 real in the
+  gate), about 62% not-CR there, identical on every tier: a floor of
+  2^−71.1 per unit τ in w + log1p(τS), which the cancellation amplifies.
+  It came from BinetDiffDd inside lgamma(1+τ), at z = 10, where the
+  k = 2 term ran in plain double. That term is now a dd and c_2 carries
+  its low word (kBetaBinetC2Lo). From k = 3 on the floor is 2^−79.9.
 
 The `dense:r4_cap` stratum (900 rows per file, both walls and the
-corner, both orientations) now gates the cell: 12.4% (beta_p) and
-10.6% (beta_q) not-CR, max 2 ULP, the same on AVX3_ZEN4, SSE4 and SSE2.
+corner, both orientations) gates the cell. Since #94 the whole cell
+reads real 0.5241 (beta_p) and 0.6138 (beta_q), max 1 ULP, and R4
+near-one beta_q reads 0.4986, 0 ULP (was 1.8353, 1.6186, 0.9593), the
+same on AVX3_ZEN4, AVX2, SSE4, SSSE3 and SSE2. The gate is now 1 ULP; the
+published bound stays 2 until AVX2 and NEON read natively. Only R4 cells moved in the gate report. Cost: 1–2% on beta
+and lbeta, PERFORMANCE.md §14.
 
 **Erratum (#76, order row 12j, v1.1.0).** Through v1.0.x the R2
 complement cell read 0 ULP (correctly rounded), and the gate held 0.

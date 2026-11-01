@@ -480,18 +480,31 @@ HWY_NOINLINE Dd<D> BinetDiffDd(D d, Dd<D> z, Dd<D> w) {
                  op::Set(d, detail::kBetaRecipNLo[11])};
   const auto lead = DdMul(d, rd, c1);
 
-  auto gk = one;   // G_k
-  auto pw = rho;   // rho^(2k-1)
-  auto rp = r;     // r^(2k-1)
+  // k = 2 is a dd too (#94). At z = 10 its double rounding is ~2^-71 per unit
+  // m, a fixed error in lgamma(1+tau), and R4's cap corner cancels by ~2^20
+  // (Qtilde/tau ~ 3e-6): that alone read +1.8 ulp. From k = 3 on the error is
+  // ~2^-80 per unit m. c_2 = -1/360 is not exact in a double, so it carries
+  // its low word; G_2 = 1 + rho(1 + rho).
+  const auto rhod = DdAddD(d, g, one);
+  const auto g2 = DdAddD(d, DdMul(d, rhod, DdAddD(d, rhod, one)), one);
+  const Dd<D> c2{op::Set(d, detail::kBetaBinetCoef[1]),
+                 op::Set(d, detail::kBetaBinetC2Lo)};
+  // FLOOR: rd*rd and its product with rd reach the floor only for z > ~2^320,
+  // where this term is under 2^-960 and lead dominates it by 2^640.
+  const auto second = DdMul(d, DdMul(d, DdMul(d, rd, rd), DdMul(d, rd, c2)), g2);
+
+  auto gk = op::Add(one, op::MulAdd(rho, rho, rho));  // G_2
+  auto pw = op::Mul(rho, rho2);                       // rho^3
+  auto rp = op::Mul(r, r2);                           // r^3
   auto rest = op::Zero(d);
-  for (int k = 1; k < detail::kBetaKB; ++k) {
+  for (int k = 2; k < detail::kBetaKB; ++k) {
     gk = op::Add(gk, op::MulAdd(pw, rho, pw));
     pw = op::Mul(pw, rho2);
     rp = op::Mul(rp, r2);
     rest = op::MulAdd(op::Set(d, detail::kBetaBinetCoef[k]), op::Mul(rp, gk),
                       rest);
   }
-  return DdMul(d, g, DdAddD(d, lead, rest));
+  return DdMul(d, g, DdAddD(d, DdAdd(d, lead, second), rest));
 }
 
 // ------------------------------------------------------------------------
