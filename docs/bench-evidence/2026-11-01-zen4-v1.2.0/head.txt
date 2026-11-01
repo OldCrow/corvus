@@ -1,0 +1,1 @@
+2f863be docs(accuracy,readme,plan): R4 tiny bound 2 -> 1 ULP; gather note; row D start

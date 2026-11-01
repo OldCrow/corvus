@@ -10,6 +10,27 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-11-01
 
+**Row D, freeze head `2f863be` (kernels; later commits docs only unless noted).**
+Milestone v1.2.0 has 0 open issues. Zen 4 leg DONE 2026-11-01: PERFORMANCE.md
+§4, §5 and §8.2's Zen 4 column rewritten from two gated full passes plus four
+repeats (evidence `docs/bench-evidence/2026-11-01-zen4-v1.2.0/`). `i1`/`i1e`
+read with `i0`/`i0e`. §5 is now a finding without a cause: three bands read
+1.50× slower in 1-2 of 6 fresh processes. [OPEN] Whether v1.2.0 waits for that
+cause (leading suspect: buffer addresses, so it may reach real callers).
+Next, K and M1 legs, from `git pull` on `dev/v1.2.0`:
+1. Release build; every gate under `CORVUS_EXPECT_TARGET` (AVX2 native and
+   SSE4/SSSE3/SSE2 capped on K, NEON on M1), `CORVUS_WERROR=ON`. Confirm
+   beta/R4 tiny direct max 1 ULP, real 0.5241/0.6138: the published bound
+   fell to 1 on this.
+2. `tools/quiet_bench.sh`, default targets, twice, then four repeats of
+   `bench_digamma bench_trigamma bench_erfinv bench_bessel`. Allow for
+   `mediaanalysisd` on the M1 (§10). Evidence in
+   `docs/bench-evidence/<date>-{kaby,m1}-v1.2.0/`.
+3. Replace §8.2's Kaby column and add an M1 column; say whether §5's
+   1.50× modes appear there.
+Then: README performance paragraph, status note, merge `main`'s two dependabot
+bumps, RELEASING.md with the user, libstats and libhmm bumps.
+
 **Row C3b, #94: DONE 2026-11-01, `8a6533f`, CI 41348222134 green, closed.** The corner
 error was BinetDiffDd's k = 2 term in plain double, 2^-71.1 per unit tau in
 lgamma(1+tau) at z = 10; it is now a dd with c_2's low word

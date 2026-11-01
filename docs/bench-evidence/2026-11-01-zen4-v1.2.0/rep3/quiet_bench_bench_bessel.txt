@@ -1,0 +1,19 @@
+corvus active SIMD target: AVX3_ZEN4
+bessel, series (0,8]: n=4001
+      fn     simd ns/el   scalar ns/el  upper bnd
+      i0          13.92         139.84     10.04x
+      i1          14.25         141.89      9.96x
+     i0e          13.90         141.84     10.21x
+     i1e          14.27         143.49     10.05x
+bessel, tail (8,700]: n=4001
+      fn     simd ns/el   scalar ns/el  upper bnd
+      i0           6.27          75.61     12.05x
+      i1           6.32          76.03     12.02x
+     i0e           6.27          73.51     11.72x
+     i1e           6.32          73.96     11.70x
+bessel, mixed sign, both regions: n=4001
+      fn     simd ns/el   scalar ns/el  upper bnd
+      i0          19.22         120.17      6.25x
+      i1          19.52         122.22      6.26x
+     i0e          19.22         120.77      6.28x
+     i1e          19.55         124.42      6.37x

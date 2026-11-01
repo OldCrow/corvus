@@ -1,0 +1,21 @@
+corvus active SIMD target: AVX3_ZEN4
+erfinv, input range [-0.5, 0.5] (central C)
+         n     simd ns/el   scalar ns/el    speedup
+     10000           3.39          59.53     17.56x
+   1000000           3.40          59.79     17.58x
+erfinv, input range [-0.999, 0.999] (mixed)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          15.48          93.36      6.03x
+   1000000          15.57          99.09      6.36x
+erfcinv, input range [0.5, 1.5] (central C)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          14.89         129.70      8.71x
+   1000000          14.94         130.16      8.71x
+erfcinv, input range [1e-06, 0.5] (T-mid)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          23.43         197.00      8.41x
+   1000000          23.55         197.68      8.39x
+erfcinv, input range [4.94066e-324, 2.2e-308] (T-far, subnormal z)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          31.18         258.87      8.30x
+   1000000          31.41         260.43      8.29x

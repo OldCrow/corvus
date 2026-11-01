@@ -10,8 +10,8 @@ because a number without its provenance cannot be audited later.
 What promotion does NOT change: `docs/ACCURACY.md` is the audited
 document and nothing here has that standing; every ratio names the libm
 and machine it was measured against, and ratios against different libms
-are not comparable (§6); §5's two families still do not reproduce
-run-to-run and stay provisional inside an otherwise settled document.
+are not comparable (§6); §5's bands read in two speed modes from process
+to process, cause unknown, so a single reading of them is provisional.
 
 **v1.1.0 (2026-10-25): partly stale.** The figures below were measured on
 v0.9.0 code. v1.1.0's accuracy fixes made several families slower, and
@@ -38,8 +38,9 @@ about 10% are within its noise. Against §3/§9 (ns/el, corvus only):
 The beta row ran at the 69% load peak, so its size is the least certain.
 Kaby Lake and M1 were not re-measured; the same code changes apply there.
 The §4 and §8.2 upper bounds are stale on two counts, these changes and
-#42's per-element baseline (§2). A quiet full-surface pass on each
-machine is planned for v1.2.0, and it replaces this note.
+#42's per-element baseline (§2). Row D's quiet full-surface pass replaced
+§4 on Zen 4 (`2f863be`, 2026-11-01); Kaby Lake and M1 are pending, and
+this note goes when they are in.
 
 **v1.2.0 row C1 (2026-10-29):** #42 lever 1 made `beta_p`/`beta_q` and
 their inverses faster on Zen 4; quiet A/B in §12. Gamma is unchanged.
@@ -168,32 +169,27 @@ work, not a missed optimisation.
 ## 4. Batching gain (corvus against corvus, per element)
 
 Upper bounds, not comparisons with other libraries. Range across each family's
-bands at the largest n.
+bands at the largest n. Zen 4 at the v1.2.0 freeze head (`2f863be`, `AVX3_ZEN4`,
+clang-cl Release): two full `tools/quiet_bench.ps1` passes, both gated (evidence
+in `docs/bench-evidence/2026-11-01-zen4-v1.2.0/`). Bands in §5's fast mode.
 
 | family | upper bound |
 |---|---|
-| `gamma_p` / `gamma_q` | 8.79 – 23.89× |
-| `beta_p` / `beta_q` | 7.28 – 15.14× |
-| `digamma` | 7.13 – 25.12× |
-| `trigamma` | 7.29 – 30.93× |
-| `gamma_p_inv` / `gamma_q_inv` | 6.21 – 141.57× |
-| `beta_p_inv` / `beta_q_inv` | 3.89 – 54.18× |
-| `lbeta` | 7.99× main band, 12.73× big band |
-| `erfinv` / `erfcinv` | 5.17 – 14.94× — see §5 |
-| `i0` / `i1` / `i0e` / `i1e` | 8.31 – 8.45× — see §5 |
+| `gamma_p` / `gamma_q` | 6.02 – 8.45× |
+| `beta_p` / `beta_q` | 6.23 – 8.05× |
+| `digamma` | 6.09 – 12.66× |
+| `trigamma` | 5.42 – 13.23× |
+| `gamma_p_inv` / `gamma_q_inv` | 3.83 – 8.07× |
+| `beta_p_inv` / `beta_q_inv` | 3.12 – 7.77× |
+| `lbeta` | 6.0× main band, 8.4× big band |
+| `erfinv` / `erfcinv` | 6.36 – 17.77× |
+| `i0` / `i1` / `i0e` / `i1e` | 6.23 – 12.17× |
 
-**Stale for v1.1.0 (2026-10-25)** for every family above: the per-element
-baseline changed (#42, §2), and `gamma`, `beta` and both inverses got
-slower (Status note).
+The per-element baseline changed with #42 (§2), so these do not compare with
+the v0.9.0 figures, which ran to 141× against a slower baseline.
 
-**Bessel rows stale since row 12i (2026-10-25).** The series now carries
-eight dd terms (#75), and each regime runs only when some lane needs it.
-Ad-hoc Zen 4 runs, not quiet-bench runs (ns/el, before → after): series
-band 14.3–14.8 → 13.9–14.3, tail band 14.5–14.8 → 6.4–6.5, mixed band
-14.4–14.8 → 19.3–19.7. Re-measure at the next quiet bench. The v1.1.0
-ad-hoc run (Status note) agrees on the tail and mixed bands, but read the
-`i1`/`i1e` series at 25.4/20.8 against `i0`/`i0e`'s 14.0/14.2; check
-that at the next quiet bench.
+The `i1`/`i1e` series now reads with `i0`/`i0e`: 14.2 against 13.9 ns/el. The
+v1.1.0 ad-hoc 25.4/20.8 was not a property of the kernel.
 
 The very large figures at the top of the `gammainv` range are a property of the
 baseline, not of the kernel: an iterative solve has a lot of per-call setup to
@@ -201,30 +197,30 @@ amortise, so calling it one element at a time is especially wasteful.
 
 ---
 
-## 5. Two families are not reproducible yet
+## 5. Bands read in two speed modes
 
-`erfinv` and `bessel` do not give the same answer run to run, and the cause is
-not known. Three runs of each:
+Some bands read in one of two speeds from process to process, and the slow
+one is 1.50× the fast one. The cause is not known. Six fresh processes of the
+same binary at `2f863be`, Zen 4 (SIMD ns/el, evidence as §4):
 
-| measurement | run A (in sweep) | run B | run C |
+| band | fast | slow | runs slow |
 |---|---:|---:|---:|
-| `erfcinv` central [0.5, 1.5] | **36.78×** | 14.94× | 14.71× |
-| `bessel` i0, series band | 8.36× | **5.62×** | 8.34× |
+| `digamma` (0,1) up-step | 8.77 | 13.17 | 2 of 6 |
+| `trigamma` (0,1) up-step | 10.40 | 15.47 | 1 of 6 |
+| `i0` series | 13.92 | 20.89 | 1 of 6 |
 
-Two of three agree in each case and the third is well outside. The outliers
-land in different runs for the two families, so whatever causes them is
-sporadic rather than systematic.
+The scalar walk over the same data holds within 0.5% in those runs. Inputs are
+seeded, so every run consumes identical data, and the harness warms up and
+takes a median, so neither a cold start nor a stray sample survives. Different
+bands land slow in different runs, in the same process, so ambient load, clock
+and thermal effects are ruled out: those would move every band together.
+What varies between processes is where the buffers land. Address-dependent
+behaviour is the leading suspect, not a finding. The v0.9.0 `i0` outlier here
+(5.62× against 8.36×) is the same ratio; `erfcinv`'s old outlier (36.78×
+against 14.94×) has not recurred in these six runs (14.04–15.12 ns/el).
 
-What it is **not**: inputs are seeded, so every run consumes identical data;
-the harness warms up and takes a median, so neither a cold start nor a single
-stray sample survives; and in the same binary seconds apart, `erfinv`'s own
-central band reproduced to three digits while `erfcinv`'s moved four-fold.
-Ambient load, clock and thermal effects would move every band together. These
-did not.
-
-Until that is understood, **treat both rows in §4 as provisional even by the
-standards of this provisional document.** The figures quoted are the modal
-values, not the extremes.
+Read a band's fast mode as its speed, and repeat a surprising reading before
+trusting it.
 
 ---
 
@@ -316,15 +312,19 @@ against; the README's decision to quote no figures stands.
 
 | family | upper bound (Kaby Lake, AVX2) | Zen 4 (§4) |
 |---|---|---|
-| `gamma_p` / `gamma_q` | 4.83 – 11.07× | 8.79 – 23.89× |
-| `beta_p` / `beta_q` | 3.85 – 7.95× | 7.28 – 15.14× |
-| `digamma` | 4.27 – 11.92× | 7.13 – 25.12× |
-| `trigamma` | 4.11 – 15.95× | 7.29 – 30.93× |
-| `gamma_p_inv` / `gamma_q_inv` | 3.69 – 60.73× | 6.21 – 141.57× |
-| `beta_p_inv` / `beta_q_inv` | 2.35 – 27.67× | 3.89 – 54.18× |
-| `lbeta` | 4.27× main band, 6.18× big band | 7.99×, 12.73× |
-| `erfinv` / `erfcinv` | 3.15 – 20.28× | 5.17 – 14.94× — see §5 |
-| `i0` / `i1` / `i0e` / `i1e` | 4.75 – 6.49× | 8.31 – 8.45× — see §5 |
+| `gamma_p` / `gamma_q` | 4.83 – 11.07× | 6.02 – 8.45× |
+| `beta_p` / `beta_q` | 3.85 – 7.95× | 6.23 – 8.05× |
+| `digamma` | 4.27 – 11.92× | 6.09 – 12.66× |
+| `trigamma` | 4.11 – 15.95× | 5.42 – 13.23× |
+| `gamma_p_inv` / `gamma_q_inv` | 3.69 – 60.73× | 3.83 – 8.07× |
+| `beta_p_inv` / `beta_q_inv` | 2.35 – 27.67× | 3.12 – 7.77× |
+| `lbeta` | 4.27× main band, 6.18× big band | 6.0×, 8.4× |
+| `erfinv` / `erfcinv` | 3.15 – 20.28× | 6.36 – 17.77× |
+| `i0` / `i1` / `i0e` / `i1e` | 4.75 – 6.49× | 6.23 – 12.17× |
+
+The Kaby Lake column is v0.9.0, against the old baseline (§2), until row D's
+Kaby leg replaces it; the Zen 4 column is v1.2.0. Until then the two do not
+compare, and the next paragraph describes v0.9.0.
 
 Roughly half of Zen 4 across the board, as the lane count predicts. The
 ordering of families and of bands within a family is preserved, so the

@@ -1,0 +1,10 @@
+corvus active SIMD target: AVX3_ZEN4
+         n   fn   corvus ns/el     libm ns/el    speedup
+      1000  cos           1.60           5.80      3.62x
+      1000  sin           1.10           3.50      3.18x
+     10000  cos           1.05           3.92      3.73x
+     10000  sin           1.04           3.54      3.40x
+    100000  cos           1.05           8.85      8.46x
+    100000  sin           1.05           8.96      8.50x
+   1000000  cos           1.05           8.93      8.47x
+   1000000  sin           1.06           9.11      8.60x
