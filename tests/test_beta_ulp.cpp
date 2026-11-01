@@ -74,8 +74,7 @@ constexpr uint64_t kGateR2Dir = 1, kGateR2Cmp = 1;
 // rows too.
 constexpr uint64_t kGateR3Dir = 1, kGateR3Cmp = 1;
 // R4 dir 2 -> 1 at #94: BinetDiffDd's k = 2 term runs in dd, and the cap
-// corner no longer amplifies its rounding. The published bound stays 2
-// until AVX2 and NEON read natively (bounds.txt).
+// corner no longer amplifies its rounding.
 constexpr uint64_t kGateR4Dir = 1, kGateR4Cmp = 0;
 constexpr uint64_t kGatePrDir = 1, kGatePrCmp = 0;
 // Gl 1/1 -> 0/0 at #54 defect 1: the slice forms t = -(N + (s-1)/2) *

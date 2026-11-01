@@ -17,11 +17,10 @@ lgamma(1+tau) at z = 10; it is now a dd with c_2's low word
 R4 cells moved, all down; beta_p/beta_q R4 tiny direct max 1 ULP (real 0.52,
 0.61, was 1.84, 1.62), beta_q R4 near-one 0.50 (was 0.96). Pins lowered, #94
 tags dropped. Beta hunt 90,125 rows, 0 violations. Cost 1-2% on beta and
-lbeta, PERFORMANCE.md §14. Gate 2 -> 1 ULP, published stays 2 [DECIDED
-2026-11-01, user]: every run was on the Zen 4 box, so AVX2 and below were
-capped and NEON had not run the fix. CI then read max 1 ULP, real 0.5241 and
-0.6138, on all three jobs, NEON included. [OPEN] Row D: raise the published R4
-tiny bound to 1 ULP (user's call; a floor for all of 1.x).
+lbeta, PERFORMANCE.md §14. R4 tiny gate and published bound 2 -> 1 ULP
+[DECIDED 2026-11-01, user]: CI read max 1 ULP, real 0.5241 and 0.6138, on all
+three jobs, NEON included. A floor for all of 1.x; row D's native K and M1 runs
+at the freeze head confirm it before the tag.
 
 **Milestones re-cut 2026-11-01 [DECIDED, user].** v1.2.0 is rows C3b (#94)
 and D. New milestone v1.3.0 holds #19 (filed need, frontier oracle) and #22
@@ -32,10 +31,12 @@ sit off every milestone with their trigger stated on the issue, as #28, #29,
 - Residual risk of moving #22: v1.2.0 regresses nothing (table band 1.61x on
   Kaby), but it leans harder on gathers, and gather cost is unmeasured on
   parts running the Downfall microcode mitigation and on older AMD parts.
-  Row D's release notes say so. [OPEN] Before writing that note, check two
-  things from memory, briefly, with a source: the Downfall mitigation's gather
-  cost on Skylake through Ice Lake, and gather weakness on older AMD parts.
-  Enough for one accurate sentence, no more.
+  Row D's release notes say so, as the README does. Checked 2026-11-01:
+  Downfall (GDS, CVE-2022-40982) covers Skylake through Ice Lake and Tiger
+  Lake, not Alder Lake, Raptor Lake or Sapphire Rapids; reported workload
+  losses reach 33–39% on gather-heavy code, Intel quoting up to 50%. Gathers
+  are reported slow on AMD before Zen 3. Secondary sources, enough for one
+  sentence; corvus measured neither.
 
 **M1 legs of rows C1 and C3 DONE 2026-10-31 (Mac Mini M1, NEON, macOS 27.2,
 AppleClang 21.0.0, Highway 1.4.0, code `4f78527`, kernels identical to K's

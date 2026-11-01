@@ -832,7 +832,7 @@ margin.
 | R1 power series | <!-- claim: beta.R1 --> **1 ULP** (0.02% not-CR) | <!-- claim: beta.R1 --> 1 ULP |
 | R2 continued fraction | <!-- claim: beta.R2.dir --> **1 ULP** (0.03% not-CR) | <!-- claim: beta.R2.cmp --> 1 ULP (erratum, #76; measured CR except near-ties) |
 | R3 Temme ridge | <!-- claim: beta.R3.dir --> **3 ULP** published; 1 measured since #69 (8–10% not-CR) | <!-- claim: beta.R3.cmp --> 1 ULP |
-| R4 tiny-min corner | <!-- claim: beta.R4.dir --> **2 ULP** published; 1 measured since #94 (not-CR 5 of beta_q's 14,618 direct rows, 2 of beta_p's 2,939) | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
+| R4 tiny-min corner | <!-- claim: beta.R4.dir --> **1 ULP** (2 before #94; not-CR 5 of beta_q's 14,618 direct rows, 2 of beta_p's 2,939) | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
 | R4 near-one post-route | <!-- claim: beta.R4pr.dir --> **1 ULP** published; 0 measured since #94 | <!-- claim: beta.R4.cmp --> 0 ULP (CR) |
 | R2 gamma-limit slice | <!-- claim: beta.GL --> **1 ULP** (measured CR except near-ties; 0.04% not-CR dense, #90) | <!-- claim: beta.GL --> 1 ULP (measured CR except near-ties; 0.21% not-CR dense, #90) |
 
@@ -859,8 +859,8 @@ The `dense:r4_cap` stratum (900 rows per file, both walls and the
 corner, both orientations) gates the cell. Since #94 the whole cell
 reads real 0.5241 (beta_p) and 0.6138 (beta_q), max 1 ULP, and R4
 near-one beta_q reads 0.4986, 0 ULP (was 1.8353, 1.6186, 0.9593), the
-same on AVX3_ZEN4, AVX2, SSE4, SSSE3 and SSE2. The gate is now 1 ULP; the
-published bound stays 2 until AVX2 and NEON read natively. Only R4 cells moved in the gate report. Cost: 1–2% on beta
+same on AVX3_ZEN4, AVX2, SSE4, SSSE3 and SSE2, and in CI on NEON. Gate and
+published bound are now 1 ULP. Only R4 cells moved in the gate report. Cost: 1–2% on beta
 and lbeta, PERFORMANCE.md §14.
 
 **Erratum (#76, order row 12j, v1.1.0).** Through v1.0.x the R2

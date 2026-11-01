@@ -208,6 +208,11 @@ note lists indicative v1.1.0 figures, measured on Zen 4 only:
   time (ad-hoc, Zen 4, v1.1.0; v0.9.0 read 4–140× against a slower
   per-element baseline) — an upper bound against per-call overhead, not
   a libm comparison.
+- `lgamma`'s table band (v1.2.0) takes 11 gathers per vector. It still gains
+  1.61× on Kaby Lake, the fleet's gather-weak part, but gather cost is
+  unmeasured under the Downfall microcode mitigation (Skylake through Ice
+  Lake and Tiger Lake) and on AMD before Zen 3. A non-gather x86 variant is
+  planned for v1.3.0 (#22).
 
 The full per-machine, per-band record is
 [docs/PERFORMANCE.md](docs/PERFORMANCE.md) — start at its v1.1.0 status
