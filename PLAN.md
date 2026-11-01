@@ -26,10 +26,12 @@ table band 6.92x (42.6 -> 6.2 ns/el, now 1.39x faster than Apple's arm64
 lgamma; Zen 4 2.44x, K 1.61x), reflection 1.43x, mixed 1.19x, zone 0.99x.
 Flagged under §10: lbeta main band (bimodal), gammainv deep-small p_inv.
 Both machines report: #42 and #31 CLOSED 2026-11-01 (runbook step 7;
-closing comments carry the M1 tables). OPEN for
-the user: the zone reads 0.99x on the third machine with the same sign as
-Z and K, each within its own spread (§13.1's rule reopens on sign: file an
-issue with the three data sets, or record as within spread). Next: row C3b
+closing comments carry the M1 tables). The zone's same-sign 0.99x on the
+third machine (and lbeta's main band, 0.97-0.98x on Z and K) is filed as
+#96 [DECIDED 2026-11-01, user]: off every milestone, a record with the
+three data sets and a one-session Zen 4 bisect over the four kernel-side
+commits between `1fe08b1` and the head (`5fef537`, `5612bdb`, `d5c731d`,
+`ca066a2`); not worth a session now. Next: row C3b
 (#94), then row C4 (#22); remove the `../corvus-c1`/`../corvus-c3`
 worktrees on both Macs.** [DERIVED]
 

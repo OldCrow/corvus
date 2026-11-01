@@ -802,7 +802,7 @@ positioning stands.
 B 24.50 / 24.50, extra A 24.62): the same sign as Zen 4 (0.97×) and Kaby
 Lake (0.99×), with the B median inside A's three-reading range. §13.1's
 rule (a third machine with the same sign reopens it) is met by sign and
-not by magnitude; the decision is recorded in PLAN.md. The zone row
+not by magnitude; filed as #96, off milestone, with the bisect recipe. The zone row
 itself reproduced to 2% across three A and two B readings, the first
 time it has under §10, which names it the unstable row. lbeta's main band
 is flagged on this machine: bimodal regardless of variant (A 293.8 /
