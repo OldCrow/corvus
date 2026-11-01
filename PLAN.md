@@ -25,7 +25,8 @@ R1 1.33x, R2 1.91x, gamma-limit 1.58x, Zen 4's ratios within 0.06x. C3:
 table band 6.92x (42.6 -> 6.2 ns/el, now 1.39x faster than Apple's arm64
 lgamma; Zen 4 2.44x, K 1.61x), reflection 1.43x, mixed 1.19x, zone 0.99x.
 Flagged under §10: lbeta main band (bimodal), gammainv deep-small p_inv.
-Both machines report: #42 and #31 are closable (runbook step 7). OPEN for
+Both machines report: #42 and #31 CLOSED 2026-11-01 (runbook step 7;
+closing comments carry the M1 tables). OPEN for
 the user: the zone reads 0.99x on the third machine with the same sign as
 Z and K, each within its own spread (§13.1's rule reopens on sign: file an
 issue with the three data sets, or record as within spread). Next: row C3b
@@ -59,7 +60,7 @@ then row C3b (#94), then row C4 (#22).** [DERIVED]
 
 **Row C3 DONE ON Z 2026-10-30: #31 `5fef537` + `2001fc8` + `040da41`, #80
 part 2 `5612bdb`; CI 41149000287 green on all three jobs; #80 closed. #31 and
-#42 ~~stay open for their Kaby and M1 legs~~ (both done; closable). Z work in phase C is complete; next
+#42 ~~stay open for their Kaby and M1 legs~~ (closed 2026-11-01). Z work in phase C is complete; next
 is the runbook below, then row C3b (#94), then row C4 (#22).** [DERIVED]
 
 **PLAN review on Kaby Lake, 2026-10-30 [DECIDED, user], before the K
