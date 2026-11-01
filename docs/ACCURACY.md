@@ -127,15 +127,18 @@ review I-1).
 | exp | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
 | log | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
 | log1p | ✅ 2026-10-11 † | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-10-11 |
-| expm1 | ✅ 2026-10-29 ‡ | ✅ | ✅ | ✅ | CI only ‡ | ✅ 2026-10-29 |
-| log1pmx | ✅ 2026-10-29 ‡ | ✅ | ✅ | ✅ | CI only ‡ | ✅ 2026-10-29 |
+| expm1 | ✅ 2026-10-29 ‡ | ✅ | ✅ | ✅ | ✅ 2026-10-31 ‡ | ✅ 2026-10-29 |
+| log1pmx | ✅ 2026-10-29 ‡ | ✅ | ✅ | ✅ | ✅ 2026-10-31 ‡ | ✅ 2026-10-29 |
 | exp_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
 | log_dd (internal) | ✅ 2026-07-25 | ✅ | ✅ | ✅ | ✅ 2026-10-25 | ✅ 2026-07-25 |
 
 ‡ expm1 and log1pmx (v1.2.0, #45): the x86 columns come from Z (Ryzen
 7 7445HS, AVX3_ZEN4 native, clang-cl; AVX2/SSE4/SSSE3/SSE2 by capping on
-the same silicon) and the Linux/GCC CI sweep; NEON from the macOS CI job.
-Native Kaby Lake and M1 runs are owed at the v1.2.0 freeze (PLAN.md).
+the same silicon) and the Linux/GCC CI sweep. NEON: native Mac Mini M1
+run of 2026-10-31 at `4f78527` (AppleClang 21.0.0, Highway 1.4.0,
+`CORVUS_EXPECT_TARGET=NEON`), whose ULP report equals CI run 41149000287's
+NEON job line for line. The native Kaby Lake run is owed at the v1.2.0
+freeze (PLAN.md).
 
 † The beta, digamma, trigamma, inverse-gamma, inverse-beta, Bessel, and
 v0.8.0 elementary-family (cos/sin/exp/log/log1p) x86 rows come from the

@@ -1,0 +1,170 @@
+21:12:01 quiet_bench.sh  build=/Users/wolfman/Development/corvus/build  expect=NEON  targets=4
+21:12:01 gate          : ambient < 10% over two consecutive 10s windows
+21:12:01 machine       : Apple M1; macOS 27.2
+21:12:11 ambient sample : 31.39%
+21:12:11   top consumers:
+    456.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      5.8 /System/Library/PrivateFrameworks/BackgroundTaskManagement.framework/Resources/backgroundtaskmanagementd
+      1.8 /usr/libexec/sandboxd
+      1.2 /System/Library/Frameworks/Security.framework/Versions/A/XPCServices/authd.xpc/Contents/MacOS/authd
+      0.7 /usr/libexec/locationd
+21:12:22 ambient sample : 38.84%
+21:12:22   top consumers:
+    126.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     91.5 /usr/libexec/spotlightknowledged.updater
+     34.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      1.0 /Applications/Claude.app/Contents/MacOS/Claude
+      0.9 /usr/libexec/aned
+21:12:32 ambient sample : 39.49%
+21:12:32   top consumers:
+    110.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      9.2 /sbin/launchd
+      5.5 /usr/libexec/locationd
+      1.5 /usr/libexec/airportd
+      1.3 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+21:12:43 ambient sample : 42.18%
+21:12:43   top consumers:
+    296.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      1.4 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+      0.9 /usr/libexec/locationd
+      0.6 /usr/libexec/sandboxd
+      0.2 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+21:12:53 ambient sample : 39.29%
+21:12:53   top consumers:
+    142.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      2.1 /usr/libexec/locationd
+      1.5 /Applications/iPulse.app/Contents/MacOS/iPulse
+      1.1 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+      0.6 /usr/libexec/spotlightknowledged.updater
+21:13:04 ambient sample : 44.66%
+21:13:04   top consumers:
+    302.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      1.1 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+      0.5 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+      0.4 /usr/libexec/rapportd
+      0.2 /Applications/iPulse.app/Contents/MacOS/iPulse
+21:13:14 ambient sample : 40.88%
+21:13:14   top consumers:
+    385.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      1.9 /usr/libexec/locationd
+      1.7 /usr/libexec/dasd
+      1.5 /Applications/iPulse.app/Contents/MacOS/iPulse
+      0.7 /usr/libexec/rapportd
+21:13:25 ambient sample : 38.53%
+21:13:25   top consumers:
+    390.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      1.6 /usr/libexec/sandboxd
+      0.5 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+      0.3 /usr/libexec/locationd
+      0.2 /Applications/iPulse.app/Contents/MacOS/iPulse
+21:13:35 ambient sample : 33.85%
+21:13:35   top consumers:
+    177.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      3.5 /usr/libexec/locationd
+      2.5 /Applications/iPulse.app/Contents/MacOS/iPulse
+      1.0 /usr/libexec/airportd
+      0.9 /Applications/Claude.app/Contents/MacOS/Claude
+21:13:46 ambient sample : 39.15%
+21:13:46   top consumers:
+    275.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      1.3 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.0 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+      0.4 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+      0.3 /usr/sbin/usernoted
+21:13:56 ambient sample : 41.50%
+21:13:56   top consumers:
+    140.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     25.7 /usr/libexec/locationd
+      8.2 /usr/libexec/airportd
+      3.6 /System/Library/CoreServices/MenuBarAgent.app/Contents/MacOS/MenuBarAgent
+      3.2 /Applications/WiFi Signal.app/Contents/MacOS/WiFi Signal
+21:14:06 ambient sample : 47.79%
+21:14:06   top consumers:
+    502.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      5.0 /usr/libexec/locationd
+      2.4 /usr/libexec/runningboardd
+      2.2 /System/Library/CoreServices/MenuBarAgent.app/Contents/MacOS/MenuBarAgent
+      1.6 /usr/libexec/dasd
+21:14:17 ambient sample : 41.21%
+21:14:17   top consumers:
+     98.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      5.9 /usr/libexec/locationd
+      4.4 /Applications/iPulse.app/Contents/MacOS/iPulse
+      3.7 /System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter
+      1.4 /usr/libexec/airportd
+21:14:27 ambient sample : 15.46%
+21:14:27   top consumers:
+    124.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      1.8 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+      1.0 /usr/libexec/locationd
+      0.4 /System/Library/PrivateFrameworks/DoNotDisturbServer.framework/Support/donotdisturbd
+      0.4 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+21:14:38 ambient sample : 3.35%
+21:14:48 ambient sample : 12.61%
+21:14:48   top consumers:
+     87.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     21.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+     11.2 /System/Library/PrivateFrameworks/ScreenTimeCore.framework/Versions/A/ScreenTimeAgent
+      7.7 /usr/libexec/locationd
+      6.3 /System/Applications/Photos.app/Contents/MacOS/Photos
+21:14:59 ambient sample : 14.08%
+21:14:59   top consumers:
+     99.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      1.5 /usr/libexec/locationd
+      1.2 /usr/libexec/logd
+      0.7 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+      0.3 /usr/libexec/airportd
+21:15:09 ambient sample : 15.62%
+21:15:09   top consumers:
+    100.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      2.1 /usr/libexec/locationd
+      1.6 /Applications/iPulse.app/Contents/MacOS/iPulse
+      0.8 /usr/libexec/logd
+      0.7 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+21:15:20 ambient sample : 15.28%
+21:15:20   top consumers:
+     99.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      1.4 /usr/libexec/logd
+      1.3 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+      0.7 /usr/sbin/bluetoothd
+      0.4 /usr/libexec/rapportd
+21:15:30 ambient sample : 14.89%
+21:15:30   top consumers:
+     95.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     11.8 /usr/libexec/locationd
+      3.7 /usr/libexec/airportd
+      1.5 /Applications/iPulse.app/Contents/MacOS/iPulse
+      1.5 /Applications/WiFi Signal.app/Contents/MacOS/WiFi Signal
+21:15:41 ambient sample : 18.29%
+21:15:41   top consumers:
+    100.1 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      2.4 /usr/libexec/locationd
+      1.2 /usr/libexec/airportd
+      0.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      0.7 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+21:15:51 ambient sample : 14.50%
+21:15:51   top consumers:
+    100.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      7.0 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+      3.4 /usr/libexec/locationd
+      2.7 /Applications/iPulse.app/Contents/MacOS/iPulse
+      0.9 /usr/libexec/airportd
+21:16:01 ambient sample : 15.30%
+21:16:01   top consumers:
+     69.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     19.7 /System/Library/PrivateFrameworks/PhotoLibraryServices.framework/Versions/A/Support/photolibraryd
+      9.7 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+      4.5 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+      2.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+21:16:12 ambient sample : 5.30%
+21:16:22 ambient sample : 3.12%
+21:16:22 gate passed at: 5.30 3.12%
+21:16:33 bench_gamma: noise before 3.23%  top: 3.2%launchd 1.3%Application 1.2%locationd 
+21:16:51 bench_gamma: rc=0 18s target=NEON
+21:17:01 bench_beta: noise before 9.18%  top: 11.7%loginwindow 3.7%WindowServer 3.1%locationd 
+21:17:04 bench_beta: rc=0 3s target=NEON
+21:17:14 bench_gammainv: noise before 7.25%  top: 18.5%locationd 6.0%airportd 4.0%iPulse 
+21:17:19 bench_gammainv: rc=0 5s target=NEON
+21:17:29 bench_betainv: noise before 5.62%  top: 44.5%mediaanalysisd 5.6%aned 3.4%locationd 
+21:17:44 bench_betainv: rc=0 15s target=NEON
+21:17:44 done fail=0. Raw per-target output: /Users/wolfman/Development/corvus/build/quiet_bench/quiet_bench_<target>.txt

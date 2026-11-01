@@ -8,7 +8,29 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-10-30
+## Status [DERIVED] — 2026-10-31
+
+**M1 legs of rows C1 and C3 DONE 2026-10-31 (Mac Mini M1, NEON, macOS 27.2,
+AppleClang 21.0.0, Highway 1.4.0, code `4f78527`, kernels identical to K's
+`0708fed`): gates 38/38 NEON-asserted with `CORVUS_WERROR=ON`, 0 warnings;
+the ULP report equals CI 41149000287's NEON job line for line (639 lines),
+so the lgamma and lbeta maxima match in every band; ACCURACY.md's
+expm1/log1pmx NEON cells flipped from CI-only to native (‡). Quiet A/Bs in
+PERFORMANCE.md §12.2 and §13.2 (evidence in
+docs/bench-evidence/2026-10-31-m1-{c1,c3}-ab): 7 of 12 passes met the §10
+gate (`mediaanalysisd` held the rest above 10% for 30 min each, with
+Backblaze and Time Machine paused and Spotlight indexing disabled on both
+volumes); every published row has two gated readings per variant. C1: beta
+R1 1.33x, R2 1.91x, gamma-limit 1.58x, Zen 4's ratios within 0.06x. C3:
+table band 6.92x (42.6 -> 6.2 ns/el, now 1.39x faster than Apple's arm64
+lgamma; Zen 4 2.44x, K 1.61x), reflection 1.43x, mixed 1.19x, zone 0.99x.
+Flagged under §10: lbeta main band (bimodal), gammainv deep-small p_inv.
+Both machines report: #42 and #31 are closable (runbook step 7). OPEN for
+the user: the zone reads 0.99x on the third machine with the same sign as
+Z and K, each within its own spread (§13.1's rule reopens on sign: file an
+issue with the three data sets, or record as within spread). Next: row C3b
+(#94), then row C4 (#22); remove the `../corvus-c1`/`../corvus-c3`
+worktrees on both Macs.** [DERIVED]
 
 **K legs of rows C1 and C3 DONE 2026-10-30 (Kaby Lake, AVX2, AppleClang
 15.0.0, code `0708fed` + docs commits): gates 38/38 on AVX2 native and
@@ -18,9 +40,9 @@ are bit-identical to each other. Quiet A/Bs in PERFORMANCE.md §12.1 and
 §13.1 (evidence in docs/bench-evidence/2026-10-30-kaby-{c1,c3}-ab). C1:
 beta R1 1.31x, R2 1.86x, gamma-limit 1.57x, Zen 4's ratios within 0.05x.
 C3: table band 1.61x (Zen 4 2.44x), reflection 1.32x, zone 0.99x; the
-table band is above 1.00x, so no stop-and-ask. #42 and #31 stay open for
-the M1 leg only. Next: the M1 leg of the runbook, then row C3b (#94), then
-row C4 (#22).** [DERIVED]
+table band is above 1.00x, so no stop-and-ask. ~~#42 and #31 stay open for
+the M1 leg only. Next: the M1 leg of the runbook~~ (done 2026-10-31, above),
+then row C3b (#94), then row C4 (#22).** [DERIVED]
 - The Zen 4 0.97x readings are within spread on Kaby too (zone 0.99x, lbeta
   main 0.98x, same sign); recorded in §13.1, no issue. [DECIDED 2026-10-30
   rule applied]
@@ -32,11 +54,12 @@ row C4 (#22).** [DERIVED]
   1.03-1.12x: the C3 A/B shows the same uplift against an A that already
   has lever 1, so it is #31's through gamma's lgamma prefactor.
 - The two A trees (`../corvus-c1` at `3712cc3`, `../corvus-c3` at
-  `1fe08b1`) remain as worktrees on Kaby; remove after the M1 leg.
+  `1fe08b1`) remain as worktrees on Kaby and on the M1; remove on both
+  (end-of-session cleanup).
 
 **Row C3 DONE ON Z 2026-10-30: #31 `5fef537` + `2001fc8` + `040da41`, #80
 part 2 `5612bdb`; CI 41149000287 green on all three jobs; #80 closed. #31 and
-#42 stay open for their ~~Kaby and~~ M1 legs. Z work in phase C is complete; next
+#42 ~~stay open for their Kaby and M1 legs~~ (both done; closable). Z work in phase C is complete; next
 is the runbook below, then row C3b (#94), then row C4 (#22).** [DERIVED]
 
 **PLAN review on Kaby Lake, 2026-10-30 [DECIDED, user], before the K
@@ -76,10 +99,10 @@ runbook:**
   AVX3_ZEN4, SSE4, SSE2 and CI's tiers; hunt 63,865 rows, 0 violations. Its
   bench cost is not measured.
 - Kaby gather check owed (11 gathers per vector): it may reverse the table's
-  gain on a gather-weak part, and it sizes C4 (#22). M1 owed. Recipe below.
+  gain on a gather-weak part, and it sizes C4 (#22). ~~M1 owed~~ (§13.2). Recipe below.
 
-**K and M1 runbook for #42 and #31 (`quiet_bench.sh`, macOS).** [OPEN; K
-DONE 2026-10-30, M1 owed] One
+**K and M1 runbook for #42 and #31 (`quiet_bench.sh`, macOS).** [DONE: K
+2026-10-30, M1 2026-10-31] One
 pass of it on each machine closes the native legs of rows C1 and C3. Set T,
 M and E per machine: Kaby Lake T=AVX2, M=5, E=kaby; M1 T=NEON, M=10 (the
 ratified Apple Silicon gate, PERFORMANCE.md section 10), E=m1.
@@ -150,7 +173,8 @@ three jobs; #45 closed. Next: row C3 (#31).** [DERIVED]
   std::expm1 is not CR on 15-22% of rows (max 2 ULP); log1p(x) - x
   returns 0 on 66% of tiny and 35% of series-band rows and errs up to
   ~30 ULP away from 0.
-- Owed: native Kaby Lake and M1 runs at the freeze (ACCURACY.md matrix ‡).
+- Owed: native Kaby Lake run at the freeze (ACCURACY.md matrix ‡); the M1
+  run is done (2026-10-31, ‡ flipped).
 
 **Row C1 (#42 lever 1) DONE ON Z 2026-10-29: `6027e2d` (beta R2 CF
 precision split behind a per-lane F gate), `0967994` (one LgammaDiffDd for
@@ -195,8 +219,8 @@ its promotion candidates. Next: row C2 (#45).** [DERIVED]
   reach under the accuracy contract** (gamma's prefactor alone is 29
   ns/el on 8 lanes). Told to libstats on OldCrow/libstats#156
   (2026-10-29); re-baselining its release gate is libstats' decision.
-- **Owed on M1 (NEON) and Kaby Lake (AVX2)** [OPEN]: the K and M1 runbook in
-  the current Status. The hunt and A/B tools:
+- ~~**Owed on M1 (NEON) and Kaby Lake (AVX2)**~~ DONE (K 2026-10-30 §12.1, M1
+  2026-10-31 §12.2): the K and M1 runbook in the current Status. The hunt and A/B tools:
   tests/bench_igamma_components.cpp (modes in its header).
 - libstats' adoption-branch tests hold no stored corvus bits (batch ==
   scalar plus tolerances).
@@ -2159,9 +2183,9 @@ reference rows are regenerated, and regeneration done once. Two more:
 | B2 | ~~#77 TWIN markers on every copied pair (or recorded not-a-twin); gammainv's lgamma(1+a) copy measured, then re-synced to #67's centre-2 form or reworded; ACCURACY claim twins~~ DONE 2026-10-28 (Z, `11ab298`; CI 40788554389) | lever 1 edits the region cores that are the twins | small–mid | gammainv gates re-measured | Z, CI |
 | B3 | ~~#80 part 1: erf j = 0 (dd 2/√π, single rounding); beta_q R3 gamma-limit ridge margin (pin 1.38 → ≤ 1.25, or documented)~~ DONE 2026-10-28 (Z, `9429cf3`; CI 40804958773). Part 2 waits for C3 | erf_core and beta R3 are in lever 1's and #22's files; within-bound, so it never holds the release | mid | real-error pins lowered | CI tiers |
 | B4 | ~~#68 Log1pmxDd seam at the 1/16 cut (raise `kPhiCut` or a log1p-of-small-dd path); measure consumer gates first~~ DONE 2026-10-29 (Z): measured negligible, documented, no kernel change | before C2 publishes `log1pmx` | small–mid | cut-dense rows re-pinned | Z, CI |
-| C1 | ~~#42 lever 1, per-element cost (was row 13); weigh #44's fixed-cost regions against masked early exit first~~ DONE ON Z 2026-10-29 (`6027e2d`, `0967994`; CI 40985511199); M1/K legs owed | the libstats throughput gate; after A–B | frontier | early-exit lane-mix tests | M1, K, Z |
+| C1 | ~~#42 lever 1, per-element cost (was row 13); weigh #44's fixed-cost regions against masked early exit first~~ DONE ON Z 2026-10-29 (`6027e2d`, `0967994`; CI 40985511199); K 2026-10-30 (§12.1), M1 2026-10-31 (§12.2) | the libstats throughput gate; after A–B | frontier | early-exit lane-mix tests | M1, K, Z |
 | C2 | ~~#45 export span `expm1`, `log1pmx` (was row 14)~~ DONE ON Z 2026-10-29 (`19bcff8`) | after B4; libstats adopts both in v3.0.0 | mid (new family) | generator, four gating lists + quiet_bench lists | K, M1, Z |
-| C3 | #31 lgamma table band + single reflection log (was row 15); then #80 part 2 (lbeta near (1, 1); the lbeta CR option) against the new lgamma | beta/gamma/lbeta consume lgamma; libstats' PMF lgamma routing returns when it lands | frontier | generator + regen | K, Z, M1 |
+| C3 | ~~#31 lgamma table band + single reflection log (was row 15); then #80 part 2 (lbeta near (1, 1); the lbeta CR option) against the new lgamma~~ DONE: Z 2026-10-30 (`5fef537`, `2001fc8`, `040da41`; #80 part 2 `5612bdb`; CI 41149000287), K 2026-10-30 (§13.1), M1 2026-10-31 (§13.2) | beta/gamma/lbeta consume lgamma; libstats' PMF lgamma routing returns when it lands | frontier | generator + regen | K, Z, M1 |
 | C3b | #94 beta R4 cap corner (+1.80 ulp one-signed, inside the 2-ULP cell, 0.45 ulp margin): confirm the component (suspect LgammaDiffDd's Stirling `rest`, budgeted relative to phi) and re-derive its budget against Qtilde's cancellation depth. A kernel fix lands only if it is one site and the beta / gamma-limit / lbeta real maxima hold on every runnable tier; else the issue moves to the next milestone and ACCURACY.md's R4 row states the margin | filed at A4, after the order was drafted; inside the bound, so it never holds the release | frontier (diagnosis); fix conditional | r4_cap stratum exists | Z |
 | C4 | #22 non-gather x86 (was row 17) — conditional: off the milestone if it would hold the release; a Kaby Lake quiet bench sizes it first | after #31; likely slips | frontier | tier audit | K, Z |
 | D | Release tail: `docs/PERFORMANCE.md` §4/§8.2 re-run and the quiet bench on three machines; the libstats pin note (scalar entry points replace its deducing `corvus_scalar` wrapper) in the release notes; native M1 + Kaby Lake validation at the freeze head; RELEASING.md | then libstats and libhmm bump to v1.2.0 (workplan tasks 2 and 7) | recipe | — | all three |

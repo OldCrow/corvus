@@ -1,0 +1,41 @@
+22:22:37 quiet_bench.sh  build=/Users/wolfman/Development/corvus-c3/build  expect=NEON  targets=6
+22:22:37 gate          : ambient < 10% over two consecutive 10s windows
+22:22:37 machine       : Apple M1; macOS 27.2
+22:22:48 ambient sample : 2.59%
+22:22:58 ambient sample : 25.00%
+22:22:58   top consumers:
+    199.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     11.1 /usr/libexec/locationd
+      3.4 /usr/libexec/airportd
+      1.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.3 /Applications/WiFi Signal.app/Contents/MacOS/WiFi Signal
+22:23:09 ambient sample : 15.11%
+22:23:09   top consumers:
+     75.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      1.5 /usr/libexec/locationd
+      1.2 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+      0.9 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+      0.4 /Applications/iPulse.app/Contents/MacOS/iPulse
+22:23:19 ambient sample : 15.38%
+22:23:19   top consumers:
+    100.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      2.5 /usr/libexec/locationd
+      1.5 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+      1.5 /Applications/iPulse.app/Contents/MacOS/iPulse
+      0.8 /System/Applications/Photos.app/Contents/MacOS/Photos
+22:23:30 ambient sample : 5.17%
+22:23:40 ambient sample : 3.61%
+22:23:40 gate passed at: 5.17 3.61%
+22:23:50 bench_lgamma: noise before 5.84%  top: 6.9%locationd 4.7%sandboxd 4.2%runningboardd 
+22:23:54 bench_lgamma: rc=0 4s target=NEON
+22:24:04 bench_gamma: noise before 18.41%  top: 191.5%corespotlightd 100.0%mediaanalysisd 7.9%locationd 
+22:24:23 bench_gamma: rc=0 19s target=NEON
+22:24:33 bench_beta: noise before 15.42%  top: 100.5%mediaanalysisd 0.5%locationd 0.3%iPulse 
+22:24:36 bench_beta: rc=0 2s target=NEON
+22:24:46 bench_lbeta: noise before 15.29%  top: 100.6%mediaanalysisd 8.6%locationd 2.3%airportd 
+22:24:46 bench_lbeta: rc=0 0s target=NEON
+22:24:57 bench_gammainv: noise before 18.43%  top: 100.0%mediaanalysisd 6.5%locationd 3.7%iPulse 
+22:25:01 bench_gammainv: rc=0 4s target=NEON
+22:25:12 bench_betainv: noise before 3.12%  top: 0.4%it.murus.VallumES.VES 0.2%Application 0.2%locationd 
+22:25:26 bench_betainv: rc=0 14s target=NEON
+22:25:26 done fail=0. Raw per-target output: /Users/wolfman/Development/corvus-c3/build/quiet_bench/quiet_bench_<target>.txt
