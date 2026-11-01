@@ -10,7 +10,7 @@ docs/NUMERICAL-DOCTRINE.md, not here.
 
 ## Status [DERIVED] — 2026-11-01
 
-**Row C3b, #94: fix verified, not yet committed (2026-11-01).** The corner
+**Row C3b, #94: DONE 2026-11-01, `8a6533f`, CI 41348222134 green, closed.** The corner
 error was BinetDiffDd's k = 2 term in plain double, 2^-71.1 per unit tau in
 lgamma(1+tau) at z = 10; it is now a dd with c_2's low word
 (`kBetaBinetC2Lo`, generator reproduces `beta_data.h`). All five tiers: only
@@ -19,8 +19,9 @@ R4 cells moved, all down; beta_p/beta_q R4 tiny direct max 1 ULP (real 0.52,
 tags dropped. Beta hunt 90,125 rows, 0 violations. Cost 1-2% on beta and
 lbeta, PERFORMANCE.md §14. Gate 2 -> 1 ULP, published stays 2 [DECIDED
 2026-11-01, user]: every run was on the Zen 4 box, so AVX2 and below were
-capped and NEON has not run the fix. [OPEN] Row D: raise the published R4
-tiny bound to 1 ULP if CI's native AVX2 and NEON lines read 1 ULP.
+capped and NEON had not run the fix. CI then read max 1 ULP, real 0.5241 and
+0.6138, on all three jobs, NEON included. [OPEN] Row D: raise the published R4
+tiny bound to 1 ULP (user's call; a floor for all of 1.x).
 
 **Milestones re-cut 2026-11-01 [DECIDED, user].** v1.2.0 is rows C3b (#94)
 and D. New milestone v1.3.0 holds #19 (filed need, frontier oracle) and #22
@@ -57,8 +58,8 @@ third machine (and lbeta's main band, 0.97-0.98x on Z and K) is filed as
 #96 [DECIDED 2026-11-01, user]: off every milestone, a record with the
 three data sets. Corrected 2026-11-01 on the issue: Zen 4's B was `2001fc8`,
 so its 0.97x readings come from `5fef537` alone, and the outlining commits
-change no source token off MSVC. Not worth a session now. Next: commit
-and close row C3b (#94), then row D; remove the `../corvus-c1`/`../corvus-c3`
+change no source token off MSVC. Not worth a session now. Next: row D;
+remove the `../corvus-c1`/`../corvus-c3`
 worktrees on both Macs.** [DERIVED]
 
 **K legs of rows C1 and C3 DONE 2026-10-30 (Kaby Lake, AVX2, AppleClang
