@@ -41,9 +41,12 @@ file trimmed; RELEASING.md gained the PLAN-trim, docs-pass and
 merge-to-main preconditions (5–7). Release-notes draft is in the session
 scratchpad; its content is the inputs block below plus the v1.1.0-notes
 correction (scalar overloads shipped in v1.1.0, unlisted there).
-**Next:** merge `main`'s two Dependabot bumps into `dev/v1.2.0`, merge to
-`main`, CI on the merge; then RELEASING.md from step 8 with the user; then
-the libstats and libhmm bumps (Cross-machine handshakes below).
+**Merged 2026-11-02:** version pair 1.2.0 (`2c3e686`; fresh `CORVUS_WERROR`
+build, 38/38 tier-asserted on Zen 4); PR #98 green on every job and merged
+to `main` as `148bb64`.
+**Next:** CI green on `main`, then RELEASING.md from the signed tag (step
+11) with the user; then the libstats and libhmm bumps (Cross-machine
+handshakes below).
 - [OPEN] Housekeeping: remove the `../corvus-c1` and `../corvus-c3`
   worktrees on Kaby Lake and the M1 (A trees of the C1/C3 A/Bs).
 

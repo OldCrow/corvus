@@ -27,7 +27,7 @@
     <rect x="36" y="190" width="316" height="22" rx="6" fill="#f9f8ff" stroke="#1a1a1a" stroke-width="2"/>
     <text x="194" y="205" font-size="10" font-weight="bold" fill="#000000">&lt;fn&gt;-inl.h / &lt;fn&gt;_core-inl.h — cores + per-lane drivers</text>
     <rect x="36" y="218" width="316" height="22" rx="6" fill="#f9f8ff" stroke="#1a1a1a" stroke-width="2"/>
-    <text x="194" y="233" font-size="10" font-weight="bold" fill="#000000">driver-inl.h — ONE masked loop (body + tail) + span-length assert</text>
+    <text x="194" y="233" font-size="10" font-weight="bold" fill="#000000">driver-inl.h — ONE masked loop + scalar entries + span assert</text>
     <rect x="36" y="246" width="316" height="22" rx="6" fill="#f9f8ff" stroke="#1a1a1a" stroke-width="2"/>
     <text x="194" y="261" font-size="10" font-weight="bold" fill="#000000">&lt;fn&gt;_data.h / .inc — checked-in coefficient tables</text>
 

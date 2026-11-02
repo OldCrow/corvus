@@ -33,13 +33,15 @@ instead of dragging the specials scrub's safe point (and its region core)
 into every short call (#42). `DriveScalarBinary/Ternary` are the scalar
 entry points of the incomplete gamma/beta family: one point broadcast to
 every lane, no loop, bit-identical to the span form. `active_target()`
-lives in its own tiny TU (`src/target.cpp`).
+lives in its own tiny TU (`src/target.cpp`); `src/route_census.cpp`
+records which kernel routes a test input takes and is compiled only with
+`CORVUS_ROUTE_CENSUS`.
 
 **Kernels** (`src/<fn>-inl.h`, `src/<fn>_core-inl.h`) — the per-target
 numerical code: region cores plus per-lane kernel drivers, invoked by the
-shared driver above. Coefficient and
-breakpoint tables are generated offline, checked in as `<fn>_data.*`, and
-never derived at runtime. Kernels never allocate. Every kernel documents its
+shared driver, which is per-target code too and so sits in this band in the
+diagram. Coefficient and breakpoint tables are generated offline, checked in
+as `<fn>_data.*`, and never derived at runtime. Kernels never allocate. Every kernel documents its
 approximation source and error bound at the definition site.
 
 **Double-double primitives** (`src/dd-inl.h`, `src/dd_special-inl.h`,
@@ -71,6 +73,9 @@ revalidation pass.
 - Highway headers, types, and macros never appear under `include/corvus/`.
 - Fusion is requested in source (`ops::MulAdd`); FP contraction is off
   project-wide, so the facade is also the FMA policy boundary.
+- Fast-math stays off in corvus's translation units: `CORVUS_FP_FLAGS`
+  turns it off after any parent flags, and `src/fp_guard.h` fails the
+  build if something turns it back on (#78).
 - Exact dd residuals go through capability-guarded facade ops
   (`ops::ProdLow`), because Highway emulates `MulSub` on non-FMA targets in
   a way that would silently zero the residual.
