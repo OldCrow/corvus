@@ -222,7 +222,7 @@ against 14.94×) has not recurred in these six runs (14.04–15.12 ns/el).
 
 Read a band's fast mode as its speed, and repeat a surprising reading before
 trusting it. #97 tracks the cause. Kaby Lake showed no slow mode in six
-processes; the M1 showed none at 1.50× in thirteen, but five bands step
+processes; the M1 showed none at 1.50× in thirteen, but seven bands step
 1.07–1.30× between processes with the scalar walk stepping on its own
 (§8.3).
 

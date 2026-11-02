@@ -39,7 +39,7 @@ M1 column (pass 2; pass 11 agrees within 3.5% on every band, so §10's
 two-run rule is met on the ns/el, not only the ratios; pass 1's eight
 bands outside 6% are its `corespotlightd` load, each steady in the six
 other passes; §13.2's lbeta flag did not recur in seven passes). §8.3 and
-§5: no 1.50× mode in thirteen clean processes, but five bands step
+§5: no 1.50× mode in thirteen clean processes, but seven bands step
 1.07–1.30× between processes with the scalar walk stepping on its own,
 values repeating to the hundredth; recorded for #97, which now has three
 machines' data. Evidence `docs/bench-evidence/2026-11-01-m1-v1.2.0/`
