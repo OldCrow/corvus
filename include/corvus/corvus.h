@@ -49,7 +49,7 @@ namespace corvus {
 // Must match CMakeLists.txt's project(VERSION) — enforced at configure
 // time (a mismatch is a FATAL_ERROR).
 inline constexpr int kVersionMajor = 1;
-inline constexpr int kVersionMinor = 1;
+inline constexpr int kVersionMinor = 2;
 inline constexpr int kVersionPatch = 0;
 
 /// \brief Name of the SIMD target selected by runtime dispatch.
