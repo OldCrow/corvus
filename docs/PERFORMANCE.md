@@ -39,8 +39,9 @@ The beta row ran at the 69% load peak, so its size is the least certain.
 Kaby Lake and M1 were not re-measured; the same code changes apply there.
 The §4 and §8.2 upper bounds are stale on two counts, these changes and
 #42's per-element baseline (§2). Row D's quiet full-surface pass replaced
-§4 on Zen 4 (`2f863be`, 2026-11-01); Kaby Lake and M1 are pending, and
-this note goes when they are in.
+§4 on Zen 4 (`2f863be`, 2026-11-01) and §8.2's Kaby Lake column
+(`0a3ee74`, same kernels, 2026-11-01); M1 is pending, and this note goes
+when it is in.
 
 **v1.2.0 row C1 (2026-10-29):** #42 lever 1 made `beta_p`/`beta_q` and
 their inverses faster on Zen 4; quiet A/B in §12. Gamma is unchanged.
@@ -220,7 +221,8 @@ behaviour is the leading suspect, not a finding. The v0.9.0 `i0` outlier here
 against 14.94×) has not recurred in these six runs (14.04–15.12 ns/el).
 
 Read a band's fast mode as its speed, and repeat a surprising reading before
-trusting it. #97 tracks the cause.
+trusting it. #97 tracks the cause. Kaby Lake showed no slow mode in six
+processes (§8.3).
 
 ---
 
@@ -310,34 +312,65 @@ against; the README's decision to quote no figures stands.
 
 ### 8.2 Batching gain, corvus against corvus
 
+Both columns are v1.2.0 at the freeze kernels. Kaby Lake: `0a3ee74` (kernels
+as `2f863be`), `AVX2`, AppleClang 15 Release, two full `tools/quiet_bench.sh`
+passes gated at 4.04/4.00% and 2.03/2.29% (evidence in
+`docs/bench-evidence/2026-11-01-kaby-v1.2.0/`). The column is pass 2, the
+quieter pass; pass 1 agrees within 6% on every band but four, named below.
+
 | family | upper bound (Kaby Lake, AVX2) | Zen 4 (§4) |
 |---|---|---|
-| `gamma_p` / `gamma_q` | 4.83 – 11.07× | 6.02 – 8.45× |
-| `beta_p` / `beta_q` | 3.85 – 7.95× | 6.23 – 8.05× |
-| `digamma` | 4.27 – 11.92× | 6.09 – 12.66× |
-| `trigamma` | 4.11 – 15.95× | 5.42 – 13.23× |
-| `gamma_p_inv` / `gamma_q_inv` | 3.69 – 60.73× | 3.83 – 8.07× |
-| `beta_p_inv` / `beta_q_inv` | 2.35 – 27.67× | 3.12 – 7.77× |
-| `lbeta` | 4.27× main band, 6.18× big band | 6.0×, 8.4× |
-| `erfinv` / `erfcinv` | 3.15 – 20.28× | 6.36 – 17.77× |
-| `i0` / `i1` / `i0e` / `i1e` | 4.75 – 6.49× | 6.23 – 12.17× |
+| `gamma_p` / `gamma_q` | 3.13 – 3.92× | 6.02 – 8.45× |
+| `beta_p` / `beta_q` | 3.21 – 4.02× | 6.23 – 8.05× |
+| `digamma` | 2.88 – 4.77× | 6.09 – 12.66× |
+| `trigamma` | 2.58 – 4.88× | 5.42 – 13.23× |
+| `gamma_p_inv` / `gamma_q_inv` | 2.29 – 4.03× | 3.83 – 8.07× |
+| `beta_p_inv` / `beta_q_inv` | 2.06 – 3.88× | 3.12 – 7.77× |
+| `lbeta` | 3.16× main band, 3.97× big band | 6.0×, 8.4× |
+| `erfinv` / `erfcinv` | 2.36 – 5.02× | 6.36 – 17.77× |
+| `i0` / `i1` / `i0e` / `i1e` | 2.91 – 4.53× | 6.23 – 12.17× |
 
-The Kaby Lake column is v0.9.0, against the old baseline (§2), until row D's
-Kaby leg replaces it; the Zen 4 column is v1.2.0. Until then the two do not
-compare, and the next paragraph describes v0.9.0.
+Pass 1 ran slower than pass 2 on `digamma` (0,1) up-step (SIMD 27.0 against
+24.3 ns/el, scalar unchanged), `trigamma` [2,8) down-walk and [8,2^89)
+asymptotic (54.1/20.6 against 47.9/16.7, scalar moved with it) and
+`beta_p_inv` weak-seed (5,008 against 4,528). The four §8.3 repeats read
+`digamma` and `trigamma` with pass 2 to 1%, so pass 1 is the slow reading.
+`trigamma`'s [2^89,inf) 1/x-only band is left out of the range: pass 2 read
+6.50× from a scalar walk at 108 ns/el against pass 1's 86 (4.87×), with the
+SIMD side at 16.6 in both.
 
-Roughly half of Zen 4 across the board, as the lane count predicts. The
-ordering of families and of bands within a family is preserved, so the
-structural conclusions of §4 hold on the second microarchitecture; only
-the magnitudes are lane-bound.
+Half of Zen 4 or less across the board, as the lane count predicts, and
+further below it on `digamma`, `trigamma` and the Bessel family, where the
+Zen 4 gains run to 12–13×. The ordering of families and of bands within a
+family is preserved, so the structural conclusions of §4 hold on the second
+microarchitecture; only the magnitudes are lane-bound. Against this machine's
+v0.9.0 column (4.83–11.07× down to 2.35–27.67×, old baseline), every range
+is lower for the reason §2 gives: #42 made the per-element baseline faster.
 
 ### 8.3 §5 on this machine
 
-`erfcinv` central [0.5, 1.5]: 21.27× (discarded noisy pass) / 20.28×
-(quiet pass). `i0` series band: 4.90× / 4.79×. Neither family produced an
-outlier here in two runs, under very different ambient load. That neither
-confirms nor clears §5 — two runs looked like agreement on Zen 4 too — but
-it does say the sporadic outlier is not a property of the kernels alone.
+v1.2.0 (`0a3ee74`, 2026-11-01): the two full passes plus four repeats of
+`bench_digamma bench_trigamma bench_erfinv bench_bessel`, six fresh processes,
+all gated (evidence as §8.2, `rep1`–`rep4`). §5's three bands (SIMD ns/el):
+
+| band | six readings | slow/fast |
+|---|---|---:|
+| `digamma` (0,1) up-step | 27.03, 24.27, 24.26, 24.27, 24.34, 24.27 | 1.11× |
+| `trigamma` (0,1) up-step | 30.63, 29.07, 29.06, 29.06, 29.06, 29.06 | 1.05× |
+| `i0` series | 42.87, 40.76, 52.80, 40.67, 40.75, 40.67 | 1.30× |
+
+No 1.50× mode. The `digamma` 1.11× is pass 1, which ran slow across
+`digamma` and `trigamma` (§8.2). The `i0` 52.80 is repeat 1, whose gate
+sampled 10.7% (`contactsd`) just before the Bessel bench and whose scalar
+walk moved with it (235 against 185 ns/el, and the tail bands up to 1.45×):
+ambient, not §5, which holds the scalar walk. The other three repeats agree
+with pass 2 to 0.3% on all three bands. On Zen 4 the slow mode appeared in
+1–2 of 6 processes; six here showed none. That does not clear §5 on Kaby
+Lake, and it says nothing about the cause.
+
+v0.9.0 (2026-08-23): `erfcinv` central [0.5, 1.5]: 21.27× (discarded noisy
+pass) / 20.28× (quiet pass). `i0` series band: 4.90× / 4.79×. Neither family
+produced an outlier here in two runs, under very different ambient load.
 
 ---
 

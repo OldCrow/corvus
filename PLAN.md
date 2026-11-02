@@ -18,17 +18,23 @@ read with `i0`/`i0e`. §5 is now a finding without a cause: three bands read
 1.50× slower in 1-2 of 6 fresh processes. Decided 2026-11-01: v1.2.0 does not
 wait for the cause; #97 (v1.3.0) owns it (leading suspect: buffer addresses, so
 it may reach real callers).
-Next, K and M1 legs, from `git pull` on `dev/v1.2.0`:
-1. Release build; every gate under `CORVUS_EXPECT_TARGET` (AVX2 native and
-   SSE4/SSSE3/SSE2 capped on K, NEON on M1), `CORVUS_WERROR=ON`. Confirm
-   beta/R4 tiny direct max 1 ULP, real 0.5241/0.6138: the published bound
-   fell to 1 on this.
+K leg DONE 2026-11-01 (`0a3ee74`, kernels as the freeze head): Release with
+`CORVUS_WERROR=ON`, 38/38 tier-asserted on AVX2 native and SSE4/SSSE3/SSE2
+capped, 0 warnings; every CI 41348222134 AVX2 report line reproduced; beta R4
+tiny direct max 1 ULP, real 0.5241/0.6138, on all four tiers; the three no-FMA
+tiers bit-identical on every gate line. Two full gated passes (4.0/4.0%,
+2.0/2.3%) plus four repeats; §8.2's Kaby column replaced, §8.3 restated. §5's
+1.50× modes did not appear in six processes; the two readings above 1.10×
+are a slow first pass and an ambient spike (`contactsd`) that moved the
+scalar walk too. Evidence `docs/bench-evidence/2026-11-01-kaby-v1.2.0/`.
+Next, the M1 leg, from `git pull` on `dev/v1.2.0`:
+1. Release build; every gate under `CORVUS_EXPECT_TARGET=NEON`,
+   `CORVUS_WERROR=ON`. Confirm beta/R4 tiny direct max 1 ULP, real
+   0.5241/0.6138: the published bound fell to 1 on this.
 2. `tools/quiet_bench.sh`, default targets, twice, then four repeats of
    `bench_digamma bench_trigamma bench_erfinv bench_bessel`. Allow for
-   `mediaanalysisd` on the M1 (§10). Evidence in
-   `docs/bench-evidence/<date>-{kaby,m1}-v1.2.0/`.
-3. Replace §8.2's Kaby column and add an M1 column; say whether §5's
-   1.50× modes appear there.
+   `mediaanalysisd` (§10). Evidence in `docs/bench-evidence/<date>-m1-v1.2.0/`.
+3. Add §8.2's M1 column; say whether §5's 1.50× modes appear there.
 Then: README performance paragraph, status note, merge `main`'s two dependabot
 bumps, RELEASING.md with the user, libstats and libhmm bumps.
 

@@ -1,0 +1,28 @@
+corvus active SIMD target: AVX2
+betainv, deep-small closed form: n=4001  membership: deep=100%
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        1073.40        5850.34        4165.48      3.88x
+betainv, R1-tiny deep target: n=4001  membership: deep=98% rest=2%
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        1835.17        5662.21        4380.28      2.39x
+betainv, moderate weak-seed band: n=4001  membership: deep=12% rest=88%
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        4527.59        7386.79       14678.23      3.24x
+betainv, ridge (Temme): n=4001  membership: ridge=79% gammaLim=21%
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001       16295.69       16626.15       58336.58      3.58x
+betainv, skewed (CF): n=4001  membership: ridge=54% gammaLim=32% rest=14%
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001       17273.01       21060.83       35630.25      2.06x
+betainv, gamma-limit transfer: n=4001  membership: gammaLim=100%
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001       17425.38       22883.45       39531.76      2.27x
+betainv, joint-tiny plateau: n=4001  membership: deep=54% plateau=46%
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        1827.72        1814.54        5311.21      2.91x
+betainv, beyond resolution: n=4001  membership: hugeNu=100%
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001       16539.67       16556.50       58918.12      3.56x
+betainv, large-side input (flip): n=4001  membership: ridge=28% rest=72%
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        6956.92        6979.66       21237.32      3.05x

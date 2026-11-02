@@ -1,0 +1,22 @@
+corvus active SIMD target: AVX2
+gammainv, deep-small closed form: n=40001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+     40001         161.25        2818.73         606.15      3.76x
+gammainv, small-a mid band: n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        2548.07        3724.51        8508.09      3.34x
+gammainv, small-a deep tail: n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        1771.14        2434.07        4190.97      2.37x
+gammainv, a >= a_T ridge: n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        2592.49        2587.83       10064.49      3.88x
+gammainv, a >= a_T deep tail: n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        4177.98        3054.84        9326.86      2.23x
+gammainv, beyond resolution: n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        2519.78        2511.67       10037.70      3.98x
+gammainv, large-side input (flip): n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        3616.52        2511.92        8824.34      2.44x

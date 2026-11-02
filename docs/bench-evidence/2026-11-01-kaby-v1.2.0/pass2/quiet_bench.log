@@ -1,0 +1,37 @@
+18:22:40 quiet_bench.sh  build=/Users/wolfman/Development/corvus/.claude/worktrees/corvus-v1-2-0-review-3728c2/build  expect=AVX2  targets=15
+18:22:40 gate          : ambient < 5% over two consecutive 10s windows
+18:22:40 machine       : Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz; macOS 13.7.8
+18:22:50 ambient sample : 2.03%
+18:23:01 ambient sample : 2.29%
+18:23:01 gate passed at: 2.03 2.29%
+18:23:12 bench_erf: noise before 2.47%  top: 4.2%bluetoothd 1.4%sandboxd 0.9%opendirectoryd 
+18:23:12 bench_erf: rc=0 0s target=AVX2
+18:23:23 bench_erfc: noise before 1.50%  top: 4.8%Application 1.2%trustd 0.7%runningboardd 
+18:23:25 bench_erfc: rc=0 2s target=AVX2
+18:23:36 bench_lgamma: noise before 2.07%  top: 1.5%Application 1.3%bluetoothd 1.0%opendirectoryd 
+18:23:40 bench_lgamma: rc=0 4s target=AVX2
+18:23:50 bench_erfinv: noise before 1.70%  top: 3.1%bluetoothd 1.1%sharingd 0.7%rapportd 
+18:23:55 bench_erfinv: rc=0 5s target=AVX2
+18:24:06 bench_gamma: noise before 2.28%  top: 0.9%Application 0.6%sysmond 0.4%opendirectoryd 
+18:24:28 bench_gamma: rc=0 22s target=AVX2
+18:24:38 bench_beta: noise before 2.56%  top: 7.6%airportd 2.6%WiFiAgent 2.5%WindowServer 
+18:24:41 bench_beta: rc=0 3s target=AVX2
+18:24:52 bench_digamma: noise before 3.34%  top: 44.1%NewsToday2 4.4%Application 2.4%Application 
+18:24:52 bench_digamma: rc=0 0s target=AVX2
+18:25:02 bench_trigamma: noise before 2.14%  top: 2.4%Application 1.9%bluetoothd 0.5%launchservicesd 
+18:25:03 bench_trigamma: rc=0 1s target=AVX2
+18:25:13 bench_gammainv: noise before 1.50%  top: 19.8%mdworker_shared 1.3%mds 1.0%launchd 
+18:25:20 bench_gammainv: rc=0 7s target=AVX2
+18:25:31 bench_betainv: noise before 2.01%  top: 7.2%sandboxd 1.3%trustd 1.3%tccd 
+18:25:47 bench_betainv: rc=0 16s target=AVX2
+18:25:58 bench_bessel: noise before 2.01%  top: 1.0%bluetoothd 0.4%distnoted 0.4%distnoted 
+18:25:58 bench_bessel: rc=0 0s target=AVX2
+18:26:09 bench_lbeta: noise before 2.36%  top: 2.2%bluetoothd 1.2%Application 0.9%ps 
+18:26:09 bench_lbeta: rc=0 0s target=AVX2
+18:26:20 bench_trig: noise before 4.90%  top: 100.0%biomesyncd 1.8%Application 1.3%bluetoothd 
+18:26:21 bench_trig: rc=0 1s target=AVX2
+18:26:32 bench_exp: noise before 17.02%  top: 99.4%biomesyncd 54.6%mds_stores 27.2%mds 
+18:26:32 bench_exp: rc=0 0s target=AVX2
+18:26:43 bench_log: noise before 17.31%  top: 25.5%mds 2.1%mds_stores 2.1%sandboxd 
+18:26:45 bench_log: rc=0 2s target=AVX2
+18:26:45 done fail=0. Raw per-target output: /Users/wolfman/Development/corvus/.claude/worktrees/corvus-v1-2-0-review-3728c2/build/quiet_bench/quiet_bench_<target>.txt
