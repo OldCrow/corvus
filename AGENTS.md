@@ -3,8 +3,8 @@
 C++20 library of SIMD-vectorized statistical special functions (erf/erfc
 and inverses, lgamma, lbeta, digamma/trigamma, incomplete gamma/beta and
 their inverses, Bessel I0/I1 with scaled variants, and the elementary
-family exp/log/log1p/cos/sin — full-double-range, accuracy-first) with
-runtime multi-target dispatch via Google Highway.
+family exp/expm1/log/log1p/log1pmx/cos/sin — full-double-range,
+accuracy-first) with runtime multi-target dispatch via Google Highway.
 Design goals: audited accuracy (documented ULP bounds per kernel per
 target), clean-room provenance (MIT), swappable SIMD backend. Fills the
 gap between SLEEF/Highway-contrib transcendentals and SciPy-level
@@ -37,11 +37,10 @@ any visible way.
   change set as any kernel or gate change.
 - Performance numbers → `docs/PERFORMANCE.md`. MEASURED on three
   machines (its own status line), but not the same standing as
-  ACCURACY.md: two families (§5) are not yet reproducible, and rows marked
-  stale await the next quiet bench. Never quote it as an accuracy claim,
-  and never compare ratios across different libms — only erf/erfc/lgamma
-  are timed against a libm; the rest are corvus against corvus called per
-  element.
+  ACCURACY.md: some bands (§5) read in two speed modes. Never quote it as
+  an accuracy claim, and never compare ratios across different libms —
+  only erf/erfc/lgamma and the elementary family are timed against a
+  libm; the rest are corvus against corvus called per element.
 - Anything user-facing — examples, API advice, explaining a bound to a
   consumer → `docs/USER-GUIDE.md` (what corvus does/does not provide,
   the returned-vs-composed accuracy rule, pair-selection rules of thumb).
@@ -58,7 +57,8 @@ any visible way.
   moved; file names in it are examples, not an inventory.
 
 ## Architecture
-- `include/corvus/corvus.h` — public API: `std::span` in/out, std-only,
+- `include/corvus/corvus.h` — public API: `std::span` in/out, plus
+  scalar entry points for the incomplete gamma/beta family; std-only,
   Doxygen. Highway never appears in public headers.
 - `src/ops-inl.h` — the ~40-op SIMD facade; the ONLY file allowed to touch
   `hn::`. All kernels are written against `ops::` (aliased `op::` inside
@@ -72,7 +72,8 @@ any visible way.
   section with `HWY_EXPORT` + public dispatch wrapper. The loop itself
   lives in `src/driver-inl.h` (`DriveUnary/Binary/Ternary` — one masked
   full-vector+tail shape plus the debug span-length assert); each Impl
-  is a one-line forwarder into it.
+  is a one-line forwarder into it; `DriveScalarBinary/Ternary` serve the
+  scalar entry points.
 - `src/dd-inl.h` / `src/dd_special-inl.h` / `src/<fn>_dd-inl.h` —
   double-double primitives, shared dd specials (Log1pmxDd/Expm1Dd), and
   corvus-owned transcendental cores (exp_dd/log_dd, mantissa+exponent
@@ -144,7 +145,7 @@ capping recipes, sweep scripts: `docs/ENVIRONMENT.md`.
 
 ## Conventions
 - Public/non-SIMD code: snake_case functions, CamelCase types (house
-  style). Public function names (#34, ratified 2026-09-01): use the
+  style). Public function names: use the
   established cross-library name where one exists (erfinv, erfcinv);
   otherwise corvus's own base name + `_inv` for inverses (gamma_p_inv).
   Where both rules apply, the established name wins. Kernel code and the facade follow Highway idiom — CamelCase

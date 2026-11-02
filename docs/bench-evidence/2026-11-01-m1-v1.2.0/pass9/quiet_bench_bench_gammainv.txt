@@ -1,0 +1,22 @@
+corvus active SIMD target: NEON
+gammainv, deep-small closed form: n=40001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+     40001         149.51        2994.55         299.59      2.00x
+gammainv, small-a mid band: n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        2931.10        3751.22        5298.37      1.81x
+gammainv, small-a deep tail: n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        1700.95        3013.01        2474.24      1.45x
+gammainv, a >= a_T ridge: n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        3139.95        3144.82        6246.18      1.99x
+gammainv, a >= a_T deep tail: n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        4100.03        3561.44        5806.33      1.42x
+gammainv, beyond resolution: n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        3088.00        3090.68        6152.20      1.99x
+gammainv, large-side input (flip): n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        3725.37        2922.02        5626.72      1.51x

@@ -83,7 +83,7 @@ import mpmath as mp
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(REPO, "tools"))
 import gen_gammainv_data as g1data  # noqa: E402
-from refgen_common import round_to_double  # noqa: E402  (single-rounding mpf->double;
+from refgen_common import TIE_DPS, TIE_RESOLVE, round_to_double  # noqa: E402  (single-rounding mpf->double;
 # see refgen_common.py's own docstring: float(mpf) double-rounds in the
 # subnormal band.)
 
@@ -482,18 +482,35 @@ def certify_deep_small(a, p, dps, xd_override=None):
         if xd == 0.0:
             boundary = mp.mpf(MIN_SUBNORMAL) / 2
             certified = (lx0 + bound) < mp.log(boundary)
-            return {"xd": 0.0, "certified": bool(certified), "lx0": lx0,
-                     "bound": bound, "note": "round-to-zero"}
-        lo_d = math.nextafter(xd, -math.inf)
-        hi_d = math.nextafter(xd, math.inf)
-        xd_m = mp.mpf(xd)
-        lo_mid = (xd_m + mp.mpf(lo_d)) / 2 if lo_d > 0 else mp.mpf(lo_d) / 2
-        hi_mid = (xd_m + mp.mpf(hi_d)) / 2
-        ln_lo = mp.log(lo_mid) if lo_mid > 0 else mp.mpf(-1e30)
-        ln_hi = mp.log(hi_mid)
-        certified = (ln_lo < lx0 - bound) and (lx0 + bound < ln_hi)
-        return {"xd": xd, "certified": bool(certified), "lx0": lx0,
-                 "bound": bound, "ln_lo": ln_lo, "ln_hi": ln_hi}
+            out = {"xd": 0.0, "certified": bool(certified), "lx0": lx0,
+                   "bound": bound, "note": "round-to-zero"}
+            # log-width of the cell above 0: (2^-1075, 3 * 2^-1075)
+            gap, width = mp.log(boundary) - (lx0 + bound), mp.log(3)
+        else:
+            lo_d = math.nextafter(xd, -math.inf)
+            hi_d = math.nextafter(xd, math.inf)
+            xd_m = mp.mpf(xd)
+            # #89: xd = 2^-1074 has lo_d = 0 and lower midpoint 2^-1075; the
+            # old `lo_d > 0` test made it 0, so a root at 2^-1075 passed.
+            lo_mid = (xd_m + mp.mpf(lo_d)) / 2
+            hi_mid = (xd_m + mp.mpf(hi_d)) / 2
+            ln_lo = mp.log(lo_mid)
+            ln_hi = mp.log(hi_mid)
+            certified = (ln_lo < lx0 - bound) and (lx0 + bound < ln_hi)
+            out = {"xd": xd, "certified": bool(certified), "lx0": lx0,
+                   "bound": bound, "ln_lo": ln_lo, "ln_hi": ln_hi}
+            gap = min(abs(lx0 - bound - ln_lo), abs(ln_hi - lx0 - bound))
+            width = ln_hi - ln_lo
+        # #89: an interval edge within TIE_RESOLVE cells of a midpoint is a
+        # near-tie the strict test decides on rounding noise. Re-certify at
+        # TIE_DPS; still that close there -> not certified (declined; an
+        # exact rational tie lands here deliberately: unresolved means drop).
+        if abs(gap) <= TIE_RESOLVE * width:
+            if dps < TIE_DPS:
+                return certify_deep_small(a, p, TIE_DPS, xd_override=xd)
+            if abs(gap) <= mp.mpf(10) ** -(TIE_DPS - 40) * width:
+                out["certified"] = False
+        return out
 
 
 # ============================================================================
@@ -517,19 +534,92 @@ def _sign(v):
     return 1 if v > 0 else (-1 if v < 0 else 0)
 
 
+def _value_tie_dps(a, side, mid, fit):
+    """#89: the forward at mid at TIE_DPS, or None for a > A_SWITCH: the
+    Temme fits carry fixed accuracy whatever the dps."""
+    if mp.mpf(a) > A_SWITCH:
+        return None
+    with mp.workdps(TIE_DPS):
+        P, Q = oracle_pq(a, mid, fit, TIE_DPS)
+        return P if side == "p" else Q
+
+
+def _tie_sign(v4, t, span):
+    """#89: sign of v4 - t at TIE_DPS; 0 when v4 is None or still within
+    10^-(TIE_DPS-40) of the cell's forward span. An exact rational tie
+    stays 0 and is declined deliberately: unresolved means drop."""
+    if v4 is None or span == 0:
+        return 0
+    with mp.workdps(TIE_DPS):
+        f = v4 - t
+        if abs(f) <= mp.mpf(10) ** -(TIE_DPS - 40) * span:
+            return 0
+        return _sign(f)
+
+
 def bracket_signs(a, target, side, xd, dps, fit):
+    """(slo, shi, tied): signs of forward - target at xd's two half-ulp
+    midpoints; 0 means a near-tie unresolved at TIE_DPS (#89), which never
+    certifies. tied: some sign came from a TIE_DPS re-sign."""
     lo_d = math.nextafter(xd, -math.inf)
     hi_d = math.nextafter(xd, math.inf)
     with mp.workdps(dps):
         xd_m = mp.mpf(xd)
-        lo_mid = (xd_m + mp.mpf(lo_d)) / 2 if lo_d > 0 else mp.mpf(lo_d) / 2
+        lo_mid = (xd_m + mp.mpf(lo_d)) / 2  # #89: 2^-1075 at xd = 2^-1074
         hi_mid = (xd_m + mp.mpf(hi_d)) / 2
         t = mp.mpf(target)
         Plo, Qlo = oracle_pq(a, lo_mid, fit, dps)
         Phi, Qhi = oracle_pq(a, hi_mid, fit, dps)
         flo = (Plo if side == "p" else Qlo) - t
         fhi = (Phi if side == "p" else Qhi) - t
-    return _sign(flo), _sign(fhi)
+        span = abs(fhi - flo)
+        slo, shi = _sign(flo), _sign(fhi)
+        tied = False
+        if span == 0 or (slo == 0 and shi == 0):
+            # #89: a forward flat across the cell at this dps (Q = 1 - P
+            # cancelling for a ~ 1e-63) says nothing: re-sign both
+            # midpoints at TIE_DPS, the span measured there too.
+            v4lo = _value_tie_dps(a, side, lo_mid, fit)
+            v4hi = _value_tie_dps(a, side, hi_mid, fit)
+            span4 = 0 if v4lo is None or v4hi is None else abs(v4hi - v4lo)
+            slo, shi, tied = _tie_sign(v4lo, t, span4), _tie_sign(v4hi, t, span4), True
+        else:
+            if abs(flo) <= TIE_RESOLVE * span:
+                slo = _tie_sign(_value_tie_dps(a, side, lo_mid, fit), t, span)
+                tied = True
+            if abs(fhi) <= TIE_RESOLVE * span:
+                shi = _tie_sign(_value_tie_dps(a, side, hi_mid, fit), t, span)
+                tied = True
+    return slo, shi, tied
+
+
+def certify_zero_q(a, s, dps, fit):
+    """q side, xd = 0.0: the root lies below 2^-1075 iff Q(a, 2^-1075) < s
+    (Q falls in x). certify_deep_small is the P closed form and does not
+    apply to Q targets; it accepted 0.0 for q rows whose root is a whole
+    2^-1074 cell up. Near-tie / flat forward: re-signed at TIE_DPS (#89);
+    unresolved, an exact tie included, is declined."""
+    m = mp.mpf(2) ** -1075
+    with mp.workdps(dps):
+        t = mp.mpf(s)
+        f = oracle_pq(a, m, fit, dps)[1] - t
+        span = abs(oracle_pq(a, 3 * m, fit, dps)[1] - t - f)
+        sg = _sign(f)
+        if span == 0 or sg == 0 or abs(f) <= TIE_RESOLVE * span:
+            v4 = _value_tie_dps(a, "q", m, fit)
+            v43 = _value_tie_dps(a, "q", 3 * m, fit)
+            span4 = 0 if v4 is None or v43 is None else abs(v43 - v4)
+            sg = _tie_sign(v4, t, span4)
+    return sg < 0
+
+
+def tie_step(side, slo, shi):
+    """#89: +1 / -1 when TIE_DPS signs agree (both midpoints on one side
+    of the root, the candidate a whole cell off), naming the neighbour
+    they point to; 0 otherwise. P rises in x, Q falls."""
+    if slo != shi or slo == 0:
+        return 0
+    return -slo if side == "p" else slo
 
 
 def certify_beyond_resolution(a, target, side, xd, dps, fit):
@@ -573,15 +663,26 @@ def certify_row(a, s, side, fit1, fit2, dps_layers=(60, 100), seed_hint=None,
     if not (math.isfinite(xd) and xd >= 0):
         return {"xd": xd, "certified": False, "method": "non-finite-xd"}
     if xd == 0.0:
-        layer_results = [certify_deep_small(a, s, dps)["certified"] for dps in dps_layers]
+        # #89: certify 0.0 itself -- a tie step can land here. p side: the
+        # closed form with xd_override (it used to check round(x0), not the
+        # candidate); q side: the forward sign at 2^-1075.
+        if side == "q":
+            layer_results = [certify_zero_q(a, s, dps, fit1) for dps in dps_layers]
+        else:
+            layer_results = [certify_deep_small(a, s, dps, xd_override=0.0)["certified"]
+                             for dps in dps_layers]
         return {"xd": 0.0, "certified": all(layer_results), "method": "deep-small-zero",
                  "layers": layer_results}
 
     layer_results = []
+    step = 0
     for dps in dps_layers:
-        slo, shi = bracket_signs(a, s, side, xd, dps, fit1)
-        ok = (slo != shi and slo != 0 and shi != 0) or slo == 0 or shi == 0
+        slo, shi, tied = bracket_signs(a, s, side, xd, dps, fit1)
+        # #89: a zero sign is an unresolved near-tie -- no longer accepted.
+        ok = slo != shi and slo != 0 and shi != 0
         layer_results.append(ok)
+        if tied and not step:
+            step = tie_step(side, slo, shi)
     bracket_ok = all(layer_results)
 
     beyond_res = False
@@ -594,10 +695,21 @@ def certify_row(a, s, side, fit1, fit2, dps_layers=(60, 100), seed_hint=None,
                 N_BEYOND_RESOLUTION[0] += 1
                 break
 
+    if not bracket_ok and step and x_hint is None:
+        # #89: TIE_DPS signs put the root a whole cell off xd. Step ONCE to
+        # the neighbour they name and run the full certification on it
+        # (x_hint: no further step); it passes or the row is declined.
+        # Never for x_hint calls -- negative controls certify their value.
+        nb = math.nextafter(xd, math.inf if step > 0 else -math.inf)
+        r = certify_row(a, s, side, fit1, fit2, dps_layers, x_hint=nb,
+                        route2_dps=route2_dps)
+        r["method"] = r["method"] + "-tie-step"
+        return r
+
     route2_ok = None
     if a_m >= HUGE_A_THRESHOLD:
-        slo2, shi2 = bracket_signs(a, s, side, xd, route2_dps, fit2)
-        route2_ok = (slo2 != shi2 and slo2 != 0 and shi2 != 0) or slo2 == 0 or shi2 == 0
+        slo2, shi2, _tied2 = bracket_signs(a, s, side, xd, route2_dps, fit2)
+        route2_ok = slo2 != shi2 and slo2 != 0 and shi2 != 0  # #89: as above
         if not route2_ok and beyond_res:
             route2_ok = certify_beyond_resolution(a, s, side, xd, 150, fit2)
 
@@ -964,7 +1076,8 @@ def compute_all(ps, fit1, fit2, ckpt_path=None, sig_tag="v1", seed_label=None):
     ckpt_path = CKPT_PATH if ckpt_path is None else ckpt_path
     seed_label = SEED if seed_label is None else seed_label
     total = len(ps.pts)
-    sig = f"{sig_tag}-{points_digest(ps)} SEED={seed_label} N={total}"
+    # -t89: rows certified before the #89 tie rule are not reused.
+    sig = f"{sig_tag}-t89-{points_digest(ps)} SEED={seed_label} N={total}"
     done_map = load_checkpoint(ckpt_path, sig)
     print(f"  checkpoint: {len(done_map)}/{total} points already computed "
           f"({ckpt_path})", file=sys.stderr)

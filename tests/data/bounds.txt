@@ -6,8 +6,7 @@
 #   published  the contract the docs state (README, USER-GUIDE, corvus.h,
 #              ACCURACY.md); published >= gate unless an issue is named
 #   claim      the claim id the docs mark with `claim: <id>`
-#   issue      an open issue that tracks a known mismatch (#76: false
-#              "correctly rounded" claims, corrected in row 12j)
+#   issue      an open issue that tracks a known mismatch
 # tools/claims_check.py checks the table against the docs; a gate change
 # edits the gate field here, a contract change edits published and the docs.
 beta_p|R1 series cmp|ulp|1|1|beta.R1
@@ -21,7 +20,7 @@ beta_p|R3 temme  dir|ulp|1|3|beta.R3.dir
 beta_p|R4 postrt cmp|ulp|0|0|beta.R4.cmp
 beta_p|R4 postrt dir|ulp|1|1|beta.R4pr.dir
 beta_p|R4 tiny   cmp|ulp|0|0|beta.R4.cmp
-beta_p|R4 tiny   dir|ulp|2|2|beta.R4.dir
+beta_p|R4 tiny   dir|ulp|1|1|beta.R4.dir
 beta_p_inv|B rows (neighbour semantics)|ulp|2|2|betainv.B
 beta_p_inv|deep-small closed form|ulp|1|1|betainv
 beta_p_inv|gamma-limit transfer|ulp|1|1|betainv
@@ -39,7 +38,7 @@ beta_q|R3 temme  dir|ulp|1|3|beta.R3.dir
 beta_q|R4 postrt cmp|ulp|0|0|beta.R4.cmp
 beta_q|R4 postrt dir|ulp|1|1|beta.R4pr.dir
 beta_q|R4 tiny   cmp|ulp|0|0|beta.R4.cmp
-beta_q|R4 tiny   dir|ulp|2|2|beta.R4.dir
+beta_q|R4 tiny   dir|ulp|1|1|beta.R4.dir
 beta_q_inv|B rows (neighbour semantics)|ulp|2|2|betainv.B
 beta_q_inv|deep-small closed form|ulp|1|1|betainv
 beta_q_inv|gamma-limit transfer|ulp|1|1|betainv
@@ -66,6 +65,8 @@ erfinv|C|ulp|1|1|erfinv
 erfinv|T|ulp|1|1|erfinv
 exp|normal|ulp|0|0|exp.normal
 exp|subnormal|ulp|1|1|exp.subnormal
+expm1|series|ulp|0|0|expm1
+expm1|exp|ulp|0|0|expm1
 gamma_p|R1 series dir|ulp|1|1|gamma.R1
 gamma_p|R2 cf     cmp|ulp|0|1|gamma.R2
 gamma_p|R3 temme  cmp|ulp|1|1|gamma.R3.cmp
@@ -104,9 +105,10 @@ i1e|pos series|ulp|1|1|bessel
 i1e|pos tail|ulp|1|1|bessel
 lbeta|big band|ulp|1|1|lbeta.relative
 lbeta|relative|ulp|1|1|lbeta.relative
+lbeta|unit line|ulp|0|0|lbeta.unit
 lgamma|neg abs(lg)>=1|ulp|1|1|lgamma.neg
 lgamma|pos big|ulp|0|0|lgamma.stirling
-lgamma|pos mid|ulp|1|1|lgamma.pos
+lgamma|pos mid|ulp|0|0|lgamma.table
 lgamma|pos small|ulp|1|1|lgamma.pos
 lgamma|pos zone|ulp|1|1|lgamma.pos
 log|general|ulp|0|0|log
@@ -115,6 +117,10 @@ log|subnormal-in|ulp|0|0|log
 log1p|corner|ulp|0|0|log
 log1p|general|ulp|0|0|log
 log1p|near-0|ulp|0|0|log
+log1pmx|tiny|ulp|0|0|log1pmx
+log1pmx|series|ulp|0|0|log1pmx
+log1pmx|direct-neg|ulp|0|0|log1pmx
+log1pmx|direct-pos|ulp|0|0|log1pmx
 sin|neg huge|ulp|1|1|trig
 sin|neg small|ulp|1|1|trig
 sin|pos huge|ulp|1|1|trig

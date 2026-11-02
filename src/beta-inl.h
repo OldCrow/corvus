@@ -123,6 +123,13 @@ namespace op = ops;
 // full fixed cap (64 for R1, 48 for R4) instead of stopping early.
 inline constexpr double kBetaFreezeEps = 0x1.0p-105;
 
+// BetaR2Cf's precision split (#42 lever 1): the last kBetaCfDdSteps steps run
+// in dd, the deeper ones in double, on lanes whose F = 1/f is below
+// kBetaCfMixedFMax; the others take the all-dd recurrence. Both from the hunt
+// recorded at BetaR2Cf (16 steps: <= 0.0012 ulp below F = 2^4).
+inline constexpr int kBetaCfDdSteps = 16;
+inline constexpr double kBetaCfMixedFMax = 16.0;
+
 // R3 core/tail split, exact: cpsi = 25 <=> z = sqrt(cpsi) = 5 (#70). The core
 // consumes erfc's ErfcCoreDd, whose 1 - erf form of erfc carries ~1 ulp of
 // erfc at z = 6 (gamma's twin read 2.5 ulp at the old split, cpsi = 36); at
@@ -191,12 +198,9 @@ inline constexpr double kBetaGlTCap = 4e306;
 // carry any z > 0 into [Z0, Z0+1) with Z0 = 10.
 inline constexpr int kBetaWalkSteps = 10;
 
-// 2*pi, 1/sqrt(pi) and ln(2*pi) as dd pairs. Same bit patterns as
-// src/gamma_data.h's kGammaTwoPi*/kGammaInvSqrtPi*; repeated here rather than
-// included because beta deliberately does not depend on gamma's TU.
-inline constexpr double kBetaTwoPiHi = 0x1.921fb54442d18p+2;
-inline constexpr double kBetaTwoPiLo = 0x1.1a62633145c07p-52;
-inline constexpr double kBetaInvSqrtPiHi = 0x1.20dd750429b6dp-1;
+// ln(2*pi) as a dd pair. 2*pi and 1/sqrt(pi) come from src/gamma_data.h
+// (detail::kGammaTwoPi*, kGammaInvSqrtPiHi), which reaches this file through
+// gamma-inl.h (#81 L-21: the copies here duplicated them bit for bit).
 inline constexpr double kBetaLnTwoPiHi = 0x1.d67f1c864beb5p+0;
 inline constexpr double kBetaLnTwoPiLo = -0x1.65b5a1b7ff5dfp-54;
 
@@ -242,7 +246,7 @@ HWY_INLINE Dd<D> DdSub(D d, Dd<D> a, Dd<D> b) {
 // every lane with 2^-900 <= |b.hi| <= 2^900 multiplies by 1.0:
 // bit-identical there.
 template <class D>
-HWY_INLINE Dd<D> DdDivDd(D d, Dd<D> a, Dd<D> b) {
+CORVUS_OUTLINE Dd<D> DdDivDd(D d, Dd<D> a, Dd<D> b) {
   const auto one = op::Set(d, 1.0);
   const auto ab = op::Abs(b.hi);
   CORVUS_ROUTE(d, "beta/dddiv/scale_down",
@@ -306,7 +310,7 @@ HWY_INLINE Dd<D> Log1pDdWide(D d, Dd<D> w) {
 // taken down by an exact power of two (both terms of the sum alike) and the
 // product scaled back.
 template <class D>
-HWY_INLINE Dd<D> BetaGlT(D d, op::V<D> huge, op::V<D> ss, Dd<D> w, Dd<D> lv) {
+CORVUS_OUTLINE Dd<D> BetaGlT(D d, op::V<D> huge, op::V<D> ss, Dd<D> w, Dd<D> lv) {
   const auto small_w = op::Lt(w.hi, op::Set(d, 0.5));
   CORVUS_ROUTE(d, "beta/GL/w_large", op::MaskNot(small_w));
   const auto l1p = Log1pDdWide(
@@ -324,6 +328,11 @@ HWY_INLINE Dd<D> BetaGlT(D d, op::V<D> huge, op::V<D> ss, Dd<D> w, Dd<D> lv) {
   const auto hs = op::Mul(half, gdn);             // exact power of two
   auto neff = TwoSum(d, op::Mul(huge, gdn), op::Mul(sm1.hi, hs));
   neff = DdAddD(d, neff, op::Mul(sm1.lo, hs));
+  // FLOOR: callers pass only R2 lanes (beta's and betainv's gamma-limit
+  // slices), and R1 claims every lane whose tiny side has w <= xi1 = 0.45
+  // and huge*w <= B1 = 8 in either orientation. So w <= 0.45 gives t >=
+  // huge*w*(1 - 2^-48) > 7.9, and w > 0.45 gives |lx| > 0.59 with huge >=
+  // 2^47: t >= ~8, or >= ~2^-197 in the 2^-200 frame.
   const auto tds = DdMul(d, lx, Dd<D>{op::Neg(neff.hi), op::Neg(neff.lo)});
   return Dd<D>{op::Mul(tds.hi, gup), op::Mul(tds.lo, gup)};
 }
@@ -471,18 +480,31 @@ HWY_NOINLINE Dd<D> BinetDiffDd(D d, Dd<D> z, Dd<D> w) {
                  op::Set(d, detail::kBetaRecipNLo[11])};
   const auto lead = DdMul(d, rd, c1);
 
-  auto gk = one;   // G_k
-  auto pw = rho;   // rho^(2k-1)
-  auto rp = r;     // r^(2k-1)
+  // k = 2 is a dd too (#94). At z = 10 its double rounding is ~2^-71 per unit
+  // m, a fixed error in lgamma(1+tau), and R4's cap corner cancels by ~2^20
+  // (Qtilde/tau ~ 3e-6): that alone read +1.8 ulp. From k = 3 on the error is
+  // ~2^-80 per unit m. c_2 = -1/360 is not exact in a double, so it carries
+  // its low word; G_2 = 1 + rho(1 + rho).
+  const auto rhod = DdAddD(d, g, one);
+  const auto g2 = DdAddD(d, DdMul(d, rhod, DdAddD(d, rhod, one)), one);
+  const Dd<D> c2{op::Set(d, detail::kBetaBinetCoef[1]),
+                 op::Set(d, detail::kBetaBinetC2Lo)};
+  // FLOOR: rd*rd and its product with rd reach the floor only for z > ~2^320,
+  // where this term is under 2^-960 and lead dominates it by 2^640.
+  const auto second = DdMul(d, DdMul(d, DdMul(d, rd, rd), DdMul(d, rd, c2)), g2);
+
+  auto gk = op::Add(one, op::MulAdd(rho, rho, rho));  // G_2
+  auto pw = op::Mul(rho, rho2);                       // rho^3
+  auto rp = op::Mul(r, r2);                           // r^3
   auto rest = op::Zero(d);
-  for (int k = 1; k < detail::kBetaKB; ++k) {
+  for (int k = 2; k < detail::kBetaKB; ++k) {
     gk = op::Add(gk, op::MulAdd(pw, rho, pw));
     pw = op::Mul(pw, rho2);
     rp = op::Mul(rp, r2);
     rest = op::MulAdd(op::Set(d, detail::kBetaBinetCoef[k]), op::Mul(rp, gk),
                       rest);
   }
-  return DdMul(d, g, DdAddD(d, lead, rest));
+  return DdMul(d, g, DdAddD(d, DdAdd(d, lead, second), rest));
 }
 
 // ------------------------------------------------------------------------
@@ -496,10 +518,10 @@ HWY_NOINLINE Dd<D> BinetDiffDd(D d, Dd<D> z, Dd<D> w) {
 //   * it removes the rounded lgamma argument outright rather than
 //     correcting for it with a c.lo*digamma(c.hi) term, which is the
 //     exact-c doctrine taken one step further; and
-//   * beta_data.h's DigammaRough table is fitted and self-checked (check (i))
-//     only on (0, 2*Z0] = (0, 20], while c reaches C_lg = 256 on the PA
-//     path, so the shipped table cannot serve that correction anyway.
-// kBetaDigammaCoef/kBetaDigammaDeg are consequently unused by this kernel.
+//   * the generator's DigammaRough table was fitted only on (0, 2*Z0] =
+//     (0, 20], while c reaches C_lg = 256 on the PA path, so it could not
+//     serve that correction anyway. Nothing consumed it, and it is no
+//     longer emitted (#81 L-21).
 //
 // TWO PIECES.
 //  (a) An up-walk. For M < Z0 the Stirling tail is out of its table's range,
@@ -622,12 +644,15 @@ inline constexpr double kBetaLgammaAnalyticMax = 16.0;
 // amplifies that by P/Q to 2 ULP on the no-FMA tiers. Callers split their
 // argument exactly (k = floor, f = x - k by Sterbenz).
 template <class D>
-HWY_INLINE Dd<D> LgammaIntFracDd(D d, op::V<D> k, op::V<D> f) {
+HWY_INLINE Dd<D> LgammaLnFactDd(D d, op::V<D> k) {
   const op::SignedTag<D> di;
   const auto ki = op::ConvertToInt(di, k);
-  const Dd<D> lf{op::GatherIndex(d, kBetaLnFactHi, ki),
-                 op::GatherIndex(d, kBetaLnFactLo, ki)};
-  return DdAdd(d, LgammaDiffDd(d, k, f), lf);
+  return Dd<D>{op::GatherIndex(d, kBetaLnFactHi, ki),
+               op::GatherIndex(d, kBetaLnFactLo, ki)};
+}
+template <class D>
+HWY_INLINE Dd<D> LgammaIntFracDd(D d, op::V<D> k, op::V<D> f) {
+  return DdAdd(d, LgammaDiffDd(d, k, f), LgammaLnFactDd(d, k));
 }
 
 // floor(x) for x >= 1, exact: Round then step down if it rounded up.
@@ -694,14 +719,15 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   const auto bs = op::Mul(b, dn);
   const auto c = TwoSum(d, as, bs);  // exact and finite by construction
 
-  const auto a0 = TwoProd(d, as, y.hi);
   // FLOOR: a residual word (y.lo, xi.lo: possibly subnormal) or a tiny xi
-  // puts a product at the floor; it enters lambda additively with <=
+  // or y puts a product at the floor; it enters lambda additively with <=
   // 2^-1071 error, far under lambda's nu*2^-157 budget (nu >= 5*2^-200).
+  const auto a0 = TwoProd(d, as, y.hi);
+  // FLOOR: as a0 above.
   const auto a1 = TwoProd(d, as, y.lo);
-  // FLOOR: as a1 above.
+  // FLOOR: as a0 above.
   const auto b0 = TwoProd(d, bs, xi.hi);
-  // FLOOR: as a1 above.
+  // FLOOR: as a0 above.
   const auto b1 = TwoProd(d, bs, xi.lo);
   const auto lead = TwoSum(d, a0.hi, op::Neg(b0.hi));  // exact
   Dd<D> lam{lead.hi, lead.lo};
@@ -712,6 +738,8 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   lam = DdAddD(d, lam, a1.lo);
   lam = DdAddD(d, lam, op::Neg(b1.lo));
 
+  // FLOOR: as v below, mirrored: alpha*phi(u) ~ lambda*u/2 moves by <=
+  // |lambda|*2^-1071 in cpsi.
   const auto u = DdMul(d, DdNeg(d, lam), DdRecip(d, as));
   // FLOOR: |v| < 2^-968 errs by <= 2^-1071, moving beta*phi(v) ~ lambda*v/2
   // by <= |lambda|*2^-1071 in cpsi (unscaled). Unsaturated lanes (cpsi <=
@@ -759,8 +787,10 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   // FLOOR: c*xi < 2^-968 gives 1 + u = c*xi/alpha < 2^-771 (alpha >= 10 *
   // 2^-200 scaled), so cpsi > 10*530 > 800 even if the error moves ln(1+u)
   // by O(1): the lane saturates in BetaClampE (and for betainv sits e^-5000
-  // below any target). Same for wuc's DdDivDd.
+  // below any target). Same for wuc's DdDivDd, and mirrored for c*y (1 + v
+  // = c*y/beta, beta >= 10) and wvc.
   const auto cxi = DdMul(d, c, xi);
+  // FLOOR: as c*xi above, mirrored.
   const auto cyv = DdMul(d, c, y);
   const Dd<D> num_u{op::IfThenElse(cor_u, cxi.hi, as),
                     op::IfThenElse(cor_u, cxi.lo, mzero)};
@@ -778,6 +808,11 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
                  op::IfThenElse(cor_v, wvc.lo, wvg.lo)};
 
   // Both phi are >= 0, so this sum never cancels.
+  // FLOOR: alpha*phi(u) and beta*phi(v) reach the floor only for tiny
+  // lambda (phi ~ u^2/2); each then errs by <= 2^-1071 absolute in cpsi
+  // (<= 2^-871 after the 2^200 scale-back). That is absolute in e^-cpsi's
+  // exponent, and moves z = sqrt(cpsi) and zeta by <= 2^-435 absolute
+  // where cpsi ~ 0, i.e. on the ridge crest, where the result is ~1/2.
   const auto cs = DdAdd(d, DdMulD(d, Log1pmxDd(d, u, wu), as),
                         DdMulD(d, Log1pmxDd(d, v, wv), bs));
 
@@ -792,6 +827,10 @@ HWY_NOINLINE BetaPsi<D> BetaPsiCore(D d, op::V<D> a, op::V<D> b, Dd<D> xi,
   // on 484 such lanes (max 2^1000..2^1023) SSE2 = AVX3 bits but for three
   // 1-ulp flips, which recur identically at max ~2^650 (no floor there).
   const auto nus = DdMulD(d, DdMulD(d, rc, bs), as);
+  // FLOOR: z2 = cpsi/nu = zeta^2 reaches the floor only with cs (tiny
+  // lambda); its <= 2^-1071 absolute error moves zeta = sqrt(z2) by
+  // <= 2^-535, a Chebyshev-variable shift in S, which enters as
+  // S/sqrt(2 pi nu) next to an O(1) result.
   const auto z2 = DdMul(d, cs, DdRecipDd(d, nus));
 
   // Aggregate-initialized, never default-constructed: an implicitly
@@ -907,8 +946,9 @@ HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
 //     d_{2m+1} = -(alpha+m)(c+m)xi / ((alpha+2m)(alpha+2m+1)).
 // Fixed depth kBetaN2 with NO convergence test (gamma's GammaCfRecip lesson).
 //
-// THE RECURRENCE AND EVERY d ARE DOUBLE-DOUBLE, which gamma's are not.
-// Two independent reasons, both measured:
+// THE LAST kBetaCfDdSteps STEPS, AND EVERY STEP OF AN ILL-CONDITIONED LANE,
+// ARE DOUBLE-DOUBLE (#42 lever 1; before it every step of every lane was).
+// Two independent reasons the answer needs dd, both measured:
 //
 //  1. CONDITIONING. A relative perturbation eps in d_1 moves the returned F by
 //     (F - 1)*eps -- the recurrence's last step is f_1 = 1 + d_1/f_2 and F is
@@ -926,6 +966,24 @@ HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
 //     relative in the answer. (R1 and R4 need no such treatment: their
 //     membership forces xi <= 0.45, hence x >= 0.55 in the swapped case,
 //     hence a Sterbenz-exact 1 - x.)
+//
+// THE CONDITIONING GATE. Both effects reach the answer through the same
+// lever: a relative error e in f_{j+1} moves f_j by e*(f_j - 1)/f_j, so a
+// deep step's error arrives at F scaled by prod_j |1 - 1/f_j|, whose j = 1
+// factor is |1 - F|. The deep steps (k > kBetaCfDdSteps) therefore run in
+// plain double, on xi.hi alone, and the last kBetaCfDdSteps in dd exactly as
+// below -- which is accurate only while F is small. Each lane decides for
+// itself from the value this split returns: a lane with F >= kBetaCfMixedFMax
+// (or a NaN F) is recomputed by BetaR2CfDd, the all-dd recurrence this core
+// ran before #42, and that path runs only when some lane needs it. The
+// decision depends on the lane's own inputs only, so lane-mix determinism
+// holds. MEASURED, not proven (tests/bench_igamma_components.cpp hunt,
+// 600k raw draws routed by an exact router replica, both orientations): with
+// 16 dd steps the split moves F by at most 0.0012 ulp below F = 2^4, 0.021
+// in [2^4, 2^10), and by up to 2e9 ulp at F >= 2^30 -- F reaches ~2^43 in R2
+// (nu just under kBetaTRidge, one parameter to ~1e14), which is why the gate
+// is per lane and not a deeper fixed split. Cost (AVX3_ZEN4, indicative):
+// 263 -> ~91 ns/el on lanes that pass.
 //
 // ORDER OF OPERATIONS AND OVERFLOW -- the rule is load
 // bearing: each d is TWO factors, a ratio bounded by ~1 times a bounded
@@ -950,6 +1008,48 @@ HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
 // shape and the target both denorm_min reach it too, under the same bound
 // (their #88 error was the log of R4's unscaled value; see BetaR4Out).
 template <class D>
+CORVUS_OUTLINE Dd<D> BetaCfDdStep(D d, int k, op::V<D> a, Dd<D> xi, Dd<D> xis,
+                              op::V<D> bs, Dd<D> cs, Dd<D> f) {
+  const auto zero = op::Zero(d);
+  // m = floor(k/2) BY CONSTRUCTION (d_{2m} at even k, d_{2m+1} at odd);
+  // the integer division is the point.
+  // NOLINTNEXTLINE(bugprone-integer-division)
+  const double mv = static_cast<double>(k / 2);
+  const auto m = op::Set(d, mv);
+  Dd<D> dk{zero, zero};  // brace-init: see BetaPsiCore's ctor note
+  if ((k & 1) == 0) {
+    // d_{2m} = [m/(alpha+2m-1)] * [(beta-m)xi/(alpha+2m)]
+    const auto bx = DdSub(d, DdMulD(d, xis, bs), DdMulD(d, xi, m));
+    const auto r1 = DdDivDd(d, Dd<D>{m, zero},
+                            TwoSum(d, a, op::Set(d, 2.0 * mv - 1.0)));
+    const auto r2 =
+        DdDivDd(d, bx, TwoSum(d, a, op::Set(d, 2.0 * mv)));
+    dk = DdMul(d, r1, r2);
+  } else {
+    // d_{2m+1} = -[(alpha+m)/(alpha+2m)] * [(c+m)xi/(alpha+2m+1)]
+    const auto cx = DdAdd(d, DdMul(d, xis, cs), DdMulD(d, xi, m));
+    const auto r1 = DdDivDd(d, TwoSum(d, a, m),
+                            TwoSum(d, a, op::Set(d, 2.0 * mv)));
+    const auto r2 =
+        DdDivDd(d, cx, TwoSum(d, a, op::Set(d, 2.0 * mv + 1.0)));
+    dk = DdNeg(d, DdMul(d, r1, r2));
+  }
+  return DdAddD(d, DdMul(d, dk, DdRecipDd(d, f)), op::Set(d, 1.0));
+}
+
+// The all-dd recurrence: every step of an ill-conditioned lane (see THE
+// CONDITIONING GATE). HWY_NOINLINE: a rare path behind an AllFalse skip.
+template <class D>
+HWY_NOINLINE Dd<D> BetaR2CfDd(D d, op::V<D> a, Dd<D> xi, Dd<D> xis,
+                              op::V<D> bs, Dd<D> cs) {
+  Dd<D> f{op::Set(d, 1.0), op::Zero(d)};
+  for (int k = detail::kBetaN2; k >= 1; --k) {
+    f = BetaCfDdStep(d, k, a, xi, xis, bs, cs, f);
+  }
+  return DdRecipDd(d, f);
+}
+
+template <class D>
 HWY_NOINLINE Dd<D> BetaR2Cf(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi) {
   const auto one = op::Set(d, 1.0);
   const auto zero = op::Zero(d);
@@ -965,34 +1065,40 @@ HWY_NOINLINE Dd<D> BetaR2Cf(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi) {
   const auto bs = op::Mul(b, sdn);
   const Dd<D> xis{op::Mul(xi.hi, sup), op::Mul(xi.lo, sup)};
 
-  Dd<D> f{one, zero};
-  for (int k = detail::kBetaN2; k >= 1; --k) {
-    // m = floor(k/2) BY CONSTRUCTION (d_{2m} at even k, d_{2m+1} at odd);
-    // the integer division is the point.
+  // Deep steps in plain double, same two-factor grouping as the dd step;
+  // (beta-m)xi and (c+m)xi on the prescaled pair (m*s is exact).
+  auto fd = one;
+  for (int k = detail::kBetaN2; k > kBetaCfDdSteps; --k) {
     // NOLINTNEXTLINE(bugprone-integer-division)
     const double mv = static_cast<double>(k / 2);
     const auto m = op::Set(d, mv);
-    Dd<D> dk{zero, zero};  // brace-init: see BetaPsiCore's ctor note
+    op::V<D> dk;
     if ((k & 1) == 0) {
-      // d_{2m} = [m/(alpha+2m-1)] * [(beta-m)xi/(alpha+2m)]
-      const auto bx = DdSub(d, DdMulD(d, xis, bs), DdMulD(d, xi, m));
-      const auto r1 = DdDivDd(d, Dd<D>{m, zero},
-                              TwoSum(d, a, op::Set(d, 2.0 * mv - 1.0)));
-      const auto r2 =
-          DdDivDd(d, bx, TwoSum(d, a, op::Set(d, 2.0 * mv)));
-      dk = DdMul(d, r1, r2);
+      const auto bx = op::Mul(op::Sub(bs, op::Mul(m, sdn)), xis.hi);
+      dk = op::Mul(op::Div(m, op::Add(a, op::Set(d, 2.0 * mv - 1.0))),
+                   op::Div(bx, op::Add(a, op::Set(d, 2.0 * mv))));
     } else {
-      // d_{2m+1} = -[(alpha+m)/(alpha+2m)] * [(c+m)xi/(alpha+2m+1)]
-      const auto cx = DdAdd(d, DdMul(d, xis, cs), DdMulD(d, xi, m));
-      const auto r1 = DdDivDd(d, TwoSum(d, a, m),
-                              TwoSum(d, a, op::Set(d, 2.0 * mv)));
-      const auto r2 =
-          DdDivDd(d, cx, TwoSum(d, a, op::Set(d, 2.0 * mv + 1.0)));
-      dk = DdNeg(d, DdMul(d, r1, r2));
+      const auto cx = op::Mul(op::Add(cs.hi, op::Mul(m, sdn)), xis.hi);
+      dk = op::Neg(
+          op::Mul(op::Div(op::Add(a, m), op::Add(a, op::Set(d, 2.0 * mv))),
+                  op::Div(cx, op::Add(a, op::Set(d, 2.0 * mv + 1.0)))));
     }
-    f = DdAddD(d, DdMul(d, dk, DdRecipDd(d, f)), one);
+    fd = op::Add(op::Div(dk, fd), one);
   }
-  return DdRecipDd(d, f);
+  Dd<D> f{fd, zero};
+  for (int k = kBetaCfDdSteps; k >= 1; --k) {
+    f = BetaCfDdStep(d, k, a, xi, xis, bs, cs, f);
+  }
+  const auto fm = DdRecipDd(d, f);
+
+  // The gate, on the lane's own F; NaN fails the Lt and takes the full path.
+  const auto full =
+      op::MaskNot(op::Lt(op::Abs(fm.hi), op::Set(d, kBetaCfMixedFMax)));
+  CORVUS_ROUTE(d, "beta/R2/full_dd", full);
+  if (op::AllFalse(d, full)) return fm;
+  const auto fa = BetaR2CfDd(d, a, xi, xis, bs, cs);
+  return Dd<D>{op::IfThenElse(full, fa.hi, fm.hi),
+               op::IfThenElse(full, fa.lo, fm.lo)};
 }
 
 // ------------------------------------------------------------------------
@@ -1008,7 +1114,8 @@ HWY_NOINLINE Dd<D> BetaR2Cf(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi) {
 //
 // S is the tensor table in beta_data.h, evaluated exactly as that header's
 // recipe states: nested Clenshaw, in the p direction inside each of the 25
-// zeta rows and in the zeta direction across them, then Horner in 1/nu across
+// zeta rows (in Reinsch's form since #80: same sum, see BetaClenshawP) and in
+// the zeta direction across them, then Horner in 1/nu across
 // the 10 orders. The stored half is p <= 1/2; for p > 1/2 the table is
 // evaluated at (-zeta, q) and NEGATED (self-check (h),
 // e_k(zeta,p) = -e_k(-zeta,1-p)).
@@ -1060,17 +1167,33 @@ struct BetaR3Out {
   Dd<D> brk;
 };
 
+// One p-direction row, sum_m row[m] T_m(u), by Reinsch's form of the Clenshaw
+// recurrence (#80). Plain Clenshaw amplifies rounding near u = +-1, and the
+// gamma-limit ridge sits at u = -1 + 4p with p ~ 1e-11, where every lane
+// evaluates the same rows, so their rounding is a fixed per-row error: S read
+// up to +0.92 ulp of the bracket high, all of beta_q's 1.36-ULP real error.
+// This form shrinks that error but does not remove it (ACCURACY.md, beta R3,
+// #80; rounding the k = 0 order once is the open remedy). With x = u =
+// -sg + s, sg = +1 below u = 0 and -1 from it, and d_k = b_k + sg*b_{k+1}:
+//   d_k = c_k + 2s*b_{k+1} - sg*d_{k+1},  b_k = d_k - sg*b_{k+1},
+//   sum = c_0 + s*b_1 - sg*d_1.
+// s = 4p or 4p - 2 is exact (Sterbenz for 4p in [1, 2]), so the endpoint
+// distance carries no rounding. The products by -sg are exact, so each
+// MulAdd(nsg, ...) is one rounded add on every tier. Mid-range the two forms
+// err alike; at p -> 0 the worst row error fell from 4.5 to 1.9 (2^-53
+// sum|c| units), and over 390 ridge points the S error's p95 from 0.37 to
+// 0.33 bracket ulp.
 template <class D>
-HWY_INLINE op::V<D> BetaClenshawP(D d, const double* row, op::V<D> u,
-                                  op::V<D> u2) {
+HWY_INLINE op::V<D> BetaClenshawP(D d, const double* row, op::V<D> s,
+                                  op::V<D> s2, op::V<D> nsg) {
   auto b1 = op::Set(d, row[detail::kBetaR3NP - 1]);
-  auto b2 = op::Zero(d);
+  auto d1 = b1;
   for (int m = detail::kBetaR3NP - 2; m >= 1; --m) {
-    const auto nb = op::Sub(op::MulAdd(u2, b1, op::Set(d, row[m])), b2);
-    b2 = b1;
-    b1 = nb;
+    const auto dn = op::MulAdd(nsg, d1, op::MulAdd(s2, b1, op::Set(d, row[m])));
+    b1 = op::MulAdd(nsg, b1, dn);
+    d1 = dn;
   }
-  return op::Sub(op::MulAdd(u, b1, op::Set(d, row[0])), b2);
+  return op::MulAdd(nsg, d1, op::MulAdd(s, b1, op::Set(d, row[0])));
 }
 
 // i_gl: 1.0 on gamma-limit lanes (max(alpha,beta) >= kBetaGammaLim), which
@@ -1094,9 +1217,15 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
 
   const auto t = op::Mul(ze, op::Set(d, 1.0 / detail::kBetaZetaMax));
   const auto t2 = op::Add(t, t);
-  const auto u = op::Mul(op::Sub(pe, op::Set(d, detail::kBetaR3PMid)),
-                         op::Set(d, 1.0 / detail::kBetaR3PHalf));
-  const auto u2 = op::Add(u, u);
+  // u = (pe - kBetaR3PMid)/kBetaR3PHalf = 4pe - 1 in [-1, 1]; BetaClenshawP
+  // takes its distance s to the nearer endpoint instead.
+  static_assert(detail::kBetaR3PMid == 0.25 && detail::kBetaR3PHalf == 0.25,
+                "BetaClenshawP's endpoint distance assumes u = 4p - 1");
+  const auto low = op::Lt(pe, op::Set(d, 0.25));  // u < 0: near -1
+  const auto pe4 = op::Mul(pe, op::Set(d, 4.0));
+  const auto s = op::IfThenElse(low, pe4, op::Sub(pe4, op::Set(d, 2.0)));
+  const auto s2 = op::Add(s, s);
+  const auto nsg = op::IfThenElse(low, op::Set(d, -1.0), one);
   const auto r = op::Div(one, ps.nu.hi);
 
   auto sum = zero;
@@ -1104,12 +1233,12 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
     auto b1 = zero;
     auto b2 = zero;
     for (int n = detail::kBetaR3NZ - 1; n >= 1; --n) {
-      const auto rn = BetaClenshawP(d, detail::kBetaR3Cheb[k][n], u, u2);
+      const auto rn = BetaClenshawP(d, detail::kBetaR3Cheb[k][n], s, s2, nsg);
       const auto nb = op::Sub(op::MulAdd(t2, b1, rn), b2);
       b2 = b1;
       b1 = nb;
     }
-    const auto r0 = BetaClenshawP(d, detail::kBetaR3Cheb[k][0], u, u2);
+    const auto r0 = BetaClenshawP(d, detail::kBetaR3Cheb[k][0], s, s2, nsg);
     const auto row = op::Sub(op::MulAdd(t, b1, r0), b2);
     sum = op::MulAdd(sum, r, op::Mul(tsign, row));
   }
@@ -1145,11 +1274,18 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
   }
 
   const auto z = DdSqrt(d, ps.cpsi);
-  const Dd<D> twopi{op::Set(d, kBetaTwoPiHi), op::Set(d, kBetaTwoPiLo)};
+  const Dd<D> twopi{op::Set(d, detail::kGammaTwoPiHi),
+                    op::Set(d, detail::kGammaTwoPiLo)};
+  // FLOOR: live R3 lanes have nu >= 20 (T_ridge, or kBetaGlRidgeMin on the
+  // gamma-limit ridge) and nu is clamped to 2^900, so 2*pi*nu >= 125;
+  // discarded lanes are selected away.
   const auto rv = DdRecipDd(
       d, DdSqrt(d, DdMulD(d, twopi,
                           op::Min(ps.nu.hi, op::Set(d, kBetaTwoPiNuClamp)))));
   const auto sg = op::Neg(op::CopySign(one, ps.lam));
+  // FLOOR: rv > 2^-452 (the clamp). A product below the floor (a tiny sum)
+  // errs by <= 2^-1071 absolute, and s_rv only enters next to half_erfc >=
+  // 2^-41 (core, under exd <= 1) or gtd >= 2^-7 (tail). GammaTemme's twin.
   const auto s_rv = DdMulD(d, rv, op::Mul(sg, sum));
 
   const auto ea = BetaClampE(d, op::Neg(ps.cpsi.hi), op::Neg(ps.cpsi.lo));
@@ -1166,7 +1302,7 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
   const Dd<D> half_erfc{op::Mul(ec.hi, half), op::Mul(ec.lo, half)};
   const auto exd = OutlinedExpDd(d, ea.hi, ea.lo);
   const auto brk_core = DdAddD(
-      d, s_rv, op::Neg(op::Mul(z.lo, op::Set(d, kBetaInvSqrtPiHi))));
+      d, s_rv, op::Neg(op::Mul(z.lo, op::Set(d, detail::kGammaInvSqrtPiHi))));
   // FLOOR: a product below 2^-968 errs by <= 2^-1071, added to half_erfc >=
   // erfc(5)/2 > 2^-41 (core lanes have cpsi <= 25): far below ulp(core);
   // tail lanes discard core.
@@ -1182,8 +1318,11 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
   // the band edge, y/q or x/p -> 2) those three terms read 4 ulp against
   // the 3-ULP bound. G is now GammaTailG's dd fit (src/erfc_tail_dd-inl.h;
   // live tail z = sqrt(cpsi) is in (6, 28.29] under kBetaExpFloor = -800,
-  // inside its [6, 28.5] fit; the clamp below only keeps discarded lanes
-  // finite). z.lo enters through the slope: with f(z) = 1/2 erfc(z) e^{z^2},
+  // inside its [6, 28.5] fit. For beta_p/q the clamp below only keeps
+  // discarded lanes finite. betainv's Newton iterates can be live lanes
+  // past the fit, and the clamp does change their forward value; roots are
+  // unaffected, because an iterate near its root is inside the fit (#81
+  // L-22). z.lo enters through the slope: with f(z) = 1/2 erfc(z) e^{z^2},
   // f' = 2z f - 1/sqrt(pi), so f(z.hi + z.lo) = gt - z.lo (1/sqrt(pi) -
   // 2 z gt) + O(z.lo^2) -- the fold the core applies to its own erfc term.
   //
@@ -1197,16 +1336,24 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
                           op::Set(d, detail::kGammaTailZHi));
   const auto two_z = op::Add(zt, zt);
   const auto r2z = DdRecip(d, two_z);
+  // FLOOR: r2z in [1/57, 1/10] (zt clamped to [5, 28.5]), G ~ 0.56: gtd >=
+  // 2^-7.
   const auto gtd = DdMul(d, GammaTailG(d, r2z), r2z);
   const auto live_tail =
       op::Ge(op::Set(d, -detail::kBetaExpFloor), ps.cpsi.hi);
   const auto zlo_corr = op::IfThenElse(
       live_tail,
-      op::Mul(z.lo, op::Sub(op::Set(d, kBetaInvSqrtPiHi),
+      op::Mul(z.lo, op::Sub(op::Set(d, detail::kGammaInvSqrtPiHi),
                             op::Mul(two_z, gtd.hi))),
       zero);
   const auto brk_tail = DdAdd(d, s_rv, DdAddD(d, gtd, op::Neg(zlo_corr)));
   const auto exf = ExpDdFrac(d, ea.hi, ea.lo);
+  // FLOOR: exf.m in ~[1, 2]; brk_tail = e^cpsi*(the direct side) > 0, whose
+  // leading uniform term is O(1)/(|xi/p - 1| sqrt(2 pi nu)), >= ~1/sqrt(2 pi
+  // nu) on the ridge box (xi/p in [1/2, 2]); a live tail lane has nu <=
+  // 2^900 (above it only lambda == 0 is unsaturated, a core lane), so
+  // brk_tail > ~2^-452.
+  // GammaTemme's twin; core and saturated lanes discard tail.
   const auto tail = BetaScale(d, DdMul(d, exf.m, brk_tail), exf.e);
 
   const auto tm = op::Gt(ps.cpsi.hi, op::Set(d, kBetaZ2Split));
@@ -1370,13 +1517,16 @@ HWY_NOINLINE BetaR4Out<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb,
   // cancels below it. Original R4 lanes (tau <= eps_R4) are immune --
   // there |lg1| ~ gamma*tau and Qtilde ~ tau*O(10), no amplification --
   // but take the analytic form too: one code path, and the walk is
-  // cheap next to the N=48 series above.
+  // cheap next to the N = kBetaR4N series above.
   const auto gt1 = op::Gt(tau, one);
   CORVUS_ROUTE(d, "beta/R4/lg1_shift", gt1);
   const auto lg1 = LgammaDiffDd(
       d, op::IfThenElse(gt1, op::Add(one, one), one),
       op::IfThenElse(gt1, op::Sub(tau, one), tau));
 
+  // FLOOR: both callers pass R4-box lanes (routed R4 or near-one R1, xi <=
+  // xi1 = 0.45) or the scrub point (2^-6, xi = 1/4), so |ln xi| >= 0.79; tau
+  // is >= 2^-950, or tau*2^700 >= 2^-374 on tsub lanes: |w| > 2^-951.
   auto w = DdMulD(d, lxi, tau);
   w = DdAdd(d, w, LgammaDiffDd(d, bb, tau));
   w = DdSub(d, w, lg1);
@@ -1519,9 +1669,10 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   //
   // The window is narrow -- its edge (tau+1)/(tau+B+2) exceeds xi1 only for
   // B < ~0.24, and is always below 1/2 -- and inside it the series is
-  // untroubled: worst N = 48 truncation over the whole extension is
-  // 2^-57.3 (2^-71.9 inside the unwidened box, generator target 2^-58),
-  // because B < 0.24 keeps every term ratio below xi_tau. The other two
+  // untroubled: worst N = kBetaR4N = 56 truncation over the extension is
+  // 2^-67.9 relative to Qtilde (generator check (f); target 2^-58, which
+  // the box and post-route arms gate, #79), because B < 0.24 keeps every
+  // term ratio below xi_tau. The other two
   // caps are the box's own.
   const auto r2_tiny_first = op::Abs(
       op::Sub(BetaInd(d, op::Lt(x, thr)), BetaInd(d, sw4)));
@@ -1726,11 +1877,6 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       const auto gt1 = op::Gt(mns, one);
       CORVUS_ROUTE(d, "beta/pre/pa/lgamma_small", lo);
       CORVUS_ROUTE(d, "beta/pre/pa/lgamma_small_gt1", gt1);
-      const auto lg1m = LgammaDiffDd(
-          d, op::IfThenElse(gt1, op::Add(one, one), one),
-          op::IfThenElse(gt1, op::Sub(mns, one), mns));
-      const auto lga = DdSub(d, lg1m, OutlinedLogDd(d, mns));
-      auto lgp = LgammaPosDd(d, mn);
       // #85: (2.5, 16] takes the analytic table form too -- the corner the
       // note above anticipated. A complement at Q ~ 2^-10 with min just past
       // 2.5 (no post-route: tau above its cap) read 2 ULP on the no-FMA tiers
@@ -1739,16 +1885,36 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       const auto mid = op::And(op::Gt(mn, op::Set(d, detail::kBetaPrTauMax)),
                                op::Ge(op::Set(d, kBetaLgammaAnalyticMax), mn));
       CORVUS_ROUTE(d, "beta/pre/pa/lgamma_table", mid);
+      // ONE LgammaDiffDd serves both analytic forms (#42 lever 3): the lo
+      // lanes' lgamma(1+min) = LgammaDiffDd(1 or 2, ...) and the mid lanes'
+      // LgammaIntFracDd(k, f) are the same call with per-lane (M, m), and
+      // LgammaDiffDd is lanewise, so every lane gets the value its own form
+      // computed before (bit-identical). Dead lanes run (1, 1), lo's scrub.
+      const auto mm = op::IfThenElse(mid, mn, op::Set(d, 3.0));  // scrub: k in [2, 16]
+      const auto kf = BetaFloorPos(d, mm);
+      const auto lgd = LgammaDiffDd(
+          d,
+          op::IfThenElse(mid, kf, op::IfThenElse(gt1, op::Add(one, one), one)),
+          op::IfThenElse(mid, op::Sub(mm, kf),  // f exact
+                         op::IfThenElse(gt1, op::Sub(mns, one), mns)));
+      Dd<D> lgmn{zero, zero};
+      if (!op::AllFalse(d, lo)) {
+        const auto lga = DdSub(d, lgd, OutlinedLogDd(d, mns));
+        lgmn = lga;
+      }
       if (!op::AllFalse(d, mid)) {
         CORVUS_ROUTE_SCOPE(d, mid);
-        const auto mm = op::IfThenElse(mid, mn, op::Set(d, 3.0));  // scrub: k in [2, 16]
-        const auto kf = BetaFloorPos(d, mm);
-        const auto lgt = LgammaIntFracDd(d, kf, op::Sub(mm, kf));  // f exact
-        lgp = Dd<D>{op::IfThenElse(mid, lgt.hi, lgp.hi),
-                    op::IfThenElse(mid, lgt.lo, lgp.lo)};
+        const auto lgt = DdAdd(d, lgd, LgammaLnFactDd(d, kf));
+        lgmn = Dd<D>{op::IfThenElse(mid, lgt.hi, lgmn.hi),
+                     op::IfThenElse(mid, lgt.lo, lgmn.lo)};
       }
-      const Dd<D> lgmn{op::IfThenElse(lo, lga.hi, lgp.hi),
-                       op::IfThenElse(lo, lga.lo, lgp.lo)};
+      // LgammaPosDd only for min > kBetaLgammaAnalyticMax.
+      const auto big = op::MaskNot(op::Or(lo, mid));
+      if (!op::AllFalse(d, big)) {
+        const auto lgp = LgammaPosDd(d, mn);
+        lgmn = Dd<D>{op::IfThenElse(big, lgp.hi, lgmn.hi),
+                     op::IfThenElse(big, lgp.lo, lgmn.lo)};
+      }
       epa = DdAdd(d, DdAdd(d, l1, l2),
                   DdSub(d, LgammaDiffDd(d, mx, mn), lgmn));
     }
@@ -1784,6 +1950,8 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       const auto bs = op::IfThenElse(ea.sat, safe_b, beta);
       const auto xs = op::IfThenElse(ea.sat, safe_x, xi.hi);
       const auto ex = ExpDdFrac(d, ea.hi, ea.lo);
+      // FLOOR: ex.m in ~[1, 2]; the series factor 1 + alpha*s is >= e^-10.6
+      // on R1's box (BetaR1Series' note); saturated lanes run at safe_*.
       auto r1 = BetaScale(d, DdMul(d, ex.m, BetaR1Series(d, as, bs, xs)), ex.e);
       r1.v = op::IfThenElse(ea.sat, zero, r1.v);
       r1.dd.hi = op::IfThenElse(ea.sat, zero, r1.dd.hi);
@@ -1807,6 +1975,9 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       const Dd<D> xs{op::IfThenElse(ea.sat, safe_x, xi.hi),
                      op::IfThenElse(ea.sat, zero, xi.lo)};
       const auto ex = ExpDdFrac(d, ea.hi, ea.lo);
+      // FLOOR: ex.m in ~[1, 2]; F = 2F1(alpha+beta, 1; alpha+1; xi) >= 1
+      // (DLMF 8.17.8: every series coefficient is positive), and saturated
+      // lanes run at safe_*.
       auto r2 =
           BetaScale(d, DdMul(d, ex.m, BetaR2Cf(d, as, bs, cs, xs)), ex.e);
       r2.v = op::IfThenElse(ea.sat, zero, r2.v);
@@ -1914,6 +2085,9 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // ~ s^2/(2*huge), not O(1/huge) -- 11,592 ulp at s = 2000 on the pin.
   // With it, < 2^-60 at huge >= 2^45 for every unsaturated s (BetaGlT;
   // gated as its own ULP row -- gammalim).
+  // TWIN: gamma-inl.h GammaVec's region map (the R1/R2 rule, as i_ser
+  // below), and betainv-inl.h BetaInvForward's slice (C), which copies
+  // this whole slice.
   // The sub-map mirrors gamma-inl.h's own routing verbatim (series for
   // s < kGammaAT and t <= s+1, or s >= kGammaAT and s >= 2t; CF otherwise;
   // gamma's in-band Temme case cannot occur here, those lanes are R3's --
@@ -1960,6 +2134,9 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     // t > 0, dd, with the (s-1)/2 shift (#54), the log1p-form lx and the
     // huge-parameter prescale -- see BetaGlT.
     const auto t_dd = BetaGlT(d, huge, ss, w_gl, lv_gl);
+    // TWIN: betainv-inl.h BetaInvForward slice (C): e_g, i_ser, tlr,
+    // sum0/rk0 and the t.lo corrections. betainv keeps the value in log
+    // space; everything else must stay in step.
     // PREFACTOR AT THE FULL dd t, FACTOR CORRECTED FOR t.lo (#54). E_g =
     // s*ln t - t - lgamma(s) takes t as a dd, which carries the e^-t
     // sensitivity exactly however large t.lo is in absolute terms (betainv
@@ -2008,6 +2185,10 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
         d, rk0, op::Neg(op::Mul(tlr, op::MulAdd(smt, rk0.hi, one))));
     const Dd<D> fac{op::IfThenElse(m_ser, ser.hi, cfr.hi),
                     op::IfThenElse(m_ser, ser.lo, cfr.lo)};
+    // FLOOR: ex.m in ~[1, 2]. Series lanes: fac = Sum (>= 1) plus a t.lo/t
+    // ~ 2^-53 first-order term. CF lanes: fac ~ 1/K >= ~1/(t + 1), and an
+    // unsaturated lane has E_g = s ln t - t - lgamma(s) > -800 with s <
+    // 2^47, so t < 2^53 and fac > 2^-54; saturated lanes run at (1, SatT).
     auto gl = BetaScale(d, DdMul(d, ex.m, fac), ex.e);
     gl.v = op::IfThenElse(ea.sat, zero, gl.v);
     gl.dd.hi = op::IfThenElse(ea.sat, zero, gl.dd.hi);
@@ -2115,6 +2296,8 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
 //    log. A result below -DBL_MAX saturates to -inf through the exact
 //    final power-of-two scale-back's IEEE rounding, which is the correct
 //    value-driven boundary.
+// A lane with a = 1 or b = 1 takes -ln x from one log instead, behind an
+// AllFalse skip (#80).
 inline constexpr double kLbetaBigMin = 0x1.0p+990;
 inline constexpr double kLbetaScaleDown = 0x1.0p-64;
 inline constexpr double kLbetaScaleUp = 0x1.0p+64;
@@ -2164,6 +2347,8 @@ HWY_NOINLINE op::V<D> LbetaVec(D d, op::V<D> a, op::V<D> b) {
   const auto cs = TwoSum(d, mms, ms);  // c' = (m + M)*2^-64, exact dd
   const auto lr1 = OutlinedLogDd(d, DdDivDd(d, cs, Dd<D>{ms, zero}));   // ln(c/m)
   const auto lr2 = OutlinedLogDd(d, DdDivDd(d, cs, Dd<D>{mms, zero}));  // ln(c/M)
+  // FLOOR: ms, mms >= 2^990*2^-64 = 2^926 (and <= 2^960); lr1 = ln(c/m) >=
+  // ln 2 and lr2 = ln(1 + m/M) >= ~2^-35 (m >= 2^990, M < 2^1024).
   auto acc = DdAdd(d, DdMulD(d, lr1, ms), DdMulD(d, lr2, mms));
   // Scale back exactly; overflow here IS the -inf boundary (see header).
   const auto up = op::Set(d, kLbetaScaleUp);
@@ -2194,6 +2379,17 @@ HWY_NOINLINE op::V<D> LbetaVec(D d, op::V<D> a, op::V<D> b) {
   // --- combine, one rounding, specials last ------------------------------
   auto res = op::IfThenElse(big, big_val,
                             op::Add(main_dd.hi, main_dd.lo));
+  // --- unit lines: B(1, x) = 1/x, so ln B = -ln x exactly (#80) ------------
+  // The assembly above carries the lgamma pair's ~2^-74 absolute floor, which
+  // is relatively large on these lines as x -> 1. 0 - log gives +0 at (1, 1).
+  const auto unit =
+      op::And(op::MaskNot(bad), op::Or(op::Eq(m_raw, one), op::Eq(mm_raw, one)));
+  if (!op::AllFalse(d, unit)) {
+    CORVUS_ROUTE(d, "lbeta/unit", unit);
+    const auto ld =
+        OutlinedLogDd(d, op::IfThenElse(op::Eq(m_raw, one), mm_raw, m_raw));
+    res = op::IfThenElse(unit, op::Sub(zero, op::Add(ld.hi, ld.lo)), res);
+  }
   res = op::IfThenElse(bad, nan, res);
   return res;
 }

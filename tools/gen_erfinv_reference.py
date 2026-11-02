@@ -42,7 +42,7 @@ import sys
 
 import mpmath as mp
 
-from refgen_common import round_to_double
+from refgen_common import round_resolving_ties
 
 mp.mp.dps = 60
 
@@ -94,8 +94,9 @@ HP_DPS = 120
 _NUDGE_ROWS = 6
 
 
-def erfinv_hp(y):
-    """x with erf(x) = y, solved at HP_DPS by Newton from a double guess.
+def erfinv_hp(y, dps=HP_DPS):
+    """x with erf(x) = y, solved at dps (default HP_DPS) by Newton from a
+    double guess.
 
     Independent of the generator's oracle (mp.erfinv): plain Newton on
     erf(x) - y for |y| <= 1/2, and log-space Newton on log(erfc(x)) -
@@ -103,7 +104,7 @@ def erfinv_hp(y):
     log form keeps the iteration well scaled in the far tail). Returns
     None if it does not converge.
     """
-    with mp.workdps(HP_DPS):
+    with mp.workdps(dps):
         yy = mp.mpf(y)
         if yy == 0:
             return mp.mpf(0)
@@ -117,7 +118,7 @@ def erfinv_hp(y):
             for _ in range(200):
                 dx = (mp.erf(x) - a) / (c * mp.exp(-x * x))
                 x -= dx
-                if abs(dx) <= mp.mpf(10) ** (-(HP_DPS - 20)) * abs(x):
+                if abs(dx) <= mp.mpf(10) ** (-(dps - 20)) * abs(x):
                     return -x if neg else x
             return None
         s = 1 - a
@@ -128,9 +129,13 @@ def erfinv_hp(y):
             ec = mp.erfc(x)
             dx = (mp.log(ec) - ls) / (-c * mp.exp(-x * x) / ec)
             x -= dx
-            if abs(dx) <= mp.mpf(10) ** (-(HP_DPS - 20)) * abs(x):
+            if abs(dx) <= mp.mpf(10) ** (-(dps - 20)) * abs(x):
                 return -x if neg else x
         return None
+
+
+def _or_nan(v):
+    return mp.nan if v is None else v
 
 
 def erfinv_row_ok(y, xs):
@@ -141,7 +146,10 @@ def erfinv_row_ok(y, xs):
     if r is None:
         return False
     with mp.workdps(HP_DPS):
-        return as_bits(round_to_double(r)) == as_bits(xs)
+        # #89: a near-tie is re-solved at TIE_DPS; unresolved (None) means
+        # emit should have declined the row, so no stored value is right.
+        want = round_resolving_ties(r, lambda d: _or_nan(erfinv_hp(y, d)))
+    return want is not None and as_bits(want) == as_bits(xs)
 
 
 def erfinv_self_check(rows):
@@ -203,7 +211,12 @@ def emit(path, points, oracle, in_domain, check=None):
             # Legitimate infinite oracle values at domain endpoints
             # (erfinv(+-1) = +-inf), not a convergence failure.
             continue
-        yf = round_to_double(y)
+        # #89: near-ties re-evaluate the oracle at TIE_DPS (ambient dps is
+        # set by round_resolving_ties); still unresolved -> decline, an
+        # exact tie included, deliberately: unresolved means drop.
+        yf = round_resolving_ties(y, lambda d: oracle(x))
+        if yf is None:
+            continue
         if x == 0.0:
             # mpmath's erfinv(mpf(-0.0)) loses the sign (-> mpf(0)); the
             # double input carries it, and corvus.h promises

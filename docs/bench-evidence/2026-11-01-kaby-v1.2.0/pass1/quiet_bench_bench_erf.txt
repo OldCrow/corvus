@@ -1,0 +1,6 @@
+corvus active SIMD target: AVX2
+         n   corvus ns/el     libm ns/el    speedup
+      1000           7.46          26.69      3.58x
+     10000           7.35          25.55      3.47x
+    100000           6.94          26.17      3.77x
+   1000000           7.30          27.42      3.76x

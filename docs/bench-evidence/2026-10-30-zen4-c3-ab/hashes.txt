@@ -1,0 +1,6 @@
+bench_lgamma     BB10059BAC 3ED26900C5
+bench_gamma      3E84C71D8C 5A05DF1B8A
+bench_beta       366FF55AFD 44CE7645A3
+bench_lbeta      5B2E5B2F39 61015CC93F
+bench_gammainv   23D0383A69 E6A9EC7FF0
+bench_betainv    08C621EC70 FE007002D5

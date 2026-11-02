@@ -330,7 +330,7 @@ def _xstrat(name, draw, n, seam=None, note=""):
     return out
 
 
-def _pstrat(name, draw_or_gen, n, seam=None, note="", per_fn=False, raw=False):
+def _pstrat(name, draw_or_gen, n, seam=None, note="", per_fn=False, raw=False, ref_cap=None):
     if not name.endswith(":bits"):
         n = max(1, int(n * BUDGET))
     out = []
@@ -341,7 +341,7 @@ def _pstrat(name, draw_or_gen, n, seam=None, note="", per_fn=False, raw=False):
             dr = draw_or_gen(fn) if per_fn else draw_or_gen
             gen = (lambda dr_: (lambda rng, k: _fill_p(rng, k, dr_)))(dr)
         out.append(Stratum(fn, name, gen, n, _oracle(fn), _bound(fn),
-                           oracle2=_oracle2(fn), seam=seam, note=note))
+                           oracle2=_oracle2(fn), seam=seam, note=note, ref_cap=ref_cap))
     return out
 
 
@@ -377,8 +377,10 @@ def strata():
     S += _pstrat("subnormal:target_huge", d_sub_target(1e6, 1e30, 0.5, 1e30), 200)
     S += _pstrat("subnormal:root", d_sub_root, 800, None, "subnormal x results")
     # dense
-    S += _pstrat("dense:huge_nu_tail", d_huge_nu(1e20, 1e40, True), 300, "huge_nu",
-                 "huge-nu tail-p rows")
+    # #79: 400 reference rows, not 120 -- the file's overall not-CR rate
+    # (3.93%) hid this population's (~15%).
+    S += _pstrat("dense:huge_nu_tail", d_huge_nu(1e20, 1e40, True), 600, "huge_nu",
+                 "huge-nu tail-p rows", ref_cap=400)
     S += _pstrat("dense:huge_nu_mid", d_huge_nu(1e20, 1e40, False), 150, "huge_nu")
     S += _pstrat("dense:moderate", d_moderate, 1200)
     return S + _t2_strata()

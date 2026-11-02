@@ -854,6 +854,8 @@ HWY_NOINLINE BetaInvFwdOut<D> BetaInvForward(D d, const BetaInvCtx<D>& cx,
   }
 
   // --- (C) gamma-limit slice: R2's off-band remainder above B_GL ------------
+  // TWIN: beta-inl.h BetaVec's gamma-limit slice (m_gl; "PREFACTOR AT THE
+  // FULL dd t"), and through its i_ser gamma-inl.h GammaVec's region map.
   // Transcribed from beta-inl.h, including the BOTH-HUGE exclusion; the only
   // change is that the value is kept in log space (e_pick + ln(core)) instead
   // of being exponentiated and clamped.
@@ -1124,7 +1126,7 @@ HWY_NOINLINE op::V<D> BetaInvLamOfZeta(D d, op::V<D> zeta, op::V<D> as,
 // p > 1/2 the table is evaluated at (-zeta, q) and NEGATED, exactly as R3's
 // own e_k symmetry (the generator's _s1_ck_eval).
 template <class D>
-HWY_INLINE op::V<D> BetaInvS1Ck(D d, int k, op::V<D> t, op::V<D> t2,
+CORVUS_OUTLINE op::V<D> BetaInvS1Ck(D d, int k, op::V<D> t, op::V<D> t2,
                                 op::V<D> u, op::V<D> u2) {
   auto b1 = op::Zero(d);
   auto b2 = op::Zero(d);

@@ -1,0 +1,20 @@
+2026-11-02T07:18:23 start; deadline 2026-11-02T16:33:23
+2026-11-02T08:03:24 pass 3 rc=3 aborted
+2026-11-02T08:48:25 rep 5 rc=3 aborted
+2026-11-02T09:33:26 pass 4 rc=3 aborted
+2026-11-02T10:18:27 rep 6 rc=3 aborted
+2026-11-02T10:42:16 pass 5 rc=0 noisy (max noise 22.66%)
+2026-11-02T11:27:17 rep 7 rc=3 aborted
+2026-11-02T12:12:19 pass 6 rc=3 aborted
+2026-11-02T12:57:20 rep 8 rc=3 aborted
+2026-11-02T13:34:21 pass 7 rc=0 noisy (max noise 18.16%)
+2026-11-02T13:35:48 rep 9 rc=0 clean (max noise 3.87%)
+2026-11-02T13:39:37 pass 8 rc=0 noisy (max noise 21.90%)
+2026-11-02T14:24:38 rep 10 rc=3 aborted
+2026-11-02T14:40:07 pass 9 rc=0 noisy (max noise 17.31%)
+2026-11-02T14:41:34 rep 11 rc=0 clean (max noise 2.64%)
+2026-11-02T15:26:35 pass 10 rc=3 aborted
+2026-11-02T15:43:31 rep 12 rc=0 clean (max noise 4.18%)
+2026-11-02T15:47:20 pass 11 rc=0 noisy (max noise 14.88%)
+2026-11-02T15:51:09 pass 12 rc=0 noisy (max noise 49.73%)
+2026-11-02T16:19:20 end (stopped by hand); still needed: full 1 short 0

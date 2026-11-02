@@ -1,0 +1,6 @@
+bench_lgamma     BC2937795F 664DB69C00
+bench_gamma      DE9FB9C96D BEA52A1D62
+bench_beta       F24BED2FDB E393885F88
+bench_lbeta      B3064D9252 C0EA035616
+bench_gammainv   BBD618C712 6CA3F9A284
+bench_betainv    45C4294DE1 72E1643118

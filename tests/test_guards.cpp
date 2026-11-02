@@ -3,7 +3,7 @@
 // defect hunt found every one of #47-#61 in such a band; the ULP gates pass
 // there because they have no rows to fail on.
 //
-// FIVE CHECKS, every one over the public API on the dispatched tier:
+// SIX CHECKS, every one over the public API on the dispatched tier:
 //   1. harness self-test -- UlpDiff across opposite signs (ulp_utils.h UB).
 //   2. scalar = span     -- the eight scalar entry points are bit-identical
 //      to a length-N span call over an IEEE-specials product grid (the span
@@ -20,6 +20,9 @@
 //      for. Coarse by design: k and the F slack sit well above every gate,
 //      so a failure here is a wrong root, not a last-bit miss. The ULP
 //      gates own the last bits.
+//   6. swap identity     -- beta_p_inv(a, b, p) = 1 - beta_q_inv(b, a, p),
+//      compared from whichever end is accurate; needs no forward call
+//      (#55).
 //
 // No check here has an oracle beyond corvus's own forward functions, so a
 // pass proves consistency, not accuracy. What they buy is coverage: seeded
@@ -391,10 +394,12 @@ void CheckRange() {
 // ---------------------------------------------------------------------------
 // 4. Beta reflection symmetry I_x(a, b) = 1 - I_{1-x}(b, a).
 //
-// Both sides are corvus values of the same number, each within its region
-// gate (<= 3 ulp, test_beta_ulp.cpp), so they may differ by the sum.
+// Both sides are corvus values of the same number, and the kernel measures
+// bit-symmetric: 0 ulp on this grid and on every beta reference row with an exact 1 - x (26,360
+// points; AVX3_ZEN4, SSE4, SSE2; #79). The region gates' sum (6 ulp, the old
+// value here) let an asymmetry of up to 6 ulp pass.
 
-constexpr uint64_t kSymUlp = 6;
+constexpr uint64_t kSymUlp = 0;
 
 void CheckSymmetry() {
   Check c{"beta symmetry"};

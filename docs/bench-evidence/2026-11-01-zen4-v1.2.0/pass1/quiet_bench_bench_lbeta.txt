@@ -1,0 +1,3 @@
+corvus active SIMD target: AVX3_ZEN4
+lbeta main band:  112.12 ns/el SIMD,  673.41 ns/el scalar-walk, 6.01x
+lbeta big band :   74.53 ns/el SIMD,  627.54 ns/el scalar-walk, 8.42x

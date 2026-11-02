@@ -1,0 +1,29 @@
+14:40:07 quiet_bench.sh  build=build  expect=NEON  targets=4
+14:40:07 gate          : ambient < 10% over two consecutive 10s windows
+14:40:07 machine       : Apple M1; macOS 27.2
+14:40:17 ambient sample : 14.66%
+14:40:17   top consumers:
+    100.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      2.6 /usr/libexec/locationd
+      2.5 /Applications/iPulse.app/Contents/MacOS/iPulse
+      1.2 /usr/libexec/airportd
+      0.6 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+14:40:28 ambient sample : 14.80%
+14:40:28   top consumers:
+     61.4 /System/Library/PrivateFrameworks/PhotoLibraryServices.framework/Versions/A/Support/photolibraryd
+     37.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      3.7 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+      1.9 /System/Library/PrivateFrameworks/TCC.framework/Support/tccd
+      0.7 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+14:40:38 ambient sample : 4.13%
+14:40:49 ambient sample : 1.80%
+14:40:49 gate passed at: 4.13 1.80%
+14:40:59 bench_digamma: noise before 1.82%  top: 13.0%runningboardd 1.0%thermalmonitord 0.4%Application 
+14:40:59 bench_digamma: rc=0 0s target=NEON
+14:41:10 bench_trigamma: noise before 2.64%  top: 2.9%locationd 1.5%iPulse 0.3%airportd 
+14:41:10 bench_trigamma: rc=0 0s target=NEON
+14:41:20 bench_erfinv: noise before 1.81%  top: 3.2%Application 0.6%com.apple.DriverKit-AppleBCMWLAN 0.4%Application 
+14:41:23 bench_erfinv: rc=0 3s target=NEON
+14:41:34 bench_bessel: noise before 2.05%  top: 1.6%bluetoothd 0.9%locationd 0.7%iPulse 
+14:41:34 bench_bessel: rc=0 0s target=NEON
+14:41:34 done fail=0. Raw per-target output: build/quiet_bench/quiet_bench_<target>.txt

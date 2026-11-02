@@ -1,0 +1,15 @@
+21:17:44 quiet_bench.sh  build=/Users/wolfman/Development/corvus-c1/build  expect=NEON  targets=4
+21:17:44 gate          : ambient < 10% over two consecutive 10s windows
+21:17:44 machine       : Apple M1; macOS 27.2
+21:17:54 ambient sample : 4.51%
+21:18:05 ambient sample : 5.45%
+21:18:05 gate passed at: 4.51 5.45%
+21:18:15 bench_gamma: noise before 11.72%  top: 98.8%mediaanalysisd 3.4%locationd 2.6%iPulse 
+21:18:34 bench_gamma: rc=0 19s target=NEON
+21:18:44 bench_beta: noise before 14.01%  top: 100.0%mediaanalysisd 7.3%locationd 4.3%sandboxd 
+21:18:47 bench_beta: rc=0 3s target=NEON
+21:18:58 bench_gammainv: noise before 15.29%  top: 100.0%mediaanalysisd 6.2%Application 2.2%Application 
+21:19:02 bench_gammainv: rc=0 4s target=NEON
+21:19:12 bench_betainv: noise before 15.67%  top: 100.0%mediaanalysisd 5.1%locationd 1.6%airportd 
+21:19:29 bench_betainv: rc=0 17s target=NEON
+21:19:29 done fail=0. Raw per-target output: /Users/wolfman/Development/corvus-c1/build/quiet_bench/quiet_bench_<target>.txt

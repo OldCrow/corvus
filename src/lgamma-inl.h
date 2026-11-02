@@ -16,19 +16,8 @@
 //                into the result near x = 1/2.
 //   [1/2, 3/2)   t = x - 1, exact by Sterbenz; centre-1 polynomial.
 //   [3/2, 5/2]   t = x - 2, exact by Sterbenz; centre-2 polynomial.
-//   (5/2, X0)    walk down by Gamma(z) = Gamma(z-1)*(z-1) until the argument
-//                lands in (3/2, 5/2], then the centre-2 polynomial plus
-//                log P, P the product of the factors walked past.
+//   (5/2, X0)    Taylor table on a 1/32 grid (see LgammaTable).
 //   [X0, inf)    Stirling.
-//
-// WHY THE RECURRENCE GOES DOWN, NOT UP
-//   x - k is EXACTLY representable for every integer k < x < 2^52: x is a
-//   multiple of ulp(x) <= 1, and |x - k| < |x| so the result needs no finer
-//   grid than x already sits on. x + k is a multiple of the same grid but
-//   LARGER, so it can need a bit the format does not have -- x + 8 for
-//   x in (5/2, 8) loses up to two. Walking up would therefore have to carry
-//   every shifted argument as a dd pair; walking down keeps them all exact,
-//   and lands in (3/2, 5/2] where one polynomial serves every lane.
 //
 // ZEROS
 //   lgamma vanishes at x = 1 and x = 2 and nowhere else on the positive axis.
@@ -46,7 +35,10 @@
 //     that for one extra log with an argument, -x, that is exact:
 //         lgamma(x) = -log|u| - log(sin(pi u)/(pi u)) - log(-x) - lgamma(-x)
 //     so the positive-axis pipeline runs once, on |x|, for lanes of either
-//     sign, and the reflection is a post-correction.
+//     sign, and the reflection is a post-correction. The two logs are one
+//     (#31): -log|u| - log(-x) = -log(|u|*|x|), the product exact by
+//     TwoProd. Tiny |x|, where u = x and x^2 could underflow, scales both
+//     factors by 2^600 and takes 1200 ln 2 back out.
 //   * pi/|sin pi x| overflows as x approaches an integer. Factoring
 //     sin(pi u) = pi*u*(sin(pi u)/(pi u)) cancels pi analytically and leaves
 //     -log|u| -- which is exactly the term that should diverge at a pole --
@@ -97,7 +89,7 @@ HWY_INLINE op::V<D> Sel2(D d, M m, double v0, double v1) {
 // attenuated ~8x. The generator measures what survives and refuses to emit a
 // table that misses budget -- see tools/gen_lgamma_data.py.
 template <class D, class M>
-HWY_INLINE Dd<D> ZoneBracket(D d, op::V<D> t, M c1) {
+CORVUS_OUTLINE Dd<D> ZoneBracket(D d, op::V<D> t, M c1) {
   const auto* co = detail::kLgammaZoneCoef;
   auto s = Sel2(d, c1, co[0][detail::kLgammaZoneNCoef - 1],
                 co[1][detail::kLgammaZoneNCoef - 1]);
@@ -135,7 +127,7 @@ HWY_INLINE Dd<D> ZoneBracket(D d, op::V<D> t, M c1) {
 // double. log x - 1 needs no protection of its own, since x >= 8 keeps it
 // above 1.
 template <class D>
-HWY_INLINE Dd<D> LgammaStirling(D d, op::V<D> x) {
+CORVUS_OUTLINE Dd<D> LgammaStirling(D d, op::V<D> x) {
   const auto l = LogDd(d, x);
 
   // The product is formed on x scaled down by 2^200 and scaled back after.
@@ -153,6 +145,9 @@ HWY_INLINE Dd<D> LgammaStirling(D d, op::V<D> x) {
   // the low end), and x <= kLgammaMaxArg keeps the split under its ceiling.
   const auto down = op::Set(d, 0x1p-200);
   const auto up = op::Set(d, 0x1p200);
+  // FLOOR: x in [8, kLgammaMaxArg ~ 2^1014] (Stirling lanes; the driver
+  // passes Max(x, X0) on mixed vectors), so log x - 1 is in [1.07, 703] and
+  // x*2^-200 in [2^-197, 2^814]: the product is >= 2^-197.
   auto st = DdMulD(d, DdAddD(d, l, op::Set(d, -1.0)), op::Mul(x, down));
   st = Dd<D>{op::Mul(st.hi, up), op::Mul(st.lo, up)};
 
@@ -170,20 +165,62 @@ HWY_INLINE Dd<D> LgammaStirling(D d, op::V<D> x) {
   return DdAddD(d, st, op::Div(p, x));
 }
 
-// lgamma on (0, X0): the two zone polynomials plus, for the outer bands, one
-// logarithm.
+// lgamma on (5/2, X0) from the Taylor table (#31): with x0 = 5/2 + i/32 the
+// nearest node and r = x - x0,
+//   lgamma(x) = c0 + c1*r + r^2*(c2 + c3*r + ... + c8*r^6).
+// x - 5/2 and r are exact: x, 5/2 and x0 all lie on x's grid (ulp(x) <=
+// 2^-50 here) and neither difference leaves it, so |r| <= 1/64 with no
+// rounding; scaling by 32 is exact, and Round's tie at a cell edge only
+// picks either neighbour, with |r| = 1/64 on both. c0 and c1 are dd, the last
+// places where a double's half ulp would show: the tail is <= ~2^-16, so its
+// rounding lands near 2^-69 absolute. tools/gen_lgamma_data.py replays this
+// arithmetic, fused and unfused, on bit-stepped cell edges: 2^-65.0 relative
+// to lgamma (>= 0.28 here). Truncation (the r^9 term) is below that.
 //
-// The recurrence and the (0, 1/2) shift are folded into a single log call.
-// Region (0, 1/2) wants -log x and region (5/2, X0) wants +log P; every other
-// lane wants neither, and P is exactly 1 there because no recurrence step
-// fires. So one LogDdAny of "x or P" plus a sign select covers all three.
+// A row holds c0.hi, c0.lo, c1.hi, c1.lo, then c8 .. c2, so each lane's eleven
+// gathers touch one or two cache lines.
+//
+// Lanes outside the band must arrive clamped into it: the index is clamped
+// too, but a far-off x would still make r huge.
 template <class D>
-HWY_INLINE Dd<D> LgammaLow(D d, op::V<D> x) {
+CORVUS_OUTLINE Dd<D> LgammaTable(D d, op::V<D> x) {
+  const op::SignedTag<D> di;
+  const auto hi = op::Set(d, detail::kLgammaZoneHi);
+  const auto invh = op::Set(d, detail::kLgammaTabInvH);
+  const auto h = op::Set(d, 1.0 / detail::kLgammaTabInvH);
+  auto kf = op::Round(op::Mul(op::Sub(x, hi), invh));
+  kf = op::Min(op::Max(kf, op::Zero(d)),
+               op::Set(d, static_cast<double>(detail::kLgammaTabN - 1)));
+  const auto r = op::Sub(op::Sub(x, hi), op::Mul(kf, h));  // exact
+  const auto i = op::ConvertToInt(
+      di,
+      op::Mul(kf, op::Set(d, static_cast<double>(detail::kLgammaTabStride))));
+  const double* tab = detail::kLgammaTab;
+  auto p = op::GatherIndex(d, tab + 4, i);
+  for (int k = 5; k < detail::kLgammaTabStride; ++k) {
+    p = op::MulAdd(p, r, op::GatherIndex(d, tab + k, i));
+  }
+  const Dd<D> c0{op::GatherIndex(d, tab + 0, i), op::GatherIndex(d, tab + 1, i)};
+  const Dd<D> c1{op::GatherIndex(d, tab + 2, i), op::GatherIndex(d, tab + 3, i)};
+  // FLOOR: r is 0 (exact) or a multiple of ulp(x) >= 2^-52, and |c1| >= 0.70
+  // on the band.
+  const auto lead = DdAdd(d, c0, DdMulD(d, c1, r));
+  return DdAddD(d, lead, op::Mul(p, op::Mul(r, r)));
+}
+
+// lgamma on (0, X0). Three lane classes, each computed only when some lane
+// needs it: the zone polynomials on [1/2, 5/2], the same polynomial at t = x
+// less log x on (0, 1/2), and the table on (5/2, X0). Stirling lanes, which
+// LgammaPosDd may also pass through here, take a discarded table value.
+template <class D>
+CORVUS_OUTLINE Dd<D> LgammaLow(D d, op::V<D> x) {
   const auto one = op::Set(d, 1.0);
+  const auto zhi = op::Set(d, detail::kLgammaZoneHi);
   const auto small = op::Lt(x, op::Set(d, detail::kLgammaZoneLo));
+  const auto over = op::Gt(x, zhi);
   {
     // Region routes; each mask is bounded on both sides so Stirling lanes
-    // (which LgammaPosDd may also pass through here) and NaN match none.
+    // and NaN match none.
     const auto pos = op::Gt(x, op::Zero(d));
     const auto below_x0 = op::Lt(x, op::Set(d, detail::kLgammaX0));
     CORVUS_ROUTE(d, "lgamma/small", op::And(pos, small));
@@ -195,74 +232,46 @@ HWY_INLINE Dd<D> LgammaLow(D d, op::V<D> x) {
     CORVUS_ROUTE(d, "lgamma/zone2",
                  op::And(op::Ge(x, op::Set(d, detail::kLgammaZoneMid)),
                          op::Lt(x, op::Set(d, 0x1.4000000000001p+1))));
-    CORVUS_ROUTE(d, "lgamma/walk",
-                 op::And(op::Gt(x, op::Set(d, detail::kLgammaZoneHi)),
-                         below_x0));
+    CORVUS_ROUTE(d, "lgamma/table", op::And(over, below_x0));
   }
-
-  // All-zone fast path. When every lane sits in [kLgammaZoneLo, kLgammaZoneHi]
-  // the recurrence multiplies P by exact ones and the log runs on P == 1,
-  // whose table slots carry R = 1, L = 0 exactly -- both contribute exactly
-  // zero, and DdAdd with an exact zero is a value-preserving renormalization.
-  // Skipping them returns the identical rounded result while sparing the
-  // vector kLgammaMidSteps dd multiplies and a full LogDdAny. This is the
-  // same AllTrue/AllFalse region split LgammaPosDd already performs, one
-  // level down; mixed vectors fall through to the full path unchanged.
-  if (op::AllFalse(d, small) &&
-      op::AllFalse(d, op::Gt(x, op::Set(d, detail::kLgammaZoneHi)))) {
-    const auto c1 = op::Lt(x, op::Set(d, detail::kLgammaZoneMid));
-    const auto t =
-        op::IfThenElse(c1, op::Sub(x, one), op::Sub(x, op::Set(d, 2.0)));
-    return DdMulD(d, ZoneBracket(d, t, c1), t);
+  Dd<D> res{op::Zero(d), op::Zero(d)};
+  if (!op::AllTrue(d, over)) {
+    // t = x - centre, exact in every band: x for (0, 1/2), x - 1 by Sterbenz
+    // on [1/2, 3/2), x - 2 on [3/2, 5/2]. Table and Stirling lanes run at
+    // 5/2, keeping t in the polynomials' range (NaN stays NaN).
+    const auto xz = op::IfThenElse(over, zhi, x);
+    const auto c1 = op::Lt(xz, op::Set(d, detail::kLgammaZoneMid));
+    const auto t = op::IfThenElse(
+        small, xz,
+        op::IfThenElse(c1, op::Sub(xz, one), op::Sub(xz, op::Set(d, 2.0))));
+    // FLOOR: below it only on small lanes, x < ~2^-966 (|B| >= 0.42; other t
+    // are >= 2^-53). The <= 2^-1072 loss joins -log x >= 669, ~2^-975 under
+    // that sum's own dd rounding -- invisible to lgamma, gamma and beta alike.
+    res = DdMulD(d, ZoneBracket(d, t, c1), t);
+    if (!op::AllFalse(d, small)) {
+      // LogDdAny rather than LogDd because x may be subnormal here. Other
+      // lanes log 1, whose table slot carries R = 1, L = 0.
+      const auto lg = OutlinedLogDd(d, op::IfThenElse(small, x, one));
+      const auto sub = DdAdd(d, res, Dd<D>{op::Neg(lg.hi), op::Neg(lg.lo)});
+      res = Dd<D>{op::IfThenElse(small, sub.hi, res.hi),
+                  op::IfThenElse(small, sub.lo, res.lo)};
+    }
   }
-
-  // Walk down to (3/2, 5/2]. Step k fires when the argument has not yet
-  // arrived, i.e. when x still exceeds kLgammaZoneHi + (k-1). Clamping the
-  // driver to X0 keeps the loop finite for the Stirling lanes, whose y and P
-  // are discarded -- an unclamped x = 1e308 would otherwise build an infinite
-  // P and poison its dd residual with a NaN.
-  const auto xr = op::Min(x, op::Set(d, detail::kLgammaX0));
-  auto y = x;
-  Dd<D> prod{one, op::Zero(d)};
-  for (int k = 1; k <= detail::kLgammaMidSteps; ++k) {
-    const auto fire =
-        op::Gt(xr, op::Set(d, detail::kLgammaZoneHi + (k - 1)));
-    // The fire masks shrink monotonically in k, so once no lane fires every
-    // remaining step multiplies P by an exact one and leaves y unchanged --
-    // breaking out returns the identical result.
-    if (op::AllFalse(d, fire)) break;
-    const auto step = op::Sub(xr, op::Set(d, static_cast<double>(k)));  // exact
-    prod = DdMulD(d, prod, op::IfThenElse(fire, step, one));
-    y = op::IfThenElse(fire, step, y);
+  if (!op::AllFalse(d, over)) {
+    CORVUS_ROUTE_SCOPE(d, over);
+    const auto x0 = op::Set(d, detail::kLgammaX0);
+    const auto tb = LgammaTable(d, op::IfThenElse(over, op::Min(x, x0), x0));
+    res = Dd<D>{op::IfThenElse(over, tb.hi, res.hi),
+                op::IfThenElse(over, tb.lo, res.lo)};
   }
-
-  // t = x - centre, exact in every band: x for (0, 1/2), x - 1 by Sterbenz on
-  // [1/2, 3/2), and y - 2 for the rest (y is exact and y - 2 shrinks it).
-  const auto c1 = op::Lt(x, op::Set(d, detail::kLgammaZoneMid));
-  const auto t = op::IfThenElse(
-      small, x,
-      op::IfThenElse(c1, op::Sub(x, one), op::Sub(y, op::Set(d, 2.0))));
-  // FLOOR: below it only on small lanes, x < ~2^-966 (|B| >= 0.42; other t
-  // are >= 2^-53). The <= 2^-1072 loss joins -log x >= 669, ~2^-975 under
-  // that sum's own dd rounding -- invisible to lgamma, gamma and beta alike.
-  const auto base = DdMulD(d, ZoneBracket(d, t, c1), t);
-
-  // One log for both outer bands: x when shifting, P otherwise (P == 1, hence
-  // log == 0, throughout the zone). LogDdAny rather than LogDd because x may
-  // be subnormal here.
-  const Dd<D> arg{op::IfThenElse(small, x, prod.hi),
-                  op::IfThenElse(small, op::Zero(d), prod.lo)};
-  const auto lg = OutlinedLogDd(d, arg);
-  const Dd<D> corr{op::IfThenElse(small, op::Neg(lg.hi), lg.hi),
-                   op::IfThenElse(small, op::Neg(lg.lo), lg.lo)};
-  return DdAdd(d, base, corr);
+  return res;
 }
 
 // lgamma for x > 0, as a dd. The caller rounds -- the reflection needs the
 // full precision, since on the negative axis this value is subtracted from
 // three others of comparable size.
 template <class D>
-HWY_INLINE Dd<D> LgammaPosDd(D d, op::V<D> x) {
+CORVUS_OUTLINE Dd<D> LgammaPosDd(D d, op::V<D> x) {
   const auto big = op::Ge(x, op::Set(d, detail::kLgammaX0));
   CORVUS_ROUTE(d, "lgamma/stirling", big);
 
@@ -286,7 +295,7 @@ HWY_INLINE Dd<D> LgammaPosDd(D d, op::V<D> x) {
 // v = u^2; v is formed exactly (TwoProd) because the leading term is
 // -pi^2 v/6, large enough that v's own rounding would show.
 template <class D>
-HWY_INLINE Dd<D> LogSinc(D d, op::V<D> u) {
+CORVUS_OUTLINE Dd<D> LogSinc(D d, op::V<D> u) {
   // FLOOR: u*u < 2^-968 needs |u| < 2^-484, so x = u (|x| >= 1/2 leaves |u|
   // 0 or >= 2^-53); LogSinc is then < 2^-966 in all, against lgamma(x) ~
   // -log|x| >= 335, so its few-2^-1074 loss is invisible.
@@ -300,12 +309,12 @@ HWY_INLINE Dd<D> LogSinc(D d, op::V<D> u) {
   acc = DdAddD(d, acc, op::Mul(s, v.hi));
   acc = DdAdd(d, Dd<D>{op::Set(d, detail::kLgammaSinLeadHi[0]),
                        op::Set(d, detail::kLgammaSinLeadLo[0])},
-              DdMul(d, acc, v));
-  return DdMul(d, acc, v);
+              DdMul(d, acc, v));  // FLOOR: only with v, argued at v above.
+  return DdMul(d, acc, v);        // FLOOR: as acc*v above.
 }
 
 template <class D>
-HWY_INLINE op::V<D> LgammaVec(D d, op::V<D> x) {
+CORVUS_OUTLINE op::V<D> LgammaVec(D d, op::V<D> x) {
   const auto zero = op::Zero(d);
   const auto inf = op::Set(d, std::numeric_limits<double>::infinity());
   const auto neg = op::Lt(x, zero);
@@ -326,9 +335,29 @@ HWY_INLINE op::V<D> LgammaVec(D d, op::V<D> x) {
     // u = x - round(x), exact; |u| <= 1/2. u == 0 marks a pole.
     const auto u = op::Sub(x, op::Round(x));
     const auto au = op::Abs(u);
-    // lgamma(x) = -log|u| - logsinc(u) - log(-x) - lgamma(-x).
-    auto r = DdAdd(d, OutlinedLogDd(d, au), LogSinc(d, u));
-    r = DdAdd(d, r, DdAdd(d, OutlinedLogDd(d, ax), g));
+    // lgamma(x) = -log(|u|*|x|) - logsinc(u) - lgamma(-x). Below |x| = 2^-400
+    // u = x, so the product is x^2: both factors scale by 2^600 (exact), and
+    // 1200 ln 2 comes back out. Above it the product is 0 at a pole or
+    // >= 2^-53 * 1/2 (|x| >= 1/2) or x^2 >= 2^-800.
+    const auto tiny = op::Lt(ax, op::Set(d, 0x1p-400));
+    const auto sc = op::IfThenElse(tiny, op::Set(d, 0x1p600), op::Set(d, 1.0));
+    // FLOOR: at a pole the product is exact zero; otherwise, by the bounds
+    // above, it is >= 2^-800, and scaled tiny lanes hold subnormal x * 2^600
+    // >= 2^-474, so >= 2^-948.
+    const auto pr = TwoProd(d, op::Mul(au, sc), op::Mul(ax, sc));
+    auto lp = OutlinedLogDd(d, pr);
+    if (!op::AllFalse(d, tiny)) {
+      CORVUS_ROUTE(d, "lgamma/neg_tiny", tiny);
+      // FLOOR: ln 2 and 1200 are constants, nowhere near it.
+      const auto k = DdMulD(d,
+                            Dd<D>{op::Set(d, detail::kLogLn2Hi),
+                                  op::Set(d, detail::kLogLn2Lo)},
+                            op::Set(d, 1200.0));
+      const auto lps = DdAdd(d, lp, Dd<D>{op::Neg(k.hi), op::Neg(k.lo)});
+      lp = Dd<D>{op::IfThenElse(tiny, lps.hi, lp.hi),
+                 op::IfThenElse(tiny, lps.lo, lp.lo)};
+    }
+    const auto r = DdAdd(d, DdAdd(d, lp, LogSinc(d, u)), g);
     const Dd<D> refl{op::Neg(r.hi), op::Neg(r.lo)};
     const auto pole = op::Eq(u, zero);
     CORVUS_ROUTE(d, "lgamma/special/pole", pole);

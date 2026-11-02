@@ -86,7 +86,7 @@ import mpmath as mp
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gen_beta_data as gbd  # noqa: E402  (see module docstring: reused, not re-derived)
-from refgen_common import round_to_double  # noqa: E402  (single-rounding mpf->double;
+from refgen_common import round_resolving_ties, round_to_double  # noqa: E402  (single-rounding mpf->double;
 # see refgen_common.py's own docstring: float(mpf) double-rounds in the
 # subnormal band, up to 1 ulp off correctly rounded)
 
@@ -1661,7 +1661,11 @@ def prewarm_betainc_rescue_checkpoint(ps, done_map, fh):
                       # gets one more (equivalent) try, then it's a real drop.
         which = which_map[idx]
         P, Q = (final, 1 - final) if which == "P" else (1 - final, final)
-        Pf, Qf = round_to_double(P), round_to_double(Q)
+        # #89: near-ties resolved at TIE_DPS; unresolved stays FAILED.
+        pq = rounded_beta_pq(a, b, x, P, Q)
+        if pq is None:
+            continue
+        Pf, Qf = pq
         if not (math.isfinite(Pf) and math.isfinite(Qf)):
             continue
         region = route_final(mp.mpf(a), mp.mpf(b), mp.mpf(x))[3]
@@ -2107,6 +2111,79 @@ def small_side_direct(a, b, x):
 
 
 # ============================================================================
+# Near-tie resolution (#89). A value within TIE_RESOLVE ulp of a rounding
+# midpoint does not say which side it is on at the 40/60/100 ladder's
+# precision (I_x(1, 1/2) at x = 2^-1074 is x/2 + x^2/8, the excess 2^-1076
+# relative). rounded_beta_pq re-evaluates such a value at TIE_DPS with the
+# hunt strata's bounded oracle, tools/hunt/families/_beta_oracles.betainc_pq
+# (the form tools/hunt/strata_append.py resolves the same ties with); its
+# OracleError (a cap hit) declines the row. Exact closed-form lines are
+# rounded exactly instead.
+# ============================================================================
+_BETA_ORACLES = []
+# tie_pq must reproduce the ladder value this closely: far below half an
+# ulp (2^-54 relative), far above the ladder's own error -- the gamma-corner
+# asymptotic is good to ~1e-22 relative only (measured 1.4e-22 against
+# betainc_pq at (1544.8, 1.67e15, 1.75e-12)), past DISAGREE_60_40.
+TIE_AGREE = mp.mpf(2) ** -60
+
+
+def _strata_oracles():
+    """tools/hunt/families/_beta_oracles.py, loaded by path: importing the
+    families package would pull in every hunt family."""
+    if not _BETA_ORACLES:
+        import importlib.util
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "hunt", "families", "_beta_oracles.py")
+        spec = importlib.util.spec_from_file_location("corvus_beta_oracles", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _BETA_ORACLES.append(mod)
+    return _BETA_ORACLES[0]
+
+
+def tie_pq(a, b, x, dps):
+    """(P, Q) = (I_x(a,b), 1 - I_x(a,b)) to ~dps digits from the strata
+    oracle, or None when it declines (OracleError, or any other arithmetic
+    failure). x may be an mpf (an inverse generator's half-ulp midpoint)."""
+    try:
+        return _strata_oracles().betainc_pq(a, b, x, dps)
+    except ArithmeticError:  # OracleError subclasses it
+        return None
+
+
+def rounded_beta_pq(a, b, x, P, Q):
+    """(Pf, Qf) for ladder values P, Q, or None to decline (#89). Exact
+    lines round exactly (exact_line_value) -- the one place an exact
+    result is used. Otherwise a near-tie is re-evaluated by tie_pq at
+    TIE_DPS, which must reproduce the ladder value to TIE_AGREE (a guard
+    against a ladder value that is not the same quantity); this
+    holds for every oracle compute_all runs, custom ones included. An
+    exact rational tie off those lines stays a tie at TIE_DPS and is
+    declined deliberately: unresolved means drop."""
+    exact = exact_line_value(a, b, x)
+    if exact is not None:
+        return exact
+
+    def side(i):
+        def f(dps):
+            r = tie_pq(a, b, x, dps)
+            if r is None:
+                return mp.nan
+            ref = (P, Q)[i]
+            if abs(r[i] - ref) > abs(ref) * TIE_AGREE:
+                return mp.nan
+            return r[i]
+        return f
+
+    Pf = round_resolving_ties(P, side(0))
+    Qf = round_resolving_ties(Q, side(1))
+    if Pf is None or Qf is None:
+        return None
+    return Pf, Qf
+
+
+# ============================================================================
 # Resumable checkpointing: this generator's full point set takes longer to
 # oracle-evaluate (CF, per point) than a single interactive dev session's
 # command budget comfortably allows in one shot (measured: 3-100ms/point
@@ -2176,7 +2253,8 @@ def compute_all(ps, ckpt_path=CKPT_PATH, sig_ver="v2", oracle=None):
     also skips the betainc-rescue prewarm (--gl54-append, issue #54: its
     rows must never fall back to the generator's own methods)."""
     total = len(ps.pts)
-    sig = f"{sig_ver} SEED={SEED} N={total}"
+    # -t89: entries rounded before the #89 tie rule are not reused.
+    sig = f"{sig_ver}-t89 SEED={SEED} N={total}"
     done_map = load_checkpoint(ckpt_path, sig)
     n_prev_failed = sum(1 for v in done_map.values() if v[0] == "FAILED")
     print(f"  checkpoint: {len(done_map)}/{total} points already computed "
@@ -2217,10 +2295,12 @@ def compute_all(ps, ckpt_path=CKPT_PATH, sig_ver="v2", oracle=None):
                       f"re-run this script to continue.", file=sys.stderr)
                 return None, None, False
             P, Q, which, escalated, failed = (oracle or small_side_direct)(a, b, x)
-            if failed:
+            # #89: near-ties resolved at TIE_DPS; unresolved -> FAILED.
+            pq = None if failed else rounded_beta_pq(a, b, x, P, Q)
+            if pq is None:
                 append_checkpoint(fh, idx, ["FAILED"])
             else:
-                Pf, Qf = round_to_double(P), round_to_double(Q)
+                Pf, Qf = pq
                 if not (math.isfinite(Pf) and math.isfinite(Qf)):
                     append_checkpoint(fh, idx, ["FAILED"])
                 else:

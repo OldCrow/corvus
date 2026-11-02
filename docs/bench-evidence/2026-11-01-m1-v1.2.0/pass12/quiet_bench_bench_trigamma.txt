@@ -1,0 +1,19 @@
+corvus active SIMD target: NEON
+trigamma, (0,1) up-step: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          38.13          75.79      1.99x
+trigamma, [1,2) zone: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          35.66          70.26      1.97x
+trigamma, [2,8) down-walk: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          51.71          93.33      1.81x
+trigamma, [8,2^89) asymptotic: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          14.59          32.88      2.25x
+trigamma, [2^89,inf) 1/x only: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          14.60          30.67      2.10x
+trigamma, negative axis (reflection): n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          57.04          90.95      1.59x

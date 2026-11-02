@@ -1,0 +1,29 @@
+13:34:21 quiet_bench.sh  build=build  expect=NEON  targets=4
+13:34:21 gate          : ambient < 10% over two consecutive 10s windows
+13:34:21 machine       : Apple M1; macOS 27.2
+13:34:32 ambient sample : 14.18%
+13:34:32   top consumers:
+    100.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      2.9 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+      1.2 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+      1.0 /usr/libexec/locationd
+      1.0 /Applications/iPulse.app/Contents/MacOS/iPulse
+13:34:42 ambient sample : 14.44%
+13:34:42   top consumers:
+    100.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      0.8 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.309/5af865b9901c/claude.app/Contents/MacOS/claude
+      0.2 /usr/libexec/locationd
+      0.2 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+      0.1 /usr/libexec/clocksyncd
+13:34:52 ambient sample : 5.76%
+13:35:03 ambient sample : 3.64%
+13:35:03 gate passed at: 5.76 3.64%
+13:35:13 bench_digamma: noise before 2.34%  top: 3.9%locationd 3.0%iPulse 1.8%it.murus.VallumES.VES 
+13:35:13 bench_digamma: rc=0 0s target=NEON
+13:35:24 bench_trigamma: noise before 2.28%  top: 4.6%exchangesyncd 2.7%locationd 2.4%Application 
+13:35:24 bench_trigamma: rc=0 0s target=NEON
+13:35:34 bench_erfinv: noise before 3.87%  top: 3.9%locationd 2.7%iPulse 1.2%airportd 
+13:35:38 bench_erfinv: rc=0 4s target=NEON
+13:35:48 bench_bessel: noise before 1.58%  top: 1.2%airportd 0.3%bluetoothd 0.2%locationd 
+13:35:48 bench_bessel: rc=0 0s target=NEON
+13:35:48 done fail=0. Raw per-target output: build/quiet_bench/quiet_bench_<target>.txt

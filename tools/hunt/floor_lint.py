@@ -9,17 +9,18 @@ or prescale" -- had no check, so this lint makes the argument visible:
 
   // FLOOR: <why the operands stay inside [floor, ceiling], or the prescale>
 
-either on the call's line or in the comment lines directly above it, or once
-at the head of the enclosing function (between the previous function's end and
-this function's signature) to cover every site in it. The lint lists every
-uncovered site; --strict exits non-zero when any remain.
+either on the call's line or in the comment lines directly above it (a comment
+above a statement that spans several lines covers the whole statement), or
+once at the head of the enclosing function (between the previous function's
+end and this function's signature) to cover every site in it. The lint lists
+every uncovered site; --strict exits non-zero when any remain.
 
 The rule, what counts as an argument, and the phasing live in
 docs/NUMERICAL-DOCTRINE.md (hazard rules, "Every Dekker-product site states
 its floor argument"). In short: row 12-T argues the sites that can reach the
-floor, each fix row argues the functions it changes, and #86 (v1.2.0) argues
-the rest. The lint stays report-only until it reaches zero; then CI runs it
---strict.
+floor, each fix row argues the functions it changes, and #86 (v1.2.0) argued
+the rest. Since #86 every site is covered and CI runs the lint --strict, so a
+new site cannot land without an argument.
 
   python tools/hunt/floor_lint.py [--strict] [--summary]
 """
@@ -41,7 +42,7 @@ MARK = "FLOOR:"
 def scan(path: Path):
     lines = path.read_text(encoding="utf-8").splitlines()
     head_mark = False  # a FLOOR: in the current function's leading comment
-    pending = False    # FLOOR: seen in comments since the last code line
+    pending = False    # FLOOR: seen in comments since the last statement end
     in_sig = False     # inside a signature that spans several head lines
     for i, line in enumerate(lines, 1):
         s = line.strip()
@@ -64,7 +65,9 @@ def scan(path: Path):
         if m and not s.startswith("#"):
             covered = MARK in line or head_mark or pending
             yield i, m.group(1), covered, s
-        if s:
+        # A statement continues until a line ends in ';', '{' or '}', so a
+        # comment above its first line also covers its continuation lines.
+        if s and s.split("//")[0].rstrip().endswith((";", "{", "}")):
             pending = False
 
 

@@ -74,7 +74,7 @@ import time
 import mpmath as mp
 from mpmath import mpf
 
-from refgen_common import round_to_double
+from refgen_common import round_resolving_ties
 
 SEED = 20260811
 
@@ -476,6 +476,21 @@ def build_points(rng):
     return uniq, meta
 
 
+def stored_value(a, b, val):
+    """#89: the stored double for the oracle value val of ln B(a,b). A
+    near-tie is re-evaluated at 400 digits (plus the pair's cancellation
+    depth, as in layered_value); None means unresolved, decline the row."""
+    return round_resolving_ties(
+        val,
+        lambda dps: lnbeta_mpf(a, b, dps + _term_magnitude_digits(a, b)))
+
+
+def fresh_value(a, b, val, ok):
+    """stored_value for the verification passes; NaN when declined."""
+    y = stored_value(a, b, val) if ok else None
+    return float("nan") if y is None else y
+
+
 def emit_rows(points):
     rows = []
     declined = []
@@ -487,8 +502,8 @@ def emit_rows(points):
         if not ok:
             declined.append((a, b))
             continue
-        y = round_to_double(val)
-        if math.isnan(y):
+        y = stored_value(a, b, val)
+        if y is None or math.isnan(y):
             declined.append((a, b))
             continue
         rows.append((a, b, y))
@@ -513,7 +528,7 @@ def reverify_sample(rows, rng, n=200):
     mism = []
     for a, b, y in sample:
         val, ok, _ = layered_value(a, b)
-        fresh = round_to_double(val) if ok else float("nan")
+        fresh = fresh_value(a, b, val, ok)
         if fresh != y and not (math.isnan(fresh) and math.isnan(y)):
             mism.append((a, b, y, fresh))
     return mism
@@ -536,7 +551,7 @@ def negative_control(rows, rng):
     else:
         bad_y = math.nextafter(y, math.inf)
     val, ok, _ = layered_value(a, b)
-    fresh = round_to_double(val) if ok else float("nan")
+    fresh = fresh_value(a, b, val, ok)
     return fresh != bad_y
 
 
@@ -548,7 +563,7 @@ def symmetry_check(rows, rng, n=150):
     mism = []
     for a, b, y in sample:
         val, ok, _ = layered_value(b, a)
-        fresh = round_to_double(val) if ok else float("nan")
+        fresh = fresh_value(b, a, val, ok)
         if fresh != y:
             mism.append((a, b, y, fresh))
     return mism

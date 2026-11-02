@@ -1,0 +1,47 @@
+[14:59:33] === quiet_bench start ===
+[14:59:33] build dir     : C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus\0c771f3c-f5cd-4bae-9469-28816cdac098\scratchpad\c3b\qab\A
+[14:59:33] targets       : bench_lgamma, bench_gamma, bench_beta, bench_lbeta, bench_gammainv, bench_betainv
+[14:59:33] expect target : AVX3_ZEN4
+[14:59:33] gate          : ambient < 5% over two consecutive 10s windows
+[14:59:45] gate window 1: 14.10%
+[14:59:45]   top CPU consumers right now (% of one core):
+[14:59:48]     system                     60.7%
+[14:59:48]     dwm                        22.1%
+[14:59:48]     logonui                    13.8%
+[14:59:48]     icloudhome                  8.7%
+[14:59:48]     lightingservice             3.6%
+[14:59:48]     msmpeng                     3.6%
+[14:59:48]     explorer                    3.1%
+[14:59:48]     pwsh                        2.8%
+[14:59:58] gate window 1: 4.82%
+[15:00:08] gate window 2: 5.26%
+[15:00:08]   top CPU consumers right now (% of one core):
+[15:00:11]     dwm                        14.0%
+[15:00:11]     memory compression         11.4%
+[15:00:11]     system                      6.2%
+[15:00:11]     lightingservice             2.6%
+[15:00:11]     glasswire                   2.1%
+[15:00:11]     aacambientlighting          1.0%
+[15:00:11]     icloudhome                  1.0%
+[15:00:11]     gwctlsrv                    1.0%
+[15:00:21] gate window 1: 4.74%
+[15:00:31] gate window 2: 4.40%
+[15:00:31] GATE PASSED at 4.74%
+[15:00:34] --- bench_lgamma --- noise before: 5.83%
+[15:00:43] ok   bench_lgamma -> quiet_bench_bench_lgamma.txt   noise after: 5.87%
+[15:00:46] --- bench_gamma --- noise before: 17.32%
+[15:01:02] ok   bench_gamma -> quiet_bench_bench_gamma.txt   noise after: 3.50%
+[15:01:05] --- bench_beta --- noise before: 4.35%
+[15:01:10] ok   bench_beta -> quiet_bench_bench_beta.txt   noise after: 3.12%
+[15:01:13] --- bench_lbeta --- noise before: 2.85%
+[15:01:16] ok   bench_lbeta -> quiet_bench_bench_lbeta.txt   noise after: 9.23%
+[15:01:19] --- bench_gammainv --- noise before: 4.69%
+[15:01:25] ok   bench_gammainv -> quiet_bench_bench_gammainv.txt   noise after: 3.51%
+[15:01:28] --- bench_betainv --- noise before: 3.10%
+[15:01:40] ok   bench_betainv -> quiet_bench_bench_betainv.txt   noise after: 6.16%
+[15:01:40] === quiet_bench summary ===
+[15:01:40] gated at      : 4.74%
+[15:01:40] noise held    : 2.85% - 17.32% (avg 5.79%)
+[15:01:40] targets run   : 6 of 6
+[15:01:40] Raw per-target output: C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus\0c771f3c-f5cd-4bae-9469-28816cdac098\scratchpad\c3b\qab2\pass1-A\quiet_bench_<target>.txt
+[15:01:40] This log is the evidence chain - keep it with any published number.

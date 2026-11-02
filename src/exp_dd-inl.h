@@ -92,7 +92,7 @@ HWY_INLINE op::V<D> ScaleTwo(D d, op::V<D> v, op::V<op::SignedTag<D>> e) {
 // is what is returned. Same precondition as ScaleTwo; m.hi in [1, 2) or
 // zero, as ExpDdFrac and the callers' mantissas are.
 template <class D>
-HWY_INLINE op::V<D> DdScaleToDouble(D d, Dd<D> m, op::V<op::SignedTag<D>> e) {
+CORVUS_OUTLINE op::V<D> DdScaleToDouble(D d, Dd<D> m, op::V<op::SignedTag<D>> e) {
   const auto v_norm = ScaleTwo(d, op::Add(m.hi, m.lo), e);
   const auto r = ScaleTwo(d, m.hi, e);
   const auto back = ScaleTwo(d, r, op::Neg(e));
@@ -113,7 +113,7 @@ HWY_INLINE op::V<D> DdScaleToDouble(D d, Dd<D> m, op::V<op::SignedTag<D>> e) {
 
 // exp(x_hi + x_lo) in mantissa/exponent form. See the file header.
 template <class D>
-HWY_INLINE ExpDdParts<D> ExpDdFrac(D d, op::V<D> xh, op::V<D> xl) {
+CORVUS_OUTLINE ExpDdParts<D> ExpDdFrac(D d, op::V<D> xh, op::V<D> xl) {
   const op::SignedTag<D> di;
 
   const auto lim = op::Set(d, detail::kExpXMax);
@@ -128,6 +128,8 @@ HWY_INLINE ExpDdParts<D> ExpDdFrac(D d, op::V<D> xh, op::V<D> xl) {
   const auto l2 = op::Set(d, detail::kExpL2);
   const auto kl1 = op::Mul(kf, op::Set(d, detail::kExpL1));  // exact
   const auto kl2 = op::Mul(kf, l2);
+  // FLOOR: kf is an integer, |kf| <= 203132 (the 1100 clamp), and L2 ~
+  // 2^-43: kf*L2 is 0 (exact) or in [2^-43, 2^-25].
   const auto kl2_lo = op::ProdLow(d, kf, l2, kl2);  // exact residual
   const auto s0 = TwoSum(d, xh, op::Neg(kl1));
   const auto s1 = TwoSum(d, s0.hi, op::Neg(kl2));

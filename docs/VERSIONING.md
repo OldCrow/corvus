@@ -10,7 +10,9 @@ and standard SemVer only speaks to the first.
 **API stability.** Within a major version, every public entry point in
 `corvus.h` keeps its name, signature, parameter order, `noexcept`
 status, and documented special-value behavior. New functions may
-appear (minor); existing ones do not change or disappear.
+appear (minor); existing ones do not change or disappear. Adding an
+overload (MINOR) can make taking an unqualified function's address
+ambiguous; name the signature explicitly.
 
 **Accuracy bounds are contractual floors.** The per-tier bounds in
 [ACCURACY.md](ACCURACY.md) are part of the interface. Within a major

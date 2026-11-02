@@ -1,0 +1,10 @@
+corvus active SIMD target: NEON
+         n   fn   corvus ns/el     libm ns/el    speedup
+      1000  cos           5.38           7.67      1.43x
+      1000  sin           4.67           7.58      1.62x
+     10000  cos           4.63          18.57      4.01x
+     10000  sin           4.10          13.62      3.32x
+    100000  cos           3.35          12.86      3.84x
+    100000  sin           2.50          12.68      5.07x
+   1000000  cos           2.50          13.05      5.21x
+   1000000  sin           2.55          13.10      5.14x

@@ -25,6 +25,7 @@
 
 namespace {
 
+using corvus_test::SameBits;
 using corvus_test::UlpDiff;
 
 // Gates: lbeta was documented and gated as CORRECTLY ROUNDED (relative and
@@ -36,6 +37,9 @@ using corvus_test::UlpDiff;
 // except such ties (see docs/ACCURACY.md); the -inf boundary stays exact.
 constexpr uint64_t kMaxUlp = 1;         // relative rows and big-band rows
 constexpr double kMaxAbs53 = 1.0;       // |lnB| < 1 band, units of 2^-53
+// a = 1 or b = 1: -ln x from one log (#80), judged relatively at every
+// magnitude. The absolute band would hide the lgamma pair's ~2^-74 floor here.
+constexpr uint64_t kMaxUlpUnit = 0;
 
 constexpr double kBigMin = 0x1.0p+990;  // mirrors kLbetaBigMin (beta-inl.h)
 
@@ -84,7 +88,10 @@ int main(int argc, char* const* argv) {
   size_t abs_n = 0;
   double abs_worst_a = 0, abs_worst_b = 0;
   size_t inf_n = 0, inf_fail = 0;
-  corvus_test::RealMax rel_real, big_real;
+  corvus_test::RealMax rel_real, big_real, unit_real;
+  uint64_t unit_max = 0;
+  size_t unit_n = 0, unit_miss = 0;
+  double unit_worst_a = 0, unit_worst_b = 0;
 
   for (size_t i = 0; i < a.size(); ++i) {
     if (std::isinf(want[i])) {
@@ -96,7 +103,20 @@ int main(int argc, char* const* argv) {
       }
       continue;
     }
-    if (std::min(a[i], b[i]) > kBigMin) {
+    if (a[i] == 1.0 || b[i] == 1.0) {
+      // ln B(1, 1) = +0 is judged bit-exact: UlpDiff cannot see the sign.
+      const bool zero_ref = want[i] == 0.0;
+      const uint64_t u = zero_ref ? (SameBits(got[i], want[i]) ? 0 : UINT64_MAX)
+                                  : UlpDiff(got[i], want[i]);
+      ++unit_n;
+      if (u > 0) ++unit_miss;
+      if (!zero_ref) unit_real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
+      if (u > unit_max) {
+        unit_max = u;
+        unit_worst_a = a[i];
+        unit_worst_b = b[i];
+      }
+    } else if (std::min(a[i], b[i]) > kBigMin) {
       const uint64_t u = UlpDiff(got[i], want[i]);
       ++big_n;
       if (u > 0) ++big_miss;
@@ -143,6 +163,15 @@ int main(int argc, char* const* argv) {
   if (rel_n != 0) {
     rc |= corvus_test::CheckReal(path, "lbeta", "relative", kMaxUlp, rel_real);
   }
+  std::printf("  unit line (a|b=1)   n=%6zu  max ULP=%3llu (gate %llu)  "
+              "not-CR: %zu  worst a=%.17g b=%.17g\n",
+              unit_n, static_cast<unsigned long long>(unit_max),
+              static_cast<unsigned long long>(kMaxUlpUnit), unit_miss,
+              unit_worst_a, unit_worst_b);
+  if (unit_n != 0) {
+    rc |= corvus_test::CheckReal(path, "lbeta", "unit line", kMaxUlpUnit,
+                                 unit_real);
+  }
   std::printf("  big band (m>2^990)  n=%6zu  max ULP=%3llu (gate %llu)  "
               "not-CR: %zu  worst a=%.17g b=%.17g\n",
               big_n, static_cast<unsigned long long>(big_max),
@@ -158,10 +187,14 @@ int main(int argc, char* const* argv) {
               inf_fail);
 
   // #14 N10: a band that never accumulated a row is a gate that never ran --
-  // every one of these four bands is populated by design in the certified
+  // every one of these five bands is populated by design in the certified
   // reference set (docs/ACCURACY.md), so n=0 here means a coverage gap.
   if (rel_n == 0) {
     std::fprintf(stderr, "FAIL: relative band is empty (n=0) -- vacuous gate\n");
+    rc = 1;
+  }
+  if (unit_n == 0) {
+    std::fprintf(stderr, "FAIL: unit line is empty (n=0) -- vacuous gate\n");
     rc = 1;
   }
   if (big_n == 0) {
@@ -180,6 +213,10 @@ int main(int argc, char* const* argv) {
   }
   if (rel_max > kMaxUlp) {
     std::fprintf(stderr, "FAIL: relative band exceeds gate\n");
+    rc = 1;
+  }
+  if (unit_max > kMaxUlpUnit) {
+    std::fprintf(stderr, "FAIL: unit line exceeds gate\n");
     rc = 1;
   }
   if (big_max > kMaxUlp) {

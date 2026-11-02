@@ -1,0 +1,21 @@
+corvus active SIMD target: AVX2
+erfinv, input range [-0.5, 0.5] (central C)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          10.01          51.03      5.10x
+   1000000          10.29          51.77      5.03x
+erfinv, input range [-0.999, 0.999] (mixed)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          45.82         105.70      2.31x
+   1000000          46.66         109.01      2.34x
+erfcinv, input range [0.5, 1.5] (central C)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          10.55          70.56      6.69x
+   1000000          11.37          55.58      4.89x
+erfcinv, input range [1e-06, 0.5] (T-mid)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          35.95         150.07      4.17x
+   1000000          37.32         152.89      4.10x
+erfcinv, input range [4.94066e-324, 2.2e-308] (T-far, subnormal z)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          66.49         284.19      4.27x
+   1000000          68.98         278.61      4.04x

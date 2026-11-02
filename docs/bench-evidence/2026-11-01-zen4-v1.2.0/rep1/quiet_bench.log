@@ -1,0 +1,40 @@
+[16:24:57] === quiet_bench start ===
+[16:24:57] build dir     : build-clangcl
+[16:24:57] targets       : bench_digamma, bench_trigamma, bench_erfinv, bench_bessel
+[16:24:57] expect target : AVX3_ZEN4
+[16:24:57] gate          : ambient < 5% over two consecutive 10s windows
+[16:25:08] gate window 1: 7.35%
+[16:25:08]   top CPU consumers right now (% of one core):
+[16:25:11]     lightingservice             4.1%
+[16:25:11]     pwsh                        2.6%
+[16:25:11]     glasswire                   2.1%
+[16:25:11]     gwctlsrv                    2.1%
+[16:25:11]     system                      1.5%
+[16:25:11]     applemobiledeviceprocess    1.0%
+[16:25:11]     msmpeng                     1.0%
+[16:25:11]     gwidlmon                    1.0%
+[16:25:21] gate window 1: 5.43%
+[16:25:21]   top CPU consumers right now (% of one core):
+[16:25:24]     system                     22.4%
+[16:25:24]     lightingservice             6.2%
+[16:25:24]     glasswire                   2.6%
+[16:25:24]     gwctlsrv                    2.1%
+[16:25:24]     aacambientlighting          2.1%
+[16:25:24]     msmpeng                     1.5%
+[16:25:34] gate window 1: 3.93%
+[16:25:44] gate window 2: 3.11%
+[16:25:44] GATE PASSED at 3.93%
+[16:25:47] --- bench_digamma --- noise before: 3.36%
+[16:25:51] ok   bench_digamma -> quiet_bench_bench_digamma.txt   noise after: 3.37%
+[16:25:54] --- bench_trigamma --- noise before: 3.45%
+[16:25:57] ok   bench_trigamma -> quiet_bench_bench_trigamma.txt   noise after: 4.22%
+[16:26:00] --- bench_erfinv --- noise before: 3.39%
+[16:26:07] ok   bench_erfinv -> quiet_bench_bench_erfinv.txt   noise after: 4.07%
+[16:26:10] --- bench_bessel --- noise before: 3.48%
+[16:26:13] ok   bench_bessel -> quiet_bench_bench_bessel.txt   noise after: 3.75%
+[16:26:13] === quiet_bench summary ===
+[16:26:13] gated at      : 3.93%
+[16:26:13] noise held    : 3.36% - 4.22% (avg 3.64%)
+[16:26:13] targets run   : 4 of 4
+[16:26:13] Raw per-target output: C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus\0c771f3c-f5cd-4bae-9469-28816cdac098\scratchpad\rowd-z\rep1\quiet_bench_<target>.txt
+[16:26:13] This log is the evidence chain - keep it with any published number.

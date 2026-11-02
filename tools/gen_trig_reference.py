@@ -44,7 +44,7 @@ import sys
 
 import mpmath as mp
 
-from refgen_common import round_to_double
+from refgen_common import round_resolving_ties
 from trig_common import PH_E_MAX, PH_E_MIN, worst_m_for_exponent
 
 SEED = 20260830
@@ -65,9 +65,12 @@ def work_dps(x: float) -> int:
     return max(60, int(0.302 * max(ex, 0)) + 80)
 
 
-def oracle(fn, x: float, dps_scale: int = 1) -> float:
+def oracle(fn, x: float, dps_scale: int = 1):
+    """Stored double for fn(x), or None. #89: a near-tie is re-evaluated at
+    400 digits; None means unresolved (decline the row)."""
     with mp.workdps(dps_scale * work_dps(x)):
-        return round_to_double(fn(mp.mpf(x)))
+        return round_resolving_ties(
+            fn(mp.mpf(x)), lambda dps, x=x: fn(mp.mpf(x)))
 
 
 def emit(fn, points):
@@ -80,7 +83,10 @@ def emit(fn, points):
         if b in seen:
             continue
         seen.add(b)
-        rows.append((x, oracle(fn, x)))
+        y = oracle(fn, x)
+        if y is None:  # unresolved near-tie (#89): decline the row
+            continue
+        rows.append((x, y))
     return rows
 
 
@@ -101,6 +107,8 @@ def self_check(fn, rows):
     for i in sample:
         x, y = rows[i]
         y2 = oracle(fn, x, dps_scale=2)
+        if y2 is None:  # unresolved near-tie (#89): never matches a stored row
+            y2 = float("nan")
         if as_bits(y2) != as_bits(y):
             bad.append((x, y, y2))
     if bad:

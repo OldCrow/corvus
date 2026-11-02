@@ -79,12 +79,13 @@ static HWY_INLINE op::V<D> ErfcCoreVec(D d, op::V<D> x, op::V<D> ax, M nan) {
 }
 
 template <class D>
-static HWY_INLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
+static CORVUS_OUTLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
   CORVUS_ROUTE_SCOPE(d, op::Gt(ax, op::Set(d, detail::kErfcTailLo)));
   CORVUS_ROUTE(d, "erfc/tail_clamp", op::Gt(ax, op::Set(d, detail::kErfcTailHi)));
   const auto at = op::Max(op::Min(ax, op::Set(d, detail::kErfcTailHi)),
                           op::Set(d, detail::kGammaTailZLo));
   const auto ssq = op::Mul(at, at);
+  // FLOOR: at is clamped to [5, 28], so at^2 is in [25, 784].
   const auto sl = op::SquareLow(d, at, ssq);  // exact: at^2 = ssq + sl
   const auto ur = DdRecip(d, at);             // 1/at to ~2^-105
   // G as a dd from the shared Temme fit at r = 1/(2a), exactly half of ur.
@@ -92,6 +93,7 @@ static HWY_INLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
   const auto gdd = GammaTailG(d, r2);
 
   const auto ex = ExpDdFrac(d, op::Neg(ssq), op::Neg(sl));
+  // FLOOR: ur = 1/at in [1/28, 1/5], G ~ 0.56 (GammaTailG), ex.m in ~[1, 2].
   const auto m = DdMul(d, ex.m, DdMul(d, ur, gdd));  // e^{-a^2} mantissa * G/a
   const auto tail_pos = DdScaleToDouble(d, m, ex.e);
   CORVUS_ROUTE(d, "erfc/tail_underflow", op::Eq(tail_pos, op::Zero(d)));
@@ -106,7 +108,7 @@ static HWY_INLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
 }
 
 template <class D>
-static HWY_INLINE op::V<D> ErfcVec(D d, op::V<D> x) {
+static CORVUS_OUTLINE op::V<D> ErfcVec(D d, op::V<D> x) {
   const auto ax = op::Abs(x);
   const auto nan = op::IsNaN(x);
   // NaN lanes have tail_m false and are handled in the core branch.

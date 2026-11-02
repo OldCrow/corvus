@@ -24,13 +24,14 @@ Usage:
     python3 tools/gen_exp_dd_reference.py > tests/data/exp_dd_reference.txt
 """
 
+import math
 import random
 import struct
 import sys
 
 import mpmath as mp
 
-from refgen_common import round_to_double
+from refgen_common import round_resolving_ties, round_to_double
 
 DPS = 60
 mp.mp.dps = DPS
@@ -44,18 +45,31 @@ def as_bits(x: float) -> int:
     return struct.unpack("<Q", struct.pack("<d", x))[0]
 
 
-def split(v):
-    """mpf -> (hi, lo) doubles with hi = RN(v), single-rounded."""
-    hi = round_to_double(v)
+def split(v, recompute=None):
+    """mpf -> (hi, lo) doubles with hi = RN(v), single-rounded. #89: hi
+    resolves a near-tie at 400 digits via recompute; None means unresolved
+    (decline the row). lo stays v - hi: v is exact to ~1e-60 relative, far
+    inside lo's 53 bits, and a resolved hi makes lo the opposite half-ulp."""
+    hi = round_resolving_ties(v, recompute)
+    if hi is None:
+        return None
     lo = round_to_double(v - mp.mpf(hi))
     return hi, lo
+
+
+def exp_dd(xh, xl):
+    """Oracle exp(xh + xl) at the ambient dps (xh + xl is exact there)."""
+    return mp.e ** (mp.mpf(xh) + mp.mpf(xl))
 
 
 def emit(rows, xh, xl=0.0):
     if not (abs(xh) <= 1100.0):
         return
-    v = mp.e ** (mp.mpf(xh) + mp.mpf(xl))
-    hi, lo = split(v)
+    v = exp_dd(xh, xl)
+    pair = split(v, lambda dps: exp_dd(xh, xl))
+    if pair is None:  # unresolved near-tie (#89): decline the row
+        return
+    hi, lo = pair
     rows.append((xh, xl, hi, lo))
 
 
@@ -81,8 +95,9 @@ def self_check(rows):
     with mp.workdps(2 * DPS):
         for i in sample:
             xh, xl, hi, lo = rows[i]
-            v = mp.e ** (mp.mpf(xh) + mp.mpf(xl))
-            hi2, lo2 = split(v)
+            v = exp_dd(xh, xl)
+            # #89: same near-tie path as emit; unresolved never matches.
+            hi2, lo2 = split(v, lambda dps, xh=xh, xl=xl: exp_dd(xh, xl))                 or (math.nan, math.nan)
             if as_bits(hi2) != as_bits(hi) or as_bits(lo2) != as_bits(lo):
                 bad.append((xh, xl, hi, lo, hi2, lo2))
     if bad:

@@ -1,0 +1,55 @@
+[21:09:29] === quiet_bench start ===
+[21:09:29] build dir     : C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus\0c771f3c-f5cd-4bae-9469-28816cdac098\scratchpad\qrun\A
+[21:09:29] targets       : bench_gamma, bench_beta, bench_gammainv, bench_betainv
+[21:09:29] expect target : AVX3_ZEN4
+[21:09:29] gate          : ambient < 5% over two consecutive 10s windows
+[21:09:40] gate window 1: 5.71%
+[21:09:40]   top CPU consumers right now (% of one core):
+[21:09:43]     system                     16.9%
+[21:09:43]     lightingservice             4.1%
+[21:09:43]     glasswire                   2.6%
+[21:09:43]     gwctlsrv                    1.5%
+[21:09:43]     pwsh                        1.5%
+[21:09:43]     aacambientlighting          1.0%
+[21:09:53] gate window 1: 5.26%
+[21:09:53]   top CPU consumers right now (% of one core):
+[21:09:56]     system                     17.0%
+[21:09:56]     lightingservice             4.1%
+[21:09:56]     glasswire                   2.6%
+[21:09:56]     gwctlsrv                    1.6%
+[21:09:56]     aacambientlighting          1.5%
+[21:10:06] gate window 1: 6.03%
+[21:10:06]   top CPU consumers right now (% of one core):
+[21:10:09]     system                     16.5%
+[21:10:09]     lightingservice             4.6%
+[21:10:09]     glasswire                   2.1%
+[21:10:09]     gwctlsrv                    2.1%
+[21:10:09]     aacambientlighting          1.5%
+[21:10:09]     onedrive.sync.service       1.0%
+[21:10:19] gate window 1: 6.02%
+[21:10:19]   top CPU consumers right now (% of one core):
+[21:10:22]     system                     14.5%
+[21:10:22]     lightingservice             3.6%
+[21:10:22]     gwctlsrv                    3.6%
+[21:10:22]     aacambientlighting          2.6%
+[21:10:23]     glasswire                   2.6%
+[21:10:23]     msmpeng                     1.5%
+[21:10:23]     warp-svc                    1.0%
+[21:10:23]     asuswifismartconnect        1.0%
+[21:10:33] gate window 1: 4.44%
+[21:10:43] gate window 2: 2.97%
+[21:10:43] GATE PASSED at 4.44%
+[21:10:46] --- bench_gamma --- noise before: 3.59%
+[21:11:01] ok   bench_gamma -> quiet_bench_bench_gamma.txt   noise after: 4.19%
+[21:11:04] --- bench_beta --- noise before: 2.90%
+[21:11:08] ok   bench_beta -> quiet_bench_bench_beta.txt   noise after: 3.17%
+[21:11:11] --- bench_gammainv --- noise before: 3.32%
+[21:11:17] ok   bench_gammainv -> quiet_bench_bench_gammainv.txt   noise after: 5.67%
+[21:11:20] --- bench_betainv --- noise before: 4.23%
+[21:11:32] ok   bench_betainv -> quiet_bench_bench_betainv.txt   noise after: 5.93%
+[21:11:32] === quiet_bench summary ===
+[21:11:32] gated at      : 4.44%
+[21:11:32] noise held    : 2.90% - 5.93% (avg 4.12%)
+[21:11:32] targets run   : 4 of 4
+[21:11:32] Raw per-target output: C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus\0c771f3c-f5cd-4bae-9469-28816cdac098\scratchpad\qrun\pass1-A\quiet_bench_<target>.txt
+[21:11:32] This log is the evidence chain - keep it with any published number.

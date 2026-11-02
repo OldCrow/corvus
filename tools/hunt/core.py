@@ -75,7 +75,11 @@ def round_double(v) -> float:
     if abs(v) >= mpf(2) ** 1024 * (1 - mpf(2) ** -54):
         return math.copysign(math.inf, float(mp.sign(v)))
     q = quantum(v)
-    return float(mp.nint(v / q) * q)
+    r = float(mp.nint(v / q) * q)
+    # An mpf zero is unsigned: a negative value that rounds to zero must come
+    # back as -0 (log1pmx's underflow, #45), as refgen_common.round_to_double
+    # does.
+    return math.copysign(r, -1.0) if r == 0 and v < 0 else r
 
 
 # ---- strata -----------------------------------------------------------------
@@ -94,12 +98,22 @@ class Stratum:
     abs_tol: Optional[Callable[[Args, mpf], Optional[mpf]]] = None
     # abs_tol: when it returns a value t, the row is judged by absolute error
     # |out - exact| <= t instead of ULPs (documented absolute bands).
-    tie_exempt: float = 0.0
+    tie_exempt: float | Callable[[Args], float] = 0.0
     # tie_exempt: a documented near-tie exception for a CR (bound 0) cell, in
     # ulps: a 1-ULP miss whose exact value lies within this distance of a
-    # rounding midpoint is reported as "tie", not as a violation.
+    # rounding midpoint is reported as "tie", not as a violation. A callable
+    # gives the distance per row, for a family with cells of different widths.
     seam: Optional[str] = None                # registry key it targets (T2)
+    ref_cap: Optional[int] = None
+    # ref_cap: rows strata_append.py takes into the reference file, where the
+    # default per-kind cap (120 for a population) is too few to measure the
+    # stratum's not-CR rate (#79's adversarial strata).
     note: str = ""
+
+
+def tie_window(s: Stratum, args: Args) -> float:
+    te = getattr(s, "tie_exempt", 0.0) or 0.0
+    return te(args) if callable(te) else te
 
 
 # ---- probe ------------------------------------------------------------------
@@ -208,7 +222,7 @@ def _judge_hp(s: Stratum, args, outs, v):
     if tol is None and mp.isfinite(v) and v != 0:
         f = abs(v / q)
         tie = float(abs(f - mp.floor(f) - mpf(0.5)))  # distance to midpoint, ulps
-        if viol and bound == 0 and max(ulps) <= 1 and tie < s.tie_exempt:
+        if viol and bound == 0 and max(ulps) <= 1 and tie < tie_window(s, args):
             viol = False
             risk = True
     return {"real": real, "ulp": ulps, "bound": bound, "abs": tol is not None,

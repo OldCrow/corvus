@@ -120,8 +120,8 @@ namespace {
 // ~2/u. The earlier pins (71.64 here, 71.40 for u.lo != 0) held only
 // because no row sampled (1/16, 0.064]; row 12 added 5,257 there. 100k-point
 // probes reach 2^-67.63 (u ~ 0.0625809), so the primitive's true worst is
-// ~2^-67.6, slightly below this pin's rows. A kernel fix near the cut is
-// tracked for v1.2.0.
+// ~2^-67.6, slightly below this pin's rows. No kernel fix: the seam's
+// consumer impact measured negligible (#68; src/dd_special-inl.h).
 constexpr double kMinRelLog1pmx = 67.77;  // |u| >= 2^-40, relative, all u.lo
 constexpr double kMaxAbs = 0x1.0p-186;  // |u| <  2^-40, absolute
 constexpr double kSplit = 0x1.0p-40;

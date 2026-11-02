@@ -13,34 +13,44 @@ failed step stops the release until fixed.
    cell contradicts a bound the release notes will claim.
 4. [PERFORMANCE.md](PERFORMANCE.md) status headers reflect what has
    and has not been reproduced.
-5. The working tree is clean and local `main` matches `origin/main`.
+5. [PLAN.md](../PLAN.md) holds live state only: finished rows collapsed to
+   one line, superseded status blocks and closed issues' working notes cut
+   (issues, commit messages and git history keep them). Keep the
+   per-release errata list.
+6. A docs pass is done: every document checked against the code and
+   `tests/data/bounds.txt` for stale, inconsistent or wrong statements,
+   and trimmed; `python tools/claims_check.py` passes.
+7. The release branch (`dev/vX.Y.Z`) has `main`'s own commits (Dependabot
+   bumps, say) merged in and is then merged into `main`; the working tree
+   is clean and local `main` matches `origin/main`. Precondition 2's CI
+   run is on that merge.
 
 ## Version ladder
 
-6. Bump `kVersion{Major,Minor,Patch}` in `include/corvus/corvus.h`
+8. Bump `kVersion{Major,Minor,Patch}` in `include/corvus/corvus.h`
    and `project(VERSION)` in `CMakeLists.txt` in the same commit. The
    configure-time gate fails the build if they disagree, but only a
    configure run exercises it — so run one.
-7. Run the consistency check against the intended tag:
+9. Run the consistency check against the intended tag:
 
    ```sh
    python tools/check_release_version.py --tag vX.Y.Z
    ```
 
    It verifies header constants == CMake version == intended tag.
-8. Fresh release configure + build + full ctest on this machine.
+10. Fresh release configure + build + full ctest on this machine.
 
 ## Tag and publish
 
-9. Signed annotated tag: `git tag -s vX.Y.Z -m "corvus vX.Y.Z"`,
+11. Signed annotated tag: `git tag -s vX.Y.Z -m "corvus vX.Y.Z"`,
    then push the tag. Verify the signature with `git tag -v vX.Y.Z`.
-10. Re-run `python tools/check_release_version.py` (no `--tag`): it
+12. Re-run `python tools/check_release_version.py` (no `--tag`): it
     now also compares against `git describe` and catches a tag placed
     on the wrong commit. This step exists because two historical
     releases were tagged while the version pair still read a stale
     number.
-11. Confirm CI green on the tagged commit.
-12. GitHub release from the tag. The source tarball GitHub generates
+13. Confirm CI green on the tagged commit.
+14. GitHub release from the tag. The source tarball GitHub generates
     is the release artifact — corvus distributes source only. Release
     notes cover: surface changes, bound changes (tightened or newly
     validated cells), notable fixes, and **errata**. List every published
@@ -51,8 +61,8 @@ failed step stops the release until fixed.
 
 ## After
 
-13. Close the milestone.
-14. Run any downstream handshakes (consumer libraries waiting on the
+15. Close the milestone.
+16. Run any downstream handshakes (consumer libraries waiting on the
     release).
 
 ## Binary-channel prerequisites (recorded for a future decision)

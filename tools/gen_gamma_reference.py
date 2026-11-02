@@ -72,7 +72,7 @@ import time
 
 import mpmath as mp
 
-from refgen_common import round_to_double
+from refgen_common import round_resolving_ties, round_to_double
 
 mp.mp.dps = 100
 
@@ -213,6 +213,27 @@ def oracle_pq(a, x, fits):
     if a_m * phi > APHI_SAT:
         return (mp.mpf(1), mp.mpf(0)) if lam >= 1 else (mp.mpf(0), mp.mpf(1))
     return temme_pq(a_m, lam, phi, fits)
+
+
+def rounded_pq(a, x, P, Q, fits):
+    """(Pf, Qf) for oracle values P, Q at (a, x), or None to decline (#89):
+    a value within TIE_RESOLVE ulp of a rounding midpoint is re-evaluated
+    by oracle_pq at TIE_DPS. Only the a <= A_SWITCH mpmath path gains
+    digits that way; the Temme fits are good to ~1e-35 relative at any
+    dps, so a Temme near-tie (or an unresolved one) is declined. An exact
+    rational tie stays one at TIE_DPS and is declined deliberately:
+    unresolved means drop."""
+    def recompute(i):
+        def f(dps):
+            if mp.mpf(a) > A_SWITCH:
+                return mp.nan
+            return oracle_pq(a, x, fits)[i]
+        return f
+    Pf = round_resolving_ties(P, recompute(0))
+    Qf = round_resolving_ties(Q, recompute(1))
+    if Pf is None or Qf is None:
+        return None
+    return Pf, Qf
 
 
 def check_oracle_overlap(fits):
@@ -666,6 +687,7 @@ def compute_and_write(ps, fits):
     rows = []
     n_pruned = 0
     n_min_subnormal = 0
+    n_tie = 0
     for a, x, keep_sat, avoid_min_sub in ps.pts:
         try:
             P, Q = oracle_pq(a, x, fits)
@@ -673,7 +695,12 @@ def compute_and_write(ps, fits):
             continue
         if not (mp.isfinite(P) and mp.isfinite(Q)):
             continue
-        Pf, Qf = round_to_double(P), round_to_double(Q)
+        # #89: near-ties re-evaluated at TIE_DPS; unresolved -> declined.
+        pq = rounded_pq(a, x, P, Q, fits)
+        if pq is None:
+            n_tie += 1
+            continue
+        Pf, Qf = pq
         if not (math.isfinite(Pf) and math.isfinite(Qf)):
             continue
         if not keep_sat:
@@ -689,7 +716,8 @@ def compute_and_write(ps, fits):
         rows.append((a, x, Pf, Qf))
     print(f"  total rows after oracle eval: {len(rows)} "
           f"(pruned {n_pruned} incidental saturations, "
-          f"{n_min_subnormal} at the minimum subnormal)", file=sys.stderr)
+          f"{n_min_subnormal} at the minimum subnormal, "
+          f"{n_tie} unresolved near-ties declined)", file=sys.stderr)
     for path in ("tests/data/gamma_p_reference.txt", "tests/data/gamma_q_reference.txt"):
         with open(path, "w") as f:
             for a, x, P, Q in rows:
@@ -1018,7 +1046,8 @@ def ridge56_append():
     dig = hashlib.sha256()
     for a, x, _k, _m in ps.pts:
         dig.update(struct.pack("<QQ", as_bits(a), as_bits(x)))
-    sig = f"ridge56-v1-{dig.hexdigest()[:16]} SEED={RIDGE56_SEED} N={total}"
+    # v2: #89 tie rule -- checkpoints rounded under v1 are not reused.
+    sig = f"ridge56-v2-{dig.hexdigest()[:16]} SEED={RIDGE56_SEED} N={total}"
     print(f"  ridge56/tail57 point set: {total} points", file=sys.stderr)
 
     done = {}
@@ -1052,7 +1081,11 @@ def ridge56_append():
                           f"P={float(P)!r} Q={float(Q)!r} -- nothing written.",
                           file=sys.stderr)
                     return 7
-                Pf, Qf = round_to_double(P), round_to_double(Q)
+                # #89: an unresolved near-tie is declined via FAILED.
+                pq = rounded_pq(a, x, P, Q, fits)
+                if pq is None:
+                    raise ValueError("near-tie unresolved at TIE_DPS")
+                Pf, Qf = pq
                 if not (math.isfinite(Pf) and math.isfinite(Qf)):
                     raise ValueError("non-finite rounded value")
                 rec = [hexd(Pf), hexd(Qf)]

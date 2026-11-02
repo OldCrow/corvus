@@ -1,0 +1,37 @@
+13:35:48 quiet_bench.sh  build=build  expect=NEON  targets=15
+13:35:48 gate          : ambient < 10% over two consecutive 10s windows
+13:35:48 machine       : Apple M1; macOS 27.2
+13:35:59 ambient sample : 3.85%
+13:36:09 ambient sample : 5.25%
+13:36:09 gate passed at: 3.85 5.25%
+13:36:20 bench_erf: noise before 13.44%  top: 101.0%mediaanalysisd 2.4%Application 1.9%iPulse 
+13:36:20 bench_erf: rc=0 0s target=NEON
+13:36:30 bench_erfc: noise before 20.81%  top: 86.4%mediaanalysisd 10.8%VTEncoderXPCService 10.4%VTDecoderXPCService 
+13:36:31 bench_erfc: rc=0 1s target=NEON
+13:36:42 bench_lgamma: noise before 20.09%  top: 159.2%mediaanalysisd 21.7%VTDecoderXPCService 12.0%VTEncoderXPCService 
+13:36:44 bench_lgamma: rc=0 2s target=NEON
+13:36:55 bench_erfinv: noise before 16.85%  top: 87.7%mediaanalysisd 9.9%VTEncoderXPCService 9.8%VTDecoderXPCService 
+13:36:58 bench_erfinv: rc=0 3s target=NEON
+13:37:09 bench_gamma: noise before 19.45%  top: 87.3%mediaanalysisd 10.0%VTDecoderXPCService 9.9%VTEncoderXPCService 
+13:37:27 bench_gamma: rc=0 18s target=NEON
+13:37:37 bench_beta: noise before 19.74%  top: 173.3%mediaanalysisd 10.5%VTEncoderXPCService 10.4%VTDecoderXPCService 
+13:37:39 bench_beta: rc=0 2s target=NEON
+13:37:50 bench_digamma: noise before 19.59%  top: 88.4%mediaanalysisd 8.6%VTEncoderXPCService 8.3%VTDecoderXPCService 
+13:37:50 bench_digamma: rc=0 0s target=NEON
+13:38:00 bench_trigamma: noise before 19.61%  top: 83.3%mediaanalysisd 14.6%loginwindow 10.8%VTEncoderXPCService 
+13:38:00 bench_trigamma: rc=0 0s target=NEON
+13:38:11 bench_gammainv: noise before 21.90%  top: 180.0%mediaanalysisd 9.0%VTEncoderXPCService 7.7%VTDecoderXPCService 
+13:38:18 bench_gammainv: rc=0 7s target=NEON
+13:38:28 bench_betainv: noise before 21.23%  top: 175.2%mediaanalysisd 9.9%VTEncoderXPCService 9.3%VTDecoderXPCService 
+13:38:43 bench_betainv: rc=0 15s target=NEON
+13:38:53 bench_bessel: noise before 16.30%  top: 88.2%mediaanalysisd 10.2%VTEncoderXPCService 9.8%VTDecoderXPCService 
+13:38:53 bench_bessel: rc=0 0s target=NEON
+13:39:04 bench_lbeta: noise before 17.35%  top: 87.6%mediaanalysisd 10.2%VTEncoderXPCService 9.4%VTDecoderXPCService 
+13:39:04 bench_lbeta: rc=0 0s target=NEON
+13:39:15 bench_trig: noise before 19.15%  top: 179.9%mediaanalysisd 10.2%VTEncoderXPCService 9.1%VTDecoderXPCService 
+13:39:15 bench_trig: rc=0 0s target=NEON
+13:39:26 bench_exp: noise before 20.19%  top: 178.1%mediaanalysisd 10.4%VTEncoderXPCService 9.7%VTDecoderXPCService 
+13:39:26 bench_exp: rc=0 0s target=NEON
+13:39:36 bench_log: noise before 19.08%  top: 86.6%mediaanalysisd 10.0%VTEncoderXPCService 9.6%VTDecoderXPCService 
+13:39:37 bench_log: rc=0 1s target=NEON
+13:39:37 done fail=0. Raw per-target output: build/quiet_bench/quiet_bench_<target>.txt

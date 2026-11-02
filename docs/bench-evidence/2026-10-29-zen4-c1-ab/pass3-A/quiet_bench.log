@@ -1,0 +1,22 @@
+[21:14:13] === quiet_bench start ===
+[21:14:13] build dir     : C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus\0c771f3c-f5cd-4bae-9469-28816cdac098\scratchpad\qrun\A
+[21:14:13] targets       : bench_gamma, bench_beta, bench_gammainv, bench_betainv
+[21:14:13] expect target : AVX3_ZEN4
+[21:14:13] gate          : ambient < 5% over two consecutive 10s windows
+[21:14:23] gate window 1: 4.06%
+[21:14:34] gate window 2: 3.34%
+[21:14:34] GATE PASSED at 4.06%
+[21:14:37] --- bench_gamma --- noise before: 4.99%
+[21:14:52] ok   bench_gamma -> quiet_bench_bench_gamma.txt   noise after: 3.69%
+[21:14:55] --- bench_beta --- noise before: 3.89%
+[21:14:59] ok   bench_beta -> quiet_bench_bench_beta.txt   noise after: 3.37%
+[21:15:03] --- bench_gammainv --- noise before: 3.52%
+[21:15:08] ok   bench_gammainv -> quiet_bench_bench_gammainv.txt   noise after: 4.01%
+[21:15:11] --- bench_betainv --- noise before: 3.18%
+[21:15:23] ok   bench_betainv -> quiet_bench_bench_betainv.txt   noise after: 4.79%
+[21:15:23] === quiet_bench summary ===
+[21:15:23] gated at      : 4.06%
+[21:15:23] noise held    : 3.18% - 4.99% (avg 3.93%)
+[21:15:23] targets run   : 4 of 4
+[21:15:23] Raw per-target output: C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus\0c771f3c-f5cd-4bae-9469-28816cdac098\scratchpad\qrun\pass3-A\quiet_bench_<target>.txt
+[21:15:23] This log is the evidence chain - keep it with any published number.

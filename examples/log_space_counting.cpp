@@ -18,8 +18,8 @@
 /// corvus::lbeta is that function. It is not lgamma(a) + lgamma(b) -
 /// lgamma(a+b) evaluated carefully; the a+b cancellation is taken out
 /// analytically and the result assembled through the beta family's
-/// double-double lgamma-difference machinery, with one final rounding. On
-/// every measured row it is CORRECTLY ROUNDED — 0 ULP wherever |ln B| >= 1.
+/// double-double lgamma-difference machinery, with one final rounding: max
+/// 1 ULP wherever |ln B| >= 1.
 ///
 /// The two connect through an identity worth knowing, since it gives a second
 /// route to the binomial coefficient that never forms a large difference:
@@ -115,24 +115,38 @@ int main() {
     std::cout << "  lbeta(1/2, 1/2) = " << anchor[1] << "   (B = pi, log pi = "
               << 1.1447298858494002 << ")\n";
 
-    // The first anchor is NOT exactly zero, and should not be expected to be.
-    // ln B has a zero curve through (1,1), and a result of zero has no relative
-    // sense — every nonzero double is infinitely far from it in relative terms.
-    // So corvus documents an ABSOLUTE bound in that band, 0.5*2^-53, and switches
-    // to the relative bound only where |ln B| >= 1. This is the same shape as
-    // lgamma's negative axis and digamma's zeros: an ill-conditioned band gets
-    // an absolute guarantee, and a library that claimed 1 ULP there would be
-    // claiming something that cannot be measured, never mind met.
-    constexpr double kHalfUlpAbs = 0.5 * 1.1102230246251565e-16;  // 0.5 * 2^-53
-    std::cout << "    ln B has a zero here, so the bound is absolute (0.5*2^-53 = "
-              << kHalfUlpAbs << "),\n    not relative — and " << std::abs(anchor[0])
-              << " is well inside it.\n";
-    if (std::abs(anchor[0]) > kHalfUlpAbs) {
-        std::cerr << "lbeta(1,1) outside its documented absolute bound: " << anchor[0] << "\n";
+    // On the lines a = 1 and b = 1, B(1, x) = 1/x, so ln B = -ln x and corvus
+    // rounds it correctly; at (1, 1) that is exactly +0.
+    if (anchor[0] != 0.0 || std::signbit(anchor[0])) {
+        std::cerr << "lbeta(1,1) is not +0: " << anchor[0] << "\n";
         ok = false;
     }
     if (!close_enough(anchor[1], 1.1447298858494002, 2.3e-16)) {
         std::cerr << "lbeta(1/2,1/2) missed log(pi)\n";
+        ok = false;
+    }
+
+    // Off those lines, ln B still has a zero curve — B(2, b) = 1/(b(b+1)) is 1
+    // near b = 0.618 — and a result near zero has no relative sense: every
+    // nonzero double is infinitely far from zero in relative terms. So corvus
+    // documents an ABSOLUTE bound in that band, 2^-53, and switches to the
+    // relative bound only where |ln B| >= 1. This is the same shape as
+    // lgamma's negative axis and digamma's zeros: an ill-conditioned band gets
+    // an absolute guarantee, and a library that claimed 1 ULP there would be
+    // claiming something that cannot be measured, never mind met.
+    constexpr std::array<double, 1> kBandA{2.0};
+    constexpr std::array<double, 1> kBandB{0.618};
+    constexpr double kBandRef = 7.600288814634757e-05;  // mpmath, 200 bits
+    std::array<double, 1> band{};
+    corvus::lbeta(kBandA, kBandB, band);
+    constexpr double kAbs53 = 1.1102230246251565e-16;  // 2^-53
+    std::cout << "  lbeta(2, 0.618) = " << band[0] << "   (near the zero curve)\n";
+    std::cout << "    ln B is near zero here, so the bound is absolute (2^-53 = " << kAbs53
+              << "),\n    not relative — and the error " << std::abs(band[0] - kBandRef)
+              << " is inside it.\n";
+    if (std::abs(band[0] - kBandRef) > kAbs53) {
+        std::cerr << "lbeta(2, 0.618) outside its documented absolute bound: " << band[0]
+                  << "\n";
         ok = false;
     }
 
@@ -267,8 +281,8 @@ int main() {
                  "\n"
                  "  And the last line pays the usual toll one final time: log P comes from\n"
                  "  subtracting 693147 from 693140, so about seventeen bits go, and the\n"
-                 "  answer is good to ~1e-11 rather than ~1e-16. lbeta being correctly\n"
-                 "  rounded does not survive that step, and nothing could make it — the\n"
+                 "  answer is good to ~1e-11 rather than ~1e-16. lbeta's 1 ULP does not\n"
+                 "  survive that step, and nothing could make it — the\n"
                  "  probability genuinely is a small difference of two large logs. Knowing\n"
                  "  the floor is the whole of the remedy.\n";
 

@@ -1,0 +1,47 @@
+22:19:49 quiet_bench.sh  build=/Users/wolfman/Development/corvus/build  expect=NEON  targets=6
+22:19:49 gate          : ambient < 10% over two consecutive 10s windows
+22:19:49 machine       : Apple M1; macOS 27.2
+22:20:00 ambient sample : 16.17%
+22:20:00   top consumers:
+     92.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     13.0 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+      8.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTEncoderXPCService.xpc/Contents/MacOS/VTEncoderXPCService
+      4.5 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.1 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+22:20:10 ambient sample : 16.74%
+22:20:10   top consumers:
+     83.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      9.1 /usr/libexec/locationd
+      3.2 /usr/libexec/airportd
+      2.8 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      2.0 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTEncoderXPCService.xpc/Contents/MacOS/VTEncoderXPCService
+22:20:21 ambient sample : 20.35%
+22:20:21   top consumers:
+    188.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      7.8 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTEncoderXPCService.xpc/Contents/MacOS/VTEncoderXPCService
+      7.3 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      1.6 /usr/libexec/locationd
+      1.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:20:31 ambient sample : 17.80%
+22:20:31   top consumers:
+     55.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+      4.2 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+      3.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTEncoderXPCService.xpc/Contents/MacOS/VTEncoderXPCService
+      2.8 /usr/libexec/locationd
+      2.0 /System/Library/Frameworks/Security.framework/Versions/A/XPCServices/authd.xpc/Contents/MacOS/authd
+22:20:42 ambient sample : 9.48%
+22:20:52 ambient sample : 2.66%
+22:20:52 gate passed at: 9.48 2.66%
+22:21:03 bench_lgamma: noise before 4.07%  top: 8.8%launchd 4.4%locationd 1.9%coresymbolicationd 
+22:21:05 bench_lgamma: rc=0 2s target=NEON
+22:21:16 bench_gamma: noise before 12.10%  top: 8.6%locationd 2.2%airportd 1.7%Application 
+22:21:34 bench_gamma: rc=0 18s target=NEON
+22:21:44 bench_beta: noise before 8.01%  top: 11.8%locationd 5.9%airportd 2.2%com.apple.DriverKit-AppleBCMWLAN 
+22:21:46 bench_beta: rc=0 2s target=NEON
+22:21:57 bench_lbeta: noise before 25.27%  top: 198.7%corespotlightd 6.9%locationd 2.7%iPulse 
+22:21:57 bench_lbeta: rc=0 0s target=NEON
+22:22:08 bench_gammainv: noise before 10.57%  top: 0.6%locationd 0.4%Application 0.3%iPulse 
+22:22:12 bench_gammainv: rc=0 4s target=NEON
+22:22:23 bench_betainv: noise before 5.79%  top: 2.8%locationd 1.2%Application 0.6%airportd 
+22:22:37 bench_betainv: rc=0 14s target=NEON
+22:22:37 done fail=0. Raw per-target output: /Users/wolfman/Development/corvus/build/quiet_bench/quiet_bench_<target>.txt

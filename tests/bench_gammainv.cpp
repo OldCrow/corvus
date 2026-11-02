@@ -16,7 +16,8 @@
 // own series, and a fixed-point iteration -- before its three Newton steps
 // start. Each point set is built from the kernel's own pinned constants in
 // src/gammainv_data.h with margin from the routing walls, so membership is
-// self-evident and needs no router replica. Span lengths are 4001,
+// self-evident and needs no router replica. Span lengths are 4001 (40001 for
+// deep-small, whose 4001 run is too short to time),
 // deliberately not a multiple of AVX3_ZEN4's 8-lane width, so every run also
 // exercises the masked-tail path. Same rules as the other bench_* files:
 // manual, quiet machine, Release build only, not ctest-registered.
@@ -189,7 +190,7 @@ int main() {
   // Numbers attributed to the wrong tier are worse than no numbers.
   if (!corvus_test::ReportAndCheckTarget()) return 2;
   constexpr size_t kN = 4001;  // not a multiple of AVX3_ZEN4's 8-lane width
-  Run("deep-small closed form", kN, SampleDeepSmall);
+  Run("deep-small closed form", 40001, SampleDeepSmall);
   Run("small-a mid band", kN, SampleSmallMid);
   Run("small-a deep tail", kN, SampleSmallTail);
   Run("a >= a_T ridge", kN, SampleRidge);

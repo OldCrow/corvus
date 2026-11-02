@@ -10,6 +10,13 @@
 //          degenerates to x - x^2/2), general.
 // The log reference carries the exact-zero row log(1) = +0; it is held to
 // bit identity (#14 N6 -- UlpDiff cannot see a -0 regression there).
+//
+// corvus::log1pmx (#45, log1p(x) - x) shares the TU and the log_dd core and
+// is gated against tests/data/log1pmx_reference.txt by its kernel's
+// branches: tiny (|x| < 2^-480, the exact x^2/2 rounded once onto the
+// subnormal grid -- rows that underflow to -0 are held to bit identity),
+// series (|x| <= 1/16), and the direct difference below (-1 < x < -1/16,
+// down to 1 + x = 2^-53) and above (x > 1/16, up to DBL_MAX).
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -207,6 +214,66 @@ int RunLog1p(const char* path) {
   return rc;
 }
 
+int RunLog1pmx(const char* path) {
+  const auto rows = corvus_test::LoadRef(path, 2, 10000);
+  std::vector<double> in, want, res;
+  for (const auto& row : rows) {
+    in.push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
+    want.push_back(corvus_test::ParseDouble(row.tok[1], path, row.line));
+    res.push_back(corvus_test::Residual(row, 0));
+  }
+  std::vector<double> got(in.size());
+  SplitCall(corvus::log1pmx, in, got);
+
+  Region tiny{"tiny"};
+  Region series{"series"};
+  Region neg{"direct-neg"};
+  Region pos{"direct-pos"};
+  int rc = 0;
+  size_t zero_rows = 0;
+
+  for (size_t i = 0; i < in.size(); ++i) {
+    const double x = in[i];
+    uint64_t u;
+    double re = 0.0;  // exact-zero rows are bit-exact checks: no real gate
+    if (want[i] == 0.0) {
+      // Underflow past the last subnormal: exact -0 (#14 N6).
+      ++zero_rows;
+      const bool ok = SameBits(got[i], want[i]);
+      if (!ok) {
+        std::fprintf(stderr,
+                     "FAIL: log1pmx(%.17g) signed-zero mismatch: got=%.17g\n",
+                     x, got[i]);
+        rc = 1;
+      }
+      u = ok ? 0 : ~uint64_t{0};
+    } else {
+      u = UlpDiff(got[i], want[i]);
+      re = corvus_test::RealErr(got[i], want[i], res[i]);
+    }
+    const double ax = std::fabs(x);
+    if (ax < 0x1p-480) {
+      Accumulate(tiny, x, u, re, i);
+    } else if (ax <= 0x1p-4) {
+      Accumulate(series, x, u, re, i);
+    } else if (x < 0.0) {
+      Accumulate(neg, x, u, re, i);
+    } else {
+      Accumulate(pos, x, u, re, i);
+    }
+  }
+
+  std::printf("log1pmx (%s):\n", path);
+  rc |= Gate(path, "log1pmx", {&tiny, &series, &neg, &pos});
+  if (zero_rows == 0) {
+    std::fprintf(stderr,
+                 "FAIL: log1pmx underflow-to-zero rows missing from reference "
+                 "-- vacuous N6 check\n");
+    rc = 1;
+  }
+  return rc;
+}
+
 }  // namespace
 
 int main(int argc, char* const* argv) {
@@ -215,10 +282,13 @@ int main(int argc, char* const* argv) {
   const char* log_path = argc > 1 ? argv[1] : "tests/data/log_reference.txt";
   const char* log1p_path =
       argc > 2 ? argv[2] : "tests/data/log1p_reference.txt";
+  const char* log1pmx_path =
+      argc > 3 ? argv[3] : "tests/data/log1pmx_reference.txt";
 
   int rc = 0;
   rc |= RunLog(log_path);
   rc |= RunLog1p(log1p_path);
+  rc |= RunLog1pmx(log1pmx_path);
   if (rc == 0) std::printf("PASS\n");
   return rc;
 }

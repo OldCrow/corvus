@@ -1,0 +1,150 @@
+[16:16:07] === quiet_bench start ===
+[16:16:07] build dir     : build-clangcl
+[16:16:07] targets       : bench_erf, bench_erfc, bench_lgamma, bench_erfinv, bench_gamma, bench_beta, bench_digamma, bench_trigamma, bench_gammainv, bench_betainv, bench_bessel, bench_lbeta, bench_trig, bench_exp, bench_log
+[16:16:07] expect target : AVX3_ZEN4
+[16:16:07] gate          : ambient < 5% over two consecutive 10s windows
+[16:16:18] gate window 1: 10.35%
+[16:16:18]   top CPU consumers right now (% of one core):
+[16:16:21]     glasswire                   9.2%
+[16:16:21]     system                      6.1%
+[16:16:21]     dwm                         4.1%
+[16:16:21]     firefox                     3.2%
+[16:16:21]     pwsh                        2.4%
+[16:16:21]     gwctlsrv                    2.0%
+[16:16:21]     msmpeng                     2.0%
+[16:16:21]     mspcmanagercore             1.5%
+[16:16:31] gate window 1: 15.38%
+[16:16:31]   top CPU consumers right now (% of one core):
+[16:16:34]     dwm                        30.9%
+[16:16:34]     system                     14.9%
+[16:16:34]     icloudhome                 13.4%
+[16:16:34]     lightingservice             7.2%
+[16:16:34]     mspcmanagercore             3.6%
+[16:16:34]     msmpeng                     3.6%
+[16:16:34]     glasswire                   3.1%
+[16:16:34]     gwctlsrv                    2.6%
+[16:16:45] gate window 1: 16.40%
+[16:16:45]   top CPU consumers right now (% of one core):
+[16:16:49]     mspcmanager                49.4%
+[16:16:49]     msmpeng                    38.1%
+[16:16:49]     system                     34.6%
+[16:16:49]     dwm                        21.1%
+[16:16:49]     lightingservice             6.7%
+[16:16:49]     explorer                    5.2%
+[16:16:49]     searchindexer               4.8%
+[16:16:49]     glasswire                   3.4%
+[16:16:59] gate window 1: 13.95%
+[16:16:59]   top CPU consumers right now (% of one core):
+[16:17:03]     dwm                         9.8%
+[16:17:03]     lightingservice             6.7%
+[16:17:03]     system                      5.7%
+[16:17:03]     glasswire                   2.1%
+[16:17:03]     gwctlsrv                    2.1%
+[16:17:03]     crossdeviceservice          1.0%
+[16:17:03]     icloudhome                  1.0%
+[16:17:03]     services                    1.0%
+[16:17:13] gate window 1: 5.40%
+[16:17:13]   top CPU consumers right now (% of one core):
+[16:17:16]     dwm                        10.9%
+[16:17:16]     icloudhome                  6.7%
+[16:17:16]     lightingservice             6.2%
+[16:17:16]     gwctlsrv                    3.1%
+[16:17:16]     aacambientlighting          2.6%
+[16:17:16]     glasswire                   2.6%
+[16:17:16]     system                      1.5%
+[16:17:26] gate window 1: 4.66%
+[16:17:36] gate window 2: 5.44%
+[16:17:36]   top CPU consumers right now (% of one core):
+[16:17:39]     dwm                        11.4%
+[16:17:39]     system                      6.2%
+[16:17:39]     msmpeng                     4.6%
+[16:17:39]     lightingservice             4.1%
+[16:17:39]     glasswire                   3.1%
+[16:17:39]     sihost                      2.6%
+[16:17:39]     gwctlsrv                    2.1%
+[16:17:39]     icloudhome                  1.6%
+[16:17:51] gate window 1: 11.29%
+[16:17:51]   top CPU consumers right now (% of one core):
+[16:17:54]     searchindexer              86.7%
+[16:17:54]     memory compression         15.4%
+[16:17:54]     system                     15.4%
+[16:17:54]     sppsvc                      9.2%
+[16:17:54]     lightingservice             3.6%
+[16:17:54]     msmpeng                     3.1%
+[16:17:54]     glasswire                   2.0%
+[16:17:54]     wmiprvse                    1.7%
+[16:18:04] gate window 1: 15.56%
+[16:18:04]   top CPU consumers right now (% of one core):
+[16:18:07]     system                     16.1%
+[16:18:07]     sppsvc                      8.3%
+[16:18:07]     tiworker                    7.8%
+[16:18:07]     gwctlsrv                    2.6%
+[16:18:07]     lightingservice             2.6%
+[16:18:07]     wmiprvse                    2.6%
+[16:18:07]     glasswire                   1.6%
+[16:18:17] gate window 1: 11.01%
+[16:18:17]   top CPU consumers right now (% of one core):
+[16:18:20]     msmpeng                    95.6%
+[16:18:20]     system                     25.7%
+[16:18:20]     lightingservice             4.1%
+[16:18:20]     gwctlsrv                    2.6%
+[16:18:20]     mspcmanager                 2.6%
+[16:18:20]     aacambientlighting          2.1%
+[16:18:20]     glasswire                   1.5%
+[16:18:20]     acpowernotification         1.0%
+[16:18:31] gate window 1: 20.77%
+[16:18:31]   top CPU consumers right now (% of one core):
+[16:18:34]     msmpeng                    88.6%
+[16:18:34]     glasswire                   3.6%
+[16:18:34]     services                    3.1%
+[16:18:34]     gwctlsrv                    2.6%
+[16:18:34]     lightingservice             2.6%
+[16:18:34]     system                      1.5%
+[16:18:44] gate window 1: 7.46%
+[16:18:44]   top CPU consumers right now (% of one core):
+[16:18:47]     lightingservice             5.7%
+[16:18:47]     gwctlsrv                    3.6%
+[16:18:47]     system                      3.6%
+[16:18:47]     aacambientlighting          2.1%
+[16:18:47]     glasswire                   2.1%
+[16:18:47]     icloudphotos                2.1%
+[16:18:47]     crossdeviceservice          1.6%
+[16:18:57] gate window 1: 3.30%
+[16:19:07] gate window 2: 4.77%
+[16:19:07] GATE PASSED at 4.77%
+[16:19:10] --- bench_erf --- noise before: 3.89%
+[16:19:15] ok   bench_erf -> quiet_bench_bench_erf.txt   noise after: 4.06%
+[16:19:18] --- bench_erfc --- noise before: 3.06%
+[16:19:22] ok   bench_erfc -> quiet_bench_bench_erfc.txt   noise after: 3.83%
+[16:19:25] --- bench_lgamma --- noise before: 3.82%
+[16:19:32] ok   bench_lgamma -> quiet_bench_bench_lgamma.txt   noise after: 3.91%
+[16:19:35] --- bench_erfinv --- noise before: 3.63%
+[16:19:43] ok   bench_erfinv -> quiet_bench_bench_erfinv.txt   noise after: 3.93%
+[16:19:46] --- bench_gamma --- noise before: 2.39%
+[16:20:01] ok   bench_gamma -> quiet_bench_bench_gamma.txt   noise after: 3.43%
+[16:20:04] --- bench_beta --- noise before: 2.30%
+[16:20:09] ok   bench_beta -> quiet_bench_bench_beta.txt   noise after: 2.79%
+[16:20:12] --- bench_digamma --- noise before: 4.01%
+[16:20:16] ok   bench_digamma -> quiet_bench_bench_digamma.txt   noise after: 4.01%
+[16:20:19] --- bench_trigamma --- noise before: 3.03%
+[16:20:23] ok   bench_trigamma -> quiet_bench_bench_trigamma.txt   noise after: 4.61%
+[16:20:26] --- bench_gammainv --- noise before: 3.15%
+[16:20:40] ok   bench_gammainv -> quiet_bench_bench_gammainv.txt   noise after: 6.86%
+[16:20:43] --- bench_betainv --- noise before: 5.44%
+[16:20:55] ok   bench_betainv -> quiet_bench_bench_betainv.txt   noise after: 3.09%
+[16:20:58] --- bench_bessel --- noise before: 3.59%
+[16:21:01] ok   bench_bessel -> quiet_bench_bench_bessel.txt   noise after: 4.38%
+[16:21:04] --- bench_lbeta --- noise before: 3.28%
+[16:21:08] ok   bench_lbeta -> quiet_bench_bench_lbeta.txt   noise after: 3.41%
+[16:21:11] --- bench_trig --- noise before: 4.22%
+[16:21:15] ok   bench_trig -> quiet_bench_bench_trig.txt   noise after: 3.99%
+[16:21:18] --- bench_exp --- noise before: 3.18%
+[16:21:22] ok   bench_exp -> quiet_bench_bench_exp.txt   noise after: 3.00%
+[16:21:25] --- bench_log --- noise before: 3.31%
+[16:21:29] ok   bench_log -> quiet_bench_bench_log.txt   noise after: 2.80%
+[16:21:29] === quiet_bench summary ===
+[16:21:29] gated at      : 4.77%
+[16:21:29] noise held    : 2.30% - 6.86% (avg 3.68%)
+[16:21:29] targets run   : 15 of 15
+[16:21:29] Raw per-target output: C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus\0c771f3c-f5cd-4bae-9469-28816cdac098\scratchpad\rowd-z\pass1\quiet_bench_<target>.txt
+[16:21:29] This log is the evidence chain - keep it with any published number.

@@ -1,0 +1,4 @@
+bench_gamma      C322CAC212 2B64FCBE02
+bench_beta       FA8580AA54 E42EF20DC9
+bench_gammainv   EB215CF761 1A59746E0C
+bench_betainv    1C892BED76 E47538117C

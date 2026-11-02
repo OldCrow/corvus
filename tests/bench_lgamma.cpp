@@ -67,7 +67,7 @@ int main() {
   // Numbers attributed to the wrong tier are worse than no numbers.
   if (!corvus_test::ReportAndCheckTarget()) return 2;
   Run("zone (the zeros)", 0.5, 2.5);
-  Run("recurrence", 2.5, 8.0);
+  Run("table", 2.5, 8.0);
   Run("Stirling", 8.0, 1000.0);
   Run("mixed positive", 0.01, 100.0);
   Run("reflection", -30.0, -0.01);

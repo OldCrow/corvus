@@ -1,0 +1,21 @@
+corvus active SIMD target: NEON
+input range [0.5, 2.5] (zone (the zeros))
+         n   corvus ns/el     libm ns/el    speedup
+     10000          29.83          12.18      0.41x
+   1000000          24.17          11.60      0.48x
+input range [2.5, 8] (recurrence)
+         n   corvus ns/el     libm ns/el    speedup
+     10000          42.59           8.52      0.20x
+   1000000          42.62           8.62      0.20x
+input range [8, 1000] (Stirling)
+         n   corvus ns/el     libm ns/el    speedup
+     10000          21.21           8.60      0.41x
+   1000000          21.70           8.82      0.41x
+input range [0.01, 100] (mixed positive)
+         n   corvus ns/el     libm ns/el    speedup
+     10000          28.16           9.56      0.34x
+   1000000          28.35           9.39      0.33x
+input range [-30, -0.01] (reflection)
+         n   corvus ns/el     libm ns/el    speedup
+     10000          80.04          30.48      0.38x
+   1000000          80.41          31.91      0.40x

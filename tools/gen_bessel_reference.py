@@ -74,7 +74,7 @@ import time
 import mpmath as mp
 from mpmath import mpf
 
-from refgen_common import round_to_double
+from refgen_common import round_resolving_ties, round_to_double
 
 SEED = 20260811
 
@@ -129,6 +129,42 @@ def besseli_value(nu, scaled, x_float, dps):
         return v
     finally:
         mp.mp.dps = old
+
+
+HALF_X_BAND = 2.0 ** -1021  # below it, x/2 needs the 2^-1074 grid
+
+
+def half_x_rule(nu, scaled, x):
+    """#89: the correctly rounded i1 / i1e for |x| < 2^-1021, or None
+    elsewhere (and for i0 / i0e, which round to 1 there with no tie).
+
+    In that band x = m * 2^-1074 with m an integer, and x/2 is exactly a
+    rounding midpoint when m is odd. The series fix the side:
+      i1(x)  = x/2 + x^3/16 + ...         just outside x/2: away from 0;
+      i1e(x) = x/2 - x|x|/2 + ...         just inside x/2: toward 0.
+    The excess is ~x (i1e) or ~x^2/8 (i1) relative, so no oracle resolves
+    it at 40-90 digits (i1 needs ~650), and ties-to-even stored the even
+    neighbour, the wrong one for half of the odd-m rows. Even m gives
+    x/2 exactly, the excess far below half an ulp."""
+    if nu != 1 or x == 0.0 or abs(x) >= HALF_X_BAND:
+        return None
+    m = int(math.ldexp(abs(x), 1074))  # exact: |x| is a multiple of 2^-1074
+    if m % 2 == 0:
+        q = m // 2
+    else:
+        q = (m - 1) // 2 if scaled else (m + 1) // 2
+    return math.copysign(math.ldexp(float(q), -1074), x)
+
+
+def expected_value(nu, scaled, x, val):
+    """The stored double for oracle value val at x: the #89 rule in its
+    band, else val rounded with near-ties re-evaluated at TIE_DPS (None:
+    unresolved, decline the row)."""
+    rule = half_x_rule(nu, scaled, x)
+    if rule is not None:
+        return rule
+    return round_resolving_ties(
+        val, lambda dps: besseli_value(nu, scaled, x, dps))
 
 
 def layered_value(nu, scaled, x_float):
@@ -343,8 +379,8 @@ def emit_file(nu, scaled, mode, rng, negative_fraction=0.42):
         if not ok:
             declined.append(x)
             continue
-        y = round_to_double(val)
-        if math.isnan(y):
+        y = expected_value(nu, scaled, x, val)
+        if y is None or math.isnan(y):
             declined.append(x)
             continue
         rows.append((x, y))
@@ -375,7 +411,9 @@ def reverify_sample(nu, scaled, rows, rng, n=120):
     sample = rng.sample(rows, min(n, len(rows)))
     mism = []
     for x, y in sample:
-        fresh = round_to_double(besseli_value(nu, scaled, x, DPS_HI))
+        fresh = expected_value(nu, scaled, x, besseli_value(nu, scaled, x, DPS_HI))
+        if fresh is None:
+            fresh = math.nan
         if fresh != y and not (math.isnan(fresh) and math.isnan(y)):
             mism.append((x, y, fresh))
     return mism
@@ -598,7 +636,9 @@ def tail_append():
         rows, declined = [], 0
         for x in pts:
             val, good, _ = layered_value(nu, scaled, x)
-            y = round_to_double(val) if good else math.nan
+            y = expected_value(nu, scaled, x, val) if good else math.nan
+            if y is None:
+                y = math.nan
             if not good or math.isnan(y) or halfway_ulps(val, y) < TAIL_HALFWAY_ULP:
                 declined += 1
                 continue

@@ -1,0 +1,61 @@
+[15:05:56] === quiet_bench start ===
+[15:05:56] build dir     : C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus\0c771f3c-f5cd-4bae-9469-28816cdac098\scratchpad\c3b\qab\A
+[15:05:56] targets       : bench_lgamma, bench_gamma, bench_beta, bench_lbeta, bench_gammainv, bench_betainv
+[15:05:56] expect target : AVX3_ZEN4
+[15:05:56] gate          : ambient < 5% over two consecutive 10s windows
+[15:06:07] gate window 1: 3.33%
+[15:06:17] gate window 2: 6.80%
+[15:06:17]   top CPU consumers right now (% of one core):
+[15:06:20]     lightingservice             4.7%
+[15:06:20]     glasswire                   2.6%
+[15:06:20]     system                      2.1%
+[15:06:20]     pwsh                        1.9%
+[15:06:20]     mspcmanagercore             1.6%
+[15:06:20]     aacambientlighting          1.6%
+[15:06:20]     gwctlsrv                    1.0%
+[15:06:20]     services                    1.0%
+[15:06:30] gate window 1: 4.47%
+[15:06:40] gate window 2: 5.62%
+[15:06:40]   top CPU consumers right now (% of one core):
+[15:06:44]     system                     32.8%
+[15:06:44]     lightingservice             4.6%
+[15:06:44]     gwctlsrv                    2.1%
+[15:06:44]     aacambientlighting          1.5%
+[15:06:44]     glasswire                   1.5%
+[15:06:44]     asuswifismartconnect        1.0%
+[15:06:54] gate window 1: 4.90%
+[15:07:04] gate window 2: 5.67%
+[15:07:04]   top CPU consumers right now (% of one core):
+[15:07:07]     system                     21.7%
+[15:07:07]     lightingservice             4.6%
+[15:07:07]     glasswire                   2.1%
+[15:07:07]     aacambientlighting          1.0%
+[15:07:07]     services                    1.0%
+[15:07:17] gate window 1: 5.28%
+[15:07:17]   top CPU consumers right now (% of one core):
+[15:07:20]     lightingservice             6.2%
+[15:07:20]     system                      6.2%
+[15:07:20]     glasswire                   1.5%
+[15:07:20]     gwctlsrv                    1.0%
+[15:07:20]     msmpeng                     1.0%
+[15:07:30] gate window 1: 3.42%
+[15:07:40] gate window 2: 3.41%
+[15:07:40] GATE PASSED at 3.42%
+[15:07:43] --- bench_lgamma --- noise before: 4.27%
+[15:07:49] ok   bench_lgamma -> quiet_bench_bench_lgamma.txt   noise after: 3.88%
+[15:07:52] --- bench_gamma --- noise before: 2.90%
+[15:08:07] ok   bench_gamma -> quiet_bench_bench_gamma.txt   noise after: 2.99%
+[15:08:10] --- bench_beta --- noise before: 3.63%
+[15:08:14] ok   bench_beta -> quiet_bench_bench_beta.txt   noise after: 3.37%
+[15:08:17] --- bench_lbeta --- noise before: 3.35%
+[15:08:21] ok   bench_lbeta -> quiet_bench_bench_lbeta.txt   noise after: 3.19%
+[15:08:24] --- bench_gammainv --- noise before: 3.34%
+[15:08:29] ok   bench_gammainv -> quiet_bench_bench_gammainv.txt   noise after: 3.58%
+[15:08:32] --- bench_betainv --- noise before: 3.39%
+[15:08:43] ok   bench_betainv -> quiet_bench_bench_betainv.txt   noise after: 2.24%
+[15:08:43] === quiet_bench summary ===
+[15:08:43] gated at      : 3.42%
+[15:08:43] noise held    : 2.24% - 4.27% (avg 3.35%)
+[15:08:43] targets run   : 6 of 6
+[15:08:43] Raw per-target output: C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus\0c771f3c-f5cd-4bae-9469-28816cdac098\scratchpad\c3b\qab2\pass5-A\quiet_bench_<target>.txt
+[15:08:43] This log is the evidence chain - keep it with any published number.

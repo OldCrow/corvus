@@ -1,0 +1,22 @@
+[16:26:14] === quiet_bench start ===
+[16:26:14] build dir     : build-clangcl
+[16:26:14] targets       : bench_digamma, bench_trigamma, bench_erfinv, bench_bessel
+[16:26:14] expect target : AVX3_ZEN4
+[16:26:14] gate          : ambient < 5% over two consecutive 10s windows
+[16:26:24] gate window 1: 3.18%
+[16:26:34] gate window 2: 3.92%
+[16:26:34] GATE PASSED at 3.92%
+[16:26:37] --- bench_digamma --- noise before: 5.96%
+[16:26:40] ok   bench_digamma -> quiet_bench_bench_digamma.txt   noise after: 4.30%
+[16:26:43] --- bench_trigamma --- noise before: 3.81%
+[16:26:46] ok   bench_trigamma -> quiet_bench_bench_trigamma.txt   noise after: 2.92%
+[16:26:49] --- bench_erfinv --- noise before: 3.47%
+[16:26:57] ok   bench_erfinv -> quiet_bench_bench_erfinv.txt   noise after: 4.59%
+[16:27:00] --- bench_bessel --- noise before: 3.54%
+[16:27:03] ok   bench_bessel -> quiet_bench_bench_bessel.txt   noise after: 2.60%
+[16:27:03] === quiet_bench summary ===
+[16:27:03] gated at      : 3.92%
+[16:27:03] noise held    : 2.60% - 5.96% (avg 3.90%)
+[16:27:03] targets run   : 4 of 4
+[16:27:03] Raw per-target output: C:\Users\gdwol\AppData\Local\Temp\claude\C--Users-gdwol-Development-corvus\0c771f3c-f5cd-4bae-9469-28816cdac098\scratchpad\rowd-z\rep2\quiet_bench_<target>.txt
+[16:27:03] This log is the evidence chain - keep it with any published number.

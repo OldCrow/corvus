@@ -1,0 +1,10 @@
+corvus active SIMD target: AVX3_ZEN4
+         n    fn   corvus ns/el     libm ns/el    speedup
+      1000   exp           2.00           3.70      1.85x
+      1000 expm1           4.50           3.90      0.87x
+     10000   exp           2.01           2.48      1.23x
+     10000 expm1           2.91           2.56      0.88x
+    100000   exp           1.34           2.50      1.86x
+    100000 expm1           2.91           3.05      1.05x
+   1000000   exp           1.36           2.51      1.85x
+   1000000 expm1           3.07           3.29      1.07x

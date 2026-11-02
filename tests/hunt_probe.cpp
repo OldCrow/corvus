@@ -50,6 +50,8 @@ const Entry kTable[] = {
     {"exp", corvus::exp, nullptr, nullptr},
     {"log", corvus::log, nullptr, nullptr},
     {"log1p", corvus::log1p, nullptr, nullptr},
+    {"expm1", corvus::expm1, nullptr, nullptr},
+    {"log1pmx", corvus::log1pmx, nullptr, nullptr},
     {"cos", corvus::cos, nullptr, nullptr},
     {"sin", corvus::sin, nullptr, nullptr},
     {"gamma_p", nullptr, corvus::gamma_p, nullptr},

@@ -1,0 +1,135 @@
+20:35:24 quiet_bench.sh  build=build  expect=NEON  targets=15
+20:35:24 gate          : ambient < 10% over two consecutive 10s windows
+20:35:24 machine       : Apple M1; macOS 27.2
+20:35:34 ambient sample : 32.22%
+20:35:34   top consumers:
+     94.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     35.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.8 /System/Library/Frameworks/CoreGraphics.framework/Versions/A/XPCServices/CGPDFService.xpc/Contents/MacOS/CGPDFService
+     10.3 /Applications/Claude.app/Contents/Frameworks/Claude Helper.app/Contents/MacOS/Claude Helper
+      7.2 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+20:35:45 ambient sample : 31.26%
+20:35:45   top consumers:
+     59.5 /System/Library/Frameworks/CoreGraphics.framework/Versions/A/XPCServices/CGPDFService.xpc/Contents/MacOS/CGPDFService
+     42.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     40.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     22.6 /Applications/Claude.app/Contents/Frameworks/Claude Helper.app/Contents/MacOS/Claude Helper
+     19.3 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+20:35:55 ambient sample : 26.45%
+20:35:55   top consumers:
+     94.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     32.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.6 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     16.2 /System/Library/DriverExtensions/com.apple.AppleUserHIDDrivers.dext/com.apple.AppleUserHIDDrivers
+     15.7 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+20:36:06 ambient sample : 37.14%
+20:36:06   top consumers:
+     87.4 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+     39.4 /sbin/launchd
+     37.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     36.4 /usr/libexec/spotlightknowledged.updater
+     32.3 /usr/libexec/PerfPowerServices
+20:36:16 ambient sample : 53.56%
+20:36:16   top consumers:
+    125.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+     41.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     20.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     20.2 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     18.7 /System/Library/Frameworks/AddressBook.framework/Versions/A/Helpers/AddressBookSourceSync.app/Contents/MacOS/AddressBookSourceSync
+20:36:27 ambient sample : 43.50%
+20:36:27   top consumers:
+     21.8 /usr/libexec/runningboardd
+     21.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     12.6 /Applications/iTerm.app/Contents/MacOS/iTerm2
+      5.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      4.5 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+20:36:37 ambient sample : 42.37%
+20:36:37   top consumers:
+    353.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     94.3 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     20.7 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     13.7 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+     11.6 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+20:36:47 ambient sample : 39.45%
+20:36:47   top consumers:
+     41.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     33.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     16.6 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+     13.7 /Applications/Claude.app/Contents/MacOS/Claude
+     13.2 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+20:36:58 ambient sample : 43.87%
+20:36:58   top consumers:
+    192.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+    118.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+     36.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      9.7 /System/Library/ExtensionKit/Extensions/WallpaperAerialsExtension.appex/Contents/MacOS/WallpaperAerialsExtension
+      7.2 /usr/libexec/locationd
+20:37:08 ambient sample : 48.20%
+20:37:08   top consumers:
+    197.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     31.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     16.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      8.3 /System/Library/ExtensionKit/Extensions/WallpaperAerialsExtension.appex/Contents/MacOS/WallpaperAerialsExtension
+      7.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+20:37:19 ambient sample : 35.29%
+20:37:19   top consumers:
+    126.1 /System/Library/Frameworks/Contacts.framework/Support/contactsd
+     37.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     18.5 /System/Library/PrivateFrameworks/ScreenTimeCore.framework/Versions/A/ScreenTimeAgent
+     15.0 /System/Library/Frameworks/Contacts.framework/Support/postersyncd
+     11.7 /System/Library/PrivateFrameworks/TelephonyUtilities.framework/callservicesd
+20:37:29 ambient sample : 58.05%
+20:37:29   top consumers:
+    391.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+     54.3 /usr/libexec/spotlightknowledged.updater
+     47.7 /System/Library/ExtensionKit/Extensions/AssetMetrics.appex/Contents/MacOS/AssetMetrics
+     19.0 /System/Library/PrivateFrameworks/BiomeStreams.framework/Support/BiomeAgent
+      9.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+20:37:39 ambient sample : 48.57%
+20:37:39   top consumers:
+    379.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+      6.4 /System/Library/Frameworks/Security.framework/Versions/A/XPCServices/authd.xpc/Contents/MacOS/authd
+      3.3 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+      1.3 /usr/libexec/trustd
+      1.0 /Applications/iPulse.app/Contents/MacOS/iPulse
+20:37:50 ambient sample : 16.83%
+20:37:50   top consumers:
+      6.6 /usr/libexec/locationd
+      3.7 /usr/libexec/airportd
+      2.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.2 /usr/libexec/runningboardd
+      1.3 /Applications/WiFi Signal.app/Contents/MacOS/WiFi Signal
+20:38:00 ambient sample : 7.17%
+20:38:11 ambient sample : 7.02%
+20:38:11 gate passed at: 7.17 7.02%
+20:38:21 bench_erf: noise before 9.75%  top: 4.2%locationd 2.8%iPulse 1.1%airportd 
+20:38:22 bench_erf: rc=0 1s target=NEON
+20:38:32 bench_erfc: noise before 17.27%  top: 62.6%biomesyncd 30.4%BiomeAgent 6.4%locationd 
+20:38:34 bench_erfc: rc=0 2s target=NEON
+20:38:44 bench_lgamma: noise before 7.15%  top: 6.2%sandboxd 5.8%locationd 4.4%authd 
+20:38:47 bench_lgamma: rc=0 3s target=NEON
+20:38:57 bench_erfinv: noise before 6.63%  top: 6.0%locationd 4.0%bluetoothd 3.5%Application 
+20:39:01 bench_erfinv: rc=0 4s target=NEON
+20:39:11 bench_gamma: noise before 16.67%  top: 90.6%photoanalysisd 89.9%biomesyncd 28.1%Bartender 
+20:39:29 bench_gamma: rc=0 18s target=NEON
+20:39:39 bench_beta: noise before 22.29%  top: 98.3%mediaanalysisd 7.8%PerfPowerServices 2.1%syncdefaultsd 
+20:39:42 bench_beta: rc=0 3s target=NEON
+20:39:52 bench_digamma: noise before 49.57%  top: 280.3%corespotlightd 83.5%mediaanalysisd 4.9%locationd 
+20:39:52 bench_digamma: rc=0 0s target=NEON
+20:40:03 bench_trigamma: noise before 51.87%  top: 112.9%mediaanalysisd 104.3%corespotlightd 50.1%fileproviderd 
+20:40:03 bench_trigamma: rc=0 0s target=NEON
+20:40:13 bench_gammainv: noise before 50.42%  top: 301.0%corespotlightd 56.7%mediaanalysisd 7.4%VTEncoderXPCService 
+20:40:21 bench_gammainv: rc=0 8s target=NEON
+20:40:31 bench_betainv: noise before 52.81%  top: 317.9%corespotlightd 40.7%mediaanalysisd 5.3%VTEncoderXPCService 
+20:40:46 bench_betainv: rc=0 15s target=NEON
+20:40:56 bench_bessel: noise before 51.72%  top: 337.0%corespotlightd 178.2%mediaanalysisd 5.5%VTEncoderXPCService 
+20:40:57 bench_bessel: rc=0 1s target=NEON
+20:41:07 bench_lbeta: noise before 50.76%  top: 333.3%corespotlightd 43.9%mediaanalysisd 4.4%VTEncoderXPCService 
+20:41:07 bench_lbeta: rc=0 0s target=NEON
+20:41:18 bench_trig: noise before 50.50%  top: 308.4%corespotlightd 49.2%mediaanalysisd 16.5%locationd 
+20:41:18 bench_trig: rc=0 0s target=NEON
+20:41:29 bench_exp: noise before 50.49%  top: 301.2%corespotlightd 67.7%mediaanalysisd 5.0%VTEncoderXPCService 
+20:41:29 bench_exp: rc=0 0s target=NEON
+20:41:40 bench_log: noise before 50.60%  top: 275.7%mediaanalysisd 55.3%corespotlightd 15.7%VTDecoderXPCService 
+20:41:41 bench_log: rc=0 1s target=NEON
+20:41:41 done fail=0. Raw per-target output: build/quiet_bench/quiet_bench_<target>.txt

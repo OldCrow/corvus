@@ -1593,7 +1593,6 @@ def main():
     print("// eta in [-kGammaInvEtaMax, kGammaInvEtaMax] (WIDE domain -- NOT")
     print("// gamma_data.h's kGammaTemmeCheb, which is fit only over the ridge")
     print("// band lambda in [1/2,2] and is the wrong table for this seed).")
-    print(f"inline constexpr int kGammaInvCkRows = {CK_KMAX};")
     print(f"inline constexpr int kGammaInvSeedNCorr = {S1_NCORR};")
     print(f"inline constexpr int kGammaInvCkNCoef = {maxdeg + 1};")
     print(f"inline constexpr double kGammaInvEtaMax = {hexf(ETA_MAX)};")
