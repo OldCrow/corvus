@@ -1,0 +1,19 @@
+corvus active SIMD target: NEON
+bessel, series (0,8]: n=4001
+      fn     simd ns/el   scalar ns/el  upper bnd
+      i0          59.31         114.76      1.94x
+      i1          57.71         116.59      2.02x
+     i0e          51.48         106.38      2.07x
+     i1e          53.65         106.38      1.98x
+bessel, tail (8,700]: n=4001
+      fn     simd ns/el   scalar ns/el  upper bnd
+      i0          18.58          41.67      2.24x
+      i1          18.73          41.51      2.22x
+     i0e          18.23          40.55      2.22x
+     i1e          18.28          41.04      2.25x
+bessel, mixed sign, both regions: n=4001
+      fn     simd ns/el   scalar ns/el  upper bnd
+      i0          59.87          94.34      1.58x
+      i1          65.83          96.98      1.47x
+     i0e          63.77          94.41      1.48x
+     i1e          63.05          90.60      1.44x

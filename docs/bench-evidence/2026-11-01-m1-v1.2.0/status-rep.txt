@@ -1,0 +1,19 @@
+rep 1 exit 3 2026-11-01T21:41:49 (attempt 1, aborted/rep1-2111)
+rep 2 exit 3 2026-11-01T22:11:54 (attempt 1, aborted/rep2-2141)
+rep 3 exit 3 2026-11-01T22:41:57 (attempt 1, aborted/rep3-2211)
+rep 4 exit 3 2026-11-01T23:12:01 (attempt 1, aborted/rep4-2241)
+rep 1 exit 0 2026-11-01T23:56:11 (attempt 2)
+rep 2 exit 3 2026-11-02T00:56:20 (attempt 2)
+rep 3 exit 3 2026-11-02T01:56:30 (attempt 2)
+rep 4 exit 0 2026-11-02T02:04:24 (attempt 2)
+rep 2 exit 3 2026-11-02T03:05:31 (attempt 3)
+rep 3 exit 0 2026-11-02T03:14:37 (attempt 3)
+DONE3
+rep 5 exit 3 2026-11-02T08:48:25 (day run) aborted
+rep 6 exit 3 2026-11-02T10:18:27 (day run) aborted
+rep 7 exit 3 2026-11-02T11:27:17 (day run) aborted
+rep 8 exit 3 2026-11-02T12:57:20 (day run) aborted
+rep 9 exit 0 2026-11-02T13:35:48 (day run) clean (max noise 3.87%)
+rep 10 exit 3 2026-11-02T14:24:38 (day run) aborted
+rep 11 exit 0 2026-11-02T14:41:34 (day run) clean (max noise 2.64%)
+rep 12 exit 0 2026-11-02T15:43:31 (day run) clean (max noise 4.18%)

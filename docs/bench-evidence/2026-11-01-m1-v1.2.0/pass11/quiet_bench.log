@@ -1,0 +1,37 @@
+15:43:31 quiet_bench.sh  build=build  expect=NEON  targets=15
+15:43:31 gate          : ambient < 10% over two consecutive 10s windows
+15:43:31 machine       : Apple M1; macOS 27.2
+15:43:41 ambient sample : 2.40%
+15:43:51 ambient sample : 3.14%
+15:43:51 gate passed at: 2.40 3.14%
+15:44:02 bench_erf: noise before 3.88%  top: 6.0%loginwindow 1.6%WindowServer 0.4%locationd 
+15:44:02 bench_erf: rc=0 0s target=NEON
+15:44:13 bench_erfc: noise before 4.40%  top: 1.6%iPulse 1.5%locationd 0.9%Application 
+15:44:14 bench_erfc: rc=0 1s target=NEON
+15:44:24 bench_lgamma: noise before 12.90%  top: 104.6%mediaanalysisd 4.4%locationd 4.3%iPulse 
+15:44:27 bench_lgamma: rc=0 3s target=NEON
+15:44:37 bench_erfinv: noise before 5.50%  top: 6.4%locationd 4.0%iPulse 2.0%airportd 
+15:44:41 bench_erfinv: rc=0 4s target=NEON
+15:44:51 bench_gamma: noise before 2.39%  top: 0.4%locationd 0.3%Application 0.1%Application 
+15:45:09 bench_gamma: rc=0 18s target=NEON
+15:45:19 bench_beta: noise before 14.64%  top: 100.0%mediaanalysisd 2.7%iPulse 2.6%locationd 
+15:45:21 bench_beta: rc=0 2s target=NEON
+15:45:32 bench_digamma: noise before 14.88%  top: 100.0%mediaanalysisd 1.2%logd 0.5%Application 
+15:45:32 bench_digamma: rc=0 0s target=NEON
+15:45:42 bench_trigamma: noise before 14.62%  top: 100.0%mediaanalysisd 2.4%iPulse 1.6%locationd 
+15:45:42 bench_trigamma: rc=0 0s target=NEON
+15:45:53 bench_gammainv: noise before 14.21%  top: 100.1%mediaanalysisd 1.0%SystemUIServer 0.7%Application 
+15:46:00 bench_gammainv: rc=0 7s target=NEON
+15:46:10 bench_betainv: noise before 14.59%  top: 99.9%mediaanalysisd 1.8%iPulse 1.6%bluetoothd 
+15:46:25 bench_betainv: rc=0 15s target=NEON
+15:46:35 bench_bessel: noise before 2.24%  top: 10.0%launchd 2.4%locationd 1.7%iPulse 
+15:46:35 bench_bessel: rc=0 0s target=NEON
+15:46:46 bench_lbeta: noise before 1.90%  top: 0.4%Application 0.3%locationd 0.2%Application 
+15:46:46 bench_lbeta: rc=0 0s target=NEON
+15:46:57 bench_trig: noise before 2.31%  top: 2.5%runningboardd 1.4%bluetoothd 0.9%locationd 
+15:46:57 bench_trig: rc=0 0s target=NEON
+15:47:08 bench_exp: noise before 2.30%  top: 1.2%locationd 1.1%searchpartyd 0.6%Application 
+15:47:08 bench_exp: rc=0 0s target=NEON
+15:47:18 bench_log: noise before 1.80%  top: 2.2%locationd 1.7%iPulse 1.4%ControlCenter 
+15:47:20 bench_log: rc=0 2s target=NEON
+15:47:20 done fail=0. Raw per-target output: build/quiet_bench/quiet_bench_<target>.txt

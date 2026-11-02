@@ -222,7 +222,9 @@ against 14.94×) has not recurred in these six runs (14.04–15.12 ns/el).
 
 Read a band's fast mode as its speed, and repeat a surprising reading before
 trusting it. #97 tracks the cause. Kaby Lake showed no slow mode in six
-processes (§8.3).
+processes; the M1 showed none at 1.50× in thirteen, but five bands step
+1.07–1.30× between processes with the scalar walk stepping on its own
+(§8.3).
 
 ---
 
@@ -312,23 +314,29 @@ against; the README's decision to quote no figures stands.
 
 ### 8.2 Batching gain, corvus against corvus
 
-Both columns are v1.2.0 at the freeze kernels. Kaby Lake: `0a3ee74` (kernels
-as `2f863be`), `AVX2`, AppleClang 15 Release, two full `tools/quiet_bench.sh`
-passes gated at 4.04/4.00% and 2.03/2.29% (evidence in
+All three columns are v1.2.0 at the freeze kernels. Kaby Lake: `0a3ee74`
+(kernels as `2f863be`), `AVX2`, AppleClang 15 Release, two full
+`tools/quiet_bench.sh` passes gated at 4.04/4.00% and 2.03/2.29% (evidence in
 `docs/bench-evidence/2026-11-01-kaby-v1.2.0/`). The column is pass 2, the
 quieter pass; pass 1 agrees within 6% on every band but four, named below.
+M1: `ac472c3` (same kernels), `NEON`, AppleClang 21 Release, eight full
+passes under the §10 gate (evidence in
+`docs/bench-evidence/2026-11-01-m1-v1.2.0/`). The column is pass 2 (gate
+4.03/4.64%); pass 11 (2.40/3.14%) agrees within 3.5% on every band, five more
+gated passes within 8.2%, and pass 1 within 6% on every band but eight, all
+named below.
 
-| family | upper bound (Kaby Lake, AVX2) | Zen 4 (§4) |
-|---|---|---|
-| `gamma_p` / `gamma_q` | 3.13 – 3.92× | 6.02 – 8.45× |
-| `beta_p` / `beta_q` | 3.21 – 4.02× | 6.23 – 8.05× |
-| `digamma` | 2.88 – 4.77× | 6.09 – 12.66× |
-| `trigamma` | 2.58 – 4.88× | 5.42 – 13.23× |
-| `gamma_p_inv` / `gamma_q_inv` | 2.29 – 4.03× | 3.83 – 8.07× |
-| `beta_p_inv` / `beta_q_inv` | 2.06 – 3.88× | 3.12 – 7.77× |
-| `lbeta` | 3.16× main band, 3.97× big band | 6.0×, 8.4× |
-| `erfinv` / `erfcinv` | 2.36 – 5.02× | 6.36 – 17.77× |
-| `i0` / `i1` / `i0e` / `i1e` | 2.91 – 4.53× | 6.23 – 12.17× |
+| family | upper bound (Kaby Lake, AVX2) | Zen 4 (§4) | M1 (NEON) |
+|---|---|---|---|
+| `gamma_p` / `gamma_q` | 3.13 – 3.92× | 6.02 – 8.45× | 1.78 – 2.00× |
+| `beta_p` / `beta_q` | 3.21 – 4.02× | 6.23 – 8.05× | 1.73 – 2.00× |
+| `digamma` | 2.88 – 4.77× | 6.09 – 12.66× | 1.70 – 2.10× |
+| `trigamma` | 2.58 – 4.88× | 5.42 – 13.23× | 1.60 – 2.11× |
+| `gamma_p_inv` / `gamma_q_inv` | 2.29 – 4.03× | 3.83 – 8.07× | 1.46 – 2.00× |
+| `beta_p_inv` / `beta_q_inv` | 2.06 – 3.88× | 3.12 – 7.77× | 1.35 – 1.91× |
+| `lbeta` | 3.16× main band, 3.97× big band | 6.0×, 8.4× | 1.66 – 1.70× main band, 2.02× big band |
+| `erfinv` / `erfcinv` | 2.36 – 5.02× | 6.36 – 17.77× | 1.50 – 2.44× |
+| `i0` / `i1` / `i0e` / `i1e` | 2.91 – 4.53× | 6.23 – 12.17× | 1.45 – 2.25× |
 
 Pass 1 ran slower than pass 2 on `digamma` (0,1) up-step (SIMD 27.0 against
 24.3 ns/el, scalar unchanged), `trigamma` [2,8) down-walk and [8,2^89)
@@ -339,6 +347,29 @@ asymptotic (54.1/20.6 against 47.9/16.7, scalar moved with it) and
 6.50× from a scalar walk at 108 ns/el against pass 1's 86 (4.87×), with the
 SIMD side at 16.6 in both.
 
+M1: pass 1 gated at 7% but from `bench_digamma` on sampled 50% with
+`corespotlightd` at three to four cores, and every one of its eight bands
+outside 6% is that load: `trigamma` [8,2^89) asymptotic 2.00/2.15×;
+`gamma_p_inv` a ≥ a_T deep tail 1.65/1.42× and beyond resolution 1.76/1.99×
+(pass 1's scalar walk 18% and 6% slower); `beta_p_inv` deep-small 1.83/1.95×
+(`p_inv` 1,285 against 1,205 ns/el, the band §12.2 flags); `i0` series
+2.23/1.91× and `i0e` series 2.07/1.92×; `i1` tail 2.42/2.24×; lbeta main
+band 1.43/1.66× (356 against 308 ns/el). Each of those bands but the two
+Bessel series reads within 3% of pass 2 in the six other gated passes (the
+deep-tail `gamma_p_inv` bands within 0.3%, `beta_p_inv` deep-small
+1,205–1,238 ns/el, lbeta main 300–308, `i1` tail 2.21–2.25×, `trigamma`
+asymptotic 2.11–2.25× on a 31.2/32.9 step of the walk), so the §13.2 lbeta
+flag did not recur in seven passes and the column's range ends stand; the
+`i0` and `i0e` series are §8.3's modes. The one range end that is mode-dependent is
+`digamma`'s top: 2.10× in the four passes whose scalar walk read 59.9–60.2
+ns/el on the [1,2) zone and 2.25× in the three at 64.6, the scalar walk's
+two modes (§8.3) with the SIMD side at 28.77 in all seven. Passes 8 and 12 ran
+with `mediaanalysisd` at one to two cores before every bench (13–22%, the
+E-core class §10 describes) and still agree with pass 2 within 7.8%, the
+excursions being the `i0e` series mode and, in pass 8, the `i1e` mixed band
+at 65.78 ns/el against 61.3–61.5 in eleven processes with the walk steady
+at 90.4: the same stepping (§8.3).
+
 Half of Zen 4 or less across the board, as the lane count predicts, and
 further below it on `digamma`, `trigamma` and the Bessel family, where the
 Zen 4 gains run to 12–13×. The ordering of families and of bands within a
@@ -346,6 +377,10 @@ family is preserved, so the structural conclusions of §4 hold on the second
 microarchitecture; only the magnitudes are lane-bound. Against this machine's
 v0.9.0 column (4.83–11.07× down to 2.35–27.67×, old baseline), every range
 is lower for the reason §2 gives: #42 made the per-element baseline faster.
+The M1 column is a quarter of Zen 4's, give or take, as two lanes against
+eight predict, and the family and band ordering is preserved there too:
+`erfinv` central and the Bessel tail at the top, the inverses' deep and
+skewed bands and the mixed-sign Bessel band at the bottom.
 
 ### 8.3 §5 on this machine
 
@@ -367,6 +402,45 @@ ambient, not §5, which holds the scalar walk. The other three repeats agree
 with pass 2 to 0.3% on all three bands. On Zen 4 the slow mode appeared in
 1–2 of 6 processes; six here showed none. That does not clear §5 on Kaby
 Lake, and it says nothing about the cause.
+
+M1, v1.2.0 (`ac472c3`, 2026-11-01/02): eight full passes and six short
+processes of `bench_digamma bench_trigamma bench_erfinv bench_bessel`, all
+gated (evidence as §8.2; the short ones are `rep1`, `rep3`, `rep4`, `rep9`,
+`rep11`, `rep12`; the three day-run repeats sampled under 4.2% before every
+bench). Pass 1 ran its second half under `corespotlightd` at three to four
+cores (§8.2) and is left out. Thirteen fresh processes, SIMD ns/el:
+
+| band | thirteen readings | slow/fast |
+|---|---|---:|
+| `digamma` (0,1) up-step | 30.76–30.78 ×10, 25.75, 31.43, 33.37 | 1.30× |
+| `digamma` [1,2) zone | 28.76–28.83 ×12, 25.51 | 1.13× |
+| `trigamma` (0,1) up-step | 38.09–38.14 ×12, 41.36 | 1.08× |
+| `i0` series | 59.16–59.31 ×9, 64.19–64.23 ×4 | 1.09× |
+| `i0e` series | 51.32–51.51 ×9, 55.32–55.34 ×4 | 1.08× |
+| `i1` series | 57.69–57.94 ×12, 61.69 | 1.07× |
+| `i1e` series | 53.52–53.72 ×13 | 1.00× |
+| `i1e` mixed sign | 61.34–61.46 ×11, 63.05, 65.78 | 1.07× |
+| `erfinv` central, n = 10⁶ | 11.57–11.62 ×11, 11.82, 12.05 | 1.04× |
+
+No 1.50× mode, and a mode nonetheless. Each band above but the `i1e`
+series and `erfinv` takes two or three values across processes, the three repeats that
+sampled under 4.2% before every bench included, and the values repeat to
+the hundredth:
+`i0` reads 59.2 or 64.2, never between. The scalar walk has modes of its own and is not in step
+with the SIMD side: the `digamma` up-step walk reads 64.6 in five
+processes, 69.1 in seven and 57.27 in one (the process with the 25.75), the
+[1,2) zone walk 59.9–60.2 or 64.6–64.9, the `trigamma` up-step walk
+75.7 ×9, 76.3, 77.0 and 80.95 ×2, and the `i0` walk 114.5–114.8 ×8 or 122.5
+×5. The four processes with `i0` at 64.2 are the four with `i0e` at 55.3
+and the `i0` walk at 122.5, so some modes travel together and others
+(`digamma` SIMD against its walk) do not. Zen 4's three bands read 1.50×
+with the walk steady; here the steps are 1.07–1.30× and the walk steps
+too, which fits the buffer-address suspicion of §5 (the walk and the SIMD
+loop read the same buffers) better than anything per-kernel. `erfinv` and the
+`i1e` series never move. Pass 1's `i0` at 51.41, the one reading below 59, came
+from the loaded pass and is not counted. Recorded for #97, not published as
+speeds; the column uses the ratios, which move by at most the walk's step.
+
 
 v0.9.0 (2026-08-23): `erfcinv` central [0.5, 1.5]: 21.27× (discarded noisy
 pass) / 20.28× (quiet pass). `i0` series band: 4.90× / 4.79×. Neither family

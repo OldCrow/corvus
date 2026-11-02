@@ -1,0 +1,37 @@
+15:47:20 quiet_bench.sh  build=build  expect=NEON  targets=15
+15:47:20 gate          : ambient < 10% over two consecutive 10s windows
+15:47:20 machine       : Apple M1; macOS 27.2
+15:47:30 ambient sample : 3.37%
+15:47:40 ambient sample : 2.26%
+15:47:40 gate passed at: 3.37 2.26%
+15:47:51 bench_erf: noise before 15.68%  top: 160.9%mediaanalysisd 14.2%VTDecoderXPCService 9.7%aned 
+15:47:51 bench_erf: rc=0 0s target=NEON
+15:48:02 bench_erfc: noise before 19.24%  top: 85.6%mediaanalysisd 13.2%loginwindow 10.5%VTEncoderXPCService 
+15:48:03 bench_erfc: rc=0 1s target=NEON
+15:48:13 bench_lgamma: noise before 20.31%  top: 86.1%mediaanalysisd 10.8%VTEncoderXPCService 10.5%VTDecoderXPCService 
+15:48:16 bench_lgamma: rc=0 3s target=NEON
+15:48:26 bench_erfinv: noise before 17.67%  top: 173.3%mediaanalysisd 10.9%VTEncoderXPCService 10.5%VTDecoderXPCService 
+15:48:30 bench_erfinv: rc=0 4s target=NEON
+15:48:40 bench_gamma: noise before 19.77%  top: 168.0%mediaanalysisd 12.2%VTDecoderXPCService 10.9%VTEncoderXPCService 
+15:48:58 bench_gamma: rc=0 18s target=NEON
+15:49:08 bench_beta: noise before 21.85%  top: 177.5%mediaanalysisd 10.8%VTEncoderXPCService 10.3%VTDecoderXPCService 
+15:49:11 bench_beta: rc=0 3s target=NEON
+15:49:21 bench_digamma: noise before 31.70%  top: 211.8%corespotlightd 75.6%mediaanalysisd 74.3%spotlightknowledged.updater 
+15:49:21 bench_digamma: rc=0 0s target=NEON
+15:49:31 bench_trigamma: noise before 49.73%  top: 151.1%mediaanalysisd 146.6%corespotlightd 14.1%VTDecoderXPCService 
+15:49:32 bench_trigamma: rc=0 1s target=NEON
+15:49:42 bench_gammainv: noise before 37.80%  top: 88.2%mediaanalysisd 53.4%spotlightknowledged.updater 9.7%VTDecoderXPCService 
+15:49:49 bench_gammainv: rc=0 7s target=NEON
+15:49:59 bench_betainv: noise before 16.69%  top: 87.0%mediaanalysisd 10.7%VTDecoderXPCService 10.6%VTEncoderXPCService 
+15:50:14 bench_betainv: rc=0 15s target=NEON
+15:50:25 bench_bessel: noise before 21.80%  top: 88.5%mediaanalysisd 8.6%VTEncoderXPCService 7.9%VTDecoderXPCService 
+15:50:25 bench_bessel: rc=0 0s target=NEON
+15:50:35 bench_lbeta: noise before 21.16%  top: 96.4%mediaanalysisd 35.8%spotlightknowledged.updater 12.7%com.apple.Safari.SafeBrowsing.Service 
+15:50:35 bench_lbeta: rc=0 0s target=NEON
+15:50:46 bench_trig: noise before 17.45%  top: 93.2%mediaanalysisd 9.1%VTEncoderXPCService 8.9%VTDecoderXPCService 
+15:50:46 bench_trig: rc=0 0s target=NEON
+15:50:57 bench_exp: noise before 20.54%  top: 104.1%mediaanalysisd 10.4%VTEncoderXPCService 9.1%VTDecoderXPCService 
+15:50:57 bench_exp: rc=0 0s target=NEON
+15:51:08 bench_log: noise before 20.88%  top: 90.4%mediaanalysisd 9.6%VTEncoderXPCService 9.5%VTDecoderXPCService 
+15:51:09 bench_log: rc=0 1s target=NEON
+15:51:09 done fail=0. Raw per-target output: build/quiet_bench/quiet_bench_<target>.txt

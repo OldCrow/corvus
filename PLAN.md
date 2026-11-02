@@ -8,7 +8,7 @@ docs/ACCURACY.md, and the kernel/generator source, which are the official
 record for finished work. Binding cross-family engineering rules live in
 docs/NUMERICAL-DOCTRINE.md, not here.
 
-## Status [DERIVED] — 2026-11-01
+## Status [DERIVED] — 2026-11-02
 
 **Row D, freeze head `2f863be` (kernels; later commits docs only unless noted).**
 Milestone v1.2.0 has 0 open issues. Zen 4 leg DONE 2026-11-01: PERFORMANCE.md
@@ -27,15 +27,26 @@ tiers bit-identical on every gate line. Two full gated passes (4.0/4.0%,
 1.50× modes did not appear in six processes; the two readings above 1.10×
 are a slow first pass and an ambient spike (`contactsd`) that moved the
 scalar walk too. Evidence `docs/bench-evidence/2026-11-01-kaby-v1.2.0/`.
-Next, the M1 leg, from `git pull` on `dev/v1.2.0`:
-1. Release build; every gate under `CORVUS_EXPECT_TARGET=NEON`,
-   `CORVUS_WERROR=ON`. Confirm beta/R4 tiny direct max 1 ULP, real
-   0.5241/0.6138: the published bound fell to 1 on this.
-2. `tools/quiet_bench.sh`, default targets, twice, then four repeats of
-   `bench_digamma bench_trigamma bench_erfinv bench_bessel`. Allow for
-   `mediaanalysisd` (§10). Evidence in `docs/bench-evidence/<date>-m1-v1.2.0/`.
-3. Add §8.2's M1 column; say whether §5's 1.50× modes appear there.
-Then: README performance paragraph, status note, merge `main`'s two dependabot
+M1 leg DONE 2026-11-02 (`ac472c3`, kernels as the freeze head; Mac Mini M1,
+NEON, macOS 27.2, AppleClang 21.0.0, Highway 1.4.0): Release with
+`CORVUS_WERROR=ON`, 38/38 NEON-asserted, 0 warnings; the ULP report equals CI
+41348222134's NEON job line for line (639 lines); beta R4 tiny direct max 1
+ULP, real 0.5241/0.6138, so the published bound holds on native NEON. Quiet
+bench under the §10 gate over two nights and a day (32 attempts, 14 gated:
+eight full passes, six short processes; `mediaanalysisd` and
+`corespotlightd` held the rest above 10% for 30–60 min each). §8.2 has its
+M1 column (pass 2; pass 11 agrees within 3.5% on every band, so §10's
+two-run rule is met on the ns/el, not only the ratios; pass 1's eight
+bands outside 6% are its `corespotlightd` load, each steady in the six
+other passes; §13.2's lbeta flag did not recur in seven passes). §8.3 and
+§5: no 1.50× mode in thirteen clean processes, but five bands step
+1.07–1.30× between processes with the scalar walk stepping on its own,
+values repeating to the hundredth; recorded for #97, which now has three
+machines' data. Evidence `docs/bench-evidence/2026-11-01-m1-v1.2.0/`
+(aborted gate logs under `aborted/`, every attempt in `status*.txt`). Row D
+is complete on all three machines.
+Next: README performance paragraph, the PERFORMANCE.md status note (the
+header's "M1 is pending" sentence goes), merge `main`'s two dependabot
 bumps, RELEASING.md with the user, libstats and libhmm bumps.
 
 **Row C3b, #94: DONE 2026-11-01, `8a6533f`, CI 41348222134 green, closed.** The corner
