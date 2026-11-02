@@ -11,7 +11,7 @@ CMake standard, and CI design. For kernel/generator/oracle rules see
 |---|---|---|---|---|---|
 | MacBook Pro 2017 (Kaby Lake) | macOS Ventura | i7-7820HQ | AVX2+FMA | Apple Clang | AVX2 native; SSE4/SSSE3/SSE2 via tier capping (no FMA on those) |
 | Mac Mini M1 | macOS 27 Golden Gate | Apple M1 | NEON (native FMA) | Apple Clang 21 | NEON validation |
-| Asus TUF A16 | Windows 11 | Ryzen 7 7445 (Zen 4) | AVX-512 | **clang-cl (GCC unsafe at AVX-512, MSVC can't dispatch it)** | AVX3* native; every lower x86 tier via capping |
+| Asus TUF A16 | Windows 11 | Ryzen 7 7445 (Zen 4) | AVX-512 | **clang-cl (GCC unsafe at AVX2 and above, MSVC can't dispatch it)** | AVX3* native; every lower x86 tier via capping |
 
 **corvus deviates from the house Windows default, and this is deliberate.**
 The other projects in this fleet (libhmm, libstats, ewcalc and the Python
@@ -23,9 +23,9 @@ project's widest tier — the one the Ryzen box exists to cover. Use
 link-compatible with the MSVC-built rest of the fleet (relevant if
 libstats/libhmm ever adopt corvus); mingw-w64 GCC is the second option and
 is not ABI-compatible with MSVC. MSVC remains fully supported *as a
-consumer toolchain* — it compiles clean, passes every gate, and is what the
-CI Windows job uses precisely because it is the strictest diagnostic gate
-and the likeliest consumer default. The exception is about which compiler
+consumer toolchain* — it compiles clean, passes every gate, and is the
+first of the CI Windows job's two builds because it is the strictest
+diagnostic gate and the likeliest consumer default. The exception is about which compiler
 produces *validation numbers*, not about which compilers must work.
 
 At session start, verify which machine you are on (`uname -m`,
@@ -38,36 +38,17 @@ Highway puts every AVX3\* target in `HWY_BROKEN_TARGETS` under MSVC, so an
 MSVC build silently tops out at AVX2 while still looking like a clean pass
 — never make an AVX-512 claim from one. Use Clang (clang-cl), which
 dispatches `AVX3_ZEN4` natively. mingw-w64 GCC also dispatches it but is
-**disqualified for every tier above 128-bit**: GCC 16.1 accesses the
-ms_abi invisible-reference temporaries for 256- and 512-bit BY-VALUE
-arguments and returns (any `__m256d`/`__m512d` or wrapper struct passed
-to a non-inlined function — exactly what HWY_NOINLINE outlining creates)
-with the aligned `vmovapd`, while allocating them at plain
-`rsp`-relative offsets with no realignment. The Windows ABI guarantees
-only 16-byte stack alignment, so whether a binary faults is call-chain
-luck (one ABI-legal residue in two is safe at 256-bit, one in four at
-512) — `test_gamma_ulp` segfaulted while the smoke test on the same
-kernel ran clean. Genuine register spills are correctly `vmovupd`, and
-named over-aligned locals/return slots in isolation get an aligned
-scratch pointer — only the argument temporaries are broken. Reproduces
-at every -O level including -O0; no flag rescues it (`-mstackrealign`
-and `-mpreferred-stack-boundary=6` change nothing, at either 256- or
-512-bit). clang-cl (and, per its own escape-hatch caveat below, MSVC) is
-unaffected. Filed upstream as GCC PR 126741 (512-bit; the 256-bit
-extension is queued as a follow-up comment). Minimal repros:
-`C:\Users\gdwol\Development\gcc-zmm-mingw-repro\` (512-bit) and
-`C:\Users\gdwol\Development\gcc-ymm-mingw-repro\` (256-bit,
-independently contributed). The failure mode is a fault, never silent
-corruption — an aligned store to a misaligned address traps — so
-GCC-built runs that completed produced valid numbers; the
-disqualification is about reliability, not past results. (The
-long-standing mingw test-binary "exit crash" was this bug firing
-in-kernel.) GCC remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4),
-where the ABI's 16-byte guarantee already covers the temporaries.
-`tools/sweep_tiers.ps1` therefore defaults to clang-cl (since #81 L-20;
-it defaulted to `g++` before, and ToolchainGuard refused its own first
-tier), and the uncapped native build must be clang-cl too. Run both from
-a vcvars64 environment, so link.exe and the SDK's rc.exe resolve.
+**disqualified for every tier above 128-bit**. Cause: GCC 16.1 accesses
+the ms_abi temporaries for 256- and 512-bit by-value vector arguments and
+returns (what HWY_NOINLINE outlining creates) with aligned `vmovapd`, but
+allocates them with only the ABI's 16-byte stack alignment, so whether a
+binary faults is call-chain luck. No `-O` level or flag rescues it. The
+failure is a trap, never silent corruption, so GCC runs that completed
+produced valid numbers. Minimal repros are attached to GCC PR
+126741. GCC remains fine for the 128-bit tiers
+(SSE2/SSSE3/SSE4). `tools/sweep_tiers.ps1` therefore defaults to
+clang-cl, and the uncapped native build must be clang-cl too. Run both
+from a vcvars64 environment, so link.exe and the SDK's rc.exe resolve.
 
 **Both Windows hazards are enforced at configure time**
 (`cmake/ToolchainGuard.cmake`, #36), not only described here:
@@ -153,7 +134,7 @@ would hide the same warning in corvus code.
 emits AVX10.2 mnemonics (`vcvttpd2qqs`) that Apple's assembler rejects, so
 the build fails at assembly. `-DCORVUS_DISABLED_TARGETS=HWY_AVX10_2` is
 enough: on Kaby Lake (GCC 16.1, 2026-10-16) that cap alone builds with
-`CORVUS_DEV_WARNINGS=ON CORVUS_WERROR=ON` at 0 warnings and passes 34/34
+`CORVUS_DEV_WARNINGS=ON CORVUS_WERROR=ON` at 0 warnings and passes the full suite
 under `CORVUS_EXPECT_TARGET=AVX2`; the wider AVX2 cap used for the #43
 `-Werror` leg works too. GCC on macOS is a diagnostics leg only; no
 validation number comes from it (Apple Clang is the macOS compiler in the
@@ -214,7 +195,7 @@ Manual alternative (no preset): `cmake -B build -DCMAKE_BUILD_TYPE=Release -G Ni
   `fp_guard_tripwire` (fast flag alone; the build must stop on the
   guard's text). The public-API tests take `CORVUS_FP_FLAGS` too (#78
   I-5). For icpx (`IntelLLVM`), the override is unvalidated.
-- Highway: uses system install if `find_package(hwy)` succeeds, else
+- Highway: uses system install (1.4+) if `find_package(hwy)` succeeds, else
   FetchContent of a pinned version (network on first configure). The pin
   tracks the version the accuracy audit ran against — bump only with a
   revalidation pass.
@@ -351,8 +332,7 @@ surface lean and justify every runner:
 - Windows x86-64 / clang-cl: a second build in the SAME job (no new
   runner; reuses the MSVC configure's Highway checkout). clang-cl is the
   toolchain corvus recommends on Windows and the only source of its
-  Windows validation numbers, yet until 2026-10-11 no CI job built with
-  it; since #43 it also builds a different kernel shape from MSVC
+  Windows validation numbers; since #43 it also builds a different kernel shape from MSVC
   (`CORVUS_OUTLINE` inlines hot regions everywhere but MSVC). Runs the
   `windows-clang-cl` preset inside vcvars64, located with the image's own
   `vswhere` (no third-party action). Capped at AVX2 with

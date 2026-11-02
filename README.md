@@ -7,13 +7,14 @@
 SIMD-vectorized statistical special functions for C++20, with runtime
 multi-target dispatch. Fills the gap between basic-transcendental SIMD
 libraries (SLEEF, Highway's contrib math) and SciPy-level special-function
-coverage: erf/erfc, lgamma, regularized incomplete gamma and beta and their
-inverses, modified Bessel I0/I1, and an accuracy-first elementary family
+coverage: erf/erfc and their inverses, lgamma, lbeta, digamma/trigamma,
+regularized incomplete gamma and beta and their inverses, modified Bessel
+I0/I1 with scaled variants, and an accuracy-first elementary family
 (exp, expm1, log, log1p, log1pmx, cos, sin — full double range, no domain
 cutoffs) — the functions that gate vectorized statistical CDFs, quantiles, and
 maximum-likelihood fitting.
 
-**Status: production.** All 25 functions are clean-room kernels
+**Status: production.** All 27 functions are clean-room kernels
 validated against a correctly-rounded mpmath oracle on every SIMD tier
 available across the development fleet — AVX-512 (`AVX3`, `AVX3_DL`,
 `AVX3_ZEN4`), AVX2, SSE4, SSSE3, SSE2 and NEON, each on native silicon.
@@ -94,7 +95,7 @@ that promises — and what it deliberately does not.
 
 - `lbeta` (ln B(a,b)): <!-- claim: lbeta.relative --> max 1 ULP wherever |ln B| >= 1 and
   <!-- claim: lbeta.abs --> 2^-53 absolute in the ill-conditioned band around ln B's zero
-  curve (it was documented as correctly rounded until v1.1.0; near-ties
+  curve (it was documented as correctly rounded through v1.0.x; near-ties
   round either way — the erratum is in docs/ACCURACY.md). Computed through the
   beta family's double-double lgamma-difference machinery, so the a+b
   cancellation that degrades a naive lgamma(a)+lgamma(b)-lgamma(a+b)
@@ -178,36 +179,31 @@ the vector and is close to nothing at two lanes.
 
 Expect the margin to vary a lot — and to depend on which libm you are
 comparing against as much as on which part of the domain you are in. On
-one machine, lgamma's best and worst bands measure nearly a factor of
-four apart against the same baseline. A single number for "how much faster
+one machine, lgamma's best and worst bands measure a factor of 3.7
+apart against the same baseline. A single number for "how much faster
 is it" would hide that spread rather than summarize it. Where the
 work is genuinely harder the margin narrows, and that cost is forced by the
 accuracy target rather than chosen — lgamma's Stirling switchover sits at
 X0 = 8 because accuracy puts it there, not because it was tuned.
 
-As of v0.9.0 the measurements hold on quiet-machine release builds across
+At v1.2.0 the measurements hold on quiet-machine release builds across
 three microarchitectures (Zen 4, Kaby Lake, Apple M1) and three vendor
 libms (UCRT, Apple x86, Apple arm64), so ranges can be quoted — always
-with the libm named, never as one number. v1.1.0 changed several families
-(faster elementary kernels, slower inverses and incomplete functions from
-the accuracy fixes); until the next quiet pass, PERFORMANCE.md's status
-note lists indicative v1.1.0 figures, measured on Zen 4 only:
+with the libm named, never as one number:
 
-- `cos`/`sin` run 3.2–5.6× ahead of every vendor libm measured, at 1 ULP
+- `cos`/`sin` run 5.0–8.5× ahead of every vendor libm measured, at 1 ULP
   over the full double range.
-- `lgamma` spans 1.5–5.2× against UCRT and 0.2–0.9× against Apple's
-  libm: the same kernel lands on opposite sides of 1.0 depending on the
+- `lgamma` spans 1.9–7.1× against UCRT and 0.4–1.4× against Apple's
+  libms: the same kernel lands on opposite sides of 1.0 depending on the
   baseline alone.
-- `log` ran at 0.2–0.64× of every vendor libm measured at v0.9.0 —
-  deliberately. It is correctly rounded on every reference row, and every
-  baseline it lost to trades exactly that away for speed. v1.1.0's fast
-  path (#43) keeps it correctly rounded. An ad-hoc Zen 4 run reads
-  1.3–1.5× against UCRT; Kaby Lake and M1 are not yet re-measured.
-- Batching the compute-heavy families (inverses, incomplete functions)
-  gains roughly 3–18× over calling the same kernels one element at a
-  time (ad-hoc, Zen 4, v1.1.0; v0.9.0 read 4–140× against a slower
-  per-element baseline) — an upper bound against per-call overhead, not
-  a libm comparison.
+- `log` beats UCRT (1.5×) and runs at 0.4–0.7× of Apple's libms —
+  deliberately. It is correctly rounded on every reference row, and the
+  baselines it loses to trade exactly that away for speed.
+- Batching the families with no libm counterpart (incomplete functions
+  and their inverses, digamma/trigamma, erfinv, Bessel) gains 3.1–17.8×
+  on Zen 4, 2.1–5.0× on Kaby Lake and 1.4–2.4× on the M1 over calling the
+  same kernels one element at a time — an upper bound against per-call
+  overhead, not a libm comparison.
 - `lgamma`'s table band (v1.2.0) takes 11 gathers per vector. It still gains
   1.61× on Kaby Lake, the fleet's gather-weak part, but gather cost is
   unmeasured under the Downfall microcode mitigation (Skylake through Ice
@@ -215,8 +211,7 @@ note lists indicative v1.1.0 figures, measured on Zen 4 only:
   planned for v1.3.0 (#22).
 
 The full per-machine, per-band record is
-[docs/PERFORMANCE.md](docs/PERFORMANCE.md) — start at its v1.1.0 status
-note, then its §11 synthesis.
+[docs/PERFORMANCE.md](docs/PERFORMANCE.md) — start at its §11 synthesis.
 If throughput against your own libm on your own hardware is what decides the
 question, measure it — what corvus documents, and stands behind, is the
 accuracy at vector width.
@@ -241,8 +236,8 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The build uses an installed Highway if it finds one and otherwise
-fetches a pinned copy at configure time.
+The build uses an installed Highway 1.4 or newer if it finds one and
+otherwise fetches a pinned copy at configure time.
 
 ### Consuming corvus
 
@@ -297,7 +292,7 @@ worth knowing:
   mingw-w64 GCC is not currently safe at
   AVX2 or above: GCC 16.1 miscompiles 256- and 512-bit by-value vector
   arguments on the Windows ABI (misaligned stack temporaries — crashes
-  depend on call-chain luck; GCC PR 126741, see docs/ACCURACY.md). It
+  depend on call-chain luck; GCC PR 126741, see docs/ENVIRONMENT.md). It
   remains fine for the 128-bit tiers (SSE2/SSSE3/SSE4). corvus's
   configure step therefore refuses mingw GCC when 256-bit or wider targets
   are compiled in (cmake/ToolchainGuard.cmake); cap the build to the
@@ -349,7 +344,8 @@ corvus::beta_p(a, b, x, p);                // x in [0, 1]
 corvus::beta_q(a, b, x, p);
 corvus::beta_p_inv(a, b, p, x);            // Beta quantile: I_x(a,b) = p
 corvus::beta_q_inv(a, b, p, x);
-corvus::lbeta(a, b, p);                    // ln B(a,b), 1 ULP
+corvus::lbeta(a, b, p);                    // ln B(a,b)
+double p1 = corvus::gamma_p(3.5, 2.0);     // scalar entry point
 
 corvus::i0(x, y);                          // modified Bessel I0, I1
 corvus::i1(x, y);
@@ -357,8 +353,10 @@ corvus::i0e(x, y);                         // e^-|x| I0(x): full axis, no overfl
 corvus::i1e(x, y);
 
 corvus::exp(x, y);                         // elementary family: accuracy-first,
-corvus::log(x, y);                         //   full double range, correct
-corvus::log1p(x, y);                       //   IEEE edge behavior
+corvus::expm1(x, y);                       //   full double range, correct
+corvus::log(x, y);                         //   IEEE edge behavior
+corvus::log1p(x, y);
+corvus::log1pmx(x, y);                     // log1p(x) - x
 corvus::cos(x, y);                         // no domain cutoff -- any finite x
 corvus::sin(x, y);
 ```

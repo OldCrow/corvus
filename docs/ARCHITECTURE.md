@@ -13,7 +13,9 @@ against `ops::`; the dd primitives are not a layer beneath the kernels.
 ## The layers
 
 **Public API** (`include/corvus/corvus.h`) — the installed surface. Functions
-take and return `std::span`; the header includes only the standard library.
+take and return `std::span`; the incomplete gamma/beta family also has
+`double f(double...)` scalar entry points. The header includes only the
+standard library.
 No Highway type, macro, or header leaks through it.
 
 **Dispatch** (`src/<fn>.cpp`) — one translation unit per function family; the
@@ -30,8 +32,8 @@ tail's first element rather than zero, so they share a live lane's region
 instead of dragging the specials scrub's safe point (and its region core)
 into every short call (#42). `DriveScalarBinary/Ternary` are the scalar
 entry points of the incomplete gamma/beta family: one point broadcast to
-every lane, no loop, bit-identical to the span form. `active_target()` lives in its own tiny
-TU (`src/target.cpp`).
+every lane, no loop, bit-identical to the span form. `active_target()`
+lives in its own tiny TU (`src/target.cpp`).
 
 **Kernels** (`src/<fn>-inl.h`, `src/<fn>_core-inl.h`) — the per-target
 numerical code: region cores plus per-lane kernel drivers, invoked by the

@@ -8,7 +8,7 @@ CMakeLists.txt comment above the install block, and PLAN.md).
 
 ## Prerequisites
 
-A system Highway install (`find_package(hwy)` must succeed) and corvus
+A system Highway 1.4+ install (`find_package(hwy 1.4)` must succeed) and corvus
 built and installed against it:
 
 ```bash

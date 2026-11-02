@@ -13,9 +13,9 @@ for using them.
 ## 1. What corvus is
 
 corvus computes twenty **special functions** — the awkward mathematical
-functions that statistical work is built out of — plus the five
-full-double-range elementary functions they are built on (`exp`, `log`,
-`log1p`, `cos`, `sin`). It computes them on whole
+functions that statistical work is built out of — plus the seven
+full-double-range elementary functions they are built on (`exp`, `expm1`,
+`log`, `log1p`, `log1pmx`, `cos`, `sin`). It computes them on whole
 arrays at a time, using whatever vector instructions your CPU turns out to
 have, and every function comes with a measured accuracy bound.
 
@@ -44,7 +44,10 @@ cannot do better than landing on one of the two doubles nearest the truth.
 
 **Correctly rounded.** Stronger than 1 ULP: the value returned is *the* nearest
 double to the true answer, with no better choice available. Sometimes written
-as 0.5 ULP. corvus achieves this for `lbeta` and in several regions elsewhere.
+as 0.5 ULP. corvus measures this on its reference sets for `log`, `log1p`,
+`log1pmx` and `expm1`, and in regions of `exp` (normal results), `lgamma`
+(mid and large positive arguments), `lbeta` (the lines a = 1 and b = 1) and
+`beta_p`/`beta_q`.
 
 **Relative vs absolute error.** Relative error is the error as a fraction of
 the answer — "correct to 15 digits" is a relative statement, and it holds
@@ -95,7 +98,7 @@ Grouped by what you would use them for.
 
 | function | computes | typical bound |
 |---|---|---|
-| `gamma_p`, `gamma_q` | regularized incomplete gamma, lower and upper | <!-- claim: gamma.R3.dir --> 2 ULP (<!-- claim: gamma.R4 --> 1 ULP in the small-a band since v1.1.0) |
+| `gamma_p`, `gamma_q` | regularized incomplete gamma, lower and upper | <!-- claim: gamma.R3.dir --> 2 ULP (<!-- claim: gamma.R4 --> 1 ULP in the small-a band) |
 | `gamma_p_inv`, `gamma_q_inv` | their inverses | <!-- claim: gammainv --> 1 ULP |
 | `lgamma` | log of the gamma function | <!-- claim: lgamma.pos lgamma.neg --> 1 ULP |
 | `digamma`, `trigamma` | first and second derivatives of `lgamma` | <!-- claim: digamma trigamma --> 1 ULP |
@@ -168,7 +171,7 @@ Worth being blunt about, so you can plan around it.
   one line. The `examples/` directory shows how for the common ones.
 - **Not a general vector-math library.** corvus ships the elementary
   functions its own kernels needed at full-double-range accuracy — `exp`,
-  `log`, `log1p`, `cos`, `sin` (§3) — but nothing else from `<cmath>`: no
+  `expm1`, `log`, `log1p`, `log1pmx`, `cos`, `sin` (§3) — but nothing else from `<cmath>`: no
   `pow`, no `tan`, no `sqrt`. For those, use `<cmath>` or your SIMD
   library's own math functions.
 - **No random number generation, sampling, or fitting.** `digamma` and
@@ -229,7 +232,7 @@ Things worth knowing:
   (`in.data() == out.data()`). Partial overlap is undefined behaviour.
 - **No allocation, no exceptions, thread-safe.** Safe to call from anywhere,
   including a hot loop or a worker pool. Every public function is declared
-  `noexcept` (since v0.6.0), so the promise is compile-checked, not just
+  `noexcept`, so the promise is compile-checked, not just
   documented.
 - **One binary serves every CPU.** Dispatch happens on the first call.
 
@@ -392,7 +395,8 @@ that work.
 
 If you want `log B(a,b)`, call `lbeta`. Do not assemble it from three
 `lgamma` calls. `lbeta` removes the cancellation as part of its derivation, not
-afterwards, which is why it is correctly rounded where the assembly is not.
+afterwards, which is why it holds 1 ULP (2⁻⁵³ absolute near ln B = 0) where
+the assembly does not.
 
 For binomial coefficients the same identity helps:
 
@@ -418,12 +422,14 @@ instead:
 
 - `lgamma` on the negative axis, which has infinitely many zeros
 - `digamma` near its negative-axis zeros
-- `lbeta` around the curve where `ln B` passes through zero, including the
-  point (1, 1)
+- `lbeta` around the curve where `ln B` passes through zero (the lines a = 1
+  and b = 1 excepted: there ln B = −ln x is correctly rounded, and
+  lbeta(1, 1) = +0)
 
-So `lbeta(1,1)` returns about `-8e-23` rather than exactly zero. That is inside
-the documented `0.5 × 2⁻⁵³` and is the correct behaviour. A library claiming
-1 ULP across a zero would be claiming something nobody can measure.
+At (2, 0.618), for example, `ln B` is about `7.6003e-5`, where one ULP is
+about `1.4e-20`. corvus guarantees that point to within `2⁻⁵³` (about
+`1.1e-16`) absolute, not to 1 ULP. A library claiming 1 ULP across a zero
+would be claiming something nobody can measure.
 
 Practical consequence: if your work lives near one of those zeros, think in
 absolute terms rather than relative ones, and expect the same from any library

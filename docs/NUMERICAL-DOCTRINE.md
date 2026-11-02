@@ -59,7 +59,8 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   against `ops::` like everything else. Exact residuals go through
   `ops::ProdLow`, never a bare `MulSub` — same FMA-capability hazard as
   `ops::SquareLow`. `src/dd_special-inl.h` holds shared dd specials one
-  layer up (Log1pmxDd, Expm1Dd), consumed by gamma and beta, gated by
+  layer up (Log1pmxDd, Expm1Dd), consumed by gamma, beta, their inverses,
+  and the public expm1/log1pmx, gated by
   `test_dd_special`. `src/<fn>_dd-inl.h` are corvus-owned transcendental
   cores (exp_dd, log_dd), internal only: they return mantissa + exponent
   so a consumer folds its own factors in before the power-of-two scaling
@@ -115,21 +116,8 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   guarantees it>`, on the call or once at the head of its function.
   "Operands are O(1)" counts only when it names the predicate that bounds
   them. An argument that turns out false is a finding: fix it in the same
-  change or file it. `tools/hunt/floor_lint.py` lists every site without
-  one; there were 136 at `cbd1373`. Phasing:
-  1. Row 12-T (v1.1.0) argues every site whose operands can reach the
-     floor: subnormal or tiny inputs, tiny-a/tiny-shape paths, subnormal
-     results formed through a product. These are the no-FMA tiers' gross
-     cases. DONE 2026-10-24: the floor census (the route census build;
-     `route_census.py --floor-json`) records each call site whose lane-0
-     product falls below 2^-968 on a reference row, a special-input row
-     or a witness. That is 64 of the 136 sites, and all 64 carry an
-     argument. A kernel change reruns it, and a newly hit site needs its
-     argument before it lands.
-  2. Each fix row argues every site in the functions it changes.
-  3. #86 (v1.2.0) argues the rest. DONE 2026-10-28: all 140 sites carry an
-     argument, and CI's Linux job runs the lint with `--strict`, so a new
-     site cannot land without one.
+  change or file it. Every site carries an argument; CI's Linux job runs
+  `tools/hunt/floor_lint.py --strict`.
 - FP contraction is OFF project-wide (`CORVUS_FP_FLAGS`): the dd exactness
   proofs assume IEEE ops as written; fusion is requested in source
   (`ops::MulAdd`), never inferred by the compiler.
@@ -285,6 +273,16 @@ python3 -m venv /tmp/mpv && /tmp/mpv/bin/pip install mpmath
 /tmp/mpv/bin/python tools/gen_bessel_data.py      > src/bessel_data.h
 /tmp/mpv/bin/python tools/gen_bessel_reference.py
 /tmp/mpv/bin/python tools/gen_lbeta_reference.py
+/tmp/mpv/bin/python tools/gen_dd_special_gates.py
+/tmp/mpv/bin/python tools/gen_exp_reference.py    > tests/data/exp_reference.txt
+/tmp/mpv/bin/python tools/gen_expm1_reference.py  > tests/data/expm1_reference.txt
+/tmp/mpv/bin/python tools/gen_log_reference.py    > tests/data/log_reference.txt
+/tmp/mpv/bin/python tools/gen_log1p_reference.py  > tests/data/log1p_reference.txt
+/tmp/mpv/bin/python tools/gen_log1pmx_reference.py > tests/data/log1pmx_reference.txt
+/tmp/mpv/bin/python tools/gen_trig_table.py       > src/trig_data.h
+/tmp/mpv/bin/python tools/gen_trig_ph_table.py    > src/trig_ph_data.inc
+/tmp/mpv/bin/python tools/gen_trig_reference.py --fn cos > tests/data/cos_reference.txt
+/tmp/mpv/bin/python tools/gen_trig_reference.py --fn sin > tests/data/sin_reference.txt
 ```
 `gen_erfinv_reference.py` writes both `tests/data/erfinv_reference.txt` and
 `tests/data/erfcinv_reference.txt` directly (two output files, so no `>`
@@ -311,6 +309,9 @@ certification and baked-in negative controls — same exit-2 doctrine.
 `gen_bessel_reference.py` and `gen_lbeta_reference.py` likewise write
 their files directly (layered-dps oracles, no bracket certification —
 both functions have trusted single-argument mpmath baselines).
+`gen_dd_special_gates.py` writes the two dd_special gate sets
+(`tests/data/expm1_dd_reference.txt`, `tests/data/log1pmx_ulo_reference.txt`)
+directly; run it from the repo root.
 
 **Replay self-checks (binding, both rules paid for in shipped defects):**
 - Every generator replay/self-check samples DOMAIN BOUNDARIES with

@@ -41,8 +41,6 @@ when corvus is consumed via `add_subdirectory`.
 | `von_mises_density` | working past the point I₀ overflows, and a ratio whose scalings cancel exactly | `i0`, `i1`, `i0e`, `i1e` |
 | `log_space_counting` | binomial coefficients and Beta normalisers, and a dedicated function beating a correct assembly | `lgamma`, `lbeta` |
 
-More are being added; this table grows with them.
-
 ## Read this before concluding corvus is inaccurate
 
 Every example above prints a place where the answer is worse than corvus's
@@ -78,8 +76,9 @@ actually has to make:
   and pointless.
 - **Pick the formulation that computes the small quantity.** `1 - Phi(z)` and
   `0.5*erfc(z/sqrt2)` are the same function on paper and completely different
-  in floating point. corvus's bounds are relative, so choosing the right form
-  is what lets you keep them. This is the big one — see the section above.
+  in floating point. corvus's bounds are relative wherever possible, so
+  choosing the right form is what lets you keep them. This is the big one —
+  see the section above.
 - **The bounds are the product.** Where an example asserts something exact —
   `Phi(0) == 0.5`, a tail probability surviving where the naive route
   underflows to zero — that assertion is the point of the example, not

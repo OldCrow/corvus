@@ -32,8 +32,10 @@
 ///
 /// The incomplete gamma and beta family (gamma_p/q, beta_p/q and their
 /// inverses) also has scalar entry points, `double f(double...)`, for
-/// callers with one point. They return the same bits as the span form and
-/// carry the same specials; see each one's note.
+/// callers with one point (a scalar CDF, a quantile solve). They return the
+/// same bits as the span form on a length-1 span and carry the span form's
+/// specials. Each call costs one vector's evaluation of the point's region,
+/// so use it for one point and batch a loop through the span form instead.
 
 #include <version>
 #ifndef __cpp_lib_span
@@ -45,8 +47,7 @@
 namespace corvus {
 
 // Must match CMakeLists.txt's project(VERSION) — enforced at configure
-// time (a mismatch is a FATAL_ERROR; added after these constants sat at
-// 0.1.0 through the v0.2.0 release unnoticed).
+// time (a mismatch is a FATAL_ERROR).
 inline constexpr int kVersionMajor = 1;
 inline constexpr int kVersionMinor = 1;
 inline constexpr int kVersionPatch = 0;
@@ -127,11 +128,7 @@ void gamma_p(std::span<const double> a, std::span<const double> x,
 
 /// \brief P(a, x) for one point; the scalar entry point of gamma_p.
 ///
-/// Same value, bit for bit, as the span form on a length-1 span; use it
-/// where the caller has one point (a scalar CDF, a quantile solve). It
-/// costs one vector's evaluation of the point's region and nothing more,
-/// so it is the right call for one point and the wrong one for a loop --
-/// batch the loop instead.
+/// Same bits as the span form on a length-1 span; see the file header.
 [[nodiscard]] double gamma_p(double a, double x) noexcept;
 
 /// \brief out[i] = Q(a[i], x[i]) = 1 - P(a[i], x[i]), the regularized upper
@@ -151,11 +148,7 @@ void gamma_q(std::span<const double> a, std::span<const double> x,
 
 /// \brief Q(a, x) for one point; the scalar entry point of gamma_q.
 ///
-/// Same value, bit for bit, as the span form on a length-1 span; use it
-/// where the caller has one point (a scalar CDF, a quantile solve). It
-/// costs one vector's evaluation of the point's region and nothing more,
-/// so it is the right call for one point and the wrong one for a loop --
-/// batch the loop instead.
+/// Same bits as the span form on a length-1 span; see the file header.
 [[nodiscard]] double gamma_q(double a, double x) noexcept;
 
 /// \brief out[i] = I_x(a, b), the regularized incomplete beta function
@@ -187,11 +180,7 @@ void beta_p(std::span<const double> a, std::span<const double> b,
 
 /// \brief I_x(a, b) for one point; the scalar entry point of beta_p.
 ///
-/// Same value, bit for bit, as the span form on a length-1 span; use it
-/// where the caller has one point (a scalar CDF, a quantile solve). It
-/// costs one vector's evaluation of the point's region and nothing more,
-/// so it is the right call for one point and the wrong one for a loop --
-/// batch the loop instead.
+/// Same bits as the span form on a length-1 span; see the file header.
 [[nodiscard]] double beta_p(double a, double b, double x) noexcept;
 
 /// \brief out[i] = 1 - I_x(a, b) = I_{1-x}(b, a), the complementary
@@ -209,11 +198,7 @@ void beta_q(std::span<const double> a, std::span<const double> b,
 
 /// \brief 1 - I_x(a, b) for one point; the scalar entry point of beta_q.
 ///
-/// Same value, bit for bit, as the span form on a length-1 span; use it
-/// where the caller has one point (a scalar CDF, a quantile solve). It
-/// costs one vector's evaluation of the point's region and nothing more,
-/// so it is the right call for one point and the wrong one for a loop --
-/// batch the loop instead.
+/// Same bits as the span form on a length-1 span; see the file header.
 [[nodiscard]] double beta_q(double a, double b, double x) noexcept;
 
 /// \brief out[i] = ln B(a[i], b[i]) = lgamma(a) + lgamma(b) - lgamma(a+b).
@@ -227,9 +212,8 @@ void beta_q(std::span<const double> a, std::span<const double> b,
 /// is removed analytically. Accuracy: <!-- claim: lbeta.relative --> max 1 ULP where |ln B| >= 1,
 /// <!-- claim: lbeta.abs --> 2^-53 absolute in the band around ln B's zero curve through (1,1),
 /// where the result itself is ill-conditioned; measured correctly rounded on
-/// the reference set except near-ties (docs/ACCURACY.md; it was documented
-/// as correctly rounded until v1.1.0). Symmetric in
-/// (a, b); saturates to -inf
+/// the lines a = 1 and b = 1 (docs/ACCURACY.md); documented as correctly
+/// rounded through v1.0.x. Symmetric in (a, b); saturates to -inf
 /// where the true ln B falls below the double range (both parameters
 /// huge); NaN propagates as a quiet NaN (the input payload is not preserved).
 void lbeta(std::span<const double> a, std::span<const double> b,
@@ -302,11 +286,7 @@ void gamma_p_inv(std::span<const double> a, std::span<const double> p,
 /// \brief x with P(a, x) = p for one point; the scalar entry point of
 ///   gamma_p_inv.
 ///
-/// Same value, bit for bit, as the span form on a length-1 span; use it
-/// where the caller has one point (a scalar CDF, a quantile solve). It
-/// costs one vector's evaluation of the point's region and nothing more,
-/// so it is the right call for one point and the wrong one for a loop --
-/// batch the loop instead.
+/// Same bits as the span form on a length-1 span; see the file header.
 [[nodiscard]] double gamma_p_inv(double a, double p) noexcept;
 
 /// \brief out[i] = x with Q(a[i], x) = q[i], the inverse of the regularized
@@ -327,11 +307,7 @@ void gamma_q_inv(std::span<const double> a, std::span<const double> q,
 /// \brief x with Q(a, x) = q for one point; the scalar entry point of
 ///   gamma_q_inv.
 ///
-/// Same value, bit for bit, as the span form on a length-1 span; use it
-/// where the caller has one point (a scalar CDF, a quantile solve). It
-/// costs one vector's evaluation of the point's region and nothing more,
-/// so it is the right call for one point and the wrong one for a loop --
-/// batch the loop instead.
+/// Same bits as the span form on a length-1 span; see the file header.
 [[nodiscard]] double gamma_q_inv(double a, double q) noexcept;
 
 /// \brief out[i] = x with I_x(a[i], b[i]) = p[i], the inverse of the
@@ -384,11 +360,7 @@ void beta_p_inv(std::span<const double> a, std::span<const double> b,
 /// \brief x with I_x(a, b) = p for one point; the scalar entry point of
 ///   beta_p_inv.
 ///
-/// Same value, bit for bit, as the span form on a length-1 span; use it
-/// where the caller has one point (a scalar CDF, a quantile solve). It
-/// costs one vector's evaluation of the point's region and nothing more,
-/// so it is the right call for one point and the wrong one for a loop --
-/// batch the loop instead.
+/// Same bits as the span form on a length-1 span; see the file header.
 [[nodiscard]] double beta_p_inv(double a, double b, double p) noexcept;
 
 /// \brief out[i] = x with 1 - I_x(a[i], b[i]) = q[i], the inverse of the
@@ -409,11 +381,7 @@ void beta_q_inv(std::span<const double> a, std::span<const double> b,
 /// \brief x with 1 - I_x(a, b) = q for one point; the scalar entry point of
 ///   beta_q_inv.
 ///
-/// Same value, bit for bit, as the span form on a length-1 span; use it
-/// where the caller has one point (a scalar CDF, a quantile solve). It
-/// costs one vector's evaluation of the point's region and nothing more,
-/// so it is the right call for one point and the wrong one for a loop --
-/// batch the loop instead.
+/// Same bits as the span form on a length-1 span; see the file header.
 [[nodiscard]] double beta_q_inv(double a, double b, double q) noexcept;
 
 /// \brief out[i] = I0(in[i]), the modified Bessel function of the first
@@ -490,7 +458,7 @@ void i1e(std::span<const double> in, std::span<double> out) noexcept;
 /// propagates (payload preserved).
 void exp(std::span<const double> in, std::span<double> out) noexcept;
 
-/// rief out[i] = exp(in[i]) - 1 without the cancellation of forming
+/// \brief out[i] = exp(in[i]) - 1 without the cancellation of forming
 ///   exp(x) first.
 ///
 /// Below |x| = 2^-6 a double-double series; above it the internal
@@ -533,7 +501,7 @@ void log(std::span<const double> in, std::span<double> out) noexcept;
 /// preserved).
 void log1p(std::span<const double> in, std::span<double> out) noexcept;
 
-/// rief out[i] = log1p(in[i]) - in[i], relative-accurate everywhere,
+/// \brief out[i] = log1p(in[i]) - in[i], relative-accurate everywhere,
 ///   including near 0 where the two terms cancel.
 ///
 /// For |x| <= 1/16 a double-double series for x^2 * T(x); above it the

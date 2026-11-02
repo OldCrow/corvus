@@ -6,8 +6,7 @@
 #   published  the contract the docs state (README, USER-GUIDE, corvus.h,
 #              ACCURACY.md); published >= gate unless an issue is named
 #   claim      the claim id the docs mark with `claim: <id>`
-#   issue      an open issue that tracks a known mismatch (#76: false
-#              "correctly rounded" claims, corrected in row 12j)
+#   issue      an open issue that tracks a known mismatch
 # tools/claims_check.py checks the table against the docs; a gate change
 # edits the gate field here, a contract change edits published and the docs.
 beta_p|R1 series cmp|ulp|1|1|beta.R1

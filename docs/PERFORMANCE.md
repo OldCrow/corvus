@@ -1,54 +1,19 @@
 # corvus — Performance
 
-**Status: MEASURED, three microarchitectures (v0.9.0, 2026-08-31).**
+**Status: MEASURED at v1.2.0, three microarchitectures (2026-11-02).**
 Zen 4 / UCRT and Kaby Lake / Apple x86 libm under the 5% ambient gate;
-Apple M1 / Apple arm64 libm under the §10 gate (ratified 2026-08-31),
-stable rows only. **Start at §11** — the cross-machine synthesis is the
-quotable part; §§1–10 are the dated measurement ledger behind it, kept
-because a number without its provenance cannot be audited later.
+Apple M1 / Apple arm64 libm under the §10 gate. §§3, 4, 8 and 11 come from
+quiet full-surface passes at the v1.2.0 freeze kernels (`2f863be`), two or
+more per machine. **Start at §11**, the cross-machine synthesis. The rest is
+the dated measurement ledger behind it, kept because a number without its
+provenance cannot be audited later; §§12–14 are A/B measurements of single
+v1.2.0 changes.
 
-What promotion does NOT change: `docs/ACCURACY.md` is the audited
-document and nothing here has that standing; every ratio names the libm
-and machine it was measured against, and ratios against different libms
-are not comparable (§6); §5's bands read in two speed modes from process
-to process, cause unknown, so a single reading of them is provisional.
-
-**v1.1.0 (2026-10-25): partly stale.** The figures below were measured on
-v0.9.0 code. v1.1.0's accuracy fixes made several families slower, and
-its elementary-family work (#43) made that family faster. The only v1.1.0
-measurement is one ad-hoc Zen 4 run of every family bench on the freeze
-code (`0508ef1`, `AVX3_ZEN4`, clang-cl Release) at 20–69% ambient load.
-It is not a quiet-bench pass and is INDICATIVE only: differences below
-about 10% are within its noise. Against §3/§9 (ns/el, corvus only):
-
-| family | v0.9.0 quiet → v1.1.0 ad-hoc | cause |
-|---|---|---|
-| `erf`, `erfinv`/`erfcinv`, `lgamma`, `digamma`, `trigamma`, `lbeta` | unchanged within noise | — |
-| `cos` / `sin` | 1.6 → 1.1 | #43 |
-| `exp` | 2.1 → 1.5 | #43 |
-| `log` | 4.9 → 2.7 (0.64× → 1.34–1.51× against UCRT) | #43 |
-| `log1p` | 4.9 → 4.9–5.4 (0.84–0.93× against UCRT) | — |
-| `erfc` tail / mixed | 4.1 → 9.9 / 6.3 → 14.2 | #74 (§3) |
-| `gamma_p`/`gamma_q` R1 / R2 / R3 / R4 | 66 / 54 / 49 / 77 → 109 / 68 / 57 / 85 | #56, #57, #64, #67, #70 |
-| `beta_p`/`beta_q` | R1, R2 and gamma-limit +32–37%; R3, R4, post-route +9–12% | #47, #54, #69, #84, #85 |
-| `gamma_p_inv`/`gamma_q_inv` | +15–55% by band | the forward, plus #48, #72, #83 |
-| `beta_p_inv`/`beta_q_inv` | +10–25% by band; joint-tiny plateau 529 → 829 | the forward, plus #50, #55, #60 |
-| `i0`/`i1`/`i0e`/`i1e` | series 13.9–14.2 → 14.0–25.4; tail 13.9–14.2 → 6.4; mixed 13.9–14.2 → 19.3–19.8 | #75 (§4) |
-
-The beta row ran at the 69% load peak, so its size is the least certain.
-Kaby Lake and M1 were not re-measured; the same code changes apply there.
-The §4 and §8.2 upper bounds are stale on two counts, these changes and
-#42's per-element baseline (§2). Row D's quiet full-surface pass replaced
-§4 on Zen 4 (`2f863be`, 2026-11-01) and §8.2's Kaby Lake column
-(`0a3ee74`, same kernels, 2026-11-01); M1 is pending, and this note goes
-when it is in.
-
-**v1.2.0 row C1 (2026-10-29):** #42 lever 1 made `beta_p`/`beta_q` and
-their inverses faster on Zen 4; quiet A/B in §12. Gamma is unchanged.
-Reproduced on Kaby Lake 2026-10-30 (§12.1) and on the M1 2026-10-31
-(§12.2). **Row C3 (2026-10-30):** #31's lgamma table band and single-log
-reflection, Zen 4 in §13, Kaby Lake in §13.1, M1 in §13.2; the §8.1 and
-§11.2 lgamma-against-Apple-libm ratios are superseded there.
+What this page is not: `docs/ACCURACY.md` is the audited document and
+nothing here has that standing; every ratio names the libm and machine it
+was measured against, and ratios against different libms are not
+comparable (§6); §5's bands read in two speed modes from process to
+process, cause unknown (#97), so a single reading of them is provisional.
 
 ---
 
@@ -61,20 +26,18 @@ reflection, Zen 4 in §13, Kaby Lake in §13.1, M1 in §13.2; the §8.1 and
 | compiler | clang-cl, Release |
 | libm | UCRT (`std::lgamma` etc. as clang-cl links them) |
 | harness | `tools/quiet_bench.ps1` |
-| date | 2026-08-15 |
+| code | v1.2.0 freeze kernels, `2f863be` |
+| date | 2026-11-01 |
 
 The harness refuses to start until ambient CPU is under 5% across two
 consecutive 10-second windows, and samples noise between every target. The
-sweep below gated at 4.45% and held 3.06–9.10% (average 5.10%); the peak was
-the first sample, with prior activity still decaying.
+two full passes gated at 4.77% and 3.92% and held 2.3–7.3% (averages 3.7%
+and 3.9%); they agree within 5% on every §3 row. Evidence:
+`docs/bench-evidence/2026-11-01-zen4-v1.2.0/`; §3 and §4 quote pass 2.
 
 Each figure is the median of repeated timings after a warm-up call, on seeded
 inputs — so the same binary on the same data gives the same answer, run to run,
 except where §5 says otherwise.
-
-**The elementary family** (`exp`, `log`, `log1p`, `cos`, `sin`, shipped
-in v0.8.0) was measured in the 2026-08-30 quiet pass on this machine —
-see §9.
 
 ---
 
@@ -92,22 +55,18 @@ by batching versus paying per-call overhead — corvus against itself. The
 benchmarks label that column **"upper bnd"** rather than "speedup", and the
 distinction is deliberate.
 
-So a 141× on `gammainv` and a 1.96× on `lgamma` are not commensurable, and
+So an 8× on `gammainv` and a 1.9× on `lgamma` are not commensurable, and
 ranking families across the two tables below would be meaningless. There is no
 vendor implementation of the inverse incomplete gamma in the C runtime to
 compare against, which is why the baseline differs in the first place.
 
-**The per-element baseline changed on 2026-09-30 (#42).** Every "upper
-bnd" on this page was measured while a length-1 call zero-padded its dead
-lanes; the specials scrub turned those zeros into an interior safe point
-whose region core then ran alongside the live lane's, so a single call cost
-up to ~2.5× one vector (Kaby Lake AVX2: `gamma_p` 1,258 → 506 ns, `lgamma`
-274 → 122 ns per call after the driver pads with a live element). The
-batching-gain tables in §4 and §8.2 therefore overstate what a caller gains
-today by roughly that factor for the families whose safe point lands in a
-different region (`gamma_p`, `lgamma`, `digamma`/`trigamma` to be
-re-measured; `beta_p` and the inverses were already at one vector per call).
-They are left as measured; a v1.1.0 re-run replaces them.
+**The per-element baseline changed on 2026-09-30 (#42).** Before it, a
+length-1 call zero-padded its dead lanes; the specials scrub turned those
+zeros into an interior safe point whose region core then ran alongside the
+live lane's, so a single call cost up to ~2.5× one vector (Kaby Lake AVX2:
+`gamma_p` 1,258 → 506 ns, `lgamma` 274 → 122 ns per call after the driver
+pads with a live element). The v1.2.0 tables in §4 and §8.2 use the new
+baseline; the v0.9.0 figures, which ran to 141×, do not compare with them.
 
 ---
 
@@ -121,10 +80,10 @@ No region split — this varies with **array size**, not with the domain:
 
 | n | corvus ns/el | libm ns/el | ratio |
 |---:|---:|---:|---:|
-| 1 000 | 1.70 | 6.30 | 3.71× |
-| 10 000 | 1.65 | 7.05 | 4.27× |
-| 100 000 | 1.66 | 10.55 | 6.36× |
-| 1 000 000 | 1.70 | 10.77 | 6.33× |
+| 1 000 | 1.70 | 6.20 | 3.65× |
+| 10 000 | 1.67 | 6.92 | 4.14× |
+| 100 000 | 1.67 | 10.44 | 6.24× |
+| 1 000 000 | 1.67 | 10.51 | 6.28× |
 
 corvus is flat across sizes; the libm slows down as the array leaves cache.
 Much of the spread here is that, not vectorisation.
@@ -133,37 +92,33 @@ Much of the spread here is that, not vectorisation.
 
 | band | corvus ns/el | libm ns/el | ratio |
 |---|---:|---:|---:|
-| [−6, 6] core-dominated | 1.94 | 18.16 | 9.34× |
-| [6, 28] tail-only | 4.10 | 19.92 | 4.86× |
-| [−6.5, 28] mixed | 6.27 | 19.57 | 3.12× |
+| [−6, 6] core-dominated | 2.41 | 18.01 | 7.47× |
+| [6, 28] tail-only | 9.74 | 19.84 | 2.04× |
+| [−6.5, 28] mixed | 12.68 | 19.48 | 1.54× |
 
-The mixed band is slowest because lanes in a vector can land in different
-regions, and the kernel pays for both.
-
-**Stale since row 12h (2026-10-25).** The tail now evaluates the dd G
-(#74, docs/ACCURACY.md erfc). An ad-hoc Zen 4 run, not a quiet-bench run,
-put the tail-only band at ~9.8 ns/el against ~5.5 for the plain-double G,
-and the mixed band at ~12.7 against ~8.8. The core band is unchanged. The
-tail and mixed rows above, and in §8.1, predate the change; re-measure at
-the next quiet bench.
+The tail evaluates a double-double G (#74, docs/ACCURACY.md erfc), which
+costs about 1.8× the plain-double G it replaced in v1.1.0. The mixed band
+is slowest because lanes in a vector can land in different regions, and the
+kernel pays for both.
 
 ### lgamma
 
 | band | corvus ns/el | libm ns/el | ratio |
 |---|---:|---:|---:|
-| [0.5, 2.5] zone (the zeros) | 5.25 | 28.75 | 5.47× |
-| [0.01, 100] mixed positive | 13.34 | 56.06 | 4.20× |
-| [2.5, 8] recurrence | 13.24 | 37.55 | 2.84× |
-| [8, 1000] Stirling | 6.81 | 13.36 | 1.96× |
-| [−30, −0.01] reflection | 33.25 | 48.83 | 1.47× |
+| [0.5, 2.5] zone (the zeros) | 5.67 | 28.66 | 5.06× |
+| [2.5, 8] table | 5.33 | 37.69 | 7.07× |
+| [8, 1000] Stirling | 6.93 | 13.31 | 1.92× |
+| [0.01, 100] mixed positive | 11.07 | 55.64 | 5.03× |
+| [−30, −0.01] reflection | 24.54 | 48.38 | 1.97× |
 
-Best to worst spans nearly a factor of four, against one baseline on one
-machine. That spread is the point of publishing per region at all: a single
-number for "how much faster is lgamma" would hide it.
+Best to worst spans a factor of 3.7, against one baseline on one machine.
+That spread is the point of publishing per region at all: a single number
+for "how much faster is lgamma" would hide it.
 
-Note the reflection band's absolute cost (33 ns/el) — the negative axis runs
-the positive pipeline and then a reflection on top, so it is genuinely more
-work, not a missed optimisation.
+The reflection band costs most because the negative axis runs the positive
+pipeline and then a reflection on top. Since #31 the reflection takes one dd
+log, not two, and the [2.5, 8] band reads a Taylor table instead of walking
+down to the zone (§13).
 
 ---
 
@@ -191,10 +146,6 @@ the v0.9.0 figures, which ran to 141× against a slower baseline.
 
 The `i1`/`i1e` series now reads with `i0`/`i0e`: 14.2 against 13.9 ns/el. The
 v1.1.0 ad-hoc 25.4/20.8 was not a property of the kernel.
-
-The very large figures at the top of the `gammainv` range are a property of the
-baseline, not of the kernel: an iterative solve has a lot of per-call setup to
-amortise, so calling it one element at a time is especially wasteful.
 
 ---
 
@@ -236,19 +187,19 @@ them are unexplored.
 - **Another microarchitecture.** An earlier "wins from N lanes up" claim died
   on a Kaby Lake measurement. §8 is the second machine: a 4-lane AVX2 part
   from 2017, where the §4 batching gains run at roughly half these figures.
-- **Another libm.** UCRT's `lgamma` is slow — 27–56 ns/el in two of its bands.
-  Against glibc or Apple's the margins in §3 would narrow, and could plausibly
-  invert somewhere. **It does: §8.** Apple's `lgamma` is 12–21 ns/el in the
-  same bands and corvus loses to it everywhere but the zone. This is the
-  largest single source of error on this page, as predicted.
+- **Another libm.** UCRT's `lgamma` is slow — 29–56 ns/el in three of its
+  bands. Against Apple's the margins in §3 narrow and invert: Apple's x86
+  `lgamma` is 12–20 ns/el in the same bands and corvus loses to it in every
+  band on Kaby Lake (§8.1); on the M1 corvus wins only the table band (§11.2).
+  This is the largest single source of error on this page.
 - **Another compiler.** clang-cl only. MSVC cannot reach AVX-512 at all and
   would be measuring a different tier under the same name.
 - **More runs.** §5 exists because two runs looked like agreement until a third
   disagreed.
 
-A published performance claim needs at least the first two settled. **As of
-v0.9.0 they are** — three microarchitectures, three vendor libms (§11) —
-which is what promoted this document. The compiler axis and §5 remain open;
+A published performance claim needs at least the first two settled. **They
+are** — three microarchitectures, three vendor libms (§11), first at v0.9.0
+and again at v1.2.0. The compiler axis and §5 remain open;
 the README quotes ranges with their libm named, never a single number.
 
 ---
@@ -268,7 +219,7 @@ Benchmarks must come from a Release build. `corvus::active_target()` — which
 every bench prints — is the only reliable way to know which tier produced a
 number.
 
-## 8. Second machine: Kaby Lake AVX2, Apple libm (2026-08-23)
+## 8. Second machine: Kaby Lake AVX2, Apple libm
 
 | | |
 |---|---|
@@ -277,40 +228,40 @@ number.
 | compiler | Apple Clang 15, Release (`release` preset, `-G Ninja`) |
 | libm | Apple libSystem (`std::lgamma` etc. as AppleClang links them) |
 | harness | `tools/quiet_bench.sh` (the Unix counterpart of `quiet_bench.ps1`, same protocol) |
-| noise | gate 4.46% / 2.59%; ten targets measured at 1.5–3.7% ambient; `erf`/`erfc` re-run separately under a 2.13% / 2.57% gate at 2.65% / 2.38% (their first samples caught a `diagnostics_agent` burst at 6–10%). A prior full pass at 10–20% ambient (`mdworker` indexing) was discarded; its rows differed from the quiet pass by a median 8.9% per row and up to 44% on the first targets, which is the reason the gate exists. |
+| code | v1.2.0 freeze kernels (`0a3ee74`, kernels as `2f863be`) |
+| noise | two full passes gated at 4.04/4.00% and 2.03/2.29%; pass 1 ran 5–30% slower on some bands, so the tables quote pass 2. Evidence: `docs/bench-evidence/2026-11-01-kaby-v1.2.0/`. |
 
 ### 8.1 Against Apple's libm
 
 | function | band | corvus ns/el | libm ns/el | ratio | Zen 4 / UCRT ratio (§3) |
 |---|---|---:|---:|---:|---:|
-| `erf` | n = 10⁶ | 6.71 | 23.88 | 3.56× | 6.33× |
-| `erfc` | [−6, 6] core | 7.10 | 24.56 | 3.46× | 9.34× |
-| `erfc` | [6, 28] tail | 16.26 | 25.11 | 1.54× | 4.86× |
-| `erfc` | [−6.5, 28] mixed | 20.16 | 25.63 | 1.27× | 3.12× |
-| `lgamma` | [0.5, 2.5] zone | 16.58 | 15.46 | 0.93× | 5.47× |
-| `lgamma` | [0.01, 100] mixed | 34.99 | 19.95 | **0.57×** | 4.20× |
-| `lgamma` | [2.5, 8] recurrence | 43.48 | 12.20 | **0.28×** | 2.84× |
-| `lgamma` | [8, 1000] Stirling | 23.83 | 20.05 | **0.84×** | 1.96× |
-| `lgamma` | [−30, −0.01] reflection | 102.48 | 45.78 | **0.45×** | 1.47× |
+| `erf` | n = 10⁶ | 6.69 | 24.34 | 3.64× | 6.28× |
+| `erfc` | [−6, 6] core | 7.78 | 24.96 | 3.21× | 7.47× |
+| `erfc` | [6, 28] tail | 29.95 | 25.54 | **0.85×** | 2.04× |
+| `erfc` | [−6.5, 28] mixed | 41.00 | 26.11 | **0.64×** | 1.54× |
+| `lgamma` | [0.5, 2.5] zone | 16.55 | 15.09 | **0.91×** | 5.06× |
+| `lgamma` | [2.5, 8] table | 27.20 | 11.93 | **0.44×** | 7.07× |
+| `lgamma` | [8, 1000] Stirling | 24.74 | 20.52 | **0.83×** | 1.92× |
+| `lgamma` | [0.01, 100] mixed | 34.02 | 19.92 | **0.59×** | 5.03× |
+| `lgamma` | [−30, −0.01] reflection | 79.49 | 46.86 | **0.59×** | 1.97× |
 
-(n = 10⁶ rows; the n = 10⁴ rows agree within 10%.)
+(n = 10⁶ rows.)
 
-Two effects stack, and they pull in the same direction for `lgamma`:
+Two effects stack, and they pull in the same direction:
 
-- **Apple's `lgamma` is fast.** 12–21 ns/el in the bands where UCRT's is
-  27–56. The vendor baseline moved by 2–3×; corvus's own per-element cost
-  moved by the lane count.
-- **Four lanes, not eight, on a 2017 core.** corvus `lgamma` costs 17–43
-  ns/el here against 5–13 on Zen 4, a 3.2–3.3× ratio that is what one
-  expects from half the lanes on a slower clock. `erf`/`erfc` show the
-  same 3.5–4× per-element ratio against their Zen 4 cells.
+- **Apple's libm is fast.** Its `lgamma` is 12–21 ns/el outside the
+  reflection band, 2–3× faster than UCRT's in the zone, table and mixed
+  bands (Stirling is the exception: UCRT is faster there). corvus's own
+  per-element cost moved by the lane count.
+- **Four lanes, not eight, on a 2017 core.** corvus costs 2.9–4.0× more per
+  element here than on Zen 4; the table band, at 5.1×, also pays for its
+  gathers (§13.1).
 
-So the §3 statement "lgamma is faster than the vendor libm in every band"
-is a **Zen 4 / UCRT statement**. On Kaby Lake against Apple's libm, corvus
-`lgamma` is slower in every band but the zone — by 3.6× in the recurrence
-band. `erf`/`erfc` stay ahead of Apple's libm on both machines, by smaller
-margins here. Any published positioning must name the libm it was measured
-against; the README's decision to quote no figures stands.
+So "lgamma is faster than the vendor libm in every band" is a **Zen 4 /
+UCRT statement**. On Kaby Lake against Apple's libm, corvus `lgamma` is
+slower in every band, and `erfc`'s double-double tail (#74) now loses there
+too. `erf` and `erfc`'s core stay ahead of Apple's libm. Any published
+positioning must name the libm it was measured against.
 
 ### 8.2 Batching gain, corvus against corvus
 
@@ -448,58 +399,11 @@ produced an outlier here in two runs, under very different ambient load.
 
 ---
 
-## 9. Same machine, second quiet pass (2026-08-30, v0.9.0)
+## 9. Retired
 
-Same box, tier, compiler and libm as §1; harness gate passed at 4.02%,
-noise held 3.46–14.91% (average 5.74%). Raw per-target outputs and the
-runner log: `docs/bench-evidence/2026-08-30-zen4-quiet/`. Full-surface
-pass (all fifteen family benches plus the lgamma component instrument,
-`bench_lgamma_components`), per the one-pass-per-machine rule: a
-machine's published numbers come from a single full-surface run.
-
-### 9.1 Elementary family, first numbers (against UCRT — §3 baseline)
-
-| function | corvus ns/el | speedup |
-|---|---:|---:|
-| `cos` / `sin` | 1.6 | 5.5× streaming; 2.2–2.4× at n ≤ 10⁴ |
-| `exp` | 2.1 | 1.19–1.22× |
-| `log` | 4.9 | **0.61–0.64× — slower than UCRT** |
-| `log1p` | 4.9 | 0.86–0.92× |
-
-**Stale for v1.1.0 (2026-10-25).** #43 moved the elementary kernels. The
-ad-hoc v1.1.0 run (Status note) reads `cos`/`sin` 1.1 ns/el, `exp` 1.5
-and `log` 2.7, which is 1.34–1.51× against UCRT: faster than UCRT, where
-this table has it slower. `log1p` is unchanged. The `log` paragraph
-below describes v0.9.0.
-
-`log` below 1.0 is the accuracy trade stated plainly: corvus `log` is
-correctly rounded on every reference row (see ACCURACY.md), UCRT's is a
-fast table method. There is no configuration in which corvus wins this
-comparison without giving that up, and it does not intend to.
-
-### 9.2 lgamma per-region rerun
-
-Zone 5.2×, recurrence 2.9×, Stirling 1.9×, mixed 4.2×, reflection 1.5× —
-no band below 1.0×, confirming §3's quiet-machine finding against an
-earlier recurrence figure that was measured on a loaded machine and
-retracted. The per-band component profile
-(`bench_lgamma_components`, same evidence directory) attributes the
-costs: the zone's dd lead ladder outweighs its 32-coefficient Horner
-(2.2 vs 1.3 of 4.65 ns/el); the recurrence band splits between the dd
-log and the zone floor (4.4 + 4.6 of 12.6); reflection's two extra dd
-logs are 10.0 of 33.1 ns/el against an 18.3 ns positive pipeline. The
-gather-weak Kaby half of that profile is what decides the follow-up
-lgamma optimization work (§11.3).
-
-### 9.3 Reproducibility against §3/§4 (fifteen days apart)
-
-Where the two passes overlap, figures agree to a few percent: gamma
-49–74 → 49–77 ns/el, digamma 7.0–27.4 → 7.0–27.4, trigamma 5.7–27 →
-5.6–26.9, lbeta main 106 → 106. On §5's two families: `erfcinv`
-central reproduced the modal value (15.2× / 15.4× vs modal ~14.8×,
-no outlier); `bessel` i0 series came in at 9.9× vs modal 8.35× —
-outside the few-percent class, consistent with §5's caution. §5
-stands unchanged.
+The v0.9.0 second Zen 4 pass (2026-08-30) lived here; §§1–4 and §11 now
+carry v1.2.0 figures. Its text is in git history (tag `v1.1.0`), its
+evidence in `docs/bench-evidence/2026-08-30-zen4-quiet/`.
 
 ---
 
@@ -507,10 +411,12 @@ stands unchanged.
 
 **Status: RATIFIED 2026-08-31 by the maintainer.** The 5% gate stays the
 universal standard; this section is the documented deviation for
-heterogeneous-core Apple Silicon only. The M1 rows in §11 are published
-under it, subject to its own two-run agreement requirement — which is
-why the M1 elementary rows and the lgamma zone band are flagged rather
-than published there.
+heterogeneous-core Apple Silicon only. The M1 rows in §§8.2 and 11 are
+published under it, subject to its own two-run agreement requirement. At
+v1.2.0 that requirement is met on every band: passes 2 and 11 agree within
+3.5% (§8.2). Getting there took 32 attempts over two nights and a day,
+14 of them gated; `mediaanalysisd` and `corespotlightd` held the rest
+above 10%.
 
 **Proposal.** On Apple Silicon, gate at 10% ambient (same two-window
 protocol), with two additions: per-target noise annotation stays
@@ -550,105 +456,67 @@ tooling; noted as a possible refinement, not part of this proposal.
 
 ---
 
-## 11. Fleet synthesis — v0.9.0 (2026-08-31)
+## 11. Fleet synthesis — v1.2.0 (2026-11-02)
 
-The quotable section. Sources: §9 (Zen 4, 5% gate,
-`docs/bench-evidence/2026-08-30-zen4-quiet/`), the Kaby v0.9.0 pass
-(5% gate, `docs/bench-evidence/2026-08-30-kaby-quiet/`), the M1 pass
-(§10 gate, `docs/bench-evidence/2026-08-31-m1-indicative/`). All rows
-n = 10⁶, tier-asserted (`AVX3_ZEN4` / `AVX2` / `NEON`). Ratios in one
-COLUMN share a libm; ratios across columns do not, and §2's rule
-against comparing them still applies row by row.
-
-**v0.9.0 figures (2026-10-25 note).** On Zen 4, v1.1.0 `log` beats UCRT
-(1.34–1.51×, ad-hoc; Status note), so §11.1's "`log` loses everywhere"
-no longer holds for that column. The Kaby and M1 columns were not
-re-measured.
+The quotable section. Sources: Zen 4 pass 2 (§1), Kaby Lake pass 2 (§8),
+M1 pass 2 (§8.2; pass 11 agrees within 3.5%). All rows n = 10⁶,
+tier-asserted (`AVX3_ZEN4` / `AVX2` / `NEON`), ratio first, corvus ns/el
+in brackets. Ratios in one COLUMN share a libm; ratios across columns do
+not, and §2's rule against comparing them still applies row by row.
 
 ### 11.1 Elementary family, three libms
 
-| function | Zen 4 vs UCRT | Kaby vs Apple x86 | M1 vs Apple arm64 ‡ |
+| function | Zen 4 vs UCRT | Kaby vs Apple x86 | M1 vs Apple arm64 |
 |---|---:|---:|---:|
-| `cos` | 5.50× (1.6 ns/el) | 4.87× (4.4) | 3.27× (4.0) |
-| `sin` | 5.58× (1.6) | 4.98× (4.4) | 3.21× (4.1) |
-| `exp` | 1.20× (2.1) | 0.65× (8.4) | 1.28× (4.7) |
-| `log` | 0.64× (4.9) | 0.27× (19.4) | 0.21× (13.5) |
-| `log1p` | 0.92× (4.9) | 0.40× (19.4) | 0.32× (13.8) |
+| `cos` | 8.44× (1.06) | 7.20× (3.05) | 5.21× (2.50) |
+| `sin` | 8.52× (1.06) | 6.68× (3.26) | 5.02× (2.61) |
+| `exp` | 1.85× (1.36) | 0.70× (8.32) | 2.59× (2.27) |
+| `expm1` | 1.07× (3.07) | 0.97× (11.07) | 0.45× (6.78) |
+| `log` | 1.50× (2.12) | 0.44× (10.28) | 0.66× (4.11) |
+| `log1p` | 0.91× (4.93) | 0.39× (18.81) | 0.32× (13.76) |
+| `log1pmx` † | 0.50× (11.36) | 0.26× (33.66) | 0.23× (27.11) |
 
-‡ Single gated run — the §10 two-run agreement requirement is not yet
-met for the elementary family (it did not exist at the 2026-08-23 M1
-runs), so this column is REPORTED, NOT PUBLISHED; it firms up at the
-next M1 pass. Its shape is consistent across sizes 10⁵–10⁶.
+† Against `log1p(x) - x`, a cost reference only: it cancels near 0 and is
+not an accurate log1pmx (#45).
 
-Three positioning facts, stable across all three libms:
+Three positioning facts:
 
-- **`cos`/`sin` win everywhere** — 3.2–5.6× against every vendor libm
+- **`cos`/`sin` win everywhere** — 5.0–8.5× against every vendor libm
   measured, full double range, 1 ULP. The strongest performance row
   corvus has.
-- **`log` loses everywhere (0.2–0.64×), and that is the product
-  working as designed**: corvus `log` is correctly rounded on every
-  reference row; every vendor libm measured trades exactly that away
-  for speed. `log1p` sits below parity for the same reason. There is
-  no configuration in which corvus wins this without giving up the
-  bound.
-- **`exp` is libm-dependent in both directions** (1.2× vs UCRT and
-  Apple arm64, 0.65× vs Apple's x86 vectorized exp) — the cleanest
-  demonstration that the baseline, not the kernel, moves these ratios.
+- **The log family trails the Apple libms (0.2–0.7×), and that is the
+  product working as designed**: corvus `log` is correctly rounded on
+  every reference row and `log1p`/`log1pmx` carry dd cores; the vendor
+  libms trade exactly that away for speed. Against UCRT, `log` wins
+  (1.50×) since #43.
+- **`exp` is libm-dependent in both directions** (1.9× vs UCRT, 2.6× vs
+  Apple arm64, 0.70× vs Apple's x86 exp) — the cleanest demonstration that
+  the baseline, not the kernel, moves these ratios.
 
-### 11.2 lgamma across the fleet, and the Apple-libm question
+### 11.2 lgamma and erf/erfc across the fleet
 
-§8 left open whether the lgamma inversion was an Apple-libm fact or a
-Kaby-lane fact. **Answered: it is an Apple-libm fact.** M1 stable rows
-(two-run agreement met): recurrence 0.20×, Stirling 0.39×, mixed
-0.34×, reflection 0.39× — the same inversion as Kaby's 0.28×/0.77–
-0.84×/0.55×/0.44× on a different microarchitecture with eight-lane
-NEON-class arithmetic replaced by Apple's arm64 libm at 8.4–32 ns/el.
-(M1 zone: flagged unstable under §10, not published.) Meanwhile Zen 4
-vs UCRT stays above 1.0× in every band (§9.2). One function, one
-kernel, and the vendor baseline alone decides which side of 1.0 it
-lands on — this is why no README figure ever omits the libm name.
+| function | band | Zen 4 vs UCRT | Kaby vs Apple x86 | M1 vs Apple arm64 |
+|---|---|---:|---:|---:|
+| `erf` | n = 10⁶ | 6.28× (1.67) | 3.64× (6.69) | 6.52× (1.99) |
+| `erfc` | [−6, 6] core | 7.47× (2.41) | 3.21× (7.78) | 3.28× (3.91) |
+| `erfc` | [6, 28] tail | 2.04× (9.74) | 0.85× (29.95) | 0.38× (26.68) |
+| `erfc` | [−6.5, 28] mixed | 1.54× (12.68) | 0.64× (41.00) | 0.42× (27.80) |
+| `lgamma` | [0.5, 2.5] zone | 5.06× (5.67) | 0.91× (16.55) | 0.47× (25.11) |
+| `lgamma` | [2.5, 8] table | 7.07× (5.33) | 0.44× (27.20) | 1.39× (6.31) |
+| `lgamma` | [8, 1000] Stirling | 1.92× (6.93) | 0.83× (24.74) | 0.40× (21.84) |
+| `lgamma` | [0.01, 100] mixed | 5.03× (11.07) | 0.59× (34.02) | 0.40× (23.32) |
+| `lgamma` | [−30, −0.01] reflection | 1.97× (24.54) | 0.59× (79.49) | 0.59× (54.15) |
 
-### 11.3 lgamma component attribution, three machines (ns/el, n = 10⁶)
+`erf` and `erfc`'s core beat every libm measured. `lgamma` beats UCRT in
+every band and loses to both Apple libms in every band but the M1 table
+band, where #31's Taylor table (§13.2) passes Apple's arm64 `lgamma`. One
+function, one kernel, and the vendor baseline alone decides which side of
+1.0 it lands on — this is why no README figure omits the libm name.
+`erfc`'s tail and mixed bands lose to both Apple libms since #74 put a
+double-double G in the tail (§3).
 
-| component | Zen 4 | Kaby | M1 ‡ |
-|---|---:|---:|---:|
-| zone: full band | 4.7 | 14.9 | 17.7 |
-| zone: 32-coef Horner (with selects) | 1.3 | 5.6 | 5.7 |
-| zone: dd lead ladder | 2.2 | 6.7 | 6.2 |
-| recurrence: full band | 12.6 | 44.7 | 42.1 |
-| recurrence: masked walk-down | 1.4 | 3.8 | 5.0 |
-| recurrence: outlined dd log | 4.4 | 18.5 | 12.4 |
-| Stirling: full band | 6.8 | 24.6 | 19.9 |
-| Stirling: dd log | 3.0 | 11.6 | 6.7 |
-| Stirling: 1/x² remainder | 0.5 | 1.3 | 0.6 |
-| reflection: full band | 33.1 | 107.6 | 81.7 |
-| reflection: positive pipeline | 18.3 | 53.8 | 38.3 |
-| reflection: two extra dd logs | 10.0 | 40.4 | 27.3 |
-| reflection: LogSinc | 2.0 | 6.2 | 6.1 |
-
-‡ M1 column single-run (same caveat as §11.1); its ratios agree with
-the other machines' shape.
-
-The component study's exit questions, answered on every machine measured:
-
-- **(a) Does the zone Horner dominate the zone? No, anywhere.** The dd
-  lead-term ladder outweighs the Horner on all three machines; the
-  per-lane coefficient selects are a minor share of the Horner itself.
-  This retires the proposed Estrin rewrite of the zone Horner.
-- **(b) Does the dd log dominate the recurrence band? On the
-  gather-weak machine, nearly** — 41% on Kaby (18.5 of 44.7, one dd
-  log costing 18–20 ns/el against Zen 4's ~5), 35% on Zen 4, 29% on
-  M1. The rest is the zone floor; the walk itself is cheap everywhere.
-- **(c) Do the two extra logs dominate reflection?** They are the
-  largest addressable share — 30% / 38% / 33% — atop an irreducible
-  positive pipeline at ~55% / 50% / 47%. A single-log rewrite
-  saves ~15% on Zen 4 and ~18% on Kaby in this band.
-
-These answers scope the follow-up lgamma optimization work: the
-table-driven (5/2, X0) band and the
-single reflection log proceed (both attack the dd-log share, largest
-exactly where corvus is weakest — Apple-libm machines); the Estrin
-zone leg is retired by (a).
+The v0.9.0 synthesis, including the lgamma component study that scoped #31
+(PERFORMANCE.md §11.3 at tag `v1.1.0`), is in git history.
 
 ---
 
@@ -820,7 +688,7 @@ variant; spread at most 6% on the lgamma rows below (B zone 5.3%, A mixed
 6.1%); the beta rows carry 8–14% A spread from pass 1 and are listed as
 controls only.
 
-| band (ns/el, n = 10^6) | A | B | A/B | Apple libm | B / libm | §8.1 (v0.9.0) |
+| band (ns/el, n = 10^6) | A | B | A/B | Apple libm | B / libm | v0.9.0 |
 |---|---:|---:|---:|---:|---:|---:|
 | `lgamma` [1/2, 5/2], zone | 16.47 | 16.59 | 0.99× | 15.8 | 0.95× | 0.93× |
 | `lgamma` [5/2, 8], table | 44.69 | 27.78 | 1.61× | 12.2 | 0.44× | 0.28× |
@@ -842,17 +710,15 @@ on the table band over the gather-free bands is the gather penalty, and
 it sizes #22 (row C4): a non-gather variant can recover at most that much
 on this band on this class of part.
 
-**Against Apple's libm.** The §8.1 statement that corvus `lgamma` is 3.6×
+**Against Apple's libm.** v0.9.0's statement that corvus `lgamma` is 3.6×
 slower than Apple's in the recurrence band is superseded: 2.3× (0.44×)
 after #31, and the reflection moves from 0.45× to 0.58×. Apple's lgamma
-is still ahead in every band but the zone on this machine; the README's
-no-figures positioning stands.
+is still ahead in every band on this machine (§8.1).
 
 **The Zen 4 0.97× readings.** The zone reads 0.99× (spread 2.5% / 5.3%)
 and lbeta's main band 0.98× (3.1% / 5.1%): the same sign as Zen 4, both
-within spread on both machines. Recorded as within spread, no issue
-(PLAN.md, 2026-10-30 decisions); a third machine with the same sign
-reopens it.
+within spread on both machines. The M1 read the same sign (§13.2), and
+#96 carries the bisect recipe.
 
 Controls: `gamma_p` R3, `gamma_q` R4, lbeta's big band and every
 `beta_p_inv`/`beta_q_inv` band read 0.98–1.02×; `gamma_p_inv`/`gamma_q_inv`
@@ -862,7 +728,7 @@ read 1.03–1.11× by band, the same uplift as §12.1 sees, through lgamma.
 ### 13.2 Mac Mini M1 NEON (2026-10-31)
 
 Evidence: `docs/bench-evidence/2026-10-31-m1-c3-ab/`. Apple's arm64 libm,
-two lanes: the machine on which corvus lgamma was furthest behind (§11.2).
+two lanes: the machine on which corvus lgamma was furthest behind at v0.9.0.
 
 **Protocol.** `NEON`, Mac Mini M1 (macOS 27.2), AppleClang 21.0.0, Highway
 1.4.0, Release, Apple arm64 libm. A = the six family benches built from
@@ -880,7 +746,7 @@ band apart), and 6–7% above on the table and Stirling bands and gamma
 R1. Median of two per variant; spread at most 2.9% on the
 lgamma rows below except reflection (B 6.9%: 54.2 / 58.1 ns/el).
 
-| band (ns/el, n = 10^6) | A | B | A/B | Apple libm | B / libm | §11.2 (v0.9.0) | Zen 4 A/B | Kaby A/B |
+| band (ns/el, n = 10^6) | A | B | A/B | Apple libm | B / libm | v0.9.0 | Zen 4 A/B | Kaby A/B |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `lgamma` [1/2, 5/2], zone | 24.16 | 24.50 | 0.99× | 11.58 | 0.47× | flagged | 0.97× | 0.99× |
 | `lgamma` [5/2, 8], table | 42.61 | 6.16 | 6.92× | 8.59 | 1.39× | 0.20× | 2.44× | 1.61× |
@@ -896,14 +762,13 @@ The libm column reads 0.97–1.01× between variants, bounding the drift.
 **The table band is the fleet's largest gain, and it passes Apple's
 libm.** 42.61 → 6.16 ns/el. On two lanes the 11 gathers per vector are
 22 scalar loads, cheap, while what the table replaces costs most on this
-machine (§11.3: the dd log 12.4 ns/el and the walk 5.0 atop the zone's
-floor). Per element, B runs the band within 15% of Zen 4's 5.35 on eight
+machine (v0.9.0's component study: the dd log 12.4 ns/el and the walk 5.0
+atop the zone's floor). Per element, B runs the band within 15% of Zen 4's 5.35 on eight
 lanes, where the gather-free bands run 2.3–4.3× slower than Zen 4 (zone
 4.3×, Stirling 3.1×, reflection 2.3×). corvus lgamma is 1.39× faster
-than Apple's arm64 lgamma on this band; it was 0.20× in v0.9.0 (§11.2).
+than Apple's arm64 lgamma on this band; it was 0.20× in v0.9.0.
 Reflection moves from 0.39× to 0.57× of libm, mixed 0.34× → 0.41×.
-Apple's is still ahead in every other band; the README's no-figures
-positioning stands.
+Apple's is still ahead in every other band (§11.2).
 
 **The zone, third machine.** The zone reads 0.99× here (A 24.16 / 24.16,
 B 24.50 / 24.50, extra A 24.62): the same sign as Zen 4 (0.97×) and Kaby
