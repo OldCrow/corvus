@@ -204,7 +204,7 @@ one ULP, within every bound.
 
 ## erf
 
-<!-- claim: erf --> **Bound: max 1 ULP over the full domain** (99.86% correctly rounded on the
+**<!-- claim: erf --> Bound: max 1 ULP over the full domain** (99.86% correctly rounded on the
 19,439-row reference at AVX3_ZEN4, 99.81% at SSE4/SSE2; see the cell
 j = 0 note below). The reference carries 3,001 subnormal rows (both
 signs, the smallest subnormals and the 2^-1022 boundary;
@@ -386,7 +386,7 @@ build, and both compilers were all green.
 
 ## erfinv and erfcinv
 
-<!-- claim: erfinv --> **Bound: max 1 ULP everywhere on all five validated x86 tiers and NEON**,
+**<!-- claim: erfinv --> Bound: max 1 ULP everywhere on all five validated x86 tiers and NEON**,
 including the far tail down to the smallest subnormal `erfcinv` result and
 the bit-neighbourhood of `erfcinv`'s zero crossing at z = 1. NEON
 reproduces the x86 FMA-tier numbers point-for-point — same not-CR counts,
@@ -1461,7 +1461,7 @@ b = +inf → +0, b = 0 or a = +inf → 1. Any two-way degeneracy among
 
 ## i0, i1, i0e, i1e
 
-<!-- claim: bessel --> **Bound: max 1 ULP over the full real axis, every function, every
+**<!-- claim: bessel --> Bound: max 1 ULP over the full real axis, every function, every
 region, every tier** — the first family since erf with a single
 uniform bound and no conditioning caveats. Gate pinned at 1 with no
 margin.
@@ -1576,11 +1576,11 @@ underflow on finite doubles (minimum ≈ 3·10⁻¹⁵⁵ at DBL_MAX).
 
 ## lbeta
 
-<!-- claim: lbeta.relative --> **Bound: max 1 ULP** where |ln B| ≥ 1 (relative metric; the
+**<!-- claim: lbeta.relative --> Bound: max 1 ULP** where |ln B| ≥ 1 (relative metric; the
 both-subnormal family added with #59's `DdDivDd` floor took SSE4 from
 65,836 ULP there to 0). The band around ln B's zero curve through
-(1,1), where the result itself is relative-ill-conditioned:
-<!-- claim: lbeta.abs --> 2^−53 absolute. The lines a = 1 and b = 1, where
+(1,1), where the result itself is relative-ill-conditioned: <!-- claim: lbeta.abs -->
+2^−53 absolute. The lines a = 1 and b = 1, where
 ln B = −ln x in closed form: <!-- claim: lbeta.unit --> **correctly rounded on
 every reference row (gate 0)**, as log is, and relative at every magnitude.
 
@@ -1647,7 +1647,7 @@ errs by the subtraction's cancellation plus about 1 ULP per term.
 
 ## cos and sin
 
-<!-- claim: trig --> **Bound: max 1 ULP over the FULL double range, both functions, every
+**<!-- claim: trig --> Bound: max 1 ULP over the FULL double range, both functions, every
 region, every validated tier — including the non-FMA tiers.** Gate
 pinned at 1 with no margin, in four buckets per function (small/huge ×
 sign; 14,630 base rows per function, shared row for row, plus the strata
@@ -1691,7 +1691,7 @@ every lane position (smoke-asserted per position).
 
 ## exp, log, log1p
 
-<!-- claim: log --> **Bound: correctly rounded on every reference row for log and log1p
+**<!-- claim: log --> Bound: correctly rounded on every reference row for log and log1p
 (gate pinned at 0 ULP); <!-- claim: exp.normal --> exp correctly rounded on every normal-result
 row (gate 0) and <!-- claim: exp.subnormal --> max 1 ULP in the subnormal-output band, with both
 saturation boundaries exact** — measured identically (bucket-for-
@@ -1765,7 +1765,7 @@ documents and delivers a fresh quiet NaN instead.
 
 ## expm1 and log1pmx
 
-<!-- claim: expm1 --> **Bound: expm1 correctly rounded on every reference row (gate pinned
+**<!-- claim: expm1 --> Bound: expm1 correctly rounded on every reference row (gate pinned
 at 0 ULP); <!-- claim: log1pmx --> log1pmx correctly rounded on every reference row (gate pinned
 at 0 ULP)**, identically on AVX3_ZEN4, AVX2, SSE4, SSSE3, SSE2 and NEON. The
 theoretical statement is "correctly rounded except near a rounding

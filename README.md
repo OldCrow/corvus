@@ -29,10 +29,10 @@ that promises — and what it deliberately does not.
   exponential.
 - `lgamma`: <!-- claim: lgamma.pos --> max 1 ULP across the positive axis — including arbitrarily
   close to the zeros at x = 1 and x = 2, which are exact. <!-- claim: lgamma.table --> It is correctly rounded on
-  5/2 < x < 8, except within ~2^-12 ulp of a rounding tie, and
-  <!-- claim: lgamma.stirling --> correctly rounded throughout the Stirling
-  region, except within ~2^-15 ulp of one. On the negative axis the bound is
-  <!-- claim: lgamma.neg --> 1 ULP where |lgamma| >= 1 and <!-- claim: lgamma.neg_abs --> 2^-53 absolute below that, because lgamma
+  5/2 < x < 8, except within ~2^-12 ulp of a rounding tie, and <!-- claim: lgamma.stirling -->
+  correctly rounded throughout the Stirling
+  region, except within ~2^-15 ulp of one. On the negative axis the bound is <!-- claim: lgamma.neg -->
+  1 ULP where |lgamma| >= 1 and <!-- claim: lgamma.neg_abs --> 2^-53 absolute below that, because lgamma
   has infinitely many zeros there with no closed form.
 - `erfinv` / `erfcinv`: <!-- claim: erfinv --> max 1 ULP everywhere, including subnormal results
   down to the far tail (`erfcinv` reaches x up to ~27.2; `erfinv` never
@@ -45,8 +45,8 @@ that promises — and what it deliberately does not.
   through) the subnormals, including Q for arbitrarily small a.
 - `beta_p` / `beta_q` (regularized incomplete beta): <!-- claim: beta.R3.dir --> max 3 ULP on the
   directly computed (smaller) side over the whole (a, b, x) domain — the
-  continued-fraction region is <!-- claim: beta.R2.dir --> 1 ULP, the gamma-limit slice
-  <!-- claim: beta.GL --> 1 ULP (measured correctly rounded except near-ties), the Temme ridge
+  continued-fraction region is <!-- claim: beta.R2.dir --> 1 ULP, the gamma-limit slice <!-- claim: beta.GL -->
+  1 ULP (measured correctly rounded except near-ties), the Temme ridge
   carries the 3; per-region cells in
   docs/ACCURACY.md — with the same always-compute-the-smaller-side
   relative guarantee as the gamma pair, down to subnormal results and out
@@ -62,8 +62,8 @@ that promises — and what it deliberately does not.
   where the reflection's terms cancel by ~49 bits and a plain-double
   assembly would keep only 3–4 correct bits.
 
-- `trigamma`: <!-- claim: trigamma --> max 1 ULP over the full real axis (on (0, 1)
-  <!-- claim: trigamma.pos01 --> 1 ULP too, measured correctly rounded on the reference set except
+- `trigamma`: <!-- claim: trigamma --> max 1 ULP over the full real axis (on (0, 1) <!-- claim: trigamma.pos01 -->
+  1 ULP too, measured correctly rounded on the reference set except
   near-ties) — under a single relative metric everywhere: ψ₁ is a sum of
   squares with no zeros on either axis, so unlike lgamma and digamma no
   absolute-error band exists, even near the reflection's poles.
@@ -71,8 +71,8 @@ that promises — and what it deliberately does not.
 - `gamma_p_inv` / `gamma_q_inv` (inverse regularized incomplete gamma —
   directly the Gamma-distribution quantile): <!-- claim: gammainv --> max 1 ULP over the whole
   (a, p) domain, on both sides of the median (the solve-side switch is
-  exact); its deep-small closed form, subnormal and zero results included, is
-  <!-- claim: gammainv.deep_small --> 1 ULP, measured correctly rounded on the reference set except
+  exact); its deep-small closed form, subnormal and zero results included, is <!-- claim: gammainv.deep_small -->
+  1 ULP, measured correctly rounded on the reference set except
   near-ties. Since no
   library baseline exists for the inverse, every reference row is
   individually bracket-certified: the stored answer is proven to be the
@@ -93,8 +93,8 @@ that promises — and what it deliberately does not.
   the measured backward error is 0.000 ulp. Every reference row is
   individually bracket-certified, as with the gamma inverse.
 
-- `lbeta` (ln B(a,b)): <!-- claim: lbeta.relative --> max 1 ULP wherever |ln B| >= 1 and
-  <!-- claim: lbeta.abs --> 2^-53 absolute in the ill-conditioned band around ln B's zero
+- `lbeta` (ln B(a,b)): <!-- claim: lbeta.relative --> max 1 ULP wherever |ln B| >= 1 and <!-- claim: lbeta.abs -->
+  2^-53 absolute in the ill-conditioned band around ln B's zero
   curve (it was documented as correctly rounded through v1.0.x; near-ties
   round either way — the erratum is in docs/ACCURACY.md). Computed through the
   beta family's double-double lgamma-difference machinery, so the a+b
@@ -121,8 +121,8 @@ that promises — and what it deliberately does not.
   audited internal double-double cores — nothing here depends on the
   backend's or the platform's math library.
 
-- `expm1` / `log1pmx` (log1p(x) − x): <!-- claim: expm1 --> **expm1 correctly rounded** and
-  <!-- claim: log1pmx --> **log1pmx correctly rounded on every reference row** (0-ULP gates), the
+- `expm1` / `log1pmx` (log1p(x) − x): <!-- claim: expm1 --> **expm1 correctly rounded** and <!-- claim: log1pmx -->
+  **log1pmx correctly rounded on every reference row** (0-ULP gates), the
   near-tie window ~2^-11 ulp for expm1 above |x| = 2^-6. Relative
   accuracy where e^x − 1 and log1p(x) − x cancel, which is what the
   lower tails of exponential-family CDFs and large-shape Gamma densities
