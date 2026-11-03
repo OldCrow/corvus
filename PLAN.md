@@ -44,9 +44,14 @@ correction (scalar overloads shipped in v1.1.0, unlisted there).
 **Merged 2026-11-02:** version pair 1.2.0 (`2c3e686`; fresh `CORVUS_WERROR`
 build, 38/38 tier-asserted on Zen 4); PR #98 green on every job and merged
 to `main` as `148bb64`.
-**Next:** CI green on `main`, then RELEASING.md from the signed tag (step
-11) with the user; then the libstats and libhmm bumps (Cross-machine
-handshakes below).
+**Tagged 2026-11-02:** CI green on `main` at `148bb64`; signed tag
+`v1.2.0` on `691db43` (docs only after `148bb64`), signature verified,
+`check_release_version.py` OK.
+**Next:** the GitHub release from the drafted notes and closing milestone
+v1.2.0 (RELEASING steps 14–15, the user's, as the session's permission
+mode refused publishing). libstats' and libhmm's PLAN.md carry the bump
+note (Cross-machine handshakes below); each library picks up its bump in
+its own session.
 - [OPEN] Housekeeping: remove the `../corvus-c1` and `../corvus-c3`
   worktrees on Kaby Lake and the M1 (A trees of the C1/C3 A/Bs).
 
