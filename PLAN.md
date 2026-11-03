@@ -175,6 +175,72 @@ it; row 12 mislabelled the restatement) and beta's gamma-limit slice
 - libstats #62 (open) decides #20: Hurwitz zeta opens only if libstats
   takes Zipf's closed-form CDF.
 
+## Reach and distribution [discussed 2026-11-03]
+
+Strategy for building a user base (opensource.guide/finding-users). Nothing
+is built or filed yet.
+
+**Decided [user]**
+- Paper: arXiv first (cs.MS, cross-list math.NA and stat.CO; the user
+  already publishes there, no endorsement needed), linked from any site.
+  JOSS is nice to have, pursued only once its 2026 scope is met (evidence
+  of impact, 6 months of public history, AI disclosure). ACM TOMS is the
+  better peer-reviewed venue. Add a Zenodo DOI and CITATION.cff for
+  citability.
+- C++ first. No per-layer Python bindings (corvus, linalg, rng, libpar
+  each bound separately would be a maintenance chore). [DERIVED,
+  recommendation] The Python surface follows user concepts: corvus as
+  `pylibstats.special`, real NumPy ufuncs (PyUFunc_FromFuncAndData),
+  float64 only, GIL released.
+
+**Facts that constrain the plan [DERIVED]**
+- GitHub Pages cannot be private on a personal account; refine a site
+  locally or in a private repo, publish when ready.
+- Tag tarballs come from `git archive`, so `.gitattributes export-ignore`
+  decides whether site files ship in releases.
+- vcpkg, Conan, conda-forge, Spack and Homebrew build from source, so
+  corvus signs no binaries. Homebrew core needs 30 forks, 30 watchers or
+  75 stars (225 to self-submit).
+- Once libstats links corvus, the pylibstats and pylibhmm wheels contain
+  corvus and Highway binaries: NOTICE and Apache-2.0 obligations apply to
+  those wheels.
+
+**[OPEN]**
+- Whether pylibstats and pylibhmm objects must interoperate in Python.
+  Yes pushes toward one combined Python distribution; no allows a
+  per-library `special` submodule.
+- Whether to build a site at all, and where (Pages from this repo or a
+  separate one).
+- Accuracy-contract scope for third-party builds (which tiers and
+  compilers a port's bound claims cover), Highway version policy for
+  ports, MSVC/Windows handling in ports, and the maintenance budget per
+  channel.
+- Upstream SciPy reports (outward-facing, user's call): erfcinv of the
+  smallest subnormal = inf; i0/i1 overflow just below the true
+  threshold; gammaln(subnormal) = inf; gammainc with subnormal a;
+  polygamma(1, x) costs O(|x|) for x < 0.
+
+**scipy.special comparison [DERIVED, 2026-11-03]** — SciPy 1.18.1 scored
+on corvus's reference sets at `b2848d4` with the gate metric, against
+corvus's per-function published maximum; about 150 rows cross-checked in
+mpmath (no reference off by > 0.5 ULP). Write-up, scripts and outputs:
+`../corvus-scratch/scipy-comparison-2026-11-03/` (outside the repo;
+REPORT.md). Rerun takes about a minute.
+- Parity: exp, log, cos, sin, erf, erfinv, log1p, expm1 (max 1–3 ULP;
+  corvus's log1p/expm1 are CR, SciPy's are not).
+- SciPy a few ULP worse: i0e/i1e (max 7/11), trigamma (7), erfcinv on
+  normal inputs (5).
+- SciPy far worse or wrong: erfc tail (moderate-input median 12 ULP, 0
+  where the result is subnormal); lgamma and lbeta inf/NaN on subnormal
+  arguments; digamma near the negative poles (to 3.5e15 ULP); lbeta
+  cancellation (to 1.4e7·2⁻⁵³); gamma_q median 24 ULP; incomplete
+  gamma/beta 0 or NaN at extreme parameters; inverses on moderate inputs
+  53–59% within corvus's bound (max 1e4–3e5 ULP).
+- Limits: the reference sets are adversarial, so full-set percentages
+  overstate typical-use error. No speed ratio is supported; SciPy's
+  betaincinv averaged ~350 µs/row on these sets, everything else 60 ns–
+  5 µs. A speed claim needs a typical-input bench on all three machines.
+
 ## Open items
 
 **Open issues** (each carries its trigger and detail):
