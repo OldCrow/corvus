@@ -192,6 +192,12 @@ is built or filed yet.
   recommendation] The Python surface follows user concepts: corvus as
   `pylibstats.special`, real NumPy ufuncs (PyUFunc_FromFuncAndData),
   float64 only, GIL released.
+- [DERIVED, 2026-11-03] No object-level interop between pylibstats and
+  pylibhmm: the peer rule (standards `records/FLEET-DESIGN.md` §2) keeps
+  libhmm off libstats, and the hmm+stats bridge (§6) is the only link.
+  A Python bridge converts parameters. So separate wheels, each linking
+  its own private corvus; the only published corvus Python surface is
+  `pylibstats.special`.
 
 **Facts that constrain the plan [DERIVED]**
 - GitHub Pages cannot be private on a personal account; refine a site
@@ -206,9 +212,6 @@ is built or filed yet.
   those wheels.
 
 **[OPEN]**
-- Whether pylibstats and pylibhmm objects must interoperate in Python.
-  Yes pushes toward one combined Python distribution; no allows a
-  per-library `special` submodule.
 - Whether to build a site at all, and where (Pages from this repo or a
   separate one).
 - Accuracy-contract scope for third-party builds (which tiers and
