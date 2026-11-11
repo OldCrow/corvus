@@ -52,6 +52,35 @@ v1.2.0 closed. corvus has nothing owed for v1.2.0.
 **Next:** libstats' and libhmm's PLAN.md carry the bump note
 (Cross-machine handshakes below); each library picks up its bump in its
 own session. corvus's next work is milestone v1.3.0 (#22, #97).
+**Fourth machine, Ivy Bridge [DERIVED 2026-11-11]** (MacBook Pro 9,1,
+i7-3820QM, Linux Mint 22.3, glibc 2.39; #101 holds the indicative GCC
+pass, #100 the `quiet_bench.sh` Linux bugs it found):
+- It dispatches `SSE4` (Highway has no AVX1 target), so it is not a new
+  tier. It adds three things: the non-FMA Dekker path at its real cost,
+  the first glibc baseline, and `SSE4` as a native top tier, so an
+  uncapped build runs the real dispatch decision on an AVX-without-AVX2
+  CPU.
+- Workflow: a fleet-table row in ENVIRONMENT.md; an uncapped,
+  tier-asserted ctest run joins the release validation legs; the quiet
+  bench re-runs only when the dd path or the table kernels change, not
+  at every release.
+- Accuracy: no new table or column. The SSE4 target compiles without FMA
+  on any host, so the capped Kaby, Zen 4 and CI Linux/GCC legs already
+  run this code path. One validation-leg line in ACCURACY.md once a
+  tier-asserted gate run and ULP report from this machine are recorded.
+- Performance: PERFORMANCE.md gains the fourth-machine section and
+  fleet-synthesis column #101 proposes, from a clang-built two-pass run.
+  The user-facing docs gain one sentence beside the gather-weak line:
+  on non-FMA x86 the dd kernels cost 2.75–3.75× Kaby Lake per element
+  where lane count predicts 2×.
+- No unfreeze. The pass shows no defect; both code candidates (#22, and
+  pre-split constant operands for Dekker on non-FMA tiers) are
+  speed-only. The libstats/libhmm bump to v1.2.0 proceeds unchanged.
+- [OPEN] Order of work, all on the Mint machine: fix #100, then the
+  recordable #101 run (clang, two gated passes, Electron apps quit),
+  then the ctest + ULP report. Confirm #100's Darwin branch on a Mac.
+- [OPEN] The Dekker pre-split is unfiled; file it only if a consumer
+  reports pre-Haswell hardware.
 - [OPEN] Housekeeping: remove the `../corvus-c1` and `../corvus-c3`
   worktrees on Kaby Lake and the M1 (A trees of the C1/C3 A/Bs).
 
@@ -256,6 +285,10 @@ REPORT.md). Rerun takes about a minute.
   table band runs 5.2× slower per element than Zen 4 against 2.9× (zone)
   and 3.6× (Stirling), so a non-gather variant recovers at most 1.5–1.8×
   there; needs a selection mechanism and a new accuracy audit).
+  [DERIVED 2026-11-11] Sizing step before any code: cap Kaby Lake to
+  `SSE4` and time the table bands against its AVX2 build. #101's Ivy
+  Bridge rows (lgamma table 0.67×, exp 0.92×, erf 1.15× of Kaby AVX2 per
+  element) support the premise but confound compiler and silicon.
 - #28 upstream Highway HWY_BROKEN_MSVC version floor (needs Highway's own
   suite passing under MSVC/AVX-512 first).
 - #29 watch GCC PR 126741; re-qualify mingw GCC for AVX2+ when it lands.
@@ -266,6 +299,10 @@ REPORT.md). Rerun takes about a minute.
 - #96 untraced 1–3% cost on the lgamma zone and lbeta main band after C3,
   same sign on three machines; a record, not worth a session now.
 - #97 cause of the process-to-process speed modes (v1.3.0).
+- #100 `quiet_bench.sh` on Linux (ps listing, shebang, machine line);
+  `tools/` only, no release needed; fix and test on the Mint machine.
+- #101 Ivy Bridge SSE4/glibc machine in PERFORMANCE.md (blocked on #100;
+  Status above).
 
 **Unfiled, still open** (recorded only in closed #82 or here):
 - [OPEN] Four kernel routes neither reached nor argued unreachable, each
