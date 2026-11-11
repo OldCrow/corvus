@@ -93,5 +93,5 @@ The version lives in two places that a configure-time check forces to
 agree: `corvus::kVersion{Major,Minor,Patch}` in the public header and
 `project(VERSION)` in CMakeLists.txt. Release tags are `vX.Y.Z` and
 must match both; `tools/check_release_version.py` verifies all three
-and the release checklist ([RELEASING.md](RELEASING.md)) runs it
-before and after tagging.
+and the release checklist (`docs/RELEASING.md`, in the repository
+only) runs it before and after tagging.

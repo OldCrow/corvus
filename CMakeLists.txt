@@ -311,7 +311,8 @@ if(corvus_toolchain MATCHES "^MINGW_")
       "    (a partial list such as \"HWY_AVX3|HWY_AVX2\" still compiles the "
       "other AVX-512 targets), or\n"
       "  - accept the risk explicitly: -DCORVUS_ALLOW_UNSUPPORTED_TOOLCHAIN=ON\n"
-      "See docs/ENVIRONMENT.md.")
+      "See docs/ENVIRONMENT.md in the repository (not in release tarballs):\n"
+      "  https://github.com/OldCrow/corvus/blob/main/docs/ENVIRONMENT.md")
   endif()
   message(WARNING "corvus: ${corvus_mingw_text}"
     "Proceeding because CORVUS_ALLOW_UNSUPPORTED_TOOLCHAIN=ON. Expect "
