@@ -306,7 +306,10 @@ a public repo (lesson from libstats' temporary private phase) — keep the
 surface lean and justify every runner:
 - Linux x86-64 (cheap): sequential tier sweep AVX2->SSE2 in ONE job
   (Highway builds once; a matrix would multiply setup and Highway builds),
-  plus ASan+UBSan Debug build in the same job.
+  plus ASan+UBSan Debug build in the same job. Its last step builds and
+  tests a `git archive` of the tree, the release tarball, on one capped
+  tier: the only check that a shipped file has not come to depend on
+  something `.gitattributes` keeps out of releases.
 - macOS arm64 (expensive class): the only runner producing new information
   (native NEON silicon; counts as real-silicon validation). Two builds in
   one job, because hosted Apple silicon is not guaranteed: the same image
