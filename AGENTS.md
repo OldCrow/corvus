@@ -161,9 +161,18 @@ capping recipes, sweep scripts: `docs/ENVIRONMENT.md`.
 - Every kernel documents its approximation source and accuracy bound at
   the definition site; provisional work is marked PROVISIONAL.
 - Layout: 2-space indent in `src/` and `tests/` (Highway idiom), 4-space in
-  `examples/` (consumer style); no `.clang-format` is enforced. Test-harness
-  helpers in `tests/` use CamelCase (Highway idiom, grandfathered) — the
-  snake_case rule above applies to the public API and examples.
+  `examples/` (consumer style), 80 columns; `.clang-format` (Google base,
+  `examples/.clang-format` overrides the indent) is enforced by pre-commit.
+  Test-harness helpers in `tests/` use CamelCase (Highway idiom,
+  grandfathered) — the snake_case rule above applies to the public API and
+  examples.
+- Pre-commit (`.pre-commit-config.yaml`): whitespace, EOF, LF line endings,
+  YAML/JSON checks, and clang-format. `python -m pre_commit install` enables
+  it locally; the `precommit` CI job runs the same config on all files.
+  Generated data (`src/*_data.*`), `tests/data/` and `docs/bench-evidence/`
+  are excluded and keep their bytes. clang-format reflows a braced table
+  into one element per line; wrap a table you want kept in
+  `// clang-format off` / `on`.
 
 ## Effort routing (full table: docs/NUMERICAL-DOCTRINE.md)
 Design, error budgets, and oracle construction are frontier work;

@@ -1,0 +1,36 @@
+default_language_version:
+  python: python3
+
+# Generated or reference files keep their bytes exactly: tools/gen_*.py
+# write the data headers and tables, tests/data holds the oracle reference
+# sets, docs/bench-evidence holds archived run logs.
+exclude: |
+  (?x)^(
+    build[^/]*/|
+    tests/data/|
+    docs/bench-evidence/|
+    src/[a-z0-9_]+_data\.(h|cpp|inc)$
+  )
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: ['--markdown-linebreak-ext=md']
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v23.1.5
+    hooks:
+      - id: clang-format
+        types_or: [c++, c]
+        args: ['--style=file']

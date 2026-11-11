@@ -449,13 +449,36 @@ jobs:
             tests/data/log_reference.txt tests/data/log1p_reference.txt \
             tests/data/log1pmx_reference.txt
 
+  # Runs the same hooks as the local pre-commit hook (CI House Style §6): the
+  # local hook is opt-in per clone, so this job is the gate.
+  precommit:
+    name: Pre-commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Cache pre-commit environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+      - name: Install pre-commit
+        run: python -m pip install pre-commit==4.7.0
+      - name: Run all hooks on all files
+        run: pre-commit run --all-files --show-diff-on-failure --color=always
+
   # Canary failure report (CI House Style section 8). GitHub notifies only
   # whoever last edited the cron line when a scheduled run fails, so this
   # opens an issue instead, or comments on the one already open. It never
   # runs on push or pull_request.
   canary-report:
     name: Canary failure report
-    needs: [linux-x86, windows-msvc, macos-arm64]
+    needs: [linux-x86, windows-msvc, macos-arm64, precommit]
     if: always() && github.event_name == 'schedule' && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled'))
     runs-on: ubuntu-latest
     timeout-minutes: 5
