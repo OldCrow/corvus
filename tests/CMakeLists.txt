@@ -40,9 +40,12 @@ corvus_test_target(hunt_probe)
 target_include_directories(hunt_probe PRIVATE ${PROJECT_SOURCE_DIR})
 
 # #82 T6: the docs' bound claims against tests/data/bounds.txt, the table the
-# ULP gates are held to (CheckBound in ulp_utils.h).
+# ULP gates are held to (CheckBound in ulp_utils.h). tools/ is not in release
+# tarballs (.gitattributes), so the test exists only in a repo checkout.
 find_package(Python3 COMPONENTS Interpreter)
-if(Python3_Interpreter_FOUND)
+if(NOT EXISTS ${PROJECT_SOURCE_DIR}/tools/claims_check.py)
+  message(STATUS "corvus: tools/ absent (release tarball); the claims_check test is skipped")
+elseif(Python3_Interpreter_FOUND)
   add_test(NAME claims_check
     COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/claims_check.py)
 else()

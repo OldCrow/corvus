@@ -39,9 +39,10 @@ jobs:
   linux-x86:
     name: Linux x86-64 (tier sweep + sanitizers)
     runs-on: ubuntu-latest
-    # 30, not 20: the #53 `guards` test takes ~9 min in the Debug ASan+UBSan
-    # build (1.8 s in Release), which pushed the job to ~24 min.
-    timeout-minutes: 30
+    # 35, not 20: the #53 `guards` test takes ~9 min in the Debug ASan+UBSan
+    # build (1.8 s in Release), which pushed the job to ~24 min; the
+    # release-tarball build at the end adds one more Release build and test.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -217,6 +218,38 @@ jobs:
           read -ra pc_flags <<< "$(pkg-config --cflags --libs corvus)"
           g++ -o pc_consumer consumer_example/main.cpp "${pc_flags[@]}"
           ./pc_consumer
+
+      # -----------------------------------------------------------------
+      # Release tarball (docs/RELEASING.md step 14). A tag tarball is
+      # `git archive` output: the tree minus everything .gitattributes
+      # marks export-ignore. This builds and tests exactly that tree, so a
+      # shipped file that comes to depend on tools/, CI or a maintainer doc
+      # fails here and not at a release.
+      #
+      # What makes the step mean something:
+      #   - check_release_tarball.py fails if a repo-only path is present,
+      #     so a tree that was not filtered cannot pass as the tarball; it
+      #     also fails on a Markdown link to a file the tarball lacks.
+      #   - the configure log must say claims_check was skipped, which only
+      #     happens when tools/ is absent.
+      # One tier (AVX2, capped and asserted) is enough: the question is
+      # whether the tarball is self-contained, not accuracy per tier. It
+      # reuses the Highway prefix built above.
+      # -----------------------------------------------------------------
+      - name: Release tarball is self-contained (archive, build, test)
+        run: |
+          set -o pipefail
+          mkdir _tarball
+          git archive HEAD | tar -x -C _tarball
+          python3 tools/check_release_tarball.py _tarball
+          cmake -S _tarball -B _tarball-build -G Ninja -DCORVUS_WERROR=ON \
+            -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/_hwy" \
+            -DCORVUS_DISABLED_TARGETS="HWY_AVX10_2|HWY_AVX3_SPR|HWY_AVX3_ZEN4|HWY_AVX3_DL|HWY_AVX3" \
+            | tee tarball-configure.log
+          grep -q "the claims_check test is skipped" tarball-configure.log
+          cmake --build _tarball-build
+          CORVUS_EXPECT_TARGET=AVX2 \
+            ctest --test-dir _tarball-build --output-on-failure
 
   # -------------------------------------------------------------------------
   # Windows / MSVC — toolchain coverage. This job deliberately produces NO new

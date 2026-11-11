@@ -51,7 +51,17 @@ failed step stops the release until fixed.
     number.
 13. Confirm CI green on the tagged commit.
 14. GitHub release from the tag. The source tarball GitHub generates
-    is the release artifact — corvus distributes source only. Release
+    is the release artifact — corvus distributes source only. It ships
+    what a user or packager needs to build, use and verify corvus;
+    `export-ignore` in `.gitattributes` keeps contributor and
+    maintainer files (agent and plan files, CI, `tools/`, maintainer
+    docs, bench evidence) in the repo only. A new top-level file or
+    doc gets classified there in the change that adds it. CI's Linux
+    job extracts an archive, runs `tools/check_release_tarball.py` on it
+    (no repo-only path present, no Markdown link to an unshipped file)
+    and builds and tests it, so a green run on the tagged commit covers
+    this. Read the listing with `git archive HEAD | tar -t` before
+    tagging all the same. Release
     notes cover: surface changes, bound changes (tightened or newly
     validated cells), notable fixes, and **errata**. List every published
     bound corrected under VERSIONING.md's erratum clause, with the cell,

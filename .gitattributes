@@ -1,2 +1,44 @@
+# Release tarball contents (git archive; GitHub's tag tarballs use it).
+# A tarball ships what a user or packager needs to build, use and verify
+# corvus: sources, the public header, CMake, examples, tests with their
+# reference sets, and the user-facing docs. Contributor and maintainer
+# files stay in the repo only. docs/RELEASING.md carries the rule.
+
+# Line endings: LF in the index and in every checkout, whatever
+# core.autocrlf says (Git for Windows defaults it to true), so reference
+# sets and tables are byte-identical on every machine.
 * text=auto eol=lf
 *.png binary
+
+# Agent and session state
+AGENTS.md export-ignore
+CLAUDE.md export-ignore
+PLAN.md export-ignore
+
+# Repo tooling
+.gitattributes export-ignore
+.gitignore export-ignore
+.github/ export-ignore
+.clang-tidy export-ignore
+.clang-format export-ignore
+examples/.clang-format export-ignore
+.pre-commit-config.yaml export-ignore
+.git-blame-ignore-revs export-ignore
+
+# Maintainer docs and evidence. ARCHITECTURE.md and its SVG ship: README
+# embeds the diagram. Shipped docs may name repo-only files as provenance,
+# but must read without them.
+docs/ENVIRONMENT.md export-ignore
+docs/NUMERICAL-DOCTRINE.md export-ignore
+docs/RELEASING.md export-ignore
+docs/bench-evidence/ export-ignore
+docs/branding/ export-ignore
+
+# Generators, oracles, hunts, bench and sweep harnesses
+tools/ export-ignore
+
+# Generated files: collapsed in GitHub diffs, left out of language stats
+tests/data/** linguist-generated
+src/*_data.h linguist-generated
+src/*_data.cpp linguist-generated
+src/*_data.inc linguist-generated

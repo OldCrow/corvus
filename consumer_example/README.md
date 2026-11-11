@@ -4,7 +4,7 @@ Demonstrates consuming corvus from an external project after installation.
 
 Only the `find_package` variant exists — the FetchContent path makes no
 sense while `install` is gated on a system (find_package) Highway (see the
-CMakeLists.txt comment above the install block, and PLAN.md).
+CMakeLists.txt comment above the install block).
 
 ## Prerequisites
 
