@@ -1,0 +1,5 @@
+# Formatting-only commits, skipped by git blame.
+# Local use: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: reformat with clang-format; guard the numeric tables
+b839820260b4dd7bc3b366d2530356583a6e341a
