@@ -400,6 +400,25 @@ REPORT.md). Rerun takes about a minute.
   register-level entry point by design (it would contradict the std-only
   public surface). No corvus-side work proposed.
 
+**CI and tooling [2026-11-11]** (rules and incidents: CI House Style §1, §6, §8)
+- Runner labels all float on `*-latest`; nothing is pinned.
+- The canary runs weekly (Monday 03:45 UTC). A `canary-report` job opens
+  a "Canary failed" issue, or comments on the open one (#103).
+- Pre-commit is the formatting and hygiene gate (#104): the `precommit` CI
+  job runs every hook on all files; the local hook is opt-in per clone
+  (`python -m pre_commit install`). Dependabot updates the hook revs.
+- `.clang-format` is Google base, 2-space, 80 columns, chosen because the
+  code already matched it (about 1,800 changed lines against about 15,900
+  for either sibling style). Includes are not sorted (order is
+  load-bearing around `hwy/foreach_target.h`); comments are not reflowed.
+  `examples/` overrides the indent to 4.
+- Coefficient and test-vector tables sit inside `// clang-format off/on`
+  (15 pairs, 10 files): clang-format rewrites a braced table to one
+  element per line. New tables need the same guard.
+- Generated data (`src/*_data.*`), `tests/data/` and
+  `docs/bench-evidence/` are excluded from every hook.
+- The reformat is `b839820`, listed in `.git-blame-ignore-revs`.
+
 ## Lessons too expensive to re-learn
 
 - Reference sets prove the grid, not the domain: every 2026-10-10 hunt
