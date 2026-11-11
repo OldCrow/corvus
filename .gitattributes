@@ -20,6 +20,10 @@ PLAN.md export-ignore
 .gitignore export-ignore
 .github/ export-ignore
 .clang-tidy export-ignore
+.clang-format export-ignore
+examples/.clang-format export-ignore
+.pre-commit-config.yaml export-ignore
+.git-blame-ignore-revs export-ignore
 
 # Maintainer docs and evidence. ARCHITECTURE.md and its SVG ship: README
 # embeds the diagram. Shipped docs may name repo-only files as provenance,
