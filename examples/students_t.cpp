@@ -40,7 +40,8 @@
 namespace {
 
 /// @brief One-sided upper-tail p-value for each (t, dof) pair, t > 0.
-void t_sf(std::span<const double> t, std::span<const double> dof, std::span<double> out) {
+void t_sf(std::span<const double> t, std::span<const double> dof,
+          std::span<double> out) {
     const std::size_t n = t.size();
     std::vector<double> a(n);
     std::vector<double> b(n, 0.5);
@@ -56,7 +57,8 @@ void t_sf(std::span<const double> t, std::span<const double> dof, std::span<doub
 }
 
 /// @brief The t with two-sided tail mass `alpha` — i.e. P(|T| > t) = alpha.
-void t_critical(std::span<const double> alpha, std::span<const double> dof, std::span<double> out) {
+void t_critical(std::span<const double> alpha, std::span<const double> dof,
+                std::span<double> out) {
     const std::size_t n = alpha.size();
     std::vector<double> a(n);
     std::vector<double> b(n, 0.5);
@@ -129,9 +131,10 @@ int main() {
     std::cout << "   dof              t          reference       rel. error\n";
     for (std::size_t i = 0; i < kDof.size(); ++i) {
         const double rel = std::abs(crit[i] - kRefT[i]) / kRefT[i];
-        std::cout << std::fixed << std::setprecision(0) << std::setw(6) << kDof[i] << "  "
-                  << std::setprecision(12) << std::setw(16) << crit[i] << "  " << std::setw(16)
-                  << kRefT[i] << "  " << std::scientific << std::setprecision(2) << rel << "\n";
+        std::cout << std::fixed << std::setprecision(0) << std::setw(6)
+                  << kDof[i] << "  " << std::setprecision(12) << std::setw(16)
+                  << crit[i] << "  " << std::setw(16) << kRefT[i] << "  "
+                  << std::scientific << std::setprecision(2) << rel << "\n";
         if (!close_enough(crit[i], kRefT[i], 1e-13)) {
             std::cerr << "critical value wrong at dof = " << kDof[i] << "\n";
             ok = false;
@@ -140,8 +143,10 @@ int main() {
 
     // nu = 1 is Cauchy: the 97.5th percentile is tan(0.475*pi).
     const double cauchy = std::tan(0.475 * 3.141592653589793);
-    std::cout << "\n  nu = 1 is Cauchy, so that first row has a closed form too:\n";
-    std::cout << "    tan(0.475*pi) = " << std::fixed << std::setprecision(12) << cauchy << "\n";
+    std::cout
+        << "\n  nu = 1 is Cauchy, so that first row has a closed form too:\n";
+    std::cout << "    tan(0.475*pi) = " << std::fixed << std::setprecision(12)
+              << cauchy << "\n";
     if (!close_enough(crit[0], cauchy, 1e-13)) {
         std::cerr << "nu = 1 disagrees with the Cauchy closed form\n";
         ok = false;
@@ -155,8 +160,9 @@ int main() {
 
     std::cout << "\n  one-sided p at each critical t (expect 0.025)\n\n";
     for (std::size_t i = 0; i < kDof.size(); ++i) {
-        std::cout << std::fixed << std::setprecision(0) << "   dof " << std::setw(4) << kDof[i]
-                  << "   p = " << std::scientific << std::setprecision(17) << pv[i] << "\n";
+        std::cout << std::fixed << std::setprecision(0) << "   dof "
+                  << std::setw(4) << kDof[i] << "   p = " << std::scientific
+                  << std::setprecision(17) << pv[i] << "\n";
         if (!close_enough(pv[i], 0.025, 1e-13)) {
             std::cerr << "round-trip p wrong at dof = " << kDof[i] << "\n";
             ok = false;
@@ -178,8 +184,9 @@ int main() {
     // -----------------------------------------------------------------------
     constexpr std::array<double, 4> kTailDof{10.0, 10.0, 30.0, 5.0};
     constexpr std::array<double, 4> kTailQ{1e-10, 1e-30, 1e-30, 1e-100};
-    constexpr std::array<double, 4> kRefTailT{25.46600802169772, 2564.523931742615,
-                                              49.88819553304385, 1.568392559099338e+20};
+    constexpr std::array<double, 4> kRefTailT{
+        25.46600802169772, 2564.523931742615, 49.88819553304385,
+        1.568392559099338e+20};
 
     std::array<double, 4> two_q{};
     for (std::size_t i = 0; i < two_q.size(); ++i) {
@@ -189,11 +196,13 @@ int main() {
     t_critical(two_q, kTailDof, tail_t);
 
     std::cout << "\n  t values at extreme one-sided significance\n\n";
-    std::cout << "   dof        one-sided p                    t          rel. error\n";
+    std::cout << "   dof        one-sided p                    t          rel. "
+                 "error\n";
     for (std::size_t i = 0; i < kTailQ.size(); ++i) {
         const double rel = std::abs(tail_t[i] - kRefTailT[i]) / kRefTailT[i];
-        std::cout << std::fixed << std::setprecision(0) << std::setw(6) << kTailDof[i] << "  "
-                  << std::scientific << std::setprecision(3) << std::setw(12) << kTailQ[i] << "  "
+        std::cout << std::fixed << std::setprecision(0) << std::setw(6)
+                  << kTailDof[i] << "  " << std::scientific
+                  << std::setprecision(3) << std::setw(12) << kTailQ[i] << "  "
                   << std::setprecision(15) << std::setw(24) << tail_t[i] << "  "
                   << std::setprecision(2) << rel << "\n";
         if (!close_enough(tail_t[i], kRefTailT[i], 1e-12)) {
@@ -203,19 +212,27 @@ int main() {
 
         // And the input really is unrepresentable from the other side.
         if ((1.0 - kTailQ[i]) != 1.0 && kTailQ[i] < 1e-17) {
-            std::cerr << "expected 1 - q to round to 1.0 for q = " << kTailQ[i] << "\n";
+            std::cerr << "expected 1 - q to round to 1.0 for q = " << kTailQ[i]
+                      << "\n";
             ok = false;
         }
     }
 
-    std::cout << "\n  Every one of those lands within a bit or two of the reference, two of\n"
-                 "  them exactly, including a p of 1e-100 where t is 1.6e20. The reason is\n"
-                 "  that the substitution sends the far tail to x near ZERO, and a relative\n"
-                 "  bound near zero is a bound you can still use. Had the mapping run the\n"
-                 "  other way — the tail crowding into x near one — these rows would be\n"
-                 "  noise no matter how good the kernel was, for the reason set out in\n"
+    std::cout << "\n  Every one of those lands within a bit or two of the "
+                 "reference, two of\n"
+                 "  them exactly, including a p of 1e-100 where t is 1.6e20. "
+                 "The reason is\n"
+                 "  that the substitution sends the far tail to x near ZERO, "
+                 "and a relative\n"
+                 "  bound near zero is a bound you can still use. Had the "
+                 "mapping run the\n"
+                 "  other way — the tail crowding into x near one — these rows "
+                 "would be\n"
+                 "  noise no matter how good the kernel was, for the reason "
+                 "set out in\n"
                  "  examples/README.md.\n";
 
-    std::cout << "\n" << (ok ? "All checks passed.\n" : "FAILURES — see above.\n");
+    std::cout << "\n"
+              << (ok ? "All checks passed.\n" : "FAILURES — see above.\n");
     return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

@@ -77,8 +77,8 @@ int main(int argc, char* const* argv) {
   }
 
   Region regions[] = {
-      {"pos (0,1)"},   {"pos zone"},     {"pos walk"},
-      {"pos asym"},    {"neg abs(psi)>=1"},
+      {"pos (0,1)"}, {"pos zone"},        {"pos walk"},
+      {"pos asym"},  {"neg abs(psi)>=1"},
   };
   double neg_small_abs = 0.0;
   double neg_small_worst_x = 0.0;
@@ -132,11 +132,12 @@ int main(int argc, char* const* argv) {
     // Zero-reference rows are judged bit-exact, so they carry no real gate.
     if (!zero_ref) r.real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
     const uint64_t u = zero_ref ? (SameBits(got[i], want[i]) ? 0 : UINT64_MAX)
-                                 : UlpDiff(got[i], want[i]);
+                                : UlpDiff(got[i], want[i]);
     if (zero_ref && u != 0) {
-      std::fprintf(stderr,
-                   "FAIL: signed-zero mismatch at x=%.17g: got=%.17g want=%.17g\n",
-                   x, got[i], want[i]);
+      std::fprintf(
+          stderr,
+          "FAIL: signed-zero mismatch at x=%.17g: got=%.17g want=%.17g\n", x,
+          got[i], want[i]);
     }
     ++r.n;
     if (u > 0) ++r.miss;

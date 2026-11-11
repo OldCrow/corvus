@@ -310,7 +310,8 @@ HWY_INLINE Dd<D> Log1pDdWide(D d, Dd<D> w) {
 // taken down by an exact power of two (both terms of the sum alike) and the
 // product scaled back.
 template <class D>
-CORVUS_OUTLINE Dd<D> BetaGlT(D d, op::V<D> huge, op::V<D> ss, Dd<D> w, Dd<D> lv) {
+CORVUS_OUTLINE Dd<D> BetaGlT(D d, op::V<D> huge, op::V<D> ss, Dd<D> w,
+                             Dd<D> lv) {
   const auto small_w = op::Lt(w.hi, op::Set(d, 0.5));
   CORVUS_ROUTE(d, "beta/GL/w_large", op::MaskNot(small_w));
   const auto l1p = Log1pDdWide(
@@ -325,7 +326,7 @@ CORVUS_OUTLINE Dd<D> BetaGlT(D d, op::V<D> huge, op::V<D> ss, Dd<D> w, Dd<D> lv)
   const auto gdn = op::IfThenElse(gbig, op::Set(d, kBetaScaleDown), one);
   const auto gup = op::IfThenElse(gbig, op::Set(d, kBetaScaleUp), one);
   const auto sm1 = TwoSum(d, ss, op::Neg(one));  // s - 1, exact
-  const auto hs = op::Mul(half, gdn);             // exact power of two
+  const auto hs = op::Mul(half, gdn);            // exact power of two
   auto neff = TwoSum(d, op::Mul(huge, gdn), op::Mul(sm1.hi, hs));
   neff = DdAddD(d, neff, op::Mul(sm1.lo, hs));
   // FLOOR: callers pass only R2 lanes (beta's and betainv's gamma-limit
@@ -491,7 +492,8 @@ HWY_NOINLINE Dd<D> BinetDiffDd(D d, Dd<D> z, Dd<D> w) {
                  op::Set(d, detail::kBetaBinetC2Lo)};
   // FLOOR: rd*rd and its product with rd reach the floor only for z > ~2^320,
   // where this term is under 2^-960 and lead dominates it by 2^640.
-  const auto second = DdMul(d, DdMul(d, DdMul(d, rd, rd), DdMul(d, rd, c2)), g2);
+  const auto second =
+      DdMul(d, DdMul(d, DdMul(d, rd, rd), DdMul(d, rd, c2)), g2);
 
   auto gk = op::Add(one, op::MulAdd(rho, rho, rho));  // G_2
   auto pw = op::Mul(rho, rho2);                       // rho^3
@@ -619,6 +621,7 @@ HWY_NOINLINE Dd<D> LgammaDiffDd(D d, op::V<D> bigm, op::V<D> smallm) {
 
 // ln((k-1)!) = lgamma(k) as dd pairs, k = 0..16 (entries 0-2 are 0; k = 0 is
 // never read). Closed-form math constants (mpmath, 80 digits), not fitted.
+// clang-format off
 inline constexpr double kBetaLnFactHi[17] = {
     0x0.0p+0, 0x0.0p+0, 0x0.0p+0, 0x1.62e42fefa39efp-1, 0x1.cab0bfa2a2002p+0,
     0x1.96ca77c922cf9p+1, 0x1.326643c4479c9p+2, 0x1.a51273acf01cap+2,
@@ -631,6 +634,7 @@ inline constexpr double kBetaLnFactLo[17] = {
     -0x1.a6cba31db10b8p-52, -0x1.6b4ae43602456p-51, 0x1.2c1f5d62d30afp-51,
     -0x1.510357c26784bp-51, -0x1.9946fb029adcdp-51, 0x1.a695620284a5dp-50,
     -0x1.da275f15ff083p-50, 0x1.e1a3a2cb2a947p-50, 0x1.623db10ff440bp-50};
+// clang-format on
 // Upper end of the analytic lgamma range (#85): above it, near-one R1 lanes
 // do not exist (R1's box xi <= 0.45, beta*xi <= 8 with beta > alpha(1-xi)/xi
 // caps the min parameter near 14.5).
@@ -1009,7 +1013,7 @@ HWY_NOINLINE Dd<D> BetaR1Series(D d, op::V<D> a, op::V<D> b, op::V<D> xi) {
 // (their #88 error was the log of R4's unscaled value; see BetaR4Out).
 template <class D>
 CORVUS_OUTLINE Dd<D> BetaCfDdStep(D d, int k, op::V<D> a, Dd<D> xi, Dd<D> xis,
-                              op::V<D> bs, Dd<D> cs, Dd<D> f) {
+                                  op::V<D> bs, Dd<D> cs, Dd<D> f) {
   const auto zero = op::Zero(d);
   // m = floor(k/2) BY CONSTRUCTION (d_{2m} at even k, d_{2m+1} at odd);
   // the integer division is the point.
@@ -1020,18 +1024,16 @@ CORVUS_OUTLINE Dd<D> BetaCfDdStep(D d, int k, op::V<D> a, Dd<D> xi, Dd<D> xis,
   if ((k & 1) == 0) {
     // d_{2m} = [m/(alpha+2m-1)] * [(beta-m)xi/(alpha+2m)]
     const auto bx = DdSub(d, DdMulD(d, xis, bs), DdMulD(d, xi, m));
-    const auto r1 = DdDivDd(d, Dd<D>{m, zero},
-                            TwoSum(d, a, op::Set(d, 2.0 * mv - 1.0)));
-    const auto r2 =
-        DdDivDd(d, bx, TwoSum(d, a, op::Set(d, 2.0 * mv)));
+    const auto r1 =
+        DdDivDd(d, Dd<D>{m, zero}, TwoSum(d, a, op::Set(d, 2.0 * mv - 1.0)));
+    const auto r2 = DdDivDd(d, bx, TwoSum(d, a, op::Set(d, 2.0 * mv)));
     dk = DdMul(d, r1, r2);
   } else {
     // d_{2m+1} = -[(alpha+m)/(alpha+2m)] * [(c+m)xi/(alpha+2m+1)]
     const auto cx = DdAdd(d, DdMul(d, xis, cs), DdMulD(d, xi, m));
-    const auto r1 = DdDivDd(d, TwoSum(d, a, m),
-                            TwoSum(d, a, op::Set(d, 2.0 * mv)));
-    const auto r2 =
-        DdDivDd(d, cx, TwoSum(d, a, op::Set(d, 2.0 * mv + 1.0)));
+    const auto r1 =
+        DdDivDd(d, TwoSum(d, a, m), TwoSum(d, a, op::Set(d, 2.0 * mv)));
+    const auto r2 = DdDivDd(d, cx, TwoSum(d, a, op::Set(d, 2.0 * mv + 1.0)));
     dk = DdNeg(d, DdMul(d, r1, r2));
   }
   return DdAddD(d, DdMul(d, dk, DdRecipDd(d, f)), op::Set(d, 1.0));
@@ -1040,8 +1042,8 @@ CORVUS_OUTLINE Dd<D> BetaCfDdStep(D d, int k, op::V<D> a, Dd<D> xi, Dd<D> xis,
 // The all-dd recurrence: every step of an ill-conditioned lane (see THE
 // CONDITIONING GATE). HWY_NOINLINE: a rare path behind an AllFalse skip.
 template <class D>
-HWY_NOINLINE Dd<D> BetaR2CfDd(D d, op::V<D> a, Dd<D> xi, Dd<D> xis,
-                              op::V<D> bs, Dd<D> cs) {
+HWY_NOINLINE Dd<D> BetaR2CfDd(D d, op::V<D> a, Dd<D> xi, Dd<D> xis, op::V<D> bs,
+                              Dd<D> cs) {
   Dd<D> f{op::Set(d, 1.0), op::Zero(d)};
   for (int k = detail::kBetaN2; k >= 1; --k) {
     f = BetaCfDdStep(d, k, a, xi, xis, bs, cs, f);
@@ -1153,7 +1155,8 @@ HWY_NOINLINE Dd<D> BetaR2Cf(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi) {
 template <class D>
 struct BetaR3Out {
   BetaVal<D> val;
-  op::V<D> lam_pos;  // 1.0 where lambda >= 0, i.e. where val is I_xi(alpha,beta)
+  op::V<D>
+      lam_pos;  // 1.0 where lambda >= 0, i.e. where val is I_xi(alpha,beta)
   op::M<D> sat;
   // The TAIL branch's bracket, so a consumer that wants ln(val) rather than
   // val can take it in LOG space: val = e^-cpsi * brk there, so
@@ -1339,8 +1342,7 @@ HWY_NOINLINE BetaR3Out<D> BetaR3Temme(D d, const BetaPsi<D>& ps,
   // FLOOR: r2z in [1/57, 1/10] (zt clamped to [5, 28.5]), G ~ 0.56: gtd >=
   // 2^-7.
   const auto gtd = DdMul(d, GammaTailG(d, r2z), r2z);
-  const auto live_tail =
-      op::Ge(op::Set(d, -detail::kBetaExpFloor), ps.cpsi.hi);
+  const auto live_tail = op::Ge(op::Set(d, -detail::kBetaExpFloor), ps.cpsi.hi);
   const auto zlo_corr = op::IfThenElse(
       live_tail,
       op::Mul(z.lo, op::Sub(op::Set(d, detail::kGammaInvSqrtPiHi),
@@ -1413,8 +1415,8 @@ struct BetaR4Out {
 
 template <class D>
 HWY_INLINE Dd<D> BetaR4Value(D d, BetaR4Out<D> r) {
-  const auto dnw = op::IfThenElse(r.down, op::Set(d, kBetaTauDown),
-                                  op::Set(d, 1.0));
+  const auto dnw =
+      op::IfThenElse(r.down, op::Set(d, kBetaTauDown), op::Set(d, 1.0));
   return Dd<D>{op::Mul(r.m.hi, dnw), op::Mul(r.m.lo, dnw)};
 }
 
@@ -1448,8 +1450,7 @@ HWY_NOINLINE BetaR4Out<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb,
   const auto tau0 = tau;  // the shortcut divides the ORIGINAL pair
   CORVUS_ROUTE(d, "beta/R4/tau_subn", tsub);
   CORVUS_ROUTE(d, "beta/R4/both_tiny", op::And(tsub, btiny));
-  tau = op::IfThenElse(tsub, op::Mul(tau, op::Set(d, kBetaTauUp)),
-                       tau);
+  tau = op::IfThenElse(tsub, op::Mul(tau, op::Set(d, kBetaTauUp)), tau);
 
   // HUGE-B EXACT PRESCALE, BetaR1Series' twin (R4 membership with B within
   // ~a decade of DBL_MAX needs xi ~ 8e-307-class to hold B*xi <= B1, and
@@ -1520,9 +1521,8 @@ HWY_NOINLINE BetaR4Out<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb,
   // cheap next to the N = kBetaR4N series above.
   const auto gt1 = op::Gt(tau, one);
   CORVUS_ROUTE(d, "beta/R4/lg1_shift", gt1);
-  const auto lg1 = LgammaDiffDd(
-      d, op::IfThenElse(gt1, op::Add(one, one), one),
-      op::IfThenElse(gt1, op::Sub(tau, one), tau));
+  const auto lg1 = LgammaDiffDd(d, op::IfThenElse(gt1, op::Add(one, one), one),
+                                op::IfThenElse(gt1, op::Sub(tau, one), tau));
 
   // FLOOR: both callers pass R4-box lanes (routed R4 or near-one R1, xi <=
   // xi1 = 0.45) or the scrub point (2^-6, xi = 1/4), so |ln xi| >= 0.79; tau
@@ -1543,16 +1543,15 @@ HWY_NOINLINE BetaR4Out<D> BetaR4Tiny(D d, op::V<D> tau, op::V<D> bb,
   // the 2^900 up-scale of a large bb; those lanes are discarded by the
   // select and feed no gather (masked-execution rule).
   const auto sc = op::Set(d, kBetaTinyPairUp);
-  const auto r = DdDivDd(d, Dd<D>{op::Mul(tau0, sc), zero},
-                         Dd<D>{op::Mul(bb, sc), zero});
+  const auto r =
+      DdDivDd(d, Dd<D>{op::Mul(tau0, sc), zero}, Dd<D>{op::Mul(bb, sc), zero});
   // FLOOR: on the selected both-tiny lanes r = tau/bb >= 2^-1074/2^-140,
   // above the floor; lanes that reach it (bb > 2^-140) are discarded by mbt.
   const auto qs = DdMul(d, r, DdRecipDd(d, DdAddD(d, r, one)));
-  const auto mbt =
-      BetaIndMask(d, op::Mul(BetaInd(d, tsub), BetaInd(d, btiny)));
-  return {Dd<D>{op::IfThenElse(mbt, qs.hi, q.hi),
-                op::IfThenElse(mbt, qs.lo, q.lo)},
-          op::And(tsub, op::MaskNot(mbt))};
+  const auto mbt = BetaIndMask(d, op::Mul(BetaInd(d, tsub), BetaInd(d, btiny)));
+  return {
+      Dd<D>{op::IfThenElse(mbt, qs.hi, q.hi), op::IfThenElse(mbt, qs.lo, q.lo)},
+      op::And(tsub, op::MaskNot(mbt))};
 }
 
 // ------------------------------------------------------------------------
@@ -1604,9 +1603,9 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     b = op::IfThenElse(mm, safe_b, b);
     x = op::IfThenElse(mm, safe_x, x);
   }
-  CORVUS_ROUTE(d, "beta/special/nan",
-               op::Or(op::Or(op::IsNaN(a_in), op::IsNaN(b_in)),
-                      op::IsNaN(x_in)));
+  CORVUS_ROUTE(
+      d, "beta/special/nan",
+      op::Or(op::Or(op::IsNaN(a_in), op::IsNaN(b_in)), op::IsNaN(x_in)));
   CORVUS_ROUTE(d, "beta/special/domain",
                op::Or(op::Or(op::Lt(a_in, zero), op::Lt(b_in, zero)),
                       op::Or(op::Lt(x_in, zero), op::Gt(x_in, one))));
@@ -1626,8 +1625,8 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
                        op::Or(op::Eq(b_in, zero), op::Eq(b_in, inf))));
   // Routes below count only for lanes the specials table does not decide
   // (no input was scrubbed), so a special row never reports a region.
-  CORVUS_ROUTE_SCOPE(d, op::And(op::And(op::Eq(a, a_in), op::Eq(b, b_in)),
-                                op::Eq(x, x_in)));
+  CORVUS_ROUTE_SCOPE(
+      d, op::And(op::And(op::Eq(a, a_in), op::Eq(b, b_in)), op::Eq(x, x_in)));
 
   const auto y0 = TwoSum(d, one, op::Neg(x));  // 1 - x, EXACT
   const auto c_raw = op::Add(a, b);            // may be +inf; only compared
@@ -1648,8 +1647,8 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   const auto b1v = op::Set(d, detail::kBetaB1);
   // R2's orientation threshold, native frame: R2 keeps (a, b, x) iff
   // x < thr, else it evaluates the swapped (b, a, 1 - x).
-  const auto thr = op::Div(
-      one, op::Add(one, op::Div(op::Add(b, one), op::Add(a, one))));
+  const auto thr =
+      op::Div(one, op::Add(one, op::Div(op::Add(b, one), op::Add(a, one))));
   // R4's xi cap, WIDENED past the box's xi1: for xi_tau beyond xi1 but
   // below R2's threshold neither R1 orientation fires (both xi_tau and
   // 1 - xi_tau exceed xi1) and R2 would then evaluate the TINY-FIRST side,
@@ -1674,8 +1673,8 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // the box and post-route arms gate, #79), because B < 0.24 keeps every
   // term ratio below xi_tau. The other two
   // caps are the box's own.
-  const auto r2_tiny_first = op::Abs(
-      op::Sub(BetaInd(d, op::Lt(x, thr)), BetaInd(d, sw4)));
+  const auto r2_tiny_first =
+      op::Abs(op::Sub(BetaInd(d, op::Lt(x, thr)), BetaInd(d, sw4)));
   const auto i_r4 = op::Mul(
       BetaInd(d, op::Ge(op::Set(d, detail::kBetaEpsR4), tau)),
       op::Mul(BetaInd(d, op::Ge(op::Set(d, detail::kBetaLn2),
@@ -1690,8 +1689,8 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   const auto i_r1 = op::Mul(op::Max(r1n, r1s), BetaIndNot(d, i_r4));
 
   const auto nu_r = op::Div(one, op::Add(op::Div(one, a), op::Div(one, b)));
-  const auto rat1 = op::Mul(x, op::Add(one, op::Div(b, a)));       // xi/p
-  const auto rat2 = op::Mul(y0.hi, op::Add(one, op::Div(a, b)));   // y/q
+  const auto rat1 = op::Mul(x, op::Add(one, op::Div(b, a)));      // xi/p
+  const auto rat2 = op::Mul(y0.hi, op::Add(one, op::Div(a, b)));  // y/q
   const auto lo_r = op::Set(d, detail::kBetaXiRatioLo);
   const auto hi_r = op::Set(d, detail::kBetaXiRatioHi);
   const auto band = op::Mul(
@@ -1721,15 +1720,16 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       op::Mul(BetaIndNot(d, i_r4), BetaIndNot(d, i_r1)));
 
   const auto i_r2 = op::Mul(BetaIndNot(d, i_r4),
-                      op::Mul(BetaIndNot(d, i_r1), BetaIndNot(d, i_r3)));
+                            op::Mul(BetaIndNot(d, i_r1), BetaIndNot(d, i_r3)));
 
   // Orientation, one indicator over disjoint regions.
-  const auto i_sw =
-      op::MulAdd(i_r4, BetaInd(d, sw4),
-                 op::MulAdd(i_r1, op::Mul(BetaIndNot(d, r1n), r1s),
-                            op::MulAdd(i_r3, BetaInd(d, op::Gt(rat1, one)),
-                                       op::Mul(i_r2, BetaIndNot(
-                                           d, BetaInd(d, op::Lt(x, thr)))))));
+  const auto i_sw = op::MulAdd(
+      i_r4, BetaInd(d, sw4),
+      op::MulAdd(
+          i_r1, op::Mul(BetaIndNot(d, r1n), r1s),
+          op::MulAdd(
+              i_r3, BetaInd(d, op::Gt(rat1, one)),
+              op::Mul(i_r2, BetaIndNot(d, BetaInd(d, op::Lt(x, thr)))))));
   const auto m_sw = BetaIndMask(d, i_sw);
 
   const auto alpha = op::IfThenElse(m_sw, b, a);
@@ -1776,13 +1776,15 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   const bool need_psi = !op::AllFalse(d, m_psi);
   if (need_psi) {
     CORVUS_ROUTE_SCOPE(
-        d, op::Or(m_r3,
-                  op::And(m_pb,
-                          op::MaskNot(op::And(
-                              op::And(m_r2, op::Ge(bmax, op::Set(
-                                                       d, detail::kBetaGammaLim))),
-                              op::Gt(op::Set(d, detail::kBetaGammaLim),
-                                     op::Min(alpha, beta)))))));
+        d,
+        op::Or(m_r3,
+               op::And(
+                   m_pb,
+                   op::MaskNot(op::And(
+                       op::And(m_r2,
+                               op::Ge(bmax, op::Set(d, detail::kBetaGammaLim))),
+                       op::Gt(op::Set(d, detail::kBetaGammaLim),
+                              op::Min(alpha, beta)))))));
     const auto pa = op::IfThenElse(m_psi, alpha, safe_a);
     const auto pb = op::IfThenElse(m_psi, beta, safe_b);
     const Dd<D> px{op::IfThenElse(m_psi, xi.hi, safe_x),
@@ -1797,12 +1799,13 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
 
   if (!op::AllFalse(d, m_r1) || !op::AllFalse(d, m_r2)) {
     CORVUS_ROUTE_SCOPE(
-        d, op::And(BetaIndMask(d, i_e),
-                   op::MaskNot(op::And(
-                       op::And(m_r2, op::Ge(bmax, op::Set(
-                                                d, detail::kBetaGammaLim))),
-                       op::Gt(op::Set(d, detail::kBetaGammaLim),
-                              op::Min(alpha, beta))))));
+        d,
+        op::And(
+            BetaIndMask(d, i_e),
+            op::MaskNot(op::And(
+                op::And(m_r2, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim))),
+                op::Gt(op::Set(d, detail::kBetaGammaLim),
+                       op::Min(alpha, beta))))));
     // HUGE-parameter EXACT PRESCALE for the two DdMulD multiplicands
     // (companion to BetaR1Series' huge-beta prescale): alpha or beta above
     // ops::ProdLow's 2^996 non-FMA Dekker ceiling breaks the split inside
@@ -1890,7 +1893,8 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       // LgammaIntFracDd(k, f) are the same call with per-lane (M, m), and
       // LgammaDiffDd is lanewise, so every lane gets the value its own form
       // computed before (bit-identical). Dead lanes run (1, 1), lo's scrub.
-      const auto mm = op::IfThenElse(mid, mn, op::Set(d, 3.0));  // scrub: k in [2, 16]
+      const auto mm =
+          op::IfThenElse(mid, mn, op::Set(d, 3.0));  // scrub: k in [2, 16]
       const auto kf = BetaFloorPos(d, mm);
       const auto lgd = LgammaDiffDd(
           d,
@@ -1915,20 +1919,18 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
         lgmn = Dd<D>{op::IfThenElse(big, lgp.hi, lgmn.hi),
                      op::IfThenElse(big, lgp.lo, lgmn.lo)};
       }
-      epa = DdAdd(d, DdAdd(d, l1, l2),
-                  DdSub(d, LgammaDiffDd(d, mx, mn), lgmn));
+      epa = DdAdd(d, DdAdd(d, l1, l2), DdSub(d, LgammaDiffDd(d, mx, mn), lgmn));
     }
     // PB: the analytic Stirling difference. Binet's derivative is <= 1/(12z^2)
     // here, so c.lo is negligible in Delta and c may even be +inf (Binet -> 0).
     Dd<D> epb{zero, zero};
     if (!op::AllFalse(d, m_pb)) {
       CORVUS_ROUTE_SCOPE(d, m_pb);
-      const auto delta =
-          op::Sub(op::Add(BinetVal(d, alpha), BinetVal(d, beta)),
-                  BinetVal(d, c_raw));
-      auto e = DdSub(d, OutlinedLogDd(d, ps.nu),
-                     Dd<D>{op::Set(d, kBetaLnTwoPiHi),
-                           op::Set(d, kBetaLnTwoPiLo)});
+      const auto delta = op::Sub(op::Add(BinetVal(d, alpha), BinetVal(d, beta)),
+                                 BinetVal(d, c_raw));
+      auto e =
+          DdSub(d, OutlinedLogDd(d, ps.nu),
+                Dd<D>{op::Set(d, kBetaLnTwoPiHi), op::Set(d, kBetaLnTwoPiLo)});
       e = Dd<D>{op::Mul(e.hi, half), op::Mul(e.lo, half)};  // exact
       e = DdSub(d, e, ps.cpsi);
       epb = DdAddD(d, e, op::Neg(delta));
@@ -1978,8 +1980,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
       // FLOOR: ex.m in ~[1, 2]; F = 2F1(alpha+beta, 1; alpha+1; xi) >= 1
       // (DLMF 8.17.8: every series coefficient is positive), and saturated
       // lanes run at safe_*.
-      auto r2 =
-          BetaScale(d, DdMul(d, ex.m, BetaR2Cf(d, as, bs, cs, xs)), ex.e);
+      auto r2 = BetaScale(d, DdMul(d, ex.m, BetaR2Cf(d, as, bs, cs, xs)), ex.e);
       r2.v = op::IfThenElse(ea.sat, zero, r2.v);
       r2.dd.hi = op::IfThenElse(ea.sat, zero, r2.dd.hi);
       r2.dd.lo = op::IfThenElse(ea.sat, zero, r2.dd.lo);
@@ -2011,10 +2012,9 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   // viable alternative: it stalls at 2^-55.5 on the CF's
   // small-second-parameter weakness (generator check (b)(viii)).
   const auto i_pr = op::Mul(
-      i_r1, op::Mul(BetaInd(d, op::Gt(val.dd.hi,
-                                      op::Set(d, detail::kBetaNearOne))),
-                    BetaInd(d, op::Ge(op::Set(d, detail::kBetaPrTauMax),
-                                      alpha))));
+      i_r1,
+      op::Mul(BetaInd(d, op::Gt(val.dd.hi, op::Set(d, detail::kBetaNearOne))),
+              BetaInd(d, op::Ge(op::Set(d, detail::kBetaPrTauMax), alpha))));
   const auto m_pr = BetaIndMask(d, i_pr);
   CORVUS_ROUTE(d, "beta/R1/near_one", m_pr);
   const auto i_r4x = op::Max(i_r4, i_pr);
@@ -2028,8 +2028,7 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     auto t3 = BetaR3Temme(
         d, ps, BetaInd(d, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim))));
     CORVUS_ROUTE(d, "beta/R3/saturated", t3.sat);
-    CORVUS_ROUTE(d, "beta/R3/lam_neg",
-                 op::MaskNot(BetaIndMask(d, t3.lam_pos)));
+    CORVUS_ROUTE(d, "beta/R3/lam_neg", op::MaskNot(BetaIndMask(d, t3.lam_pos)));
     t3.val.v = op::IfThenElse(t3.sat, zero, t3.val.v);
     t3.val.dd.hi = op::IfThenElse(t3.sat, zero, t3.val.dd.hi);
     t3.val.dd.lo = op::IfThenElse(t3.sat, zero, t3.val.dd.lo);
@@ -2040,8 +2039,8 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     // native orientation was evaluated, and R3 returns that I when lambda >= 0
     // and its complement otherwise.
     const auto lp = t3.lam_pos;
-    const auto xn = op::MulAdd(i_nat, lp,
-                               op::Mul(BetaIndNot(d, i_nat), BetaIndNot(d, lp)));
+    const auto xn =
+        op::MulAdd(i_nat, lp, op::Mul(BetaIndNot(d, i_nat), BetaIndNot(d, lp)));
     is_p = op::IfThenElse(m_r3, xn, is_p);
   }
 
@@ -2107,8 +2106,8 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   const auto i_gl = op::Mul(
       op::Mul(i_r2,
               BetaInd(d, op::Ge(bmax, op::Set(d, detail::kBetaGammaLim)))),
-      BetaInd(d, op::Gt(op::Set(d, detail::kBetaGammaLim),
-                        op::Min(alpha, beta))));
+      BetaInd(d,
+              op::Gt(op::Set(d, detail::kBetaGammaLim), op::Min(alpha, beta))));
   const auto m_gl = BetaIndMask(d, i_gl);
   CORVUS_ROUTE(d, "beta/R2", op::And(m_r2, op::MaskNot(m_gl)));
   CORVUS_ROUTE(d, "beta/R2/swap",
@@ -2160,11 +2159,11 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     e_g = DdSub(d, e_g, LgammaPosDd(d, ss));
     const auto th = t_dd.hi;
     const auto tlr = op::Div(t_dd.lo, th);  // t.lo / t.hi, |.| <= 2^-53
-    const auto i_ser = op::Max(
-        op::Mul(BetaInd(d, op::Lt(ss, op::Set(d, detail::kGammaAT))),
-                BetaInd(d, op::Ge(op::Add(ss, one), th))),
-        op::Mul(BetaInd(d, op::Ge(ss, op::Set(d, detail::kGammaAT))),
-                BetaInd(d, op::Ge(ss, op::Add(th, th)))));
+    const auto i_ser =
+        op::Max(op::Mul(BetaInd(d, op::Lt(ss, op::Set(d, detail::kGammaAT))),
+                        BetaInd(d, op::Ge(op::Add(ss, one), th))),
+                op::Mul(BetaInd(d, op::Ge(ss, op::Set(d, detail::kGammaAT))),
+                        BetaInd(d, op::Ge(ss, op::Add(th, th)))));
     const auto m_ser = BetaIndMask(d, i_ser);
     CORVUS_ROUTE(d, "beta/GL/series", m_ser);
     const auto e_s = DdSub(d, e_g, OutlinedLogDd(d, ss));  // gamma's R1 fold
@@ -2179,10 +2178,10 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     const auto sum0 = GammaSeriesSum(d, s_c, t_c);
     const auto rk0 = GammaCfRecip(d, s_c, t_c);
     const auto smt = op::Sub(s_c, t_c);
-    const auto ser = DdAddD(
-        d, sum0, op::Mul(tlr, op::Sub(s_c, op::Mul(smt, sum0.hi))));
-    const auto cfr = DdAddD(
-        d, rk0, op::Neg(op::Mul(tlr, op::MulAdd(smt, rk0.hi, one))));
+    const auto ser =
+        DdAddD(d, sum0, op::Mul(tlr, op::Sub(s_c, op::Mul(smt, sum0.hi))));
+    const auto cfr =
+        DdAddD(d, rk0, op::Neg(op::Mul(tlr, op::MulAdd(smt, rk0.hi, one))));
     const Dd<D> fac{op::IfThenElse(m_ser, ser.hi, cfr.hi),
                     op::IfThenElse(m_ser, ser.lo, cfr.lo)};
     // FLOOR: ex.m in ~[1, 2]. Series lanes: fac = Sum (>= 1) plus a t.lo/t
@@ -2201,25 +2200,25 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
     // is P-of-original iff the orientation was native. XNOR twice:
     const auto agree = op::MulAdd(i_ser, BetaIndNot(d, i_hf),
                                   op::Mul(BetaIndNot(d, i_ser), i_hf));
-    const auto isp_gl = op::MulAdd(agree, i_nat,
-                                   op::Mul(BetaIndNot(d, agree), i_sw));
+    const auto isp_gl =
+        op::MulAdd(agree, i_nat, op::Mul(BetaIndNot(d, agree), i_sw));
     is_p = op::IfThenElse(m_gl, isp_gl, is_p);
   }
 
   // The complement is formed from the dd BEFORE any rounding, so the single
   // rounding of 1 - direct is the only one it carries.
-  const auto comp = DdToDouble(
-      DdAdd(d, Dd<D>{one, zero}, Dd<D>{op::Neg(val.dd.hi), op::Neg(val.dd.lo)}));
+  const auto comp = DdToDouble(DdAdd(
+      d, Dd<D>{one, zero}, Dd<D>{op::Neg(val.dd.hi), op::Neg(val.dd.lo)}));
   const auto m_p = BetaIndMask(d, is_p);
-  auto res = kP ? op::IfThenElse(m_p, val.v, comp)
-                : op::IfThenElse(m_p, comp, val.v);
+  auto res =
+      kP ? op::IfThenElse(m_p, val.v, comp) : op::IfThenElse(m_p, comp, val.v);
 
   // --- specials ------------------------------------------------------------
   // Applied last, in increasing priority. The doctrine is gamma's: one
   // degenerate parameter gets its limit; two degeneracies, or a degenerate
   // parameter meeting the x-boundary its mass sits on, give NaN.
-  const auto p_hi = kP ? one : zero;   // "all the mass is at or below x"
-  const auto p_lo = kP ? zero : one;   // "no mass at or below x"
+  const auto p_hi = kP ? one : zero;  // "all the mass is at or below x"
+  const auto p_lo = kP ? zero : one;  // "no mass at or below x"
   const auto a0 = op::Eq(a_in, zero);
   const auto b0 = op::Eq(b_in, zero);
   const auto ai = op::Eq(a_in, inf);
@@ -2227,8 +2226,8 @@ HWY_NOINLINE op::V<D> BetaVec(D d, op::V<D> a_in, op::V<D> b_in,
   const auto x0 = op::Eq(x_in, zero);
   const auto x1 = op::Eq(x_in, one);
 
-  res = op::IfThenElse(x0, p_lo, res);   // x = 0 -> P = 0
-  res = op::IfThenElse(x1, p_hi, res);   // x = 1 -> P = 1
+  res = op::IfThenElse(x0, p_lo, res);  // x = 0 -> P = 0
+  res = op::IfThenElse(x1, p_hi, res);  // x = 1 -> P = 1
   // Mass at 0 (a = 0 or b = +inf): P = 1 on (0, 1]. Mass at 1 (b = 0 or
   // a = +inf): P = 0 on [0, 1).
   res = op::IfThenElse(a0, p_hi, res);
@@ -2312,10 +2311,9 @@ HWY_NOINLINE op::V<D> LbetaVec(D d, op::V<D> a, op::V<D> b) {
   // input is NOT preserved across the min/max scrub; the smoke test pins
   // quiet-NaN-out, matching beta_p's convention).
   const auto maxf = op::Set(d, (std::numeric_limits<double>::max)());
-  const auto bad = op::Or(
-      op::Or(op::Or(op::Ge(zero, a), op::Ge(zero, b)),
-             op::Or(op::IsNaN(a), op::IsNaN(b))),
-      op::Or(op::Gt(a, maxf), op::Gt(b, maxf)));
+  const auto bad = op::Or(op::Or(op::Or(op::Ge(zero, a), op::Ge(zero, b)),
+                                 op::Or(op::IsNaN(a), op::IsNaN(b))),
+                          op::Or(op::Gt(a, maxf), op::Gt(b, maxf)));
 
   // Scrub invalid lanes to a benign interior point before any arithmetic.
   const auto as = op::IfThenElse(bad, one, a);
@@ -2342,11 +2340,13 @@ HWY_NOINLINE op::V<D> LbetaVec(D d, op::V<D> a, op::V<D> b) {
   const auto m2 = op::Max(m_raw, op::Set(d, kLbetaBigMin));
   const auto mm2 = op::Max(mm_raw, op::Set(d, kLbetaBigMin));
   const auto dn = op::Set(d, kLbetaScaleDown);
-  const auto ms = op::Mul(m2, dn);    // exact: operands normal, 2^-64 scale
-  const auto mms = op::Mul(mm2, dn);  // exact
+  const auto ms = op::Mul(m2, dn);     // exact: operands normal, 2^-64 scale
+  const auto mms = op::Mul(mm2, dn);   // exact
   const auto cs = TwoSum(d, mms, ms);  // c' = (m + M)*2^-64, exact dd
-  const auto lr1 = OutlinedLogDd(d, DdDivDd(d, cs, Dd<D>{ms, zero}));   // ln(c/m)
-  const auto lr2 = OutlinedLogDd(d, DdDivDd(d, cs, Dd<D>{mms, zero}));  // ln(c/M)
+  const auto lr1 =
+      OutlinedLogDd(d, DdDivDd(d, cs, Dd<D>{ms, zero}));  // ln(c/m)
+  const auto lr2 =
+      OutlinedLogDd(d, DdDivDd(d, cs, Dd<D>{mms, zero}));  // ln(c/M)
   // FLOOR: ms, mms >= 2^990*2^-64 = 2^926 (and <= 2^960); lr1 = ln(c/m) >=
   // ln 2 and lr2 = ln(1 + m/M) >= ~2^-35 (m >= 2^990, M < 2^1024).
   auto acc = DdAdd(d, DdMulD(d, lr1, ms), DdMulD(d, lr2, mms));
@@ -2369,21 +2369,20 @@ HWY_NOINLINE op::V<D> LbetaVec(D d, op::V<D> a, op::V<D> b) {
                op::And(op::And(op::MaskNot(bad), big), acc_ovf));
   const Dd<D> acc_safe{op::IfThenElse(acc_ovf, one, acc.hi),
                        op::IfThenElse(acc_ovf, zero, acc.lo)};
-  const auto big_dd =
-      DdSub(d, Dd<D>{op::Mul(lhalf.hi, op::Set(d, 0.5)),
-                     op::Mul(lhalf.lo, op::Set(d, 0.5))},
-            acc_safe);
-  const auto big_val = op::IfThenElse(acc_ovf, op::Neg(inf),
-                                      op::Add(big_dd.hi, big_dd.lo));
+  const auto big_dd = DdSub(d,
+                            Dd<D>{op::Mul(lhalf.hi, op::Set(d, 0.5)),
+                                  op::Mul(lhalf.lo, op::Set(d, 0.5))},
+                            acc_safe);
+  const auto big_val =
+      op::IfThenElse(acc_ovf, op::Neg(inf), op::Add(big_dd.hi, big_dd.lo));
 
   // --- combine, one rounding, specials last ------------------------------
-  auto res = op::IfThenElse(big, big_val,
-                            op::Add(main_dd.hi, main_dd.lo));
+  auto res = op::IfThenElse(big, big_val, op::Add(main_dd.hi, main_dd.lo));
   // --- unit lines: B(1, x) = 1/x, so ln B = -ln x exactly (#80) ------------
   // The assembly above carries the lgamma pair's ~2^-74 absolute floor, which
   // is relatively large on these lines as x -> 1. 0 - log gives +0 at (1, 1).
-  const auto unit =
-      op::And(op::MaskNot(bad), op::Or(op::Eq(m_raw, one), op::Eq(mm_raw, one)));
+  const auto unit = op::And(op::MaskNot(bad),
+                            op::Or(op::Eq(m_raw, one), op::Eq(mm_raw, one)));
   if (!op::AllFalse(d, unit)) {
     CORVUS_ROUTE(d, "lbeta/unit", unit);
     const auto ld =

@@ -64,8 +64,8 @@ using Sampler = void (*)(std::mt19937_64&, std::vector<double>&);
 void SampleSeries(std::mt19937_64& rng, std::vector<double>& in) {
   // (0, kBesselSplit]: log-spaced so the exact-q residual and the dd-lead
   // Horner are exercised across many decades, not just near the split.
-  std::uniform_real_distribution<double> le(std::log(1e-6),
-                                            std::log(corvus::detail::kBesselSplit));
+  std::uniform_real_distribution<double> le(
+      std::log(1e-6), std::log(corvus::detail::kBesselSplit));
   for (auto& v : in) v = std::exp(le(rng));
 }
 
@@ -119,7 +119,7 @@ void Run(const char* label, size_t n, Sampler sampler) {
         },
         n, 5);
     std::printf("%8s %14.2f %14.2f %9.2fx\n", f.name, simd, scalar,
-               scalar / simd);
+                scalar / simd);
   }
 }
 

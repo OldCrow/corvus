@@ -32,8 +32,8 @@
 
 #include "corvus/corvus.h"
 #include "expect_target.h"
-#include "src/gamma_data.h"      // kGammaAT: the S1 / small-a seed split
-#include "src/gammainv_data.h"   // the pinned deep-small cut and thresholds
+#include "src/gamma_data.h"     // kGammaAT: the S1 / small-a seed split
+#include "src/gammainv_data.h"  // the pinned deep-small cut and thresholds
 #include "ulp_utils.h"
 
 namespace {

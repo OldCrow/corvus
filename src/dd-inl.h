@@ -136,9 +136,8 @@ HWY_INLINE Dd<D> DdRecipDd(D d, Dd<D> b) {
   const auto one = op::Set(d, 1.0);
   const auto q = op::Div(one, b.hi);
   const auto p = op::Mul(b.hi, q);
-  const auto rem =
-      op::Sub(op::Sub(op::Sub(one, p), op::ProdLow(d, b.hi, q, p)),
-              op::Mul(b.lo, q));
+  const auto rem = op::Sub(op::Sub(op::Sub(one, p), op::ProdLow(d, b.hi, q, p)),
+                           op::Mul(b.lo, q));
   return Fast2Sum(d, q, op::Mul(rem, q));
 }
 

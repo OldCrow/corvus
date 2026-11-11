@@ -25,17 +25,17 @@ using corvus_test::UlpDiff;
 // Gates, set from measured values (see docs/ACCURACY.md) with no
 // margin: regressions should trip them. Measured identical on AVX3_ZEN4,
 // AVX2, SSE4, SSSE3 and SSE2.
-constexpr uint64_t kMaxUlpSmall = 1;   // 0 < x < 1/2   (shift by one log)
-constexpr uint64_t kMaxUlpZone = 1;    // 1/2 <= x <= 5/2 (the zeros live here)
+constexpr uint64_t kMaxUlpSmall = 1;  // 0 < x < 1/2   (shift by one log)
+constexpr uint64_t kMaxUlpZone = 1;   // 1/2 <= x <= 5/2 (the zeros live here)
 // The table is correctly rounded except near a rounding tie: its 2^-65 relative
 // error is at most 2^-12 ulp of the result, so the gate is 0 with that window.
-constexpr uint64_t kMaxUlpMid = 0;     // 5/2 < x < 8   (Taylor table)
+constexpr uint64_t kMaxUlpMid = 0;  // 5/2 < x < 8   (Taylor table)
 // Stirling is correctly rounded except within ~2^-15 ulp of a rounding tie
 // (log_dd's ~2^-68 reaches the result), so its gate is 0 with that window:
 // the tightest in the project, and deliberately so. This region has no fitted
 // approximation carrying error, only log_dd and dd assembly, and a single ULP
 // outside the window would mean one of those moved.
-constexpr uint64_t kMaxUlpBig = 0;     // x >= 8        (Stirling)
+constexpr uint64_t kMaxUlpBig = 0;  // x >= 8        (Stirling)
 // A row whose stored residual is this close to 1/2 and the kernel 1 ULP off
 // is a near-tie: counted and reported, outside the ULP and real-error gates.
 // Stirling's witness is lgamma(0x1.9bdb8fed86e38p+3), real error 0.5000178 on
@@ -44,7 +44,7 @@ constexpr uint64_t kMaxUlpBig = 0;     // x >= 8        (Stirling)
 // 6M random inputs; its window is the proven 2^-12, the hunt family's TIE_TABLE.
 constexpr double kTieWindowBig = 0x1p-15;
 constexpr double kTieWindowMid = 0x1p-12;
-constexpr uint64_t kMaxUlpNeg = 1;     // x < 0, |lgamma| >= 1
+constexpr uint64_t kMaxUlpNeg = 1;           // x < 0, |lgamma| >= 1
 constexpr double kMaxAbsNegSmall = 0x1p-53;  // x < 0, |lgamma| < 1
 
 struct Region {
@@ -129,17 +129,17 @@ int main(int argc, char* const* argv) {
       }
       continue;
     }
-    Region& r = x < 0.0        ? regions[4]
-                : x < 0.5      ? regions[0]
-                : x <= 2.5     ? regions[1]
-                : x < 8.0      ? regions[2]
-                                : regions[3];
+    Region& r = x < 0.0    ? regions[4]
+                : x < 0.5  ? regions[0]
+                : x <= 2.5 ? regions[1]
+                : x < 8.0  ? regions[2]
+                           : regions[3];
     // #14 N6: a reference value of exactly 0.0 (the zeros at x = 1 and
     // x = 2) must be checked bit-exact -- UlpDiff maps +0 and -0 to the
     // same point, so it cannot see a sign regression there.
     const bool zero_ref = want[i] == 0.0;
     const uint64_t u = zero_ref ? (SameBits(got[i], want[i]) ? 0 : UINT64_MAX)
-                                 : UlpDiff(got[i], want[i]);
+                                : UlpDiff(got[i], want[i]);
     if (r.tie_window > 0.0 && u == 1 &&
         std::fabs(res[i]) >= 0.5 - r.tie_window) {
       ++r.n;
@@ -150,9 +150,10 @@ int main(int argc, char* const* argv) {
     // Zero-reference rows are judged bit-exact, so they carry no real gate.
     if (!zero_ref) r.real.Add(corvus_test::RealErr(got[i], want[i], res[i]), i);
     if (zero_ref && u != 0) {
-      std::fprintf(stderr,
-                   "FAIL: signed-zero mismatch at x=%.17g: got=%.17g want=%.17g\n",
-                   x, got[i], want[i]);
+      std::fprintf(
+          stderr,
+          "FAIL: signed-zero mismatch at x=%.17g: got=%.17g want=%.17g\n", x,
+          got[i], want[i]);
     }
     ++r.n;
     if (u > 0) ++r.miss;

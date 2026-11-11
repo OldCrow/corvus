@@ -91,8 +91,9 @@ int Gate(const char* path, const char* label,
     // #14 N10: an empty bucket is a gate that never ran; every bucket is a
     // designed reference stratum.
     if (r->n == 0) {
-      std::fprintf(stderr, "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n",
-                   label, r->name);
+      std::fprintf(stderr,
+                   "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n", label,
+                   r->name);
       rc = 1;
     }
     if (r->max_ulp > kMaxUlp) {

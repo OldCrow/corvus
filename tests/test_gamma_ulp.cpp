@@ -140,8 +140,7 @@ int ReportRegions(const char* path, const char* label, const Region* r,
     std::printf(
         "%-8s %-14s n=%6zu  max ULP=%3llu (gate %llu)  not-CR: %zu (%.2f%%)  "
         "worst a=%.17g x=%.17g\n",
-        label, r[i].name, r[i].n,
-        static_cast<unsigned long long>(r[i].max_ulp),
+        label, r[i].name, r[i].n, static_cast<unsigned long long>(r[i].max_ulp),
         static_cast<unsigned long long>(r[i].bound), r[i].miss,
         r[i].n ? 100.0 * static_cast<double>(r[i].miss) /
                      static_cast<double>(r[i].n)
@@ -150,8 +149,8 @@ int ReportRegions(const char* path, const char* label, const Region* r,
     // #82 T1: real error for every cell that received rows (exact-zero
     // reference rows are bit-exact checked and carry no real gate).
     if (r[i].n > 0) {
-      rc |= corvus_test::CheckReal(path, label, r[i].name, r[i].bound,
-                                   r[i].real);
+      rc |=
+          corvus_test::CheckReal(path, label, r[i].name, r[i].bound, r[i].real);
     }
     // N10: a LIVE bucket that never received a row passes every gate above
     // vacuously -- a routing or reference-set regression, not a clean run.
@@ -196,10 +195,10 @@ int Measure(const char* path, const char* label, bool want_p,
   // Index [region][0 = direct side, 1 = complement].
   const auto& g = want_p ? kGateP : kGateQ;
   Region reg[8] = {
-      {"R1 series dir", g[0][0]},   {"R1 series cmp", g[0][1]},
-      {"R2 cf     dir", g[1][0]},   {"R2 cf     cmp", g[1][1]},
-      {"R3 temme  dir", g[2][0]},   {"R3 temme  cmp", g[2][1]},
-      {"R4 smalla dir", g[3][0]},   {"R4 smalla cmp", g[3][1]},
+      {"R1 series dir", g[0][0]}, {"R1 series cmp", g[0][1]},
+      {"R2 cf     dir", g[1][0]}, {"R2 cf     cmp", g[1][1]},
+      {"R3 temme  dir", g[2][0]}, {"R3 temme  cmp", g[2][1]},
+      {"R4 smalla dir", g[3][0]}, {"R4 smalla cmp", g[3][1]},
   };
   int signed_zero_fail = 0;
   size_t zero_ref_rows = 0;

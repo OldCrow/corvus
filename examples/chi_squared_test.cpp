@@ -36,7 +36,8 @@
 namespace {
 
 /// @brief Fill `out` with the chi-squared CDF at each (x, dof) pair.
-void chi2_cdf(std::span<const double> x, std::span<const double> dof, std::span<double> out) {
+void chi2_cdf(std::span<const double> x, std::span<const double> dof,
+              std::span<double> out) {
     std::vector<double> a(x.size());
     std::vector<double> half_x(x.size());
     for (std::size_t i = 0; i < x.size(); ++i) {
@@ -47,7 +48,8 @@ void chi2_cdf(std::span<const double> x, std::span<const double> dof, std::span<
 }
 
 /// @brief Upper-tail probability — the p-value — at each (x, dof) pair.
-void chi2_sf(std::span<const double> x, std::span<const double> dof, std::span<double> out) {
+void chi2_sf(std::span<const double> x, std::span<const double> dof,
+             std::span<double> out) {
     std::vector<double> a(x.size());
     std::vector<double> half_x(x.size());
     for (std::size_t i = 0; i < x.size(); ++i) {
@@ -58,7 +60,8 @@ void chi2_sf(std::span<const double> x, std::span<const double> dof, std::span<d
 }
 
 /// @brief Critical value: the x with CDF(x) = p, at each (p, dof) pair.
-void chi2_ppf(std::span<const double> p, std::span<const double> dof, std::span<double> out) {
+void chi2_ppf(std::span<const double> p, std::span<const double> dof,
+              std::span<double> out) {
     std::vector<double> a(p.size());
     for (std::size_t i = 0; i < p.size(); ++i) {
         a[i] = 0.5 * dof[i];
@@ -100,9 +103,10 @@ int main() {
     std::cout << "  5% critical values (upper tail)\n\n";
     std::cout << "   dof    critical x       CDF at that x\n";
     for (std::size_t i = 0; i < kDof.size(); ++i) {
-        std::cout << std::fixed << std::setprecision(0) << std::setw(6) << kDof[i] << "  "
-                  << std::setprecision(6) << std::setw(12) << crit[i] << "  " << std::setprecision(16)
-                  << back[i] << "\n";
+        std::cout << std::fixed << std::setprecision(0) << std::setw(6)
+                  << kDof[i] << "  " << std::setprecision(6) << std::setw(12)
+                  << crit[i] << "  " << std::setprecision(16) << back[i]
+                  << "\n";
         // Round-trip: the quantile and the CDF have to agree, and this checks
         // both against each other without a reference table.
         if (!close_enough(back[i], 0.95, 1e-14)) {
@@ -126,7 +130,8 @@ int main() {
     // -----------------------------------------------------------------------
     // 2. p-values far into the tail, where subtraction has nothing left.
     // -----------------------------------------------------------------------
-    constexpr std::array<double, 6> kStatX{3.841459, 20.0, 50.0, 100.0, 200.0, 500.0};
+    constexpr std::array<double, 6> kStatX{3.841459, 20.0,  50.0,
+                                           100.0,    200.0, 500.0};
     constexpr std::array<double, 6> kStatDof{1.0, 1.0, 1.0, 1.0, 10.0, 4.0};
 
     std::array<double, kStatX.size()> pv{};
@@ -137,37 +142,49 @@ int main() {
     std::cout << "\n  p-values, computed directly vs by subtraction\n\n";
     std::cout << "   dof         x     gamma_q (direct)        1 - gamma_p\n";
     for (std::size_t i = 0; i < kStatX.size(); ++i) {
-        std::cout << std::fixed << std::setprecision(0) << std::setw(6) << kStatDof[i] << "  "
-                  << std::setprecision(3) << std::setw(9) << kStatX[i] << "  " << std::scientific
-                  << std::setprecision(12) << pv[i] << "  " << (1.0 - cdf[i]) << "\n";
+        std::cout << std::fixed << std::setprecision(0) << std::setw(6)
+                  << kStatDof[i] << "  " << std::setprecision(3) << std::setw(9)
+                  << kStatX[i] << "  " << std::scientific
+                  << std::setprecision(12) << pv[i] << "  " << (1.0 - cdf[i])
+                  << "\n";
 
         // Where both routes still carry digits they must agree; the point of
         // the example is where they stop agreeing, not a disagreement here.
         if (pv[i] > 1e-8 && !close_enough(1.0 - cdf[i], pv[i], 1e-6)) {
-            std::cerr << "the two routes disagree while both are still viable, at x = "
+            std::cerr << "the two routes disagree while both are still viable, "
+                         "at x = "
                       << kStatX[i] << "\n";
             ok = false;
         }
     }
 
-    std::cout << "\n  The right-hand column reaches zero and stays there. The left-hand\n"
-                 "  column keeps going: chi2(4) at x = 500 has p around 6.7e-107, which\n"
-                 "  is a real number a test can report, and 1 - F(x) cannot represent it\n"
-                 "  at all because F(x) rounded to 1.0 long before.\n"
-                 "\n"
-                 "  The row that should worry you is x = 50, though, not x = 500. There\n"
-                 "  the two columns still LOOK equally healthy and they differ in the\n"
-                 "  fifth significant digit — the subtraction has already thrown away\n"
-                 "  most of the answer while still returning something plausible. A\n"
-                 "  p-value that collapses to zero announces itself; one that is quietly\n"
-                 "  wrong in the fourth digit gets published.\n";
+    std::cout
+        << "\n  The right-hand column reaches zero and stays there. The "
+           "left-hand\n"
+           "  column keeps going: chi2(4) at x = 500 has p around 6.7e-107, "
+           "which\n"
+           "  is a real number a test can report, and 1 - F(x) cannot "
+           "represent it\n"
+           "  at all because F(x) rounded to 1.0 long before.\n"
+           "\n"
+           "  The row that should worry you is x = 50, though, not x = 500. "
+           "There\n"
+           "  the two columns still LOOK equally healthy and they differ in "
+           "the\n"
+           "  fifth significant digit — the subtraction has already thrown "
+           "away\n"
+           "  most of the answer while still returning something plausible. A\n"
+           "  p-value that collapses to zero announces itself; one that is "
+           "quietly\n"
+           "  wrong in the fourth digit gets published.\n";
 
     if ((1.0 - cdf[5]) != 0.0) {
         std::cerr << "expected 1 - F(500) to underflow to zero at 4 dof\n";
         ok = false;
     }
     if (!(pv[5] > 0.0 && pv[5] < 1e-100)) {
-        std::cerr << "expected a tiny positive p-value from gamma_q, got " << pv[5] << "\n";
+        std::cerr << "expected a tiny positive p-value from gamma_q, got "
+                  << pv[5] << "\n";
         ok = false;
     }
 
@@ -177,16 +194,18 @@ int main() {
     std::cout << "\n  P + Q = 1 across the moderate range:\n\n";
     for (std::size_t i = 0; i < 3; ++i) {
         const double sum = cdf[i] + pv[i];
-        std::cout << std::fixed << std::setprecision(0) << "   dof " << std::setw(2) << kStatDof[i]
-                  << ", x = " << std::setprecision(3) << std::setw(8) << kStatX[i]
-                  << "   P + Q - 1 = " << std::scientific << std::setprecision(3) << (sum - 1.0)
-                  << "\n";
+        std::cout << std::fixed << std::setprecision(0) << "   dof "
+                  << std::setw(2) << kStatDof[i]
+                  << ", x = " << std::setprecision(3) << std::setw(8)
+                  << kStatX[i] << "   P + Q - 1 = " << std::scientific
+                  << std::setprecision(3) << (sum - 1.0) << "\n";
         if (std::abs(sum - 1.0) > 4e-16) {
             std::cerr << "P + Q strayed from 1 at x = " << kStatX[i] << "\n";
             ok = false;
         }
     }
 
-    std::cout << "\n" << (ok ? "All checks passed.\n" : "FAILURES — see above.\n");
+    std::cout << "\n"
+              << (ok ? "All checks passed.\n" : "FAILURES — see above.\n");
     return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

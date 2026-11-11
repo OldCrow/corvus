@@ -45,9 +45,9 @@ HWY_NOINLINE op::V<D> ErfCellZeroVec(D d, op::V<D> ac) {
 
   // Main: ac in [2^-900, 2^-9] (tiny lanes ride along and are discarded).
   const auto w = op::Mul(ac, ac);
-  const auto poly = op::MulAdd(
-      w, op::MulAdd(w, op::Set(d, -1.0 / 42.0), op::Set(d, 0.1)),
-      op::Set(d, -1.0 / 3.0));
+  const auto poly =
+      op::MulAdd(w, op::MulAdd(w, op::Set(d, -1.0 / 42.0), op::Set(d, 0.1)),
+                 op::Set(d, -1.0 / 3.0));
   const auto q = op::Mul(op::Mul(ac, w), poly);
   const auto hi = op::Mul(shi, ac);
   // FLOOR: main lanes have Shi*ac >= 2^-900; tiny lanes are discarded.
@@ -57,8 +57,9 @@ HWY_NOINLINE op::V<D> ErfCellZeroVec(D d, op::V<D> ac) {
 
   // Tiny: k = ac*2^1074 in [0, 2^174), in two exact steps since 2^1074
   // overflows (the Min keeps discarded lanes finite).
-  const auto k = op::Mul(op::Mul(op::Min(ac, op::Set(d, 0x1p-900)), op::Set(d, 0x1p+600)),
-                         op::Set(d, 0x1p+474));
+  const auto k =
+      op::Mul(op::Mul(op::Min(ac, op::Set(d, 0x1p-900)), op::Set(d, 0x1p+600)),
+              op::Set(d, 0x1p+474));
   const auto khi = op::Mul(shi, k);
   // FLOOR: Shi*k is 0 (exact) or >= Shi, since k is a nonzero integer.
   const auto klo = op::Add(op::ProdLow(d, shi, k, khi), op::Mul(slo, k));
@@ -73,8 +74,8 @@ HWY_NOINLINE op::V<D> ErfCellZeroVec(D d, op::V<D> ac) {
   ni = op::IfThenElse(op::Lt(r, op::Neg(half)), op::Sub(n, one), ni);
   // 53-bit grid (khi >= 2^53): khi + klo rounds once to >= 2^52, a normal
   // result after the scale back.
-  const auto kint = op::IfThenElse(op::Lt(khi, op::Set(d, 0x1p+53)), ni,
-                                   op::Add(khi, klo));
+  const auto kint =
+      op::IfThenElse(op::Lt(khi, op::Set(d, 0x1p+53)), ni, op::Add(khi, klo));
   const auto tiny_res = op::Mul(kint, op::Set(d, 0x1p-1074));
 
   return op::IfThenElse(op::Lt(ac, op::Set(d, 0x1p-900)), tiny_res, res);
@@ -110,8 +111,8 @@ static CORVUS_OUTLINE op::V<D> ErfVec(D d, op::V<D> x) {
   CORVUS_ROUTE(d, "erf/saturated", op::Ge(ax, amax));
   CORVUS_ROUTE(d, "erf/special/nan", nan);
   res = op::IfThenElse(op::Ge(ax, amax), one, res);
-  res = op::IfThenElse(nan, x, res);      // propagate NaN (payload preserved)
-  return op::CopySign(res, x);            // erf is odd; also -0 -> -0
+  res = op::IfThenElse(nan, x, res);  // propagate NaN (payload preserved)
+  return op::CopySign(res, x);        // erf is odd; also -0 -> -0
 }
 
 }  // namespace HWY_NAMESPACE

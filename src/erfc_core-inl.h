@@ -109,9 +109,9 @@ CORVUS_OUTLINE op::V<D> ErfcTailGFromU(D d, op::V<D> at, op::V<D> u) {
   const auto s = op::MulAdd(u, scale, shift);
 
   const auto* c = detail::kErfcTailCoef;
-  auto poly = Sel3(d, m1, m2, c[0][detail::kErfcTailNCoef - 1],
-                   c[1][detail::kErfcTailNCoef - 1],
-                   c[2][detail::kErfcTailNCoef - 1]);
+  auto poly =
+      Sel3(d, m1, m2, c[0][detail::kErfcTailNCoef - 1],
+           c[1][detail::kErfcTailNCoef - 1], c[2][detail::kErfcTailNCoef - 1]);
   for (int k = detail::kErfcTailNCoef - 2; k >= 0; --k) {
     poly = op::MulAdd(poly, s, Sel3(d, m1, m2, c[0][k], c[1][k], c[2][k]));
   }

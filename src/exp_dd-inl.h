@@ -92,7 +92,8 @@ HWY_INLINE op::V<D> ScaleTwo(D d, op::V<D> v, op::V<op::SignedTag<D>> e) {
 // is what is returned. Same precondition as ScaleTwo; m.hi in [1, 2) or
 // zero, as ExpDdFrac and the callers' mantissas are.
 template <class D>
-CORVUS_OUTLINE op::V<D> DdScaleToDouble(D d, Dd<D> m, op::V<op::SignedTag<D>> e) {
+CORVUS_OUTLINE op::V<D> DdScaleToDouble(D d, Dd<D> m,
+                                        op::V<op::SignedTag<D>> e) {
   const auto v_norm = ScaleTwo(d, op::Add(m.hi, m.lo), e);
   const auto r = ScaleTwo(d, m.hi, e);
   const auto back = ScaleTwo(d, r, op::Neg(e));
@@ -122,7 +123,8 @@ CORVUS_OUTLINE ExpDdParts<D> ExpDdFrac(D d, op::V<D> xh, op::V<D> xl) {
   xh = op::Min(op::Max(xh, op::Neg(lim)), lim);
 
   const auto kf = op::Round(op::Mul(xh, op::Set(d, detail::kExpInvL)));
-  const auto ki = op::ConvertToInt(di, kf);  // exact: kf is integral, |kf| small
+  const auto ki =
+      op::ConvertToInt(di, kf);  // exact: kf is integral, |kf| small
 
   // --- argument reduction, exact except for k*L3 ---
   const auto l2 = op::Set(d, detail::kExpL2);
@@ -142,9 +144,8 @@ CORVUS_OUTLINE ExpDdParts<D> ExpDdFrac(D d, op::V<D> xh, op::V<D> xl) {
   // ~2^-112 relative -- orders below the 2^-70 budget. Verified by the
   // reference set's reduction-stress stratum and an adversarial
   // half-slot sweep at review.
-  const auto r = Fast2Sum(
-      d, s1.hi,
-      op::Add(op::Sub(op::Add(s0.lo, s1.lo), kl2_lo), xl));
+  const auto r =
+      Fast2Sum(d, s1.hi, op::Add(op::Sub(op::Add(s0.lo, s1.lo), kl2_lo), xl));
 
   // --- e^r - 1 = r + r^2*(1/2 + r/6 + r^2/24 + r^3/120 + r^4/720) ---
   const auto rh = r.hi;
@@ -170,7 +171,7 @@ CORVUS_OUTLINE ExpDdParts<D> ExpDdFrac(D d, op::V<D> xh, op::V<D> xl) {
   // FLOOR: th*p.hi < 2^-968 needs |r| < 2^-968, i.e. k = 0 (for k != 0 a dd
   // x cannot come within 2^-968 of k*ln2/128), so e = 0; the lost low part
   // (<= 2^-1073) is relative 2^-1072 to m >= 0.99 for every caller.
-  const auto u = TwoProd(d, th, p.hi);  // exact
+  const auto u = TwoProd(d, th, p.hi);   // exact
   const auto a = Fast2Sum(d, th, u.hi);  // |th| >= 1 > |u.hi|
   auto lo = op::Add(op::Add(a.lo, u.lo), tl);
   lo = op::MulAdd(th, p.lo, lo);

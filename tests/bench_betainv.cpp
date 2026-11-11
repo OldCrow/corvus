@@ -61,10 +61,9 @@ double NsPerElement(F&& fn, size_t n, int reps) {
 void ScalarWalkP(const std::vector<double>& a, const std::vector<double>& b,
                  const std::vector<double>& s, std::vector<double>& out) {
   for (size_t i = 0; i < a.size(); ++i) {
-    corvus::beta_p_inv(std::span<const double>(&a[i], 1),
-                       std::span<const double>(&b[i], 1),
-                       std::span<const double>(&s[i], 1),
-                       std::span<double>(&out[i], 1));
+    corvus::beta_p_inv(
+        std::span<const double>(&a[i], 1), std::span<const double>(&b[i], 1),
+        std::span<const double>(&s[i], 1), std::span<double>(&out[i], 1));
   }
 }
 
@@ -72,9 +71,16 @@ void ScalarWalkP(const std::vector<double>& a, const std::vector<double>& b,
 // The kernel's own regime predicates, evaluated on the answer the kernel
 // actually returned -- including its internal frame (input flip + orientation
 // swap), because the deep-small cut is only meaningful there.
-enum : int { kDeep = 0, kHuge = 1, kPlateau = 2, kRidge = 3, kGl = 4, kRest = 5,
-             kNReg = 6 };
-const char* kRegName[kNReg] = {"deep", "hugeNu", "plateau",
+enum : int {
+  kDeep = 0,
+  kHuge = 1,
+  kPlateau = 2,
+  kRidge = 3,
+  kGl = 4,
+  kRest = 5,
+  kNReg = 6
+};
+const char* kRegName[kNReg] = {"deep",  "hugeNu",   "plateau",
                                "ridge", "gammaLim", "rest"};
 constexpr double kHugeNu = 1e31;
 constexpr double kPlateauMin = 1.1e-16;
@@ -226,9 +232,9 @@ void Run(const char* label, size_t n, Sampler sampler) {
   std::printf("betainv, %s: n=%zu  membership:", label, n);
   for (int k = 0; k < kNReg; ++k) {
     if (hist[k]) {
-      std::printf(" %s=%.0f%%", kRegName[k],
-                  100.0 * static_cast<double>(hist[k]) /
-                      static_cast<double>(n));
+      std::printf(
+          " %s=%.0f%%", kRegName[k],
+          100.0 * static_cast<double>(hist[k]) / static_cast<double>(n));
     }
   }
   std::printf("\n%10s %14s %14s %14s %10s\n", "n", "p_inv ns/el", "q_inv ns/el",

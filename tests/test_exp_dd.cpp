@@ -28,8 +28,8 @@ namespace HWY_NAMESPACE {
 
 // Same masked-tail discipline as the shipped kernels: one code path, no
 // scalar fallback for the remainder.
-static void ExpDdTestImpl(const double* xh, const double* xl, double* hi, double* lo,
-                   size_t n) {
+static void ExpDdTestImpl(const double* xh, const double* xl, double* hi,
+                          double* lo, size_t n) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;
@@ -71,11 +71,13 @@ HWY_EXPORT(TestTargetNameImpl);
 // N_<target>:: -- so a qualified corvus::Foo call from global scope becomes
 // N_SSE2::corvus::Foo and fails to compile. It builds fine at every other
 // tier, which is what makes it worth a comment rather than a fix in silence.
-static void ExpDdTest(const double* xh, const double* xl, double* hi, double* lo,
-               size_t n) {
+static void ExpDdTest(const double* xh, const double* xl, double* hi,
+                      double* lo, size_t n) {
   HWY_DYNAMIC_DISPATCH(ExpDdTestImpl)(xh, xl, hi, lo, n);
 }
-static const char* TestTargetName() { return HWY_DYNAMIC_DISPATCH(TestTargetNameImpl)(); }
+static const char* TestTargetName() {
+  return HWY_DYNAMIC_DISPATCH(TestTargetNameImpl)();
+}
 }  // namespace corvus
 
 namespace {
@@ -144,7 +146,7 @@ int main(int argc, char* const* argv) {
       {"zero/inf", 0},
   };
 
-  double worst_rel = 0.0;      // dd relative error, normal results only
+  double worst_rel = 0.0;  // dd relative error, normal results only
   double worst_rel_x = 0.0;
   size_t n_rel = 0;
 
@@ -179,18 +181,22 @@ int main(int argc, char* const* argv) {
 
   int rc = 0;
   const double rel_bits = worst_rel > 0.0 ? -std::log2(worst_rel) : 1000.0;
-  std::printf("dd relative    n=%6zu  worst=2^-%.2f (gate 2^-%.2f)  worst x=%.17g\n",
-              n_rel, rel_bits, kMinRelExp, worst_rel_x);
+  std::printf(
+      "dd relative    n=%6zu  worst=2^-%.2f (gate 2^-%.2f)  worst x=%.17g\n",
+      n_rel, rel_bits, kMinRelExp, worst_rel_x);
   if (rel_bits < kMinRelExp) {
     std::fprintf(stderr, "FAIL: dd relative error exceeds gate\n");
     rc = 1;
   }
   for (const Region& r : regions) {
-    std::printf("%-14s n=%6zu  max ULP=%3llu (gate %llu)  not-CR: %zu (%.2f%%)  worst x=%.17g\n",
-                r.name, r.n, static_cast<unsigned long long>(r.max_ulp),
-                static_cast<unsigned long long>(r.bound), r.miss,
-                r.n ? 100.0 * static_cast<double>(r.miss) / static_cast<double>(r.n) : 0.0,
-                r.worst_x);
+    std::printf(
+        "%-14s n=%6zu  max ULP=%3llu (gate %llu)  not-CR: %zu (%.2f%%)  worst "
+        "x=%.17g\n",
+        r.name, r.n, static_cast<unsigned long long>(r.max_ulp),
+        static_cast<unsigned long long>(r.bound), r.miss,
+        r.n ? 100.0 * static_cast<double>(r.miss) / static_cast<double>(r.n)
+            : 0.0,
+        r.worst_x);
     if (r.max_ulp > r.bound) {
       std::fprintf(stderr, "FAIL: %s exceeds gate\n", r.name);
       rc = 1;

@@ -70,7 +70,8 @@ void CheckSpecial(const char* what, bool want_q, double a, double s,
     ok = got == want && std::signbit(got) == std::signbit(want);
   }
   if (!ok) {
-    std::fprintf(stderr, "FAIL: %s: gamma_%c_inv(%.17g, %.17g) = %.17g, want %.17g\n",
+    std::fprintf(stderr,
+                 "FAIL: %s: gamma_%c_inv(%.17g, %.17g) = %.17g, want %.17g\n",
                  what, want_q ? 'q' : 'p', a, s, got, want);
     g_fail = 1;
   }
@@ -115,7 +116,8 @@ void Specials() {
     const double g1 = q ? OneQ(payload, 0.25) : OneP(payload, 0.25);
     const double g2 = q ? OneQ(2.0, payload) : OneP(2.0, payload);
     if (!SameBits(g1, payload) || !SameBits(g2, payload)) {
-      std::fprintf(stderr, "FAIL: gamma_%c_inv did not propagate the NaN payload\n",
+      std::fprintf(stderr,
+                   "FAIL: gamma_%c_inv did not propagate the NaN payload\n",
                    q ? 'q' : 'p');
       g_fail = 1;
     }
@@ -133,8 +135,8 @@ struct EdgeCase {
 };
 
 void CheckEdgeBatch(const char* fname,
-                    void (*fn)(std::span<const double>,
-                               std::span<const double>, std::span<double>),
+                    void (*fn)(std::span<const double>, std::span<const double>,
+                               std::span<double>),
                     const EdgeCase* cases, size_t n) {
   std::vector<double> a(n), s(n), out(n);
   for (size_t i = 0; i < n; ++i) {
@@ -146,9 +148,9 @@ void CheckEdgeBatch(const char* fname,
     if (!cases[i].check) continue;
     const EdgeCase& c = cases[i];
     const bool ok = std::isnan(c.want)
-                       ? std::isnan(out[i])
-                       : (out[i] == c.want &&
-                          std::signbit(out[i]) == std::signbit(c.want));
+                        ? std::isnan(out[i])
+                        : (out[i] == c.want &&
+                           std::signbit(out[i]) == std::signbit(c.want));
     if (!ok) {
       std::fprintf(stderr,
                    "FAIL: %s(%.17g, %.17g) = %.17g, want %.17g "
@@ -194,9 +196,10 @@ void EdgeContracts() {
       {5.0, 0.9, 0.0, false},
   };
   constexpr size_t kNp = sizeof(kPCases) / sizeof(kPCases[0]);
-  static_assert(kNp == 9, "edge-contract batch length must stay a non-lane-"
-                          "multiple (9) -- update the comment above if this "
-                          "changes");
+  static_assert(kNp == 9,
+                "edge-contract batch length must stay a non-lane-"
+                "multiple (9) -- update the comment above if this "
+                "changes");
   CheckEdgeBatch("gamma_p_inv", corvus::gamma_p_inv, kPCases, kNp);
 
   // Same reasoning, q export: "q outside [0, 1] gives NaN, as do a <= 0 and
@@ -217,9 +220,10 @@ void EdgeContracts() {
       {5.0, 0.9, 0.0, false},
   };
   constexpr size_t kNq = sizeof(kQCases) / sizeof(kQCases[0]);
-  static_assert(kNq == 9, "edge-contract batch length must stay a non-lane-"
-                          "multiple (9) -- update the comment above if this "
-                          "changes");
+  static_assert(kNq == 9,
+                "edge-contract batch length must stay a non-lane-"
+                "multiple (9) -- update the comment above if this "
+                "changes");
   CheckEdgeBatch("gamma_q_inv", corvus::gamma_q_inv, kQCases, kNq);
 }
 
@@ -227,27 +231,29 @@ void EdgeContracts() {
 // liners and neither touches corvus. The tolerance is loose on purpose --
 // this checks the wiring, not the last bit, and log1p carries its own error.
 void ClosedForm() {
-  const double kPs[] = {1e-320, 1e-300, 1e-100, 1e-16, 1e-8, 0.001, 0.1,
+  const double kPs[] = {1e-320, 1e-300, 1e-100, 1e-16, 1e-8, 0.001,      0.1,
                         0.25,   0.5,    0.75,   0.9,   0.99, 1.0 - 1e-12};
   for (const double p : kPs) {
     const double want = -std::log1p(-p);
     const double got = OneP(1.0, p);
     if (UlpDiff(got, want) > 8) {
-      std::fprintf(stderr,
-                   "FAIL: gamma_p_inv(1, %.17g) = %.17g, want ~%.17g (%llu ulp)\n",
-                   p, got, want, static_cast<unsigned long long>(UlpDiff(got, want)));
+      std::fprintf(
+          stderr,
+          "FAIL: gamma_p_inv(1, %.17g) = %.17g, want ~%.17g (%llu ulp)\n", p,
+          got, want, static_cast<unsigned long long>(UlpDiff(got, want)));
       g_fail = 1;
     }
   }
-  const double kQs[] = {1e-320, 1e-300, 1e-100, 1e-16, 0.001, 0.1,
-                        0.5,    0.9,    0.999999};
+  const double kQs[] = {1e-320, 1e-300, 1e-100, 1e-16,   0.001,
+                        0.1,    0.5,    0.9,    0.999999};
   for (const double q : kQs) {
     const double want = -std::log(q);
     const double got = OneQ(1.0, q);
     if (UlpDiff(got, want) > 8) {
-      std::fprintf(stderr,
-                   "FAIL: gamma_q_inv(1, %.17g) = %.17g, want ~%.17g (%llu ulp)\n",
-                   q, got, want, static_cast<unsigned long long>(UlpDiff(got, want)));
+      std::fprintf(
+          stderr,
+          "FAIL: gamma_q_inv(1, %.17g) = %.17g, want ~%.17g (%llu ulp)\n", q,
+          got, want, static_cast<unsigned long long>(UlpDiff(got, want)));
       g_fail = 1;
     }
   }
@@ -267,7 +273,7 @@ void ClosedForm() {
 void RoundTrip() {
   std::vector<double> as, ss;
   for (const double a : {1e-3, 0.1, 0.5, 1.0, 2.5, 7.0, 19.0, 20.0, 21.0, 100.0,
-                   1e4, 1e8, 1e16}) {
+                         1e4, 1e8, 1e16}) {
     for (const double s : {1e-30, 1e-8, 1e-3, 0.1, 0.3, 0.5, 0.7, 0.9, 0.999}) {
       as.push_back(a);
       ss.push_back(s);
@@ -283,7 +289,8 @@ void RoundTrip() {
     const double tol = 1e-11 + 64.0 * std::sqrt(as[i]) *
                                    std::numeric_limits<double>::epsilon();
     if (!(x[i] > 0.0) || !std::isfinite(x[i])) {
-      std::fprintf(stderr, "FAIL: gamma_p_inv(%.17g, %.17g) = %.17g not in range\n",
+      std::fprintf(stderr,
+                   "FAIL: gamma_p_inv(%.17g, %.17g) = %.17g not in range\n",
                    as[i], ss[i], x[i]);
       g_fail = 1;
       continue;
@@ -305,7 +312,8 @@ void RoundTrip() {
     const double tol = 1e-11 + 64.0 * std::sqrt(as[i]) *
                                    std::numeric_limits<double>::epsilon();
     if (!(x[i] > 0.0) || !std::isfinite(x[i])) {
-      std::fprintf(stderr, "FAIL: gamma_q_inv(%.17g, %.17g) = %.17g not in range\n",
+      std::fprintf(stderr,
+                   "FAIL: gamma_q_inv(%.17g, %.17g) = %.17g not in range\n",
                    as[i], ss[i], x[i]);
       g_fail = 1;
       continue;
@@ -350,10 +358,10 @@ void LaneMix() {
     double a, s;
   };
   const Pt pts[] = {
-      {1e-4, 0.3},   {1e-4, 1e-40},  {0.1, 0.5},    {0.5, 1e-8},
-      {1.0, 0.25},   {3.0, 0.75},    {19.0, 1e-12}, {20.0, 0.5},
-      {50.0, 0.999}, {1e4, 0.5},     {1e4, 1e-100}, {1e8, 0.3},
-      {1e20, 0.5},   {1e100, 0.5},   {1e-300, 0.7}, {2.0, 1e-300},
+      {1e-4, 0.3},   {1e-4, 1e-40}, {0.1, 0.5},    {0.5, 1e-8},
+      {1.0, 0.25},   {3.0, 0.75},   {19.0, 1e-12}, {20.0, 0.5},
+      {50.0, 0.999}, {1e4, 0.5},    {1e4, 1e-100}, {1e8, 0.3},
+      {1e20, 0.5},   {1e100, 0.5},  {1e-300, 0.7}, {2.0, 1e-300},
   };
   constexpr size_t kNPts = sizeof(pts) / sizeof(pts[0]);
   // Filler points drawn from other regimes, so a mixed vector really does mix

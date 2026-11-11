@@ -245,7 +245,8 @@ HWY_NOINLINE op::V<D> GammaInvLamOfEta(D d, op::V<D> eta) {
   }
   const auto lam_ser = op::MulAdd(eta, s, one);
 
-  const auto m_ser = op::Lt(op::Abs(eta), op::Set(d, detail::kGammaInvEtaSeriesCut));
+  const auto m_ser =
+      op::Lt(op::Abs(eta), op::Set(d, detail::kGammaInvEtaSeriesCut));
   CORVUS_ROUTE(d, "gammainv/S1/lam_series", m_ser);
   if (op::AllTrue(d, m_ser)) return lam_ser;
   CORVUS_ROUTE(d, "gammainv/S1/lam_newton", op::MaskNot(m_ser));
@@ -289,8 +290,8 @@ HWY_INLINE op::V<D> GammaInvCk(D d, op::V<D> t, int k) {
 // side is Q, then the pinned eps_k(eta)/a^k correction to eta itself --
 // side-SYMMETRIC, per the derivation in the generator -- and x0 = a*lambda.
 template <class D>
-HWY_NOINLINE op::V<D> GammaInvSeedS1(D d, op::V<D> a, op::V<D> t,
-                                     op::V<D> sgn, op::V<D>* eta0_out) {
+HWY_NOINLINE op::V<D> GammaInvSeedS1(D d, op::V<D> a, op::V<D> t, op::V<D> sgn,
+                                     op::V<D>* eta0_out) {
   const auto z = ErfcinvVec(d, op::Add(t, t));
   const auto eta0 =
       op::Mul(op::Mul(sgn, z), op::Sqrt(op::Div(op::Set(d, 2.0), a)));
@@ -352,14 +353,13 @@ HWY_NOINLINE op::V<D> GammaInvSeedS2(D d, op::V<D> a, op::V<D> lsum) {
   auto x = OutlinedExp(d, op::Div(lsum, a));
   for (int i = 0; i < detail::kGammaInvS2NCorr; ++i) {
     const auto sum = GammaInvSeedSum(d, a, x);
-    const auto lx = op::Div(
-        op::Sub(op::Add(lsum, x), LogDd(d, sum).hi), a);
+    const auto lx = op::Div(op::Sub(op::Add(lsum, x), LogDd(d, sum).hi), a);
     const auto xn = OutlinedExp(d, lx);
     // The generator breaks out of the loop on a non-finite or non-positive
     // iterate; per lane, that is holding the previous value. Written through
     // the indicator arithmetic because the ops facade exposes no mask AND.
-    const auto good = IndMask(d, op::Mul(Ind(d, op::Gt(xn, zero)),
-                                         Ind(d, op::Lt(xn, dmax))));
+    const auto good =
+        IndMask(d, op::Mul(Ind(d, op::Gt(xn, zero)), Ind(d, op::Lt(xn, dmax))));
     CORVUS_ROUTE(d, "gammainv/S2/hold", op::MaskNot(good));
     x = op::IfThenElse(good, xn, x);
   }
@@ -378,17 +378,16 @@ HWY_NOINLINE op::V<D> GammaInvSeedS3(D d, op::V<D> a, op::V<D> lnq,
   const auto zero = op::Zero(d);
   const auto dmax = op::Set(d, std::numeric_limits<double>::infinity());
   const auto L = op::Sub(op::Neg(lnq), lga);
-  const auto gate =
-      op::Mul(Ind(d, op::Gt(L, op::Mul(op::Set(d,
-                                               detail::kGammaInvS3StabilityMargin),
-                                       op::Abs(op::Sub(a, one))))),
-              Ind(d, op::Lt(L, dmax)));
+  const auto gate = op::Mul(
+      Ind(d, op::Gt(L, op::Mul(op::Set(d, detail::kGammaInvS3StabilityMargin),
+                               op::Abs(op::Sub(a, one))))),
+      Ind(d, op::Lt(L, dmax)));
 
   auto x = L;
   for (int i = 0; i < detail::kGammaInvS3NIter; ++i) {
     const auto xn = op::MulAdd(op::Sub(a, one), OutlinedLogDd(d, x).hi, L);
-    const auto good = IndMask(d, op::Mul(Ind(d, op::Gt(xn, zero)),
-                                         Ind(d, op::Lt(xn, dmax))));
+    const auto good =
+        IndMask(d, op::Mul(Ind(d, op::Gt(xn, zero)), Ind(d, op::Lt(xn, dmax))));
     CORVUS_ROUTE(d, "gammainv/S3/hold", op::MaskNot(good));
     x = op::IfThenElse(good, xn, x);
   }
@@ -503,7 +502,8 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
     // divided by a -- the same coefficients LgammaStirling evaluates, valid
     // from kLgammaX0 = 8 and so over all of a >= a_T = 20.
     const auto ra2 = op::Div(one, op::Mul(ac, ac));
-    auto pmu = op::Set(d, detail::kLgammaStirCoef[detail::kLgammaStirNCoef - 1]);
+    auto pmu =
+        op::Set(d, detail::kLgammaStirCoef[detail::kLgammaStirNCoef - 1]);
     for (int k = detail::kLgammaStirNCoef - 2; k >= 0; --k) {
       pmu = op::MulAdd(pmu, ra2, op::Set(d, detail::kLgammaStirCoef[k]));
     }
@@ -553,8 +553,9 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
   if (!op::AllFalse(d, m_r1)) {
     CORVUS_ROUTE_SCOPE(d, m_r1);
     // P = e^{E - log a} * Sum, so ln P needs no exponential at all.
-    const auto l = DdAdd(d, DdAdd(d, e, Dd<D>{op::Neg(lna.hi), op::Neg(lna.lo)}),
-                         LogDd(d, GammaSeriesSum(d, a, x)));
+    const auto l =
+        DdAdd(d, DdAdd(d, e, Dd<D>{op::Neg(lna.hi), op::Neg(lna.lo)}),
+              LogDd(d, GammaSeriesSum(d, a, x)));
     lnf = Dd<D>{op::IfThenElse(m_r1, l.hi, lnf.hi),
                 op::IfThenElse(m_r1, l.lo, lnf.lo)};
     i_pdir = op::IfThenElse(m_r1, one, i_pdir);
@@ -595,7 +596,8 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
     // Q = m * 2^e (#71: m from the prescaled core): log Q = log m + e log 2,
     // so a tiny-a Q keeps full relative accuracy in log space.
     const auto s4 = GammaSmallQ(d, a, x);
-    const Dd<D> ln2{op::Set(d, detail::kLogLn2Hi), op::Set(d, detail::kLogLn2Lo)};
+    const Dd<D> ln2{op::Set(d, detail::kLogLn2Hi),
+                    op::Set(d, detail::kLogLn2Lo)};
     // FLOOR: e is 0 or -400, so e*ln2 is 0 or ~277: never below 2^-968.
     const auto l = DdAdd(d, OutlinedLogDd(d, s4.m),
                          DdMulD(d, ln2, op::ConvertToDouble(d, s4.e)));
@@ -643,7 +645,8 @@ HWY_NOINLINE GammaInvFwdOut<D> GammaInvForward(D d, op::V<D> a, op::V<D> x,
   const auto lnf_u = op::Max(lnf.hi, op::Set(d, -800.0));
   const auto lnf_ul = op::IfThenElse(op::Eq(lnf_u, lnf.hi), lnf.lo, zero);
   const auto u = OutlinedExpDd(d, lnf_u, lnf_ul);
-  const auto c = DdAdd(d, Dd<D>{one, zero}, Dd<D>{op::Neg(u.hi), op::Neg(u.lo)});
+  const auto c =
+      DdAdd(d, Dd<D>{one, zero}, Dd<D>{op::Neg(u.hi), op::Neg(u.lo)});
   const auto lnc = OutlinedLogDd(d, c);
   const auto lg = DdAdd(d, lnf, Dd<D>{op::Neg(lnc.hi), op::Neg(lnc.lo)});
   const auto m_p = IndMask(d, i_pdir);  // is the smaller side P?
@@ -665,18 +668,19 @@ HWY_INLINE op::V<D> GammaInvResid(D d, const GammaInvFwdOut<D>& f, Dd<D> mt) {
 // the winner's evaluation becomes the first Newton step's and no candidate is
 // evaluated twice.
 template <class D>
-CORVUS_OUTLINE void GammaInvConsider(D d, op::V<D> a, op::V<D> xc, op::V<D> i_ok,
-                                 op::V<D> i_wp, Dd<D> lga, Dd<D> lna,
-                                 Dd<D> mt, op::V<D>* best_x,
-                                 op::V<D>* best_r, GammaInvFwdOut<D>* best_f) {
+CORVUS_OUTLINE void GammaInvConsider(D d, op::V<D> a, op::V<D> xc,
+                                     op::V<D> i_ok, op::V<D> i_wp, Dd<D> lga,
+                                     Dd<D> lna, Dd<D> mt, op::V<D>* best_x,
+                                     op::V<D>* best_r,
+                                     GammaInvFwdOut<D>* best_f) {
   const auto zero = op::Zero(d);
   const auto inf = op::Set(d, std::numeric_limits<double>::infinity());
 
   // Lt(., inf), not Lt(., DBL_MAX): a = DBL_MAX is a legal argument whose
   // answer is DBL_MAX, and rejecting that candidate strands the lane on the
   // fallback. (Found by the smoke test's beyond-resolution row.)
-  const auto okv = op::Mul(i_ok, op::Mul(Ind(d, op::Gt(xc, zero)),
-                                         Ind(d, op::Lt(xc, inf))));
+  const auto okv =
+      op::Mul(i_ok, op::Mul(Ind(d, op::Gt(xc, zero)), Ind(d, op::Lt(xc, inf))));
   const auto m_ok = IndMask(d, okv);
   // A rejected candidate is replaced by an ordinary interior point before the
   // forward runs: masked-off lanes execute every op, and an x of NaN would
@@ -741,13 +745,15 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   // 2^-57 relative, and the deep-small branch multiplies it by |log x|
   // (up to ~745), i.e. 16 ulp in x. Above 2^-7 the result is at least 2^-7
   // and the same rounding is negligible.
-  const auto lnt = OutlinedLogDd(d, t);  // log of the solved side; may be subnormal
+  const auto lnt =
+      OutlinedLogDd(d, t);  // log of the solved side; may be subnormal
   const auto lnct_log = OutlinedLogDd(d, TwoSum(d, one, op::Neg(t)));
   const auto lnct_1p = Log1pDd(d, Dd<D>{op::Neg(t), zero});
   const auto m_ct1p = op::Ge(op::Set(d, 0x1.0p-7), t);
   CORVUS_ROUTE(d, "gammainv/lnct_log1p", m_ct1p);
-  const Dd<D> lnct{op::IfThenElse(m_ct1p, lnct_1p.hi, lnct_log.hi),
-                   op::IfThenElse(m_ct1p, lnct_1p.lo, lnct_log.lo)};  // log(1 - t)
+  const Dd<D> lnct{
+      op::IfThenElse(m_ct1p, lnct_1p.hi, lnct_log.hi),
+      op::IfThenElse(m_ct1p, lnct_1p.lo, lnct_log.lo)};  // log(1 - t)
   const Dd<D> lnp{op::IfThenElse(m_wq, lnct.hi, lnt.hi),
                   op::IfThenElse(m_wq, lnct.lo, lnt.lo)};
 
@@ -819,8 +825,9 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   // least 2^-900 in magnitude (tiny a scaled to >= 2^-874; otherwise
   // a >= 2^-900, or |a - 1| >= 2^-53), so |B*tzs| >= 0.42 * 2^-900.
   const auto lg1_zone_s = DdMulD(d, zb, tzs);
-  const Dd<D> lg1a_s{op::IfThenElse(m_zone, lg1_zone_s.hi, op::Mul(lg1_gen.hi, sc)),
-                     op::IfThenElse(m_zone, lg1_zone_s.lo, op::Mul(lg1_gen.lo, sc))};
+  const Dd<D> lg1a_s{
+      op::IfThenElse(m_zone, lg1_zone_s.hi, op::Mul(lg1_gen.hi, sc)),
+      op::IfThenElse(m_zone, lg1_zone_s.lo, op::Mul(lg1_gen.lo, sc))};
   const auto s0s =
       DdAdd(d, Dd<D>{op::Mul(lnp.hi, sc), op::Mul(lnp.lo, sc)}, lg1a_s);
   const auto uds = GammaInvDivD(d, s0s, op::Mul(a, sc));
@@ -831,11 +838,10 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   const auto m_ds = op::Lt(op::Mul(x_ds, op::Add(one, a)),
                            op::Set(d, detail::kGammaInvDeepSmallCut));
   CORVUS_ROUTE(d, "gammainv/deep_small", m_ds);
-  CORVUS_ROUTE(d, "gammainv/deep_small/rescale",
-               op::And(m_ds, m_tiny));
-  CORVUS_ROUTE(d, "gammainv/deep_small/quot_clamp",
-               op::And(m_ds, op::Ge(op::Abs(uds.hi),
-                                    op::Set(d, kGammaInvQuotMax))));
+  CORVUS_ROUTE(d, "gammainv/deep_small/rescale", op::And(m_ds, m_tiny));
+  CORVUS_ROUTE(
+      d, "gammainv/deep_small/quot_clamp",
+      op::And(m_ds, op::Ge(op::Abs(uds.hi), op::Set(d, kGammaInvQuotMax))));
   CORVUS_ROUTE(d, "gammainv/deep_small/subnormal",
                op::And(m_ds, op::Lt(x_ds, op::Set(d, 0x1.0p-1022))));
 
@@ -846,10 +852,9 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
     const auto sgn = op::IfThenElse(m_wq, one, op::Neg(one));
     op::V<D> eta0;
     const auto x1 = GammaInvSeedS1(d, a, t, sgn, &eta0);
-    const auto i_ok1 =
-        op::Mul(Ind(d, op::Ge(a, op::Set(d, detail::kGammaInvS1AMin))),
-                Ind(d, op::Ge(op::Set(d, detail::kGammaInvEtaMax),
-                              op::Abs(eta0))));
+    const auto i_ok1 = op::Mul(
+        Ind(d, op::Ge(a, op::Set(d, detail::kGammaInvS1AMin))),
+        Ind(d, op::Ge(op::Set(d, detail::kGammaInvEtaMax), op::Abs(eta0))));
     const auto x2 = GammaInvSeedS2(d, a, DdToDouble(s0));
     op::V<D> i_ok3;
     const auto x3 = GammaInvSeedS3(d, a, lnt.hi, lga.hi, &i_ok3);
@@ -976,8 +981,8 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
       {
         // Deep-small lanes are overwritten by the closed form at the end:
         // never spend a forward on them.
-        const auto bad0 = IndMask(
-            d, op::Mul(Ind(d, op::IsNaN(r)), IndNot(d, Ind(d, m_ds))));
+        const auto bad0 =
+            IndMask(d, op::Mul(Ind(d, op::IsNaN(r)), IndNot(d, Ind(d, m_ds))));
         if (!op::AllFalse(d, bad0)) {
           CORVUS_ROUTE_SCOPE(d, bad0);
           // ROUTE-UNREACHABLE: without the seed fallback (unreachable above),
@@ -1024,23 +1029,24 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
         const auto ynewt = op::Add(y, sn);
         const auto stall = op::Mul(Ind(d, op::Gt(tol, op::Abs(sn))),
                                    Ind(d, op::Gt(op::Abs(r), rstall)));
-        const auto inside = op::Mul(Ind(d, op::Gt(ynewt, lo)),
-                                    Ind(d, op::Gt(hi, ynewt)));
+        const auto inside =
+            op::Mul(Ind(d, op::Gt(ynewt, lo)), Ind(d, op::Gt(hi, ynewt)));
         const auto fast = Ind(d, op::Ge(op::Mul(dxold, half), op::Abs(sn)));
         const auto take_newton =
             op::Mul(op::Mul(inside, fast), IndNot(d, stall));
         // Not Newton: bisect a two-sided bracket, else double toward the root.
         const auto dir = op::CopySign(one, op::Neg(r));
-        const auto grow = op::Min(op::Mul(op::Min(dxold, cap), op::Set(d, 2.0)), cap);
+        const auto grow =
+            op::Min(op::Mul(op::Min(dxold, cap), op::Set(d, 2.0)), cap);
         const auto ygrow = op::Add(y, op::Mul(dir, op::Max(grow, tol)));
         const auto ybis = op::Mul(op::Add(lo, hi), half);
         CORVUS_ROUTE(d, "gammainv/bracket/stall", IndMask(d, stall));
         CORVUS_ROUTE(d, "gammainv/bracket/newton", IndMask(d, take_newton));
         CORVUS_ROUTE(d, "gammainv/bracket/bisect",
                      IndMask(d, op::Mul(IndNot(d, take_newton), both)));
-        CORVUS_ROUTE(d, "gammainv/bracket/grow",
-                     IndMask(d, op::Mul(IndNot(d, take_newton),
-                                        IndNot(d, both))));
+        CORVUS_ROUTE(
+            d, "gammainv/bracket/grow",
+            IndMask(d, op::Mul(IndNot(d, take_newton), IndNot(d, both))));
         auto yn = op::IfThenElse(IndMask(d, take_newton), ynewt,
                                  op::IfThenElse(IndMask(d, both), ybis, ygrow));
         CORVUS_ROUTE(d, "gammainv/bracket/clamp_y",
@@ -1062,10 +1068,10 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
         cur.w = op::IfThenElse(m_adopt, fb.w, cur.w);
         r = op::IfThenElse(m_adopt, rb, r);
         // A rejected (NaN) iterate shrinks the next step instead.
-        dxold = op::IfThenElse(m_adopt, applied,
-                               op::IfThenElse(m_live, op::Mul(op::Min(dxold, cap),
-                                                              op::Set(d, 0.25)),
-                                              dxold));
+        dxold = op::IfThenElse(
+            m_adopt, applied,
+            op::IfThenElse(
+                m_live, op::Mul(op::Min(dxold, cap), op::Set(d, 0.25)), dxold));
         live = op::Mul(live, IndNot(d, Ind(d, op::Gt(tol, applied))));
       }
       // ROUTE-OPEN (#82 T7): its only known path was #83's stall, where Q
@@ -1114,9 +1120,9 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
       // correctly rounded.
       const auto trust = Ind(d, op::Gt(op::Set(d, kGammaInvTrustResid), rbest));
       const auto acc = IndMask(
-          d, op::Mul(op::Mul(Ind(d, op::Gt(cand, zero)),
-                             Ind(d, op::Lt(cand, inf))),
-                     op::Max(trust, Ind(d, op::Ge(rbest, rnew)))));
+          d, op::Mul(
+                 op::Mul(Ind(d, op::Gt(cand, zero)), Ind(d, op::Lt(cand, inf))),
+                 op::Max(trust, Ind(d, op::Ge(rbest, rnew)))));
       CORVUS_ROUTE(d, "gammainv/newton/backtrack", op::MaskNot(acc));
       xn_state = op::IfThenElse(acc, cand, xn_state);
       rbest = op::IfThenElse(acc, rnew, rbest);
@@ -1130,8 +1136,8 @@ HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   }
 
   // --- specials (SciPy limits; see the public header) ----------------------
-  const auto at0 = kQ ? inf : zero;   // s = 0
-  const auto at1 = kQ ? zero : inf;   // s = 1
+  const auto at0 = kQ ? inf : zero;  // s = 0
+  const auto at1 = kQ ? zero : inf;  // s = 1
   CORVUS_ROUTE(d, "gammainv/special/s_zero", op::Eq(s_in, zero));
   auto res = op::IfThenElse(op::Eq(s_in, zero), at0, x);
   CORVUS_ROUTE(d, "gammainv/special/s_one", op::Eq(s_in, one));

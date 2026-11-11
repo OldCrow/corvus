@@ -223,6 +223,7 @@ void EdgeContractsN12() {
 // A spread of in-domain points covering all four regions, both orientations,
 // and both sides of every boundary the router tests.
 std::vector<std::array<double, 3>> Probes() {
+  // clang-format off
   return {
       // R4, tiny-first native (a <= b) and swapped (b < a).
       {1e-300, 1.0, 0.3},   {1e-20, 1.0, 0.4},    {0.015625, 4.0, 0.4},
@@ -244,6 +245,7 @@ std::vector<std::array<double, 3>> Probes() {
       {2.0, 4.0, 0.45},     {2.0, 4.0, 0.4500001},{4.0, 2.0, 0.55},
       {16.0, 16.0, 0.5},    {16.5, 16.5, 0.5},    {0.015625, 8.0, 0.4},
   };
+  // clang-format on
 }
 
 void PlusQ() {
@@ -280,10 +282,12 @@ void SymmetricHalf() {
   // (docs/ACCURACY.md, "R4 huge-B corner") made huge-parameter rows exact,
   // so the diagonal identity extends all the way to DBL_MAX. Appending it
   // also makes this array's length (17) a non-lane-multiple.
+  // clang-format off
   const double as[] = {1e-300, 1e-8, 0.0078125, 0.015625, 0.5,  1.0,
                        2.0,    5.0,  20.0,      63.0,     64.0, 100.0,
                        1000.0, 1e6,  1e10,      1e100,
                        std::numeric_limits<double>::max()};
+  // clang-format on
   std::vector<double> a, b, x;
   for (const double v : as) {
     a.push_back(v);
@@ -321,8 +325,9 @@ void LaneMix() {
       alone[i] = One(fn, probes[i][0], probes[i][1], probes[i][2]);
       // The scalar entry point (#42): bit identity with the span form.
       const double sc =
-          fn_idx == 0 ? corvus::beta_p(probes[i][0], probes[i][1], probes[i][2])
-                      : corvus::beta_q(probes[i][0], probes[i][1], probes[i][2]);
+          fn_idx == 0
+              ? corvus::beta_p(probes[i][0], probes[i][1], probes[i][2])
+              : corvus::beta_q(probes[i][0], probes[i][1], probes[i][2]);
       if (!SameBits(sc, alone[i])) {
         std::fprintf(stderr,
                      "FAIL: %s scalar entry point differs at a=%.17g b=%.17g "

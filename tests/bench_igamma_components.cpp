@@ -48,9 +48,9 @@ static HWY_NOINLINE void Drive3(const double* a, const double* b,
   const size_t N = op::Lanes(d);
   size_t i = 0;
   for (; i + N <= n; i += N) {
-    op::Store(body(d, op::Load(d, a + i), op::Load(d, b + i),
-                   op::Load(d, x + i)),
-              d, out + i);
+    op::Store(
+        body(d, op::Load(d, a + i), op::Load(d, b + i), op::Load(d, x + i)), d,
+        out + i);
   }
   if (i < n) {
     const size_t m = n - i;
@@ -76,8 +76,8 @@ HWY_NOINLINE Dd<D> CfRecipN(D d, op::V<D> a, op::V<D> x, int nd) {
   for (int j = std::min(nd, kGammaCfDdSteps); j >= 1; --j) {
     const auto jv = op::Set(d, static_cast<double>(j));
     const auto num = DdMulD(d, TwoSum(d, jv, ma), jv);
-    const auto den = DdAddD(
-        d, TwoSum(d, x, op::Set(d, static_cast<double>(2 * j - 1))), ma);
+    const auto den =
+        DdAddD(d, TwoSum(d, x, op::Set(d, static_cast<double>(2 * j - 1))), ma);
     const auto q = DdMul(d, num, DdRecipDd(d, k));
     k = DdAdd(d, den, Dd<D>{op::Neg(q.hi), op::Neg(q.lo)});
   }
@@ -97,16 +97,15 @@ HWY_NOINLINE Dd<D> BetaCfN(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi,
     Dd<D> dk{zero, zero};
     if ((k & 1) == 0) {
       const auto bx = DdSub(d, DdMulD(d, xi, b), DdMulD(d, xi, m));
-      const auto r1 = DdDivDd(d, Dd<D>{m, zero},
-                              TwoSum(d, a, op::Set(d, 2.0 * mv - 1.0)));
+      const auto r1 =
+          DdDivDd(d, Dd<D>{m, zero}, TwoSum(d, a, op::Set(d, 2.0 * mv - 1.0)));
       const auto r2 = DdDivDd(d, bx, TwoSum(d, a, op::Set(d, 2.0 * mv)));
       dk = DdMul(d, r1, r2);
     } else {
       const auto cx = DdAdd(d, DdMul(d, xi, c), DdMulD(d, xi, m));
       const auto r1 =
           DdDivDd(d, TwoSum(d, a, m), TwoSum(d, a, op::Set(d, 2.0 * mv)));
-      const auto r2 =
-          DdDivDd(d, cx, TwoSum(d, a, op::Set(d, 2.0 * mv + 1.0)));
+      const auto r2 = DdDivDd(d, cx, TwoSum(d, a, op::Set(d, 2.0 * mv + 1.0)));
       dk = DdNeg(d, DdMul(d, r1, r2));
     }
     f = DdAddD(d, DdMul(d, dk, DdRecipDd(d, f)), one);
@@ -120,12 +119,14 @@ HWY_INLINE void BetaOrient(D d, op::V<D> a, op::V<D> b, op::V<D> x,
                            op::V<D>& al, op::V<D>& be, Dd<D>& c, Dd<D>& xi) {
   const auto one = op::Set(d, 1.0);
   const auto cc = op::Add(a, b);
-  const auto sw = op::Ge(x, op::Div(op::Add(a, one), op::Add(cc, op::Set(d, 2.0))));
+  const auto sw =
+      op::Ge(x, op::Div(op::Add(a, one), op::Add(cc, op::Set(d, 2.0))));
   al = op::IfThenElse(sw, b, a);
   be = op::IfThenElse(sw, a, b);
   c = TwoSum(d, a, b);
   const auto y = TwoSum(d, one, op::Neg(x));
-  xi = Dd<D>{op::IfThenElse(sw, y.hi, x), op::IfThenElse(sw, y.lo, op::Zero(d))};
+  xi =
+      Dd<D>{op::IfThenElse(sw, y.hi, x), op::IfThenElse(sw, y.lo, op::Zero(d))};
 }
 
 // Gamma prefactor E = a log x - x - lgamma(a), then e^E as ExpDdFrac.
@@ -138,7 +139,6 @@ HWY_INLINE op::V<D> GammaPref(D d, op::V<D> a, op::V<D> x) {
   const auto ea = GammaClampE(d, eb.hi, eb.lo);
   return ExpDdFrac(d, ea.hi, ea.lo).m.hi;
 }
-
 
 // BetaCfN with the deep steps in plain double and only the last kdd in dd
 // (gamma's GammaCfRecip split, applied to beta).
@@ -156,12 +156,14 @@ HWY_NOINLINE Dd<D> BetaCfMixed(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi,
     const auto m = op::Set(d, mv);
     op::V<D> dk;
     if ((k & 1) == 0) {
-      dk = op::Mul(op::Div(m, op::Add(a, op::Set(d, 2.0 * mv - 1.0))),
-                   op::Div(op::Mul(op::Sub(b, m), x), op::Add(a, op::Set(d, 2.0 * mv))));
+      dk = op::Mul(
+          op::Div(m, op::Add(a, op::Set(d, 2.0 * mv - 1.0))),
+          op::Div(op::Mul(op::Sub(b, m), x), op::Add(a, op::Set(d, 2.0 * mv))));
     } else {
-      dk = op::Neg(op::Mul(op::Div(op::Add(a, m), op::Add(a, op::Set(d, 2.0 * mv))),
-                           op::Div(op::Mul(op::Add(ch, m), x),
-                                   op::Add(a, op::Set(d, 2.0 * mv + 1.0)))));
+      dk = op::Neg(
+          op::Mul(op::Div(op::Add(a, m), op::Add(a, op::Set(d, 2.0 * mv))),
+                  op::Div(op::Mul(op::Add(ch, m), x),
+                          op::Add(a, op::Set(d, 2.0 * mv + 1.0)))));
     }
     fd = op::Add(one, op::Div(dk, fd));
   }
@@ -172,16 +174,15 @@ HWY_NOINLINE Dd<D> BetaCfMixed(D d, op::V<D> a, op::V<D> b, Dd<D> c, Dd<D> xi,
     Dd<D> dk{zero, zero};
     if ((k & 1) == 0) {
       const auto bx = DdSub(d, DdMulD(d, xi, b), DdMulD(d, xi, m));
-      const auto r1 = DdDivDd(d, Dd<D>{m, zero},
-                              TwoSum(d, a, op::Set(d, 2.0 * mv - 1.0)));
+      const auto r1 =
+          DdDivDd(d, Dd<D>{m, zero}, TwoSum(d, a, op::Set(d, 2.0 * mv - 1.0)));
       const auto r2 = DdDivDd(d, bx, TwoSum(d, a, op::Set(d, 2.0 * mv)));
       dk = DdMul(d, r1, r2);
     } else {
       const auto cx = DdAdd(d, DdMul(d, xi, c), DdMulD(d, xi, m));
       const auto r1 =
           DdDivDd(d, TwoSum(d, a, m), TwoSum(d, a, op::Set(d, 2.0 * mv)));
-      const auto r2 =
-          DdDivDd(d, cx, TwoSum(d, a, op::Set(d, 2.0 * mv + 1.0)));
+      const auto r2 = DdDivDd(d, cx, TwoSum(d, a, op::Set(d, 2.0 * mv + 1.0)));
       dk = DdNeg(d, DdMul(d, r1, r2));
     }
     f = DdAddD(d, DdMul(d, dk, DdRecipDd(d, f)), one);
@@ -206,13 +207,16 @@ HWY_INLINE op::V<D> Quad(D d, op::V<D> a, op::V<D> x, int nodes) {
   return s.hi;
 }
 
-#define ROW(name, expr)                                                    \
-  static void name(const double* pa, const double* pb, const double* px,  \
-                   double* o, size_t n) {                                  \
-    Drive3(pa, pb, px, o, n, [](DTag d, V a, V b, V x) HWY_ATTR {          \
-      (void)d; (void)a; (void)b; (void)x;                                  \
-      return expr;                                                         \
-    });                                                                    \
+#define ROW(name, expr)                                                  \
+  static void name(const double* pa, const double* pb, const double* px, \
+                   double* o, size_t n) {                                \
+    Drive3(pa, pb, px, o, n, [](DTag d, V a, V b, V x) HWY_ATTR {        \
+      (void)d;                                                           \
+      (void)a;                                                           \
+      (void)b;                                                           \
+      (void)x;                                                           \
+      return expr;                                                       \
+    });                                                                  \
   }
 
 ROW(FloorImpl, op::Add(a, x))
@@ -327,13 +331,11 @@ static int BetaSerNeed(double a, double b, double x, double eps) {
     t = DdMulD(d, DdMul(d, t, DdMul(d, nb, rn)), xv);
     const auto contrib = DdMul(d, t, DdRecipDd(d, TwoSum(d, av, nv)));
     s = DdAdd(d, s, contrib);
-    if (std::fabs(op::GetLane(contrib.hi)) <
-        std::fabs(op::GetLane(s.hi)) * eps)
+    if (std::fabs(op::GetLane(contrib.hi)) < std::fabs(op::GetLane(s.hi)) * eps)
       return n;
   }
   return detail::kBetaN1;
 }
-
 
 // Mixed-precision beta CF against the shipped all-dd depth: is the dd F
 // bit-identical, and how far apart are they in units of 2^-53 * F?
@@ -350,16 +352,19 @@ static int BetaIsR2NatImpl(double a, double b, double x) {
   const bool r2tf = (x < thr) != sw4;
   const bool r4 = detail::kBetaEpsR4 >= tau &&
                   detail::kBetaLn2 >= tau * std::fabs(std::log(xt)) &&
-                  (detail::kBetaXi1 >= xt || r2tf) && detail::kBetaB1 >= bmax * xt;
+                  (detail::kBetaXi1 >= xt || r2tf) &&
+                  detail::kBetaB1 >= bmax * xt;
   if (r4) return 0;
   const bool r1n = detail::kBetaXi1 >= x && detail::kBetaB1 >= b * x;
   const bool r1s = detail::kBetaXi1 >= y && detail::kBetaB1 >= a * y;
   if (r1n || r1s) return 0;
   const double nu = 1.0 / (1.0 / a + 1.0 / b);
   const double rat1 = x * (1.0 + b / a), rat2 = y * (1.0 + a / b);
-  const bool band = rat1 >= detail::kBetaXiRatioLo && detail::kBetaXiRatioHi >= rat1 &&
-                    rat2 >= detail::kBetaXiRatioLo && detail::kBetaXiRatioHi >= rat2;
-  const bool glr = bmax >= detail::kBetaGammaLim && tau >= detail::kBetaGlRidgeMin;
+  const bool band =
+      rat1 >= detail::kBetaXiRatioLo && detail::kBetaXiRatioHi >= rat1 &&
+      rat2 >= detail::kBetaXiRatioLo && detail::kBetaXiRatioHi >= rat2;
+  const bool glr =
+      bmax >= detail::kBetaGammaLim && tau >= detail::kBetaGlRidgeMin;
   if ((nu >= detail::kBetaTRidge || glr) && band) return 0;
   if (bmax >= detail::kBetaGammaLim && detail::kBetaGammaLim > tau) return 0;
   return x < thr ? 1 : 2;
@@ -390,8 +395,8 @@ static void BetaHuntImpl(double a0, double b0, double x0, int kdd, double* F,
   *err = std::fabs((mh - rh) + (ml - rl)) / (std::fabs(rh) * 0x1p-53);
 }
 
-static void BetaMixedCmpImpl(double a, double b, double x, int kdd,
-                             int* same, double* rel) {
+static void BetaMixedCmpImpl(double a, double b, double x, int kdd, int* same,
+                             double* rel) {
   const DTag d;
   // Aggregate-initialized, never default-constructed (BetaPsiCore's note).
   V al = op::Zero(d), be = op::Zero(d);
@@ -427,11 +432,11 @@ HWY_AFTER_NAMESPACE();
 namespace corvus {
 using RowFn = void (*)(const double*, const double*, const double*, double*,
                        size_t);
-#define EXP(name)                                                          \
-  HWY_EXPORT(name##Impl);                                                  \
-  static void name(const double* a, const double* b, const double* x,      \
-                   double* o, size_t n) {                                  \
-    HWY_DYNAMIC_DISPATCH(name##Impl)(a, b, x, o, n);                       \
+#define EXP(name)                                                     \
+  HWY_EXPORT(name##Impl);                                             \
+  static void name(const double* a, const double* b, const double* x, \
+                   double* o, size_t n) {                             \
+    HWY_DYNAMIC_DISPATCH(name##Impl)(a, b, x, o, n);                  \
   }
 EXP(Floor)
 EXP(GpFull)
@@ -478,7 +483,8 @@ static int GammaSerNeedD(double a, double x) {
 static int BetaSerNeedD(double a, double b, double x, double e) {
   return HWY_DYNAMIC_DISPATCH(BetaSerNeedImpl)(a, b, x, e);
 }
-static void BetaMixedCmpD(double a, double b, double x, int k, int* s, double* r) {
+static void BetaMixedCmpD(double a, double b, double x, int k, int* s,
+                          double* r) {
   HWY_DYNAMIC_DISPATCH(BetaMixedCmpImpl)(a, b, x, k, s, r);
 }
 static void BetaHuntD(double a, double b, double x, int k, double* F, double* e,
@@ -503,7 +509,8 @@ using Sampler = void (*)(std::mt19937_64&, double&, double&, double&);
 
 Set3 Make(Sampler s, size_t n) {
   std::mt19937_64 rng(20261029);
-  Set3 r{std::vector<double>(n), std::vector<double>(n), std::vector<double>(n)};
+  Set3 r{std::vector<double>(n), std::vector<double>(n),
+         std::vector<double>(n)};
   for (size_t i = 0; i < n; ++i) s(rng, r.a[i], r.b[i], r.x[i]);
   return r;
 }
@@ -539,43 +546,61 @@ void Band(const char* label, Sampler s, std::initializer_list<Row> rows) {
 }
 
 double LogU(std::mt19937_64& g, double lo, double hi) {
-  return std::exp(std::uniform_real_distribution<double>(std::log(lo),
-                                                         std::log(hi))(g));
+  return std::exp(
+      std::uniform_real_distribution<double>(std::log(lo), std::log(hi))(g));
 }
 double U(std::mt19937_64& g, double lo, double hi) {
   return std::uniform_real_distribution<double>(lo, hi)(g);
 }
 // bench_gamma's bands.
 void SG1(std::mt19937_64& g, double& a, double& b, double& x) {
-  a = LogU(g, 2, 19); b = 0; x = a * U(g, 0.2, 1.0);
+  a = LogU(g, 2, 19);
+  b = 0;
+  x = a * U(g, 0.2, 1.0);
 }
 void SG2(std::mt19937_64& g, double& a, double& b, double& x) {
-  a = LogU(g, 2, 19); b = 0; x = a * U(g, 3.0, 20.0);
+  a = LogU(g, 2, 19);
+  b = 0;
+  x = a * U(g, 3.0, 20.0);
 }
 void SG3(std::mt19937_64& g, double& a, double& b, double& x) {
-  a = LogU(g, 50, 1e6); b = 0; x = a * U(g, 0.7, 1.4);
+  a = LogU(g, 50, 1e6);
+  b = 0;
+  x = a * U(g, 0.7, 1.4);
 }
 void SG4(std::mt19937_64& g, double& a, double& b, double& x) {
-  a = LogU(g, 0.05, 1.5); b = 0; x = a * U(g, 0.5, 2.5);
+  a = LogU(g, 0.05, 1.5);
+  b = 0;
+  x = a * U(g, 0.5, 2.5);
 }
 // Wider R2 band: a in [0.1, 19], x past a+1 out to 50(a+1) (log-uniform).
 void SG2w(std::mt19937_64& g, double& a, double& b, double& x) {
-  a = LogU(g, 0.1, 19); b = 0; x = (a + 1) * LogU(g, 1.05, 50);
+  a = LogU(g, 0.1, 19);
+  b = 0;
+  x = (a + 1) * LogU(g, 1.05, 50);
 }
 // Near-wall R2: x just past a+1 -- the CF's slowest corner.
 void SG2n(std::mt19937_64& g, double& a, double& b, double& x) {
-  a = LogU(g, 2, 19); b = 0; x = (a + 1) * U(g, 1.0, 1.3);
+  a = LogU(g, 2, 19);
+  b = 0;
+  x = (a + 1) * U(g, 1.0, 1.3);
 }
 // bench_beta's bands.
 void SB1(std::mt19937_64& g, double& a, double& b, double& x) {
-  a = LogU(g, 2, 19); b = LogU(g, 2, 19); x = U(g, 0.01, 0.30);
+  a = LogU(g, 2, 19);
+  b = LogU(g, 2, 19);
+  x = U(g, 0.01, 0.30);
 }
 void SB2(std::mt19937_64& g, double& a, double& b, double& x) {
-  a = LogU(g, 2, 19); b = LogU(g, 2, 19); x = U(g, 0.46, 0.54);
+  a = LogU(g, 2, 19);
+  b = LogU(g, 2, 19);
+  x = U(g, 0.46, 0.54);
 }
 // Wider R2: a, b in [0.5, 30], x uniform in (0.05, 0.95).
 void SB2w(std::mt19937_64& g, double& a, double& b, double& x) {
-  a = LogU(g, 0.5, 30); b = LogU(g, 0.5, 30); x = U(g, 0.05, 0.95);
+  a = LogU(g, 0.5, 30);
+  b = LogU(g, 0.5, 30);
+  x = U(g, 0.05, 0.95);
 }
 
 void Hist(const char* label, std::vector<int> need, int cap) {
@@ -587,8 +612,9 @@ void Hist(const char* label, std::vector<int> need, int cap) {
   double mean = 0;
   for (int v : s) mean += v;
   mean /= static_cast<double>(s.size());
-  std::printf("%-34s cap %2d | lane mean %5.1f p50 %2d p90 %2d p99 %2d max %2d |",
-              label, cap, mean, pct(0.5), pct(0.9), pct(0.99), s.back());
+  std::printf(
+      "%-34s cap %2d | lane mean %5.1f p50 %2d p90 %2d p99 %2d max %2d |",
+      label, cap, mean, pct(0.5), pct(0.9), pct(0.99), s.back());
   for (int w : {2, 4, 8}) {
     double vm = 0;
     size_t k = 0;
@@ -626,7 +652,11 @@ int Hunt() {
       if (k) corvus::BetaHuntD(a, b, x, kK[k], &F, &e, &o);
       if (e > mx[s][k][bi]) {
         mx[s][k][bi] = e;
-        if (k == 0) { worst[s][bi][0] = a; worst[s][bi][1] = b; worst[s][bi][2] = x; }
+        if (k == 0) {
+          worst[s][bi][0] = a;
+          worst[s][bi][1] = b;
+          worst[s][bi][2] = x;
+        }
       }
     }
   };
@@ -635,19 +665,32 @@ int Hunt() {
     const double b = LogU(g, 0.02, 0x1p47);
     const double p = a / (a + b);
     switch (i % 6) {
-      case 0: one(a, b, U(g, 0.0, 1.0)); break;
-      case 1: one(a, b, p * (1 + (U(g, -1, 1) > 0 ? 1 : -1) * LogU(g, 1e-14, 0.9))); break;
-      case 2: one(a, b, LogU(g, 8, 800) / b); break;          // gamma line
-      case 3: one(a, b, 1 - LogU(g, 8, 800) / a); break;      // its mirror
-      case 4: one(LogU(g, 0.02, 40), b, LogU(g, 1e-300, 1)); break;
-      case 5: one(a, LogU(g, 0.02, 40), 1 - LogU(g, 1e-17, 1)); break;
+      case 0:
+        one(a, b, U(g, 0.0, 1.0));
+        break;
+      case 1:
+        one(a, b, p * (1 + (U(g, -1, 1) > 0 ? 1 : -1) * LogU(g, 1e-14, 0.9)));
+        break;
+      case 2:
+        one(a, b, LogU(g, 8, 800) / b);
+        break;  // gamma line
+      case 3:
+        one(a, b, 1 - LogU(g, 8, 800) / a);
+        break;  // its mirror
+      case 4:
+        one(LogU(g, 0.02, 40), b, LogU(g, 1e-300, 1));
+        break;
+      case 5:
+        one(a, LogU(g, 0.02, 40), 1 - LogU(g, 1e-17, 1));
+        break;
     }
   }
   one(0.995, 7896.5, 7.4438e-6);  // swapped witness, raw form
   one(1e10, 1, 1 - 8e-8);
   for (int s = 0; s < 2; ++s) {
-    std::printf("beta R2 CF, %s orientation: mixed vs shipped, max err in 2^-53 F\n",
-                s ? "SWAPPED" : "natural");
+    std::printf(
+        "beta R2 CF, %s orientation: mixed vs shipped, max err in 2^-53 F\n",
+        s ? "SWAPPED" : "natural");
     std::printf("%10s %8s", "log2 F", "points");
     for (int k : kK) std::printf("   K=%-2d   ", k);
     std::printf("\n");
@@ -671,14 +714,18 @@ int GDump(const char* path) {
   if (!f) return 1;
   char line[96];
   for (int ia = 0; ia < 160; ++ia) {
-    const double a = std::exp(std::log(1e-3) + (std::log(3000.0) - std::log(1e-3)) * ia / 159.0);
+    const double a = std::exp(std::log(1e-3) +
+                              (std::log(3000.0) - std::log(1e-3)) * ia / 159.0);
     const double x0 = a < 20 ? a + 1 : 2 * a;
     for (int ix = 0; ix < 160; ++ix) {
       // log-spaced in x - x0 from 1e-9*x0 to 1000, plus the wall itself
       const double t = ix / 159.0;
-      const double x = ix == 0 ? std::nextafter(x0, 2 * x0 + 1)
-                               : x0 + std::exp(std::log(1e-6 * (x0 + 1)) +
-                                               (std::log(1000.0) - std::log(1e-6 * (x0 + 1))) * t);
+      const double x =
+          ix == 0
+              ? std::nextafter(x0, 2 * x0 + 1)
+              : x0 + std::exp(std::log(1e-6 * (x0 + 1)) +
+                              (std::log(1000.0) - std::log(1e-6 * (x0 + 1))) *
+                                  t);
       if (x > 1000) continue;
       std::snprintf(line, sizeof line, "%.17g %.17g %d\n", a, x,
                     corvus::GammaCfNeedD(a, x));
@@ -707,8 +754,9 @@ int Bits(int argc, char** argv) {
   for (int i = 0; i < 400000; ++i) {
     a.push_back(LogU(g, 1e-3, 1e6));
     b.push_back(LogU(g, 1e-3, 1e6));
-    x.push_back(i % 3 == 0 ? U(g, 0, 1) : i % 3 == 1 ? LogU(g, 1e-12, 0.5)
-                                                    : 1 - LogU(g, 1e-12, 0.5));
+    x.push_back(i % 3 == 0   ? U(g, 0, 1)
+                : i % 3 == 1 ? LogU(g, 1e-12, 0.5)
+                             : 1 - LogU(g, 1e-12, 0.5));
   }
   const size_t n = a.size();
   std::vector<double> o1(n), o2(n), o3(n), o4(n), xg(n);
@@ -720,7 +768,8 @@ int Bits(int argc, char** argv) {
   std::ofstream f(argv[2]);
   char line[160];
   for (size_t i = 0; i < n; ++i) {
-    std::snprintf(line, sizeof line, "%a %a %a %a\n", o1[i], o2[i], o3[i], o4[i]);
+    std::snprintf(line, sizeof line, "%a %a %a %a\n", o1[i], o2[i], o3[i],
+                  o4[i]);
     f << line;
   }
   std::printf("%zu points written\n", n);
@@ -762,47 +811,56 @@ int FStat() {
 
 int Depth() {
   const size_t n = 4000;
-  std::printf("vector-mean columns: mean over consecutive w-lane groups of "
-              "the group max (what a per-lane late-start / early-exit loop "
-              "would pay)\n");
+  std::printf(
+      "vector-mean columns: mean over consecutive w-lane groups of "
+      "the group max (what a per-lane late-start / early-exit loop "
+      "would pay)\n");
   {
-    for (auto [lbl, s] : {std::pair<const char*, Sampler>{"gamma R2 CF (bench band)", SG2},
-                          {"gamma R2 CF (wide)", SG2w},
-                          {"gamma R2 CF (near wall)", SG2n}}) {
+    for (auto [lbl, s] :
+         {std::pair<const char*, Sampler>{"gamma R2 CF (bench band)", SG2},
+          {"gamma R2 CF (wide)", SG2w},
+          {"gamma R2 CF (near wall)", SG2n}}) {
       const auto set = Make(s, n);
       std::vector<int> need(n);
       for (size_t i = 0; i < n; ++i)
         need[i] = corvus::GammaCfNeedD(set.a[i], set.x[i]);
       Hist(lbl, need, 44);
     }
-    for (auto [lbl, s] : {std::pair<const char*, Sampler>{"gamma R1 series (bench band)", SG1}}) {
+    for (auto [lbl, s] : {std::pair<const char*, Sampler>{
+             "gamma R1 series (bench band)", SG1}}) {
       const auto set = Make(s, n);
       std::vector<int> need(n);
       for (size_t i = 0; i < n; ++i)
         need[i] = corvus::GammaSerNeedD(set.a[i], set.x[i]);
       Hist(lbl, need, 64);
     }
-    for (auto [lbl, s] : {std::pair<const char*, Sampler>{"beta R2 CF (bench band)", SB2},
-                          {"beta R2 CF (wide)", SB2w}}) {
+    for (auto [lbl, s] :
+         {std::pair<const char*, Sampler>{"beta R2 CF (bench band)", SB2},
+          {"beta R2 CF (wide)", SB2w}}) {
       const auto set = Make(s, n / 4);
       std::vector<int> need(n / 4);
       for (size_t i = 0; i < n / 4; ++i)
         need[i] = corvus::BetaCfNeedD(set.a[i], set.b[i], set.x[i]);
       Hist(lbl, need, 64);
     }
-    for (auto [lbl, s] : {std::pair<const char*, Sampler>{"bench", SB2},
-                          {"wide", SB2w}}) {
+    for (auto [lbl, s] :
+         {std::pair<const char*, Sampler>{"bench", SB2}, {"wide", SB2w}}) {
       const auto set = Make(s, n);
       for (int kdd : {2, 4, 8, 16}) {
         size_t same = 0;
         double mx = 0, sum = 0;
         for (size_t i = 0; i < n; ++i) {
-          int sm; double rel;
+          int sm;
+          double rel;
           corvus::BetaMixedCmpD(set.a[i], set.b[i], set.x[i], kdd, &sm, &rel);
-          same += sm; mx = std::max(mx, rel); sum += rel;
+          same += sm;
+          mx = std::max(mx, rel);
+          sum += rel;
         }
-        std::printf("beta R2 CF mixed (%s) last %2d dd: dd-identical %5.1f%%, |dF| mean %.4f max %.4f (units 2^-53 F)\n",
-                    lbl, kdd, 100.0 * same / n, sum / n, mx);
+        std::printf(
+            "beta R2 CF mixed (%s) last %2d dd: dd-identical %5.1f%%, |dF| "
+            "mean %.4f max %.4f (units 2^-53 F)\n",
+            lbl, kdd, 100.0 * same / n, sum / n, mx);
       }
     }
     const auto set = Make(SB1, n);
@@ -833,24 +891,42 @@ int main(int argc, char** argv) {
   if (argc > 2 && std::strcmp(argv[1], "gdump") == 0) return GDump(argv[2]);
   using namespace corvus;
   Band("gamma R1 (a 2..19, x/a .2..1)", SG1,
-       {{"floor", Floor}, {"full p", GpFull}, {"pref+exp", GPref},
-        {"lgamma", GLgam}, {"log_dd", GLog}, {"exp_dd", GExp},
+       {{"floor", Floor},
+        {"full p", GpFull},
+        {"pref+exp", GPref},
+        {"lgamma", GLgam},
+        {"log_dd", GLog},
+        {"exp_dd", GExp},
         {"series", GSer}});
   Band("gamma R2 (a 2..19, x/a 3..20)", SG2,
-       {{"floor", Floor}, {"full q", GqFull}, {"pref+exp", GPref},
-        {"cf 44", GCf44}, {"cf 32", GCf32}, {"cf 16", GCf16}});
+       {{"floor", Floor},
+        {"full q", GqFull},
+        {"pref+exp", GPref},
+        {"cf 44", GCf44},
+        {"cf 32", GCf32},
+        {"cf 16", GCf16}});
   Band("gamma R3 (a 50..1e6, x/a .7..1.4)", SG3,
        {{"floor", Floor}, {"full p", GpFull}, {"temme", GTem}});
   Band("gamma R4 (a .05..1.5, x/a .5..2.5)", SG4,
-       {{"floor", Floor}, {"full q", GqFull}, {"smallq", GR4},
+       {{"floor", Floor},
+        {"full q", GqFull},
+        {"smallq", GR4},
         {"pref+exp", GPref}});
   Band("beta R1 (a,b 2..19, x .01..0.3)", SB1,
-       {{"floor", Floor}, {"full p", BpFull}, {"series", BSer},
-        {"lgdiff", BLgd}, {"log_dd", BLog}});
+       {{"floor", Floor},
+        {"full p", BpFull},
+        {"series", BSer},
+        {"lgdiff", BLgd},
+        {"log_dd", BLog}});
   Band("beta R2 (a,b 2..19, x .46..54)", SB2,
-       {{"floor", Floor}, {"full q", BqFull}, {"cf 64", BCf64},
-        {"cf 32", BCf32}, {"cf 16", BCf16}, {"cfmix 8", BCfM8},
-        {"cfmix 4", BCfM4}, {"lgdiff", BLgd}});
+       {{"floor", Floor},
+        {"full q", BqFull},
+        {"cf 64", BCf64},
+        {"cf 32", BCf32},
+        {"cf 16", BCf16},
+        {"cfmix 8", BCfM8},
+        {"cfmix 4", BCfM4},
+        {"lgdiff", BLgd}});
   Band("quadrature node cost (gamma R2 band)", SG2,
        {{"floor", Floor}, {"quad 24", Quad24}});
   return 0;

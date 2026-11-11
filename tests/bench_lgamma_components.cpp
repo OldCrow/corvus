@@ -36,7 +36,7 @@ namespace HWY_NAMESPACE {
 // kernel body is a lambda V -> V so each component driver below is one line.
 template <class Body>
 static HWY_NOINLINE void DriveComponent(const double* in, double* out, size_t n,
-                                 Body body) {
+                                        Body body) {
   const op::ScalableTag<double> d;
   const size_t N = op::Lanes(d);
   size_t i = 0;
@@ -112,8 +112,9 @@ static void ZoneLeadImpl(const double* in, double* out, size_t n) {
                  Sel2(d, c1, ll[0][2], ll[1][2])};
     acc = DdAddD(d, acc, op::Mul(t, t));
     for (int k = 1; k >= 0; --k) {
-      acc = DdAdd(d, Dd<DTag>{Sel2(d, c1, lh[0][k], lh[1][k]),
-                              Sel2(d, c1, ll[0][k], ll[1][k])},
+      acc = DdAdd(d,
+                  Dd<DTag>{Sel2(d, c1, lh[0][k], lh[1][k]),
+                           Sel2(d, c1, ll[0][k], ll[1][k])},
                   DdMulD(d, acc, t));
     }
     return DdToDouble(DdMulD(d, acc, t));
@@ -141,9 +142,8 @@ static void StirFullImpl(const double* in, double* out, size_t n) {
 }
 
 static void StirLogImpl(const double* in, double* out, size_t n) {
-  DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
-    return LogDd(d, x).hi;
-  });
+  DriveComponent(in, out, n,
+                 [](DTag d, V x) HWY_ATTR { return LogDd(d, x).hi; });
 }
 
 // The 1/x^2 remainder Horner plus its divisions, without the log or the dd
@@ -162,9 +162,8 @@ static void StirRemImpl(const double* in, double* out, size_t n) {
 // --- reflection band [-30, -0.01]: the two extra logs vs LogSinc vs the ---
 // positive pipeline it wraps.
 static void ReflFullImpl(const double* in, double* out, size_t n) {
-  DriveComponent(in, out, n, [](DTag d, V x) HWY_ATTR {
-    return LgammaVec(d, x);
-  });
+  DriveComponent(in, out, n,
+                 [](DTag d, V x) HWY_ATTR { return LgammaVec(d, x); });
 }
 
 static void ReflPosImpl(const double* in, double* out, size_t n) {
@@ -225,9 +224,9 @@ using ComponentFn = void (*)(const double*, double*, size_t);
 static const char* BenchTargetName() {
   return HWY_DYNAMIC_DISPATCH(BenchTargetNameImpl)();
 }
-#define CORVUS_COMPONENT(name)                                     \
-  static void name(const double* in, double* out, size_t n) {      \
-    HWY_DYNAMIC_DISPATCH(name##Impl)(in, out, n);                  \
+#define CORVUS_COMPONENT(name)                                \
+  static void name(const double* in, double* out, size_t n) { \
+    HWY_DYNAMIC_DISPATCH(name##Impl)(in, out, n);             \
   }
 CORVUS_COMPONENT(Floor)
 CORVUS_COMPONENT(ZoneFull)

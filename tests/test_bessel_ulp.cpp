@@ -173,7 +173,7 @@ int RunOne(const char* label, const char* path, Fn fn, bool has_inf) {
   }
   if (has_inf) {
     std::printf("  %-16s n=%6zu  exact-match fails=%zu\n", "boundary (inf)",
-               inf_n, inf_fail);
+                inf_n, inf_fail);
   } else if (inf_n != 0) {
     // i0e/i1e never overflow -- an inf row here would mean the reference
     // itself is wrong for this file, not a kernel defect, but it is still
@@ -189,8 +189,9 @@ int RunOne(const char* label, const char* path, Fn fn, bool has_inf) {
     // ran -- the four series/tail x sign combinations are all populated by
     // design (the file banner), so n=0 here means a coverage gap.
     if (r->n == 0) {
-      std::fprintf(stderr, "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n",
-                   label, r->name);
+      std::fprintf(stderr,
+                   "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n", label,
+                   r->name);
       rc = 1;
     }
     if (r->max_ulp > kMaxUlp) {

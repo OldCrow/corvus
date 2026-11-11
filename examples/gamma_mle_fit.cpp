@@ -81,7 +81,8 @@ int main() {
 
     corvus::digamma(kOne, anchor);
     if (!close_enough(anchor[0], -0.5772156649015329, 1e-15)) {
-        std::cerr << "digamma(1) should be -0.5772156649015329, got " << anchor[0] << "\n";
+        std::cerr << "digamma(1) should be -0.5772156649015329, got "
+                  << anchor[0] << "\n";
         ok = false;
     }
     std::cout << std::scientific << std::setprecision(16);
@@ -89,7 +90,8 @@ int main() {
 
     corvus::trigamma(kOne, anchor);
     if (!close_enough(anchor[0], 1.6449340668482264, 1e-15)) {
-        std::cerr << "trigamma(1) should be 1.6449340668482264, got " << anchor[0] << "\n";
+        std::cerr << "trigamma(1) should be 1.6449340668482264, got "
+                  << anchor[0] << "\n";
         ok = false;
     }
     std::cout << "  trigamma(1) = " << anchor[0] << "   (pi^2 / 6)\n";
@@ -103,15 +105,16 @@ int main() {
     // -----------------------------------------------------------------------
     constexpr std::array<double, 6> kTrueShape{0.5, 1.0, 2.5, 7.0, 40.0, 300.0};
     constexpr std::array<double, 6> kS{
-        1.2703628454614782,   0.57721566490153287, 0.21313409122891189,
-        0.07312581395684617,  0.012552080079093177, 0.0016675925915637915};
+        1.2703628454614782,  0.57721566490153287,  0.21313409122891189,
+        0.07312581395684617, 0.012552080079093177, 0.0016675925915637915};
 
     std::array<double, 6> k{};
     for (std::size_t i = 0; i < k.size(); ++i) {
         k[i] = minka_initial_shape(kS[i]);
     }
 
-    std::cout << "\n  Newton on  f(k) = log(k) - digamma(k) - s,   f'(k) = 1/k - trigamma(k)\n";
+    std::cout << "\n  Newton on  f(k) = log(k) - digamma(k) - s,   f'(k) = 1/k "
+                 "- trigamma(k)\n";
     std::cout << "\n  iter    max |step / k|\n";
 
     std::array<double, 6> psi0{};
@@ -142,8 +145,8 @@ int main() {
             worst = std::max(worst, std::abs(step / k[i]));
         }
         ++iters_used;
-        std::cout << std::setw(6) << iter + 1 << "    " << std::scientific << std::setprecision(3)
-                  << worst << "\n";
+        std::cout << std::setw(6) << iter + 1 << "    " << std::scientific
+                  << std::setprecision(3) << worst << "\n";
         if (worst == 0.0 || worst >= prev_worst) {
             break;
         }
@@ -156,8 +159,9 @@ int main() {
     std::cout << "\n  true shape        recovered            relative error\n";
     for (std::size_t i = 0; i < k.size(); ++i) {
         const double rel = std::abs(k[i] - kTrueShape[i]) / kTrueShape[i];
-        std::cout << std::fixed << std::setprecision(1) << std::setw(11) << kTrueShape[i] << "  "
-                  << std::setprecision(15) << std::setw(20) << k[i] << "    " << std::scientific
+        std::cout << std::fixed << std::setprecision(1) << std::setw(11)
+                  << kTrueShape[i] << "  " << std::setprecision(15)
+                  << std::setw(20) << k[i] << "    " << std::scientific
                   << std::setprecision(2) << rel << "\n";
         if (!close_enough(k[i], kTrueShape[i], 1e-12)) {
             std::cerr << "failed to recover shape " << kTrueShape[i] << "\n";
@@ -165,31 +169,47 @@ int main() {
         }
     }
 
-    std::cout << "\n  " << iters_used << " iterations for all six, so " << 2 * iters_used
+    std::cout << "\n  " << iters_used << " iterations for all six, so "
+              << 2 * iters_used
               << " corvus calls in total —\n"
-                 "  not that many per fit. The shapes span three orders of magnitude and\n"
-                 "  converge together, because Minka's start is uniformly good and the\n"
+                 "  not that many per fit. The shapes span three orders of "
+                 "magnitude and\n"
+                 "  converge together, because Minka's start is uniformly good "
+                 "and the\n"
                  "  derivative is exact rather than a finite difference.\n";
 
-    std::cout << "\n  Two things above are worth accounting for, and they are the same\n"
-                 "  thing: the step size stops shrinking around 1e-13 instead of\n"
-                 "  reaching zero, and the recovered error grows with the shape — exact\n"
-                 "  at the small shapes, a few parts in 1e13 at k = 300.\n"
-                 "\n"
-                 "  Neither is corvus losing accuracy. digamma is 1 ULP at every one of\n"
-                 "  these points. The loss is in OUR residual: at k = 300, log(k) is\n"
-                 "  5.7038 and digamma(k) is 5.7021, and f subtracts them to get\n"
-                 "  1.6676e-3. Twelve bits cancel. Half an ulp of 5.7 is 4.4e-16, which\n"
-                 "  against an answer of 1.7e-3 is a relative error near 3e-13 — and\n"
-                 "  that is the floor the iteration hits, and the error it leaves in k.\n"
-                 "\n"
-                 "  Same shape as the tail problem in the other two examples: an input\n"
-                 "  good to 1 ULP, an expression that cancels most of it away, and a\n"
-                 "  result whose accuracy is set by the expression rather than by the\n"
-                 "  function. Here it is unavoidable — the MLE condition IS that\n"
-                 "  difference — so the honest response is to know the floor rather than\n"
-                 "  to iterate below it and believe the digits.\n";
+    std::cout
+        << "\n  Two things above are worth accounting for, and they are the "
+           "same\n"
+           "  thing: the step size stops shrinking around 1e-13 instead of\n"
+           "  reaching zero, and the recovered error grows with the shape — "
+           "exact\n"
+           "  at the small shapes, a few parts in 1e13 at k = 300.\n"
+           "\n"
+           "  Neither is corvus losing accuracy. digamma is 1 ULP at every one "
+           "of\n"
+           "  these points. The loss is in OUR residual: at k = 300, log(k) "
+           "is\n"
+           "  5.7038 and digamma(k) is 5.7021, and f subtracts them to get\n"
+           "  1.6676e-3. Twelve bits cancel. Half an ulp of 5.7 is 4.4e-16, "
+           "which\n"
+           "  against an answer of 1.7e-3 is a relative error near 3e-13 — "
+           "and\n"
+           "  that is the floor the iteration hits, and the error it leaves in "
+           "k.\n"
+           "\n"
+           "  Same shape as the tail problem in the other two examples: an "
+           "input\n"
+           "  good to 1 ULP, an expression that cancels most of it away, and "
+           "a\n"
+           "  result whose accuracy is set by the expression rather than by "
+           "the\n"
+           "  function. Here it is unavoidable — the MLE condition IS that\n"
+           "  difference — so the honest response is to know the floor rather "
+           "than\n"
+           "  to iterate below it and believe the digits.\n";
 
-    std::cout << "\n" << (ok ? "All checks passed.\n" : "FAILURES — see above.\n");
+    std::cout << "\n"
+              << (ok ? "All checks passed.\n" : "FAILURES — see above.\n");
     return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

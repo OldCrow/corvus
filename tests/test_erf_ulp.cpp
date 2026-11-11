@@ -57,11 +57,12 @@ int main(int argc, char* const* argv) {
     // exists so the next regen can't silently drop one through the gate.
     const bool zero_ref = want[i] == 0.0;
     const uint64_t u = zero_ref ? (SameBits(got[i], want[i]) ? 0 : UINT64_MAX)
-                                 : UlpDiff(got[i], want[i]);
+                                : UlpDiff(got[i], want[i]);
     if (zero_ref && u != 0) {
-      std::fprintf(stderr,
-                   "FAIL: signed-zero mismatch at x=%.17g: got=%.17g want=%.17g\n",
-                   in[i], got[i], want[i]);
+      std::fprintf(
+          stderr,
+          "FAIL: signed-zero mismatch at x=%.17g: got=%.17g want=%.17g\n",
+          in[i], got[i], want[i]);
     }
     if (u > 0) {
       ++over_half;
@@ -72,12 +73,15 @@ int main(int argc, char* const* argv) {
     }
   }
 
-  std::printf("points: %zu   max ULP: %llu   not-correctly-rounded: %zu (%.3f%%)\n",
-              in.size(), static_cast<unsigned long long>(max_ulp), over_half,
-              100.0 * static_cast<double>(over_half) / static_cast<double>(in.size()));
+  std::printf(
+      "points: %zu   max ULP: %llu   not-correctly-rounded: %zu (%.3f%%)\n",
+      in.size(), static_cast<unsigned long long>(max_ulp), over_half,
+      100.0 * static_cast<double>(over_half) / static_cast<double>(in.size()));
   if (max_ulp > 0) {
-    std::printf("worst: x=%s  got=%s  want=%s\n", std::to_string(in[worst]).c_str(),
-                std::to_string(got[worst]).c_str(), std::to_string(want[worst]).c_str());
+    std::printf("worst: x=%s  got=%s  want=%s\n",
+                std::to_string(in[worst]).c_str(),
+                std::to_string(got[worst]).c_str(),
+                std::to_string(want[worst]).c_str());
   }
 
   // #82 T1: real error against the contract ceiling and the regression pin.

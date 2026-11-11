@@ -140,16 +140,16 @@ constexpr double kDigammaDirectRecip = 0x1p-960;
 // sinc/cos leads >= 0.8), so P is off by < 2^-1070 of itself.
 template <class D>
 CORVUS_OUTLINE Dd<D> LeadTailDd(D d, Dd<D> t, const double* lead_hi,
-                            const double* lead_lo, int n_lead,
-                            const double* coef, int n_coef) {
+                                const double* lead_lo, int n_lead,
+                                const double* coef, int n_coef) {
   auto s = op::Set(d, coef[n_coef - 1]);
   for (int k = n_coef - 2; k >= 0; --k) {
     s = op::MulAdd(s, t.hi, op::Set(d, coef[k]));
   }
   Dd<D> acc = DdMulD(d, t, s);
-  acc = DdAdd(d, acc,
-              Dd<D>{op::Set(d, lead_hi[n_lead - 1]),
-                    op::Set(d, lead_lo[n_lead - 1])});
+  acc = DdAdd(
+      d, acc,
+      Dd<D>{op::Set(d, lead_hi[n_lead - 1]), op::Set(d, lead_lo[n_lead - 1])});
   for (int k = n_lead - 2; k >= 0; --k) {
     acc = DdAdd(d, DdMul(d, acc, t),
                 Dd<D>{op::Set(d, lead_hi[k]), op::Set(d, lead_lo[k])});
@@ -192,8 +192,7 @@ HWY_NOINLINE Dd<D> DigammaZoneDd(D d, Dd<D> t) {
   return DdMul(d, t,
                LeadTailDd(d, t, detail::kDigammaZoneLeadHi,
                           detail::kDigammaZoneLeadLo, detail::kDigammaZoneLead,
-                          detail::kDigammaZoneCoef,
-                          detail::kDigammaZoneNCoef));
+                          detail::kDigammaZoneCoef, detail::kDigammaZoneNCoef));
 }
 
 // psi on (0, X0): the (0, 1) up-step, the zone, and the down-walk between
@@ -397,10 +396,9 @@ HWY_NOINLINE Dd<D> DigammaCotDd(D d, op::V<D> u) {
       LeadTailDd(d, v, detail::kDigammaSincLeadHi, detail::kDigammaSincLeadLo,
                  detail::kDigammaSincLead, detail::kDigammaSincCoef,
                  detail::kDigammaSincNCoef);
-  const auto cs =
-      LeadTailDd(d, v, detail::kDigammaCosLeadHi, detail::kDigammaCosLeadLo,
-                 detail::kDigammaCosLead, detail::kDigammaCosCoef,
-                 detail::kDigammaCosNCoef);
+  const auto cs = LeadTailDd(d, v, detail::kDigammaCosLeadHi,
+                             detail::kDigammaCosLeadLo, detail::kDigammaCosLead,
+                             detail::kDigammaCosCoef, detail::kDigammaCosNCoef);
   // u * sinc(u) = sin(pi u)/pi, so the ratio below already carries the pi.
   // FLOOR: sinc is in [2/pi, 1] and |u| >= 2^-960, so sinc*u > 2^-961. cs
   // falls below the floor only in cos(pi u)'s zero band at |u| = 1/2, where
@@ -463,8 +461,7 @@ HWY_NOINLINE op::V<D> DigammaVec(D d, op::V<D> x) {
     // Reflection split by result size, as the ULP gate buckets it; lanes
     // below the direct-reciprocal cut are answered by the division instead.
     const auto refl = op::Ge(op::Abs(u), cut);
-    CORVUS_ROUTE(d, "digamma/neg",
-                 op::And(refl, op::Ge(op::Abs(r.hi), one)));
+    CORVUS_ROUTE(d, "digamma/neg", op::And(refl, op::Ge(op::Abs(r.hi), one)));
     CORVUS_ROUTE(d, "digamma/neg_small",
                  op::And(refl, op::Lt(op::Abs(r.hi), one)));
   }

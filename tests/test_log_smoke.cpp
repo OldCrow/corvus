@@ -44,13 +44,11 @@ int main() {
   // non-multiple of every lane count (2/4/8) so the masked-tail path runs
   // in the same call that carries the specials (#14).
   {
-    std::vector<double> in = {0.0,   -0.0,  -1.0,  -1e300, pnan,
-                              1.0,   inf,
-                              5e-324,     // min subnormal
-                              2.5e-310,   // subnormal
-                              1e300, 0.5,  2.0,    1e-8,
-                              3.0,   1e6,  0.001,  42.0,   7.5,
-                              123456.789};
+    std::vector<double> in = {
+        0.0,      -0.0, -1.0, -1e300, pnan, 1.0, inf,
+        5e-324,    // min subnormal
+        2.5e-310,  // subnormal
+        1e300,    0.5,  2.0,  1e-8,   3.0,  1e6, 0.001, 42.0, 7.5, 123456.789};
     std::vector<double> out(in.size());
     corvus::log(in, out);
 
@@ -72,6 +70,7 @@ int main() {
 
   // --- 1b. log1p specials in one batch call, same length-19 shape (#14).
   {
+    // clang-format off
     std::vector<double> in = {-1.0,  -1.5,  -1e300, 0.0,   -0.0,
                               pnan,  inf,
                               -0.9999999999999999,  // finite, near the pole
@@ -79,6 +78,7 @@ int main() {
                               5e-324,     // min subnormal
                               -5e-324,
                               0.5,   2.0,   42.0,   1e-8,  -0.25};
+    // clang-format on
     std::vector<double> out(in.size());
     corvus::log1p(in, out);
 
@@ -94,12 +94,14 @@ int main() {
     Check(SameBits(out[5], pnan), "log1p(nan) preserves its NaN payload");
     Check(out[6] == inf, "log1p(+inf) is +inf");
     for (size_t i = 7; i < in.size(); ++i) {
-      Check(std::isfinite(out[i]), "log1p of ordinary in-domain input is finite");
+      Check(std::isfinite(out[i]),
+            "log1p of ordinary in-domain input is finite");
     }
   }
 
   // --- 1c. log1pmx (#45) specials, same length-19 shape (#14).
   {
+    // clang-format off
     std::vector<double> in = {-1.0,  -1.5,  -1e300, 0.0,   -0.0,
                               pnan,  inf,
                               -0.9999999999999999,  // finite, near the pole
@@ -107,6 +109,7 @@ int main() {
                               5e-324,     // min subnormal: result -0
                               0x1p-520,   // result subnormal
                               0.5,   2.0,   42.0,   1e-8,  -0.25};
+    // clang-format on
     std::vector<double> out(in.size());
     corvus::log1pmx(in, out);
 
@@ -159,10 +162,10 @@ int main() {
   // the out-of-place call. Length 21: non-multiple of 2/4/8 again.
   {
     // In-domain for log: strictly positive.
-    std::vector<double> lin = {0.5,   1.0,    2.0,      3.75,   1e300, 1e-300,
-                               1e9,   42.0,   0.125,    6.0,    100.5, 0.01,
-                               2.5,   3.125,  7.0,      8.5,    0.25,  1e-3,
-                               1e6,   2.5e-310, 5e-324};
+    std::vector<double> lin = {0.5, 1.0,      2.0,   3.75, 1e300, 1e-300,
+                               1e9, 42.0,     0.125, 6.0,  100.5, 0.01,
+                               2.5, 3.125,    7.0,   8.5,  0.25,  1e-3,
+                               1e6, 2.5e-310, 5e-324};
     std::vector<double> expect_log(lin.size());
     corvus::log(lin, expect_log);
 
@@ -174,9 +177,9 @@ int main() {
     }
 
     // In-domain for log1p: strictly greater than -1.
-    std::vector<double> l1in = {-0.999, -0.5,  -0.25,  -0.01, -1e-300, 0.5,
-                                1.0,    2.0,   3.75,   1e300, 1e-300,  1e9,
-                                42.0,   0.125, 6.0,    100.5, 0.01,    2.5,
+    std::vector<double> l1in = {-0.999, -0.5,  -0.25, -0.01, -1e-300, 0.5,
+                                1.0,    2.0,   3.75,  1e300, 1e-300,  1e9,
+                                42.0,   0.125, 6.0,   100.5, 0.01,    2.5,
                                 10.0,   1e-8,  5e-324};
     std::vector<double> expect_log1p(l1in.size());
     corvus::log1p(l1in, expect_log1p);
@@ -203,11 +206,13 @@ int main() {
   // bits must not depend on its neighbours. One probe per branch and both
   // signs, specials included, against every lane position.
   {
+    // clang-format off
     const std::vector<std::array<double, 1>> probes = {
         {0x1p-500}, {-0x1p-530}, {1e-300}, {0x1.8p-481}, {0x1p-479},
         {-0x1.3p-20}, {0.0625}, {-0.0625}, {0.0625000000000001},
         {-0.0625000000000001}, {-0.9999999999999999}, {-0.75}, {0.3},
         {3.5}, {1e300}, {-1.0}, {-2.0}, {inf}, {0.0}, {-0.0}, {pnan}};
+    // clang-format on
     failures += corvus_test::LaneMix(
         "log1pmx", probes,
         [](const auto& c, auto& o) { corvus::log1pmx(c[0], o); });

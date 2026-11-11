@@ -2102,7 +2102,7 @@ def smoke_test():
 if __name__ == "__main__":
     _parser = argparse.ArgumentParser(
         allow_abbrev=False,  # '--ful' must ERROR, not prefix-match --full (#11)
-        
+
         description="Generate src/betainv_data.h -- every table "
                      "beta_p_inv/beta_q_inv needs.")
     _parser.add_argument(

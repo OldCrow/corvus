@@ -106,8 +106,9 @@ int main() {
 
     std::cout << "  z          Phi(z)                    Phi^-1(Phi(z))\n";
     for (std::size_t i = 0; i < kZ.size(); ++i) {
-        std::cout << std::fixed << std::setprecision(1) << std::setw(6) << kZ[i] << "  "
-                  << std::scientific << std::setprecision(16) << p[i] << "  " << back[i] << "\n";
+        std::cout << std::fixed << std::setprecision(1) << std::setw(6) << kZ[i]
+                  << "  " << std::scientific << std::setprecision(16) << p[i]
+                  << "  " << back[i] << "\n";
         // Round-tripping through both directions is the sharpest cheap check
         // available: it exercises the CDF and the quantile against each other
         // with no reference table involved.
@@ -123,20 +124,30 @@ int main() {
         ok = false;
     }
 
-    std::cout << "\n  Two details in that table are worth reading, not skipping.\n"
-                 "\n"
-                 "  The z = 0 row round-trips to NEGATIVE zero. erfcinv(1) is +0, and\n"
-                 "  the -sqrt(2) factor carries the sign onto it. -0.0 == 0.0 compares\n"
-                 "  true and behaves identically in arithmetic, so this is correct, not\n"
-                 "  a defect — but it will show up in printed output and in any code\n"
-                 "  that inspects the sign bit.\n"
-                 "\n"
-                 "  The z = +3 row does NOT round-trip exactly, while z = -3 does. The\n"
-                 "  functions are not at fault: Phi(3) = 0.9986 stores its information\n"
-                 "  in the digits just below 1, so the double simply does not have the\n"
-                 "  resolution left to name z again. The negative side keeps its value\n"
-                 "  small and loses nothing. That asymmetry is the same effect the tail\n"
-                 "  section below is about, showing up early and mildly.\n";
+    std::cout
+        << "\n  Two details in that table are worth reading, not skipping.\n"
+           "\n"
+           "  The z = 0 row round-trips to NEGATIVE zero. erfcinv(1) is +0, "
+           "and\n"
+           "  the -sqrt(2) factor carries the sign onto it. -0.0 == 0.0 "
+           "compares\n"
+           "  true and behaves identically in arithmetic, so this is correct, "
+           "not\n"
+           "  a defect — but it will show up in printed output and in any "
+           "code\n"
+           "  that inspects the sign bit.\n"
+           "\n"
+           "  The z = +3 row does NOT round-trip exactly, while z = -3 does. "
+           "The\n"
+           "  functions are not at fault: Phi(3) = 0.9986 stores its "
+           "information\n"
+           "  in the digits just below 1, so the double simply does not have "
+           "the\n"
+           "  resolution left to name z again. The negative side keeps its "
+           "value\n"
+           "  small and loses nothing. That asymmetry is the same effect the "
+           "tail\n"
+           "  section below is about, showing up early and mildly.\n";
 
     // -----------------------------------------------------------------------
     // 2. The far tail, where the formulation decides the answer.
@@ -153,17 +164,22 @@ int main() {
 
     for (std::size_t i = 0; i < kTail.size(); ++i) {
         const double naive = 1.0 - cdf[i];
-        std::cout << std::fixed << std::setprecision(1) << std::setw(6) << kTail[i] << "  "
-                  << std::scientific << std::setprecision(16) << direct[i] << "  " << naive << "\n";
+        std::cout << std::fixed << std::setprecision(1) << std::setw(6)
+                  << kTail[i] << "  " << std::scientific
+                  << std::setprecision(16) << direct[i] << "  " << naive
+                  << "\n";
     }
 
-    std::cout << "\n  Past z = 8.3 or so, Phi(z) rounds to 1.0 and the naive column\n"
-                 "  collapses to exactly zero. The direct column is still carrying\n"
-                 "  full relative accuracy — Q(20) is around 2.75e-89, and corvus's\n"
-                 "  erfc holds its bound down through the subnormals -- relative to\n"
-                 "  the rounded argument z/sqrt(2). Rounding that argument itself\n"
-                 "  costs about z^2 * 2^-53 relative (~160 ulp at z = 20): the floor\n"
-                 "  for any composed tail probability (USER-GUIDE, returned vs composed).\n";
+    std::cout
+        << "\n  Past z = 8.3 or so, Phi(z) rounds to 1.0 and the naive column\n"
+           "  collapses to exactly zero. The direct column is still carrying\n"
+           "  full relative accuracy — Q(20) is around 2.75e-89, and corvus's\n"
+           "  erfc holds its bound down through the subnormals -- relative to\n"
+           "  the rounded argument z/sqrt(2). Rounding that argument itself\n"
+           "  costs about z^2 * 2^-53 relative (~160 ulp at z = 20): the "
+           "floor\n"
+           "  for any composed tail probability (USER-GUIDE, returned vs "
+           "composed).\n";
 
     // The naive route must actually have failed, or this example is not
     // demonstrating what its text claims.
@@ -184,8 +200,9 @@ int main() {
 
     std::cout << "\nquantile of those tail probabilities (expect -z)\n\n";
     for (std::size_t i = 0; i < kTail.size(); ++i) {
-        std::cout << std::scientific << std::setprecision(3) << "  p = " << direct[i]
-                  << "   ->  " << std::fixed << std::setprecision(12) << std::setw(18) << tail_z[i]
+        std::cout << std::scientific << std::setprecision(3)
+                  << "  p = " << direct[i] << "   ->  " << std::fixed
+                  << std::setprecision(12) << std::setw(18) << tail_z[i]
                   << "\n";
         if (!close_enough(tail_z[i], -kTail[i], 1e-13)) {
             std::cerr << "tail quantile failed at z = " << kTail[i] << "\n";
@@ -193,6 +210,7 @@ int main() {
         }
     }
 
-    std::cout << "\n" << (ok ? "All checks passed.\n" : "FAILURES — see above.\n");
+    std::cout << "\n"
+              << (ok ? "All checks passed.\n" : "FAILURES — see above.\n");
     return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

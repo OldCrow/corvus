@@ -68,9 +68,9 @@ void Specials() {
   };
   // Specials table (SciPy limits).
   const Case cases[] = {
-      {1.0, 0.0, 0.0, 1.0},     // no mass yet
+      {1.0, 0.0, 0.0, 1.0},  // no mass yet
       {0.5, 0.0, 0.0, 1.0},
-      {0.0, 1.0, 1.0, 0.0},     // Gamma(0) is infinite: all the mass is below
+      {0.0, 1.0, 1.0, 0.0},  // Gamma(0) is infinite: all the mass is below
       {0.0, 1e-30, 1.0, 0.0},
       {0.0, 0.0, kNan, kNan},
       {1.0, kInf, 1.0, 0.0},
@@ -138,10 +138,10 @@ void CheckEdgeBatch(const EdgeCase* cases, size_t n) {
     if (!cases[i].check) continue;
     const EdgeCase& c = cases[i];
     const bool ok_p = std::isnan(c.p) ? std::isnan(p[i])
-                     : c.p == 0.0     ? (p[i] == 0.0 && !std::signbit(p[i]))
+                      : c.p == 0.0    ? (p[i] == 0.0 && !std::signbit(p[i]))
                                       : p[i] == c.p;
     const bool ok_q = std::isnan(c.q) ? std::isnan(q[i])
-                     : c.q == 0.0     ? (q[i] == 0.0 && !std::signbit(q[i]))
+                      : c.q == 0.0    ? (q[i] == 0.0 && !std::signbit(q[i]))
                                       : q[i] == c.q;
     if (!ok_p) {
       std::fprintf(stderr,
@@ -212,15 +212,17 @@ void EdgeContracts() {
       {20.0, 20.0, 0.0, 0.0, false},
   };
   constexpr size_t kN = sizeof(cases) / sizeof(cases[0]);
-  static_assert(kN == 9, "edge-contract batch length must stay a non-lane-"
-                        "multiple (9) -- update the comment above if this "
-                        "changes");
+  static_assert(kN == 9,
+                "edge-contract batch length must stay a non-lane-"
+                "multiple (9) -- update the comment above if this "
+                "changes");
   CheckEdgeBatch(cases, kN);
 }
 
 // A spread of in-domain points covering all four regions and both sides of
 // every boundary the router tests.
 std::vector<std::pair<double, double>> Probes() {
+  // clang-format off
   return {
       // R4 / R1 small-a corner (a <= 3/2, x <= 4), incl. the e^-gamma line.
       {1e-300, 1.0},   {1e-30, 0.5},    {0.25, 0.1},
@@ -241,6 +243,7 @@ std::vector<std::pair<double, double>> Probes() {
       // R3 boundary brackets.
       {20.0, 10.0},    {20.0, 40.0},    {1000.0, 1900.0},
   };
+  // clang-format on
 }
 
 void PlusQ() {
@@ -282,9 +285,9 @@ void LaneMix() {
       alone[i] = One(fn, probes[i].first, probes[i].second);
       // The scalar entry point (#42) is the same kernel on a broadcast
       // point; the contract is bit identity with the span form.
-      const double sc = fn_idx == 0
-                            ? corvus::gamma_p(probes[i].first, probes[i].second)
-                            : corvus::gamma_q(probes[i].first, probes[i].second);
+      const double sc =
+          fn_idx == 0 ? corvus::gamma_p(probes[i].first, probes[i].second)
+                      : corvus::gamma_q(probes[i].first, probes[i].second);
       if (!SameBits(sc, alone[i])) {
         std::fprintf(stderr,
                      "FAIL: %s scalar entry point differs at a=%.17g x=%.17g "
@@ -381,8 +384,9 @@ void Aliasing() {
   corvus::gamma_p(a, buf, buf);
   for (size_t i = 0; i < a.size(); ++i) {
     if (!SameBits(buf[i], want[i])) {
-      std::fprintf(stderr, "FAIL: gamma_p in-place differs at a=%.17g x=%.17g\n",
-                   a[i], x[i]);
+      std::fprintf(stderr,
+                   "FAIL: gamma_p in-place differs at a=%.17g x=%.17g\n", a[i],
+                   x[i]);
       g_fail = 1;
     }
   }

@@ -3463,7 +3463,7 @@ def backward_intervals(workers=10):
 if __name__ == "__main__":
     _parser = argparse.ArgumentParser(
         allow_abbrev=False,  # '--ful' must ERROR, not prefix-match --full (#11)
-        
+
         description="Generate tests/data/betainv_{p,q}_reference.txt -- "
                      "certified reference set for corvus::beta_p_inv / "
                      "corvus::beta_q_inv. With no flags, resumable; "

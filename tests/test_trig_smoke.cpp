@@ -43,11 +43,10 @@ int main() {
   // non-multiple of every lane count (2/4/8) so the masked-tail path runs
   // in the same call that carries the specials (#14).
   {
-    std::vector<double> in = {0.0,   -0.0, inf,  -inf, pnan,
-                              0.5,   1.0,  -2.5, 1e9,  1e300,
-                              2.5e-310,  // subnormal
-                              -0.75, 3.0,  -1e9, 42.0, -300.25,
-                              1e-8,  2.0,  -6.5};
+    std::vector<double> in = {
+        0.0,      -0.0, inf,  -inf, pnan,    0.5,  1.0, -2.5, 1e9, 1e300,
+        2.5e-310,  // subnormal
+        -0.75,    3.0,  -1e9, 42.0, -300.25, 1e-8, 2.0, -6.5};
     std::vector<double> cout_(in.size()), sout(in.size());
     corvus::cos(in, cout_);
     corvus::sin(in, sout);
@@ -94,10 +93,9 @@ int main() {
   // --- 3. Exact aliasing (in.data() == out.data()) must be bit-identical to
   // the out-of-place call. Length 21: non-multiple of 2/4/8 again.
   {
-    std::vector<double> in = {0.5,    -0.5,  1.0,   -2.5,   3.75,  1e300,
-                              -1e300, 1e9,   -42.0, 0.125,  6.0,   -6.0,
-                              100.5,  -0.01, 2.5,   -3.125, 7.0,   -8.5,
-                              0.25,   1e-3,  -1e6};
+    std::vector<double> in = {0.5, -0.5,   1.0,   -2.5, 3.75, 1e300, -1e300,
+                              1e9, -42.0,  0.125, 6.0,  -6.0, 100.5, -0.01,
+                              2.5, -3.125, 7.0,   -8.5, 0.25, 1e-3,  -1e6};
     std::vector<double> expect_cos(in.size()), expect_sin(in.size());
     corvus::cos(in, expect_cos);
     corvus::sin(in, expect_sin);
@@ -120,6 +118,7 @@ int main() {
   // cos is even, and both must hold BIT-exactly (same reduction path for x
   // and -x), including at huge arguments and subnormals.
   {
+    // clang-format off
     std::vector<double> xs = {0.5,     1.0,     2.5,      3.14159, 1e9,
                               1e300,   8388608.0 /* 2^23 */, 1e-300,
                               5e-324 /* min subnormal */,   2.5e-310,
@@ -131,6 +130,7 @@ int main() {
                               1e4,     3.3e7,   4.4e8,    5.5e11,  6.6e13,
                               1.25e-5, 2.5e-7,  9.9e-100, 1.1e50,  2.2e150,
                               0.9,     1.1,     2.9,      3.1,     6.28};
+    // clang-format on
     std::vector<double> neg(xs.size());
     for (size_t i = 0; i < xs.size(); ++i) neg[i] = -xs[i];
 

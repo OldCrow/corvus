@@ -121,8 +121,8 @@ int main() {
         },
         n, reps);
 
-    std::printf("%10zu %7s %14.2f %14.2f %9.2fx\n", n, "log1pmx",
-                simd_log1pmx, scalar_log1pmx, scalar_log1pmx / simd_log1pmx);
+    std::printf("%10zu %7s %14.2f %14.2f %9.2fx\n", n, "log1pmx", simd_log1pmx,
+                scalar_log1pmx, scalar_log1pmx / simd_log1pmx);
   }
   return 0;
 }

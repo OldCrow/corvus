@@ -165,7 +165,8 @@ int Route(double a, double b, double x, double pref, double qref,
                     rat2 >= kBetaXiRatioLo && rat2 <= kBetaXiRatioHi;
   const bool gl_hi = bmax >= corvus::detail::kBetaGammaLim;
   if (band && (nu >= kBetaTRidge ||
-               (gl_hi && std::min(a, b) >= corvus::detail::kBetaGlRidgeMin))) {  // on s (#84)
+               (gl_hi && std::min(a, b) >=
+                             corvus::detail::kBetaGlRidgeMin))) {  // on s (#84)
     // The kernel decides R3's direct side from lambda's EXACT sign, not from
     // the router's rounded ratio, so this mirrors that (see BetaR3Out). The
     // two can disagree only where lambda is within an ulp of zero, i.e. where
@@ -252,8 +253,7 @@ int ReportRegions(const char* path, const char* label, const Region* r, int n,
     std::printf(
         "%-7s %-14s n=%6zu  max ULP=%4llu (gate %llu)  not-CR: %zu (%.2f%%)  "
         "worst a=%.17g b=%.17g x=%.17g\n",
-        label, r[i].name, r[i].n,
-        static_cast<unsigned long long>(r[i].max_ulp),
+        label, r[i].name, r[i].n, static_cast<unsigned long long>(r[i].max_ulp),
         static_cast<unsigned long long>(r[i].bound), r[i].miss,
         r[i].n ? 100.0 * static_cast<double>(r[i].miss) /
                      static_cast<double>(r[i].n)
@@ -267,8 +267,9 @@ int ReportRegions(const char* path, const char* label, const Region* r, int n,
     // that is routing, not a coverage gap, and is the only cell skipped.
     const bool structurally_empty = (i == 8 && !want_p) || (i == 9 && want_p);
     if (r[i].n == 0 && !structurally_empty) {
-      std::fprintf(stderr, "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n",
-                   label, r[i].name);
+      std::fprintf(stderr,
+                   "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n", label,
+                   r[i].name);
       rc = 1;
     }
     if (r[i].n > 0 && r[i].max_ulp > r[i].bound) {
@@ -277,8 +278,8 @@ int ReportRegions(const char* path, const char* label, const Region* r, int n,
     }
     // #82 T1: the specials cells (8, 9) are exact-match, no real gate.
     if (i != 8 && i != 9) {
-      rc |= corvus_test::CheckReal(path, label, r[i].name, r[i].bound,
-                                   r[i].real);
+      rc |=
+          corvus_test::CheckReal(path, label, r[i].name, r[i].bound, r[i].real);
     }
   }
   return rc;
@@ -307,8 +308,8 @@ int Measure(const char* path, const char* label, bool want_p,
     if (code == kSp) {
       // Specials must reproduce the oracle EXACTLY (or NaN for NaN); there is
       // no ULP statement to make about a table lookup.
-      const bool ok = std::isnan(want[i]) ? std::isnan(got[i])
-                                          : SameBits(got[i], want[i]);
+      const bool ok =
+          std::isnan(want[i]) ? std::isnan(got[i]) : SameBits(got[i], want[i]);
       u = ok ? 0 : 1;
     } else if (std::isnan(got[i]) || std::isnan(want[i])) {
       u = std::isnan(got[i]) && std::isnan(want[i]) ? 0 : ~uint64_t{0};
@@ -395,9 +396,9 @@ int MonoPostPass(const std::vector<double>& a, const std::vector<double>& b,
       if (x[i1] == x[i0]) continue;
       if (pref[i1] < pref[i0]) {
         ++ref_bad;
-        std::fprintf(stderr,
-                     "MONO ref: a=%.17g b=%.17g x=%.17g->%.17g P %.17g->%.17g\n",
-                     a[i0], b[i0], x[i0], x[i1], pref[i0], pref[i1]);
+        std::fprintf(
+            stderr, "MONO ref: a=%.17g b=%.17g x=%.17g->%.17g P %.17g->%.17g\n",
+            a[i0], b[i0], x[i0], x[i1], pref[i0], pref[i1]);
       }
       if (got[i1] < got[i0]) {
         const uint64_t u = UlpDiff(got[i1], got[i0]);
@@ -466,9 +467,8 @@ int SeamSweeps() {
     std::vector<double> a(kN), b(kN), x(kN), p(kN);
     for (int i = 0; i < kN; ++i) {
       const double t = static_cast<double>(i) / (kN - 1);
-      const double v = s.geometric
-                           ? s.lo * std::exp(t * std::log(s.hi / s.lo))
-                           : s.lo + t * (s.hi - s.lo);
+      const double v = s.geometric ? s.lo * std::exp(t * std::log(s.hi / s.lo))
+                                   : s.lo + t * (s.hi - s.lo);
       a[i] = s.vary == 1 ? v : s.fa;
       b[i] = s.vary == 2 ? v : s.fb;
       x[i] = s.vary == 0 ? v : s.fx;
@@ -498,8 +498,7 @@ int SeamSweeps() {
       bool dp;
       const int code = Route(a[i], b[i], x[i], p[i], 1.0 - p[i], &dp);
       if (code != last) {
-        static const char* names[] = {"R1", "R2", "R3", "R4",
-                                      "Sp", "Pr", "Gl"};
+        static const char* names[] = {"R1", "R2", "R3", "R4", "Sp", "Pr", "Gl"};
         sn += std::snprintf(seq + sn, sizeof(seq) - sn, "%s%s",
                             last < 0 ? "" : ">", names[code]);
         last = code;

@@ -126,16 +126,16 @@ constexpr double kTrigammaTinyScale = 0x1p512;
 // < 2^-1070 of itself.
 template <class D>
 CORVUS_OUTLINE Dd<D> TrigammaLeadTailDd(D d, Dd<D> t, const double* lead_hi,
-                                    const double* lead_lo, int n_lead,
-                                    const double* coef, int n_coef) {
+                                        const double* lead_lo, int n_lead,
+                                        const double* coef, int n_coef) {
   auto s = op::Set(d, coef[n_coef - 1]);
   for (int k = n_coef - 2; k >= 0; --k) {
     s = op::MulAdd(s, t.hi, op::Set(d, coef[k]));
   }
   Dd<D> acc = DdMulD(d, t, s);
-  acc = DdAdd(d, acc,
-              Dd<D>{op::Set(d, lead_hi[n_lead - 1]),
-                    op::Set(d, lead_lo[n_lead - 1])});
+  acc = DdAdd(
+      d, acc,
+      Dd<D>{op::Set(d, lead_hi[n_lead - 1]), op::Set(d, lead_lo[n_lead - 1])});
   for (int k = n_lead - 2; k >= 0; --k) {
     acc = DdAdd(d, DdMul(d, acc, t),
                 Dd<D>{op::Set(d, lead_hi[k]), op::Set(d, lead_lo[k])});
@@ -194,11 +194,10 @@ HWY_INLINE Dd<D> TrigammaRecipSqDd(D d, op::V<D> a) {
 // cannot change FP semantics.
 template <class D>
 HWY_NOINLINE Dd<D> TrigammaZoneDd(D d, Dd<D> t) {
-  return TrigammaLeadTailDd(d, t, detail::kTrigammaZoneLeadHi,
-                            detail::kTrigammaZoneLeadLo,
-                            detail::kTrigammaZoneLead,
-                            detail::kTrigammaZoneCoef,
-                            detail::kTrigammaZoneNCoef);
+  return TrigammaLeadTailDd(
+      d, t, detail::kTrigammaZoneLeadHi, detail::kTrigammaZoneLeadLo,
+      detail::kTrigammaZoneLead, detail::kTrigammaZoneCoef,
+      detail::kTrigammaZoneNCoef);
 }
 
 // psi_1 on (0, X0): the (0, 1) up-step, the zone, and the down-walk between
@@ -396,8 +395,8 @@ HWY_NOINLINE op::V<D> TrigammaRoughTetragamma(D d, op::V<D> y_in) {
   for (int k = detail::kTrigammaRoughTetraN - 2; k >= 0; --k) {
     p = op::MulAdd(p, w, op::Set(d, detail::kTrigammaRoughTetraCoef[k]));
   }
-  const auto asym = op::Neg(op::Add(op::Add(w, op::Div(w, y)),
-                                    op::Mul(op::Mul(w, w), p)));
+  const auto asym =
+      op::Neg(op::Add(op::Add(w, op::Div(w, y)), op::Mul(op::Mul(w, w), p)));
   return op::Add(s, asym);
 }
 
@@ -423,10 +422,10 @@ HWY_NOINLINE op::V<D> TrigammaRoughTetragamma(D d, op::V<D> y_in) {
 template <class D>
 HWY_NOINLINE Dd<D> TrigammaReflDd(D d, op::V<D> u) {
   const auto v = TwoProd(d, u, u);  // exact
-  const auto sinc = TrigammaLeadTailDd(
-      d, v, detail::kTrigammaSincLeadHi, detail::kTrigammaSincLeadLo,
-      detail::kTrigammaSincLead, detail::kTrigammaSincCoef,
-      detail::kTrigammaSincNCoef);
+  const auto sinc =
+      TrigammaLeadTailDd(d, v, detail::kTrigammaSincLeadHi,
+                         detail::kTrigammaSincLeadLo, detail::kTrigammaSincLead,
+                         detail::kTrigammaSincCoef, detail::kTrigammaSincNCoef);
   const auto denom = DdMulD(d, sinc, u);  // = sin(pi u)/pi, either sign
   const auto rec = DdRecipDd(d, denom);
   return DdMul(d, rec, rec);
@@ -461,8 +460,8 @@ HWY_NOINLINE Dd<D> TrigammaReflDd(D d, op::V<D> u) {
 template <class D>
 HWY_NOINLINE op::V<D> TrigammaTinyRecipSq(D d, op::V<D> a) {
   const auto s = op::Set(d, kTrigammaTinyScale);
-  const auto as = op::Min(op::Max(op::Mul(a, s), op::Set(d, 1.0)),
-                          op::Set(d, 0x1p60));
+  const auto as =
+      op::Min(op::Max(op::Mul(a, s), op::Set(d, 1.0)), op::Set(d, 0x1p60));
   const auto q = TrigammaRecipSqDd(d, as);
   return op::Mul(op::Add(op::Mul(q.hi, s), op::Mul(q.lo, s)), s);
 }
@@ -479,7 +478,7 @@ HWY_NOINLINE op::V<D> TrigammaVec(D d, op::V<D> x) {
   const auto maxf = op::Set(d, (std::numeric_limits<double>::max)());
   const auto guard = op::Set(d, detail::kTrigammaDeepTinyGuard);
 
-  const auto neg = op::Lt(x, zero);           // false for -0.0, as required
+  const auto neg = op::Lt(x, zero);            // false for -0.0, as required
   const auto isint = op::Eq(x, op::Round(x));  // true for +-inf as well
 
   // SCRUB. Masked-off lanes still execute every op (AGENTS.md), and although

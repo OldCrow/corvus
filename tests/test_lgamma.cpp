@@ -49,8 +49,7 @@ int main() {
   double worst = 0.0;
   for (size_t i = 0; i < kN; ++i) {
     const double want = std::lgamma(in[i]);
-    const double err =
-        std::abs(out[i] - want) / std::max(std::abs(want), 1.0);
+    const double err = std::abs(out[i] - want) / std::max(std::abs(want), 1.0);
     if (err > max_err) {
       max_err = err;
       worst = in[i];
@@ -65,7 +64,7 @@ int main() {
   // this is a real check, not a tautology.
   const double inf = std::numeric_limits<double>::infinity();
   const double nan = std::numeric_limits<double>::quiet_NaN();
-  std::vector<double> sp_in = {1.0, 2.0,  0.0, -0.0, -1.0, -2.0,
+  std::vector<double> sp_in = {1.0,   2.0, 0.0,  -0.0, -1.0,  -2.0,
                                -40.0, inf, -inf, nan,  1e308, 3e305};
   std::vector<double> sp_out(sp_in.size());
   corvus::lgamma(sp_in, sp_out);
@@ -119,7 +118,8 @@ int main() {
 
   // Region boundaries: both sides of every split stay close to libm.
   for (const double b : {0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.0}) {
-    std::vector<double> bx = {std::nextafter(b, 0.0), b, std::nextafter(b, 99.0)};
+    std::vector<double> bx = {std::nextafter(b, 0.0), b,
+                              std::nextafter(b, 99.0)};
     std::vector<double> by(bx.size());
     corvus::lgamma(bx, by);
     for (size_t k = 0; k < bx.size(); ++k) {
@@ -141,6 +141,7 @@ int main() {
   // specials.
   {
     std::vector<std::array<double, 1>> probes;
+    // clang-format off
     for (const double v :
          {5e-324, 1e-310, 1e-300, 1e-8, 0.25, 0.5, 1.0, 1.5, 2.0, 2.5, 3.5,
           4.5, 6.5, 8.0, 10.0, 100.0, 1e5, 1e15, 1e300, 0x1.754d9278b51a7p+1014,
@@ -148,8 +149,10 @@ int main() {
           -1e15, -1e300, -inf, nan}) {
       probes.push_back({v});
     }
+    // clang-format on
     failures += corvus_test::LaneMix(
-        "lgamma", probes, [](const auto& c, auto& o) { corvus::lgamma(c[0], o); });
+        "lgamma", probes,
+        [](const auto& c, auto& o) { corvus::lgamma(c[0], o); });
   }
 
   if (failures == 0) {

@@ -106,8 +106,8 @@ void Fail(Check* c, const char* fn, double a, double b, double x, double got,
     ++band.hits;
     ++c->known;
     if (g_print_limit == SIZE_MAX) {
-      std::printf("  known #%d %-12s a=%a b=%a x=%a -> %a\n", band.issue, fn,
-                  a, b, x, got);
+      std::printf("  known #%d %-12s a=%a b=%a x=%a -> %a\n", band.issue, fn, a,
+                  b, x, got);
     }
     return;
   }
@@ -203,10 +203,12 @@ std::vector<double> Specials() {
   double payload;
   const uint64_t bits = 0x7FF8000000000ABCULL;  // quiet NaN with a payload
   std::memcpy(&payload, &bits, sizeof(payload));
+  // clang-format off
   return {0.0,     -0.0,    kDmin,  -kDmin,   0x1p-1022, 1e-300, 1e-17,
           1e-8,    0.25,    0.5,    std::nextafter(1.0, 0.0), 1.0,
           std::nextafter(1.0, 2.0), 2.0,    15.2,   1e5,      0x1p59,
           1e300,   kMax,    kInf,   -1.0,    -kInf,  kNaN,     payload};
+  // clang-format on
 }
 
 template <class Span2, class Scalar2>
@@ -223,7 +225,8 @@ void ScalarSpan2(Check* c, const char* fn, Span2 span_fn, Scalar2 scalar_fn) {
   for (size_t i = 0; i < a.size(); ++i) {
     ++c->n;
     const double one = scalar_fn(a[i], x[i]);
-    if (!SameBits(one, out[i])) Fail(c, fn, a[i], 0.0, x[i], one, "scalar != span");
+    if (!SameBits(one, out[i]))
+      Fail(c, fn, a[i], 0.0, x[i], one, "scalar != span");
   }
 }
 
@@ -243,7 +246,8 @@ void ScalarSpan3(Check* c, const char* fn, Span3 span_fn, Scalar3 scalar_fn) {
   for (size_t i = 0; i < a.size(); ++i) {
     ++c->n;
     const double one = scalar_fn(a[i], b[i], x[i]);
-    if (!SameBits(one, out[i])) Fail(c, fn, a[i], b[i], x[i], one, "scalar != span");
+    if (!SameBits(one, out[i]))
+      Fail(c, fn, a[i], b[i], x[i], one, "scalar != span");
   }
 }
 
@@ -251,32 +255,32 @@ void CheckScalarSpan() {
   Check c{"scalar=span"};
   using S = std::span<const double>;
   using O = std::span<double>;
-  ScalarSpan2(&c, "gamma_p", [](S a, S x, O o) { corvus::gamma_p(a, x, o); },
-              [](double a, double x) { return corvus::gamma_p(a, x); });
-  ScalarSpan2(&c, "gamma_q", [](S a, S x, O o) { corvus::gamma_q(a, x, o); },
-              [](double a, double x) { return corvus::gamma_q(a, x); });
-  ScalarSpan2(&c, "gamma_p_inv",
-              [](S a, S x, O o) { corvus::gamma_p_inv(a, x, o); },
-              [](double a, double x) { return corvus::gamma_p_inv(a, x); });
-  ScalarSpan2(&c, "gamma_q_inv",
-              [](S a, S x, O o) { corvus::gamma_q_inv(a, x, o); },
-              [](double a, double x) { return corvus::gamma_q_inv(a, x); });
-  ScalarSpan3(&c, "beta_p",
-              [](S a, S b, S x, O o) { corvus::beta_p(a, b, x, o); },
-              [](double a, double b, double x) { return corvus::beta_p(a, b, x); });
-  ScalarSpan3(&c, "beta_q",
-              [](S a, S b, S x, O o) { corvus::beta_q(a, b, x, o); },
-              [](double a, double b, double x) { return corvus::beta_q(a, b, x); });
-  ScalarSpan3(&c, "beta_p_inv",
-              [](S a, S b, S x, O o) { corvus::beta_p_inv(a, b, x, o); },
-              [](double a, double b, double x) {
-                return corvus::beta_p_inv(a, b, x);
-              });
-  ScalarSpan3(&c, "beta_q_inv",
-              [](S a, S b, S x, O o) { corvus::beta_q_inv(a, b, x, o); },
-              [](double a, double b, double x) {
-                return corvus::beta_q_inv(a, b, x);
-              });
+  ScalarSpan2(
+      &c, "gamma_p", [](S a, S x, O o) { corvus::gamma_p(a, x, o); },
+      [](double a, double x) { return corvus::gamma_p(a, x); });
+  ScalarSpan2(
+      &c, "gamma_q", [](S a, S x, O o) { corvus::gamma_q(a, x, o); },
+      [](double a, double x) { return corvus::gamma_q(a, x); });
+  ScalarSpan2(
+      &c, "gamma_p_inv", [](S a, S x, O o) { corvus::gamma_p_inv(a, x, o); },
+      [](double a, double x) { return corvus::gamma_p_inv(a, x); });
+  ScalarSpan2(
+      &c, "gamma_q_inv", [](S a, S x, O o) { corvus::gamma_q_inv(a, x, o); },
+      [](double a, double x) { return corvus::gamma_q_inv(a, x); });
+  ScalarSpan3(
+      &c, "beta_p", [](S a, S b, S x, O o) { corvus::beta_p(a, b, x, o); },
+      [](double a, double b, double x) { return corvus::beta_p(a, b, x); });
+  ScalarSpan3(
+      &c, "beta_q", [](S a, S b, S x, O o) { corvus::beta_q(a, b, x, o); },
+      [](double a, double b, double x) { return corvus::beta_q(a, b, x); });
+  ScalarSpan3(
+      &c, "beta_p_inv",
+      [](S a, S b, S x, O o) { corvus::beta_p_inv(a, b, x, o); },
+      [](double a, double b, double x) { return corvus::beta_p_inv(a, b, x); });
+  ScalarSpan3(
+      &c, "beta_q_inv",
+      [](S a, S b, S x, O o) { corvus::beta_q_inv(a, b, x, o); },
+      [](double a, double b, double x) { return corvus::beta_q_inv(a, b, x); });
   Report(c);
 }
 
@@ -286,10 +290,11 @@ void CheckScalarSpan() {
 std::vector<double> Shapes() {
   std::vector<double> v;
   for (int k = 1; k <= 9; ++k) v.push_back(k * kDmin);  // odd and even k (#51)
-  for (double s : {0x1p-1060, 1e-310, 0x1p-1022, 1e-300, 1e-200, 1e-140,
-                   1e-100, 1e-40, 1e-20, 1e-12, 1e-8, 1e-4, 0.01, 0.1, 0.47,
-                   0.5, 1.0, 1.5, 2.0, 7.5, 15.2, 20.0, 26.0, 100.0, 1e4, 1e8,
-                   1e17, 0x1p59, 1e30, 1e100, 1e300, kMax})
+  for (double s :
+       {0x1p-1060, 1e-310, 0x1p-1022, 1e-300, 1e-200, 1e-140, 1e-100, 1e-40,
+        1e-20,     1e-12,  1e-8,      1e-4,   0.01,   0.1,    0.47,   0.5,
+        1.0,       1.5,    2.0,       7.5,    15.2,   20.0,   26.0,   100.0,
+        1e4,       1e8,    1e17,      0x1p59, 1e30,   1e100,  1e300,  kMax})
     v.push_back(s);
   return v;
 }
@@ -303,10 +308,12 @@ std::vector<double> GammaXs() {
 }
 
 std::vector<double> UnitXs() {
+  // clang-format off
   std::vector<double> v = {0.0, kDmin, 1e-300, 1e-100, 1e-20, 1e-8, 0.01,
                            0.25, std::nextafter(0.5, 0.0), 0.5,
                            std::nextafter(0.5, 1.0), 0.75, 0.99,
                            std::nextafter(1.0, 0.0), 1.0};
+  // clang-format on
   return v;
 }
 
@@ -384,8 +391,10 @@ void CheckRange() {
     corvus::beta_q_inv(a, b, s, xq);
     for (size_t i = 0; i < a.size(); ++i) {
       c.n += 2;
-      if (!InUnit(xp[i])) Fail(&c, "beta_p_inv", a[i], b[i], s[i], xp[i], "range");
-      if (!InUnit(xq[i])) Fail(&c, "beta_q_inv", a[i], b[i], s[i], xq[i], "range");
+      if (!InUnit(xp[i]))
+        Fail(&c, "beta_p_inv", a[i], b[i], s[i], xp[i], "range");
+      if (!InUnit(xq[i]))
+        Fail(&c, "beta_q_inv", a[i], b[i], s[i], xq[i], "range");
     }
   }
   Report(c);
@@ -411,7 +420,8 @@ void CheckSymmetry() {
     for (double bi : tiny) {
       std::vector<double> xs = {0.5, 0.75, 0.9, 0.999};
       const double w = (ai + 1.0) / (ai + bi + 2.0);  // R4 window boundary
-      for (int k = -3; k <= 3; ++k) xs.push_back(Step(w, k < 0 ? -k : k, k < 0 ? -1 : 1, 0.0, 1.0));
+      for (int k = -3; k <= 3; ++k)
+        xs.push_back(Step(w, k < 0 ? -k : k, k < 0 ? -1 : 1, 0.0, 1.0));
       for (int k = 1; k <= 3; ++k) xs.push_back(Step(0.5, k, 1, 0.0, 1.0));
       for (double xi : xs) {
         if (!(xi >= 0.5 && xi < 1.0)) continue;  // 1 - x exact only here
@@ -428,7 +438,8 @@ void CheckSymmetry() {
   for (size_t i = 0; i < x.size(); ++i) {
     ++c.n;
     if (std::isnan(p[i]) || UlpDiff(p[i], q[i]) > kSymUlp)
-      Fail(&c, "beta_p/q", a[i], b[i], x[i], p[i] - q[i], "P(a,b,x) != Q(b,a,1-x)");
+      Fail(&c, "beta_p/q", a[i], b[i], x[i], p[i] - q[i],
+           "P(a,b,x) != Q(b,a,1-x)");
   }
   Report(c);
 }

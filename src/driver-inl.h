@@ -88,10 +88,10 @@ static void DriveUnary(Kernel kernel, std::span<const double> in,
   }
   if (i < n) {
     const size_t m = n - i;
-    op::StoreN(kernel(d, op::LoadNOr(op::Set(d, pi[i]), d, pi + i, m)), d, po + i, m);
+    op::StoreN(kernel(d, op::LoadNOr(op::Set(d, pi[i]), d, pi + i, m)), d,
+               po + i, m);
   }
 }
-
 
 template <class Kernel>
 static void DriveBinary(Kernel kernel, std::span<const double> a,
@@ -130,9 +130,9 @@ static void DriveTernary(Kernel kernel, std::span<const double> a,
   double* po = out.data();
   size_t i = 0;
   for (; i + N <= n; i += N) {
-    op::Store(
-        kernel(d, op::Load(d, pa + i), op::Load(d, pb + i), op::Load(d, pc + i)),
-        d, po + i);
+    op::Store(kernel(d, op::Load(d, pa + i), op::Load(d, pb + i),
+                     op::Load(d, pc + i)),
+              d, po + i);
   }
   if (i < n) {
     const size_t m = n - i;

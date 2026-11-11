@@ -29,7 +29,8 @@ void Floor(const char* file, unsigned line, bool lane0) noexcept {
     std::string f(file);
     const size_t slash = f.find_last_of("/\\");
     if (slash != std::string::npos) f = f.substr(slash + 1);
-    const auto it = names.insert("floor:" + f + ":" + std::to_string(line)).first;
+    const auto it =
+        names.insert("floor:" + f + ":" + std::to_string(line)).first;
     Hit(it->c_str(), true);
   } catch (...) {  // a census build only; a lost record is not a result
   }

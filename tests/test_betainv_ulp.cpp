@@ -116,8 +116,8 @@ void SplitCall(Fn fn, std::vector<double>& out, const In&... in) {
 }
 
 double UlpOf(double x) {
-  const double n = std::nextafter(std::fabs(x),
-                                  std::numeric_limits<double>::infinity());
+  const double n =
+      std::nextafter(std::fabs(x), std::numeric_limits<double>::infinity());
   return n - std::fabs(x);
 }
 
@@ -252,9 +252,9 @@ int Measure(const char* label, bool want_q, const char* path,
             const std::vector<Row>& rows, const std::vector<double>& got,
             const std::vector<double>& fwd) {
   Bucket b[kNBuckets] = {
-      {"deep-small closed form"},   {"huge-nu (formula bucket)"},
-      {"kappa > 2^18 (backward)"},  {"ridge (S1 territory)"},
-      {"gamma-limit transfer"},     {"small-parameter remainder"},
+      {"deep-small closed form"},  {"huge-nu (formula bucket)"},
+      {"kappa > 2^18 (backward)"}, {"ridge (S1 territory)"},
+      {"gamma-limit transfer"},    {"small-parameter remainder"},
   };
   Bucket beyond{"B rows (neighbour semantics)"};
   Bucket cross[4] = {{"  ... s > 1/2 (input flip)"},
@@ -333,8 +333,9 @@ int Measure(const char* label, bool want_q, const char* path,
     // regime (see the file banner), so n=0 here means a routing predicate
     // drifted from the kernel's, not that the regime is legitimately absent.
     if (b[k].n == 0) {
-      std::fprintf(stderr, "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n",
-                   label, b[k].name);
+      std::fprintf(stderr,
+                   "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n", label,
+                   b[k].name);
       rc = 1;
     }
     // The ill-conditioned bucket is NOT a y-ULP bucket: its rows are held to
@@ -356,9 +357,8 @@ int Measure(const char* label, bool want_q, const char* path,
                 static_cast<unsigned long long>(kMaxUlpBeyond));
   Report(beyond, gateb);
   if (beyond.n == 0) {
-    std::fprintf(stderr,
-                 "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n", label,
-                 beyond.name);
+    std::fprintf(stderr, "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n",
+                 label, beyond.name);
     rc = 1;
   }
   if (beyond.n > 0 && beyond.max_ulp > kMaxUlpBeyond) {
@@ -465,9 +465,9 @@ int CheckIntervals(const char* path) {
     const size_t n = a[k].size();
     std::vector<double> got(n);
     if (n > 0) {
-      SplitCall(k == 0 ? SpanFn(corvus::beta_p_inv)
-                       : SpanFn(corvus::beta_q_inv),
-                got, a[k], b[k], s[k]);
+      SplitCall(
+          k == 0 ? SpanFn(corvus::beta_p_inv) : SpanFn(corvus::beta_q_inv), got,
+          a[k], b[k], s[k]);
     }
     size_t bad = 0;
     uint64_t worst = 0;
@@ -490,8 +490,10 @@ int CheckIntervals(const char* path) {
         label, "backward (certified)", n, bad,
         static_cast<unsigned long long>(worst), wa, wb, ws);
     if (n == 0) {
-      std::fprintf(stderr, "FAIL: %s certified backward rows empty -- "
-                           "vacuous gate\n", label);
+      std::fprintf(stderr,
+                   "FAIL: %s certified backward rows empty -- "
+                   "vacuous gate\n",
+                   label);
       rc = 1;
     }
     if (bad > 0) {

@@ -39,15 +39,15 @@ static void Log1pmxTestImpl(const double* u, const double* ulo, double* hi,
   const size_t N = op::Lanes(d);
   size_t i = 0;
   for (; i + N <= n; i += N) {
-    const auto r = Log1pmxDd(
-        d, Dd<DT>{op::Load(d, u + i), op::Load(d, ulo + i)});
+    const auto r =
+        Log1pmxDd(d, Dd<DT>{op::Load(d, u + i), op::Load(d, ulo + i)});
     op::Store(r.hi, d, hi + i);
     op::Store(r.lo, d, lo + i);
   }
   if (i < n) {
     const size_t m = n - i;
-    const auto r = Log1pmxDd(
-        d, Dd<DT>{op::LoadN(d, u + i, m), op::LoadN(d, ulo + i, m)});
+    const auto r =
+        Log1pmxDd(d, Dd<DT>{op::LoadN(d, u + i, m), op::LoadN(d, ulo + i, m)});
     op::StoreN(r.hi, d, hi + i, m);
     op::StoreN(r.lo, d, lo + i, m);
   }
@@ -61,15 +61,14 @@ static void Expm1TestImpl(const double* w, const double* wlo, double* hi,
   const size_t N = op::Lanes(d);
   size_t i = 0;
   for (; i + N <= n; i += N) {
-    const auto r =
-        Expm1Dd(d, Dd<DT>{op::Load(d, w + i), op::Load(d, wlo + i)});
+    const auto r = Expm1Dd(d, Dd<DT>{op::Load(d, w + i), op::Load(d, wlo + i)});
     op::Store(r.hi, d, hi + i);
     op::Store(r.lo, d, lo + i);
   }
   if (i < n) {
     const size_t m = n - i;
-    const auto r = Expm1Dd(
-        d, Dd<DT>{op::LoadN(d, w + i, m), op::LoadN(d, wlo + i, m)});
+    const auto r =
+        Expm1Dd(d, Dd<DT>{op::LoadN(d, w + i, m), op::LoadN(d, wlo + i, m)});
     op::StoreN(r.hi, d, hi + i, m);
     op::StoreN(r.lo, d, lo + i, m);
   }
@@ -123,7 +122,7 @@ namespace {
 // ~2^-67.6, slightly below this pin's rows. No kernel fix: the seam's
 // consumer impact measured negligible (#68; src/dd_special-inl.h).
 constexpr double kMinRelLog1pmx = 67.77;  // |u| >= 2^-40, relative, all u.lo
-constexpr double kMaxAbs = 0x1.0p-186;  // |u| <  2^-40, absolute
+constexpr double kMaxAbs = 0x1.0p-186;    // |u| <  2^-40, absolute
 constexpr double kSplit = 0x1.0p-40;
 
 // #58's Expm1Dd set (tools/gen_dd_special_gates.py), relative, in bits. PIN:
@@ -138,8 +137,8 @@ using DdFn = void (*)(const double*, const double*, double*, double*, size_t);
 // Runs a four-column dd set (in.hi in.lo want.hi want.lo) through `fn` as two
 // calls (n-3, 3: the masked tail runs on every tier) and returns the worst
 // relative error in bits; `worst_in` gets its input's high word.
-double WorstRelBits(const char* path, size_t min_rows, DdFn fn,
-                    size_t* n_out, double* worst_in) {
+double WorstRelBits(const char* path, size_t min_rows, DdFn fn, size_t* n_out,
+                    double* worst_in) {
   const auto rows = corvus_test::LoadRef(path, 4, min_rows);
   std::vector<double> in, inlo, want_hi, want_lo;
   for (const auto& row : rows) {
@@ -181,8 +180,7 @@ int main(int argc, char* const* argv) {
     return 2;
   }
 
-  const char* path =
-      argc > 1 ? argv[1] : "tests/data/dd_special_reference.txt";
+  const char* path = argc > 1 ? argv[1] : "tests/data/dd_special_reference.txt";
   const auto rows = corvus_test::LoadRef(path, 3, 1500);
 
   std::vector<double> u, want_hi, want_lo;

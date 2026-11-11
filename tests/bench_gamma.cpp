@@ -82,8 +82,7 @@ void Run(const char* label, Fn fn, const char* fname, double a_lo, double a_hi,
           g_sink = out[n / 2];
         },
         n, n >= 1000000 ? 3 : 11);
-    std::printf("%10zu %14.2f %14.2f %9.2fx\n", n, simd, scalar,
-                scalar / simd);
+    std::printf("%10zu %14.2f %14.2f %9.2fx\n", n, simd, scalar, scalar / simd);
   }
 }
 

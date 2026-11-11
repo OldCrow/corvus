@@ -23,23 +23,18 @@ namespace HWY_NAMESPACE {
 // TU in the library and gets /d2ReducedOptimizeHugeFunctions on real MSVC
 // (CMakeLists.txt) from day one.
 static void BetaPInvImpl(std::span<const double> a, std::span<const double> b,
-                          std::span<const double> p, std::span<double> out) {
-  DriveTernary(
-      [](auto d, auto va, auto vb, auto vp) {
-        return BetaInvVec<false>(d, va, vb, vp);
-      },
-      a, b, p, out);
+                         std::span<const double> p, std::span<double> out) {
+  DriveTernary([](auto d, auto va, auto vb,
+                  auto vp) { return BetaInvVec<false>(d, va, vb, vp); },
+               a, b, p, out);
 }
 
 static void BetaQInvImpl(std::span<const double> a, std::span<const double> b,
-                          std::span<const double> q, std::span<double> out) {
-  DriveTernary(
-      [](auto d, auto va, auto vb, auto vq) {
-        return BetaInvVec<true>(d, va, vb, vq);
-      },
-      a, b, q, out);
+                         std::span<const double> q, std::span<double> out) {
+  DriveTernary([](auto d, auto va, auto vb,
+                  auto vq) { return BetaInvVec<true>(d, va, vb, vq); },
+               a, b, q, out);
 }
-
 
 // Scalar entry points (#42): the same kernel on a broadcast point.
 static double BetaPInvScalarImpl(double a, double b, double p) {

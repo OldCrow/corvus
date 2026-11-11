@@ -102,12 +102,13 @@ CORVUS_OUTLINE Dd<D> ZoneBracket(D d, op::V<D> t, M c1) {
   Dd<D> acc{Sel2(d, c1, lh[0][2], lh[1][2]), Sel2(d, c1, ll[0][2], ll[1][2])};
   acc = DdAddD(d, acc, op::Mul(s, t));
   for (int k = 1; k >= 0; --k) {
-    acc = DdAdd(d, Dd<D>{Sel2(d, c1, lh[0][k], lh[1][k]),
-                         Sel2(d, c1, ll[0][k], ll[1][k])},
-                // FLOOR: |acc*t| < 2^-968 needs |t| < 2^-964 (|acc| >= 0.067);
-                // the <= 2^-1072 loss lands on L1 or L0 (>= 0.32), 2^-1070
-                // relative in B for every caller (LgammaLow, R4, gammainv).
-                DdMulD(d, acc, t));
+    acc = DdAdd(
+        d,
+        Dd<D>{Sel2(d, c1, lh[0][k], lh[1][k]), Sel2(d, c1, ll[0][k], ll[1][k])},
+        // FLOOR: |acc*t| < 2^-968 needs |t| < 2^-964 (|acc| >= 0.067);
+        // the <= 2^-1072 loss lands on L1 or L0 (>= 0.32), 2^-1070
+        // relative in B for every caller (LgammaLow, R4, gammainv).
+        DdMulD(d, acc, t));
   }
   return acc;
 }
@@ -151,8 +152,9 @@ CORVUS_OUTLINE Dd<D> LgammaStirling(D d, op::V<D> x) {
   auto st = DdMulD(d, DdAddD(d, l, op::Set(d, -1.0)), op::Mul(x, down));
   st = Dd<D>{op::Mul(st.hi, up), op::Mul(st.lo, up)};
 
-  st = DdAdd(d, st, Dd<D>{op::Set(d, detail::kLgammaHalfLog2PiHi),
-                          op::Set(d, detail::kLgammaHalfLog2PiLo)});
+  st = DdAdd(d, st,
+             Dd<D>{op::Set(d, detail::kLgammaHalfLog2PiHi),
+                   op::Set(d, detail::kLgammaHalfLog2PiLo)});
   // -log(x)/2; halving is exact, so the pair stays normalized.
   const auto half = op::Set(d, -0.5);
   st = DdAdd(d, st, Dd<D>{op::Mul(l.hi, half), op::Mul(l.lo, half)});
@@ -200,8 +202,10 @@ CORVUS_OUTLINE Dd<D> LgammaTable(D d, op::V<D> x) {
   for (int k = 5; k < detail::kLgammaTabStride; ++k) {
     p = op::MulAdd(p, r, op::GatherIndex(d, tab + k, i));
   }
-  const Dd<D> c0{op::GatherIndex(d, tab + 0, i), op::GatherIndex(d, tab + 1, i)};
-  const Dd<D> c1{op::GatherIndex(d, tab + 2, i), op::GatherIndex(d, tab + 3, i)};
+  const Dd<D> c0{op::GatherIndex(d, tab + 0, i),
+                 op::GatherIndex(d, tab + 1, i)};
+  const Dd<D> c1{op::GatherIndex(d, tab + 2, i),
+                 op::GatherIndex(d, tab + 3, i)};
   // FLOOR: r is 0 (exact) or a multiple of ulp(x) >= 2^-52, and |c1| >= 0.70
   // on the band.
   const auto lead = DdAdd(d, c0, DdMulD(d, c1, r));
@@ -307,8 +311,9 @@ CORVUS_OUTLINE Dd<D> LogSinc(D d, op::V<D> u) {
   Dd<D> acc{op::Set(d, detail::kLgammaSinLeadHi[1]),
             op::Set(d, detail::kLgammaSinLeadLo[1])};
   acc = DdAddD(d, acc, op::Mul(s, v.hi));
-  acc = DdAdd(d, Dd<D>{op::Set(d, detail::kLgammaSinLeadHi[0]),
-                       op::Set(d, detail::kLgammaSinLeadLo[0])},
+  acc = DdAdd(d,
+              Dd<D>{op::Set(d, detail::kLgammaSinLeadHi[0]),
+                    op::Set(d, detail::kLgammaSinLeadLo[0])},
               DdMul(d, acc, v));  // FLOOR: only with v, argued at v above.
   return DdMul(d, acc, v);        // FLOOR: as acc*v above.
 }
@@ -349,10 +354,10 @@ CORVUS_OUTLINE op::V<D> LgammaVec(D d, op::V<D> x) {
     if (!op::AllFalse(d, tiny)) {
       CORVUS_ROUTE(d, "lgamma/neg_tiny", tiny);
       // FLOOR: ln 2 and 1200 are constants, nowhere near it.
-      const auto k = DdMulD(d,
-                            Dd<D>{op::Set(d, detail::kLogLn2Hi),
-                                  op::Set(d, detail::kLogLn2Lo)},
-                            op::Set(d, 1200.0));
+      const auto k = DdMulD(
+          d,
+          Dd<D>{op::Set(d, detail::kLogLn2Hi), op::Set(d, detail::kLogLn2Lo)},
+          op::Set(d, 1200.0));
       const auto lps = DdAdd(d, lp, Dd<D>{op::Neg(k.hi), op::Neg(k.lo)});
       lp = Dd<D>{op::IfThenElse(tiny, lps.hi, lp.hi),
                  op::IfThenElse(tiny, lps.lo, lp.lo)};
@@ -361,8 +366,9 @@ CORVUS_OUTLINE op::V<D> LgammaVec(D d, op::V<D> x) {
     const Dd<D> refl{op::Neg(r.hi), op::Neg(r.lo)};
     const auto pole = op::Eq(u, zero);
     CORVUS_ROUTE(d, "lgamma/special/pole", pole);
-    res = Dd<D>{op::IfThenElse(neg, op::IfThenElse(pole, inf, refl.hi), res.hi),
-                op::IfThenElse(neg, op::IfThenElse(pole, zero, refl.lo), res.lo)};
+    res =
+        Dd<D>{op::IfThenElse(neg, op::IfThenElse(pole, inf, refl.hi), res.hi),
+              op::IfThenElse(neg, op::IfThenElse(pole, zero, refl.lo), res.lo)};
   }
 
   // Adding +0 is the identity on every finite nonzero value and turns -0 into
@@ -378,9 +384,9 @@ CORVUS_OUTLINE op::V<D> LgammaVec(D d, op::V<D> x) {
   // double is an integer and therefore a pole (so -inf lands right too). NaN
   // propagates with its payload, matching erf/erfc.
   CORVUS_ROUTE(d, "lgamma/special/zero", op::Eq(x, zero));
-  CORVUS_ROUTE(d, "lgamma/special/overflow",
-               op::And(op::Gt(ax, op::Set(d, detail::kLgammaMaxArg)),
-                       op::Lt(ax, inf)));
+  CORVUS_ROUTE(
+      d, "lgamma/special/overflow",
+      op::And(op::Gt(ax, op::Set(d, detail::kLgammaMaxArg)), op::Lt(ax, inf)));
   CORVUS_ROUTE(d, "lgamma/special/inf", op::Eq(ax, inf));
   CORVUS_ROUTE(d, "lgamma/special/nan", op::IsNaN(x));
   out = op::IfThenElse(op::Eq(x, zero), inf, out);

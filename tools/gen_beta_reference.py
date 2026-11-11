@@ -4375,7 +4375,7 @@ def r3tail_append():
 if __name__ == "__main__":
     _parser = argparse.ArgumentParser(
         allow_abbrev=False,  # '--ful' must ERROR, not prefix-match --full (#11)
-        
+
         description="Generate tests/data/beta_{p,q}_reference.txt -- "
                      "correctly-rounded oracle reference set for "
                      "corvus::beta_p / corvus::beta_q. With no flags, runs "

@@ -57,9 +57,10 @@ int main() {
         worst_x = xs[i];
       }
     }
-    std::printf("erfinv(erf(x)) max abs round-trip error over [-5.8,5.8]: "
-                "%.3e at x=%.17g\n",
-                max_err, worst_x);
+    std::printf(
+        "erfinv(erf(x)) max abs round-trip error over [-5.8,5.8]: "
+        "%.3e at x=%.17g\n",
+        max_err, worst_x);
   }
 
   // --- erfcinv round-trip: erfcinv(erfc(x)) ~= x, x >= 0 ---------------
@@ -84,8 +85,7 @@ int main() {
     double max_err = 0.0, worst_x = 0.0;
     for (size_t i = 0; i < kN; ++i) {
       if (y[i] == 0.0) continue;  // erfc underflowed; erfcinv(0) == +inf
-      const double tol =
-          50.0 * 0x1p-52 * std::max(1.0, 2.0 * xs[i] * xs[i]);
+      const double tol = 50.0 * 0x1p-52 * std::max(1.0, 2.0 * xs[i] * xs[i]);
       const double err = std::abs(rt[i] - xs[i]);
       if (err > tol) {
         Check(false, "erfcinv(erfc(x)) round-trip within tolerance");
@@ -95,9 +95,10 @@ int main() {
         worst_x = xs[i];
       }
     }
-    std::printf("erfcinv(erfc(x)) max abs round-trip error over [0,27.2]: "
-                "%.3e at x=%.17g\n",
-                max_err, worst_x);
+    std::printf(
+        "erfcinv(erfc(x)) max abs round-trip error over [0,27.2]: "
+        "%.3e at x=%.17g\n",
+        max_err, worst_x);
   }
 
   const double inf = std::numeric_limits<double>::infinity();
@@ -105,10 +106,17 @@ int main() {
 
   // --- erfinv specials --------------------------------------------------
   {
-    std::vector<double> in = {0.0, -0.0, 1.0, -1.0,
+    std::vector<double> in = {0.0,
+                              -0.0,
+                              1.0,
+                              -1.0,
                               std::nextafter(1.0, 2.0),
                               std::nextafter(-1.0, -2.0),
-                              2.0, -2.0, nan, inf, -inf};
+                              2.0,
+                              -2.0,
+                              nan,
+                              inf,
+                              -inf};
     std::vector<double> out(in.size());
     corvus::erfinv(in, out);
     Check(out[0] == 0.0 && !std::signbit(out[0]), "erfinv(+0) == +0");
@@ -131,8 +139,16 @@ int main() {
 
   // --- erfcinv specials ---------------------------------------------------
   {
-    std::vector<double> in = {0.0, 2.0, 1.0, -0.0, std::nextafter(0.0, -1.0),
-                              std::nextafter(2.0, 3.0), -0.5, 2.5, nan, inf,
+    std::vector<double> in = {0.0,
+                              2.0,
+                              1.0,
+                              -0.0,
+                              std::nextafter(0.0, -1.0),
+                              std::nextafter(2.0, 3.0),
+                              -0.5,
+                              2.5,
+                              nan,
+                              inf,
                               -inf};
     std::vector<double> out(in.size());
     corvus::erfcinv(in, out);
@@ -166,7 +182,8 @@ int main() {
 
   // --- routing-boundary continuity (both sides of every split) -----------
   for (const double b : {0.5, 1.5}) {
-    std::vector<double> bx = {std::nextafter(b, 0.0), b, std::nextafter(b, 3.0)};
+    std::vector<double> bx = {std::nextafter(b, 0.0), b,
+                              std::nextafter(b, 3.0)};
     std::vector<double> by(bx.size());
     corvus::erfcinv(bx, by);
     for (size_t k = 0; k + 1 < bx.size(); ++k) {
@@ -175,7 +192,8 @@ int main() {
     }
   }
   for (const double b : {0.5, -0.5}) {
-    std::vector<double> bx = {std::nextafter(b, 0.0), b, std::nextafter(b, 2.0)};
+    std::vector<double> bx = {std::nextafter(b, 0.0), b,
+                              std::nextafter(b, 2.0)};
     std::vector<double> by(bx.size());
     corvus::erfinv(bx, by);
     for (size_t k = 0; k + 1 < bx.size(); ++k) {
@@ -222,15 +240,17 @@ int main() {
       pi.push_back({-v});
     }
     pi.push_back({nan});
-    for (const double v : {0.0, 5e-324, 1e-310, 1e-300, 1e-100, 1e-10, 0.01,
-                           0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.9, 2.0 - 0x1p-52,
-                           2.0, 2.5, -1.0, inf, -inf, nan}) {
+    for (const double v :
+         {0.0,           5e-324, 1e-310, 1e-300, 1e-100, 1e-10, 0.01,
+          0.25,          0.5,    0.75,   1.0,    1.25,   1.5,   1.9,
+          2.0 - 0x1p-52, 2.0,    2.5,    -1.0,   inf,    -inf,  nan}) {
       pc.push_back({v});
     }
     failures += corvus_test::LaneMix(
         "erfinv", pi, [](const auto& c, auto& o) { corvus::erfinv(c[0], o); });
-    failures += corvus_test::LaneMix(
-        "erfcinv", pc, [](const auto& c, auto& o) { corvus::erfcinv(c[0], o); });
+    failures += corvus_test::LaneMix("erfcinv", pc, [](const auto& c, auto& o) {
+      corvus::erfcinv(c[0], o);
+    });
   }
 
   if (failures == 0) {

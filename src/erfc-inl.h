@@ -81,7 +81,8 @@ static HWY_INLINE op::V<D> ErfcCoreVec(D d, op::V<D> x, op::V<D> ax, M nan) {
 template <class D>
 static CORVUS_OUTLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
   CORVUS_ROUTE_SCOPE(d, op::Gt(ax, op::Set(d, detail::kErfcTailLo)));
-  CORVUS_ROUTE(d, "erfc/tail_clamp", op::Gt(ax, op::Set(d, detail::kErfcTailHi)));
+  CORVUS_ROUTE(d, "erfc/tail_clamp",
+               op::Gt(ax, op::Set(d, detail::kErfcTailHi)));
   const auto at = op::Max(op::Min(ax, op::Set(d, detail::kErfcTailHi)),
                           op::Set(d, detail::kGammaTailZLo));
   const auto ssq = op::Mul(at, at);
@@ -89,7 +90,8 @@ static CORVUS_OUTLINE op::V<D> ErfcTailVec(D d, op::V<D> x, op::V<D> ax) {
   const auto sl = op::SquareLow(d, at, ssq);  // exact: at^2 = ssq + sl
   const auto ur = DdRecip(d, at);             // 1/at to ~2^-105
   // G as a dd from the shared Temme fit at r = 1/(2a), exactly half of ur.
-  const Dd<D> r2{op::Mul(ur.hi, op::Set(d, 0.5)), op::Mul(ur.lo, op::Set(d, 0.5))};
+  const Dd<D> r2{op::Mul(ur.hi, op::Set(d, 0.5)),
+                 op::Mul(ur.lo, op::Set(d, 0.5))};
   const auto gdd = GammaTailG(d, r2);
 
   const auto ex = ExpDdFrac(d, op::Neg(ssq), op::Neg(sl));
