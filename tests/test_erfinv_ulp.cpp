@@ -39,8 +39,7 @@ struct Region {
 
 // LoadRef exits on a missing, malformed or short file, so this cannot fail.
 void LoadReference(const char* path, std::vector<double>* in,
-                   std::vector<double>* want,
-                   std::vector<double>* res) {
+                   std::vector<double>* want, std::vector<double>* res) {
   const auto rows = corvus_test::LoadRef(path, 2, 5000);
   for (const auto& row : rows) {
     in->push_back(corvus_test::ParseDouble(row.tok[0], path, row.line));
@@ -162,7 +161,7 @@ int main(int argc, char* const* argv) {
                         {"T-far", kMaxUlpErfcinvTFar}};
     for (size_t i = 0; i < in.size(); ++i) {
       const double z = in[i];
-      Region& r = (z >= 0.5 && z <= 1.5)   ? regions[0]
+      Region& r = (z >= 0.5 && z <= 1.5)      ? regions[0]
                   : (std::abs(want[i]) < 6.0) ? regions[1]
                                               : regions[2];
       const uint64_t u = UlpDiff(got[i], want[i]);

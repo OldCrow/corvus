@@ -69,8 +69,7 @@ void CheckSpecial(const char* what, double got, double want) {
     ok = got == want && std::signbit(got) == std::signbit(want);
   }
   if (!ok) {
-    std::fprintf(stderr, "FAIL: %s: got %.17g, want %.17g\n", what, got,
-                want);
+    std::fprintf(stderr, "FAIL: %s: got %.17g, want %.17g\n", what, got, want);
     g_fail = 1;
   }
 }
@@ -244,8 +243,7 @@ void KnownValues() {
       {0x1.3be49a0933c7dp+3, 0x1.f3a35f6a25e23p-4, "i1e tail"},
       {-0x1.2ff6ca48103d8p+992, 0x1.76e72ad308e60p-498,
        "i0e deep tail (neg, near DBL_MAX)"},
-      {-0x1.4e718d7d76254p+664, -0x1.65695b56fc951p-334,
-       "i1e deep tail (neg)"},
+      {-0x1.4e718d7d76254p+664, -0x1.65695b56fc951p-334, "i1e deep tail (neg)"},
   };
   for (const Point& p : kPoints) {
     // Dispatch on the leading character of `what` ("i0 "/"i1 "/"i0e"/"i1e")
@@ -289,13 +287,13 @@ void Identities() {
       g_fail = 1;
     }
     if (!SameBits(i0ep, i0en)) {
-      std::fprintf(stderr, "FAIL: i0e(-%.4g) != i0e(%.4g): %.17g vs %.17g\n",
-                   x, x, i0en, i0ep);
+      std::fprintf(stderr, "FAIL: i0e(-%.4g) != i0e(%.4g): %.17g vs %.17g\n", x,
+                   x, i0en, i0ep);
       g_fail = 1;
     }
     if (!SameBits(i1n, -i1p)) {
-      std::fprintf(stderr, "FAIL: i1(-%.4g) != -i1(%.4g): %.17g vs %.17g\n",
-                   x, x, i1n, -i1p);
+      std::fprintf(stderr, "FAIL: i1(-%.4g) != -i1(%.4g): %.17g vs %.17g\n", x,
+                   x, i1n, -i1p);
       g_fail = 1;
     }
     if (!SameBits(i1en, -i1ep)) {
@@ -318,8 +316,8 @@ void Identities() {
 // bit-identical. Lengths 11 and 9: not multiples of 2/4/8.
 void LaneMix() {
   const double pts[] = {
-      -700.5,   -8.0000001, -8.0, -7.9999999, -0.5,      -1e-300,
-      0.0,      1e-300,     0.5,  7.9999999,  8.0,
+      -700.5, -8.0000001, -8.0, -7.9999999, -0.5, -1e-300,
+      0.0,    1e-300,     0.5,  7.9999999,  8.0,
   };
   const double filler[] = {3.0, -3.0, 600.0, -600.0, 0.0, 1e-10};
   constexpr size_t kNPts = sizeof(pts) / sizeof(pts[0]);

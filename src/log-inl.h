@@ -196,12 +196,15 @@ HWY_INLINE op::V<D> LogVec(D d, op::V<D> x) {
   // (rounding test failed on a positive normal x; subnormal x; specials
   // are routed inside LogDdVec).
   CORVUS_ROUTE(d, "log/fast", f.ok);
-  CORVUS_ROUTE(d, "log/dd/round",
-               op::And(op::And(op::Ge(x, op::Set(d, 0x1p-1022)),
-                               op::Ge(op::Set(d, std::numeric_limits<double>::max()), x)),
-                       op::MaskNot(f.ok)));
-  CORVUS_ROUTE(d, "log/dd/subnormal",
-               op::And(op::Gt(x, op::Zero(d)), op::Gt(op::Set(d, 0x1p-1022), x)));
+  CORVUS_ROUTE(
+      d, "log/dd/round",
+      op::And(
+          op::And(op::Ge(x, op::Set(d, 0x1p-1022)),
+                  op::Ge(op::Set(d, std::numeric_limits<double>::max()), x)),
+          op::MaskNot(f.ok)));
+  CORVUS_ROUTE(
+      d, "log/dd/subnormal",
+      op::And(op::Gt(x, op::Zero(d)), op::Gt(op::Set(d, 0x1p-1022), x)));
   if (op::AllTrue(d, f.ok)) return f.v;
   return op::IfThenElse(f.ok, f.v, LogDdVec(d, x));
 }
@@ -250,7 +253,7 @@ CORVUS_OUTLINE op::V<D> Log1pVec(D d, op::V<D> x) {
   res = op::IfThenElse(op::Lt(x, neg1), qnan, res);
   res = op::IfThenElse(op::Eq(x, inf), inf, res);
   res = op::IfThenElse(op::Eq(x, zero), x, res);  // log1p(+-0) = +-0
-  return op::IfThenElse(op::IsNaN(x), x, res);  // payload-preserving
+  return op::IfThenElse(op::IsNaN(x), x, res);    // payload-preserving
 }
 
 // ------------------------------------------------------------------------
@@ -297,9 +300,8 @@ CORVUS_OUTLINE op::V<D> Log1pmxVec(D d, op::V<D> x) {
   const auto m_tiny = op::Gt(tcut, ax);  // includes +-0; NaN: false
   const auto m_ser = op::And(op::Ge(ax, tcut), op::Ge(cut, ax));
   // |x| > 1/16 and x > -1, finite: the direct difference. NaN: false.
-  const auto m_dir = op::And(
-      op::And(op::Gt(ax, cut), op::Gt(x, neg1)),
-      op::Gt(inf, x));
+  const auto m_dir =
+      op::And(op::And(op::Gt(ax, cut), op::Gt(x, neg1)), op::Gt(inf, x));
   CORVUS_ROUTE(d, "log1pmx/tiny", m_tiny);
   CORVUS_ROUTE(d, "log1pmx/series", m_ser);
   CORVUS_ROUTE(d, "log1pmx/direct", m_dir);
@@ -327,10 +329,9 @@ CORVUS_OUTLINE op::V<D> Log1pmxVec(D d, op::V<D> x) {
     // FLOOR: xt >= 2^-474, so xt^2 >= 2^-948 and its low word is exact.
     const auto sq = TwoProd(d, xt, xt);
     // 2^-eh with eh = exponent of sq.hi (normal, positive): m in [1, 2).
-    const auto eh = op::Sub(
-        op::And(op::ShiftRight<52>(op::BitCast(di, sq.hi)),
-                op::Set(di, int64_t{0x7ff})),
-        op::Set(di, int64_t{1023}));
+    const auto eh = op::Sub(op::And(op::ShiftRight<52>(op::BitCast(di, sq.hi)),
+                                    op::Set(di, int64_t{0x7ff})),
+                            op::Set(di, int64_t{1023}));
     const auto inv = op::BitCast(
         d, op::ShiftLeft<52>(op::Sub(op::Set(di, int64_t{1023}), eh)));
     const Dd<D> m{op::Mul(sq.hi, inv), op::Mul(sq.lo, inv)};  // exact

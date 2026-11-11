@@ -33,7 +33,8 @@ double NsPerElement(F&& fn, size_t n, int reps) {
 
 void Run(const char* label, double lo, double hi) {
   std::printf("input range [%g, %g] (%s)\n", lo, hi, label);
-  std::printf("%10s %14s %14s %10s\n", "n", "corvus ns/el", "libm ns/el", "speedup");
+  std::printf("%10s %14s %14s %10s\n", "n", "corvus ns/el", "libm ns/el",
+              "speedup");
   std::mt19937_64 rng(20260721);
   std::uniform_real_distribution<double> dist(lo, hi);
   for (size_t n : {10000UL, 1000000UL}) {

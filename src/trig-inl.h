@@ -235,8 +235,9 @@ CORVUS_OUTLINE void TrigCores(D d, op::V<D> r, op::V<D> rlo, op::V<D>& s_core,
   const auto one = op::Set(d, 1.0);
   const auto half = op::Set(d, 0.5);
   const auto nu = op::Neg(u);
-  const auto h = op::MulAdd(nu, half, one);                  // 1 - u/2, rounded
-  const auto hl = op::MulAdd(nu, half, op::Sub(one, h));     // its residual; (h, hl) is exact
+  const auto h = op::MulAdd(nu, half, one);  // 1 - u/2, rounded
+  const auto hl =
+      op::MulAdd(nu, half, op::Sub(one, h));  // its residual; (h, hl) is exact
   auto mc = op::MulAdd(op::Mul(u, u), pc, hl);
   mc = op::MulAdd(op::Neg(r), rlo, mc);  // first-order effect of rlo on cos
   c_core = op::Add(h, mc);
@@ -273,8 +274,8 @@ CORVUS_OUTLINE op::V<D> TrigVec(D d, op::V<D> x) {
 
   if (!kIsCos) {
     // sin(-x) = -sin(|x|), exact (odd core). Also yields sin(-0) = -0.
-    const auto x_sign = op::And(op::BitCast(di, x),
-                                op::Set(di, std::numeric_limits<int64_t>::min()));
+    const auto x_sign = op::And(
+        op::BitCast(di, x), op::Set(di, std::numeric_limits<int64_t>::min()));
     res = op::Xor(res, op::BitCast(d, x_sign));
   }
 

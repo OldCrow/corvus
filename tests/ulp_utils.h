@@ -65,7 +65,8 @@ int LaneMix(const char* name, const std::vector<std::array<double, K>>& probes,
   auto call = [&](size_t off, size_t first, size_t count) {
     std::array<std::vector<double>, K> cols;
     for (size_t k = 0; k < off; ++k) {
-      for (size_t j = 0; j < K; ++j) cols[j].push_back(probes[(n - 1 - k) % n][j]);
+      for (size_t j = 0; j < K; ++j)
+        cols[j].push_back(probes[(n - 1 - k) % n][j]);
     }
     for (size_t i = first; i < first + count; ++i) {
       for (size_t j = 0; j < K; ++j) cols[j].push_back(probes[i][j]);
@@ -165,8 +166,9 @@ inline std::string SiblingPath(const char* ref_path, const char* name) {
 // strata or counts differ -- a truncated file, a dropped or renamed stratum,
 // a regenerated population of another size -- is exit 2, never a quietly
 // different gate. tools/hunt/strata_append.py writes the entries.
-inline void CheckCounts(const char* ref_path,
-                        const std::vector<std::pair<std::string, size_t>>& got) {
+inline void CheckCounts(
+    const char* ref_path,
+    const std::vector<std::pair<std::string, size_t>>& got) {
   const std::string p = SiblingPath(ref_path, "ref_counts.txt");
   std::string base(ref_path);
   const size_t slash = base.find_last_of("/\\");
@@ -184,7 +186,8 @@ inline void CheckCounts(const char* ref_path,
     const size_t b1 = line.find('|');
     const size_t b2 = line.rfind('|');
     if (b1 == std::string::npos || b1 == b2) {
-      std::fprintf(stderr, "%s: malformed line '%s'\n", p.c_str(), line.c_str());
+      std::fprintf(stderr, "%s: malformed line '%s'\n", p.c_str(),
+                   line.c_str());
       std::exit(2);
     }
     if (line.substr(0, b1) != base) continue;
@@ -192,7 +195,8 @@ inline void CheckCounts(const char* ref_path,
                       std::strtoull(line.c_str() + b2 + 1, nullptr, 10));
   }
   if (want != got) {
-    std::fprintf(stderr, "%s: row counts differ from %s\n", base.c_str(), p.c_str());
+    std::fprintf(stderr, "%s: row counts differ from %s\n", base.c_str(),
+                 p.c_str());
     for (const auto& w : want) {
       std::fprintf(stderr, "  want %-40s %zu\n", w.first.c_str(), w.second);
     }
@@ -239,11 +243,13 @@ inline std::vector<RefRow> LoadRef(const char* path, size_t ncols,
     ++lineno;
     if (linebuf.rfind("# stratum ", 0) == 0) {
       stratum = linebuf.substr(10);
-      while (!stratum.empty() && (stratum.back() == '\r' || stratum.back() == ' ')) {
+      while (!stratum.empty() &&
+             (stratum.back() == '\r' || stratum.back() == ' ')) {
         stratum.pop_back();
       }
       if (stratum == "deferred:?") {
-        std::fprintf(stderr, "%s:%zu: deferred rows name no issue\n", path, lineno);
+        std::fprintf(stderr, "%s:%zu: deferred rows name no issue\n", path,
+                     lineno);
         std::exit(2);
       }
       counts.emplace_back(stratum, 0);
@@ -264,14 +270,15 @@ inline std::vector<RefRow> LoadRef(const char* path, size_t ncols,
         tok.push_back(c);
       }
     }
-    if (row.tok.empty()) continue;           // blank line
-    if (row.tok[0][0] == '#') continue;      // comment header
+    if (row.tok.empty()) continue;       // blank line
+    if (row.tok[0][0] == '#') continue;  // comment header
     if (row.tok.back().rfind("r=", 0) == 0) {
       std::string list = row.tok.back().substr(2) + ",";
       row.tok.pop_back();
-      for (size_t at = 0, comma; (comma = list.find(',', at)) != std::string::npos;
-           at = comma + 1) {
-        row.res.push_back(ParseDouble(list.substr(at, comma - at), path, lineno));
+      for (size_t at = 0, comma;
+           (comma = list.find(',', at)) != std::string::npos; at = comma + 1) {
+        row.res.push_back(
+            ParseDouble(list.substr(at, comma - at), path, lineno));
       }
     }
     if (row.tok.size() != ncols) {
@@ -453,8 +460,10 @@ inline const std::vector<std::pair<std::string, BoundRow>>& Bounds(
       at = bar + 1;
     }
     if (fld.size() < 6 || fld.size() > 7) {
-      std::fprintf(stderr, "%s:%zu: expected gate|region|unit|gate|published|claim[|issue]\n",
-                   p.c_str(), lineno);
+      std::fprintf(
+          stderr,
+          "%s:%zu: expected gate|region|unit|gate|published|claim[|issue]\n",
+          p.c_str(), lineno);
       std::exit(2);
     }
     rows.emplace_back(fld[0] + "|" + fld[1],
@@ -464,20 +473,22 @@ inline const std::vector<std::pair<std::string, BoundRow>>& Bounds(
 }
 
 // 0 when (gate, region) is in the bound table with this unit and gate value.
-inline int CheckBound(const char* ref_path, const char* gate, const char* region,
-                      const char* unit, double bound) {
+inline int CheckBound(const char* ref_path, const char* gate,
+                      const char* region, const char* unit, double bound) {
   const std::string key = std::string(gate) + "|" + region;
   std::printf("BOUND %s|%s|%g\n", key.c_str(), unit, bound);
   for (const auto& kv : Bounds(ref_path)) {
     if (kv.first != key) continue;
     if (kv.second.unit == unit && kv.second.gate == bound) return 0;
-    std::fprintf(stderr,
-                 "FAIL: %s: the gate enforces %g %s, tests/data/bounds.txt says "
-                 "%g %s\n",
-                 key.c_str(), bound, unit, kv.second.gate, kv.second.unit.c_str());
+    std::fprintf(
+        stderr,
+        "FAIL: %s: the gate enforces %g %s, tests/data/bounds.txt says "
+        "%g %s\n",
+        key.c_str(), bound, unit, kv.second.gate, kv.second.unit.c_str());
     return 1;
   }
-  std::fprintf(stderr, "FAIL: %s: no row in tests/data/bounds.txt\n", key.c_str());
+  std::fprintf(stderr, "FAIL: %s: no row in tests/data/bounds.txt\n",
+               key.c_str());
   return 1;
 }
 
@@ -486,14 +497,14 @@ inline int CheckReal(const char* ref_path, const char* gate, const char* region,
   const int bound_rc =
       CheckBound(ref_path, gate, region, "ulp", static_cast<double>(bound));
   const char* cls = TierClass();
-  if (std::strchr(gate, '|') != nullptr || std::strchr(region, '|') != nullptr) {
+  if (std::strchr(gate, '|') != nullptr ||
+      std::strchr(region, '|') != nullptr) {
     std::fprintf(stderr, "%s / %s: '|' separates pin-file fields\n", gate,
                  region);
     std::exit(2);
   }
   const std::string key = std::string(gate) + "|" + region + "|" + cls;
-  const double contract =
-      bound == 0 ? 0.5 : static_cast<double>(bound) + 0.25;
+  const double contract = bound == 0 ? 0.5 : static_cast<double>(bound) + 0.25;
   const bool report = PinReport();
   std::printf("PIN %s|%.6f|%.2f\n", key.c_str(), m.max, contract);
   const Pin* pin = nullptr;
@@ -508,8 +519,8 @@ inline int CheckReal(const char* ref_path, const char* gate, const char* region,
               pin ? pin->issue.c_str() : "");
   int rc = bound_rc;
   if (m.missing) {
-    std::fprintf(stderr, "FAIL: %s %s: %zu rows carry no residual (r=)\n",
-                 gate, region, m.missing);
+    std::fprintf(stderr, "FAIL: %s %s: %zu rows carry no residual (r=)\n", gate,
+                 region, m.missing);
     rc = 1;
   }
   if (report) return rc;

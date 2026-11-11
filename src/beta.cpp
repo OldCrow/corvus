@@ -21,21 +21,17 @@ namespace HWY_NAMESPACE {
 // slice's two template cores (GammaSeriesSum, GammaCfRecip); templates
 // instantiate only what is called, so none of gamma's other cores land here.
 static void BetaPImpl(std::span<const double> a, std::span<const double> b,
-                       std::span<const double> x, std::span<double> out) {
-  DriveTernary(
-      [](auto d, auto va, auto vb, auto vx) {
-        return BetaVec<true>(d, va, vb, vx);
-      },
-      a, b, x, out);
+                      std::span<const double> x, std::span<double> out) {
+  DriveTernary([](auto d, auto va, auto vb,
+                  auto vx) { return BetaVec<true>(d, va, vb, vx); },
+               a, b, x, out);
 }
 
 static void BetaQImpl(std::span<const double> a, std::span<const double> b,
-                       std::span<const double> x, std::span<double> out) {
-  DriveTernary(
-      [](auto d, auto va, auto vb, auto vx) {
-        return BetaVec<false>(d, va, vb, vx);
-      },
-      a, b, x, out);
+                      std::span<const double> x, std::span<double> out) {
+  DriveTernary([](auto d, auto va, auto vb,
+                  auto vx) { return BetaVec<false>(d, va, vb, vx); },
+               a, b, x, out);
 }
 
 // Third export in this TU per the same sharing rule: lbeta is the PA
@@ -43,11 +39,10 @@ static void BetaQImpl(std::span<const double> a, std::span<const double> b,
 // LbetaVec's header in beta-inl.h) -- a separate TU would re-instantiate
 // that machinery per target for nothing.
 static void LbetaImpl(std::span<const double> a, std::span<const double> b,
-                       std::span<double> out) {
-  DriveBinary([](auto d, auto va, auto vb) { return LbetaVec(d, va, vb); }, a, b,
-              out);
+                      std::span<double> out) {
+  DriveBinary([](auto d, auto va, auto vb) { return LbetaVec(d, va, vb); }, a,
+              b, out);
 }
-
 
 // Scalar entry points (#42): the same kernel on a broadcast point.
 static double BetaPScalarImpl(double a, double b, double x) {

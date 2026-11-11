@@ -21,16 +21,17 @@ namespace HWY_NAMESPACE {
 // target for nothing.
 static void GammaPInvImpl(std::span<const double> a, std::span<const double> p,
                           std::span<double> out) {
-  DriveBinary([](auto d, auto va, auto vp) { return GammaInvVec<false>(d, va, vp); },
-              a, p, out);
+  DriveBinary(
+      [](auto d, auto va, auto vp) { return GammaInvVec<false>(d, va, vp); }, a,
+      p, out);
 }
 
 static void GammaQInvImpl(std::span<const double> a, std::span<const double> q,
                           std::span<double> out) {
-  DriveBinary([](auto d, auto va, auto vq) { return GammaInvVec<true>(d, va, vq); },
-              a, q, out);
+  DriveBinary(
+      [](auto d, auto va, auto vq) { return GammaInvVec<true>(d, va, vq); }, a,
+      q, out);
 }
-
 
 // Scalar entry points (#42): the same kernel on a broadcast point.
 static double GammaPInvScalarImpl(double a, double p) {

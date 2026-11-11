@@ -41,7 +41,8 @@ double NsPerElement(F&& fn, size_t n, int reps) {
 int main() {
   // Numbers attributed to the wrong tier are worse than no numbers.
   if (!corvus_test::ReportAndCheckTarget()) return 2;
-  std::printf("%10s %14s %14s %10s\n", "n", "corvus ns/el", "libm ns/el", "speedup");
+  std::printf("%10s %14s %14s %10s\n", "n", "corvus ns/el", "libm ns/el",
+              "speedup");
 
   std::mt19937_64 rng(20260720);
   std::uniform_real_distribution<double> dist(-6.0, 6.0);

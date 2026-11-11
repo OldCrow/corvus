@@ -170,7 +170,8 @@ int RunExp(const char* path) {
     // #14 N10: an empty bucket is a gate that never ran; the reference's
     // subnormal-output band is a designed stratum.
     if (r->n == 0) {
-      std::fprintf(stderr, "FAIL: exp %s bucket is empty (n=0) -- vacuous gate\n",
+      std::fprintf(stderr,
+                   "FAIL: exp %s bucket is empty (n=0) -- vacuous gate\n",
                    r->name);
       rc = 1;
     }

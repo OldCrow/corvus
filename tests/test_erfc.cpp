@@ -58,8 +58,8 @@ int main() {
   // far past that underflow point (erfc(30) is already the hard-zero row
   // below), so the correctly-rounded result there is exactly +0, and by
   // erfc(-x) = 2 - erfc(x), exactly 2 at -DBL_MAX.
-  std::vector<double> sp_in = {0.0, -0.0, inf, -inf, nan, 30.0, -30.0,
-                               dbl_max, -dbl_max};
+  std::vector<double> sp_in = {0.0,  -0.0,  inf,     -inf,    nan,
+                               30.0, -30.0, dbl_max, -dbl_max};
   std::vector<double> sp_out(sp_in.size());
   corvus::erfc(sp_in, sp_out);
   Check(sp_out[0] == 1.0, "erfc(0) == 1");
@@ -87,7 +87,8 @@ int main() {
   // step-to-step jumps: erfc's own relative slope is ~2a per ULP of x, so
   // the true function moves ~1e-13 across two ULPs at x = 17.)
   for (const double b : {6.0, 10.0, 17.0}) {
-    std::vector<double> bx = {std::nextafter(b, 0.0), b, std::nextafter(b, 99.0)};
+    std::vector<double> bx = {std::nextafter(b, 0.0), b,
+                              std::nextafter(b, 99.0)};
     std::vector<double> by(bx.size());
     corvus::erfc(bx, by);
     for (size_t k = 0; k < bx.size(); ++k) {
@@ -107,9 +108,10 @@ int main() {
   // tail, underflow, the negative axis, specials.
   {
     std::vector<std::array<double, 1>> probes;
-    for (const double v : {0.0, 5e-324, 1e-300, 1e-8, 0.25, 0.5, 0.84375, 1.0,
-                           2.0, 3.5, 5.9, 6.0, 6.5, 10.0, 17.0, 26.0, 26.5,
-                           27.2, 27.3, 30.0, 1e300, inf}) {
+    for (const double v :
+         {0.0,  5e-324, 1e-300, 1e-8, 0.25,  0.5,  0.84375, 1.0,
+          2.0,  3.5,    5.9,    6.0,  6.5,   10.0, 17.0,    26.0,
+          26.5, 27.2,   27.3,   30.0, 1e300, inf}) {
       probes.push_back({v});
       probes.push_back({-v});
     }

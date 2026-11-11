@@ -90,9 +90,9 @@ int main() {
   // Every lane position (#79): table region, tail, saturation, specials.
   {
     std::vector<std::array<double, 1>> probes;
-    for (const double v : {0.0, 5e-324, 1e-300, 1e-8, 0.25, 0.5, 0.84375, 1.0,
-                           1.25, 2.0, 2.5, 3.5, 4.0, 5.9, 6.0, 6.5, 27.0, 1e300,
-                           dbl_max, inf, nan}) {
+    for (const double v : {0.0, 5e-324, 1e-300, 1e-8,  0.25,    0.5, 0.84375,
+                           1.0, 1.25,   2.0,    2.5,   3.5,     4.0, 5.9,
+                           6.0, 6.5,    27.0,   1e300, dbl_max, inf, nan}) {
       probes.push_back({v});
       if (!std::isnan(v)) probes.push_back({-v});
     }

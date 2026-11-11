@@ -81,7 +81,8 @@ int main() {
     while (*p == ' ') ++p;
     char* name_end = p;
     while (*name_end && *name_end != ' ' && *name_end != '\n') ++name_end;
-    const Entry* e = Find(std::string_view(p, static_cast<size_t>(name_end - p)));
+    const Entry* e =
+        Find(std::string_view(p, static_cast<size_t>(name_end - p)));
     double arg[3] = {0, 0, 0};
     int n = 0;
     char* q = name_end;
@@ -99,10 +100,14 @@ int main() {
     }
     double r = 0;
     const std::span<double> out(&r, 1);
-    const std::span<const double> a0(&arg[0], 1), a1(&arg[1], 1), a2(&arg[2], 1);
-    if (e->u) e->u(a0, out);
-    else if (e->b) e->b(a0, a1, out);
-    else e->t(a0, a1, a2, out);
+    const std::span<const double> a0(&arg[0], 1), a1(&arg[1], 1),
+        a2(&arg[2], 1);
+    if (e->u)
+      e->u(a0, out);
+    else if (e->b)
+      e->b(a0, a1, out);
+    else
+      e->t(a0, a1, a2, out);
     uint64_t bits;
     std::memcpy(&bits, &r, sizeof bits);
 #if defined(CORVUS_ROUTE_CENSUS)

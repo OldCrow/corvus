@@ -43,7 +43,7 @@ double NsPerElement(F&& fn, size_t n, int reps) {
 void ScalarErfinv(const std::vector<double>& in, std::vector<double>& out) {
   for (size_t i = 0; i < in.size(); ++i) {
     corvus::erfinv(std::span<const double>(&in[i], 1),
-                  std::span<double>(&out[i], 1));
+                   std::span<double>(&out[i], 1));
   }
 }
 
@@ -75,13 +75,14 @@ void RunErfinv(const char* label, double lo, double hi) {
           ScalarErfinv(in, out);
           g_sink = out[n / 2];
         },
-        n, n >= 1000000 ? 3 : 11);  // scalar path is span-call-per-element, slow
-    std::printf("%10zu %14.2f %14.2f %9.2fx\n", n, simd, scalar,
-                scalar / simd);
+        n,
+        n >= 1000000 ? 3 : 11);  // scalar path is span-call-per-element, slow
+    std::printf("%10zu %14.2f %14.2f %9.2fx\n", n, simd, scalar, scalar / simd);
   }
 }
 
-void RunErfcinv(const char* label, double lo, double hi, bool log_spaced = false) {
+void RunErfcinv(const char* label, double lo, double hi,
+                bool log_spaced = false) {
   std::printf("erfcinv, input range [%g, %g] (%s)\n", lo, hi, label);
   std::printf("%10s %14s %14s %10s\n", "n", "simd ns/el", "scalar ns/el",
               "speedup");
@@ -110,8 +111,7 @@ void RunErfcinv(const char* label, double lo, double hi, bool log_spaced = false
           g_sink = out[n / 2];
         },
         n, n >= 1000000 ? 3 : 11);
-    std::printf("%10zu %14.2f %14.2f %9.2fx\n", n, simd, scalar,
-                scalar / simd);
+    std::printf("%10zu %14.2f %14.2f %9.2fx\n", n, simd, scalar, scalar / simd);
   }
 }
 

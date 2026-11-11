@@ -76,4 +76,3 @@ def strata():
             note="top subnormal binades; outputs cross 2^-1022"),
     ]
     return out
-

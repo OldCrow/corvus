@@ -75,7 +75,7 @@ void ScalarWalk(Fn fn, const std::vector<double>& a,
 enum : int { kR1 = 0, kR2 = 1, kR3 = 2, kR4 = 3, kSp = 4, kPr = 5, kGl = 6 };
 
 int Route(double a, double b, double x, double pref, double qref,
-         bool* direct_is_p) {
+          bool* direct_is_p) {
   const bool in_domain = a > 0.0 && b > 0.0 && std::isfinite(a) &&
                          std::isfinite(b) && x > 0.0 && x < 1.0;
   if (!in_domain) {
@@ -127,7 +127,8 @@ int Route(double a, double b, double x, double pref, double qref,
                     rat2 >= kBetaXiRatioLo && rat2 <= kBetaXiRatioHi;
   const bool gl_hi = bmax >= corvus::detail::kBetaGammaLim;
   if (band && (nu >= kBetaTRidge ||
-               (gl_hi && std::min(a, b) >= corvus::detail::kBetaGlRidgeMin))) {  // on s (#84)
+               (gl_hi && std::min(a, b) >=
+                             corvus::detail::kBetaGlRidgeMin))) {  // on s (#84)
     const bool sw = rat1 > 1.0;
     const double lam = a * y - b * x;
     *direct_is_p = sw ? (lam > 0.0) : (lam >= 0.0);
@@ -254,8 +255,8 @@ void SampleGl(std::mt19937_64& rng, std::vector<double>& a,
 using Sampler = void (*)(std::mt19937_64&, std::vector<double>&,
                          std::vector<double>&, std::vector<double>&);
 
-void Run(const char* fname, Fn fn, const char* label, int want_region,
-         size_t n, Sampler sampler) {
+void Run(const char* fname, Fn fn, const char* label, int want_region, size_t n,
+         Sampler sampler) {
   std::mt19937_64 rng(20260806);
   std::vector<double> a(n), b(n), x(n), out(n);
   sampler(rng, a, b, x);

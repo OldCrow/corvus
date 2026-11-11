@@ -19,16 +19,17 @@ namespace HWY_NAMESPACE {
 // Clenshaw passes) twice per target for nothing.
 static void GammaPImpl(std::span<const double> a, std::span<const double> x,
                        std::span<double> out) {
-  DriveBinary([](auto d, auto va, auto vx) { return GammaVec<true>(d, va, vx); },
-              a, x, out);
+  DriveBinary(
+      [](auto d, auto va, auto vx) { return GammaVec<true>(d, va, vx); }, a, x,
+      out);
 }
 
 static void GammaQImpl(std::span<const double> a, std::span<const double> x,
                        std::span<double> out) {
-  DriveBinary([](auto d, auto va, auto vx) { return GammaVec<false>(d, va, vx); },
-              a, x, out);
+  DriveBinary(
+      [](auto d, auto va, auto vx) { return GammaVec<false>(d, va, vx); }, a, x,
+      out);
 }
-
 
 // Scalar entry points (#42): the same kernel on a broadcast point.
 static double GammaPScalarImpl(double a, double x) {
@@ -38,7 +39,8 @@ static double GammaPScalarImpl(double a, double x) {
 
 static double GammaQScalarImpl(double a, double x) {
   return DriveScalarBinary(
-      [](auto d, auto va, auto vx) { return GammaVec<false>(d, va, vx); }, a, x);
+      [](auto d, auto va, auto vx) { return GammaVec<false>(d, va, vx); }, a,
+      x);
 }
 
 }  // namespace HWY_NAMESPACE

@@ -48,18 +48,16 @@ int g_fail = 0;
 
 double OneP(double a, double b, double s) {
   double out = 0.0;
-  corvus::beta_p_inv(std::span<const double>(&a, 1),
-                     std::span<const double>(&b, 1),
-                     std::span<const double>(&s, 1),
-                     std::span<double>(&out, 1));
+  corvus::beta_p_inv(
+      std::span<const double>(&a, 1), std::span<const double>(&b, 1),
+      std::span<const double>(&s, 1), std::span<double>(&out, 1));
   return out;
 }
 double OneQ(double a, double b, double s) {
   double out = 0.0;
-  corvus::beta_q_inv(std::span<const double>(&a, 1),
-                     std::span<const double>(&b, 1),
-                     std::span<const double>(&s, 1),
-                     std::span<double>(&out, 1));
+  corvus::beta_q_inv(
+      std::span<const double>(&a, 1), std::span<const double>(&b, 1),
+      std::span<const double>(&s, 1), std::span<double>(&out, 1));
   return out;
 }
 
@@ -203,9 +201,8 @@ void EdgeContractsN12() {
       // -0 here would be a sign regression UlpDiff-style checks cannot see.
       const bool ok = std::isnan(c.want)
                           ? std::isnan(got)
-                          : (c.want == 0.0
-                                 ? (got == 0.0 && !std::signbit(got))
-                                 : got == c.want);
+                          : (c.want == 0.0 ? (got == 0.0 && !std::signbit(got))
+                                           : got == c.want);
       if (!ok) {
         std::fprintf(stderr,
                      "FAIL: %s(%.17g, %.17g, %.17g) [%s] = %.17g, want "
@@ -225,9 +222,7 @@ void EdgeContractsN12() {
 // s = 1e-300 and e = 2 is 173 ulp before corvus computes anything. (The
 // kernel's answer at a = 2, p = 1e-300 is the exactly-representable 1e-150;
 // libm's round trip through log and exp is the one that misses.)
-double ClosedTolUlp(double lg, double e) {
-  return 16.0 + std::fabs(lg) / e;
-}
+double ClosedTolUlp(double lg, double e) { return 16.0 + std::fabs(lg) / e; }
 
 void CheckClosed(const char* what, double got, double want, double a, double b,
                  double s, double tol_ulp) {
@@ -398,12 +393,10 @@ void RoundTrip() {
       // dependence on d goes like b. Nothing either kernel does can improve
       // it -- that is the whole reason the public header documents the swap
       // identity for callers who need 1 - x.
-      const double tol = 1e-11 +
-                         4096.0 * kappa *
-                             std::numeric_limits<double>::epsilon() +
-                         8.0 * std::fmax(bs[i], 1.0) *
-                             std::numeric_limits<double>::epsilon() /
-                             (1.0 - x[i]);
+      const double tol =
+          1e-11 + 4096.0 * kappa * std::numeric_limits<double>::epsilon() +
+          8.0 * std::fmax(bs[i], 1.0) * std::numeric_limits<double>::epsilon() /
+              (1.0 - x[i]);
       const double rel = std::fabs(back[i] - ss[i]) / ss[i];
       if (!(rel < tol)) {
         std::fprintf(stderr,
@@ -424,18 +417,16 @@ void LaneMix() {
     double a, b, s;
   };
   const Pt pts[] = {
-      {1e-4, 1e-4, 0.3},    {1e-4, 5.0, 1e-40},  {0.1, 0.1, 0.5},
-      {0.5, 3.0, 1e-8},     {1.0, 1.0, 0.25},    {3.0, 7.0, 0.75},
-      {19.0, 21.0, 1e-12},  {40.0, 40.0, 0.5},   {2.0, 1e6, 0.999},
-      {1e4, 1e4, 0.5},      {1e4, 2.0, 1e-100},  {1e8, 3.0, 0.3},
-      {1e20, 1e20, 0.5},    {1e100, 2.0, 0.5},   {1e-300, 0.7, 0.7},
-      {2.0, 2.0, 1e-300},   {1e-20, 1e-20, 0.5}, {5.0, 1e300, 0.4},
+      {1e-4, 1e-4, 0.3},   {1e-4, 5.0, 1e-40},  {0.1, 0.1, 0.5},
+      {0.5, 3.0, 1e-8},    {1.0, 1.0, 0.25},    {3.0, 7.0, 0.75},
+      {19.0, 21.0, 1e-12}, {40.0, 40.0, 0.5},   {2.0, 1e6, 0.999},
+      {1e4, 1e4, 0.5},     {1e4, 2.0, 1e-100},  {1e8, 3.0, 0.3},
+      {1e20, 1e20, 0.5},   {1e100, 2.0, 0.5},   {1e-300, 0.7, 0.7},
+      {2.0, 2.0, 1e-300},  {1e-20, 1e-20, 0.5}, {5.0, 1e300, 0.4},
   };
   constexpr size_t kNPts = sizeof(pts) / sizeof(pts[0]);
-  const Pt filler[] = {{7.0, 2.0, 0.4},
-                       {1e-2, 1e-2, 1e-9},
-                       {1e6, 1e6, 0.6},
-                       {30.0, 0.5, 1e-30}};
+  const Pt filler[] = {
+      {7.0, 2.0, 0.4}, {1e-2, 1e-2, 1e-9}, {1e6, 1e6, 0.6}, {30.0, 0.5, 1e-30}};
 
   double alone_p[kNPts], alone_q[kNPts];
   for (size_t i = 0; i < kNPts; ++i) {

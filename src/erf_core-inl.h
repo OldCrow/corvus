@@ -48,12 +48,13 @@ template <int kDeg = 8, class D>
 CORVUS_OUTLINE ErfCoreParts<D> ErfTableCore(D d, op::V<D> ac) {
   const op::SignedTag<D> di;
 
-  const auto rf = op::Round(op::Mul(ac, op::Set(d, 256.0)));  // integral, <= 1536
-  const auto ji = op::ConvertToInt(di, rf);                   // exact truncation
-  const auto j3 = op::Add(op::ShiftLeft<1>(ji), ji);          // 3*j: field stride
+  const auto rf =
+      op::Round(op::Mul(ac, op::Set(d, 256.0)));      // integral, <= 1536
+  const auto ji = op::ConvertToInt(di, rf);           // exact truncation
+  const auto j3 = op::Add(op::ShiftLeft<1>(ji), ji);  // 3*j: field stride
 
-  const auto E  = op::GatherIndex(d, detail::kErfTable + 0, j3);
-  const auto S  = op::GatherIndex(d, detail::kErfTable + 1, j3);
+  const auto E = op::GatherIndex(d, detail::kErfTable + 0, j3);
+  const auto S = op::GatherIndex(d, detail::kErfTable + 1, j3);
   const auto El = op::GatherIndex(d, detail::kErfTable + 2, j3);
 
   const auto r = op::Mul(rf, op::Set(d, 1.0 / 256.0));  // exact
@@ -62,24 +63,28 @@ CORVUS_OUTLINE ErfCoreParts<D> ErfTableCore(D d, op::V<D> ac) {
 
   const auto c2 = op::Neg(r);
   const auto c3 = op::MulAdd(w, op::Set(d, 2.0 / 3.0), op::Set(d, -1.0 / 3.0));
-  const auto c4 = op::Mul(r, op::MulAdd(w, op::Set(d, -1.0 / 3.0), op::Set(d, 0.5)));
+  const auto c4 =
+      op::Mul(r, op::MulAdd(w, op::Set(d, -1.0 / 3.0), op::Set(d, 0.5)));
   const auto c5 = op::MulAdd(
       w, op::MulAdd(w, op::Set(d, 2.0 / 15.0), op::Set(d, -2.0 / 5.0)),
       op::Set(d, 0.1));
   const auto c6 = op::Mul(
-      r, op::MulAdd(w, op::MulAdd(w, op::Set(d, -2.0 / 45.0), op::Set(d, 2.0 / 9.0)),
-                    op::Set(d, -1.0 / 6.0)));
+      r, op::MulAdd(
+             w, op::MulAdd(w, op::Set(d, -2.0 / 45.0), op::Set(d, 2.0 / 9.0)),
+             op::Set(d, -1.0 / 6.0)));
   const auto c7 = op::MulAdd(
       w,
-      op::MulAdd(w, op::MulAdd(w, op::Set(d, 4.0 / 315.0), op::Set(d, -2.0 / 21.0)),
-                 op::Set(d, 1.0 / 7.0)),
+      op::MulAdd(
+          w, op::MulAdd(w, op::Set(d, 4.0 / 315.0), op::Set(d, -2.0 / 21.0)),
+          op::Set(d, 1.0 / 7.0)),
       op::Set(d, -1.0 / 42.0));
-  const auto c8 = op::Mul(
-      r, op::MulAdd(
-             w,
-             op::MulAdd(w, op::MulAdd(w, op::Set(d, -1.0 / 315.0), op::Set(d, 1.0 / 30.0)),
-                        op::Set(d, -1.0 / 12.0)),
-             op::Set(d, 1.0 / 24.0)));
+  const auto c8 =
+      op::Mul(r, op::MulAdd(w,
+                            op::MulAdd(w,
+                                       op::MulAdd(w, op::Set(d, -1.0 / 315.0),
+                                                  op::Set(d, 1.0 / 30.0)),
+                                       op::Set(d, -1.0 / 12.0)),
+                            op::Set(d, 1.0 / 24.0)));
 
   // t = c2 + d(c3 + d(c4 + ... + d*c8)); p = d + d^2*t
   op::V<D> t;

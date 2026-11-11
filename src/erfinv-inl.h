@@ -96,8 +96,9 @@ namespace op = ops;
 // 2/sqrt(pi) and sqrt(pi): the erfc derivative constant and its reciprocal
 // partner used by the Halley derivatives below. Not stored in erfinv_data.h
 // since they are closed-form, not fitted.
-inline constexpr double kErfinvTwoOverSqrtPi = 0x1.20dd750429b6dp+0;  // 2/sqrt(pi)
-inline constexpr double kErfinvSqrtPi = 0x1.c5bf891b4ef6bp+0;        // sqrt(pi)
+inline constexpr double kErfinvTwoOverSqrtPi =
+    0x1.20dd750429b6dp+0;                                      // 2/sqrt(pi)
+inline constexpr double kErfinvSqrtPi = 0x1.c5bf891b4ef6bp+0;  // sqrt(pi)
 // sqrt(pi)/2 as a dd (relative 7e-34): erfinv's exact slope at 0, for the
 // tiny-y branch of ErfinvCentral. NOT the fitted lead L0, which differs from
 // it by 2^-69.7 -- enough to flip a subnormal near-tie (#73).
@@ -171,7 +172,8 @@ CORVUS_OUTLINE op::V<D> ErfinvCentral(D d, op::V<D> y) {
     CORVUS_ROUTE_SCOPE(d, tiny);
     const op::SignedTag<D> di;
     const auto ys = op::Mul(op::Abs(y), op::Set(d, 0x1.0p+600));
-    const Dd<D> hsp{op::Set(d, kErfinvHalfSqrtPiHi), op::Set(d, kErfinvHalfSqrtPiLo)};
+    const Dd<D> hsp{op::Set(d, kErfinvHalfSqrtPiHi),
+                    op::Set(d, kErfinvHalfSqrtPiLo)};
     // FLOOR: never reached: |ys| >= 2^-474 on tiny lanes (others discarded).
     const auto pm = DdMulD(d, hsp, ys);
     const auto rs = DdScaleToDouble(d, pm, op::Set(di, int64_t{-600}));
@@ -199,8 +201,8 @@ HWY_INLINE op::V<D> HalleyMid(D d, op::V<D> x0, op::V<D> s) {
   // provably a no-op on live lanes (x0 > 0) and runs after the NaN scrub,
   // so Max never sees a NaN. The 2026-10-10 defect hunt (#53) found no
   // reachable effect over 220k points: a guard, not a fix.
-  const auto x0s = op::Max(
-      op::IfThenElse(op::IsNaN(x0), op::Zero(d), x0), op::Zero(d));
+  const auto x0s =
+      op::Max(op::IfThenElse(op::IsNaN(x0), op::Zero(d), x0), op::Zero(d));
   const auto e = ErfcCoreDd(d, x0s, x0s);  // x0 > 0 on live lanes
   const auto f = DdToDouble(DdAddD(d, e, op::Neg(s)));
   const auto fp = op::Mul(op::Set(d, -kErfinvTwoOverSqrtPi),
@@ -219,7 +221,7 @@ CORVUS_OUTLINE op::V<D> HalleyFar(D d, op::V<D> x0, Dd<D> wneg) {
   // on the other lanes (IfThenElse on far).
   const auto slo = op::ProdLow(d, x0, x0, ssq);  // exact: x0 <= ~28 << 2^996
 
-  const auto u = op::Div(op::Set(d, 1.0), x0);   // double accuracy suffices
+  const auto u = op::Div(op::Set(d, 1.0), x0);  // double accuracy suffices
   const auto g = ErfcTailGFromU(d, x0, u);
   const auto log_term = op::Sub(LogDd(d, x0).hi, LogDd(d, g).hi);
 
@@ -257,8 +259,7 @@ HWY_NOINLINE op::V<D> ErfcInvCore(D d, op::V<D> s) {
                  op::Ge(t, op::Set(d, detail::kErfinvTSplit)));
   }
   CORVUS_ROUTE(d, "erfinv_t/far", far);
-  CORVUS_ROUTE(d, "erfinv_t/subnormal_s",
-               op::Lt(s, op::Set(d, 0x1p-1022)));
+  CORVUS_ROUTE(d, "erfinv_t/subnormal_s", op::Lt(s, op::Set(d, 0x1p-1022)));
 
   const auto u = op::Div(op::Set(d, 1.0), t);
   const auto var = op::IfThenElse(far, u, t);
@@ -277,8 +278,8 @@ HWY_NOINLINE op::V<D> ErfcInvCore(D d, op::V<D> s) {
   } else if (op::AllTrue(d, far)) {
     x1 = op::Add(x0, HalleyFar(d, x0, wneg));
   } else {
-    x1 = op::Add(x0, op::IfThenElse(far, HalleyFar(d, x0, wneg),
-                                    HalleyMid(d, x0, s)));
+    x1 = op::Add(
+        x0, op::IfThenElse(far, HalleyFar(d, x0, wneg), HalleyMid(d, x0, s)));
   }
   return x1;
 }
@@ -296,7 +297,8 @@ HWY_NOINLINE op::V<D> ErfinvVec(D d, op::V<D> y) {
   CORVUS_ROUTE(d, "erfinv/central", c_m);
   {
     CORVUS_ROUTE_SCOPE(d, op::Gt(one, ay));
-    CORVUS_ROUTE(d, "erfinv/tail", op::Gt(ay, op::Set(d, detail::kErfinvYSplit)));
+    CORVUS_ROUTE(d, "erfinv/tail",
+                 op::Gt(ay, op::Set(d, detail::kErfinvYSplit)));
   }
 
   op::V<D> res;
@@ -332,8 +334,8 @@ HWY_NOINLINE op::V<D> ErfinvVec(D d, op::V<D> y) {
 template <class D>
 HWY_INLINE op::V<D> ErfcinvTail(D d, op::V<D> z) {
   // Tail region (|z - 1| > 1/2) restricted to the in-domain z in (0, 2).
-  CORVUS_ROUTE_SCOPE(d, op::Gt(op::Abs(op::Sub(z, op::Set(d, 1.0))),
-                               op::Set(d, 0.5)));
+  CORVUS_ROUTE_SCOPE(
+      d, op::Gt(op::Abs(op::Sub(z, op::Set(d, 1.0))), op::Set(d, 0.5)));
   CORVUS_ROUTE_SCOPE(d, op::Gt(z, op::Zero(d)));
   CORVUS_ROUTE_SCOPE(d, op::Lt(z, op::Set(d, 2.0)));
   const auto lo_m = op::Lt(z, op::Set(d, 0.5));

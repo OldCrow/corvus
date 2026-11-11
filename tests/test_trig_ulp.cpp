@@ -138,14 +138,14 @@ int RunOne(const char* label, const char* path, Fn fn) {
     // #14 N10: an empty bucket is a gate that never ran; all four are
     // populated by generator design.
     if (r->n == 0) {
-      std::fprintf(stderr, "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n",
-                   label, r->name);
+      std::fprintf(stderr,
+                   "FAIL: %s %s bucket is empty (n=0) -- vacuous gate\n", label,
+                   r->name);
       rc = 1;
     }
     if (r->max_ulp > r->gate) {
       std::fprintf(stderr, "FAIL: %s %s max ULP %llu exceeds gate %llu\n",
-                   label, r->name,
-                   static_cast<unsigned long long>(r->max_ulp),
+                   label, r->name, static_cast<unsigned long long>(r->max_ulp),
                    static_cast<unsigned long long>(r->gate));
       rc = 1;
     }

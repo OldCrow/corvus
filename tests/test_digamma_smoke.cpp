@@ -63,9 +63,9 @@ void Specials() {
   // Every negative integer is a pole -> NaN. The last three carry the rule
   // that every double <= -2^53 is an integer, so the whole far negative axis
   // is poles; -0x1p53 itself is the boundary case.
-  const double kNegInts[] = {-1.0,      -2.0,       -3.0,   -17.0,
-                             -1.0e6,    -1.0e15,    -0x1p53, -0x1p53 - 2.0,
-                             -1.0e300,  -1.7976931348623157e308};
+  const double kNegInts[] = {
+      -1.0,    -2.0,    -3.0,          -17.0,    -1.0e6,
+      -1.0e15, -0x1p53, -0x1p53 - 2.0, -1.0e300, -1.7976931348623157e308};
   for (const double v : kNegInts) CheckSpecial("negative integer", v, kNan);
 
   CheckSpecial("psi(+inf)", kInf, kInf);
@@ -118,10 +118,9 @@ void KnownValues() {
     const double got = One(p.x);
     const uint64_t u = UlpDiff(got, p.want);
     if (u > 2) {
-      std::fprintf(stderr,
-                   "FAIL: digamma(%.17g) [%s] = %.17g, want %.17g (%llu ULP)\n",
-                   p.x, p.region, got, p.want,
-                   static_cast<unsigned long long>(u));
+      std::fprintf(
+          stderr, "FAIL: digamma(%.17g) [%s] = %.17g, want %.17g (%llu ULP)\n",
+          p.x, p.region, got, p.want, static_cast<unsigned long long>(u));
       g_fail = 1;
     }
   }
@@ -184,6 +183,7 @@ void SpecialsBatch() {
 // A spread of in-domain points covering every region, both sides of every
 // boundary the driver tests, and the walk at every depth 1..6.
 std::vector<double> Probes() {
+  // clang-format off
   return {
       // (0, 1), including the up-step's own extremes.
       1e-300, 1e-8, 0.001, 0.1, 0.25, 0.4616321, 0.5, 0.75, 0.9,
@@ -202,6 +202,7 @@ std::vector<double> Probes() {
       -1.4616321449683625, -3.5442455, -6.6773204, -1e6 - 0.5, -1e15 - 0.5,
       -1.0000000000000002, -0.9999999999999998, -2.0000000000000004,
   };
+  // clang-format on
 }
 
 void LaneMix() {

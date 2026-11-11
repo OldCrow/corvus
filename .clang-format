@@ -1,0 +1,15 @@
+# corvus formatting. Google base = the Highway idiom the code already
+# follows (2-space indent, 80 columns, `T* p`, two spaces before trailing
+# comments). Overrides protect what a formatter must not touch:
+#  - SortIncludes/IncludeBlocks: include order is load-bearing around
+#    hwy/foreach_target.h and the -inl.h toggle guards.
+#  - ReflowComments: the derivation blocks are hand-wrapped maths.
+#  - IndentPPDirectives: the existing code keeps directives in column 0.
+BasedOnStyle: Google
+Language: Cpp
+Standard: c++20
+ColumnLimit: 80
+SortIncludes: Never
+IncludeBlocks: Preserve
+ReflowComments: Never
+IndentPPDirectives: None

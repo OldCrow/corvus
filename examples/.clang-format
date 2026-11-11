@@ -1,0 +1,3 @@
+# Consumer-style examples: 4-space indent, everything else inherited.
+BasedOnStyle: InheritParentConfig
+IndentWidth: 4

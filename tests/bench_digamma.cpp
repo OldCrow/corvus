@@ -89,8 +89,8 @@ void SampleAsym(std::mt19937_64& rng, std::vector<double>& in) {
   // [kDigammaX0, inf): log-spaced well inside the correction-carrying part of
   // the branch (far below the log-only cut at 2^85, which is a cheaper path
   // and would flatter the number).
-  std::uniform_real_distribution<double> le(std::log(corvus::detail::kDigammaX0),
-                                            std::log(1e6));
+  std::uniform_real_distribution<double> le(
+      std::log(corvus::detail::kDigammaX0), std::log(1e6));
   for (auto& v : in) v = std::exp(le(rng));
 }
 

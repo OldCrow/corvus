@@ -155,7 +155,7 @@ HWY_INLINE Dd<D> BesselLeadTailScalar(D d, op::V<D> t, const double* lead_hi,
     // FLOOR: t = q_hi < 2^-968 only for x < 2^-483; |acc| <= 2, so the lost
     // low part (<= 2^-1073) lands on a lead >= 2^-8: below 2^-1060 of S.
     acc = DdAdd(d, DdMulD(d, acc, t),
-               Dd<D>{op::Set(d, lead_hi[k]), op::Set(d, lead_lo[k])});
+                Dd<D>{op::Set(d, lead_hi[k]), op::Set(d, lead_lo[k])});
   }
   return acc;
 }
@@ -182,8 +182,8 @@ HWY_NOINLINE Dd<D> BesselSeriesS(D d, op::V<D> q_hi, op::V<D> q_lo,
                                  const double* lead_hi, const double* lead_lo,
                                  int n_lead, const double* coef, int n_coef,
                                  const double* dcoef, int n_dcoef) {
-  const auto s = BesselLeadTailScalar(d, q_hi, lead_hi, lead_lo, n_lead, coef,
-                                      n_coef);
+  const auto s =
+      BesselLeadTailScalar(d, q_hi, lead_hi, lead_lo, n_lead, coef, n_coef);
   const auto sp = BesselPoly(d, q_hi, dcoef, n_dcoef);
   return DdAddD(d, s, op::Mul(sp, q_lo));
 }
@@ -221,7 +221,7 @@ HWY_NOINLINE Dd<D> BesselTailIveDd(D d, op::V<D> ax, const double* coef,
   const auto denom_ds = DdSqrt(d, twopix);      // dd sqrt(2*pi*ax) * 2^-16
   const auto denom =
       DdMulD(d, denom_ds, op::Set(d, kBesselSqrtPostscale));  // exact rescale
-  const auto recip = DdRecipDd(d, denom);    // dd 1/sqrt(2*pi*ax)
+  const auto recip = DdRecipDd(d, denom);  // dd 1/sqrt(2*pi*ax)
   return DdMul(d, recip, poly);
 }
 
@@ -265,8 +265,8 @@ HWY_NOINLINE BesselPair<D> BesselNu0(D d, op::V<D> x) {
   // the scrubbed inf/NaN lanes out of the regime routes.
   CORVUS_ROUTE(d, "i0/series",
                op::And(op::Ge(split, ax_raw), op::Ge(ax_raw, zero)));
-  CORVUS_ROUTE(d, "i0/tail", op::And(op::Gt(ax_raw, split),
-                                     op::Lt(ax_raw, inf)));
+  CORVUS_ROUTE(d, "i0/tail",
+               op::And(op::Gt(ax_raw, split), op::Lt(ax_raw, inf)));
 
   // Each branch runs only when some lane needs it (#75, row 12i): the series
   // carries 8 dd terms now, and an all-tail vector should not pay for it
@@ -315,15 +315,16 @@ HWY_NOINLINE BesselPair<D> BesselNu0(D d, op::V<D> x) {
     const auto sc_lo = ScaleTwo(d, prod.lo, parts.e);
     i0_tail_val = op::Add(sc_hi, sc_lo);
     const auto boundary = op::Set(d, detail::kBesselI0OverflowX);
-    CORVUS_ROUTE(d, "i0/overflow", op::Gt(ax, boundary));  // i0 only; i0e is finite
+    CORVUS_ROUTE(d, "i0/overflow",
+                 op::Gt(ax, boundary));  // i0 only; i0e is finite
     i0_tail_val = op::IfThenElse(op::Gt(ax, boundary), inf, i0_tail_val);
   }
 
   // --- combine, then specials, NaN last (payload preserved) --------------
   auto i0_val = op::IfThenElse(in_series, i0_series_val, i0_tail_val);
-  auto i0e_val = op::IfThenElse(
-      in_series, op::Add(i0e_series.hi, i0e_series.lo),
-      op::Add(ive_tail.hi, ive_tail.lo));
+  auto i0e_val =
+      op::IfThenElse(in_series, op::Add(i0e_series.hi, i0e_series.lo),
+                     op::Add(ive_tail.hi, ive_tail.lo));
 
   CORVUS_ROUTE(d, "i0/special/inf", is_inf);
   CORVUS_ROUTE(d, "i0/special/nan", is_nan);
@@ -363,11 +364,11 @@ HWY_NOINLINE BesselPair<D> BesselNu1(D d, op::V<D> x) {
   // One driver serves i1 and i1e, so these routes cover both.
   CORVUS_ROUTE(d, "i1/series",
                op::And(op::Ge(split, ax_raw), op::Ge(ax_raw, zero)));
-  CORVUS_ROUTE(d, "i1/series_subnormal",
-               op::And(op::Gt(ax_raw, zero),
-                       op::Lt(ax_raw, op::Set(d, 0x1p-1022))));
-  CORVUS_ROUTE(d, "i1/tail", op::And(op::Gt(ax_raw, split),
-                                     op::Lt(ax_raw, inf)));
+  CORVUS_ROUTE(
+      d, "i1/series_subnormal",
+      op::And(op::Gt(ax_raw, zero), op::Lt(ax_raw, op::Set(d, 0x1p-1022))));
+  CORVUS_ROUTE(d, "i1/tail",
+               op::And(op::Gt(ax_raw, split), op::Lt(ax_raw, inf)));
 
   // Region skips as in BesselNu0 (#75, row 12i): bit-identical selection.
   auto i1_series_mag = one;
@@ -420,15 +421,16 @@ HWY_NOINLINE BesselPair<D> BesselNu1(D d, op::V<D> x) {
     const auto sc_lo = ScaleTwo(d, prod.lo, parts.e);
     i1_tail_mag = op::Add(sc_hi, sc_lo);
     const auto boundary = op::Set(d, detail::kBesselI1OverflowX);
-    CORVUS_ROUTE(d, "i1/overflow", op::Gt(ax, boundary));  // i1 only; i1e is finite
+    CORVUS_ROUTE(d, "i1/overflow",
+                 op::Gt(ax, boundary));  // i1 only; i1e is finite
     i1_tail_mag = op::IfThenElse(op::Gt(ax, boundary), inf, i1_tail_mag);
   }
 
   // --- combine magnitudes, specials on the magnitude, THEN sign ----------
   auto i1_mag = op::IfThenElse(in_series, i1_series_mag, i1_tail_mag);
-  auto i1e_mag = op::IfThenElse(
-      in_series, op::Add(i1e_series.hi, i1e_series.lo),
-      op::Add(ive_tail.hi, ive_tail.lo));
+  auto i1e_mag =
+      op::IfThenElse(in_series, op::Add(i1e_series.hi, i1e_series.lo),
+                     op::Add(ive_tail.hi, ive_tail.lo));
 
   CORVUS_ROUTE(d, "i1/special/inf", is_inf);
   CORVUS_ROUTE(d, "i1/special/nan", is_nan);

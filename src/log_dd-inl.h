@@ -88,7 +88,8 @@ CORVUS_OUTLINE Dd<D> Log1pDd(D d, Dd<D> r) {
   const auto half = op::Set(d, 0.5);
   const Dd<D> half_sq{op::Mul(sq.hi, half),
                       op::MulAdd(rh, r.lo, op::Mul(sq.lo, half))};
-  const auto lead = DdAdd(d, r, Dd<D>{op::Neg(half_sq.hi), op::Neg(half_sq.lo)});
+  const auto lead =
+      DdAdd(d, r, Dd<D>{op::Neg(half_sq.hi), op::Neg(half_sq.lo)});
 
   // r^3 * q, plain double: magnitude <= 2^-24.
   const auto tail = op::Mul(op::Mul(sq.hi, rh), q);
@@ -135,7 +136,8 @@ CORVUS_OUTLINE Dd<D> LogDd(D d, op::V<D> x) {
   // between the two halves can be assumed.
   const auto p = op::Mul(rj, m);
   // FLOOR: m is centred on 1 and R_j ~ 1/m, so R_j*m ~ 1.
-  const auto r = TwoSum(d, op::Sub(p, op::Set(d, 1.0)), op::ProdLow(d, rj, m, p));
+  const auto r =
+      TwoSum(d, op::Sub(p, op::Set(d, 1.0)), op::ProdLow(d, rj, m, p));
 
   const Dd<D> ln2{op::Set(d, detail::kLogLn2Hi), op::Set(d, detail::kLogLn2Lo)};
   // FLOOR: kf is an integer exponent (|kf| <= 1024 for the positive normal

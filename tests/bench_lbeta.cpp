@@ -79,9 +79,10 @@ int main() {
           g_sink = out[0];
         },
         kN, kReps);
-    std::printf("lbeta %s: %7.2f ns/el SIMD, %7.2f ns/el scalar-walk, "
-                "%.2fx\n",
-                band.name, simd, scalar, scalar / simd);
+    std::printf(
+        "lbeta %s: %7.2f ns/el SIMD, %7.2f ns/el scalar-walk, "
+        "%.2fx\n",
+        band.name, simd, scalar, scalar / simd);
   }
   return 0;
 }

@@ -95,9 +95,9 @@ int main() {
   // bands -- tiny, near the zero curve, moderate, the big band, overflow --
   // and the domain policy's specials.
   {
-    const double vals[] = {5e-324, 1e-300, 1e-8, 0.25, 0.5, 1.0, 2.0, 3.75,
-                           7.5, 256.5, 1e5, 1e100, 0x1.1p+990, dmax, 0.0,
-                           -1.0, inf, nan};
+    const double vals[] = {5e-324,     1e-300, 1e-8, 0.25,  0.5, 1.0,
+                           2.0,        3.75,   7.5,  256.5, 1e5, 1e100,
+                           0x1.1p+990, dmax,   0.0,  -1.0,  inf, nan};
     std::vector<std::array<double, 2>> probes;
     for (const double a : vals) {
       for (const double b : vals) probes.push_back({a, b});

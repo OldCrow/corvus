@@ -111,9 +111,10 @@ int main() {
     corvus::lbeta(kAnchorA, kAnchorB, anchor);
 
     std::cout << std::scientific << std::setprecision(17);
-    std::cout << "  lbeta(1, 1)     = " << anchor[0] << "   (B = 1, so ln B = 0)\n";
-    std::cout << "  lbeta(1/2, 1/2) = " << anchor[1] << "   (B = pi, log pi = "
-              << 1.1447298858494002 << ")\n";
+    std::cout << "  lbeta(1, 1)     = " << anchor[0]
+              << "   (B = 1, so ln B = 0)\n";
+    std::cout << "  lbeta(1/2, 1/2) = " << anchor[1]
+              << "   (B = pi, log pi = " << 1.1447298858494002 << ")\n";
 
     // On the lines a = 1 and b = 1, B(1, x) = 1/x, so ln B = -ln x and corvus
     // rounds it correctly; at (1, 1) that is exactly +0.
@@ -140,13 +141,15 @@ int main() {
     std::array<double, 1> band{};
     corvus::lbeta(kBandA, kBandB, band);
     constexpr double kAbs53 = 1.1102230246251565e-16;  // 2^-53
-    std::cout << "  lbeta(2, 0.618) = " << band[0] << "   (near the zero curve)\n";
-    std::cout << "    ln B is near zero here, so the bound is absolute (2^-53 = " << kAbs53
-              << "),\n    not relative — and the error " << std::abs(band[0] - kBandRef)
-              << " is inside it.\n";
+    std::cout << "  lbeta(2, 0.618) = " << band[0]
+              << "   (near the zero curve)\n";
+    std::cout
+        << "    ln B is near zero here, so the bound is absolute (2^-53 = "
+        << kAbs53 << "),\n    not relative — and the error "
+        << std::abs(band[0] - kBandRef) << " is inside it.\n";
     if (std::abs(band[0] - kBandRef) > kAbs53) {
-        std::cerr << "lbeta(2, 0.618) outside its documented absolute bound: " << band[0]
-                  << "\n";
+        std::cerr << "lbeta(2, 0.618) outside its documented absolute bound: "
+                  << band[0] << "\n";
         ok = false;
     }
 
@@ -156,9 +159,9 @@ int main() {
     constexpr std::array<double, 5> kA{500.0, 1.0e6, 1.0e12, 1.0e15, 300.0};
     constexpr std::array<double, 5> kB{300.0, 1.0e6, 3.0, 1.0e-5, 300.0};
     // mpmath, 50 digits.
-    constexpr std::array<double, 5> kRefLB{-530.94820113822811, -1386300.0033629211,
-                                           -82.199916167228693, 11.512574305131876,
-                                           -417.47427078333686};
+    constexpr std::array<double, 5> kRefLB{
+        -530.94820113822811, -1386300.0033629211, -82.199916167228693,
+        11.512574305131876, -417.47427078333686};
 
     std::array<double, 5> direct{};
     corvus::lbeta(kA, kB, direct);
@@ -175,32 +178,44 @@ int main() {
     corvus::lgamma(kB, lg_b);
     corvus::lgamma(sum_ab, lg_ab);
 
-    std::cout << "\n  log B(a,b): the dedicated function vs the three-lgamma assembly\n\n";
-    std::cout << "         a            b            lbeta              naive           "
+    std::cout << "\n  log B(a,b): the dedicated function vs the three-lgamma "
+                 "assembly\n\n";
+    std::cout << "         a            b            lbeta              naive  "
+                 "         "
                  "largest term\n";
     for (std::size_t i = 0; i < kA.size(); ++i) {
         const double naive = lg_a[i] + lg_b[i] - lg_ab[i];
-        std::cout << std::scientific << std::setprecision(2) << std::setw(10) << kA[i] << "  "
-                  << std::setw(11) << kB[i] << "  " << std::fixed << std::setprecision(9)
-                  << std::setw(19) << direct[i] << "  " << std::setw(19) << naive << "  "
-                  << std::scientific << std::setprecision(2) << std::setw(10) << lg_ab[i] << "\n";
+        std::cout << std::scientific << std::setprecision(2) << std::setw(10)
+                  << kA[i] << "  " << std::setw(11) << kB[i] << "  "
+                  << std::fixed << std::setprecision(9) << std::setw(19)
+                  << direct[i] << "  " << std::setw(19) << naive << "  "
+                  << std::scientific << std::setprecision(2) << std::setw(10)
+                  << lg_ab[i] << "\n";
         if (!close_enough(direct[i], kRefLB[i], 1e-15)) {
-            std::cerr << "lbeta wrong at a = " << kA[i] << ", b = " << kB[i] << "\n";
+            std::cerr << "lbeta wrong at a = " << kA[i] << ", b = " << kB[i]
+                      << "\n";
             ok = false;
         }
     }
 
-    std::cout << "\n  Read the last column with the two before it. Where the terms being\n"
-                 "  subtracted are of the same size as the answer, the routes agree. Where\n"
-                 "  the terms are 1e13 and the answer is -82, the naive column has quietly\n"
-                 "  lost four digits. Where the terms are 3.35e16 and the answer is 11.5,\n"
-                 "  one ulp of the terms is 4 — the answer is smaller than the noise, and\n"
-                 "  the naive column is not approximately right, it is unrelated.\n";
+    std::cout
+        << "\n  Read the last column with the two before it. Where the terms "
+           "being\n"
+           "  subtracted are of the same size as the answer, the routes agree. "
+           "Where\n"
+           "  the terms are 1e13 and the answer is -82, the naive column has "
+           "quietly\n"
+           "  lost four digits. Where the terms are 3.35e16 and the answer is "
+           "11.5,\n"
+           "  one ulp of the terms is 4 — the answer is smaller than the "
+           "noise, and\n"
+           "  the naive column is not approximately right, it is unrelated.\n";
 
     // The extreme row is the fourth: a = 1e15, b = 1e-5.
     const double naive_extreme = lg_a[3] + lg_b[3] - lg_ab[3];
     if (close_enough(naive_extreme, kRefLB[3], 1e-3)) {
-        std::cerr << "expected the naive assembly to fail badly at a = 1e15, b = 1e-5\n";
+        std::cerr << "expected the naive assembly to fail badly at a = 1e15, b "
+                     "= 1e-5\n";
         ok = false;
     }
 
@@ -209,9 +224,9 @@ int main() {
     // -----------------------------------------------------------------------
     constexpr std::array<double, 5> kN{10.0, 1000.0, 100000.0, 1.0e9, 1.0e15};
     constexpr std::array<double, 5> kK{5.0, 500.0, 3.0, 4.0, 4.0};
-    constexpr std::array<double, 5> kRefLC{5.5294290875114234, 689.46726156785121,
-                                           32.74698692543263, 79.7150095114377,
-                                           134.97705174929479};
+    constexpr std::array<double, 5> kRefLC{
+        5.5294290875114234, 689.46726156785121, 32.74698692543263,
+        79.7150095114377, 134.97705174929479};
 
     std::array<double, 5> via_g{};
     std::array<double, 5> via_b{};
@@ -219,11 +234,13 @@ int main() {
     log_binom_via_lbeta(kN, kK, via_b);
 
     std::cout << "\n  log C(n,k): three lgammas vs the Beta identity\n\n";
-    std::cout << "            n     k      via lgamma        via lbeta         reference\n";
+    std::cout << "            n     k      via lgamma        via lbeta         "
+                 "reference\n";
     for (std::size_t i = 0; i < kN.size(); ++i) {
-        std::cout << std::scientific << std::setprecision(2) << std::setw(13) << kN[i] << "  "
-                  << std::fixed << std::setprecision(0) << std::setw(4) << kK[i] << "  "
-                  << std::setprecision(9) << std::setw(15) << via_g[i] << "  " << std::setw(15)
+        std::cout << std::scientific << std::setprecision(2) << std::setw(13)
+                  << kN[i] << "  " << std::fixed << std::setprecision(0)
+                  << std::setw(4) << kK[i] << "  " << std::setprecision(9)
+                  << std::setw(15) << via_g[i] << "  " << std::setw(15)
                   << via_b[i] << "  " << std::setw(15) << kRefLC[i] << "\n";
         // Only the lbeta route is held to the full bound.
         if (!close_enough(via_b[i], kRefLC[i], 1e-14)) {
@@ -232,12 +249,16 @@ int main() {
         }
     }
 
-    std::cout << "\n  C(10,5) = 252 either way. At n = 1e15 the lgamma route is wrong in\n"
-                 "  the first decimal place — it is subtracting numbers near 3.35e16 —\n"
-                 "  while the identity route never forms anything larger than 170.\n";
+    std::cout
+        << "\n  C(10,5) = 252 either way. At n = 1e15 the lgamma route is "
+           "wrong in\n"
+           "  the first decimal place — it is subtracting numbers near 3.35e16 "
+           "—\n"
+           "  while the identity route never forms anything larger than 170.\n";
 
     if (close_enough(via_g[4], kRefLC[4], 1e-9)) {
-        std::cerr << "expected the lgamma route to degrade visibly at n = 1e15\n";
+        std::cerr
+            << "expected the lgamma route to degrade visibly at n = 1e15\n";
         ok = false;
     }
 
@@ -252,11 +273,14 @@ int main() {
 
     const double log_pmf = log_c[0] + 1.0e6 * std::log(0.5);
     std::cout << "\n  log P(X = 500000) for X ~ Binomial(1e6, 1/2)\n\n";
-    std::cout << "    log C(1e6, 5e5) = " << std::fixed << std::setprecision(8) << log_c[0] << "\n";
-    std::cout << "    log P           = " << std::setprecision(12) << log_pmf << "\n";
-    std::cout << "    P               = " << std::scientific << std::setprecision(9)
-              << std::exp(log_pmf) << "\n";
-    std::cout << "    sqrt(2/(pi n))  = " << std::sqrt(2.0 / (3.141592653589793 * 1.0e6))
+    std::cout << "    log C(1e6, 5e5) = " << std::fixed << std::setprecision(8)
+              << log_c[0] << "\n";
+    std::cout << "    log P           = " << std::setprecision(12) << log_pmf
+              << "\n";
+    std::cout << "    P               = " << std::scientific
+              << std::setprecision(9) << std::exp(log_pmf) << "\n";
+    std::cout << "    sqrt(2/(pi n))  = "
+              << std::sqrt(2.0 / (3.141592653589793 * 1.0e6))
               << "   <- the Stirling limit it should approach\n";
 
     if (!close_enough(log_c[0], 693140.04701306368, 1e-14)) {
@@ -271,21 +295,30 @@ int main() {
     // a number the arithmetic cannot deliver.
     constexpr double kPmfFloor = 1e-10;
     if (!close_enough(log_pmf, -7.1335468816268648, kPmfFloor)) {
-        std::cerr << "log PMF outside even its cancellation floor: " << log_pmf << "\n";
+        std::cerr << "log PMF outside even its cancellation floor: " << log_pmf
+                  << "\n";
         ok = false;
     }
 
-    std::cout << "\n  C(1e6, 5e5) itself is about e^693140, so there is no version of this\n"
-                 "  calculation that touches the coefficient directly. Logs are not an\n"
-                 "  optimisation here; they are the only representation available.\n"
-                 "\n"
-                 "  And the last line pays the usual toll one final time: log P comes from\n"
-                 "  subtracting 693147 from 693140, so about seventeen bits go, and the\n"
-                 "  answer is good to ~1e-11 rather than ~1e-16. lbeta's 1 ULP does not\n"
-                 "  survive that step, and nothing could make it — the\n"
-                 "  probability genuinely is a small difference of two large logs. Knowing\n"
-                 "  the floor is the whole of the remedy.\n";
+    std::cout
+        << "\n  C(1e6, 5e5) itself is about e^693140, so there is no version "
+           "of this\n"
+           "  calculation that touches the coefficient directly. Logs are not "
+           "an\n"
+           "  optimisation here; they are the only representation available.\n"
+           "\n"
+           "  And the last line pays the usual toll one final time: log P "
+           "comes from\n"
+           "  subtracting 693147 from 693140, so about seventeen bits go, and "
+           "the\n"
+           "  answer is good to ~1e-11 rather than ~1e-16. lbeta's 1 ULP does "
+           "not\n"
+           "  survive that step, and nothing could make it — the\n"
+           "  probability genuinely is a small difference of two large logs. "
+           "Knowing\n"
+           "  the floor is the whole of the remedy.\n";
 
-    std::cout << "\n" << (ok ? "All checks passed.\n" : "FAILURES — see above.\n");
+    std::cout << "\n"
+              << (ok ? "All checks passed.\n" : "FAILURES — see above.\n");
     return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

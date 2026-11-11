@@ -1655,7 +1655,7 @@ def main():
 if __name__ == "__main__":
     _parser = argparse.ArgumentParser(
         allow_abbrev=False,  # '--ful' must ERROR, not prefix-match --full (#11)
-        
+
         description="Generate src/gammainv_data.h -- every table "
                      "gamma_p_inv/gamma_q_inv needs.")
     _parser.add_argument(

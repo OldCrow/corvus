@@ -25,8 +25,8 @@ namespace HWY_NAMESPACE {
 
 // Drives the dd-input overload, which subsumes the plain-double one (x_lo is
 // 0 for most reference points). Masked tail, same as the shipped kernels.
-static void LogDdTestImpl(const double* xh, const double* xl, double* hi, double* lo,
-                   size_t n) {
+static void LogDdTestImpl(const double* xh, const double* xl, double* hi,
+                          double* lo, size_t n) {
   // Named rather than decltype(d): d is const-qualified, and Dd<const Simd<>>
   // is a different type from the Dd<Simd<>> the kernel deduces.
   using Tag = op::ScalableTag<double>;
@@ -66,11 +66,13 @@ HWY_EXPORT(TestTargetNameImpl);
 // Dispatch from inside namespace corvus: with a single compiled target (the
 // SSE2 cap) Highway collapses HWY_DYNAMIC_DISPATCH to N_SSE2::FUNC, and a
 // globally qualified call would name a namespace that does not exist.
-static void LogDdTest(const double* xh, const double* xl, double* hi, double* lo,
-               size_t n) {
+static void LogDdTest(const double* xh, const double* xl, double* hi,
+                      double* lo, size_t n) {
   HWY_DYNAMIC_DISPATCH(LogDdTestImpl)(xh, xl, hi, lo, n);
 }
-static const char* TestTargetName() { return HWY_DYNAMIC_DISPATCH(TestTargetNameImpl)(); }
+static const char* TestTargetName() {
+  return HWY_DYNAMIC_DISPATCH(TestTargetNameImpl)();
+}
 }  // namespace corvus
 
 namespace {
@@ -96,7 +98,8 @@ using corvus_test::UlpDiff;
 int main(int argc, char* const* argv) {
   if (!corvus_test::ReportAndCheckTarget()) return 2;
   if (std::strcmp(corvus::TestTargetName(), corvus::active_target()) != 0) {
-    std::fprintf(stderr, "FAIL: this TU and the library dispatched different targets\n");
+    std::fprintf(
+        stderr, "FAIL: this TU and the library dispatched different targets\n");
     return 2;
   }
 
@@ -157,15 +160,18 @@ int main(int argc, char* const* argv) {
   int rc = 0;
   const double rel_bits = worst_rel > 0.0 ? -std::log2(worst_rel) : 1000.0;
   const double n1_bits = worst_near1 > 0.0 ? -std::log2(worst_near1) : 1000.0;
-  std::printf("dd relative    n=%6zu  worst=2^-%.2f (gate 2^-%.2f)  worst x=%.17g\n",
-              xh.size(), rel_bits, kMinRelExp, worst_rel_x);
+  std::printf(
+      "dd relative    n=%6zu  worst=2^-%.2f (gate 2^-%.2f)  worst x=%.17g\n",
+      xh.size(), rel_bits, kMinRelExp, worst_rel_x);
   std::printf("  of which 0.5<x<2   n=%6zu  worst=2^-%.2f  worst x=%.17g\n",
               n_near1, n1_bits, worst_near1_x);
-  std::printf("rounded        n=%6zu  max ULP=%3llu (gate %llu)  not-CR: %zu (%.2f%%)  worst x=%.17g\n",
-              xh.size(), static_cast<unsigned long long>(worst_ulp),
-              static_cast<unsigned long long>(kMaxUlp), miss,
-              100.0 * static_cast<double>(miss) / static_cast<double>(xh.size()),
-              worst_ulp_x);
+  std::printf(
+      "rounded        n=%6zu  max ULP=%3llu (gate %llu)  not-CR: %zu (%.2f%%)  "
+      "worst x=%.17g\n",
+      xh.size(), static_cast<unsigned long long>(worst_ulp),
+      static_cast<unsigned long long>(kMaxUlp), miss,
+      100.0 * static_cast<double>(miss) / static_cast<double>(xh.size()),
+      worst_ulp_x);
 
   if (rel_bits < kMinRelExp) {
     std::fprintf(stderr, "FAIL: dd relative error exceeds gate\n");

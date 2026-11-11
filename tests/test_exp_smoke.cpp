@@ -44,14 +44,14 @@ int main() {
   // non-multiple of every lane count (2/4/8) so the masked-tail path runs
   // in the same call that carries the specials (#14).
   {
-    std::vector<double> in = {0.0,    -0.0,   inf,    -inf,  pnan,
-                              1.0,    -1.0,   709.0,  -745.0,
-                              -708.5,     // subnormal result
-                              710.0,      // overflow -> +inf
-                              -746.0,     // underflow -> +0
-                              1e-300, -1e-300, 0.5,   -0.5,
-                              2.5e-310,   // subnormal input
-                              100.0,  -100.0};
+    std::vector<double> in = {0.0,      -0.0,    inf,   -inf,   pnan,
+                              1.0,      -1.0,    709.0, -745.0,
+                              -708.5,  // subnormal result
+                              710.0,   // overflow -> +inf
+                              -746.0,  // underflow -> +0
+                              1e-300,   -1e-300, 0.5,   -0.5,
+                              2.5e-310,  // subnormal input
+                              100.0,    -100.0};
     std::vector<double> out(in.size());
     corvus::exp(in, out);
 
@@ -65,7 +65,8 @@ int main() {
     Check(SameBits(out[4], pnan), "exp(nan) preserves its NaN payload");
     // Overflow and underflow lanes have exact expected results.
     Check(out[10] == inf, "exp(710) overflows to +inf");
-    Check(SameBits(out[11], 0.0), "exp(-746) underflows to +0 with signbit clear");
+    Check(SameBits(out[11], 0.0),
+          "exp(-746) underflows to +0 with signbit clear");
     for (size_t i = 5; i < in.size(); ++i) {
       if (i == 10 || i == 11) continue;
       Check(std::isfinite(out[i]) && out[i] > 0.0,
@@ -75,6 +76,7 @@ int main() {
 
   // --- 1b. expm1 (#45) specials, same length-19 shape (#14).
   {
+    // clang-format off
     std::vector<double> in = {0.0,    -0.0,   inf,    -inf,  pnan,
                               1e-300, -1e-300,
                               5e-324,     // min subnormal: expm1(x) = x
@@ -84,6 +86,7 @@ int main() {
                               -1000.0,    // exactly -1
                               0x1p-6, -0x1p-6, 0.5,   -0.5,
                               709.0,  -37.0,  2.5e-310};
+    // clang-format on
     std::vector<double> out(in.size());
     corvus::expm1(in, out);
 
@@ -131,10 +134,10 @@ int main() {
   // --- 3. Exact aliasing (in.data() == out.data()) must be bit-identical to
   // the out-of-place call. Length 21: non-multiple of 2/4/8 again.
   {
-    std::vector<double> in = {0.5,    -0.5,   1.0,     -2.5,   3.75,   -745.1,
-                              709.5,  100.0,  -100.0,  0.125,  6.0,    -6.0,
-                              -300.25, -0.01, 2.5,     -3.125, 7.0,    -8.5,
-                              0.25,   1e-3,   -650.0};
+    std::vector<double> in = {0.5,     -0.5,  1.0,    -2.5,   3.75, -745.1,
+                              709.5,   100.0, -100.0, 0.125,  6.0,  -6.0,
+                              -300.25, -0.01, 2.5,    -3.125, 7.0,  -8.5,
+                              0.25,    1e-3,  -650.0};
     std::vector<double> expect(in.size());
     corvus::exp(in, expect);
 
@@ -161,11 +164,13 @@ int main() {
   // the 2^-6 cut and the -38 shortcut, specials included, against every
   // lane position.
   {
+    // clang-format off
     const std::vector<std::array<double, 1>> probes = {
         {1e-300}, {-0x1.8p-40}, {0x1p-6}, {-0x1p-6}, {0x1.0000000000001p-6},
         {-0x1.0000000000001p-6}, {0.3}, {-0.7}, {5.5}, {-20.0}, {-37.9},
         {-38.0}, {-500.0}, {700.0}, {709.9}, {inf}, {-inf}, {0.0}, {-0.0},
         {pnan}, {2.5e-310}};
+    // clang-format on
     failures += corvus_test::LaneMix(
         "expm1", probes,
         [](const auto& c, auto& o) { corvus::expm1(c[0], o); });

@@ -111,7 +111,7 @@ int main(int argc, char* const* argv) {
   // Routing mirrors src/trigamma_data.h's own constants, so the test and the
   // kernel cannot drift apart.
   Region regions[] = {
-      {"pos (0,1)"}, {"pos zone [1,2)"}, {"pos walk [2,8)"},
+      {"pos (0,1)"},        {"pos zone [1,2)"}, {"pos walk [2,8)"},
       {"pos asym [8,inf)"}, {"negative"},
   };
   // Report-only split of the asymptotic bucket at the 1/x-only cut.
@@ -126,15 +126,16 @@ int main(int argc, char* const* argv) {
     // exists for the next regen.
     const bool zero_ref = want[i] == 0.0;
     const uint64_t u = zero_ref ? (SameBits(got[i], want[i]) ? 0 : UINT64_MAX)
-                                 : UlpDiff(got[i], want[i]);
+                                : UlpDiff(got[i], want[i]);
     // A zero-reference row is judged bit-exact, so it carries no real gate
     // (0 adds nothing to the maximum).
     const double re =
         zero_ref ? 0.0 : corvus_test::RealErr(got[i], want[i], res[i]);
     if (zero_ref && u != 0) {
-      std::fprintf(stderr,
-                   "FAIL: signed-zero mismatch at x=%.17g: got=%.17g want=%.17g\n",
-                   x, got[i], want[i]);
+      std::fprintf(
+          stderr,
+          "FAIL: signed-zero mismatch at x=%.17g: got=%.17g want=%.17g\n", x,
+          got[i], want[i]);
     }
     if (x < 0.0) {
       Accumulate(regions[4], x, u, re, i);
@@ -175,7 +176,8 @@ int main(int argc, char* const* argv) {
       rc = 1;
     }
     // #82 T1: real error against the contract ceiling and the regression pin.
-    if (corvus_test::CheckReal(path, "trigamma", r.name, kMaxUlp, r.real) != 0) {
+    if (corvus_test::CheckReal(path, "trigamma", r.name, kMaxUlp, r.real) !=
+        0) {
       rc = 1;
     }
     if (&r == &regions[3]) {

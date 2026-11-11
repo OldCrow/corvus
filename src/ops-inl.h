@@ -46,10 +46,9 @@
 #include "src/route_census.h"
 #define CORVUS_ROUTE(d, name, mask) \
   ::corvus::census::Hit(name, op::FirstLaneTrue(d, mask))
-#define CORVUS_ROUTE_SCOPE(d, region)                                  \
-  const ::corvus::census::Scope CORVUS_ROUTE_CAT(corvus_route_scope_,  \
-                                                 __LINE__)(            \
-      op::FirstLaneTrue(d, region))
+#define CORVUS_ROUTE_SCOPE(d, region)             \
+  const ::corvus::census::Scope CORVUS_ROUTE_CAT( \
+      corvus_route_scope_, __LINE__)(op::FirstLaneTrue(d, region))
 #else
 // sizeof: the mask is named, so it counts as used, but never evaluated.
 #define CORVUS_ROUTE(d, name, mask) ((void)sizeof(mask))
@@ -81,106 +80,217 @@ namespace ops {
 
 namespace hn = hwy::HWY_NAMESPACE;
 
-template <typename T> using ScalableTag = hn::ScalableTag<T>;
-template <class D> using SignedTag = hn::RebindToSigned<D>;
-template <class D> using V = hn::Vec<D>;
-template <class D> using M = hn::Mask<D>;
+template <typename T>
+using ScalableTag = hn::ScalableTag<T>;
+template <class D>
+using SignedTag = hn::RebindToSigned<D>;
+template <class D>
+using V = hn::Vec<D>;
+template <class D>
+using M = hn::Mask<D>;
 
 using hn::Lanes;
 using hn::MaxLanes;  // compile-time lane bound (driver unroll choice)
 
-template <class D> HWY_INLINE V<D> Load(D d, const double* p) { return hn::LoadU(d, p); }
+template <class D>
+HWY_INLINE V<D> Load(D d, const double* p) {
+  return hn::LoadU(d, p);
+}
 // Zero-filled LoadN: no kernel or driver uses it (the driver pads with
 // LoadNOr below). Kept for the component tests (test_exp_dd, test_dd_special,
 // bench_lgamma_components and others), which drive internal dd cores with a
 // masked tail of their own (#81 L-21).
-template <class D> HWY_INLINE V<D> LoadN(D d, const double* p, size_t n) { return hn::LoadN(d, p, n); }
+template <class D>
+HWY_INLINE V<D> LoadN(D d, const double* p, size_t n) {
+  return hn::LoadN(d, p, n);
+}
 // LoadN with the lanes past n filled from `no` instead of zero (#42): the
 // driver pads a masked tail with a live element so the padding lanes share
 // its region instead of the specials scrub's safe point.
-template <class D> HWY_INLINE V<D> LoadNOr(V<D> no, D d, const double* p, size_t n) { return hn::LoadNOr(no, d, p, n); }
-template <class D> HWY_INLINE void Store(V<D> v, D d, double* p) { hn::StoreU(v, d, p); }
-template <class D> HWY_INLINE void StoreN(V<D> v, D d, double* p, size_t n) { hn::StoreN(v, d, p, n); }
+template <class D>
+HWY_INLINE V<D> LoadNOr(V<D> no, D d, const double* p, size_t n) {
+  return hn::LoadNOr(no, d, p, n);
+}
+template <class D>
+HWY_INLINE void Store(V<D> v, D d, double* p) {
+  hn::StoreU(v, d, p);
+}
+template <class D>
+HWY_INLINE void StoreN(V<D> v, D d, double* p, size_t n) {
+  hn::StoreN(v, d, p, n);
+}
 
 // Lane type of a tag: Set/BitCast are used with both the double tag and the
 // SignedTag (exponent assembly in exp_dd), so they are not double-only.
-template <class D> using T = hn::TFromD<D>;
+template <class D>
+using T = hn::TFromD<D>;
 
-template <class D> HWY_INLINE V<D> Set(D d, T<D> x) { return hn::Set(d, x); }
+template <class D>
+HWY_INLINE V<D> Set(D d, T<D> x) {
+  return hn::Set(d, x);
+}
 // Lane 0 of a vector, for the scalar entry points (#42).
-template <class V> HWY_INLINE auto GetLane(V v) { return hn::GetLane(v); }
-template <class D> HWY_INLINE V<D> Zero(D d) { return hn::Zero(d); }
+template <class V>
+HWY_INLINE auto GetLane(V v) {
+  return hn::GetLane(v);
+}
+template <class D>
+HWY_INLINE V<D> Zero(D d) {
+  return hn::Zero(d);
+}
 
 // Reinterpret lanes without converting: used to build 2^e from an integer
 // exponent field. No-op at runtime.
-template <class D, class VFrom> HWY_INLINE V<D> BitCast(D d, VFrom v) {
+template <class D, class VFrom>
+HWY_INLINE V<D> BitCast(D d, VFrom v) {
   return hn::BitCast(d, v);
 }
 
-template <class V> HWY_INLINE V Add(V a, V b) { return hn::Add(a, b); }
-template <class V> HWY_INLINE V Sub(V a, V b) { return hn::Sub(a, b); }
-template <class V> HWY_INLINE V Mul(V a, V b) { return hn::Mul(a, b); }
-template <class V> HWY_INLINE V Div(V a, V b) { return hn::Div(a, b); }
-template <class V> HWY_INLINE V MulAdd(V a, V b, V c) { return hn::MulAdd(a, b, c); }
+template <class V>
+HWY_INLINE V Add(V a, V b) {
+  return hn::Add(a, b);
+}
+template <class V>
+HWY_INLINE V Sub(V a, V b) {
+  return hn::Sub(a, b);
+}
+template <class V>
+HWY_INLINE V Mul(V a, V b) {
+  return hn::Mul(a, b);
+}
+template <class V>
+HWY_INLINE V Div(V a, V b) {
+  return hn::Div(a, b);
+}
+template <class V>
+HWY_INLINE V MulAdd(V a, V b, V c) {
+  return hn::MulAdd(a, b, c);
+}
 // No ops::MulSub (#10): the facade mirrors what kernels USE, and the one
 // thing MulSub is tempting for -- exact residuals fma(a, b, -fl(a*b)) --
 // is exactly what non-FMA emulation silently zeroes. Exact residuals go
 // through the capability-guarded ProdLow/SquareLow below, which consume
 // hn::MulSub internally only under HWY_NATIVE_FMA.
-template <class V> HWY_INLINE V Neg(V a) { return hn::Neg(a); }
+template <class V>
+HWY_INLINE V Neg(V a) {
+  return hn::Neg(a);
+}
 
-template <class V> HWY_INLINE V Sqrt(V a) { return hn::Sqrt(a); }
-template <class V> HWY_INLINE V Abs(V a) { return hn::Abs(a); }
-template <class V> HWY_INLINE V Min(V a, V b) { return hn::Min(a, b); }
-template <class V> HWY_INLINE V Max(V a, V b) { return hn::Max(a, b); }
-template <class V> HWY_INLINE V CopySign(V magn, V sign) { return hn::CopySign(magn, sign); }
+template <class V>
+HWY_INLINE V Sqrt(V a) {
+  return hn::Sqrt(a);
+}
+template <class V>
+HWY_INLINE V Abs(V a) {
+  return hn::Abs(a);
+}
+template <class V>
+HWY_INLINE V Min(V a, V b) {
+  return hn::Min(a, b);
+}
+template <class V>
+HWY_INLINE V Max(V a, V b) {
+  return hn::Max(a, b);
+}
+template <class V>
+HWY_INLINE V CopySign(V magn, V sign) {
+  return hn::CopySign(magn, sign);
+}
 
-template <class V> HWY_INLINE auto Lt(V a, V b) { return hn::Lt(a, b); }
-template <class V> HWY_INLINE auto Ge(V a, V b) { return hn::Ge(a, b); }
-template <class V> HWY_INLINE auto Gt(V a, V b) { return hn::Gt(a, b); }
-template <class V> HWY_INLINE auto Eq(V a, V b) { return hn::Eq(a, b); }
-template <class V> HWY_INLINE auto IsNaN(V a) { return hn::IsNaN(a); }
+template <class V>
+HWY_INLINE auto Lt(V a, V b) {
+  return hn::Lt(a, b);
+}
+template <class V>
+HWY_INLINE auto Ge(V a, V b) {
+  return hn::Ge(a, b);
+}
+template <class V>
+HWY_INLINE auto Gt(V a, V b) {
+  return hn::Gt(a, b);
+}
+template <class V>
+HWY_INLINE auto Eq(V a, V b) {
+  return hn::Eq(a, b);
+}
+template <class V>
+HWY_INLINE auto IsNaN(V a) {
+  return hn::IsNaN(a);
+}
 
 // Round to nearest integral value, ties to even (matches FRINTN/VROUNDPD).
-template <class V> HWY_INLINE V Round(V a) { return hn::Round(a); }
+template <class V>
+HWY_INLINE V Round(V a) {
+  return hn::Round(a);
+}
 // Truncating float->int conversion (exact when the input is integral).
-template <class DI, class V> HWY_INLINE hn::Vec<DI> ConvertToInt(DI di, V a) {
+template <class DI, class V>
+HWY_INLINE hn::Vec<DI> ConvertToInt(DI di, V a) {
   return hn::ConvertTo(di, a);
 }
-template <int kBits, class V> HWY_INLINE V ShiftLeft(V a) {
+template <int kBits, class V>
+HWY_INLINE V ShiftLeft(V a) {
   return hn::ShiftLeft<kBits>(a);
 }
 // Arithmetic shift on signed lanes: floor division by 2^kBits, negatives
 // included (relied on to split an exponent into table index and power of 2).
-template <int kBits, class V> HWY_INLINE V ShiftRight(V a) {
+template <int kBits, class V>
+HWY_INLINE V ShiftRight(V a) {
   return hn::ShiftRight<kBits>(a);
 }
-template <class V> HWY_INLINE V And(V a, V b) { return hn::And(a, b); }
-template <class V> HWY_INLINE V Or(V a, V b) { return hn::Or(a, b); }
+template <class V>
+HWY_INLINE V And(V a, V b) {
+  return hn::And(a, b);
+}
+template <class V>
+HWY_INLINE V Or(V a, V b) {
+  return hn::Or(a, b);
+}
 // Added for the trig kernels (#32): quadrant sign application and the
 // bitmask core-select (Xor(a, And(m, Xor(a, b)))), on double and integer
 // vectors alike.
-template <class V> HWY_INLINE V Xor(V a, V b) { return hn::Xor(a, b); }
+template <class V>
+HWY_INLINE V Xor(V a, V b) {
+  return hn::Xor(a, b);
+}
 // Integer->double conversion (exact for the exponent-sized values corvus
 // converts). The float->int direction is ConvertToInt above.
-template <class D, class VI> HWY_INLINE V<D> ConvertToDouble(D d, VI a) {
+template <class D, class VI>
+HWY_INLINE V<D> ConvertToDouble(D d, VI a) {
   return hn::ConvertTo(d, a);
 }
 // out[i] = base[index[i]]; index in units of lanes, not bytes.
-template <class D, class VI> HWY_INLINE V<D> GatherIndex(D d, const double* base, VI index) {
+template <class D, class VI>
+HWY_INLINE V<D> GatherIndex(D d, const double* base, VI index) {
   return hn::GatherIndex(d, base, index);
 }
-template <class M, class V> HWY_INLINE V IfThenElse(M m, V yes, V no) { return hn::IfThenElse(m, yes, no); }
-template <class D, class M> HWY_INLINE bool AllFalse(D d, M m) { return hn::AllFalse(d, m); }
-template <class D, class M> HWY_INLINE bool AllTrue(D d, M m) { return hn::AllTrue(d, m); }
+template <class M, class V>
+HWY_INLINE V IfThenElse(M m, V yes, V no) {
+  return hn::IfThenElse(m, yes, no);
+}
+template <class D, class M>
+HWY_INLINE bool AllFalse(D d, M m) {
+  return hn::AllFalse(d, m);
+}
+template <class D, class M>
+HWY_INLINE bool AllTrue(D d, M m) {
+  return hn::AllTrue(d, m);
+}
 // Mask complement; the route census marks a region's other side with it.
-template <class M> HWY_INLINE M MaskNot(M m) { return hn::Not(m); }
+template <class M>
+HWY_INLINE M MaskNot(M m) {
+  return hn::Not(m);
+}
 // Lane 0's bit of m: the route census reads the one row it evaluates there.
-template <class D, class M> HWY_INLINE bool FirstLaneTrue(D d, M m) {
+template <class D, class M>
+HWY_INLINE bool FirstLaneTrue(D d, M m) {
   return hn::FindFirstTrue(d, m) == 0;
 }
 
-template <class D> HWY_INLINE V<D> Exp(D d, V<D> x) { return hn::Exp(d, x); }
+template <class D>
+HWY_INLINE V<D> Exp(D d, V<D> x) {
+  return hn::Exp(d, x);
+}
 
 // Low part of a*a given p = fl(a*a), i.e. the exact residual a^2 - p.
 // With native FMA this is one MulSub; without it (SSE2/SSSE3/SSE4), the
@@ -200,7 +310,8 @@ HWY_INLINE void FloorCheck(D d, V<D> a, V<D> b, V<D> p,
 }
 #endif
 
-template <class D> HWY_INLINE V<D> SquareLow(D d, V<D> a, V<D> p CORVUS_FLOOR_LOC) {
+template <class D>
+HWY_INLINE V<D> SquareLow(D d, V<D> a, V<D> p CORVUS_FLOOR_LOC) {
 #if defined(CORVUS_ROUTE_CENSUS)
   FloorCheck(d, a, a, p, corvus_loc);
 #endif
@@ -229,7 +340,8 @@ template <class D> HWY_INLINE V<D> SquareLow(D d, V<D> a, V<D> p CORVUS_FLOOR_LO
 //     rounds the residual (mild: 1 ULP-class downstream).
 // Every caller must sit between the two or prescale by an exact power of
 // two (DdDivDd, LogDdAny, the beta/gamma 2^900 clamps).
-template <class D> HWY_INLINE V<D> ProdLow(D d, V<D> a, V<D> b, V<D> p CORVUS_FLOOR_LOC) {
+template <class D>
+HWY_INLINE V<D> ProdLow(D d, V<D> a, V<D> b, V<D> p CORVUS_FLOOR_LOC) {
 #if defined(CORVUS_ROUTE_CENSUS)
   FloorCheck(d, a, b, p, corvus_loc);
 #endif
