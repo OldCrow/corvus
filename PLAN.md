@@ -76,7 +76,8 @@ pass, #100 the `quiet_bench.sh` Linux bugs it found):
 - No unfreeze. The pass shows no defect; both code candidates (#22, and
   pre-split constant operands for Dekker on non-FMA tiers) are
   speed-only. The libstats/libhmm bump to v1.2.0 proceeds unchanged.
-- [OPEN] Order of work, all on the Mint machine: fix #100, then the
+- [OPEN] Order of work, all on the Mint machine: fix #100 (Linux side
+  done 2026-11-11), then the
   recordable #101 run (clang, two gated passes, Electron apps quit),
   then the ctest + ULP report. Confirm #100's Darwin branch on a Mac.
 - [OPEN] The Dekker pre-split is unfiled; file it only if a consumer
@@ -300,9 +301,13 @@ REPORT.md). Rerun takes about a minute.
   same sign on three machines; a record, not worth a session now.
 - #97 cause of the process-to-process speed modes (v1.3.0).
 - #100 `quiet_bench.sh` on Linux (ps listing, shebang, machine line);
-  `tools/` only, no release needed; fix and test on the Mint machine.
-- #101 Ivy Bridge SSE4/glibc machine in PERFORMANCE.md (blocked on #100;
-  Status above).
+  `tools/` only, no release needed. [DERIVED 2026-11-11] Fixed and tested
+  on the Mint machine (failing gate lists five consumers, target lines
+  carry `top:`, machine line names CPU and distribution, runs as
+  `./tools/quiet_bench.sh`; now POSIX `#!/bin/sh`, tested under dash and
+  `bash --posix`). Open until the Darwin branch is confirmed on a Mac.
+- #101 Ivy Bridge SSE4/glibc machine in PERFORMANCE.md (#100's Linux fix
+  is in; Status above).
 
 **Unfiled, still open** (recorded only in closed #82 or here):
 - [OPEN] Four kernel routes neither reached nor argued unreachable, each
