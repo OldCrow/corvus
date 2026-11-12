@@ -4,7 +4,9 @@
 Zen 4 / UCRT and Kaby Lake / Apple x86 libm under the 5% ambient gate;
 Apple M1 / Apple arm64 libm under the §10 gate. §§3, 4, 8 and 11 come from
 quiet full-surface passes at the v1.2.0 freeze kernels (`2f863be`), two or
-more per machine. **Start at §11**, the cross-machine synthesis. The rest is
+more per machine. A fourth machine, Ivy Bridge / glibc at `SSE4`, joined
+on 2026-11-11 at the same kernels (§15). **Start at §11**, the
+cross-machine synthesis. The rest is
 the dated measurement ledger behind it, kept because a number without its
 provenance cannot be audited later; §§12–14 are A/B measurements of single
 v1.2.0 changes.
@@ -193,13 +195,14 @@ them are unexplored.
   band on Kaby Lake (§8.1); on the M1 corvus wins only the table band (§11.2).
   This is the largest single source of error on this page.
 - **Another compiler.** clang-cl only. MSVC cannot reach AVX-512 at all and
-  would be measuring a different tier under the same name.
+  would be measuring a different tier under the same name. Every fleet
+  column is a clang-family build; §15.4 has the one GCC reading there is.
 - **More runs.** §5 exists because two runs looked like agreement until a third
   disagreed.
 
 A published performance claim needs at least the first two settled. **They
-are** — three microarchitectures, three vendor libms (§11), first at v0.9.0
-and again at v1.2.0. The compiler axis and §5 remain open;
+are** — four microarchitectures, four system libms (§11), three of each
+first at v0.9.0 and again at v1.2.0, the fourth at v1.2.0 (§15). The compiler axis and §5 remain open;
 the README quotes ranges with their libm named, never a single number.
 
 ---
@@ -454,27 +457,39 @@ requirement exists to catch exactly this class. A more principled
 gate — P-cluster idle via `powermetrics` — needs root and new
 tooling; noted as a possible refinement, not part of this proposal.
 
+### 10.1 Linux desktop: quit Electron apps, locking is not enough
+
+Not a deviation: the Ivy Bridge machine (§15) meets the 5% gate. It meets
+it only with every Electron app quit. With the Claude desktop app open, a
+five-minute test read 9–14% busy unlocked and 6–7% with the screen locked
+(#101): the app keeps rendering behind the Cinnamon lock screen and the
+compositor keeps working. On 2026-11-11 the same app held the machine at
+11–28% while in use; with it quit, both §15 passes gated on their first two
+windows at 1–3% and sampled 0.00% before every bench. The Kaby Lake recipe
+(screen locked) is therefore not enough on Linux/X11. Since #100 a failing
+gate names the consumers on Linux as it does on macOS.
+
 ---
 
-## 11. Fleet synthesis — v1.2.0 (2026-11-02)
+## 11. Fleet synthesis — v1.2.0 (2026-11-02; Ivy Bridge column 2026-11-11)
 
 The quotable section. Sources: Zen 4 pass 2 (§1), Kaby Lake pass 2 (§8),
-M1 pass 2 (§8.2; pass 11 agrees within 3.5%). All rows n = 10⁶,
-tier-asserted (`AVX3_ZEN4` / `AVX2` / `NEON`), ratio first, corvus ns/el
-in brackets. Ratios in one COLUMN share a libm; ratios across columns do
+M1 pass 2 (§8.2; pass 11 agrees within 3.5%), Ivy Bridge pass 2 (§15). All
+rows n = 10⁶, tier-asserted (`AVX3_ZEN4` / `AVX2` / `NEON` / `SSE4`), ratio
+first, corvus ns/el in brackets. Ratios in one COLUMN share a libm; ratios across columns do
 not, and §2's rule against comparing them still applies row by row.
 
-### 11.1 Elementary family, three libms
+### 11.1 Elementary family, four libms
 
-| function | Zen 4 vs UCRT | Kaby vs Apple x86 | M1 vs Apple arm64 |
-|---|---:|---:|---:|
-| `cos` | 8.44× (1.06) | 7.20× (3.05) | 5.21× (2.50) |
-| `sin` | 8.52× (1.06) | 6.68× (3.26) | 5.02× (2.61) |
-| `exp` | 1.85× (1.36) | 0.70× (8.32) | 2.59× (2.27) |
-| `expm1` | 1.07× (3.07) | 0.97× (11.07) | 0.45× (6.78) |
-| `log` | 1.50× (2.12) | 0.44× (10.28) | 0.66× (4.11) |
-| `log1p` | 0.91× (4.93) | 0.39× (18.81) | 0.32× (13.76) |
-| `log1pmx` † | 0.50× (11.36) | 0.26× (33.66) | 0.23× (27.11) |
+| function | Zen 4 vs UCRT | Kaby vs Apple x86 | M1 vs Apple arm64 | Ivy Bridge vs glibc |
+|---|---:|---:|---:|---:|
+| `cos` | 8.44× (1.06) | 7.20× (3.05) | 5.21× (2.50) | 2.81× (8.46) |
+| `sin` | 8.52× (1.06) | 6.68× (3.26) | 5.02× (2.61) | 2.79× (8.51) |
+| `exp` | 1.85× (1.36) | 0.70× (8.32) | 2.59× (2.27) | 1.69× (7.01) |
+| `expm1` | 1.07× (3.07) | 0.97× (11.07) | 0.45× (6.78) | 0.44× (24.75) |
+| `log` | 1.50× (2.12) | 0.44× (10.28) | 0.66× (4.11) | 0.56× (13.86) |
+| `log1p` | 0.91× (4.93) | 0.39× (18.81) | 0.32× (13.76) | 0.43× (33.92) |
+| `log1pmx` † | 0.50× (11.36) | 0.26× (33.66) | 0.23× (27.11) | 0.19× (56.67) |
 
 † Against `log1p(x) - x`, a cost reference only: it cancels near 0 and is
 not an accurate log1pmx (#45).
@@ -482,38 +497,39 @@ not an accurate log1pmx (#45).
 Three positioning facts:
 
 - **`cos`/`sin` win everywhere** — 5.0–8.5× against every vendor libm
-  measured, full double range, 1 ULP. The strongest performance row
-  corvus has.
-- **The log family trails the Apple libms (0.2–0.7×), and that is the
+  measured and 2.8× against glibc on two non-FMA lanes, full double range,
+  1 ULP. The strongest performance row corvus has.
+- **The log family trails the Apple libms and glibc (0.2–0.7×), and that is the
   product working as designed**: corvus `log` is correctly rounded on
   every reference row and `log1p`/`log1pmx` carry dd cores; the vendor
   libms trade exactly that away for speed. Against UCRT, `log` wins
   (1.50×) since #43.
 - **`exp` is libm-dependent in both directions** (1.9× vs UCRT, 2.6× vs
-  Apple arm64, 0.70× vs Apple's x86 exp) — the cleanest demonstration that
+  Apple arm64, 1.7× vs glibc, 0.70× vs Apple's x86 exp) — the cleanest demonstration that
   the baseline, not the kernel, moves these ratios.
 
 ### 11.2 lgamma and erf/erfc across the fleet
 
-| function | band | Zen 4 vs UCRT | Kaby vs Apple x86 | M1 vs Apple arm64 |
-|---|---|---:|---:|---:|
-| `erf` | n = 10⁶ | 6.28× (1.67) | 3.64× (6.69) | 6.52× (1.99) |
-| `erfc` | [−6, 6] core | 7.47× (2.41) | 3.21× (7.78) | 3.28× (3.91) |
-| `erfc` | [6, 28] tail | 2.04× (9.74) | 0.85× (29.95) | 0.38× (26.68) |
-| `erfc` | [−6.5, 28] mixed | 1.54× (12.68) | 0.64× (41.00) | 0.42× (27.80) |
-| `lgamma` | [0.5, 2.5] zone | 5.06× (5.67) | 0.91× (16.55) | 0.47× (25.11) |
-| `lgamma` | [2.5, 8] table | 7.07× (5.33) | 0.44× (27.20) | 1.39× (6.31) |
-| `lgamma` | [8, 1000] Stirling | 1.92× (6.93) | 0.83× (24.74) | 0.40× (21.84) |
-| `lgamma` | [0.01, 100] mixed | 5.03× (11.07) | 0.59× (34.02) | 0.40× (23.32) |
-| `lgamma` | [−30, −0.01] reflection | 1.97× (24.54) | 0.59× (79.49) | 0.59× (54.15) |
+| function | band | Zen 4 vs UCRT | Kaby vs Apple x86 | M1 vs Apple arm64 | Ivy Bridge vs glibc |
+|---|---|---:|---:|---:|---:|
+| `erf` | n = 10⁶ | 6.28× (1.67) | 3.64× (6.69) | 6.52× (1.99) | 3.61× (7.54) |
+| `erfc` | [−6, 6] core | 7.47× (2.41) | 3.21× (7.78) | 3.28× (3.91) | 2.49× (11.11) |
+| `erfc` | [6, 28] tail | 2.04× (9.74) | 0.85× (29.95) | 0.38× (26.68) | 0.48× (79.25) |
+| `erfc` | [−6.5, 28] mixed | 1.54× (12.68) | 0.64× (41.00) | 0.42× (27.80) | 0.39× (87.74) |
+| `lgamma` | [0.5, 2.5] zone | 5.06× (5.67) | 0.91× (16.55) | 0.47× (25.11) | 0.32× (58.82) |
+| `lgamma` | [2.5, 8] table | 7.07× (5.33) | 0.44× (27.20) | 1.39× (6.31) | 1.46× (17.97) |
+| `lgamma` | [8, 1000] Stirling | 1.92× (6.93) | 0.83× (24.74) | 0.40× (21.84) | 0.41× (47.09) |
+| `lgamma` | [0.01, 100] mixed | 5.03× (11.07) | 0.59× (34.02) | 0.40× (23.32) | 0.38× (53.10) |
+| `lgamma` | [−30, −0.01] reflection | 1.97× (24.54) | 0.59× (79.49) | 0.59× (54.15) | 0.92× (138.70) |
 
 `erf` and `erfc`'s core beat every libm measured. `lgamma` beats UCRT in
-every band and loses to both Apple libms in every band but the M1 table
-band, where #31's Taylor table (§13.2) passes Apple's arm64 `lgamma`. One
+every band and loses to both Apple libms and to glibc in every band but
+the table band on the M1 and on Ivy Bridge, where #31's Taylor table
+(§13.2) passes Apple's arm64 `lgamma` and glibc's. One
 function, one kernel, and the vendor baseline alone decides which side of
 1.0 it lands on — this is why no README figure omits the libm name.
-`erfc`'s tail and mixed bands lose to both Apple libms since #74 put a
-double-double G in the tail (§3).
+`erfc`'s tail and mixed bands lose to both Apple libms and to glibc since
+#74 put a double-double G in the tail (§3).
 
 The v0.9.0 synthesis, including the lgamma component study that scoped #31
 (PERFORMANCE.md §11.3 at tag `v1.1.0`), is in git history.
@@ -815,3 +831,143 @@ all six met the gate. Median of three per variant, ns/element.
 that. `betainv` bands read 0.99–1.01× and `gammainv`, `gamma_p`/`gamma_q`
 and `lgamma` read 1.00–1.01×. Not measured on Kaby Lake or M1: the
 change adds no gather, and the cost is a few dd operations per lane.
+
+---
+
+## 15. Fourth machine: Ivy Bridge SSE4, glibc (2026-11-11)
+
+| | |
+|---|---|
+| machine | MacBook Pro 9,1 (2012), i7-3820QM (Ivy Bridge, 4 cores / 8 threads): AVX, **no AVX2, no FMA** |
+| OS | Linux Mint 22.3 (Ubuntu 24.04 base), kernel 7.0.0 |
+| SIMD tier | `SSE4`, asserted per target via `CORVUS_EXPECT_TARGET`; the CPU's native top tier, uncapped (Highway has no AVX1 target) |
+| compiler | Ubuntu clang 18.1.3, Release (`release` preset, `-G Ninja`, `CC=clang-18 CXX=clang++-18`) |
+| libm | glibc 2.39 |
+| harness | `tools/quiet_bench.sh` after #100 |
+| code | `2565e85` (kernels as `2f863be`, the v1.2.0 freeze) |
+| noise | two full passes gated at 1.00/3.00% and 3.00/1.00%, 0.00% before every bench; the gates tie and the tables quote pass 2 (below). Evidence: `docs/bench-evidence/2026-11-11-ivybridge-v1.2.0/`. |
+
+What this machine adds: two lanes with no FMA on real silicon, so the
+Dekker-split `TwoProd` (`src/ops-inl.h`) is timed at its real cost; the
+first glibc baseline; and `SSE4` reached by the real dispatch decision on an
+AVX-without-AVX2 CPU. Every other `SSE4` leg in the fleet is a capped build
+on a CPU that has FMA. It is not a new tier and adds no accuracy claim.
+
+**Which pass.** The n = 10⁶ rows and the fixed-n bands agree within 1%
+between passes but for the rows named in the evidence README; the median
+difference over all 242 timed values is 0.17%. Pass 1's disturbed rows are
+`digamma`'s first two bands, which have no second n to read; pass 2's are
+n = 10 000 rows of `exp`, `expm1` and the `lgamma` zone, each with an
+n = 10⁶ row beside it. So the tables quote pass 2.
+
+### 15.1 Against glibc
+
+n = 10⁶ rows. The elementary family and the `erf`/`erfc`/`lgamma` rows are
+in §11's Ivy Bridge column; this is the same data with the libm cost shown.
+
+| function | band | corvus ns/el | glibc ns/el | ratio |
+|---|---|---:|---:|---:|
+| `erf` | n = 10⁶ | 7.54 | 27.20 | 3.61× |
+| `erfc` | [−6, 6] core | 11.11 | 27.61 | 2.49× |
+| `erfc` | [6, 28] tail | 79.25 | 38.13 | **0.48×** |
+| `erfc` | [−6.5, 28] mixed | 87.74 | 34.15 | **0.39×** |
+| `lgamma` | [0.5, 2.5] zone | 58.82 | 18.73 | **0.32×** |
+| `lgamma` | [2.5, 8] table | 17.97 | 26.29 | 1.46× |
+| `lgamma` | [8, 1000] Stirling | 47.09 | 19.15 | **0.41×** |
+| `lgamma` | [0.01, 100] mixed | 53.10 | 19.94 | **0.38×** |
+| `lgamma` | [−30, −0.01] reflection | 138.70 | 127.62 | **0.92×** |
+| `cos` / `sin` | | 8.46 / 8.51 | 23.80 / 23.76 | 2.81× / 2.79× |
+| `exp` / `expm1` | | 7.01 / 24.75 | 11.88 / 10.87 | 1.69× / **0.44×** |
+| `log` / `log1p` / `log1pmx` † | | 13.86 / 33.92 / 56.67 | 7.74 / 14.69 / 11.02 | **0.56×** / **0.43×** / **0.19×** |
+
+† As §11.1: against `log1p(x) - x`, a cost reference only.
+
+glibc is fast where Apple's libms are: `lgamma` outside the table band at
+19–20 ns/el, `log` at 7.7, `expm1` at 10.9. On two non-FMA lanes corvus
+loses those rows and keeps `erf`, `erfc`'s core, `cos`/`sin`, `exp` and the
+`lgamma` table band. §8.1's rule extends to glibc unchanged: any published
+positioning names the libm.
+
+### 15.2 Batching gain, corvus against corvus
+
+Pass 2, beside the other 2-lane tier and the 4-lane x86 one (§8.2).
+
+| family | upper bound (Ivy Bridge, SSE4) | M1 (NEON) | Kaby Lake (AVX2) |
+|---|---|---|---|
+| `gamma_p` / `gamma_q` | 1.76 – 1.98× | 1.78 – 2.00× | 3.13 – 3.92× |
+| `beta_p` / `beta_q` | 1.75 – 2.00× | 1.73 – 2.00× | 3.21 – 4.02× |
+| `digamma` | 1.63 – 2.13× | 1.70 – 2.10× | 2.88 – 4.77× |
+| `trigamma` | 1.57 – 2.24× | 1.60 – 2.11× | 2.58 – 4.88× |
+| `gamma_p_inv` / `gamma_q_inv` | 1.21 – 1.99× | 1.46 – 2.00× | 2.29 – 4.03× |
+| `beta_p_inv` / `beta_q_inv` | 1.24 – 1.97× | 1.35 – 1.91× | 2.06 – 3.88× |
+| `lbeta` | 1.76× main band, 2.01× big band | 1.66 – 1.70× main band, 2.02× big band | 3.16×, 3.97× |
+| `erfinv` / `erfcinv` | 1.48 – 2.27× | 1.50 – 2.44× | 2.36 – 5.02× |
+| `i0` / `i1` / `i0e` / `i1e` | 1.52 – 2.19× | 1.45 – 2.25× | 2.91 – 4.53× |
+
+The column tracks the lane count and its range ends read within 7% of the
+M1's on every family but the inverses, whose bottom ends are lower here:
+`gamma_p_inv` a ≥ a_T deep tail 1.21×, `beta_p_inv` skewed (CF) 1.24×, both
+branch-divergent bands. `beta_p_inv`'s top is pass 1's deep-small reading:
+pass 2 read 2.16× there from a scalar walk 10% slower than pass 1's, with
+the SIMD side at 2,937 and 2,940 ns/el.
+
+### 15.3 Per-element cost against Kaby Lake
+
+Both columns are pass 2 of a clang-family build at the same kernels, SIMD
+ns/el. Half the lanes predicts 2×; this is also a 2012 core against a 2017
+one, without FMA, so 2× is a floor for arithmetic-bound kernels, not an
+expectation.
+
+| row | Ivy Bridge SSE4 | Kaby Lake AVX2 | ratio |
+|---|---:|---:|---:|
+| `i0` series, n = 4001 | 166.41 | 40.76 | 4.08× |
+| `trigamma` (0,1) up-step, n = 4001 | 108.88 | 29.06 | 3.75× |
+| `digamma` (0,1) up-step, n = 4001 | 89.48 | 24.27 | 3.69× |
+| `lgamma` zone [0.5, 2.5] | 58.82 | 16.55 | 3.55× |
+| `erfinv` central [−0.5, 0.5] | 36.83 | 10.47 | 3.52× |
+| `cos` / `sin` | 8.46 / 8.51 | 3.05 / 3.26 | 2.77× / 2.61× |
+| `erfc` tail [6, 28] | 79.25 | 29.95 | 2.65× |
+| `expm1` | 24.75 | 11.07 | 2.24× |
+| `gamma_p_inv` / `gamma_q_inv` deep-small, n = 40 001 | 316.45 / 5,904.08 | 155.62 / 2,812.04 | 2.03× / 2.10× |
+| `lgamma` Stirling [8, 1000] | 47.09 | 24.74 | 1.90× |
+| `log1p` / `log1pmx` | 33.92 / 56.67 | 18.81 / 33.66 | 1.80× / 1.68× |
+| `log` | 13.86 | 10.28 | 1.35× |
+| `erf` | 7.54 | 6.69 | 1.13× |
+| `exp` | 7.01 | 8.32 | **0.84×** |
+| `lgamma` table [2.5, 8] | 17.97 | 27.20 | **0.66×** |
+
+(n = 10⁶ unless the row says otherwise.)
+
+Two readings, neither of them a decomposition:
+
+- **The double-double bands sit well above 2×.** The `lgamma` zone runs dd
+  near the zeros and `erfc`'s tail runs a dd G (#74); they cost 3.55× and
+  2.65× Kaby Lake. Without FMA every `TwoProd` is a Dekker split, which is
+  the cost this machine was added to expose, but no A/B isolates it here:
+  core generation is in the same ratio. The three rows above them are §5's
+  three bands; why they in particular cost most is not known.
+- **The table kernels run at or below Kaby Lake's cost on half the lanes.**
+  `SSE4` has no hardware gather, so Highway emulates it with per-lane
+  loads: in effect the non-gather variant #22 proposes. `lgamma`'s table
+  band (11 gathers per vector) is 1.5× faster per element here than on
+  Kaby Lake's AVX2, `exp` 1.2× faster, and `erf` within 13%. That supports
+  #22's premise that Kaby Lake's hardware gathers are its bottleneck. It is
+  cross-machine evidence only; the sizing step is still the same-silicon
+  A/B, Kaby Lake capped to `SSE4` against its AVX2 build.
+
+§5 on this machine: two processes are too few to say. `digamma` (0,1)
+up-step read 101.32 and 89.48 ns/el (1.13×) with its scalar walk moving
+further (211.83 against 160.43), which is not §5's signature of a steady
+walk; `trigamma` (0,1) up-step read 109.98 and 108.88, `i0` series 166.91
+and 166.41. Recorded for #97.
+
+### 15.4 Compiler side note: GCC 13.3 on the same silicon
+
+Not a fleet column. One indicative GCC 13.3 pass on this machine (gate
+3.00/0.00%, 2026-11-07, `c83e6f8`, same kernels) preceded this run; its raw
+output is in #101. Against it, the clang build is faster on almost every
+row, by 2–8% on most and by 15–18% on `gamma_p` R3 Temme, the
+`gamma_p_inv` ridge and beyond-resolution bands and `trigamma`'s asymptotic
+bands. `expm1` goes the other way: GCC reads 21.96 ns/el against clang's
+24.75. One pass against two, so these are sizes, not rankings; they are the
+only reading of §6's compiler axis so far.

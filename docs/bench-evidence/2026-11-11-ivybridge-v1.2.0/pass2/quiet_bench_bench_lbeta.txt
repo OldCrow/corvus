@@ -1,0 +1,3 @@
+corvus active SIMD target: SSE4
+lbeta main band:  682.70 ns/el SIMD, 1198.25 ns/el scalar-walk, 1.76x
+lbeta big band :  525.75 ns/el SIMD, 1057.61 ns/el scalar-walk, 2.01x

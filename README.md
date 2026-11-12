@@ -187,28 +187,41 @@ accuracy target rather than chosen — lgamma's Stirling switchover sits at
 X0 = 8 because accuracy puts it there, not because it was tuned.
 
 At v1.2.0 the measurements hold on quiet-machine release builds across
-three microarchitectures (Zen 4, Kaby Lake, Apple M1) and three vendor
-libms (UCRT, Apple x86, Apple arm64), so ranges can be quoted — always
-with the libm named, never as one number:
+four machines, each with its own SIMD tier and system libm. A figure means
+something only with all three named, so each column carries them:
 
-- `cos`/`sin` run 5.0–8.5× ahead of every vendor libm measured, at 1 ULP
-  over the full double range.
-- `lgamma` spans 1.9–7.1× against UCRT and 0.4–1.4× against Apple's
-  libms: the same kernel lands on opposite sides of 1.0 depending on the
-  baseline alone.
-- `log` beats UCRT (1.5×) and runs at 0.4–0.7× of Apple's libms —
-  deliberately. It is correctly rounded on every reference row, and the
-  baselines it loses to trade exactly that away for speed.
-- Batching the families with no libm counterpart (incomplete functions
-  and their inverses, digamma/trigamma, erfinv, Bessel) gains 3.1–17.8×
-  on Zen 4, 2.1–5.0× on Kaby Lake and 1.4–2.4× on the M1 over calling the
-  same kernels one element at a time — an upper bound against per-call
-  overhead, not a libm comparison.
+| | Zen 4 | Kaby Lake | Apple M1 | Ivy Bridge |
+|---|---:|---:|---:|---:|
+| SIMD tier (lanes) | AVX-512 (8) | AVX2 (4) | NEON (2) | SSE4 (2), no FMA |
+| compared against | UCRT | Apple x86 libm | Apple arm64 libm | glibc |
+| `cos` / `sin` | 8.4–8.5× | 6.7–7.2× | 5.0–5.2× | 2.8× |
+| `lgamma`, across its bands | 1.9–7.1× | 0.4–0.9× | 0.4–1.4× | 0.3–1.5× |
+| `log` | 1.5× | 0.44× | 0.66× | 0.56× |
+| batching gain, no libm involved | 3.1–17.8× | 2.1–5.0× | 1.4–2.4× | 1.2–2.3× |
+
+Read down a column, not across a row: each column has a different libm as
+its baseline, as well as a different lane count and core.
+
+- `cos`/`sin` lead every libm measured, at 1 ULP over the full double
+  range, and the lead shrinks with the lane count.
+- `lgamma` lands on opposite sides of 1.0 depending on the baseline: ahead
+  of UCRT in every band, behind Apple's libms and glibc in most.
+- `log` trails every libm but UCRT, deliberately. It is correctly rounded
+  on every reference row, and the baselines it loses to trade exactly that
+  away for speed.
+- The last row is for the families with no libm counterpart (incomplete
+  functions and their inverses, digamma/trigamma, erfinv, Bessel): the
+  gain over calling the same kernels one element at a time. It is an upper
+  bound against per-call overhead, not a libm comparison.
 - `lgamma`'s table band (v1.2.0) takes 11 gathers per vector. It still gains
   1.61× on Kaby Lake, the fleet's gather-weak part, but gather cost is
   unmeasured under the Downfall microcode mitigation (Skylake through Ice
   Lake and Tiger Lake) and on AMD before Zen 3. A non-gather x86 variant is
   planned for v1.3.0 (#22).
+- x86 without FMA (before Haswell) runs the 2-lane `SSE4` tier, and the
+  double-double bands pay for it: per element, `lgamma` near its zeros
+  costs 3.55× and `erfc`'s tail 2.65× what they cost on Kaby Lake, where
+  the lane count alone predicts 2×.
 
 The full per-machine, per-band record is
 [docs/PERFORMANCE.md](docs/PERFORMANCE.md) — start at its §11 synthesis.

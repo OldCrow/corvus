@@ -10,6 +10,7 @@ CMake standard, and CI design. For kernel/generator/oracle rules see
 | Machine | OS | CPU | SIMD | Compiler | Validation role |
 |---|---|---|---|---|---|
 | MacBook Pro 2017 (Kaby Lake) | macOS Ventura | i7-7820HQ | AVX2+FMA | Apple Clang | AVX2 native; SSE4/SSSE3/SSE2 via tier capping (no FMA on those) |
+| MacBook Pro 2012 (Ivy Bridge) | Linux Mint 22.3, glibc 2.39 | i7-3820QM | AVX, no AVX2, no FMA: dispatches SSE4 | clang 18 (GCC 13.3 builds clean; not a fleet column) | SSE4 as the native top tier, uncapped: the real dispatch decision on an AVX-without-AVX2 CPU, and the non-FMA path at its real cost. glibc baseline. Quiet bench only when the dd path or the table kernels change |
 | Mac Mini M1 | macOS 27 Golden Gate | Apple M1 | NEON (native FMA) | Apple Clang 21 | NEON validation |
 | Asus TUF A16 | Windows 11 | Ryzen 7 7445 (Zen 4) | AVX-512 | **clang-cl (GCC unsafe at AVX2 and above, MSVC can't dispatch it)** | AVX3* native; every lower x86 tier via capping |
 

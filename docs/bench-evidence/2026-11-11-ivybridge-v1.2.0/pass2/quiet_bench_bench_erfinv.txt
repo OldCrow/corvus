@@ -1,0 +1,21 @@
+corvus active SIMD target: SSE4
+erfinv, input range [-0.5, 0.5] (central C)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          48.29          89.71      1.86x
+   1000000          36.83          83.64      2.27x
+erfinv, input range [-0.999, 0.999] (mixed)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          80.84         118.80      1.47x
+   1000000          81.77         120.73      1.48x
+erfcinv, input range [0.5, 1.5] (central C)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          38.46          84.12      2.19x
+   1000000          38.64          85.36      2.21x
+erfcinv, input range [1e-06, 0.5] (T-mid)
+         n     simd ns/el   scalar ns/el    speedup
+     10000          76.94         161.13      2.09x
+   1000000          77.84         162.04      2.08x
+erfcinv, input range [4.94066e-324, 2.2e-308] (T-far, subnormal z)
+         n     simd ns/el   scalar ns/el    speedup
+     10000         142.40         288.68      2.03x
+   1000000         144.06         292.60      2.03x

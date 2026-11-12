@@ -68,18 +68,27 @@ pass, #100 the `quiet_bench.sh` Linux bugs it found):
   on any host, so the capped Kaby, Zen 4 and CI Linux/GCC legs already
   run this code path. One validation-leg line in ACCURACY.md once a
   tier-asserted gate run and ULP report from this machine are recorded.
-- Performance: PERFORMANCE.md gains the fourth-machine section and
-  fleet-synthesis column #101 proposes, from a clang-built two-pass run.
-  The user-facing docs gain one sentence beside the gather-weak line:
-  on non-FMA x86 the dd kernels cost 2.75–3.75× Kaby Lake per element
-  where lane count predicts 2×.
+- Performance [DERIVED 2026-11-11, DONE]: PERFORMANCE.md §15, §10.1 and
+  the Ivy Bridge column of §11, from two clang 18.1.3 passes at `2565e85`
+  (gates 1.00/3.00% and 3.00/1.00%; pass 2 quoted). Evidence
+  `docs/bench-evidence/2026-11-11-ivybridge-v1.2.0/`. The README gained
+  the non-FMA sentence beside the gather-weak line: the dd bands cost
+  3.55× (lgamma zone) and 2.65× (erfc tail) Kaby Lake per element where
+  lane count predicts 2× (clang against clang; #101's GCC pass read
+  3.75×/2.75×). The three highest ratios, 3.7–4.1×, are §5's three bands
+  (i0 series, digamma and trigamma up-step); cause not known.
 - No unfreeze. The pass shows no defect; both code candidates (#22, and
   pre-split constant operands for Dekker on non-FMA tiers) are
   speed-only. The libstats/libhmm bump to v1.2.0 proceeds unchanged.
 - [OPEN] Order of work, all on the Mint machine: fix #100 (Linux side
-  done 2026-11-11), then the
-  recordable #101 run (clang, two gated passes, Electron apps quit),
-  then the ctest + ULP report. Confirm #100's Darwin branch on a Mac.
+  done 2026-11-11), then the recordable #101 run (done 2026-11-11, row
+  above), then the ctest + ULP report (done 2026-11-11: 38/38 and
+  18/18 report programs, `SSE4`-asserted, clang 18.1.3 and GCC 13.3
+  byte-identical; ACCURACY.md has the validation-leg line). Confirm
+  #100's Darwin branch on a Mac.
+- [OPEN] No capped-`SSE4` ULP report is published (CI prints AVX2 only),
+  so the native leg is not diffed against a capped one. A candidate:
+  have CI's sweep print the report per tier, or save one from Kaby Lake.
 - [OPEN] The Dekker pre-split is unfiled; file it only if a consumer
   reports pre-Haswell hardware.
 - [OPEN] Housekeeping: remove the `../corvus-c1` and `../corvus-c3`
@@ -287,9 +296,10 @@ REPORT.md). Rerun takes about a minute.
   and 3.6× (Stirling), so a non-gather variant recovers at most 1.5–1.8×
   there; needs a selection mechanism and a new accuracy audit).
   [DERIVED 2026-11-11] Sizing step before any code: cap Kaby Lake to
-  `SSE4` and time the table bands against its AVX2 build. #101's Ivy
-  Bridge rows (lgamma table 0.67×, exp 0.92×, erf 1.15× of Kaby AVX2 per
-  element) support the premise but confound compiler and silicon.
+  `SSE4` and time the table bands against its AVX2 build. The Ivy
+  Bridge rows (PERFORMANCE.md §15.3, clang both sides: lgamma table
+  0.66×, exp 0.84×, erf 1.13× of Kaby AVX2 per element) support the
+  premise but are cross-machine, so silicon is still confounded.
 - #28 upstream Highway HWY_BROKEN_MSVC version floor (needs Highway's own
   suite passing under MSVC/AVX-512 first).
 - #29 watch GCC PR 126741; re-qualify mingw GCC for AVX2+ when it lands.
@@ -306,8 +316,8 @@ REPORT.md). Rerun takes about a minute.
   carry `top:`, machine line names CPU and distribution, runs as
   `./tools/quiet_bench.sh`; now POSIX `#!/bin/sh`, tested under dash and
   `bash --posix`). Open until the Darwin branch is confirmed on a Mac.
-- #101 Ivy Bridge SSE4/glibc machine in PERFORMANCE.md (#100's Linux fix
-  is in; Status above).
+- #101 Ivy Bridge SSE4/glibc machine in PERFORMANCE.md: written
+  2026-11-11 (Status above); closes with its PR.
 
 **Unfiled, still open** (recorded only in closed #82 or here):
 - [OPEN] Four kernel routes neither reached nor argued unreachable, each

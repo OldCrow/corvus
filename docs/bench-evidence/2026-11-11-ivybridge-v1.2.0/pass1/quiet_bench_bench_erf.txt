@@ -1,0 +1,6 @@
+corvus active SIMD target: SSE4
+         n   corvus ns/el     libm ns/el    speedup
+      1000          12.49          40.30      3.23x
+     10000          11.27          33.05      2.93x
+    100000           7.98          26.98      3.38x
+   1000000           8.05          27.17      3.37x

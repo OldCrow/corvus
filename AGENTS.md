@@ -35,7 +35,7 @@ any visible way.
   `PLAN.md` (full design texts live in its git history).
 - Audited accuracy claims → `docs/ACCURACY.md`; update it in the same
   change set as any kernel or gate change.
-- Performance numbers → `docs/PERFORMANCE.md`. MEASURED on three
+- Performance numbers → `docs/PERFORMANCE.md`. MEASURED on four
   machines (its own status line), but not the same standing as
   ACCURACY.md: some bands (§5) read in two speed modes. Never quote it as
   an accuracy claim, and never compare ratios across different libms —
