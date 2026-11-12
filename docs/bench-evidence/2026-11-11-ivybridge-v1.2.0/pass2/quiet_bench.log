@@ -1,0 +1,37 @@
+20:35:42 quiet_bench.sh  build=build-clang  expect=SSE4  targets=15
+20:35:42 gate          : ambient < 5% over two consecutive 10s windows
+20:35:42 machine       : Intel(R) Core(TM) i7-3820QM CPU @ 2.70GHz; Linux Mint 22.3
+20:35:52 ambient sample : 3.00%
+20:36:02 ambient sample : 1.00%
+20:36:02 gate passed at: 3.00 1.00%
+20:36:13 bench_erf: noise before 0.00%  top: 2.0%top 0.0%systemd 0.0%kthreadd 
+20:36:14 bench_erf: rc=0 1s target=SSE4
+20:36:25 bench_erfc: noise before 0.00%  top: 2.0%top 1.0%[user-app] 1.0%0:0-events 
+20:36:29 bench_erfc: rc=0 4s target=SSE4
+20:36:40 bench_lgamma: noise before 0.00%  top: 1.9%top 1.0%blueman-tray 0.0%systemd 
+20:36:47 bench_lgamma: rc=0 7s target=SSE4
+20:36:58 bench_erfinv: noise before 0.00%  top: 2.0%top 1.0%6:0-events 0.0%systemd 
+20:37:07 bench_erfinv: rc=0 9s target=SSE4
+20:37:18 bench_gamma: noise before 0.00%  top: 2.0%top 1.0%[user-app] 0.0%systemd 
+20:38:03 bench_gamma: rc=0 45s target=SSE4
+20:38:14 bench_beta: noise before 0.00%  top: 2.0%top 1.0%u32:5-flush-252:0 0.0%systemd 
+20:38:20 bench_beta: rc=0 6s target=SSE4
+20:38:31 bench_digamma: noise before 0.00%  top: 1.9%top 0.0%systemd 0.0%kthreadd 
+20:38:32 bench_digamma: rc=0 1s target=SSE4
+20:38:43 bench_trigamma: noise before 0.00%  top: 2.0%top 0.0%systemd 0.0%kthreadd 
+20:38:43 bench_trigamma: rc=0 0s target=SSE4
+20:38:54 bench_gammainv: noise before 0.00%  top: 1.9%top 0.0%systemd 0.0%kthreadd 
+20:39:08 bench_gammainv: rc=0 14s target=SSE4
+20:39:20 bench_betainv: noise before 0.00%  top: 1.9%top 0.0%systemd 0.0%kthreadd 
+20:39:57 bench_betainv: rc=0 37s target=SSE4
+20:40:08 bench_bessel: noise before 0.00%  top: 0.0%systemd 0.0%kthreadd 0.0%pool_workqueue_release 
+20:40:08 bench_bessel: rc=0 0s target=SSE4
+20:40:20 bench_lbeta: noise before 0.00%  top: 2.0%top 1.0%avahi-daemon 0.0%systemd 
+20:40:20 bench_lbeta: rc=0 0s target=SSE4
+20:40:31 bench_trig: noise before 0.00%  top: 2.0%top 1.0%polkitd 0.0%systemd 
+20:40:33 bench_trig: rc=0 2s target=SSE4
+20:40:44 bench_exp: noise before 0.00%  top: 2.0%top 1.0%blueman-tray 0.0%systemd 
+20:40:45 bench_exp: rc=0 1s target=SSE4
+20:40:56 bench_log: noise before 0.00%  top: 3.9%mintreport-tray 1.0%top 0.0%systemd 
+20:40:59 bench_log: rc=0 3s target=SSE4
+20:40:59 done fail=0. Raw per-target output: build-clang/quiet_bench/quiet_bench_<target>.txt

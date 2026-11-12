@@ -1,0 +1,13 @@
+corvus active SIMD target: SSE4
+input range [-6, 6] (core-dominated)
+         n   corvus ns/el     libm ns/el    speedup
+     10000          15.53          34.13      2.20x
+   1000000          11.11          27.61      2.49x
+input range [-6.5, 28] (mixed)
+         n   corvus ns/el     libm ns/el    speedup
+     10000          87.70          33.34      0.38x
+   1000000          87.74          34.15      0.39x
+input range [6, 28] (tail-only)
+         n   corvus ns/el     libm ns/el    speedup
+     10000          79.50          38.17      0.48x
+   1000000          79.25          38.13      0.48x

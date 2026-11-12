@@ -1,0 +1,16 @@
+corvus active SIMD target: SSE4
+digamma, (0,1) up-step: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001         101.32         211.83      2.09x
+digamma, [1,2) zone: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          84.15         158.07      1.88x
+digamma, [2,8) down-walk: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001         104.88         196.24      1.87x
+digamma, [8,inf) asymptotic: n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001          47.89         102.37      2.14x
+digamma, negative axis (reflection): n=4001
+         n     simd ns/el   scalar ns/el  upper bnd
+      4001         168.33         274.02      1.63x

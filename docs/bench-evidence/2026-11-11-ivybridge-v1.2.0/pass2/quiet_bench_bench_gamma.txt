@@ -1,0 +1,17 @@
+corvus active SIMD target: SSE4
+gamma_p, R1 series: a in [2, 19], x/a in [0.2, 1]
+         n     simd ns/el   scalar ns/el    speedup
+     10000         775.09        1362.48      1.76x
+   1000000         776.28        1363.68      1.76x
+gamma_q, R2 backward CF: a in [2, 19], x/a in [3, 20]
+         n     simd ns/el   scalar ns/el    speedup
+     10000         358.17         665.02      1.86x
+   1000000         361.37         667.85      1.85x
+gamma_p, R3 Temme: a in [50, 1e+06], x/a in [0.7, 1.4]
+         n     simd ns/el   scalar ns/el    speedup
+     10000         453.49         896.08      1.98x
+   1000000         458.36         905.45      1.98x
+gamma_q, R4 small-a: a in [0.05, 1.5], x/a in [0.5, 2.5]
+         n     simd ns/el   scalar ns/el    speedup
+     10000         617.14        1127.92      1.83x
+   1000000         619.99        1129.41      1.82x

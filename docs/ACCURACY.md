@@ -137,6 +137,16 @@ Not-CR tallies therefore move by a few rows between tier classes.
   report equals CI's NEON job line for line.
 - CI run 41348222134 (on `8a6533f`, kernels as `2f863be`): the Linux/GCC
   tier sweep and the Apple-silicon capped NEON job.
+- Ivy Bridge (i7-3820QM, Linux Mint 22.3), 2026-11-11, at `2565e85`
+  (kernels as `2f863be`): SSE4 by native dispatch, uncapped, on a CPU with
+  AVX but neither AVX2 nor FMA. Every other SSE4 leg caps a host that has
+  FMA; the SSE4 target compiles without it on any host, so this adds a
+  leg, not a column. 38/38 gates, tier-asserted, 0 warnings, under clang
+  18.1.3 and under GCC 13.3; the two ULP reports are identical line for
+  line and read as the no-FMA note below describes (erf: 37 rows not
+  correctly rounded, 1.10 real). Not diffed against a capped-SSE4 report:
+  none is published. Evidence:
+  `docs/bench-evidence/2026-11-11-ivybridge-v1.2.0/`.
 
 The NEON row also covers Highway's `NEON_BF16` target (BF16-capable Apple
 cores, M2 and later). NEON_BF16 adds bf16, fp16 and int8 instructions

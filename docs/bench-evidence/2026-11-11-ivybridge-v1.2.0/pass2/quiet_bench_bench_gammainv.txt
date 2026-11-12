@@ -1,0 +1,22 @@
+corvus active SIMD target: SSE4
+gammainv, deep-small closed form: n=40001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+     40001         316.45        5904.08         628.78      1.99x
+gammainv, small-a mid band: n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        6586.71        7714.11       11709.10      1.78x
+gammainv, small-a deep tail: n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        3358.42        5049.61        4555.02      1.36x
+gammainv, a >= a_T ridge: n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        5875.94        5882.13       11563.90      1.97x
+gammainv, a >= a_T deep tail: n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        9091.49        6494.65       11030.57      1.21x
+gammainv, beyond resolution: n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        5695.97        5694.34       11317.64      1.99x
+gammainv, large-side input (flip): n=4001
+         n    p_inv ns/el    q_inv ns/el   scalar ns/el  upper bnd
+      4001        7561.10        6546.31       10705.99      1.42x

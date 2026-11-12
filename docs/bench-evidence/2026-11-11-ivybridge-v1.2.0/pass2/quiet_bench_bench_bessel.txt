@@ -1,0 +1,19 @@
+corvus active SIMD target: SSE4
+bessel, series (0,8]: n=4001
+      fn     simd ns/el   scalar ns/el  upper bnd
+      i0         166.41         306.06      1.84x
+      i1         143.20         280.43      1.96x
+     i0e         117.79         245.60      2.09x
+     i1e         126.57         265.13      2.09x
+bessel, tail (8,700]: n=4001
+      fn     simd ns/el   scalar ns/el  upper bnd
+      i0          74.83         160.71      2.15x
+      i1          75.31         164.22      2.18x
+     i0e          74.70         161.94      2.17x
+     i1e          75.24         164.68      2.19x
+bessel, mixed sign, both regions: n=4001
+      fn     simd ns/el   scalar ns/el  upper bnd
+      i0         145.69         221.49      1.52x
+      i1         153.67         238.18      1.55x
+     i0e         145.74         221.67      1.52x
+     i1e         153.69         234.73      1.53x
