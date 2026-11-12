@@ -1,0 +1,657 @@
+### test_exp_dd tests/data/exp_dd_reference.txt
+corvus active SIMD target: SSE4
+dd relative    n=  6692  worst=2^-68.45 (gate 2^-68.40)  worst x=-696.99410956350516
+normal         n=  6692  max ULP=  1 (gate 1)  not-CR: 10 (0.15%)  worst x=-707.37746691160396
+subnormal      n=   931  max ULP=  1 (gate 1)  not-CR: 9 (0.97%)  worst x=-710.92754680299765
+zero/inf       n=    28  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst x=0
+PASS: all regions within gates
+### test_log_dd tests/data/log_dd_reference.txt
+corvus active SIMD target: SSE4
+dd relative    n=  7273  worst=2^-67.88 (gate 2^-67.80)  worst x=1.0078046875
+  of which 0.5<x<2   n=   652  worst=2^-67.88  worst x=1.0078046875
+rounded        n=  7273  max ULP=  0 (gate 1)  not-CR: 0 (0.00%)  worst x=0
+PASS: all regions within gates
+### test_dd_special tests/data/dd_special_reference.txt tests/data/log1pmx_ulo_reference.txt tests/data/expm1_dd_reference.txt
+corvus active SIMD target: SSE4
+Log1pmxDd |u|>=2^-40  n= 12476  worst rel=2^-67.78 (gate 2^-67.77)  worst u=0.06250979564489445
+Log1pmxDd |u| <2^-40  n=   710  worst abs=2^-187.00 (gate 2^-186.00)  worst u=-6.5454595560728567e-13  [rel there 2^-104.56]
+Log1pmxDd u.lo != 0   n=  2006  worst rel=2^-71.41 (gate 2^-67.77)  worst u=0.11658359198367813
+Expm1Dd               n=  3012  worst rel=2^-64.34 (gate 2^-64.33)  worst w=-0.018668697555253137
+PASS: all gates met
+### test_erf_ulp tests/data/erf_reference.txt
+corvus active SIMD target: SSE4
+tests/data/erf_reference.txt: 19439 rows gated in 23 strata, 0 deferred
+points: 19439   max ULP: 1   not-correctly-rounded: 37 (0.190%)
+worst: x=-1.554054  got=-0.972034  want=-0.972034
+BOUND erf|all|ulp|1
+PIN erf|all|nofma|1.101208|1.25
+  real all                              max=1.1012  contract 1.25  pin 1.13
+worst real: x=0.0019531250000000139  got=0.0022038627583766701  want=0.0022038627583766696
+PASS: max ULP <= 1; real error within contract and pin
+### test_erfc_ulp tests/data/erfc_reference.txt
+corvus active SIMD target: SSE4
+tests/data/erfc_reference.txt: 17704 rows gated in 12 strata, 0 deferred
+core abs(x)<=6  n=  7093  max ULP=  1 (gate 1)  not-CR: 56 (0.79%)  worst x=2.5300200499747909
+BOUND erfc|core abs(x)<=6|ulp|1
+PIN erfc|core abs(x)<=6|nofma|0.889334|1.25
+  real core abs(x)<=6                   max=0.8893  contract 1.25  pin 0.91
+tail normal     n=  8675  max ULP=  1 (gate 2)  not-CR: 1 (0.01%)  worst x=21.976309043295885
+BOUND erfc|tail normal|ulp|2
+PIN erfc|tail normal|nofma|0.500017|2.25
+  real tail normal                      max=0.5000  contract 2.25  pin 0.53
+tail subnormal  n=  1936  max ULP=  0 (gate 1)  not-CR: 0 (0.00%)  worst x=0
+BOUND erfc|tail subnormal|ulp|1
+PIN erfc|tail subnormal|nofma|0.499997|1.25
+  real tail subnormal                   max=0.5000  contract 1.25  pin 0.52
+PASS: all regions within gates
+### test_lgamma_ulp tests/data/lgamma_reference.txt
+corvus active SIMD target: SSE4
+tests/data/lgamma_reference.txt: 24802 rows gated in 79 strata, 0 deferred
+pos mid near-ties (window 2^-12): 1
+pos big near-ties (window 2^-15): 1
+pos small     n=  2739  max ULP=  1 (gate 1)  not-CR: 2 (0.07%)  worst x=0.49999999999999833
+BOUND lgamma|pos small|ulp|1
+PIN lgamma|pos small|nofma|0.503346|1.25
+  real pos small                        max=0.5033  contract 1.25  pin 0.53
+pos zone      n=  4602  max ULP=  1 (gate 1)  not-CR: 32 (0.70%)  worst x=1.4999999999999953
+BOUND lgamma|pos zone|ulp|1
+PIN lgamma|pos zone|nofma|0.596745|1.25
+  real pos zone                         max=0.5967  contract 1.25  pin 0.62
+pos mid       n=  3695  max ULP=  0 (gate 0)  not-CR: 1 (0.03%)  worst x=0
+BOUND lgamma|pos mid|ulp|0
+PIN lgamma|pos mid|nofma|0.499992|0.50
+  real pos mid                          max=0.5000  contract 0.50  pin 0.50
+pos big       n=  5036  max ULP=  0 (gate 0)  not-CR: 1 (0.02%)  worst x=0
+BOUND lgamma|pos big|ulp|0
+PIN lgamma|pos big|nofma|0.499901|0.50
+  real pos big                          max=0.4999  contract 0.50  pin 0.50
+neg abs(lg)>=1 n=  7235  max ULP=  1 (gate 1)  not-CR: 3 (0.04%)  worst x=-14.041713464494364
+BOUND lgamma|neg abs(lg)>=1|ulp|1
+PIN lgamma|neg abs(lg)>=1|nofma|0.501791|1.25
+  real neg abs(lg)>=1                   max=0.5018  contract 1.25  pin 0.53
+neg |lg|<1    n=  1495  max abs=1.110e-16 (gate 1.1e-16)  not-CR: 408 (27.29%)  worst x=-1.4726982071213923
+BOUND lgamma|neg abs(lg)<1|abs53|1
+PASS: all regions within gates
+### test_erfinv_ulp tests/data/erfinv_reference.txt tests/data/erfcinv_reference.txt
+corvus active SIMD target: SSE4
+tests/data/erfinv_reference.txt: 11616 rows gated in 19 strata, 0 deferred
+erfinv   C             n=  6384  max ULP=  1 (gate 1)  not-CR: 33 (0.52%)  worst x=-0.3638924187538024
+BOUND erfinv|C|ulp|1
+PIN erfinv|C|nofma|0.530744|1.25
+  real C                                max=0.5307  contract 1.25  pin 0.56
+erfinv   T             n=  5232  max ULP=  1 (gate 1)  not-CR: 4 (0.08%)  worst x=-0.68916307037127056
+BOUND erfinv|T|ulp|1
+PIN erfinv|T|nofma|0.508838|1.25
+  real T                                max=0.5088  contract 1.25  pin 0.53
+tests/data/erfcinv_reference.txt: 14362 rows gated in 24 strata, 0 deferred
+erfcinv  C             n=  4888  max ULP=  1 (gate 1)  not-CR: 30 (0.61%)  worst x=0.61541675670869578
+BOUND erfcinv|C|ulp|1
+PIN erfcinv|C|nofma|0.525876|1.25
+  real C                                max=0.5259  contract 1.25  pin 0.55
+erfcinv  T-mid         n=  4915  max ULP=  1 (gate 1)  not-CR: 6 (0.12%)  worst x=0.49999999999999994
+BOUND erfcinv|T-mid|ulp|1
+PIN erfcinv|T-mid|nofma|1.032913|1.25
+  real T-mid                            max=1.0329  contract 1.25  pin 1.06
+erfcinv  T-far         n=  4559  max ULP=  1 (gate 1)  not-CR: 4 (0.09%)  worst x=7.4667973367710239e-288
+BOUND erfcinv|T-far|ulp|1
+PIN erfcinv|T-far|nofma|0.513650|1.25
+  real T-far                            max=0.5136  contract 1.25  pin 0.54
+PASS: all regions within gates
+### test_gamma_ulp tests/data/gamma_p_reference.txt tests/data/gamma_q_reference.txt
+corvus active SIMD target: SSE4
+tests/data/gamma_p_reference.txt: 27019 rows gated in 71 strata, 0 deferred
+gamma_p  727 exact-zero reference rows (checked via SameBits)
+gamma_p  R1 series dir  n=  9992  max ULP=  1 (gate 1)  not-CR: 4 (0.04%)  worst a=16.431094947116179 x=8.8643616922797879
+BOUND gamma_p|R1 series dir|ulp|1
+PIN gamma_p|R1 series dir|nofma|0.503785|1.25
+  real R1 series dir                    max=0.5038  contract 1.25  pin 0.53
+gamma_p  R1 series cmp  n=     0  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst a=0 x=0
+gamma_p  R2 cf     dir  n=     0  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst a=0 x=0
+gamma_p  R2 cf     cmp  n=  6108  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst a=0 x=0
+BOUND gamma_p|R2 cf     cmp|ulp|0
+PIN gamma_p|R2 cf     cmp|nofma|0.499744|0.50
+  real R2 cf     cmp                    max=0.4997  contract 0.50  pin 0.50
+gamma_p  R3 temme  dir  n=  1202  max ULP=  1 (gate 1)  not-CR: 23 (1.91%)  worst a=20.000000000000004 x=11.000000000000004
+BOUND gamma_p|R3 temme  dir|ulp|1
+PIN gamma_p|R3 temme  dir|nofma|0.650542|1.25
+  real R3 temme  dir                    max=0.6505  contract 1.25  pin 0.68
+gamma_p  R3 temme  cmp  n=  3014  max ULP=  1 (gate 1)  not-CR: 3 (0.10%)  worst a=1000 x=1001.5
+BOUND gamma_p|R3 temme  cmp|ulp|1
+PIN gamma_p|R3 temme  cmp|nofma|0.509762|1.25
+  real R3 temme  cmp                    max=0.5098  contract 1.25  pin 0.53
+gamma_p  R4 smalla dir  n=     0  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst a=0 x=0
+gamma_p  R4 smalla cmp  n=  6703  max ULP=  1 (gate 1)  not-CR: 3 (0.04%)  worst a=0.39104584655418828 x=3.2930023095678642
+BOUND gamma_p|R4 smalla cmp|ulp|1
+PIN gamma_p|R4 smalla cmp|nofma|0.500208|1.25
+  real R4 smalla cmp                    max=0.5002  contract 1.25  pin 0.53
+tests/data/gamma_q_reference.txt: 27009 rows gated in 71 strata, 0 deferred
+gamma_q  854 exact-zero reference rows (checked via SameBits)
+gamma_q  R1 series dir  n=     0  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst a=0 x=0
+gamma_q  R1 series cmp  n=  2097  max ULP=  1 (gate 1)  not-CR: 2 (0.10%)  worst a=8.9488243171266735 x=9.9488243171266735
+BOUND gamma_q|R1 series cmp|ulp|1
+PIN gamma_q|R1 series cmp|nofma|0.506504|1.25
+  real R1 series cmp                    max=0.5065  contract 1.25  pin 0.53
+gamma_q  R2 cf     dir  n=  6114  max ULP=  1 (gate 1)  not-CR: 1 (0.02%)  worst a=0.59596374362667026 x=18.674169940250621
+BOUND gamma_q|R2 cf     dir|ulp|1
+PIN gamma_q|R2 cf     dir|nofma|0.504475|1.25
+  real R2 cf     dir                    max=0.5045  contract 1.25  pin 0.53
+gamma_q  R2 cf     cmp  n=     0  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst a=0 x=0
+gamma_q  R3 temme  dir  n=  3009  max ULP=  1 (gate 1)  not-CR: 241 (8.01%)  worst a=20 x=20
+BOUND gamma_q|R3 temme  dir|ulp|1
+PIN gamma_q|R3 temme  dir|nofma|0.939729|1.25
+  real R3 temme  dir                    max=0.9397  contract 1.25  pin 0.96
+gamma_q  R3 temme  cmp  n=  1189  max ULP=  1 (gate 1)  not-CR: 4 (0.34%)  worst a=20 x=19.9609375
+BOUND gamma_q|R3 temme  cmp|ulp|1
+PIN gamma_q|R3 temme  cmp|nofma|0.536453|1.25
+  real R3 temme  cmp                    max=0.5365  contract 1.25  pin 0.56
+gamma_q  R4 smalla dir  n= 14600  max ULP=  1 (gate 1)  not-CR: 212 (1.45%)  worst a=1.3658043887803139e-30 x=0.32503827497493698
+BOUND gamma_q|R4 smalla dir|ulp|1
+PIN gamma_q|R4 smalla dir|nofma|0.736989|1.25
+  real R4 smalla dir                    max=0.7370  contract 1.25  pin 0.76
+gamma_q  R4 smalla cmp  n=     0  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst a=0 x=0
+PASS: all regions within gates
+### test_beta_ulp tests/data/beta_p_reference.txt tests/data/beta_q_reference.txt
+corvus active SIMD target: SSE4
+tests/data/beta_p_reference.txt: 51177 rows gated in 82 strata, 0 deferred
+beta_p  R1 series dir  n= 11046  max ULP=   1 (gate 1)  not-CR: 6 (0.05%)  worst a=39.810717055349691 b=20 x=0.34000000000000002
+BOUND beta_p|R1 series dir|ulp|1
+PIN beta_p|R1 series dir|nofma|0.507834|1.25
+  real R1 series dir                    max=0.5078  contract 1.25  pin 0.53
+beta_p  R1 series cmp  n=  6261  max ULP=   1 (gate 1)  not-CR: 1 (0.02%)  worst a=0.5 b=1 x=0.99999999999999989
+BOUND beta_p|R1 series cmp|ulp|1
+PIN beta_p|R1 series cmp|nofma|0.500000|1.25
+  real R1 series cmp                    max=0.5000  contract 1.25  pin 0.52
+beta_p  R2 cf     dir  n=  2892  max ULP=   0 (gate 1)  not-CR: 0 (0.00%)  worst a=0 b=0 x=0
+BOUND beta_p|R2 cf     dir|ulp|1
+PIN beta_p|R2 cf     dir|nofma|0.498743|1.25
+  real R2 cf     dir                    max=0.4987  contract 1.25  pin 0.52
+beta_p  R2 cf     cmp  n=  4062  max ULP=   1 (gate 1)  not-CR: 1 (0.02%)  worst a=23.921834325275523 b=19.565782697106673 x=0.5597950394370399
+BOUND beta_p|R2 cf     cmp|ulp|1
+PIN beta_p|R2 cf     cmp|nofma|0.501477|1.25
+  real R2 cf     cmp                    max=0.5015  contract 1.25  pin 0.53
+beta_p  R3 temme  dir  n=  3392  max ULP=   1 (gate 1)  not-CR: 250 (7.37%)  worst a=100 b=1584.8931924611109 x=0.040000000000000001
+BOUND beta_p|R3 temme  dir|ulp|1
+PIN beta_p|R3 temme  dir|nofma|1.149491|1.25
+  real R3 temme  dir                    max=1.1495  contract 1.25  pin 1.18
+beta_p  R3 temme  cmp  n=  3440  max ULP=   0 (gate 1)  not-CR: 0 (0.00%)  worst a=0 b=0 x=0
+BOUND beta_p|R3 temme  cmp|ulp|1
+PIN beta_p|R3 temme  cmp|nofma|0.499894|1.25
+  real R3 temme  cmp                    max=0.4999  contract 1.25  pin 0.56
+beta_p  R4 tiny   dir  n=  2939  max ULP=   1 (gate 1)  not-CR: 2 (0.07%)  worst a=1 b=2.2250738585072014e-308 x=0.98999999999999999
+BOUND beta_p|R4 tiny   dir|ulp|1
+PIN beta_p|R4 tiny   dir|nofma|0.524084|1.25
+  real R4 tiny   dir                    max=0.5241  contract 1.25  pin 0.55
+beta_p  R4 tiny   cmp  n= 14606  max ULP=   0 (gate 0)  not-CR: 0 (0.00%)  worst a=0 b=0 x=0
+BOUND beta_p|R4 tiny   cmp|ulp|0
+PIN beta_p|R4 tiny   cmp|nofma|0.499964|0.50
+  real R4 tiny   cmp                    max=0.5000  contract 0.50  pin 0.50
+beta_p  specials       n=   251  max ULP=   0 (gate 0)  not-CR: 0 (0.00%)  worst a=0 b=0 x=0
+beta_p  specials  (-)  n=     0  max ULP=   0 (gate 0)  not-CR: 0 (0.00%)  worst a=0 b=0 x=0
+beta_p  R4 postrt dir  n=    17  max ULP=   0 (gate 1)  not-CR: 0 (0.00%)  worst a=0 b=0 x=0
+BOUND beta_p|R4 postrt dir|ulp|1
+PIN beta_p|R4 postrt dir|nofma|0.446465|1.25
+  real R4 postrt dir                    max=0.4465  contract 1.25  pin 0.47
+beta_p  R4 postrt cmp  n=   416  max ULP=   0 (gate 0)  not-CR: 0 (0.00%)  worst a=0 b=0 x=0
+BOUND beta_p|R4 postrt cmp|ulp|0
+PIN beta_p|R4 postrt cmp|nofma|0.497991|0.50
+  real R4 postrt cmp                    max=0.4980  contract 0.50  pin 0.50
+beta_p  R2 gammalim d  n=  1195  max ULP=   0 (gate 1)  not-CR: 0 (0.00%)  worst a=0 b=0 x=0
+BOUND beta_p|R2 gammalim d|ulp|1
+PIN beta_p|R2 gammalim d|nofma|0.498585|1.25
+  real R2 gammalim d                    max=0.4986  contract 1.25  pin 0.52
+beta_p  R2 gammalim c  n=   660  max ULP=   0 (gate 1)  not-CR: 0 (0.00%)  worst a=0 b=0 x=0
+BOUND beta_p|R2 gammalim c|ulp|1
+PIN beta_p|R2 gammalim c|nofma|0.489491|1.25
+  real R2 gammalim c                    max=0.4895  contract 1.25  pin 0.51
+beta_p  monotonicity-in-x: 3778 groups; ref violations=0; kernel dips > 4 ulp: 0 (worst dip 0 ulp at a=0 b=0 x=0)
+beta_p  seam R4->R2  bmax*xt=B1   [x] crossed R4>R2          wrong-dir > 4 ulp: 0 (worst 0 at 0)
+beta_p  seam R4->R1  tau=epsR4    [a] crossed R4>Pr          wrong-dir > 4 ulp: 0 (worst 0 at 0)
+beta_p  seam R1->R2  b*x=B1       [x] crossed R1>R2          wrong-dir > 4 ulp: 0 (worst 0 at 0)
+beta_p  seam R2->R3->R2 band edges[x] crossed R2>R3>R2       wrong-dir > 4 ulp: 0 (worst 0 at 0)
+beta_p  seam R2->R3  nu=TRidge    [a] crossed R2>R3          wrong-dir > 4 ulp: 0 (worst 0 at 0)
+beta_p  seam R1->Pr->R2 near-one  [x] crossed R1>Pr>R2       wrong-dir > 4 ulp: 0 (worst 0 at 0)
+beta_p  seam Pr->R1  bar in a     [a] crossed Pr>R1          wrong-dir > 4 ulp: 0 (worst 0 at 0)
+beta_p  seam R2->Gl  bmax=B_GL    [b] crossed R2>Gl          wrong-dir > 4 ulp: 0 (worst 0 at 0)
+beta_p  seam R1->Gl ser->Gl cf    [x] crossed R1>Gl          wrong-dir > 4 ulp: 0 (worst 0 at 0)
+beta_p  seam Gl->R3  nu=GlMin     [a] crossed Gl>R3          wrong-dir > 4 ulp: 0 (worst 0 at 0)
+tests/data/beta_q_reference.txt: 51165 rows gated in 82 strata, 0 deferred
+beta_q  R1 series dir  n=  6285  max ULP=   1 (gate 1)  not-CR: 1 (0.02%)  worst a=1579.4489112598067 b=10.205145894383115 x=0.99902444644709298
+BOUND beta_q|R1 series dir|ulp|1
+PIN beta_q|R1 series dir|nofma|0.501657|1.25
+  real R1 series dir                    max=0.5017  contract 1.25  pin 0.53
+beta_q  R1 series cmp  n= 11010  max ULP=   1 (gate 1)  not-CR: 2 (0.02%)  worst a=1 b=1 x=0.29999999999999999
+BOUND beta_q|R1 series cmp|ulp|1
+PIN beta_q|R1 series cmp|nofma|0.500000|1.25
+  real R1 series cmp                    max=0.5000  contract 1.25  pin 0.52
+beta_q  R2 cf     dir  n=  4045  max ULP=   1 (gate 1)  not-CR: 1 (0.02%)  worst a=38.399999999999999 b=191.99999999999909 x=0.17500000000000002
+BOUND beta_q|R2 cf     dir|ulp|1
+PIN beta_q|R2 cf     dir|nofma|0.501383|1.25
+  real R2 cf     dir                    max=0.5014  contract 1.25  pin 0.53
+beta_q  R2 cf     cmp  n=  2936  max ULP=   0 (gate 1)  not-CR: 0 (0.00%)  worst a=0 b=0 x=0
+BOUND beta_q|R2 cf     cmp|ulp|1
+PIN beta_q|R2 cf     cmp|nofma|0.500000|1.25
+  real R2 cf     cmp                    max=0.5000  contract 1.25  pin 0.52
+beta_q  R3 temme  dir  n=  3447  max ULP=   1 (gate 1)  not-CR: 296 (8.59%)  worst a=3981.0717055349692 b=2511886.4315095721 x=0.0019894140537555891
+BOUND beta_q|R3 temme  dir|ulp|1
+PIN beta_q|R3 temme  dir|nofma|1.119879|1.25
+  real R3 temme  dir                    max=1.1199  contract 1.25  pin 1.13
+beta_q  R3 temme  cmp  n=  3319  max ULP=   1 (gate 1)  not-CR: 5 (0.15%)  worst a=46.964271701387545 b=223.73404839984715 x=0.16671909549473118
+BOUND beta_q|R3 temme  cmp|ulp|1
+PIN beta_q|R3 temme  cmp|nofma|0.520829|1.25
+  real R3 temme  cmp                    max=0.5208  contract 1.25  pin 0.57
+beta_q  R4 tiny   dir  n= 14618  max ULP=   1 (gate 1)  not-CR: 5 (0.03%)  worst a=1.5762801089084132e-63 b=4.9784630362547455 x=0.42608009755085496
+BOUND beta_q|R4 tiny   dir|ulp|1
+PIN beta_q|R4 tiny   dir|nofma|0.613811|1.25
+  real R4 tiny   dir                    max=0.6138  contract 1.25  pin 0.64
+beta_q  R4 tiny   cmp  n=  2945  max ULP=   0 (gate 0)  not-CR: 0 (0.00%)  worst a=0 b=0 x=0
+BOUND beta_q|R4 tiny   cmp|ulp|0
+PIN beta_q|R4 tiny   cmp|nofma|0.499168|0.50
+  real R4 tiny   cmp                    max=0.4992  contract 0.50  pin 0.50
+beta_q  specials       n=     0  max ULP=   0 (gate 0)  not-CR: 0 (0.00%)  worst a=0 b=0 x=0
+beta_q  specials  (-)  n=   251  max ULP=   0 (gate 0)  not-CR: 0 (0.00%)  worst a=0 b=0 x=0
+beta_q  R4 postrt dir  n=   423  max ULP=   0 (gate 1)  not-CR: 0 (0.00%)  worst a=0 b=0 x=0
+BOUND beta_q|R4 postrt dir|ulp|1
+PIN beta_q|R4 postrt dir|nofma|0.498631|1.25
+  real R4 postrt dir                    max=0.4986  contract 1.25  pin 0.52
+beta_q  R4 postrt cmp  n=    24  max ULP=   0 (gate 0)  not-CR: 0 (0.00%)  worst a=0 b=0 x=0
+BOUND beta_q|R4 postrt cmp|ulp|0
+PIN beta_q|R4 postrt cmp|nofma|0.458793|0.50
+  real R4 postrt cmp                    max=0.4588  contract 0.50  pin 0.48
+beta_q  R2 gammalim d  n=   670  max ULP=   1 (gate 1)  not-CR: 1 (0.15%)  worst a=15 b=281474976710656 x=5.6843418860806526e-14
+BOUND beta_q|R2 gammalim d|ulp|1
+PIN beta_q|R2 gammalim d|nofma|0.503877|1.25
+  real R2 gammalim d                    max=0.5039  contract 1.25  pin 0.53
+beta_q  R2 gammalim c  n=  1192  max ULP=   1 (gate 1)  not-CR: 5 (0.42%)  worst a=12.620108639014454 b=3.4845747344820846e+164 x=4.2190456457058024e-164
+BOUND beta_q|R2 gammalim c|ulp|1
+PIN beta_q|R2 gammalim c|nofma|0.504433|1.25
+  real R2 gammalim c                    max=0.5044  contract 1.25  pin 0.53
+PASS: all regions within G4 pinned gates
+### test_digamma_ulp tests/data/digamma_reference.txt
+corvus active SIMD target: SSE4
+tests/data/digamma_reference.txt: 20356 rows gated in 66 strata, 0 deferred
+pos (0,1)     n=  3862  max ULP=  1 (gate 1)  not-CR: 13 (0.34%)  worst x=0.95157858436903142
+BOUND digamma|pos (0,1)|ulp|1
+PIN digamma|pos (0,1)|nofma|0.542552|1.25
+  real pos (0,1)                        max=0.5426  contract 1.25  pin 0.57
+pos zone      n=  3614  max ULP=  1 (gate 1)  not-CR: 185 (5.12%)  worst x=1.7589368570227941
+BOUND digamma|pos zone|ulp|1
+PIN digamma|pos zone|nofma|0.628153|1.25
+  real pos zone                         max=0.6282  contract 1.25  pin 0.65
+pos walk      n=  3189  max ULP=  1 (gate 1)  not-CR: 72 (2.26%)  worst x=2.7884760934393675
+BOUND digamma|pos walk|ulp|1
+PIN digamma|pos walk|nofma|0.635176|1.25
+  real pos walk                         max=0.6352  contract 1.25  pin 0.66
+pos asym      n=  2767  max ULP=  1 (gate 1)  not-CR: 6 (0.22%)  worst x=8
+BOUND digamma|pos asym|ulp|1
+PIN digamma|pos asym|nofma|0.533746|1.25
+  real pos asym                         max=0.5337  contract 1.25  pin 0.56
+neg abs(psi)>=1 n=  5263  max ULP=  1 (gate 1)  not-CR: 16 (0.30%)  worst x=-6.9999999999999964
+BOUND digamma|neg abs(psi)>=1|ulp|1
+PIN digamma|neg abs(psi)>=1|nofma|0.516404|1.25
+  real neg abs(psi)>=1                  max=0.5164  contract 1.25  pin 0.54
+neg |psi|<1   n=  1661  max abs=1.110e-16 = 1.00 x 2^-53 (gate 1.0)  not-CR: 878 (52.86%)  worst x=-3.558033666515878
+BOUND digamma|neg abs(psi)<1|abs53|1
+PASS: all regions within gates
+### test_trigamma_ulp tests/data/trigamma_reference.txt
+corvus active SIMD target: SSE4
+tests/data/trigamma_reference.txt: 18837 rows gated in 57 strata, 0 deferred
+pos (0,1)            n=  2956  max ULP=  1 (gate 1)  not-CR: 1 (0.03%)  worst x=0.94442313194208183
+BOUND trigamma|pos (0,1)|ulp|1
+PIN trigamma|pos (0,1)|nofma|0.500775|1.25
+  real pos (0,1)                        max=0.5008  contract 1.25  pin 0.53
+pos zone [1,2)       n=  3518  max ULP=  1 (gate 1)  not-CR: 23 (0.65%)  worst x=1.9807517429088732
+BOUND trigamma|pos zone [1,2)|ulp|1
+PIN trigamma|pos zone [1,2)|nofma|0.530514|1.25
+  real pos zone [1,2)                   max=0.5305  contract 1.25  pin 0.56
+pos walk [2,8)       n=  3206  max ULP=  1 (gate 1)  not-CR: 139 (4.34%)  worst x=5.1050871884371167
+BOUND trigamma|pos walk [2,8)|ulp|1
+PIN trigamma|pos walk [2,8)|nofma|0.809063|1.25
+  real pos walk [2,8)                   max=0.8091  contract 1.25  pin 0.83
+pos asym [8,inf)     n=  2842  max ULP=  1 (gate 1)  not-CR: 6 (0.21%)  worst x=8.0000000000000124
+BOUND trigamma|pos asym [8,inf)|ulp|1
+PIN trigamma|pos asym [8,inf)|nofma|0.560693|1.25
+  real pos asym [8,inf)                 max=0.5607  contract 1.25  pin 0.59
+  ... [8,2^89)       n=   478  max ULP=  1 (report only)  not-CR: 6 (1.26%)  worst x=8.0000000000000124
+  ... [2^89,inf)     n=  2364  max ULP=  0 (report only)  not-CR: 0 (0.00%)  worst x=0
+negative             n=  6315  max ULP=  1 (gate 1)  not-CR: 15 (0.24%)  worst x=-27.23074499997205
+BOUND trigamma|negative|ulp|1
+PIN trigamma|negative|nofma|0.507269|1.25
+  real negative                         max=0.5073  contract 1.25  pin 0.53
+PASS: all regions within gates
+### test_gammainv_ulp tests/data/gammainv_p_reference.txt tests/data/gammainv_q_reference.txt
+corvus active SIMD target: SSE4
+tests/data/gammainv_p_reference.txt: 12408 rows gated in 50 strata, 0 deferred
+--- gamma_p_inv (p side) ---
+gamma_p_inv 3643 exact-zero reference rows (checked via SameBits)
+deep-small closed form     n=  4405  max ULP=  1 (gate 1)  not-CR: 2 (0.05%)  worst a=0.49576660307179793 s=3.2392081830902038e-58
+BOUND gamma_p_inv|deep-small closed form|ulp|1
+PIN gamma_p_inv|deep-small closed form|nofma|0.501222|1.25
+  real deep-small closed form           max=0.5012  contract 1.25  pin 0.53
+beyond-resolution          n=  4261  max ULP=  1 (gate 1)  not-CR: 2 (0.05%)  worst a=3.1664024518775371e+35 s=2.4559545925147885e-284
+BOUND gamma_p_inv|beyond-resolution|ulp|1
+PIN gamma_p_inv|beyond-resolution|nofma|0.549306|1.25
+  real beyond-resolution                max=0.5493  contract 1.25  pin 0.57
+S1 (a_T..3e34)             n=  1955  max ULP=  1 (gate 1)  not-CR: 3 (0.15%)  worst a=2.7608976517611583e+34 s=1.290523766556743e-39
+BOUND gamma_p_inv|S1 (a_T..3e34)|ulp|1
+PIN gamma_p_inv|S1 (a_T..3e34)|nofma|0.558487|1.25
+  real S1 (a_T..3e34)                   max=0.5585  contract 1.25  pin 0.58
+small-a tail seed          n=   754  max ULP=  1 (gate 1)  not-CR: 1 (0.13%)  worst a=0.29999999999999999 s=6.0996290551001329e-06
+BOUND gamma_p_inv|small-a tail seed|ulp|1
+PIN gamma_p_inv|small-a tail seed|nofma|0.505375|1.25
+  real small-a tail seed                max=0.5054  contract 1.25  pin 0.53
+small-a mid seed           n=  1033  max ULP=  1 (gate 1)  not-CR: 4 (0.39%)  worst a=0.31069267515004056 s=0.30576158839114087
+BOUND gamma_p_inv|small-a mid seed|ulp|1
+PIN gamma_p_inv|small-a mid seed|nofma|0.529514|1.25
+  real small-a mid seed                 max=0.5295  contract 1.25  pin 0.55
+  ... s > 1/2 (flip)       n=  1977  max ULP=  0 (report only)  not-CR: 0 (0.00%)  worst a=0 s=0
+  ... subnormal x          n=   202  max ULP=  0 (report only)  not-CR: 0 (0.00%)  worst a=0 s=0
+  ... x = 0                n=  3643  max ULP=  0 (report only)  not-CR: 0 (0.00%)  worst a=0 s=0
+tests/data/gammainv_q_reference.txt: 10466 rows gated in 50 strata, 0 deferred
+--- gamma_q_inv (q side) ---
+gamma_q_inv 267 exact-zero reference rows (checked via SameBits)
+deep-small closed form     n=   661  max ULP=  0 (gate 1)  not-CR: 0 (0.00%)  worst a=0 s=0
+BOUND gamma_q_inv|deep-small closed form|ulp|1
+PIN gamma_q_inv|deep-small closed form|nofma|0.499409|1.25
+  real deep-small closed form           max=0.4994  contract 1.25  pin 0.52
+beyond-resolution          n=  4310  max ULP=  1 (gate 1)  not-CR: 3 (0.07%)  worst a=1.3348774754889852e+35 s=4.2536619156504841e-266
+BOUND gamma_q_inv|beyond-resolution|ulp|1
+PIN gamma_q_inv|beyond-resolution|nofma|0.689851|1.25
+  real beyond-resolution                max=0.6899  contract 1.25  pin 0.71
+S1 (a_T..3e34)             n=  2048  max ULP=  1 (gate 1)  not-CR: 6 (0.29%)  worst a=1.1103990949945084e+33 s=6.114861704112592e-126
+BOUND gamma_q_inv|S1 (a_T..3e34)|ulp|1
+PIN gamma_q_inv|S1 (a_T..3e34)|nofma|0.730992|1.25
+  real S1 (a_T..3e34)                   max=0.7310  contract 1.25  pin 0.76
+small-a tail seed          n=  2484  max ULP=  1 (gate 1)  not-CR: 1 (0.04%)  worst a=0.047202494119885724 s=0.00076669966650572282
+BOUND gamma_q_inv|small-a tail seed|ulp|1
+PIN gamma_q_inv|small-a tail seed|nofma|0.508207|1.25
+  real small-a tail seed                max=0.5082  contract 1.25  pin 0.53
+small-a mid seed           n=   963  max ULP=  0 (gate 1)  not-CR: 0 (0.00%)  worst a=0 s=0
+BOUND gamma_q_inv|small-a mid seed|ulp|1
+PIN gamma_q_inv|small-a mid seed|nofma|0.499388|1.25
+  real small-a mid seed                 max=0.4994  contract 1.25  pin 0.52
+  ... s > 1/2 (flip)       n=  1572  max ULP=  0 (report only)  not-CR: 0 (0.00%)  worst a=0 s=0
+  ... subnormal x          n=   141  max ULP=  0 (report only)  not-CR: 0 (0.00%)  worst a=0 s=0
+  ... x = 0                n=   267  max ULP=  0 (report only)  not-CR: 0 (0.00%)  worst a=0 s=0
+PASS: all buckets within gates
+### test_betainv_ulp tests/data/betainv_p_reference.txt tests/data/betainv_q_reference.txt tests/data/betainv_backward_reference.txt
+corvus active SIMD target: SSE4
+tests/data/betainv_p_reference.txt: 12900 rows gated in 40 strata, 0 deferred
+--- beta_p_inv (p side) ---
+deep-small closed form         n=  3794  max ULP=   0 (gate 1)  not-CR: 0 (0.00%)  back=inf rel  worst a=0 b=0 s=0
+BOUND beta_p_inv|deep-small closed form|ulp|1
+PIN beta_p_inv|deep-small closed form|nofma|0.499835|1.25
+  real deep-small closed form           max=0.4998  contract 1.25  pin 0.52
+huge-nu (formula bucket)       n=   726  max ULP=   1 (gate 1)  not-CR: 50 (6.89%)  back=1.92e+293 rel  worst a=2.1615015028526468e+35 b=1.8957114186314009e+39 s=0.50000000000000011
+BOUND beta_p_inv|huge-nu (formula bucket)|ulp|1
+PIN beta_p_inv|huge-nu (formula bucket)|nofma|0.959485|1.25
+  real huge-nu (formula bucket)         max=0.9595  contract 1.25  pin 0.98
+kappa > 2^18 (backward)        n=   370  max ULP=12324620 (backward contract)  not-CR: 216 (58.38%)  back=0.00e+00 rel  worst a=4.3478917599833484e-16 b=1.3176987588134291e-16 s=0.23257924384787218
+ridge (S1 territory)           n=  2456  max ULP=   1 (gate 1)  not-CR: 68 (2.77%)  back=3.08e-11 rel  worst a=756052.39322043408 b=512512.98373257951 s=0.99999999999999989
+BOUND beta_p_inv|ridge (S1 territory)|ulp|1
+PIN beta_p_inv|ridge (S1 territory)|nofma|0.745814|1.25
+  real ridge (S1 territory)             max=0.7458  contract 1.25  pin 0.77
+gamma-limit transfer           n=  3490  max ULP=   1 (gate 1)  not-CR: 43 (1.23%)  back=inf rel  worst a=185347860.02320343 b=34913157.461034849 s=3.6357718255373803e-316
+BOUND beta_p_inv|gamma-limit transfer|ulp|1
+PIN beta_p_inv|gamma-limit transfer|nofma|0.745279|1.25
+  real gamma-limit transfer             max=0.7453  contract 1.25  pin 0.77
+small-parameter remainder      n=  1747  max ULP=   1 (gate 1)  not-CR: 25 (1.43%)  back=2.49e-10 rel  worst a=0.00042498498150764772 b=0.001034418696366718 s=0.70906324111592223
+BOUND beta_p_inv|small-parameter remainder|ulp|1
+PIN beta_p_inv|small-parameter remainder|nofma|0.743110|1.25
+  real small-parameter remainder        max=0.7431  contract 1.25  pin 0.77
+B rows (neighbour semantics)   n=   316  max ULP=   2 (gate 2)  not-CR: 280 (88.61%)  back=9.99e+02 rel  worst a=4.8346657397545592e+36 b=1.5408934345726529e+42 s=0.999
+BOUND beta_p_inv|B rows (neighbour semantics)|ulp|2
+PIN beta_p_inv|B rows (neighbour semantics)|nofma|1.028448|2.25
+  real B rows (neighbour semantics)     max=1.0284  contract 2.25  pin 1.05
+P rows (backward error)        n=     1  worst |fwd(x) - sigma| = 0.000 ulp(sigma) (corvus forward, report only; the gate is the certified intervals at 1.0)  worst a=0 b=0 s=0
+kappa > 2^18 (backward)        n=   370  worst |fwd(x) - sigma| = 0.000 ulp(sigma) (corvus forward, report only; the gate is the certified intervals at 1.0)  worst a=0 b=0 s=0
+  ... s > 1/2 (input flip)     n=  2037  max ULP=5612660 (report only)  not-CR: 274 (13.45%)  back=1.00e+00 rel  worst a=1.2729024959753704e-16 b=2.147307004204135e-16 s=0.62782908593506814
+  ... subnormal x              n=   944  max ULP=   0 (report only)  not-CR: 0 (0.00%)  back=1.10e-01 rel  worst a=0 b=0 s=0
+  ... x = 0                    n=   183  max ULP=   0 (report only)  not-CR: 0 (0.00%)  back=1.00e+00 rel  worst a=0 b=0 s=0
+  ... x = 1                    n=   346  max ULP=   0 (report only)  not-CR: 0 (0.00%)  back=inf rel  worst a=0 b=0 s=0
+tests/data/betainv_q_reference.txt: 12566 rows gated in 40 strata, 0 deferred
+--- beta_q_inv (q side) ---
+deep-small closed form         n=  3757  max ULP=   0 (gate 1)  not-CR: 0 (0.00%)  back=1.00e+300 rel  worst a=0 b=0 s=0
+BOUND beta_q_inv|deep-small closed form|ulp|1
+PIN beta_q_inv|deep-small closed form|nofma|0.490279|1.25
+  real deep-small closed form           max=0.4903  contract 1.25  pin 0.52
+huge-nu (formula bucket)       n=   720  max ULP=   1 (gate 1)  not-CR: 71 (9.86%)  back=3.47e+299 rel  worst a=8.7069698810207681e+36 b=1.1944710588733379e+42 s=0.29999999999999999
+BOUND beta_q_inv|huge-nu (formula bucket)|ulp|1
+PIN beta_q_inv|huge-nu (formula bucket)|nofma|1.000800|1.25
+  real huge-nu (formula bucket)         max=1.0008  contract 1.25  pin 1.03
+kappa > 2^18 (backward)        n=   361  max ULP=46235848 (backward contract)  not-CR: 206 (57.06%)  back=0.00e+00 rel  worst a=1.6582729965916081e-16 b=1.5558874347708466e-16 s=0.51592726374541309
+ridge (S1 territory)           n=  2743  max ULP=   1 (gate 1)  not-CR: 62 (2.26%)  back=4.31e+01 rel  worst a=16.88567010421346 b=61.979162530480203 s=4.6009199909951137e-42
+BOUND beta_q_inv|ridge (S1 territory)|ulp|1
+PIN beta_q_inv|ridge (S1 territory)|nofma|0.746447|1.25
+  real ridge (S1 territory)             max=0.7464  contract 1.25  pin 0.77
+gamma-limit transfer           n=  2559  max ULP=   1 (gate 1)  not-CR: 42 (1.64%)  back=inf rel  worst a=2941861.0782703734 b=1773847.8033122735 s=0.99999863124033428
+BOUND beta_q_inv|gamma-limit transfer|ulp|1
+PIN beta_q_inv|gamma-limit transfer|nofma|0.748285|1.25
+  real gamma-limit transfer             max=0.7483  contract 1.25  pin 0.77
+small-parameter remainder      n=  2075  max ULP=   1 (gate 1)  not-CR: 44 (2.12%)  back=7.65e+03 rel  worst a=0.2606400599608536 b=31.792236395307562 s=2.0375759997034447e-30
+BOUND beta_q_inv|small-parameter remainder|ulp|1
+PIN beta_q_inv|small-parameter remainder|nofma|0.745760|1.25
+  real small-parameter remainder        max=0.7458  contract 1.25  pin 0.77
+B rows (neighbour semantics)   n=   331  max ULP=   2 (gate 2)  not-CR: 307 (92.75%)  back=9.99e+02 rel  worst a=3.489277318354897e+35 b=2.4606209794856917e+41 s=0.999
+BOUND beta_q_inv|B rows (neighbour semantics)|ulp|2
+PIN beta_q_inv|B rows (neighbour semantics)|nofma|0.948944|2.25
+  real B rows (neighbour semantics)     max=0.9489  contract 2.25  pin 0.97
+P rows (backward error)        n=    20  worst |fwd(x) - sigma| = 0.000 ulp(sigma) (corvus forward, report only; the gate is the certified intervals at 1.0)  worst a=0 b=0 s=0
+kappa > 2^18 (backward)        n=   361  worst |fwd(x) - sigma| = 0.000 ulp(sigma) (corvus forward, report only; the gate is the certified intervals at 1.0)  worst a=0 b=0 s=0
+  ... s > 1/2 (input flip)     n=  2182  max ULP=46235848 (report only)  not-CR: 324 (14.85%)  back=1.00e+00 rel  worst a=1.6582729965916081e-16 b=1.5558874347708466e-16 s=0.51592726374541309
+  ... subnormal x              n=    11  max ULP=   0 (report only)  not-CR: 0 (0.00%)  back=9.20e-15 rel  worst a=0 b=0 s=0
+  ... x = 0                    n=    23  max ULP=   0 (report only)  not-CR: 0 (0.00%)  back=1.00e+300 rel  worst a=0 b=0 s=0
+  ... x = 1                    n=  3618  max ULP=   0 (report only)  not-CR: 0 (0.00%)  back=1.00e+00 rel  worst a=0 b=0 s=0
+beta_p_inv backward (certified)     n=   371  outside certified interval: 0 (worst 0 ulp outside, a=0 b=0 s=0)
+beta_q_inv backward (certified)     n=   381  outside certified interval: 0 (worst 0 ulp outside, a=0 b=0 s=0)
+PASS: all buckets within gates
+### test_bessel_ulp tests/data/i0_reference.txt tests/data/i1_reference.txt tests/data/i0e_reference.txt tests/data/i1e_reference.txt
+corvus active SIMD target: SSE4
+tests/data/i0_reference.txt: 7563 rows gated in 38 strata, 0 deferred
+i0 (tests/data/i0_reference.txt):
+  pos series       n=  1994  max ULP=  1 (gate 1)  not-CR: 3 (0.15%)  worst x=7.4407432118937535
+  neg series       n=  1405  max ULP=  0 (gate 1)  not-CR: 0 (0.00%)  worst x=0
+  pos tail         n=  2594  max ULP=  1 (gate 1)  not-CR: 199 (7.67%)  worst x=713.98690854395954
+  neg tail         n=  1286  max ULP=  1 (gate 1)  not-CR: 97 (7.54%)  worst x=-23.746346603941525
+BOUND i0|pos series|ulp|1
+PIN i0|pos series|nofma|0.500601|1.25
+  real pos series                       max=0.5006  contract 1.25  pin 0.53
+BOUND i0|neg series|ulp|1
+PIN i0|neg series|nofma|0.500000|1.25
+  real neg series                       max=0.5000  contract 1.25  pin 0.52
+BOUND i0|pos tail|ulp|1
+PIN i0|pos tail|nofma|0.599445|1.25
+  real pos tail                         max=0.5994  contract 1.25  pin 0.62
+BOUND i0|neg tail|ulp|1
+PIN i0|neg tail|nofma|0.596864|1.25
+  real neg tail                         max=0.5969  contract 1.25  pin 0.62
+  boundary (inf)   n=   284  exact-match fails=0
+tests/data/i1_reference.txt: 7392 rows gated in 35 strata, 0 deferred
+i1 (tests/data/i1_reference.txt):
+  pos series       n=  1849  max ULP=  1 (gate 1)  not-CR: 112 (6.06%)  worst x=1.3226102754574961e-317
+  neg series       n=  1344  max ULP=  1 (gate 1)  not-CR: 100 (7.44%)  worst x=-4.9406564584124654e-324
+  pos tail         n=  2590  max ULP=  1 (gate 1)  not-CR: 404 (15.60%)  worst x=8.0000000000000036
+  neg tail         n=  1308  max ULP=  1 (gate 1)  not-CR: 181 (13.84%)  worst x=-67.486539756497564
+BOUND i1|pos series|ulp|1
+PIN i1|pos series|nofma|0.500000|1.25
+  real pos series                       max=0.5000  contract 1.25  pin 0.52
+BOUND i1|neg series|ulp|1
+PIN i1|neg series|nofma|0.500000|1.25
+  real neg series                       max=0.5000  contract 1.25  pin 0.52
+BOUND i1|pos tail|ulp|1
+PIN i1|pos tail|nofma|0.706354|1.25
+  real pos tail                         max=0.7064  contract 1.25  pin 0.73
+BOUND i1|neg tail|ulp|1
+PIN i1|neg tail|nofma|0.706354|1.25
+  real neg tail                         max=0.7064  contract 1.25  pin 0.73
+  boundary (inf)   n=   301  exact-match fails=0
+tests/data/i0e_reference.txt: 8250 rows gated in 47 strata, 0 deferred
+i0e (tests/data/i0e_reference.txt):
+  pos series       n=  1516  max ULP=  0 (gate 1)  not-CR: 0 (0.00%)  worst x=0
+  neg series       n=  1175  max ULP=  1 (gate 1)  not-CR: 1 (0.09%)  worst x=-7.9758810789178716
+  pos tail         n=  3579  max ULP=  1 (gate 1)  not-CR: 276 (7.71%)  worst x=293985084.10045087
+  neg tail         n=  1980  max ULP=  1 (gate 1)  not-CR: 154 (7.78%)  worst x=-9.999999999999996e+249
+BOUND i0e|pos series|ulp|1
+PIN i0e|pos series|nofma|0.500000|1.25
+  real pos series                       max=0.5000  contract 1.25  pin 0.52
+BOUND i0e|neg series|ulp|1
+PIN i0e|neg series|nofma|0.502982|1.25
+  real neg series                       max=0.5030  contract 1.25  pin 0.53
+BOUND i0e|pos tail|ulp|1
+PIN i0e|pos tail|nofma|0.601580|1.25
+  real pos tail                         max=0.6016  contract 1.25  pin 0.63
+BOUND i0e|neg tail|ulp|1
+PIN i0e|neg tail|nofma|0.598339|1.25
+  real neg tail                         max=0.5983  contract 1.25  pin 0.62
+tests/data/i1e_reference.txt: 8090 rows gated in 44 strata, 0 deferred
+i1e (tests/data/i1e_reference.txt):
+  pos series       n=  1417  max ULP=  1 (gate 1)  not-CR: 131 (9.24%)  worst x=2.1378220495550738e-320
+  neg series       n=  1113  max ULP=  1 (gate 1)  not-CR: 123 (11.05%)  worst x=-2.2250738585072009e-308
+  pos tail         n=  3611  max ULP=  1 (gate 1)  not-CR: 523 (14.48%)  worst x=1.2861505684969277e+80
+  neg tail         n=  1949  max ULP=  1 (gate 1)  not-CR: 288 (14.78%)  worst x=-6.2047622285792245e+289
+BOUND i1e|pos series|ulp|1
+PIN i1e|pos series|nofma|0.500000|1.25
+  real pos series                       max=0.5000  contract 1.25  pin 0.52
+BOUND i1e|neg series|ulp|1
+PIN i1e|neg series|nofma|0.500000|1.25
+  real neg series                       max=0.5000  contract 1.25  pin 0.52
+BOUND i1e|pos tail|ulp|1
+PIN i1e|pos tail|nofma|0.704411|1.25
+  real pos tail                         max=0.7044  contract 1.25  pin 0.73
+BOUND i1e|neg tail|ulp|1
+PIN i1e|neg tail|nofma|0.704411|1.25
+  real neg tail                         max=0.7044  contract 1.25  pin 0.73
+PASS: all regions within gates
+### test_lbeta_ulp tests/data/lbeta_reference.txt
+corvus active SIMD target: SSE4
+tests/data/lbeta_reference.txt: 9265 rows gated in 32 strata, 0 deferred
+lbeta (tests/data/lbeta_reference.txt):
+  relative (|lnB|>=1) n=  6856  max ULP=  1 (gate 1)  not-CR: 1 (0.01%)  worst a=2.7224287965293144 b=1.3712999166035367
+BOUND lbeta|relative|ulp|1
+PIN lbeta|relative|nofma|0.501231|1.25
+  real relative                         max=0.5012  contract 1.25  pin 0.53
+  unit line (a|b=1)   n=   559  max ULP=  0 (gate 0)  not-CR: 0  worst a=0 b=0
+BOUND lbeta|unit line|ulp|0
+PIN lbeta|unit line|nofma|0.500000|0.50
+  real unit line                        max=0.5000  contract 0.50  pin 0.50
+  big band (m>2^990)  n=   273  max ULP=  0 (gate 1)  not-CR: 0  worst a=0 b=0
+BOUND lbeta|big band|ulp|1
+PIN lbeta|big band|nofma|0.498171|1.25
+  real big band                         max=0.4982  contract 1.25  pin 0.52
+  abs band (|lnB|<1)  n=  1479  max abs=0.500 x 2^-53 (gate 1.0)  worst a=0.5 b=2
+  -inf boundary       n=    98  exact-match fails=0
+BOUND lbeta|absolute|abs53|1
+PASS: all regions within gates
+### test_trig_ulp tests/data/cos_reference.txt tests/data/sin_reference.txt
+corvus active SIMD target: SSE4
+tests/data/cos_reference.txt: 18382 rows gated in 27 strata, 0 deferred
+cos (tests/data/cos_reference.txt):
+  pos small  n=  7080  max ULP=  1 (gate 1)  not-CR: 125 (1.77%)  worst x=6148534.2737128027
+BOUND cos|pos small|ulp|1
+PIN cos|pos small|nofma|0.848791|1.25
+  real pos small                        max=0.8488  contract 1.25  pin 0.87
+  neg small  n=  6038  max ULP=  1 (gate 1)  not-CR: 102 (1.69%)  worst x=-5352627.2664261106
+BOUND cos|neg small|ulp|1
+PIN cos|neg small|nofma|0.715522|1.25
+  real neg small                        max=0.7155  contract 1.25  pin 0.74
+  pos huge   n=  2786  max ULP=  1 (gate 1)  not-CR: 24 (0.86%)  worst x=12986157237.908209
+BOUND cos|pos huge|ulp|1
+PIN cos|pos huge|nofma|0.684828|1.25
+  real pos huge                         max=0.6848  contract 1.25  pin 0.71
+  neg huge   n=  2478  max ULP=  1 (gate 1)  not-CR: 14 (0.56%)  worst x=-12986157237.908209
+BOUND cos|neg huge|ulp|1
+PIN cos|neg huge|nofma|0.697357|1.25
+  real neg huge                         max=0.6974  contract 1.25  pin 0.72
+tests/data/sin_reference.txt: 18376 rows gated in 27 strata, 0 deferred
+sin (tests/data/sin_reference.txt):
+  pos small  n=  7015  max ULP=  1 (gate 1)  not-CR: 117 (1.67%)  worst x=4766549.2457802296
+BOUND sin|pos small|ulp|1
+PIN sin|pos small|nofma|0.765693|1.25
+  real pos small                        max=0.7657  contract 1.25  pin 0.79
+  neg small  n=  6096  max ULP=  1 (gate 1)  not-CR: 85 (1.39%)  worst x=-1831122.0248628557
+BOUND sin|neg small|ulp|1
+PIN sin|neg small|nofma|0.706070|1.25
+  real neg small                        max=0.7061  contract 1.25  pin 0.73
+  pos huge   n=  2797  max ULP=  1 (gate 1)  not-CR: 30 (1.07%)  worst x=4.3383643073946406e+17
+BOUND sin|pos huge|ulp|1
+PIN sin|pos huge|nofma|0.732492|1.25
+  real pos huge                         max=0.7325  contract 1.25  pin 0.76
+  neg huge   n=  2468  max ULP=  1 (gate 1)  not-CR: 17 (0.69%)  worst x=-4.3383643073946406e+17
+BOUND sin|neg huge|ulp|1
+PIN sin|neg huge|nofma|0.732492|1.25
+  real neg huge                         max=0.7325  contract 1.25  pin 0.76
+PASS
+### test_exp_ulp tests/data/exp_reference.txt tests/data/expm1_reference.txt
+corvus active SIMD target: SSE4
+tests/data/exp_reference.txt: 17087 rows gated in 29 strata, 0 deferred
+exp (tests/data/exp_reference.txt):
+  normal     n= 12489  max ULP=  0 (gate 0)  not-CR: 1 (0.01%), near-ties 1  worst x=0
+  subnormal  n=  3905  max ULP=  1 (gate 1)  not-CR: 71 (1.82%), near-ties 0  worst x=-710.37086521975118
+  inf        n=   351  exact-match fails=0
+  zero       n=   342  exact-match fails=0
+BOUND exp|normal|ulp|0
+PIN exp|normal|nofma|0.500000|0.50
+  real normal                           max=0.5000  contract 0.50  pin 0.50
+BOUND exp|subnormal|ulp|1
+PIN exp|subnormal|nofma|0.746419|1.25
+  real subnormal                        max=0.7464  contract 1.25  pin 0.77
+tests/data/expm1_reference.txt: 18536 rows gated in 12 strata, 0 deferred
+expm1 (tests/data/expm1_reference.txt):
+  series     n=  9592  max ULP=  0 (gate 0)  not-CR: 0 (0.00%), near-ties 0  worst x=0
+  exp        n=  8754  max ULP=  0 (gate 0)  not-CR: 0 (0.00%), near-ties 0  worst x=0
+  inf        n=   190  exact-match fails=0
+BOUND expm1|series|ulp|0
+PIN expm1|series|nofma|0.499922|0.50
+  real series                           max=0.4999  contract 0.50  pin 0.50
+BOUND expm1|exp|ulp|0
+PIN expm1|exp|nofma|0.499953|0.50
+  real exp                              max=0.5000  contract 0.50  pin 0.50
+PASS
+### test_log_ulp tests/data/log_reference.txt tests/data/log1p_reference.txt tests/data/log1pmx_reference.txt
+corvus active SIMD target: SSE4
+tests/data/log_reference.txt: 17257 rows gated in 19 strata, 0 deferred
+log (tests/data/log_reference.txt):
+  subnormal-in   n=  2468  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst x=0
+BOUND log|subnormal-in|ulp|0
+PIN log|subnormal-in|nofma|0.499704|0.50
+  real subnormal-in                     max=0.4997  contract 0.50  pin 0.50
+  near-1         n=  2954  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst x=0
+BOUND log|near-1|ulp|0
+PIN log|near-1|nofma|0.500000|0.50
+  real near-1                           max=0.5000  contract 0.50  pin 0.50
+  general        n= 11835  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst x=0
+BOUND log|general|ulp|0
+PIN log|general|nofma|0.499990|0.50
+  real general                          max=0.5000  contract 0.50  pin 0.50
+tests/data/log1p_reference.txt: 17976 rows gated in 24 strata, 0 deferred
+log1p (tests/data/log1p_reference.txt):
+  corner         n=  4093  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst x=0
+BOUND log1p|corner|ulp|0
+PIN log1p|corner|nofma|0.499878|0.50
+  real corner                           max=0.4999  contract 0.50  pin 0.50
+  near-0         n=  8801  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst x=0
+BOUND log1p|near-0|ulp|0
+PIN log1p|near-0|nofma|0.500000|0.50
+  real near-0                           max=0.5000  contract 0.50  pin 0.50
+  general        n=  5082  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst x=0
+BOUND log1p|general|ulp|0
+PIN log1p|general|nofma|0.499960|0.50
+  real general                          max=0.5000  contract 0.50  pin 0.50
+tests/data/log1pmx_reference.txt: 22299 rows gated in 21 strata, 0 deferred
+log1pmx (tests/data/log1pmx_reference.txt):
+  tiny           n=  5426  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst x=0
+BOUND log1pmx|tiny|ulp|0
+PIN log1pmx|tiny|nofma|0.500000|0.50
+  real tiny                             max=0.5000  contract 0.50  pin 0.50
+  series         n=  6851  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst x=0
+BOUND log1pmx|series|ulp|0
+PIN log1pmx|series|nofma|0.499932|0.50
+  real series                           max=0.4999  contract 0.50  pin 0.50
+  direct-neg     n=  4966  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst x=0
+BOUND log1pmx|direct-neg|ulp|0
+PIN log1pmx|direct-neg|nofma|0.499969|0.50
+  real direct-neg                       max=0.5000  contract 0.50  pin 0.50
+  direct-pos     n=  5056  max ULP=  0 (gate 0)  not-CR: 0 (0.00%)  worst x=0
+BOUND log1pmx|direct-pos|ulp|0
+PIN log1pmx|direct-pos|nofma|0.499991|0.50
+  real direct-pos                       max=0.5000  contract 0.50  pin 0.50
+PASS
