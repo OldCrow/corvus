@@ -80,12 +80,12 @@ pass, #100 the `quiet_bench.sh` Linux bugs it found):
 - No unfreeze. The pass shows no defect; both code candidates (#22, and
   pre-split constant operands for Dekker on non-FMA tiers) are
   speed-only. The libstats/libhmm bump to v1.2.0 proceeds unchanged.
-- [OPEN] Order of work, all on the Mint machine: fix #100 (Linux side
-  done 2026-11-11), then the recordable #101 run (done 2026-11-11, row
-  above), then the ctest + ULP report (done 2026-11-11: 38/38 and
-  18/18 report programs, `SSE4`-asserted, clang 18.1.3 and GCC 13.3
-  byte-identical; ACCURACY.md has the validation-leg line). Confirm
-  #100's Darwin branch on a Mac.
+- [DERIVED 2026-11-12, DONE] Order of work, all on the Mint machine: fix
+  #100 (Linux side done 2026-11-11), then the recordable #101 run (done
+  2026-11-11, row above), then the ctest + ULP report (done 2026-11-11:
+  38/38 and 18/18 report programs, `SSE4`-asserted, clang 18.1.3 and GCC
+  13.3 byte-identical; ACCURACY.md has the validation-leg line). #100's
+  Darwin branch confirmed on the M1 2026-11-12 (below).
 - [OPEN] No capped-`SSE4` ULP report is published (CI prints AVX2 only),
   so the native leg is not diffed against a capped one. A candidate:
   have CI's sweep print the report per tier, or save one from Kaby Lake.
@@ -315,7 +315,11 @@ REPORT.md). Rerun takes about a minute.
   on the Mint machine (failing gate lists five consumers, target lines
   carry `top:`, machine line names CPU and distribution, runs as
   `./tools/quiet_bench.sh`; now POSIX `#!/bin/sh`, tested under dash and
-  `bash --posix`). Open until the Darwin branch is confirmed on a Mac.
+  `bash --posix`). Darwin branch confirmed on the M1 2026-11-12 (macOS
+  27.2.1, `/bin/sh` = bash 3.2 POSIX mode, script at `38026b6`): runs
+  as `./tools/quiet_bench.sh`, machine line unchanged, forced gate
+  failure lists five consumers, target lines carry `top:`, `-t NEON`
+  passes and `-t AVX2` fails rc=2. Closes.
 - #101 Ivy Bridge SSE4/glibc machine in PERFORMANCE.md: written
   2026-11-11 (Status above); closes with its PR.
 
