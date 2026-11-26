@@ -339,7 +339,10 @@ surface lean and justify every runner:
   Windows validation numbers; since #43 it also builds a different kernel shape from MSVC
   (`CORVUS_OUTLINE` inlines hot regions everywhere but MSVC). Runs the
   `windows-clang-cl` preset inside vcvars64, located with the image's own
-  `vswhere` (no third-party action). Capped at AVX2 with
+  `vswhere` (no third-party action). The compiler is Visual Studio's
+  bundled clang-cl (`VC\Tools\Llvm\x64\bin`), not the image's standalone
+  LLVM: each MSVC standard library requires a minimum Clang, and the
+  standalone one fell behind it (#112). Capped at AVX2 with
   `CORVUS_DISABLED_TARGETS` and asserted with `CORVUS_EXPECT_TARGET=AVX2`:
   unlike MSVC, clang-cl dispatches AVX-512 when the runner has it, and
   hosted silicon is not guaranteed. AVX-512 stays a Zen 4 manual stop.
