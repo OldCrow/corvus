@@ -51,7 +51,8 @@ to `main` as `148bb64`.
 v1.2.0 closed. corvus has nothing owed for v1.2.0.
 **Next:** libstats' and libhmm's PLAN.md carry the bump note
 (Cross-machine handshakes below); each library picks up its bump in its
-own session. corvus's next work is milestone v1.3.0 (#22, #97).
+own session. corvus's next work is milestone v1.3.0 (#110, #111, #22,
+#97; "Milestones re-cut 2026-11-26" below).
 **Fourth machine, Ivy Bridge [DERIVED 2026-11-11]** (MacBook Pro 9,1,
 i7-3820QM, Linux Mint 22.3, glibc 2.39; #101 holds the indicative GCC
 pass, #100 the `quiet_bench.sh` Linux bugs it found):
@@ -174,6 +175,23 @@ D. v1.3.0 holds #19, #22 and #97. Gated work no longer rolls between
 versions: #18, #20, #21, #28, #29, #44, #95 and #96 sit off every
 milestone with their trigger stated on the issue.
 
+**Milestones re-cut 2026-11-26 [DECIDED, user].** v1.3.0 is "Scalar
+paths and ISA tuning", performance only: #110, #111, #22 and #97. #19
+moves to v1.4.0 ("von Mises complement"), a new export with its own
+unfreeze. The off-milestone list above is unchanged.
+- **libstats v3.0.0 stays pinned at v1.2.0** [DERIVED]; it accepted the
+  scalar-call cost (OldCrow/libstats#156) and takes v1.3.0 in its
+  v3.1.0 (OldCrow/libstats#339).
+- **One experiment could change that [OPEN]:** a branchy scalar
+  `erfcinv` that evaluates one region. A one-element span call costs
+  about one vector evaluation, so removing span construction alone
+  recovers little. If the scalar path is bit-identical to the vector
+  lanes over the oracle grid on every tier, the non-FMA one included,
+  and costs about one element, a narrow v1.3.0 (`erfinv`, `erfcinv`,
+  `lgamma`) could land before libstats re-sweeps after its pool fix
+  and move no accuracy block. Not started.
+- #112 (scheduled CI failed, 2026-11) is not triaged.
+
 ## Errata by release (RELEASING.md step 14)
 
 **v1.1.0 errata (release notes, RELEASING step 14) [DERIVED 2026-10-25].**
@@ -287,7 +305,7 @@ REPORT.md). Rerun takes about a minute.
 
 **Open issues** (each carries its trigger and detail):
 - #18 erfcx (P2; no filed need).
-- #19 von Mises ratio complement 1 − I₁/I₀ in dd (v1.3.0; filed need,
+- #19 von Mises ratio complement 1 − I₁/I₀ in dd (v1.4.0; filed need,
   frontier oracle).
 - #20 Hurwitz zeta (conditional on libstats #62).
 - #21 exp_dd accuracy bump, betainv κ-horizon 2¹⁸ → 2⁵² (no filed need).
@@ -310,6 +328,11 @@ REPORT.md). Rerun takes about a minute.
 - #96 untraced 1–3% cost on the lgamma zone and lbeta main band after C3,
   same sign on three machines; a record, not worth a session now.
 - #97 cause of the process-to-process speed modes (v1.3.0).
+- #110 scalar code paths for the span-only functions (v1.3.0; libstats
+  calls twelve of them one value at a time).
+- #111 `lbeta` and `LgammaDiffDd` cost on the non-FMA tier (v1.3.0;
+  three questions, no design).
+- #112 canary: a scheduled CI run failed; not triaged.
 - #100 `quiet_bench.sh` on Linux (ps listing, shebang, machine line);
   `tools/` only, no release needed. [DERIVED 2026-11-11] Fixed and tested
   on the Mint machine (failing gate lists five consumers, target lines
