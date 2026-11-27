@@ -407,3 +407,10 @@ add_test(NAME span1 COMMAND test_span1)
 add_executable(bench_span1 bench_span1.cpp)
 corvus_test_target(bench_span1)
 # Deliberately not registered with ctest: run manually on a quiet machine.
+
+# A band must not slow down when the image's pages are unmapped (v1.2.1; the
+# merge-masked constant loads in ErfcinvVec). Runs on Windows, passes
+# without running elsewhere.
+add_executable(test_masked_const test_masked_const.cpp)
+corvus_test_target(test_masked_const)
+add_test(NAME masked_const COMMAND test_masked_const)

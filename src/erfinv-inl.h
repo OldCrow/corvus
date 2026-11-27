@@ -388,11 +388,34 @@ HWY_NOINLINE op::V<D> ErfcinvVec(D d, op::V<D> z) {
   CORVUS_ROUTE(d, "erfcinv/special/domain_neg", op::Lt(z, op::Zero(d)));
   CORVUS_ROUTE(d, "erfcinv/special/domain_pos", op::Gt(z, two));
   CORVUS_ROUTE(d, "erfcinv/special/nan", nan_in);
-  res = op::IfThenElse(op::Eq(z, op::Zero(d)), inf, res);
-  res = op::IfThenElse(op::Eq(z, two), op::Neg(inf), res);
-  res = op::IfThenElse(op::Lt(z, op::Zero(d)), nan_out, res);
-  res = op::IfThenElse(op::Gt(z, two), nan_out, res);
-  res = op::IfThenElse(nan_in, z, res);  // propagate NaN (payload preserved)
+  //
+  // RARE PATH, AND IT MUST STAY BEHIND A BRANCH. Written as five unconditional
+  // selects, the compiler folds each constant into a merge-masked load from
+  // memory (vbroadcastsd mem, zmm{k}). With an all-false mask that load reads
+  // nothing, so it never maps its page; and while the page is unmapped, each
+  // execution takes a slow path: about 90 ns a vector on AVX3_ZEN4, 4x the
+  // whole central kernel, for as long as the process lives (indicative,
+  // 2026-11-26). -inf sat alone on an .rdata page nothing else read in every
+  // executable that linked only the library. So: one test skips the block
+  // when no lane can be special, and inside it each select runs only when its
+  // mask has a lane, which makes the load a real one.
+  // `interior` is |z - 1| < 1: false for NaN and for every z outside (0, 2).
+  // It is also false for tiny positive z, where z - 1 rounds to -1 (see
+  // above); those lanes enter the block and no select fires. Results are
+  // unchanged: a select skipped here had an all-false mask.
+  // tests/test_masked_const.cpp is the guard.
+  const auto interior = op::Lt(op::Abs(zm1), one);
+  if (!op::AllTrue(d, interior)) {
+    const auto z0 = op::Eq(z, op::Zero(d));
+    const auto z2 = op::Eq(z, two);
+    const auto neg = op::Lt(z, op::Zero(d));
+    const auto big = op::Gt(z, two);
+    if (!op::AllFalse(d, z0)) res = op::IfThenElse(z0, inf, res);
+    if (!op::AllFalse(d, z2)) res = op::IfThenElse(z2, op::Neg(inf), res);
+    if (!op::AllFalse(d, neg)) res = op::IfThenElse(neg, nan_out, res);
+    if (!op::AllFalse(d, big)) res = op::IfThenElse(big, nan_out, res);
+    res = op::IfThenElse(nan_in, z, res);  // propagate NaN (payload preserved)
+  }
   return res;
 }
 
