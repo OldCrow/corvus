@@ -1,0 +1,80 @@
+#!/bin/sh
+# corvus v1.2.1 fleet leg, machine I: second pass of bench_span1, main against
+# dev/v1.2.1. Pass 1 (bench-20261127-004507) left two readings unsettled:
+#   - the first band timed (erfinv central) read slow on a quiet machine on
+#     both trees, as if the core were still ramping up from idle (schedutil);
+#   - erf on the branch read in two states across processes.
+# So this pass differs from pass 1 in two ways, and only these:
+#   1. each bench runs behind a wrapper that pins to one core, spins that core
+#      for 2 s, then execs the bench on it (same core, already at speed);
+#   2. eight alternations instead of three, to count the states.
+# Same gate, same binaries, same two build trees. Nothing here builds,
+# commits or touches the network.
+#
+# Run from a plain terminal with the Claude desktop app QUIT, browsers closed:
+#
+#   sh /home/wolfman/Development/corvus-scratch/v1.2.1-leg-I/run_quiet_span1_pass2.sh
+#
+# About 10 minutes if the gate passes at once. Prints "ALL DONE" at the end.
+set -u
+DEV=/home/wolfman/Development
+BRANCH_TREE=$DEV/corvus          # dev/v1.2.1 (built at 653758c; later commits docs only)
+MAIN_TREE=$DEV/corvus-main       # main c1d6640 + bench_span1.cpp copied in
+QB=$BRANCH_TREE/tools/quiet_bench.sh
+CORE=${CORE:-2}
+RUNS=${RUNS:-8}
+OUT=$DEV/corvus-scratch/v1.2.1-leg-I/bench2-$(date +%Y%m%d-%H%M%S)
+mkdir -p "$OUT" || exit 1
+STATUS=$OUT/status.txt
+
+for t in "$MAIN_TREE" "$BRANCH_TREE"; do
+  [ -x "$t/build-clang/tests/bench_span1" ] || { echo "MISSING $t/build-clang/tests/bench_span1"; exit 1; }
+  w=$t/build-clang/tests/bench_span1_warm
+  cat > "$w" <<EOF
+#!/bin/sh
+# Written by run_quiet_span1_pass2.sh: pin, warm the core, exec the bench.
+exec taskset -c $CORE sh -c '
+  timeout 2 sh -c "while :; do :; done"
+  echo "warm: cpu$CORE at \$(cat /sys/devices/system/cpu/cpu$CORE/cpufreq/scaling_cur_freq 2>/dev/null) kHz before exec"
+  exec "$t/build-clang/tests/bench_span1"'
+EOF
+  chmod +x "$w"
+done
+
+{
+  echo "date: $(date -Is)"
+  echo "pass 2: pinned to cpu$CORE, 2 s same-core spin before exec, $RUNS alternations"
+  echo "main tree  : $(git -C "$MAIN_TREE" rev-parse HEAD) $(git -C "$MAIN_TREE" status -s | tr '\n' ';')"
+  echo "branch tree: $(git -C "$BRANCH_TREE" rev-parse HEAD) ($(git -C "$BRANCH_TREE" branch --show-current)) $(git -C "$BRANCH_TREE" status -s | tr '\n' ';')"
+  for t in "$MAIN_TREE" "$BRANCH_TREE"; do
+    ( cd "$t/build-clang" && sha256sum tests/bench_span1 && ls -l tests/bench_span1 && \
+      find . -name 'libcorvus*.a' -exec ls -l {} \; -exec sha256sum {} \; )
+    grep -E 'CMAKE_BUILD_TYPE:|CMAKE_CXX_COMPILER:|CORVUS_DISABLED_TARGETS' "$t/build-clang/CMakeCache.txt"
+  done
+  echo "governor: $(cat /sys/devices/system/cpu/cpu$CORE/cpufreq/scaling_governor 2>/dev/null || echo n/a)"
+  echo "driver  : $(cat /sys/devices/system/cpu/cpu$CORE/cpufreq/scaling_driver 2>/dev/null || echo n/a)"
+  echo "no_turbo: $(cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || echo n/a)"
+  echo "on AC   : $(cat /sys/class/power_supply/A*/online 2>/dev/null | head -1 || echo n/a)"
+  uname -srm
+} > "$OUT/head.txt" 2>&1
+cat "$OUT/head.txt"
+
+fail=0
+i=1
+while [ $i -le $RUNS ]; do
+  for side in main branch; do
+    if [ $side = main ]; then tree=$MAIN_TREE; else tree=$BRANCH_TREE; fi
+    b=$tree/build-clang
+    echo "=== run $i $side"
+    rm -f "$b/quiet_bench/quiet_bench.log" "$b/quiet_bench/quiet_bench_bench_span1_warm.txt"
+    ( cd "$tree" && "$QB" -b "$b" -t SSE4 -w 30 bench_span1_warm )
+    rc=$?
+    echo "run $i $side rc=$rc" | tee -a "$STATUS"
+    [ $rc -eq 0 ] || fail=1
+    cp "$b/quiet_bench/quiet_bench.log" "$OUT/${side}_$i.log" 2>/dev/null
+    cp "$b/quiet_bench/quiet_bench_bench_span1_warm.txt" "$OUT/${side}_$i.txt" 2>/dev/null
+  done
+  i=$((i+1))
+done
+echo "ALL DONE fail=$fail  ->  $OUT" | tee -a "$STATUS"
+exit $fail

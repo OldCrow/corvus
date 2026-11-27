@@ -3,7 +3,7 @@
 // the ratio is an UPPER BOUND on any claim against a vendor scalar). Two
 // samplers: the main band (the LgammaPosDd/LgammaDiffDd assembly, by far
 // the common case) and the big band (min > 2^990, the Stirling-direct
-// path). Span length 4001 (not a lane multiple; the masked tail runs).
+// path). Span length 4001 (not a lane multiple; the tail runs).
 // Manual, quiet machine, Release only, not ctest-registered.
 #include <algorithm>
 #include <chrono>

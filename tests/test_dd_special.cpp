@@ -30,7 +30,8 @@ HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
 
-// Same masked-tail discipline as the shipped kernels: one code path. `ulo`
+// A masked tail of its own, as the shipped driver had before v1.2.1: one
+// code path. `ulo`
 // carries the input's low word (all zero for dd_special_reference.txt).
 static void Log1pmxTestImpl(const double* u, const double* ulo, double* hi,
                             double* lo, size_t n) {

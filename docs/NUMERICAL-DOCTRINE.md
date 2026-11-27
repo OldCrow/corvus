@@ -24,8 +24,8 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   driver of any non-trivial family are `HWY_NOINLINE` (gamma and erfinv
   are the pattern). MSVC's optimizer is superlinear in function size —
   fully inlined, each export becomes one enormous function per target
-  (the driver inlines TWICE per export: full-vector + masked-tail call
-  sites) and cl.exe codegen for one such TU reached ~15–17 minutes,
+  (the driver inlines at each call site of an export: one value, full
+  vector, tail) and cl.exe codegen for one such TU reached ~15–17 minutes,
   killing the CI Windows job at its 25-minute timeout twice (2026-07-29)
   before outlining brought the whole library to ~4 minutes. Bit-identity
   is guaranteed by contraction-off (verify anyway: ULP tables
@@ -75,10 +75,39 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   gated example. That usage is part of those kernels' measured bounds,
   never a public claim.
 
+- **A dispatched function takes pointers and scalars, never a small
+  aggregate by value** (v1.2.1). Under the Windows x64 convention an
+  aggregate over 8 bytes travels as a pointer to a copy, and the copy of
+  a `std::span` is one 16-byte load of what the caller wrote as two
+  8-byte stores. That load cannot be forwarded, waits for both stores to
+  retire, and so makes each call wait for the one before it: a loop of
+  one-value calls ran at the kernel's latency, about twice its
+  throughput. The public wrappers keep `std::span`; every `Impl` takes
+  `(const double*..., double*, size_t)`. The same failure has a second
+  home in any wide or masked load from memory the caller has just
+  written, which is why the driver assembles a short tail in registers
+  and a span of one element skips the tail altogether
+  (src/driver-inl.h). `tests/test_span1.cpp` holds the results equal.
+- **A rare-path constant stays behind a branch** (v1.2.1). An
+  unconditional select of a special value (`IfThenElse(mask, Set(d, c),
+  res)`) compiles, on the AVX-512 targets, to a merge-masked load of the
+  constant from memory. With an all-false mask it reads nothing, so it
+  never maps its page; and while that page is unmapped each execution
+  takes a slow path (about 90 ns a vector on Zen 4 under Windows,
+  measured on `erfcinv`: 4x its whole central kernel). Whether it bites
+  depends on where the linker put the constant, so two programs running
+  the same machine code differ. Test once whether any lane can be
+  special and skip the block; inside it, run each select only when its
+  mask has a lane. This is the outlining rule for rare-path regions,
+  applied to their constants. `tests/test_masked_const.cpp` is the
+  guard. The mechanism is inferred from on/off experiments, not from
+  hardware counters; other kernels still carry the shape (#97).
+
 ## Numerical hazard rules
 
-- Vector and tail paths must be the same code path (masked LoadN/StoreN),
-  never a scalar libm fallback for the tail.
+- Vector and tail paths must be the same code path (the same kernel
+  invocation on a padded vector, or on one broadcast value;
+  src/driver-inl.h), never a scalar libm fallback for the tail.
 - Any op whose CORRECTNESS depends on FMA fusion (exact residuals like
   fma(a,b,-fl(a*b))) must be capability-guarded in the facade — Highway
   emulates MulAdd/MulSub as mul-then-add on non-FMA targets (SSE2/SSSE3/
@@ -149,8 +178,8 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
 
 - ctest executables compare against libm/reference values. Smoke-test
   lengths are deliberately non-multiples of lane counts to exercise the
-  masked-tail path; every ULP gate additionally evaluates its reference
-  set as two calls of lengths N-3 and 3, so the masked tail runs on every
+  tail path; every ULP gate additionally evaluates its reference
+  set as two calls of lengths N-3 and 3, so the tail runs on every
   tier even for the five sets whose row counts are lane multiples.
 - **Tests are registered in DEPENDENCY order, not development order** (dd
   cores first, then every family after the cores it consumes), so a

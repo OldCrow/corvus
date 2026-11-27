@@ -1,0 +1,77 @@
+#!/bin/bash
+# corvus v1.2.1, M (NEON) leg, step 3 (PLAN.md, "v1.2.1 fleet legs"): bench_span1,
+# main against dev/v1.2.1, three passes each, alternating (main first on passes 1
+# and 3, dev first on pass 2). Each run is tools/quiet_bench.sh with its own gate
+# (ambient CPU = 100 - top's idle %, two consecutive 10 s windows below 8%, wait
+# 5 min). The processes in SUSPEND (the user's own; indexing, media analysis and
+# sync; the libstats 2026-11-24 list, approved for corvus by the user 2026-11-26)
+# are stopped (SIGSTOP) before each run and resumed (SIGCONT) after each pass. A
+# run whose gate did not open in 5 min resumes them, waits 2 min and tries again.
+# Runs under caffeinate; launched outside the Claude Code sandbox.
+set -u
+DEV=/Users/wolfman/Development/corvus
+MAIN=/Users/wolfman/Development/corvus-main
+O=$DEV/docs/bench-evidence/2026-11-26-m1-v1.2.1
+LOG=$O/run.txt
+MAXAMB=8
+SUSPEND='mediaanalysisd corespotlightd spotlightknowledged spotlightknowledged.updater mdworker_shared storeuid CGPDFService VTEncoderXPCService VTDecoderXPCService photolibraryd photoanalysisd OneDrive contactsd AddressBookSourceSync'
+DEADLINE=$(( $(date +%s) + 4*3600 ))
+caffeinate -is -w $$ &
+
+load1() { sysctl -n vm.loadavg | awk '{print $2}'; }
+top3() { /bin/ps -Ao pcpu,comm -r | sed -n '2,4p' | awk '{n=$2; sub(/.*\//,"",n); printf "%s%%%s ", $1, n}'; }
+log() { echo "$(date -u '+%FT%TZ') load=$(load1) $*" >> "$LOG"; }
+hold() { for d in $SUSPEND; do pkill "-$1" -u "$(id -u)" -x "$d"; done; }
+trap 'hold CONT' EXIT
+trap 'exit 1' INT TERM
+
+# run_item <label> <tree dir>: quiet_bench.sh gates, runs bench_span1, writes
+# <tree>/build/quiet_bench/; that directory is copied to $O/<label>/.
+run_item() {
+  local label="$1" tree="$2" rc
+  while :; do
+    [ "$(date +%s)" -gt "$DEADLINE" ] && { log "$label: DEADLINE passed, SKIPPED"; return 1; }
+    hold STOP
+    log "$label: gate start top: $(top3)"
+    "$DEV/tools/quiet_bench.sh" -b "$tree/build" -t NEON -m $MAXAMB -w 5 bench_span1 > /dev/null 2>&1; rc=$?
+    if [ $rc -eq 3 ]; then
+      /bin/rm -rf "$O/aborted/$label-$(date +%H%M)"; mkdir -p "$O/aborted"
+      cp -R "$tree/build/quiet_bench" "$O/aborted/$label-$(date +%H%M)"
+      hold CONT; log "$label: no window in 5 min with the processes suspended; resumed, retry in 2 min"; sleep 120
+      continue
+    fi
+    /bin/rm -rf "$O/$label"; cp -R "$tree/build/quiet_bench" "$O/$label"
+    log "$label: quiet_bench rc=$rc  $(grep -E 'gate passed|noise before|target=' "$O/$label/quiet_bench.log" | sed 's/^[^ ]* //' | tr '\n' ';')"
+    return 0
+  done
+}
+rest() { hold CONT; sleep 20; }
+
+{
+  echo "dev:      $(git -C "$DEV" rev-parse --short HEAD) ($(git -C "$DEV" branch --show-current)) dirty=$(git -C "$DEV" status --porcelain --untracked-files=no | wc -l | tr -d ' ')"
+  echo "main:     $(git -C "$MAIN" rev-parse --short HEAD) ($(git -C "$MAIN" branch --show-current)) dirty=$(git -C "$MAIN" status --porcelain --untracked-files=no | wc -l | tr -d ' ') (tests/bench_span1.cpp copied from dev, registered in tests/CMakeLists.txt; not committed)"
+  echo "machine:  $(sysctl -n hw.model) $(sysctl -n machdep.cpu.brand_string), macOS $(sw_vers -productVersion) ($(sw_vers -buildVersion))"
+  echo "cores:    $(sysctl -n hw.physicalcpu) physical, $(sysctl -n hw.logicalcpu) logical ($(sysctl -n hw.perflevel0.physicalcpu) performance, $(sysctl -n hw.perflevel1.physicalcpu) efficiency)"
+  echo "compiler: $(c++ --version | head -1)"
+  echo "highway:  $(grep -h 'using system Highway\|Highway' "$DEV/build/CMakeCache.txt" | grep -i 'HWY_DIR\|highway_DIR' | head -1)"
+  echo "build:    cmake --preset release -G Ninja -DCORVUS_WERROR=ON, both trees"
+  echo "power:    $(pmset -g batt | head -1)"
+  echo "uptime:   $(uptime)"
+  echo "suspended during the runs: $SUSPEND"
+  echo "present at start:$(for d in $SUSPEND; do pgrep -u "$(id -u)" -x "$d" >/dev/null && printf ' %s' "$d"; done)"
+  echo "binaries:"
+  shasum -a 256 "$MAIN/build/libcorvus.a" "$DEV/build/libcorvus.a" "$MAIN/build/tests/bench_span1" "$DEV/build/tests/bench_span1"
+  ls -l "$MAIN/build/libcorvus.a" "$DEV/build/libcorvus.a"
+} > "$O/environment.txt" 2>&1
+
+log "sitting start dev=$(git -C "$DEV" rev-parse --short HEAD) main=$(git -C "$MAIN" rev-parse --short HEAD)"
+for pass in 1 2 3; do
+  if [ "$pass" = 2 ]; then order="dev main"; else order="main dev"; fi
+  for tree in $order; do
+    if [ "$tree" = main ]; then dir=$MAIN; else dir=$DEV; fi
+    run_item "${tree}_pass$pass" "$dir"
+  done
+  rest
+done
+hold CONT
+log "DONE"

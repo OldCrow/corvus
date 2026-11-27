@@ -397,3 +397,24 @@ corvus_test_target(bench_log)
 add_executable(test_guards test_guards.cpp)
 corvus_test_target(test_guards)
 add_test(NAME guards COMMAND test_guards)
+
+# The length-1 fast path in the span drivers (v1.2.1, #110): every public
+# span function gives the same bits for a value alone and inside a long span.
+add_executable(test_span1 test_span1.cpp)
+corvus_test_target(test_span1)
+add_test(NAME span1 COMMAND test_span1)
+
+add_executable(bench_span1 bench_span1.cpp)
+corvus_test_target(bench_span1)
+# Deliberately not registered with ctest: run manually on a quiet machine.
+
+# A band must not slow down when the image's pages are unmapped (v1.2.1; the
+# merge-masked constant loads in ErfcinvVec). Runs on Windows, passes
+# without running elsewhere.
+add_executable(test_masked_const test_masked_const.cpp)
+corvus_test_target(test_masked_const)
+add_test(NAME masked_const COMMAND test_masked_const)
+
+# Survey of every span function, trimmed against mapped (v1.2.1). Manual.
+add_executable(bench_cold bench_cold.cpp)
+corvus_test_target(bench_cold)

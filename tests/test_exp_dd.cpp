@@ -26,8 +26,8 @@ HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
 
-// Same masked-tail discipline as the shipped kernels: one code path, no
-// scalar fallback for the remainder.
+// A masked tail of its own, as the shipped driver had before v1.2.1: one
+// code path, no scalar fallback for the remainder.
 static void ExpDdTestImpl(const double* xh, const double* xl, double* hi,
                           double* lo, size_t n) {
   const op::ScalableTag<double> d;

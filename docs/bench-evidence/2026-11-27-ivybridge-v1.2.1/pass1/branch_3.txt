@@ -1,0 +1,15 @@
+corvus active SIMD target: SSE4
+ns per value                     batch     array     local
+erfinv  [-0.5, 0.5]               57.2     123.9     103.9
+erfinv  [-0.999, 0.999]           88.4     117.4     118.3
+erfcinv [0.5, 1.5]                37.3      79.5      81.0
+erfcinv (0, 2) (probit)           81.1     117.1     118.4
+erf     [-3, 3]                    7.6      19.7      21.3
+lgamma  [1, 21]                   60.6      86.4      88.1
+exp     [-20, 20]                  7.4      19.1      21.1
+
+ns per CALL, span in place         n=1       n=2       n=3       n=4       n=7
+erfinv  [-0.5, 0.5]               86.1      90.4     173.9     164.7     312.7
+erfcinv (0, 2) (probit)          123.3     186.2     304.9     351.3     626.3
+erf     [-3, 3]                   28.3      30.1      53.6      42.9      78.1
+exp     [-20, 20]                 23.4      28.2      51.6      41.2      77.0

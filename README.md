@@ -212,7 +212,10 @@ its baseline, as well as a different lane count and core.
 - The last row is for the families with no libm counterpart (incomplete
   functions and their inverses, digamma/trigamma, erfinv, Bessel): the
   gain over calling the same kernels one element at a time. It is an upper
-  bound against per-call overhead, not a libm comparison.
+  bound against per-call overhead, not a libm comparison. It was measured
+  at v1.2.0; v1.2.1 makes the one-element call cheaper (about half on
+  Zen 4 for the short kernels, a few percent elsewhere), so the gain is
+  now smaller and the row has not been re-measured.
 - `lgamma`'s table band (v1.2.0) takes 11 gathers per vector. It still gains
   1.61× on Kaby Lake, the fleet's gather-weak part, but gather cost is
   unmeasured under the Downfall microcode mitigation (Skylake through Ice

@@ -1322,9 +1322,9 @@ HWY_INLINE op::V<D> BetaInvGammaToY(D d, op::V<D> t, op::V<D> hg,
 // The driver. kQ selects beta_q_inv (true) or beta_p_inv (false); the two
 // differ only in how the input-side flip sets the orientation bit.
 //
-// HWY_NOINLINE for the AGENTS.md reason: it is inlined twice per export
-// (full-vector and masked-tail call sites) and is the heaviest driver in the
-// library.
+// HWY_NOINLINE for the AGENTS.md reason: it is inlined at every driver call
+// site of an export (one value, full vector, tail) and is the heaviest
+// driver in the library.
 template <bool kQ, class D>
 HWY_NOINLINE op::V<D> BetaInvVec(D d, op::V<D> a_in, op::V<D> b_in,
                                  op::V<D> s_in) {

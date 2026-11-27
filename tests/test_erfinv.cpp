@@ -1,7 +1,7 @@
 // Smoke tests for corvus::erfinv / corvus::erfcinv: round-trip against
 // corvus's own erf/erfc (there is no std::erfinv to compare against), every
 // documented special value, in-place aliasing, and a non-lane-multiple
-// length so the masked tail path is exercised. The strict accuracy claim
+// length so the tail path is exercised. The strict accuracy claim
 // against the mpmath oracle is test_erfinv_ulp, not this file.
 #include <algorithm>
 #include <cmath>
@@ -131,7 +131,7 @@ int main() {
     // N12: +/-inf are outside the documented domain |in[i]| <= 1 (corvus.h:
     // "|in[i]| > 1 gives NaN") -- same contract as the +/-2 rows above.
     // Verified correct by probe during review but untested until now, and
-    // an 11-element (non-lane-multiple) span keeps both in the masked tail
+    // an 11-element (non-lane-multiple) span keeps both in the tail
     // on every tier.
     Check(std::isnan(out[9]), "erfinv(+inf) is NaN");
     Check(std::isnan(out[10]), "erfinv(-inf) is NaN");
@@ -164,7 +164,7 @@ int main() {
     // N12: +/-inf are outside the documented domain [0, 2] (corvus.h:
     // "in[i] outside [0, 2] gives NaN"). Verified correct by probe during
     // review but untested until now; an 11-element (non-lane-multiple)
-    // span keeps both in the masked tail on every tier.
+    // span keeps both in the tail on every tier.
     Check(std::isnan(out[9]), "erfcinv(+inf) is NaN");
     Check(std::isnan(out[10]), "erfcinv(-inf) is NaN");
   }

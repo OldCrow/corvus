@@ -1,0 +1,61 @@
+#!/bin/sh
+# corvus v1.2.1 fleet leg, machine I (Ivy Bridge, SSE4, Linux): PLAN.md step 3.
+# bench_span1, main against dev/v1.2.1, from two separate build trees
+# (OldCrow/standards PERFORMANCE-MEASUREMENT.md rule 2), alternating, three
+# times each, every run behind tools/quiet_bench.sh's ambient gate.
+#
+# Run from a plain terminal with the Claude desktop app QUIT (it holds this
+# machine above the gate even behind the lock screen), browsers closed:
+#
+#   sh /home/wolfman/Development/corvus-scratch/v1.2.1-leg-I/run_quiet_span1.sh
+#
+# Then leave the machine alone until it prints "ALL DONE" (each run waits up
+# to 30 minutes for the gate; the bench itself takes well under a minute).
+# Nothing here builds, commits or touches the network.
+set -u
+DEV=/home/wolfman/Development
+BRANCH_TREE=$DEV/corvus          # dev/v1.2.1
+MAIN_TREE=$DEV/corvus-main       # main + bench_span1.cpp copied in
+QB=$BRANCH_TREE/tools/quiet_bench.sh
+OUT=$DEV/corvus-scratch/v1.2.1-leg-I/bench-$(date +%Y%m%d-%H%M%S)
+mkdir -p "$OUT" || exit 1
+STATUS=$OUT/status.txt
+
+for t in "$MAIN_TREE" "$BRANCH_TREE"; do
+  [ -x "$t/build-clang/tests/bench_span1" ] || { echo "MISSING $t/build-clang/tests/bench_span1"; exit 1; }
+done
+
+# What was measured, and proof the two builds differ.
+{
+  echo "date: $(date -Is)"
+  echo "main tree  : $(git -C "$MAIN_TREE" rev-parse HEAD) $(git -C "$MAIN_TREE" status -s | tr '\n' ';')"
+  echo "branch tree: $(git -C "$BRANCH_TREE" rev-parse HEAD) ($(git -C "$BRANCH_TREE" branch --show-current)) $(git -C "$BRANCH_TREE" status -s | tr '\n' ';')"
+  for t in "$MAIN_TREE" "$BRANCH_TREE"; do
+    ( cd "$t/build-clang" && sha256sum tests/bench_span1 && ls -l tests/bench_span1 && \
+      find . -name 'libcorvus*.a' -exec ls -l {} \; -exec sha256sum {} \; )
+    grep -E 'CMAKE_BUILD_TYPE:|CMAKE_CXX_COMPILER:|CORVUS_DISABLED_TARGETS' "$t/build-clang/CMakeCache.txt"
+  done
+  echo "governor: $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo n/a)"
+  echo "no_turbo: $(cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || echo n/a)"
+  echo "on AC   : $(cat /sys/class/power_supply/A*/online 2>/dev/null | head -1 || echo n/a)"
+  uname -srm
+} > "$OUT/head.txt" 2>&1
+cat "$OUT/head.txt"
+
+fail=0
+for i in 1 2 3; do
+  for side in main branch; do
+    if [ $side = main ]; then tree=$MAIN_TREE; else tree=$BRANCH_TREE; fi
+    b=$tree/build-clang
+    echo "=== run $i $side"
+    rm -f "$b/quiet_bench/quiet_bench.log" "$b/quiet_bench/quiet_bench_bench_span1.txt"
+    ( cd "$tree" && "$QB" -b "$b" -t SSE4 -w 30 bench_span1 )
+    rc=$?
+    echo "run $i $side rc=$rc" | tee -a "$STATUS"
+    [ $rc -eq 0 ] || fail=1
+    cp "$b/quiet_bench/quiet_bench.log" "$OUT/${side}_$i.log" 2>/dev/null
+    cp "$b/quiet_bench/quiet_bench_bench_span1.txt" "$OUT/${side}_$i.txt" 2>/dev/null
+  done
+done
+echo "ALL DONE fail=$fail  ->  $OUT" | tee -a "$STATUS"
+exit $fail

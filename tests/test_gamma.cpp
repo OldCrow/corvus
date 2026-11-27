@@ -370,7 +370,7 @@ void HugeDiagonal() {
 }
 
 // Aliasing is part of the public contract, and the length is deliberately
-// not a multiple of any lane count so the masked tail runs.
+// not a multiple of any lane count so the tail runs.
 void Aliasing() {
   const auto probes = Probes();
   std::vector<double> a, x;

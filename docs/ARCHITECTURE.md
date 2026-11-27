@@ -26,11 +26,14 @@ cores share a TU with multiple `HWY_EXPORT`s). Each TU uses the Highway
 the best target at runtime via `HWY_DYNAMIC_DISPATCH`. Each exported
 Impl is a one-line forwarder into the shared driver (`src/driver-inl.h`):
 `DriveUnary/Binary/Ternary` own the single loop shape — full-vector body plus
-masked `LoadNOr/StoreN` tail as ONE code path (no scalar libm fallback) — and
-the debug-only span-length assert. The tail pads its dead lanes with the
-tail's first element rather than zero, so they share a live lane's region
-instead of dragging the specials scrub's safe point (and its region core)
-into every short call (#42). `DriveScalarBinary/Ternary` are the scalar
+a tail that runs the same kernel (no scalar libm fallback) — and the
+debug-only span-length assert. The tail is assembled in registers, with no
+masked load or store, and a span of one element is broadcast, so a short
+call does not wait on the caller's stores (v1.2.1). The tail pads its dead
+lanes with its last element rather than zero, so they share a live lane's
+region instead of dragging the specials scrub's safe point (and its region
+core) into every short call (#42). The dispatched Impls take pointers and
+one length, not `std::span` by value. `DriveScalarBinary/Ternary` are the scalar
 entry points of the incomplete gamma/beta family: one point broadcast to
 every lane, no loop, bit-identical to the span form. `active_target()`
 lives in its own tiny TU (`src/target.cpp`); `src/route_census.cpp`

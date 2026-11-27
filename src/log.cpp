@@ -12,15 +12,21 @@ HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
 
-static void LogImpl(std::span<const double> in, std::span<double> out) {
+static void LogImpl(const double* pin, double* pout, size_t n) {
+  const std::span<const double> in(pin, n);
+  const std::span<double> out(pout, n);
   DriveUnary([](auto d, auto x) { return LogVec(d, x); }, in, out);
 }
 
-static void Log1pImpl(std::span<const double> in, std::span<double> out) {
+static void Log1pImpl(const double* pin, double* pout, size_t n) {
+  const std::span<const double> in(pin, n);
+  const std::span<double> out(pout, n);
   DriveUnary([](auto d, auto x) { return Log1pVec(d, x); }, in, out);
 }
 
-static void Log1pmxImpl(std::span<const double> in, std::span<double> out) {
+static void Log1pmxImpl(const double* pin, double* pout, size_t n) {
+  const std::span<const double> in(pin, n);
+  const std::span<double> out(pout, n);
   DriveUnary([](auto d, auto x) { return Log1pmxVec(d, x); }, in, out);
 }
 
@@ -41,15 +47,18 @@ HWY_EXPORT(Log1pmxImpl);
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
 void log(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(LogImpl)(in, out);
+  HWY_DASSERT(in.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(LogImpl)(in.data(), out.data(), out.size());
 }
 
 void log1p(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(Log1pImpl)(in, out);
+  HWY_DASSERT(in.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(Log1pImpl)(in.data(), out.data(), out.size());
 }
 
 void log1pmx(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(Log1pmxImpl)(in, out);
+  HWY_DASSERT(in.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(Log1pmxImpl)(in.data(), out.data(), out.size());
 }
 
 }  // namespace corvus

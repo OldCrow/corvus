@@ -1,0 +1,9 @@
+07:50:39 quiet_bench.sh  build=/home/wolfman/Development/corvus-main/build-clang  expect=SSE4  targets=1
+07:50:39 gate          : ambient < 5% over two consecutive 10s windows
+07:50:39 machine       : Intel(R) Core(TM) i7-3820QM CPU @ 2.70GHz; Linux Mint 22.3
+07:50:49 ambient sample : 3.00%
+07:50:59 ambient sample : 0.00%
+07:50:59 gate passed at: 3.00 0.00%
+07:51:10 bench_span1_warm: noise before 1.00%  top: 1.9%top 1.0%[user-app] 0.0%systemd 
+07:51:12 bench_span1_warm: rc=0 2s target=SSE4
+07:51:12 done fail=0. Raw per-target output: /home/wolfman/Development/corvus-main/build-clang/quiet_bench/quiet_bench_<target>.txt

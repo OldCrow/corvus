@@ -704,9 +704,9 @@ CORVUS_OUTLINE void GammaInvConsider(D d, op::V<D> a, op::V<D> xc,
 // ------------------------------------------------------------------------
 // The driver. kQ selects gamma_q_inv (true) or gamma_p_inv (false); the two
 // differ only in how the input-side flip sets the orientation bit.
-// HWY_NOINLINE for the reason in AGENTS.md: it is inlined twice per export
-// (full-vector and masked-tail call sites) and is by far the heaviest driver
-// in the library.
+// HWY_NOINLINE for the reason in AGENTS.md: it is inlined at every driver
+// call site of an export (one value, full vector, tail) and is by far the
+// heaviest driver in the library.
 template <bool kQ, class D>
 HWY_NOINLINE op::V<D> GammaInvVec(D d, op::V<D> a_in, op::V<D> s_in) {
   const auto one = op::Set(d, 1.0);

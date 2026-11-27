@@ -20,19 +20,27 @@ namespace HWY_NAMESPACE {
 // src/bessel-inl.h's file header and src/bessel_data.h document the
 // evaluation scheme.
 
-static void I0Impl(std::span<const double> in, std::span<double> out) {
+static void I0Impl(const double* pin, double* pout, size_t n) {
+  const std::span<const double> in(pin, n);
+  const std::span<double> out(pout, n);
   DriveUnary([](auto d, auto x) { return BesselNu0(d, x).unscaled; }, in, out);
 }
 
-static void I0eImpl(std::span<const double> in, std::span<double> out) {
+static void I0eImpl(const double* pin, double* pout, size_t n) {
+  const std::span<const double> in(pin, n);
+  const std::span<double> out(pout, n);
   DriveUnary([](auto d, auto x) { return BesselNu0(d, x).scaled; }, in, out);
 }
 
-static void I1Impl(std::span<const double> in, std::span<double> out) {
+static void I1Impl(const double* pin, double* pout, size_t n) {
+  const std::span<const double> in(pin, n);
+  const std::span<double> out(pout, n);
   DriveUnary([](auto d, auto x) { return BesselNu1(d, x).unscaled; }, in, out);
 }
 
-static void I1eImpl(std::span<const double> in, std::span<double> out) {
+static void I1eImpl(const double* pin, double* pout, size_t n) {
+  const std::span<const double> in(pin, n);
+  const std::span<double> out(pout, n);
   DriveUnary([](auto d, auto x) { return BesselNu1(d, x).scaled; }, in, out);
 }
 
@@ -54,19 +62,23 @@ HWY_EXPORT(I1eImpl);
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
 void i0(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(I0Impl)(in, out);
+  HWY_DASSERT(in.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(I0Impl)(in.data(), out.data(), out.size());
 }
 
 void i0e(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(I0eImpl)(in, out);
+  HWY_DASSERT(in.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(I0eImpl)(in.data(), out.data(), out.size());
 }
 
 void i1(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(I1Impl)(in, out);
+  HWY_DASSERT(in.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(I1Impl)(in.data(), out.data(), out.size());
 }
 
 void i1e(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(I1eImpl)(in, out);
+  HWY_DASSERT(in.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(I1eImpl)(in.data(), out.data(), out.size());
 }
 
 }  // namespace corvus

@@ -30,8 +30,8 @@ namespace {
 using corvus_test::SameBits;
 using corvus_test::UlpDiff;
 
-// #14 N4: masked-tail split -- neither subspan is a lane multiple for any
-// tier, so the masked LoadN/StoreN path always runs.
+// #14 N4: tail split -- neither subspan is a lane multiple for any
+// tier, so the tail path always runs.
 using Fn = void (*)(std::span<const double>, std::span<double>);
 
 void SplitCall(Fn fn, const std::vector<double>& in, std::vector<double>& out) {

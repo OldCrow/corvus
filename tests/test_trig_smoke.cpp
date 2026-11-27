@@ -40,7 +40,7 @@ int main() {
   const double pnan = PayloadNan();
 
   // --- 1. Specials in one batch call. Length 19 is deliberately a
-  // non-multiple of every lane count (2/4/8) so the masked-tail path runs
+  // non-multiple of every lane count (2/4/8) so the tail path runs
   // in the same call that carries the specials (#14).
   {
     std::vector<double> in = {
@@ -73,7 +73,7 @@ int main() {
   }
 
   // --- 2. Payload NaN in every lane position, so no lane of any tier's
-  // vector (or its masked tail) can drop or requantize a NaN. Length 17 is
+  // vector (or its tail) can drop or requantize a NaN. Length 17 is
   // again a non-multiple of 2/4/8.
   for (size_t p = 0; p < 16; ++p) {
     std::vector<double> in(17, 0.5);

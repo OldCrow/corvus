@@ -1,0 +1,15 @@
+corvus active SIMD target: AVX2
+ns per value                     batch     array     local
+erfinv  [-0.5, 0.5]               11.2      52.6      51.2
+erfinv  [-0.999, 0.999]           48.3     108.7     105.0
+erfcinv [0.5, 1.5]                10.2      46.7      48.1
+erfcinv (0, 2) (probit)           44.6     102.2     103.5
+erf     [-3, 3]                    6.4      30.8      31.9
+lgamma  [1, 21]                   49.2     103.1     104.7
+exp     [-20, 20]                  7.7      35.9      37.1
+
+ns per CALL, span in place         n=1       n=2       n=3       n=4       n=7
+erfinv  [-0.5, 0.5]               63.4      73.1      75.7      81.6     118.4
+erfcinv (0, 2) (probit)          108.9     167.8     194.2     209.5     374.1
+erf     [-3, 3]                   35.7      40.7      44.3      49.4      75.7
+exp     [-20, 20]                 39.3      43.4      47.8      49.1      81.3

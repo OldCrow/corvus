@@ -1,0 +1,30 @@
+diff --git a/src/driver-inl.h b/src/driver-inl.h
+index 1341289..aaabd6a 100644
+--- a/src/driver-inl.h
++++ b/src/driver-inl.h
+@@ -140,7 +140,9 @@ static void DriveUnary(Kernel kernel, std::span<const double> in,
+   }
+   if (i < n) {
+     const size_t m = n - i;
+-    StoreTail(kernel(d, LoadTail(d, pi + i, m)), d, po + i, m);
++    // EXPERIMENT (K, v1.2.1 n=7): main's masked tail, DriveUnary only.
++    op::StoreN(kernel(d, op::LoadNOr(op::Set(d, pi[i]), d, pi + i, m)), d,
++               po + i, m);
+   }
+ }
+ 
+diff --git a/src/ops-inl.h b/src/ops-inl.h
+index c4f6e3c..35e5d2d 100644
+--- a/src/ops-inl.h
++++ b/src/ops-inl.h
+@@ -110,6 +110,10 @@ HWY_INLINE M<D> FirstN(D d, size_t n) {
+   return hn::FirstN(d, n);
+ }
+ template <class D>
++HWY_INLINE V<D> LoadNOr(V<D> no, D d, const double* p, size_t n) {
++  return hn::LoadNOr(no, d, p, n);
++}
++template <class D>
+ HWY_INLINE void Store(V<D> v, D d, double* p) {
+   hn::StoreU(v, d, p);
+ }

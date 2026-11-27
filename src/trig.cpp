@@ -12,11 +12,15 @@ HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
 
-static void CosImpl(std::span<const double> in, std::span<double> out) {
+static void CosImpl(const double* pin, double* pout, size_t n) {
+  const std::span<const double> in(pin, n);
+  const std::span<double> out(pout, n);
   DriveUnary([](auto d, auto x) { return CosVec(d, x); }, in, out);
 }
 
-static void SinImpl(std::span<const double> in, std::span<double> out) {
+static void SinImpl(const double* pin, double* pout, size_t n) {
+  const std::span<const double> in(pin, n);
+  const std::span<double> out(pout, n);
   DriveUnary([](auto d, auto x) { return SinVec(d, x); }, in, out);
 }
 
@@ -36,11 +40,13 @@ HWY_EXPORT(SinImpl);
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
 void cos(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(CosImpl)(in, out);
+  HWY_DASSERT(in.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(CosImpl)(in.data(), out.data(), out.size());
 }
 
 void sin(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(SinImpl)(in, out);
+  HWY_DASSERT(in.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(SinImpl)(in.data(), out.data(), out.size());
 }
 
 }  // namespace corvus

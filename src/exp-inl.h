@@ -78,7 +78,7 @@ namespace corvus {
 namespace HWY_NAMESPACE {
 
 // OUTLINED core call [MSVC BUILD-TIME GATE, AGENTS.md]: the driver inlines
-// the kernel twice per export (full-vector + masked tail), and ExpDdFrac is
+// the kernel at each call site (one value, vector, tail), and ExpDdFrac is
 // a table gather plus a polynomial. One consumer, so hosted here rather
 // than beside the shared OutlinedExpDd pair.
 template <class D>

@@ -1,0 +1,38 @@
+date: 2026-11-27T07:50:38-05:00
+pass 3: four trees, pinned to cpu2, 2 s same-core spin before exec, 8 alternations
+--- main: /home/wolfman/Development/corvus-main
+HEAD c826564f687075ea68d6fc68373415ab75581352   M tests/CMakeLists.txt;?? tests/bench_span1.cpp;
+0e50433d494d1c76ee309794da51035385cd494e7beee6f9cedc33b5459731b8  tests/bench_span1
+-rw-rw---- 1 wolfman wolfman 8558858 Nov 26 23:30 ./libcorvus.a
+f6240715c1f5cc05a19fb8f19eab639c0b0ba5cb7f18041944ffff35b05ce7ed  ./libcorvus.a
+CMAKE_BUILD_TYPE:STRING=Release
+CMAKE_CXX_COMPILER:FILEPATH=/usr/bin/clang++-18
+CORVUS_DISABLED_TARGETS:STRING=
+--- branch: /home/wolfman/Development/corvus
+HEAD dca17f5cf5ad4fcf5bb34584efc1e4d59a8d70b6  
+d6e42db2ab28ea3ca5619219d659ab1cb0a384d73ddb9355a62f0b49190cd4af  tests/bench_span1
+-rw-rw---- 1 wolfman wolfman 8706130 Nov 26 23:13 ./libcorvus.a
+b6c67c37b85a8c4d2f05410a44b52d58e5587f3810d7d4b2189f85fd3f602642  ./libcorvus.a
+CMAKE_BUILD_TYPE:STRING=Release
+CMAKE_CXX_COMPILER:FILEPATH=/usr/bin/clang++-18
+CORVUS_DISABLED_TARGETS:STRING=
+--- masked: /home/wolfman/Development/corvus-exp-masked
+HEAD 653758c1b4ee8bbdbcac66f6d037bfabf724d63b   M src/driver-inl.h; M src/ops-inl.h;
+e0b3ce8cc766cd529c8925eb1b8dcb47ed3ac0afbf04e562627d872aad9f2c22  tests/bench_span1
+-rw-rw---- 1 wolfman wolfman 8671482 Nov 27 02:07 ./libcorvus.a
+86f3a16948a3e3f3a3c49b7d5aeb6698ee4b678bc577c833596ce22791ad4cc7  ./libcorvus.a
+CMAKE_BUILD_TYPE:STRING=Release
+CMAKE_CXX_COMPILER:FILEPATH=/usr/bin/clang++-18
+CORVUS_DISABLED_TARGETS:STRING=
+--- lane0: /home/wolfman/Development/corvus-exp-lane0
+HEAD 653758c1b4ee8bbdbcac66f6d037bfabf724d63b   M src/driver-inl.h;
+ba77c86c2c8f1116769cfd36c719310a4982c5d6566e832478831c41cc7de9b8  tests/bench_span1
+-rw-rw---- 1 wolfman wolfman 8710362 Nov 27 02:25 ./libcorvus.a
+8fdab157aaf40f5b451f173d8c4788efb19949908a39e0e5d65b160f291f00c2  ./libcorvus.a
+CMAKE_BUILD_TYPE:STRING=Release
+CMAKE_CXX_COMPILER:FILEPATH=/usr/bin/clang++-18
+CORVUS_DISABLED_TARGETS:STRING=
+governor: schedutil
+no_turbo: 0
+on AC   : 1
+Linux 7.0.0-44-generic x86_64

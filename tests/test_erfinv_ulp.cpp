@@ -91,7 +91,7 @@ int main(int argc, char* const* argv) {
     LoadReference(erfinv_path, &in, &want, &res);
     std::vector<double> got(in.size());
     // Two calls, not one: the second covers only the last 3 rows, a length
-    // below every lane count, forcing the masked tail path on every tier
+    // below every lane count, forcing the tail path on every tier
     // (#14 N4).
     const size_t n = in.size();
     const size_t split = n - 3;
@@ -147,7 +147,7 @@ int main(int argc, char* const* argv) {
     LoadReference(erfcinv_path, &in, &want, &res);
     std::vector<double> got(in.size());
     // Two calls, not one: the second covers only the last 3 rows, a length
-    // below every lane count, forcing the masked tail path on every tier
+    // below every lane count, forcing the tail path on every tier
     // (#14 N4).
     const size_t n = in.size();
     const size_t split = n - 3;

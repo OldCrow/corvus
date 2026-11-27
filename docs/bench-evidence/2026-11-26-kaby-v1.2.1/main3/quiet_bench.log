@@ -1,0 +1,44 @@
+22:42:18 quiet_bench.sh  build=build  expect=AVX2  targets=1
+22:42:18 gate          : ambient < 5% over two consecutive 10s windows
+22:42:18 machine       : Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz; macOS 13.7.8
+22:42:29 ambient sample : 7.24%
+22:42:29   top consumers:
+     98.9 /usr/libexec/signpost_reporter
+      0.5 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+      0.4 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.330/e206fbf8b125/claude.app/Contents/MacOS/claude
+      0.3 /System/Library/PrivateFrameworks/CoreAnalytics.framework/Support/analyticsd
+      0.2 /Applications/WiFi Signal.app/Contents/MacOS/WiFi Signal
+22:42:39 ambient sample : 16.00%
+22:42:39   top consumers:
+     99.4 /usr/libexec/signpost_reporter
+     91.2 /usr/libexec/biomesyncd
+      3.6 /usr/sbin/bluetoothd
+      2.6 /usr/libexec/sharingd
+      1.9 /usr/libexec/rapportd
+22:42:50 ambient sample : 27.82%
+22:42:50   top consumers:
+    100.0 /usr/libexec/biomesyncd
+     99.9 /usr/libexec/signpost_reporter
+      2.4 /System/Library/PrivateFrameworks/AvatarPersistence.framework/Support/avatarsd
+      1.4 /usr/libexec/dasd
+      0.6 /System/Library/Frameworks/CoreServices.framework/Frameworks/Metadata.framework/Support/mds
+22:43:01 ambient sample : 20.80%
+22:43:01   top consumers:
+    100.0 /usr/libexec/signpost_reporter
+      0.9 /usr/libexec/opendirectoryd
+      0.6 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+      0.5 /Applications/Claude.app/Contents/MacOS/Claude
+      0.3 /usr/libexec/wifip2pd
+22:43:11 ambient sample : 10.43%
+22:43:11   top consumers:
+     12.9 /System/Library/CoreServices/ReportCrash
+      9.9 /System/Library/PrivateFrameworks/CoreSymbolication.framework/coresymbolicationd
+      3.0 /System/Library/PrivateFrameworks/CoreAnalytics.framework/Support/analyticsd
+      1.8 /Applications/Energiza.app/Contents/MacOS/Energiza
+      1.6 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.330/e206fbf8b125/claude.app/Contents/MacOS/claude
+22:43:22 ambient sample : 2.87%
+22:43:32 ambient sample : 2.76%
+22:43:32 gate passed at: 2.87 2.76%
+22:43:43 bench_span1: noise before 3.82%  top: 96.3%biomesyncd 0.4%opendirectoryd 0.2%WiFi 
+22:43:43 bench_span1: rc=0 0s target=AVX2
+22:43:43 done fail=0. Raw per-target output: build/quiet_bench/quiet_bench_<target>.txt

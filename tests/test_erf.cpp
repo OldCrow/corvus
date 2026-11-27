@@ -30,7 +30,7 @@ int main() {
   constexpr double kTol = 5e-16;
 
   // Dense sweep across the interesting range, deliberately not a multiple of
-  // any lane count so the masked tail path is exercised.
+  // any lane count so the tail path is exercised.
   constexpr size_t kN = 12007;
   std::vector<double> in(kN), out(kN);
   for (size_t i = 0; i < kN; ++i) {

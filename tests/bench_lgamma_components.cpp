@@ -32,7 +32,8 @@ HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
 
-// One masked loop shape for every driver, mirroring src/driver-inl.h. The
+// One masked loop shape for every driver here (src/driver-inl.h's tail is
+// no longer masked; these component drivers keep their own). The
 // kernel body is a lambda V -> V so each component driver below is one line.
 template <class Body>
 static HWY_NOINLINE void DriveComponent(const double* in, double* out, size_t n,

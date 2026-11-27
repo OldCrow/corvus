@@ -1,5 +1,5 @@
 // Smoke: lbeta domain policy, specials, symmetry, exact values, the -inf
-// saturation edge, and the masked-tail path (odd vector lengths). The
+// saturation edge, and the tail path (odd vector lengths). The
 // dense accuracy work lives in test_lbeta_ulp.cpp.
 #include <array>
 #include <cmath>
@@ -29,12 +29,12 @@ bool SameBits(double x, double y) {
 }
 
 double One(double a, double b) {
-  // Length-3 vectors (not a lane-count multiple) so the masked tail runs.
+  // Length-3 vectors (not a lane-count multiple) so the tail runs.
   std::vector<double> va{a, 1.0, a}, vb{b, 1.0, b}, out(3);
   corvus::lbeta(va, vb, out);
   // Bitwise: NaN lanes must agree too (== would reject NaN == NaN).
   Check(SameBits(out[0], out[2]) || (std::isnan(out[0]) && std::isnan(out[2])),
-        "masked-tail lane disagrees with full lane");
+        "tail lane disagrees with full lane");
   return out[0];
 }
 
@@ -74,7 +74,7 @@ int main() {
   // domain: a > 0 and b > 0, finite; anything else returns NaN." The a = 0
   // and b = +inf forms above are already covered; these are their b-sided
   // and negative-infinity counterparts. One() already batches length-3
-  // (masked-tail) spans, so no separate batch table is needed here.
+  // (tail) spans, so no separate batch table is needed here.
   Check(std::isnan(One(1.0, 0.0)), "lbeta(a,0) is NaN");
   Check(std::isnan(One(1.0, -inf)), "lbeta(a,-inf) is NaN");
 

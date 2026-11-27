@@ -1,0 +1,15 @@
+corvus active SIMD target: NEON
+ns per value                     batch     array     local
+erfinv  [-0.5, 0.5]               15.5      34.3      29.4
+erfinv  [-0.999, 0.999]           42.7      55.5      58.7
+erfcinv [0.5, 1.5]                11.1      27.0      28.4
+erfcinv (0, 2) (probit)           37.1      54.6      56.0
+erf     [-3, 3]                    2.0       7.6       8.4
+lgamma  [1, 21]                   25.2      38.9      40.3
+exp     [-20, 20]                  2.3       7.8       8.3
+
+ns per CALL, span in place         n=1       n=2       n=3       n=4       n=7
+erfinv  [-0.5, 0.5]               32.1      36.1      58.9      60.5     113.1
+erfcinv (0, 2) (probit)           60.2      87.3     141.0     163.9     293.8
+erf     [-3, 3]                   10.5      13.3      20.8      17.7      31.1
+exp     [-20, 20]                 10.4      13.3      20.3      18.1      31.5

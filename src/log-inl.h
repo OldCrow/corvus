@@ -249,9 +249,25 @@ CORVUS_OUTLINE op::V<D> Log1pVec(D d, op::V<D> x) {
   CORVUS_ROUTE(d, "log1p/special/inf", op::Eq(x, inf));
   CORVUS_ROUTE(d, "log1p/special/zero", op::Eq(x, zero));
   CORVUS_ROUTE(d, "log1p/special/nan", op::IsNaN(x));
-  res = op::IfThenElse(op::Eq(x, neg1), op::Neg(inf), res);
-  res = op::IfThenElse(op::Lt(x, neg1), qnan, res);
-  res = op::IfThenElse(op::Eq(x, inf), inf, res);
+  // RARE PATH BEHIND A BRANCH (v1.2.1; see ErfcinvVec in src/erfinv-inl.h and
+  // docs/NUMERICAL-DOCTRINE.md, Kernel construction). The three selects that
+  // need a constant ran on every call as merge-masked loads from memory, and
+  // this band read 3.2x slower while -inf's page was unmapped (AVX3_ZEN4,
+  // tests/bench_cold.cpp). `above` and `below` are both true exactly on the
+  // lanes none of the three can touch: x in (-1, +inf), NaN excluded. The two
+  // selects that follow take their value from x itself and stay as they were.
+  const auto above = op::Gt(x, neg1);
+  const auto below = op::Lt(x, inf);
+  if (!op::AllTrue(d, above) || !op::AllTrue(d, below)) {
+    const auto at_neg1 = op::Eq(x, neg1);
+    const auto lt_neg1 = op::Lt(x, neg1);
+    const auto at_inf = op::Eq(x, inf);
+    if (!op::AllFalse(d, at_neg1)) {
+      res = op::IfThenElse(at_neg1, op::Neg(inf), res);
+    }
+    if (!op::AllFalse(d, lt_neg1)) res = op::IfThenElse(lt_neg1, qnan, res);
+    if (!op::AllFalse(d, at_inf)) res = op::IfThenElse(at_inf, inf, res);
+  }
   res = op::IfThenElse(op::Eq(x, zero), x, res);  // log1p(+-0) = +-0
   return op::IfThenElse(op::IsNaN(x), x, res);    // payload-preserving
 }

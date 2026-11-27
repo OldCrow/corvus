@@ -148,6 +148,18 @@ Not-CR tallies therefore move by a few rows between tier classes.
   none is published. Evidence:
   `docs/bench-evidence/2026-11-11-ivybridge-v1.2.0/`.
 
+v1.2.1 changed how a call reaches a kernel (the span driver, the
+dispatched functions' signature, and the special-value selects of
+`erfcinv` and `log1p`), not a kernel's arithmetic. No bound and no gate
+moved. The same four machines gated it at 40/40, tier-asserted, with
+`CORVUS_WERROR=ON`, on 2026-11-26 and 27: Z on `AVX3_ZEN4` and the AVX2,
+SSE4, SSSE3 and SSE2 caps, Kaby Lake on AVX2 and the SSE4, SSSE3 and SSE2
+caps, the M1 on NEON, and Ivy Bridge on SSE4 by native dispatch. The two
+added gates are `span1`, which holds every span length from 1 to 9 equal,
+bit for bit, to the same values inside a long span for all 27 span
+functions, and `masked_const`, which runs on Windows. Evidence: the four
+`docs/bench-evidence/2026-11-2[67]-*-v1.2.1/` folders.
+
 The NEON row also covers Highway's `NEON_BF16` target (BF16-capable Apple
 cores, M2 and later). NEON_BF16 adds bf16, fp16 and int8 instructions
 only, so no f64 kernel path differs, and there is no separate column. The

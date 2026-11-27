@@ -123,7 +123,7 @@ int Bucketize(double a, double s, double x) {
 }
 
 // N4: split every whole-reference-set call into [0, n-3) and [n-3, n) so the
-// trailing 3-row group always runs a masked tail, independent of whether n
+// trailing 3-row group always runs a tail, independent of whether n
 // itself happens to be a lane multiple on the tier under test. when #14 added it,
 // gamma's 16734 rows were even (no tail on any 2-lane tier) and gammainv-q's
 // 6520 rows were a multiple of 8 (no tail on any tier at all) -- exactly the

@@ -1,0 +1,6 @@
+#!/bin/sh
+# Written by run_quiet_span1_pass2.sh: pin, warm the core, exec the bench.
+exec taskset -c 2 sh -c '
+  timeout 2 sh -c "while :; do :; done"
+  echo "warm: cpu2 at $(cat /sys/devices/system/cpu/cpu2/cpufreq/scaling_cur_freq 2>/dev/null) kHz before exec"
+  exec "/home/wolfman/Development/corvus/build-clang/tests/bench_span1"'

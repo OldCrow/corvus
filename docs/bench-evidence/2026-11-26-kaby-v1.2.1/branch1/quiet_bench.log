@@ -1,0 +1,9 @@
+22:40:39 quiet_bench.sh  build=build  expect=AVX2  targets=1
+22:40:39 gate          : ambient < 5% over two consecutive 10s windows
+22:40:39 machine       : Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz; macOS 13.7.8
+22:40:49 ambient sample : 3.10%
+22:41:00 ambient sample : 2.70%
+22:41:00 gate passed at: 3.10 2.70%
+22:41:11 bench_span1: noise before 3.69%  top: 2.6%opendirectoryd 1.6%launchservicesd 1.2%de.appgineers.energiza.helper 
+22:41:11 bench_span1: rc=0 0s target=AVX2
+22:41:11 done fail=0. Raw per-target output: build/quiet_bench/quiet_bench_<target>.txt

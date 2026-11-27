@@ -3,8 +3,8 @@
 // on stdin (hex or decimal doubles) and writes one line per input,
 //   <result bits as 16 hex digits>
 // in the same order. Unknown functions and malformed lines write "?".
-// Each line is one public span call of length 1, so the masked-tail path
-// evaluates every row; lane independence is guarded by the smoke tests.
+// Each line is one public span call of length 1, so the one-element path
+// (broadcast, kernel, one lane) evaluates every row; lane independence is guarded by the smoke tests.
 // A census build (CORVUS_ROUTE_CENSUS, #82 T7) appends the routes lane 0
 // took, ` <route>[,<route>...]` or ` -`, for tools/hunt/route_census.py.
 #include <corvus/corvus.h>

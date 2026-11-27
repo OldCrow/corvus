@@ -96,20 +96,18 @@ template <class D>
 HWY_INLINE V<D> Load(D d, const double* p) {
   return hn::LoadU(d, p);
 }
-// Zero-filled LoadN: no kernel or driver uses it (the driver pads with
-// LoadNOr below). Kept for the component tests (test_exp_dd, test_dd_special,
+// Zero-filled LoadN: no kernel or driver uses it (the driver builds its tail
+// in registers, src/driver-inl.h). Kept for the component tests (test_exp_dd, test_dd_special,
 // bench_lgamma_components and others), which drive internal dd cores with a
 // masked tail of their own (#81 L-21).
 template <class D>
 HWY_INLINE V<D> LoadN(D d, const double* p, size_t n) {
   return hn::LoadN(d, p, n);
 }
-// LoadN with the lanes past n filled from `no` instead of zero (#42): the
-// driver pads a masked tail with a live element so the padding lanes share
-// its region instead of the specials scrub's safe point.
+// Mask of the first n lanes (the driver's register-only tail load, v1.2.1).
 template <class D>
-HWY_INLINE V<D> LoadNOr(V<D> no, D d, const double* p, size_t n) {
-  return hn::LoadNOr(no, d, p, n);
+HWY_INLINE M<D> FirstN(D d, size_t n) {
+  return hn::FirstN(d, n);
 }
 template <class D>
 HWY_INLINE void Store(V<D> v, D d, double* p) {

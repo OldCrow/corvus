@@ -1,0 +1,2 @@
+corvus active SIMD target: SSE4
+not run: Windows only

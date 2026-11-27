@@ -1,0 +1,18 @@
+dev:      653758c (dev/v1.2.1) dirty=1
+main:     c1d6640 (main) dirty=2 (tests/bench_span1.cpp copied from dev, registered in tests/CMakeLists.txt; not committed)
+machine:  Macmini9,1 Apple M1, macOS 27.2.1 (26B131)
+cores:    8 physical, 8 logical (4 performance, 4 efficiency)
+compiler: Apple clang version 21.0.0 (clang-2100.4.1.1)
+highway:  
+build:    cmake --preset release -G Ninja -DCORVUS_WERROR=ON, both trees
+power:    Now drawing from 'AC Power'
+uptime:    0:49  up  7:39, 1 user, load averages: 5.07 9.27 9.95
+suspended during the runs: mediaanalysisd corespotlightd spotlightknowledged spotlightknowledged.updater mdworker_shared storeuid CGPDFService VTEncoderXPCService VTDecoderXPCService photolibraryd photoanalysisd OneDrive contactsd AddressBookSourceSync
+present at start: mediaanalysisd corespotlightd mdworker_shared CGPDFService photolibraryd photoanalysisd OneDrive contactsd
+binaries:
+3967d9cc77bebddc24a8fdd777fed27cab2e1dbf4ac79f4c3671add779ff5cbe  /Users/wolfman/Development/corvus-main/build/libcorvus.a
+1e8afa018724cd18ea38dc8aaec0d8f03f32c9ee65220c4423039dd8cd95e537  /Users/wolfman/Development/corvus/build/libcorvus.a
+de75c4bb4d2f943cb06fa10cc766e6a56fa2b0dd58c8046da6f41e3b244b8498  /Users/wolfman/Development/corvus-main/build/tests/bench_span1
+7ab72b0b29769592d3af166ae31bd5aecb2acb27e720f0d82fd8842f70c347a8  /Users/wolfman/Development/corvus/build/tests/bench_span1
+-rw-r--r--@ 1 wolfman  staff  1175352 Nov 26 22:54 /Users/wolfman/Development/corvus-main/build/libcorvus.a
+-rw-r--r--@ 1 wolfman  staff  1189688 Nov 27 00:48 /Users/wolfman/Development/corvus/build/libcorvus.a

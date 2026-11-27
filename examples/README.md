@@ -72,7 +72,7 @@ actually has to make:
 
 - **Batch, don't loop.** Every example calls corvus once for a whole span. The
   kernels dispatch to the widest SIMD target the CPU supports and handle the
-  ragged end with a masked tail. Calling them one element at a time is correct
+  ragged end themselves. Calling them one element at a time is correct
   and pointless.
 - **Pick the formulation that computes the small quantity.** `1 - Phi(z)` and
   `0.5*erfc(z/sqrt2)` are the same function on paper and completely different

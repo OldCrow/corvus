@@ -12,7 +12,9 @@ HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
 
-static void DigammaImpl(std::span<const double> in, std::span<double> out) {
+static void DigammaImpl(const double* pin, double* pout, size_t n) {
+  const std::span<const double> in(pin, n);
+  const std::span<double> out(pout, n);
   DriveUnary([](auto d, auto x) { return DigammaVec(d, x); }, in, out);
 }
 
@@ -31,7 +33,8 @@ HWY_EXPORT(DigammaImpl);
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
 void digamma(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(DigammaImpl)(in, out);
+  HWY_DASSERT(in.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(DigammaImpl)(in.data(), out.data(), out.size());
 }
 
 }  // namespace corvus

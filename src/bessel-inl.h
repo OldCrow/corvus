@@ -231,8 +231,8 @@ HWY_NOINLINE Dd<D> BesselTailIveDd(D d, op::V<D> ax, const double* coef,
 // as a pair keeps the per-target instantiation count at two (not four)
 // while costing only one extra exp_dd fold and rounding for whichever half
 // a given public export does not need. HWY_NOINLINE: the driver is inlined
-// TWICE per export (full-vector and masked-tail call sites), so leaving it
-// inline doubles the largest function the optimizer sees (AGENTS.md).
+// at each call site of an export (one value, full vector, tail), so leaving
+// it inline multiplies the largest function the optimizer sees (AGENTS.md).
 template <class D>
 struct BesselPair {
   op::V<D> unscaled;

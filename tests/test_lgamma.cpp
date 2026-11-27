@@ -32,7 +32,7 @@ int main() {
   constexpr double kRelTol = 5e-14;
 
   // Dense sweep over every positive region; length deliberately not a
-  // multiple of any lane count so the masked tail path is exercised.
+  // multiple of any lane count so the tail path is exercised.
   constexpr size_t kN = 24007;
   std::vector<double> in(kN), out(kN);
   for (size_t i = 0; i < kN; ++i) {

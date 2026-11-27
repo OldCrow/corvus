@@ -1,0 +1,92 @@
+#!/bin/sh
+# corvus v1.2.1 fleet leg, machine I: the slower cells (erfinv central n = 3,
+# erf n = 3 and n = 7), by on/off builds, as K did for its n = 7 cell.
+# Four build trees, all clang 18.1.3 Release, alternating, fresh processes:
+#   main    c1d6640
+#   branch  dev/v1.2.1, built at 653758c
+#   masked  653758c with DriveUnary's tail put back to main's LoadNOr/StoreN
+#           (K's n7/exp_tail.diff)
+#   lane0   653758c with M's saved diff: StoreTail with m = 1 writes
+#           GetLane(v) (docs/bench-evidence/2026-11-27-m1-v1.2.1-tail1/
+#           driver-inl.h.diff); gated here 40/40 on SSE4, span1 PASS
+# Same wrapper as pass 2: pin to one core, spin it 2 s, exec the bench.
+# Nothing here builds, commits or touches the network.
+#
+# Run from a plain terminal with the Claude desktop app QUIT, browsers closed:
+#
+#   sh /home/wolfman/Development/corvus-scratch/v1.2.1-leg-I/run_quiet_span1_pass3.sh
+#
+# About 20 minutes if the gate passes at once. Prints "ALL DONE" at the end.
+set -u
+DEV=/home/wolfman/Development
+QB=$DEV/corvus/tools/quiet_bench.sh
+CORE=${CORE:-2}
+RUNS=${RUNS:-8}
+OUT=$DEV/corvus-scratch/v1.2.1-leg-I/bench3-$(date +%Y%m%d-%H%M%S)
+mkdir -p "$OUT" || exit 1
+STATUS=$OUT/status.txt
+tree_of() {
+  case $1 in
+    main)   echo $DEV/corvus-main ;;
+    branch) echo $DEV/corvus ;;
+    masked) echo $DEV/corvus-exp-masked ;;
+    lane0)  echo $DEV/corvus-exp-lane0 ;;
+  esac
+}
+SIDES="main branch masked lane0"
+
+for side in $SIDES; do
+  t=$(tree_of $side)
+  [ -x "$t/build-clang/tests/bench_span1" ] || { echo "MISSING $t/build-clang/tests/bench_span1"; exit 1; }
+  w=$t/build-clang/tests/bench_span1_warm
+  cat > "$w" <<EOF
+#!/bin/sh
+# Written by run_quiet_span1_pass3.sh: pin, warm the core, exec the bench.
+exec taskset -c $CORE sh -c '
+  timeout 2 sh -c "while :; do :; done"
+  echo "warm: cpu$CORE at \$(cat /sys/devices/system/cpu/cpu$CORE/cpufreq/scaling_cur_freq 2>/dev/null) kHz before exec"
+  exec "$t/build-clang/tests/bench_span1"'
+EOF
+  chmod +x "$w"
+done
+
+{
+  echo "date: $(date -Is)"
+  echo "pass 3: four trees, pinned to cpu$CORE, 2 s same-core spin before exec, $RUNS alternations"
+  for side in $SIDES; do
+    t=$(tree_of $side)
+    echo "--- $side: $t"
+    echo "HEAD $(git -C "$t" rev-parse HEAD)  $(git -C "$t" status -s | tr '\n' ';')"
+    ( cd "$t/build-clang" && sha256sum tests/bench_span1 && \
+      find . -name 'libcorvus*.a' -exec ls -l {} \; -exec sha256sum {} \; )
+    grep -E 'CMAKE_BUILD_TYPE:|CMAKE_CXX_COMPILER:|CORVUS_DISABLED_TARGETS' "$t/build-clang/CMakeCache.txt"
+  done
+  echo "governor: $(cat /sys/devices/system/cpu/cpu$CORE/cpufreq/scaling_governor 2>/dev/null || echo n/a)"
+  echo "no_turbo: $(cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || echo n/a)"
+  echo "on AC   : $(cat /sys/class/power_supply/A*/online 2>/dev/null | head -1 || echo n/a)"
+  uname -srm
+} > "$OUT/head.txt" 2>&1
+cat "$OUT/head.txt"
+for side in masked lane0; do
+  git -C "$(tree_of $side)" diff > "$OUT/exp_$side.diff"
+done
+
+fail=0
+i=1
+while [ $i -le $RUNS ]; do
+  for side in $SIDES; do
+    tree=$(tree_of $side)
+    b=$tree/build-clang
+    echo "=== run $i $side"
+    rm -f "$b/quiet_bench/quiet_bench.log" "$b/quiet_bench/quiet_bench_bench_span1_warm.txt"
+    ( cd "$tree" && "$QB" -b "$b" -t SSE4 -w 30 bench_span1_warm )
+    rc=$?
+    echo "run $i $side rc=$rc" | tee -a "$STATUS"
+    [ $rc -eq 0 ] || fail=1
+    cp "$b/quiet_bench/quiet_bench.log" "$OUT/${side}_$i.log" 2>/dev/null
+    cp "$b/quiet_bench/quiet_bench_bench_span1_warm.txt" "$OUT/${side}_$i.txt" 2>/dev/null
+  done
+  i=$((i+1))
+done
+echo "ALL DONE fail=$fail  ->  $OUT" | tee -a "$STATUS"
+exit $fail
