@@ -1,0 +1,39 @@
+# Quiet before/after run for corvus v1.2.1 on Zen 4. Every measured process is launched directly
+# and opted out of Windows power throttling; a CPU gate and a clock probe precede each one.
+$ErrorActionPreference = "Continue"
+$run = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location $run
+. "$run\nothrottle.ps1"
+Disable-PowerThrottling ([System.Diagnostics.Process]::GetCurrentProcess()) | Out-Null
+$log = "$run\run.log"
+function Log($m) { "{0}  {1}" -f (Get-Date -Format "HH:mm:ss"), $m | Add-Content $log }
+function Cpu() { [math]::Round((Get-Counter '\Processor(_Total)\% Processor Time' -SampleInterval 5 -MaxSamples 1).CounterSamples[0].CookedValue, 1) }
+function Gate() {
+  $deadline = (Get-Date).AddMinutes(20)
+  while ((Get-Date) -lt $deadline) { $a = Cpu; $b = Cpu; if ($a -lt 8 -and $b -lt 8) { return "$a,$b" } }
+  return "TIMEOUT"
+}
+function Probe() {  # fixed integer loop; boost reads lower than base
+  $best = 1e9
+  1..5 | ForEach-Object { $sw = [Diagnostics.Stopwatch]::StartNew(); $x = 0L; for ($i = 0; $i -lt 2000000; $i++) { $x += $i }; $t = $sw.Elapsed.TotalMilliseconds; if ($t -lt $best) { $best = $t } }
+  [math]::Round($best, 1)
+}
+function RunOne($exe, $out) {
+  $g = Gate; $pr = Probe
+  $p = Start-Process -FilePath "$run\$exe" -NoNewWindow -PassThru -RedirectStandardOutput "$run\$out"
+  Disable-PowerThrottling $p | Out-Null
+  $p.WaitForExit()
+  Log "$exe -> $out  gate=$g  probe_ms=$pr  exit=$($p.ExitCode)"
+}
+Log "start; power plan: $((powercfg /getactivescheme) -join ' ')"
+Log "first gate: $(Gate)"
+RunOne "fix_bench_span1.exe" "warmup1.txt"
+RunOne "main_bench_span1.exe" "warmup2.txt"
+foreach ($r in 1..3) {
+  RunOne "main_bench_span1.exe" "r${r}_main_span1.txt"
+  RunOne "fix_bench_span1.exe"  "r${r}_fix_span1.txt"
+  RunOne "main_bench_cold.exe"  "r${r}_main_cold.txt"
+  RunOne "fix_bench_cold.exe"   "r${r}_fix_cold.txt"
+}
+Log "done"
+"done" | Set-Content "$run\DONE"

@@ -200,18 +200,23 @@ them are unexplored.
 - **More runs.** §5 exists because two runs looked like agreement until a third
   disagreed.
 
-The next three were found on Zen 4 under Windows with the machine in use;
-their figures are indicative until a quiet run replaces them.
+The next three were found on Zen 4 under Windows. Their figures are from
+the quiet before-and-after run of 2026-11-26
+(`docs/bench-evidence/2026-11-26-zen4-v1.2.1/`), v1.2.0 against v1.2.1.
 
 - **The caller's shape** (v1.2.1). Every figure on this page is array to
   array. A consumer calling one value at a time, value in and result out,
   paid about twice the kernel's throughput until v1.2.1, because each call
-  waited for the one before it. `tests/bench_span1.cpp` measures both
+  waited for the one before it: `erfinv` central 64.7 ns a call against
+  29.3 after, `erf` 32.9 against 15.7, `exp` 35.8 against 14.4. A span of
+  2 to 7 elements built in place paid the same (65.8 against 34.2 at two
+  elements). `tests/bench_span1.cpp` measures both
   shapes; a claim about one-value cost quotes the value-in, result-out
   column.
 - **The process's memory state** (v1.2.1). `erfcinv` read 4x slower in any
   program whose link left one constant on a page nothing else read, for
-  the life of the process. Time a band in a fresh process that links only
+  the life of the process (14.7 ns per element against 3.4; one value
+  132.0 ns against 29.4), and `log1p` 3.2x. Time a band in a fresh process that links only
   the library, and again after trimming the working set
   (`tests/test_masked_const.cpp` does both on Windows).
 - **The harness** (v1.2.1). A test program that compiles a kernel header

@@ -1,0 +1,44 @@
+corvus active SIMD target: AVX3_ZEN4
+ns per value; '<==' marks a band slower when unmapped in both passes
+erf [-0.5, 0.5]                trimmed     1.64  mapped     1.64  ratio  0.99  1.00  
+erf [-3, 3]                    trimmed     1.61  mapped     1.61  ratio  1.00  1.00  
+erfc [0, 5]                    trimmed     2.34  mapped     2.34  ratio  1.01  1.00  
+erfc [5, 25]                   trimmed     9.86  mapped     9.91  ratio  0.99  1.00  
+erfinv [-0.5, 0.5]             trimmed     3.37  mapped     3.37  ratio  1.01  1.00  
+erfinv [-0.999, 0.999]         trimmed    15.55  mapped    15.55  ratio  1.00  1.00  
+erfcinv [0.5, 1.5]             trimmed    14.40  mapped     3.61  ratio  3.99  3.99  <==
+erfcinv 2^[-26,-1]             trimmed    23.29  mapped    12.43  ratio  1.87  1.87  <==
+lgamma [0.01, 1]               trimmed    11.60  mapped    11.65  ratio  1.01  1.00  
+lgamma [1, 21]                 trimmed    14.11  mapped    14.11  ratio  1.00  1.00  
+lgamma 2^[5, 40]               trimmed     6.93  mapped     6.91  ratio  1.00  1.00  
+lgamma [-20, -0.1]             trimmed    25.05  mapped    25.07  ratio  1.00  1.00  
+digamma [0.1, 20]              trimmed    19.85  mapped    19.87  ratio  1.00  1.00  
+digamma 2^[5, 40]              trimmed     7.01  mapped     7.01  ratio  1.01  1.00  
+digamma [-20, -0.1]            trimmed    29.27  mapped    29.25  ratio  1.00  1.00  
+trigamma [0.1, 20]             trimmed    20.19  mapped    20.17  ratio  1.00  1.00  
+trigamma 2^[5, 40]             trimmed     5.54  mapped     5.54  ratio  1.00  1.00  
+i0 [0, 10]                     trimmed    18.60  mapped    18.60  ratio  1.00  1.00  
+i0 [10, 700]                   trimmed     6.40  mapped     6.40  ratio  1.00  1.00  
+i1 [0, 10]                     trimmed    18.95  mapped    18.95  ratio  1.00  1.00  
+i1 [10, 700]                   trimmed     6.45  mapped     6.45  ratio  1.00  1.00  
+i0e [0, 700]                   trimmed     7.42  mapped     7.42  ratio  1.00  1.00  
+i1e [0, 700]                   trimmed     7.54  mapped     7.57  ratio  1.00  1.00  
+exp [-20, 20]                  trimmed     1.34  mapped     1.34  ratio  0.98  1.00  
+expm1 [-1, 1]                  trimmed     2.78  mapped     2.81  ratio  1.00  0.99  
+expm1 [-20, 20]                trimmed     2.69  mapped     2.69  ratio  1.00  1.00  
+log [0.01, 100]                trimmed     2.03  mapped     2.03  ratio  0.99  1.00  
+log1p [-0.5, 2]                trimmed    15.92  mapped     4.88  ratio  3.25  3.26  <==
+log1pmx [-0.5, 2]              trimmed     8.45  mapped     8.42  ratio  1.00  1.00  
+cos [-10, 10]                  trimmed     1.05  mapped     1.05  ratio  1.02  1.00  
+sin [-10, 10]                  trimmed     1.07  mapped     1.03  ratio  0.95  1.05  
+cos 2^[10, 60]                 trimmed     4.44  mapped     4.44  ratio  0.99  1.00  
+lbeta a,b in [0.5, 50]         trimmed    83.06  mapped    82.98  ratio  1.00  1.00  
+gamma_p a[0.5,50] x[0.1,60]    trimmed   201.76  mapped   201.73  ratio  1.00  1.00  
+gamma_q a[0.5,50] x[0.1,60]    trimmed   201.88  mapped   201.81  ratio  1.00  1.00  
+gamma_p_inv a[0.5,50]          trimmed  1623.00  mapped  1623.10  ratio  1.00  1.00  
+gamma_q_inv a[0.5,50]          trimmed  1619.63  mapped  1619.80  ratio  1.00  1.00  
+beta_p a,b in [0.5, 50]        trimmed   432.62  mapped   432.54  ratio  1.00  1.00  
+beta_q a,b in [0.5, 50]        trimmed   432.37  mapped   432.64  ratio  1.00  1.00  
+beta_p_inv a,b in [0.5, 50]    trimmed  3251.10  mapped  3253.61  ratio  1.00  1.00  
+beta_q_inv a,b in [0.5, 50]    trimmed  3249.95  mapped  3250.20  ratio  1.00  1.00  
+3 band(s) flagged
