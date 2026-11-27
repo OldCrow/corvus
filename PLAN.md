@@ -190,7 +190,10 @@ unfreeze. The off-milestone list above is unchanged.
   and costs about one element, a narrow v1.3.0 (`erfinv`, `erfcinv`,
   `lgamma`) could land before libstats re-sweeps after its pool fix
   and move no accuracy block. Not started.
-- #112 (scheduled CI failed, 2026-11) is not triaged.
+- #112 closed 2026-11-26 (`b8c401f`): the Windows runner paired MSVC
+  19.52, whose standard library requires Clang 22, with a standalone
+  LLVM 20.1.8. The clang-cl job now uses Visual Studio's bundled
+  clang-cl (22.1.3 on that image).
 
 ## Errata by release (RELEASING.md step 14)
 
@@ -331,9 +334,7 @@ REPORT.md). Rerun takes about a minute.
 - #110 scalar code paths for the span-only functions (v1.3.0; libstats
   calls twelve of them one value at a time).
 - #111 `lbeta` and `LgammaDiffDd` cost on the non-FMA tier (v1.3.0;
-  three questions, no design).
-- #112 canary: a scheduled CI run failed; not triaged.
-- #100 `quiet_bench.sh` on Linux (ps listing, shebang, machine line);
+  three questions, no design).- #100 `quiet_bench.sh` on Linux (ps listing, shebang, machine line);
   `tools/` only, no release needed. [DERIVED 2026-11-11] Fixed and tested
   on the Mint machine (failing gate lists five consumers, target lines
   carry `top:`, machine line names CPU and distribution, runs as
