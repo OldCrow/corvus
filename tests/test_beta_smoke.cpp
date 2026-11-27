@@ -160,7 +160,7 @@ void Specials() {
 }
 
 // #14 N12: edge contracts straight from corvus.h, evaluated as ONE batched
-// span call (length 9, not a lane multiple) so the masked-tail path carries
+// span call (length 9, not a lane multiple) so the tail path carries
 // them. -0.0 is mathematically 0.0, so each row mirrors the existing +0
 // specials row for the same slot ("a = 0 or b = +inf puts all the mass at
 // 0 ... A degenerate parameter meeting the boundary its own mass sits on
@@ -390,7 +390,7 @@ void LaneMix() {
 }
 
 // Aliasing is part of the public contract, and the length is deliberately not
-// a multiple of any lane count so the masked tail runs.
+// a multiple of any lane count so the tail runs.
 void Aliasing() {
   const auto probes = Probes();
   std::vector<double> a, b, x;

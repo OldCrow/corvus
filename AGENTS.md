@@ -70,8 +70,9 @@ any visible way.
   TU with multiple HWY_EXPORTs). Per-target pattern: `HWY_TARGET_INCLUDE`
   + `foreach_target.h`, kernel in `corvus::HWY_NAMESPACE`, `HWY_ONCE`
   section with `HWY_EXPORT` + public dispatch wrapper. The loop itself
-  lives in `src/driver-inl.h` (`DriveUnary/Binary/Ternary` — one masked
-  full-vector+tail shape plus the debug span-length assert); each Impl
+  lives in `src/driver-inl.h` (`DriveUnary/Binary/Ternary` — one
+  full-vector+tail shape, a one-element fast path and the debug
+  span-length assert); each Impl
   is a one-line forwarder into it; `DriveScalarBinary/Ternary` serve the
   scalar entry points.
 - `src/dd-inl.h` / `src/dd_special-inl.h` / `src/<fn>_dd-inl.h` —
@@ -80,9 +81,9 @@ any visible way.
   form so scaling rounds last).
 - `tests/` — ctest gates against checked-in reference sets, registered in
   dependency order. Smoke tests use lengths that are non-multiples of
-  lane counts so the masked-tail path is exercised; every ULP gate
+  lane counts so the tail path is exercised; every ULP gate
   evaluates its reference set as two calls (lengths N-3 and 3) so the
-  masked tail also runs on lane-multiple sets.
+  tail also runs on lane-multiple sets.
 
 ## Build & test
 Linux/macOS:
@@ -109,7 +110,8 @@ capping recipes, sweep scripts: `docs/ENVIRONMENT.md`.
 
 ## Non-negotiables (traps that bite silently; detail in the reference docs)
 - Never touch `hn::` outside `src/ops-inl.h`. Kernels never allocate.
-  Vector and tail are ONE masked code path — no scalar libm fallback.
+  Vector, tail and a span of one run the SAME kernel on live lanes — no
+  scalar libm fallback.
 - Call `HWY_DYNAMIC_DISPATCH` from inside `namespace corvus` — a
   single-target cap build breaks otherwise, and only the SSE2 sweep
   catches it.
@@ -130,6 +132,8 @@ capping recipes, sweep scripts: `docs/ENVIRONMENT.md`.
   `-Targets` array in tools/quiet_bench.ps1 and the TARGETS default in
   tools/quiet_bench.sh — list every family bench (component benches
   excepted, see docs/PERFORMANCE.md) and need the family's `bench_*` too.
+  `bench_span1` and `bench_cold` measure caller shapes, not a family,
+  and stay out of both.
 - Assert the tier, never assume it: validate under
   `CORVUS_EXPECT_TARGET=<tier>` and confirm the active target before
   trusting any tier result. Windows validation numbers come from clang-cl

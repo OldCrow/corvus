@@ -87,7 +87,7 @@ void Run(const char* label, Fn f, double lo, double hi) {
 
 // A short span built where it is used: the caller writes n values into a
 // small array, calls, and reads the n results back. This is the shape that
-// meets the masked tail for n below the lane count.
+// meets the tail for n below the lane count.
 BENCH_NOINLINE double LocalN(Fn f, const double* src, size_t n) {
   double a[8], r[8];
   for (size_t k = 0; k < n; ++k) a[k] = src[k];

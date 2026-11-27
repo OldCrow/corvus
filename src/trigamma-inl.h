@@ -467,9 +467,9 @@ HWY_NOINLINE op::V<D> TrigammaTinyRecipSq(D d, op::V<D> a) {
 }
 
 // HWY_NOINLINE like the region cores, and for the same MSVC-codegen reason:
-// the driver is inlined TWICE per export (full-vector and masked-tail call
-// sites), so leaving it inline doubles the largest function the optimizer
-// sees.
+// the driver is inlined at each call site of an export (one value, full
+// vector, tail), so leaving it inline multiplies the largest function the
+// optimizer sees.
 template <class D>
 HWY_NOINLINE op::V<D> TrigammaVec(D d, op::V<D> x) {
   const auto zero = op::Zero(d);

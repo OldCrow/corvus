@@ -20,7 +20,7 @@
 ///    is undefined behavior. For functions taking several input spans, ANY
 ///    subset of the inputs may exactly alias `out`, and inputs may alias
 ///    each other: the shared driver loads every input block before writing
-///    the corresponding output block, in the masked tail as well.
+///    the corresponding output block, in the tail as well.
 ///  - Zero-length spans are valid: every function is a no-op on them.
 ///  - When several inputs of a multi-input function are NaN in the same
 ///    lane, the payload returned is the LAST input span's (argument

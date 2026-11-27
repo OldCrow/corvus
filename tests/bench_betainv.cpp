@@ -21,7 +21,7 @@
 // kernel once per set and reports the measured regime histogram, which is what
 // makes an unexpected timing interpretable rather than mysterious. Span
 // lengths are 4001, deliberately not a multiple of AVX3_ZEN4's 8-lane width,
-// so every run also exercises the masked-tail path. Same rules as the other
+// so every run also exercises the tail path. Same rules as the other
 // bench_* files: manual, quiet machine, Release build only, not
 // ctest-registered.
 #include <algorithm>

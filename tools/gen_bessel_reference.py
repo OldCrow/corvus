@@ -52,7 +52,7 @@ boundary for i0/i1, including rows one ULP past it that must read back as
 value ~3e-155 at DBL_MAX), huge-x witnesses, and moderate-density fill.
 A random subset (not a full mirror) is replayed on the negative axis via a
 genuine oracle call at the negative point. Final row count is trimmed to be
-odd (never a multiple of 2, 4, or 8) so ctest's masked-tail path is always
+odd (never a multiple of 2, 4, or 8) so ctest's tail path is always
 exercised, per house rule.
 
 Usage:
@@ -386,7 +386,7 @@ def emit_file(nu, scaled, mode, rng, negative_fraction=0.42):
         rows.append((x, y))
 
     # Trim to an odd count (never a multiple of 2, 4, or 8) -- house rule so
-    # the masked-tail path is always exercised. Deterministic: drop from the
+    # the tail path is always exercised. Deterministic: drop from the
     # end of the (seed-stable) list.
     if len(rows) % 2 == 0:
         rows.pop()

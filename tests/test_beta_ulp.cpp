@@ -201,9 +201,9 @@ int Route(double a, double b, double x, double pref, double qref,
   return kR2;
 }
 
-// #14 N4: masked-tail split. beta_p_reference.txt/beta_q_reference.txt were
+// #14 N4: tail split. beta_p_reference.txt/beta_q_reference.txt were
 // both 38100 rows when #14 added this -- a multiple of 4, so a single
-// whole-set call never exercised the masked-tail path below AVX-512. Splitting into subspans
+// whole-set call never exercised the tail path below AVX-512. Splitting into subspans
 // [0, n-3) and [n-3, n) makes neither half a lane multiple regardless of
 // what n is, so the tail path always runs; each call is independently
 // masked and stateless, so this is row-for-row identical to one call.

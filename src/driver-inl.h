@@ -54,7 +54,7 @@
 //     8-byte stores. The tail is now assembled in registers (LoadTail and
 //     StoreTail below), and a span of ONE element skips even that: the value
 //     is broadcast, the kernel runs once, lane 0 is stored. A tail of one
-//     element takes the same path (StoreTail). The kernel sees the same
+//     element after full vectors is broadcast and stored the same way. The kernel sees the same
 //     live lanes either way and returns the same bits.
 //   * The public wrappers passed std::span objects to the dispatched Impl.
 //     Under the Windows x64 convention a span travels as a pointer to a

@@ -24,8 +24,8 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   driver of any non-trivial family are `HWY_NOINLINE` (gamma and erfinv
   are the pattern). MSVC's optimizer is superlinear in function size —
   fully inlined, each export becomes one enormous function per target
-  (the driver inlines TWICE per export: full-vector + masked-tail call
-  sites) and cl.exe codegen for one such TU reached ~15–17 minutes,
+  (the driver inlines at each call site of an export: one value, full
+  vector, tail) and cl.exe codegen for one such TU reached ~15–17 minutes,
   killing the CI Windows job at its 25-minute timeout twice (2026-07-29)
   before outlining brought the whole library to ~4 minutes. Bit-identity
   is guaranteed by contraction-off (verify anyway: ULP tables
@@ -106,8 +106,8 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
 ## Numerical hazard rules
 
 - Vector and tail paths must be the same code path (the same kernel
-  invocation on a padded vector; src/driver-inl.h), never a scalar libm
-  fallback for the tail.
+  invocation on a padded vector, or on one broadcast value;
+  src/driver-inl.h), never a scalar libm fallback for the tail.
 - Any op whose CORRECTNESS depends on FMA fusion (exact residuals like
   fma(a,b,-fl(a*b))) must be capability-guarded in the facade — Highway
   emulates MulAdd/MulSub as mul-then-add on non-FMA targets (SSE2/SSSE3/
@@ -178,8 +178,8 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
 
 - ctest executables compare against libm/reference values. Smoke-test
   lengths are deliberately non-multiples of lane counts to exercise the
-  masked-tail path; every ULP gate additionally evaluates its reference
-  set as two calls of lengths N-3 and 3, so the masked tail runs on every
+  tail path; every ULP gate additionally evaluates its reference
+  set as two calls of lengths N-3 and 3, so the tail runs on every
   tier even for the five sets whose row counts are lane multiples.
 - **Tests are registered in DEPENDENCY order, not development order** (dd
   cores first, then every family after the cores it consumes), so a

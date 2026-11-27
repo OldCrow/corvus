@@ -36,7 +36,7 @@ constexpr double kSqrt2 = 1.4142135623730951;
 /// Note the shape — one corvus call for the entire span, not a call per
 /// element. That is the intended idiom: the runtime-dispatched kernel picks the
 /// widest SIMD target the CPU supports and processes the array in vector-width
-/// chunks, with a masked tail for the remainder. Calling it on one element at a
+/// chunks, remainder included. Calling it on one element at a
 /// time works, but throws away the reason it exists.
 void normal_cdf(std::span<const double> z, std::span<double> out) {
     for (std::size_t i = 0; i < z.size(); ++i) {

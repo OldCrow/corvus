@@ -132,7 +132,7 @@ HWY_INLINE Dd<D> ErfinvCentralDd(D d, op::V<D> v) {
 // ErfcInvCore and the two drivers are HWY_NOINLINE, the same treatment
 // gamma-inl.h uses and for the same reason: fully inlined, each export
 // becomes one enormous function per target (the drivers are even inlined
-// TWICE per export -- full-vector and masked-tail call sites), and MSVC's
+// at each call site of an export -- one value, full vector, tail), and MSVC's
 // optimizer is superlinear in function size. Outlining caps the largest
 // function the optimizer sees and deduplicates ErfcInvCore across the two
 // drivers within each target. Results are bit-identical (contraction is off,

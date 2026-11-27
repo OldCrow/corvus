@@ -43,9 +43,9 @@ constexpr uint64_t kMaxUlpUnit = 0;
 
 constexpr double kBigMin = 0x1.0p+990;  // mirrors kLbetaBigMin (beta-inl.h)
 
-// #14 N4: masked-tail split. Splitting into subspans [0, n-3) and [n-3, n)
+// #14 N4: tail split. Splitting into subspans [0, n-3) and [n-3, n)
 // makes neither half a lane multiple regardless of what n is, so the
-// masked-tail path always runs; each call is independently masked and
+// tail path always runs; each call is independent and
 // stateless, so this is row-for-row identical to one whole-set call.
 void SplitCall(const std::vector<double>& a, const std::vector<double>& b,
                std::vector<double>& out) {

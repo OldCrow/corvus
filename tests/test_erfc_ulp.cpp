@@ -51,8 +51,8 @@ int main(int argc, char* const* argv) {
 
   std::vector<double> got(in.size());
   {
-    // #14 N4: split the whole-set call in two so the masked LoadN/StoreN
-    // tail path runs even when the reference set's length happens to be a
+    // #14 N4: split the whole-set call in two so the tail
+    // path runs even when the reference set's length happens to be a
     // multiple of every SIMD tier's lane count. The final call's length (3)
     // is below every lane count, and N-3 is odd whenever N is even, so
     // neither call can land on a lane boundary either.

@@ -82,7 +82,7 @@ $gates = @(
   @{ exe = "test_dd_special"; data = "dd_special_reference.txt", "log1pmx_ulo_reference.txt", "expm1_dd_reference.txt" },
   # Each family's smoke / lane-mix test (no reference file) runs just before
   # its ULP gate, as in tests/CMakeLists.txt: the capped tiers are where the
-  # masked-tail and lane-mix paths differ, and the ULP gates alone skip them.
+  # tail and lane-mix paths differ, and the ULP gates alone skip them.
   @{ exe = "test_erf"; data = @() },
   @{ exe = "test_erf_ulp";  data = "erf_reference.txt" },
   @{ exe = "test_erfc"; data = @() },

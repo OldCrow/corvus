@@ -1,7 +1,7 @@
 // Guard for the span drivers' short-span paths (v1.2.1, #110): the length-1
 // fast path and the register-only tail of 2 .. N-1 elements.
 //
-// A span of one element skips the loop and the masked tail: the driver
+// A span of one element skips the loop and the tail: the driver
 // broadcasts the value, runs the kernel once and stores lane 0. This test
 // holds every public span function to the property that makes that safe to
 // ship as a patch: a value computed alone is the same bits as the same value

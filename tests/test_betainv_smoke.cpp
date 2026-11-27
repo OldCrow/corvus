@@ -139,7 +139,7 @@ void Specials() {
 }
 
 // #14 N12: edge contracts straight from corvus.h, evaluated as ONE batched
-// span call (length 13, not a lane multiple) so the masked-tail path carries
+// span call (length 13, not a lane multiple) so the tail path carries
 // them. Every row here is a mass-degenerate constant answer, which does not
 // depend on which probability convention a given numeric `s` is read as, so
 // the same batch is checked against both beta_p_inv and beta_q_inv.

@@ -6,9 +6,9 @@
 // in test_bessel_ulp.
 //
 // EVERY VECTOR BUILT HERE HAS A LENGTH THAT IS NOT A MULTIPLE OF 2, 4 OR 8
-// (the masked-tail rule, AGENTS.md): the widest validated tier is 8 lanes
+// (the tail rule, AGENTS.md): the widest validated tier is 8 lanes
 // (AVX-512), so a length divisible by 2/4/8 could complete without ever
-// exercising the masked tail path on some tier.
+// exercising the tail path on some tier.
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -172,7 +172,7 @@ void OverflowBoundary() {
 // which pins its sign at DBL_MAX even though corvus.h does not restate the
 // never-underflows claim for the scaled odd pair -- so only finiteness and
 // sign are asserted for i1e, not a magnitude floor. One batched call,
-// length 9 (not a lane multiple), so the masked tail carries the edge rows.
+// length 9 (not a lane multiple), so the tail carries the edge rows.
 void DblMaxEdge() {
   const double dmax = (std::numeric_limits<double>::max)();
   const double xs[] = {dmax, -dmax, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0};

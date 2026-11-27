@@ -17,7 +17,7 @@
 // inequalities (the same src/digamma_data.h constants the kernel reads) with
 // margin from the routing walls, so membership is self-evident and needs no
 // router replica. Span lengths are 4001, deliberately not a multiple of
-// AVX3_ZEN4's 8-lane width, so every run also exercises the masked-tail path.
+// AVX3_ZEN4's 8-lane width, so every run also exercises the tail path.
 // Same rules as the other bench_* files: manual, quiet machine, Release build
 // only, not ctest-registered.
 #include <algorithm>

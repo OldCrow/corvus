@@ -24,7 +24,8 @@ namespace corvus {
 namespace HWY_NAMESPACE {
 
 // Drives the dd-input overload, which subsumes the plain-double one (x_lo is
-// 0 for most reference points). Masked tail, same as the shipped kernels.
+// 0 for most reference points). A masked tail of its own, as the shipped
+// driver had before v1.2.1.
 static void LogDdTestImpl(const double* xh, const double* xl, double* hi,
                           double* lo, size_t n) {
   // Named rather than decltype(d): d is const-qualified, and Dd<const Simd<>>

@@ -94,11 +94,11 @@ constexpr double kKappaMaxPar = 1e12;
 // Gamma-limit transfer territory, the kernel's own S3 availability gate.
 constexpr double kGammaLimit = 0x1.0p+20;
 
-// #14 N4: masked-tail split. betainv_p_reference.txt was 8752 rows when #14
+// #14 N4: tail split. betainv_p_reference.txt was 8752 rows when #14
 // added this -- a multiple of 8, so a single whole-set call never exercised
-// the masked-tail path on any validated tier. Splitting into subspans [0, n-3) and
+// the tail path on any validated tier. Splitting into subspans [0, n-3) and
 // [n-3, n) makes neither half a lane multiple regardless of what n is;
-// each call is independently masked and stateless, so this is row-for-row
+// each call is independent and stateless, so this is row-for-row
 // identical to one call.
 // The family's names are overload sets since the scalar entry points
 // (#42), so a deducing template needs the span form named explicitly.

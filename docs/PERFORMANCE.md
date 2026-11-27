@@ -9,7 +9,10 @@ on 2026-11-11 at the same kernels (§15). **Start at §11**, the
 cross-machine synthesis. The rest is
 the dated measurement ledger behind it, kept because a number without its
 provenance cannot be audited later; §§12–14 are A/B measurements of single
-v1.2.0 changes.
+v1.2.0 changes. **v1.2.1 (2026-11-27) changes no array-to-array figure on
+this page.** What it changed is the cost of one value or a short span
+through the span API, measured before and after on all four machines; §6
+has it.
 
 What this page is not: `docs/ACCURACY.md` is the audited document and
 nothing here has that standing; every ratio names the libm and machine it
@@ -126,7 +129,9 @@ down to the zone (§13).
 
 ## 4. Batching gain (corvus against corvus, per element)
 
-Upper bounds, not comparisons with other libraries. Range across each family's
+Upper bounds, not comparisons with other libraries. Measured at v1.2.0:
+v1.2.1 makes the one-element call cheaper (§6, the caller's shape), so
+these gains are now smaller, and they have not been re-measured. Range across each family's
 bands at the largest n. Zen 4 at the v1.2.0 freeze head (`2f863be`, `AVX3_ZEN4`,
 clang-cl Release): two full `tools/quiet_bench.ps1` passes, both gated (evidence
 in `docs/bench-evidence/2026-11-01-zen4-v1.2.0/`). Bands in §5's fast mode.
@@ -212,7 +217,13 @@ the quiet before-and-after run of 2026-11-26
   2 to 7 elements built in place paid the same (65.8 against 34.2 at two
   elements). `tests/bench_span1.cpp` measures both
   shapes; a claim about one-value cost quotes the value-in, result-out
-  column.
+  column. Off Windows the same comparison gains less, and only at one
+  value: Kaby Lake AVX2 reads 0.84x (`erf`) to 1.01x (`erfinv` central)
+  of v1.2.0 with the layout matched (below), Ivy Bridge SSE4 0.89x to
+  0.98x, and the M1 4 to 10% less per call; on NEON a one-value call
+  never waited for the one before it
+  (`docs/bench-evidence/2026-11-26-kaby-v1.2.1/`,
+  `2026-11-27-ivybridge-v1.2.1/`, `2026-11-26-m1-v1.2.1/`).
 - **The process's memory state** (v1.2.1). `erfcinv` read 4x slower in any
   program whose link left one constant on a page nothing else read, for
   the life of the process (14.7 ns per element against 3.4; one value
@@ -226,6 +237,23 @@ the quiet before-and-after run of 2026-11-26
   performance claim about the library comes from a program that links
   only the library, and a before-and-after comparison from two separate
   build trees, never from swapping a file in one.
+
+One more was found on Kaby Lake, at the same time (#120;
+`docs/bench-evidence/2026-11-26-kaby-v1.2.1/n7/`).
+
+- **Where the linker put a constant** (Kaby Lake). On that CPU a load
+  that follows an AVX2 gather and touches the 16 bytes at offset 0x7c0
+  to 0x7cf of its 4 KB page is delayed; a standalone program shows it
+  (13.7 ns against 18.2). A kernel that gathers and then loads an 8-byte
+  literal from that window costs 10 to 30 ns more per one-value call:
+  `erf` with one fixed input reads 33.6 ns, or 44 to 47 at 3 of the 64
+  positions its constants can take within a page, and batch throughput
+  moves with it (`erfinv` over [-0.999, 0.999]: 54.5 ns per element
+  against 45.8). Two builds of the same kernel can therefore differ by
+  that much. A before-and-after on a gather kernel there is checked by
+  moving one tree's constants 64 bytes. Which Kaby Lake figures on this
+  page were taken with a literal in the window is not known, nor whether
+  any other machine has one.
 
 A published performance claim needs at least the first two settled. **They
 are** — four microarchitectures, four system libms (§11), three of each

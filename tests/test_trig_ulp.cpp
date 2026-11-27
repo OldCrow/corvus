@@ -27,8 +27,8 @@ using corvus_test::UlpDiff;
 
 using Fn = void (*)(std::span<const double>, std::span<double>);
 
-// #14 N4: masked-tail split -- neither subspan is a lane multiple for any
-// tier, so the masked LoadN/StoreN path always runs.
+// #14 N4: tail split -- neither subspan is a lane multiple for any
+// tier, so the tail path always runs.
 void SplitCall(Fn fn, const std::vector<double>& in, std::vector<double>& out) {
   const size_t n = in.size();
   const size_t split = n - 3;

@@ -19,7 +19,7 @@
 // region; the Route replica then re-checks membership on the actual (a, b,
 // x) triples and the hit rate is printed as a diagnostic, never a gate.
 // Span lengths are 4001, deliberately not a multiple of AVX3_ZEN4's 8-lane
-// width, so every run also exercises the masked-tail path. Same rules as
+// width, so every run also exercises the tail path. Same rules as
 // the other bench_* files: manual, quiet machine, Release build only, not
 // ctest-registered.
 #include <algorithm>

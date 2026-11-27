@@ -226,8 +226,10 @@ std::span<double>)>(corvus::gamma_p)`) or a lambda.
 Things worth knowing:
 
 - **Batch, don't loop.** One call for the whole array. The kernel handles the
-  ragged end itself. Calling it per element is correct but pointless; if
-  you truly have one point, use the scalar entry point above.
+  ragged end itself. Calling it per element is correct but wasteful: a
+  one-element span does a whole vector of work, several times a batch's
+  cost per value (docs/PERFORMANCE.md §6). If you truly have one point,
+  use the scalar entry point above.
 - **Writing into the input is fine**, as long as the spans are exactly the same
   (`in.data() == out.data()`). Partial overlap is undefined behaviour.
 - **No allocation, no exceptions, thread-safe.** Safe to call from anywhere,

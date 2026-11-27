@@ -14,7 +14,7 @@
 // Horner; the tail pays for a dd sqrt+reciprocal on top of its own Horner),
 // and a mixed range would describe no real workload. Span lengths are 4001,
 // deliberately not a multiple of AVX3_ZEN4's 8-lane width, so every run
-// also exercises the masked-tail path. Same rules as the other bench_*
+// also exercises the tail path. Same rules as the other bench_*
 // files: manual, quiet machine, Release build only, not ctest-registered.
 #include <algorithm>
 #include <chrono>
