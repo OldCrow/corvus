@@ -284,8 +284,40 @@ unfreeze. The off-milestone list above is unchanged.
       vector, and `exp` 2.5 ns; the same tail gains 5 ns on `erf` and 42
       to 47 ns on `erfcinv` there, and 7 to 36 ns on all four at n = 2
       and 3. [DECIDED, user, 2026-11-27] Accepted as recorded; the
-      driver is unchanged for v1.2.1. Why the sign differs by kernel is
-      under investigation on K.
+      driver is unchanged for v1.2.1.
+    - [DERIVED, K, 2026-11-27; `.../2026-11-26-kaby-v1.2.1/n7/`, on PR
+      #117 as `a954181`]
+      The sign does not differ by kernel: with the layout matched the
+      register tail is 2 to 8 ns slower at n = 7 on all four kernels and
+      6 to 12 ns faster at n = 2 and 3. `bench_span1` read `erf` and
+      `erfcinv` the other way because of a CPU effect, shown by a
+      standalone program: on this Kaby Lake (microcode 0xF8) a load that
+      follows an AVX2 gather and touches page offset 0x7c0..0x7cf is
+      delayed. Where the linker puts the kernels' 8-byte literals decides
+      whether a gather kernel pays 10 to 30 ns per call; a 64-byte shift
+      turns it on or off, and the rule predicts 64 of 64 positions.
+      `main`'s bench binary had a shared literal there and the branch's
+      did not, so K's `local` ratios for the gather kernels are
+      overstated: layout-matched they are 0.84x (`erf`) to 1.01x
+      (`erfinv` central), not 0.57x to 0.94x. Still a gain.
+    - [OPEN, from the above] (1) Run `n7/gather_alias2.cpp` on Z and any
+      other AVX2 machine: is there a window, and where. (2) Which Kaby
+      Lake figures in docs/PERFORMANCE.md were taken with a literal in
+      the window. (3) A remedy is not designed: constants loaded from a
+      table whose alignment corvus controls, or #22's non-gather
+      variant. (4) `bench_span1`'s "write n values" loop compiles to a
+      `memcpy` call on AppleClang, so its short-span table does not
+      measure 8-byte stores. (5) The full-vector load still waits for the
+      caller's stores at n >= N (about 30 ns on `erfinv`); v1.2.1 fixes
+      only the tail. None of these blocks v1.2.1; all are v1.3.0
+      candidates for the user to file or drop.
+    - For the hold on M's one-element-tail diff: K's result is in. The
+      n = 7 cost is the register tail's own work (on AVX2 a blend loop
+      and a `memcpy` call) and K found no reason to change the 2-to-3
+      element tail. K did not build M's diff or measure a one-element
+      tail (n = 5 or 9 on AVX2). M's guess that the blend chain and the
+      copy loop explain the sign by kernel is not what K found: there is
+      no sign difference once the layout is matched.
     - The plan's `git worktree add ../corvus-main main` fails where
       `main` is already checked out; a detached worktree of
       `origin/main` works.
