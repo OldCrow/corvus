@@ -351,11 +351,23 @@ jobs:
       # image's own vswhere (no third-party action). Capped at AVX2 like the
       # Linux sweep: unlike MSVC, clang-cl dispatches AVX-512 on a runner
       # that has it, and hosted silicon is not guaranteed.
+      #
+      # The clang-cl is Visual Studio's own, not the standalone LLVM the
+      # image puts first on PATH. Each MSVC standard library sets a minimum
+      # Clang (error STL1000) and the two are updated on different
+      # schedules: image 20261116 paired MSVC 19.52, which wants Clang 22,
+      # with LLVM 20.1.8, and every <atomic> include stopped compiling
+      # (#112). The bundled compiler always matches its library.
       - name: clang-cl build and test (AVX2 cap)
         shell: cmd
         run: |
           for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set "VSDIR=%%i"
           call "%VSDIR%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          set "VSLLVM=%VSDIR%\VC\Tools\Llvm\x64\bin"
+          if not exist "%VSLLVM%\clang-cl.exe" echo ::error::Visual Studio's bundled clang-cl is missing from this image: %VSLLVM%
+          if not exist "%VSLLVM%\clang-cl.exe" exit /b 1
+          set "PATH=%VSLLVM%;%PATH%"
+          where clang-cl
           clang-cl --version || exit /b 1
           cmake --preset windows-clang-cl -DCORVUS_WERROR=ON "-DCORVUS_DISABLED_TARGETS=HWY_AVX10_2|HWY_AVX3_SPR|HWY_AVX3_ZEN4|HWY_AVX3_DL|HWY_AVX3" "-DFETCHCONTENT_SOURCE_DIR_HIGHWAY=%CD%\build\_deps\highway-src" || exit /b 1
           cmake --build build-clangcl || exit /b 1
