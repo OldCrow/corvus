@@ -20,6 +20,7 @@
 // section table. Elsewhere it reports that it did not run and passes.
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <random>
 #include <span>
@@ -78,11 +79,17 @@ void MapImage() {
   (void)sink;
 }
 
-bool Check(const char* label, Fn f, double lo, double hi) {
+// Draws are uniform on [lo, hi], or 2^u for u uniform on [lo, hi] when
+// log2_scale is set; with mirror, the band is 2 - that (erfcinv's upper tail).
+bool Check(const char* label, Fn f, double lo, double hi,
+           bool log2_scale = false, bool mirror = false) {
   std::mt19937_64 rng(4096);
   std::uniform_real_distribution<double> u(lo, hi);
   std::vector<double> in(kN), out(kN);
-  for (auto& v : in) v = u(rng);
+  for (auto& v : in) {
+    v = log2_scale ? std::exp2(u(rng)) : u(rng);
+    if (mirror) v = 2.0 - v;
+  }
 
   TrimWorkingSet();
   const double trimmed = MinNsPerValue(f, in, out);
@@ -102,6 +109,12 @@ int main() {
   bool ok = true;
   ok &= Check("erfinv  [-0.5, 0.5]", corvus::erfinv, -0.5, 0.5);
   ok &= Check("erfcinv [0.5, 1.5]", corvus::erfcinv, 0.5, 1.5);
+  // The tails. Below 2^-53 the interior test in ErfcinvVec cannot tell z from
+  // 0, so those lanes enter the specials block; no select fires there, and
+  // the band must not pay for the block.
+  ok &= Check("erfcinv 2^[-26,-1]", corvus::erfcinv, -26.0, -1.0, true);
+  ok &= Check("erfcinv 2^[-1000,-60]", corvus::erfcinv, -1000.0, -60.0, true);
+  ok &= Check("erfcinv 2-2^[-26,-1]", corvus::erfcinv, -26.0, -1.0, true, true);
   if (!ok) {
     std::printf(
         "FAIL: a band slows down when the image's pages are unmapped "
