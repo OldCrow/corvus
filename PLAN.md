@@ -94,7 +94,9 @@ pass, #100 the `quiet_bench.sh` Linux bugs it found):
 - [OPEN] The Dekker pre-split is unfiled; file it only if a consumer
   reports pre-Haswell hardware.
 - [OPEN] Housekeeping: remove the `../corvus-c1` and `../corvus-c3`
-  worktrees on Kaby Lake and the M1 (A trees of the C1/C3 A/Bs).
+  worktrees on Kaby Lake (A trees of the C1/C3 A/Bs). M1: already gone
+  (checked 2026-11-27); its `../corvus-main` v1.2.1 worktree goes once
+  the M line here is committed.
 
 **Release-note inputs for v1.2.0 [DERIVED]** (row D):
 - New exports: span `expm1` and `log1pmx`, correctly rounded (#45).
@@ -310,8 +312,54 @@ unfreeze. The off-milestone list above is unchanged.
     - `erf` and `exp` short-span cells read at two levels from process
       to process on both trees (`main` `erf` n = 7: 76.2, and 95.8 and
       84.8 in two of eight). Cause not known; a lead for #97.
-  - M: not started.
-- **Not known [OPEN].** Whether Linux and macOS gain anything: the
+  - M: DONE 2026-11-26/27 at `653758c` (evidence
+    `docs/bench-evidence/2026-11-26-m1-v1.2.1/` and
+    `2026-11-27-m1-v1.2.1-tail1/`, on the M1, not yet committed).
+    Gate: 40/40 NEON-asserted, `span1` PASS on all 27, `masked_const`
+    not run (Windows only); no tier below NEON to cap on arm64. Bench:
+    `bench_span1`, `main` `c1d6640` in a worktree against the branch,
+    three quiet passes each in 35 min with the user's indexing, media
+    and sync processes suspended (libstats' SIGSTOP method, approved by
+    the user; gates 3.2–3.8%). Medians of three: (a) the serialisation
+    is absent here — on `main` the `local` column is within 2–8% of
+    `array` on every band, where Zen 4 read 2x; (b) a span of one costs
+    4–10% less per call (erf/exp −1.1 ns, erfinv −1.8, probit −2.3),
+    `local` erf/exp 9.7/9.5 → 8.4/8.3, erfcinv central 30.0 → 28.1,
+    probit 59.5 → 56.0, lgamma 41.5 → 40.3; (c) erfcinv central batch
+    12.6 → 11.1 (change 3, the selects behind a branch); (d) the
+    register-built tail costs +1.5–2.3 ns per call on erf/exp at n = 3
+    and 7 (+6–9%, repeatable to 0.1 ns), noise on the inverses. On
+    NEON that tail is always ONE element (every odd length), a case
+    K's n = 2, 3 and 7 cells never meet (their tails are 2–3 elements;
+    a 1-element tail there is n = 5 or 9, unmeasured). Second sitting,
+    00:49–01:10: `StoreTail` with m = 1 writes `GetLane(v)`, so a
+    trailing single element takes the length-1 path; gate 40/40,
+    `span1` PASS; the cost is gone (erf n = 3: `main` 18.8, branch
+    20.3, patched 19.1; exp n = 7: 29.8 / 31.5 / 29.5; the inverses
+    0.4–3.9 ns under `main`), n = 1, 2, 4 and the long table unchanged
+    within noise. Eight lines in `src/driver-inl.h`, uncommitted on the
+    M1 (diff beside the evidence). It changes no cell K or Z measured
+    and does not touch the 2–3-element tail the 2026-11-27 decision
+    kept, but it IS a driver change after "the driver is unchanged for
+    v1.2.1". K and I are both investigating their slower cells [user,
+    2026-11-27], so the tail code may move again: HELD, not applied to
+    the checkout, until their results are in; any tail change then
+    ships as one commit with one validation round, this case included
+    or recorded for v1.3.0 [OPEN, user]. **I's three slower cells are
+    this case** [DERIVED, M, 2026-11-27]: SSE4 is a 2-lane tier like
+    NEON, its slower cells are exactly the odd lengths (erfinv n = 3
+    +1.5 ns, erf n = 3 +1.7, erf n = 7 +1.1; M read +1.1 to +2.3 on the
+    same cells), and its even lengths and K's n = 7 cell are level. The
+    first thing for I to try is the saved diff. Input for K: a
+    1-element tail's cost is the StoreTail buffer round trip (GetLane
+    removes all of it); for 2–3 elements the blend chain and the copy
+    loop both grow with m, which may be where the sign by kernel comes
+    from. erfinv's two batch cells read in modes (§5); not settled by
+    three passes.
+- **Not known [OPEN].** Which change produces the gain off Windows.
+  All three Unix legs gain a little at one value (K, I, M above) and
+  none separates the five changes; on NEON the `local`/`array` ratio on
+  `main` shows the serialisation never existed there. The
   System V convention passes a span in registers, and the masked-load
   cost is shown only on Zen 4 under Windows, its mechanism inferred
   from on/off experiments. About 1,400 loads of the same shape remain
@@ -473,7 +521,8 @@ REPORT.md). Rerun takes about a minute.
 - #110 scalar code paths for the span-only functions (v1.3.0; libstats
   calls twelve of them one value at a time).
 - #111 `lbeta` and `LgammaDiffDd` cost on the non-FMA tier (v1.3.0;
-  three questions, no design).- #100 `quiet_bench.sh` on Linux (ps listing, shebang, machine line);
+  three questions, no design).
+- #100 `quiet_bench.sh` on Linux (ps listing, shebang, machine line);
   `tools/` only, no release needed. [DERIVED 2026-11-11] Fixed and tested
   on the Mint machine (failing gate lists five consumers, target lines
   carry `top:`, machine line names CPU and distribution, runs as
