@@ -303,7 +303,21 @@ unfreeze. The off-milestone list above is unchanged.
       central at n = 3 (172.4 -> 173.9) and `erf` at n = 3 (52.0 ->
       53.7) in all eight pairs, `erf` at n = 7 (76.2 -> 77.3) in six.
       K's slower cell, `erfinv` central at n = 7, is level here (312.7
-      -> 312.8). Recorded; no decision taken on them.
+      -> 312.8).
+    - They are the one-element tail, and M's saved diff removes the
+      cost [DERIVED, I, 2026-11-27; `pass3/`, on PR #117 as `80da7e3`].
+      Four trees, eight alternating processes each, pinned and warmed,
+      gated at 0 to 3%, `main` / branch / branch with K's masked tail /
+      branch with M's diff: `erfinv` central n = 3 172.4 / 173.9 /
+      172.4 / 172.2; `erf` n = 3 52.0 / 53.8 / 51.8 / 52.2; `erf` n = 7
+      76.2 / 77.3 / 74.7 / 75.5; `exp` n = 7 76.0 / 78.2 / 74.4 / 74.9.
+      n = 1, 2 and 4 and the long table read the same on the branch and
+      both experiment trees (within 0.6 ns). The patched tree gates
+      40/40 on SSE4, `span1` PASS. So the two 2-lane legs agree on the
+      defect and the fix. The masked one-element tail is no slower on
+      SSE4: 0.5 to 0.8 ns under M's diff on `erf` and `exp` at n = 7.
+      Nothing here bears on K's n = 7 cell. Whether M's diff goes on
+      the branch stays with the user [OPEN], as on the M line.
     - Pass 1 (the plan's protocol, three alternations) read its first
       band slow on both trees (batch 51 to 57 ns against 37): under
       `schedutil` the bench starts on a core still coming up from idle.
