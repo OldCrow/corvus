@@ -200,6 +200,28 @@ them are unexplored.
 - **More runs.** §5 exists because two runs looked like agreement until a third
   disagreed.
 
+The next three were found on Zen 4 under Windows with the machine in use;
+their figures are indicative until a quiet run replaces them.
+
+- **The caller's shape** (v1.2.1). Every figure on this page is array to
+  array. A consumer calling one value at a time, value in and result out,
+  paid about twice the kernel's throughput until v1.2.1, because each call
+  waited for the one before it. `tests/bench_span1.cpp` measures both
+  shapes; a claim about one-value cost quotes the value-in, result-out
+  column.
+- **The process's memory state** (v1.2.1). `erfcinv` read 4x slower in any
+  program whose link left one constant on a page nothing else read, for
+  the life of the process. Time a band in a fresh process that links only
+  the library, and again after trimming the working set
+  (`tests/test_masked_const.cpp` does both on Windows).
+- **The harness** (v1.2.1). A test program that compiles a kernel header
+  itself is not the library: the linker folds identical functions across
+  the two and places constants differently, and a diagnostic of that kind
+  read 3.6 ns per element where every library-only program read 14.6. A
+  performance claim about the library comes from a program that links
+  only the library, and a before-and-after comparison from two separate
+  build trees, never from swapping a file in one.
+
 A published performance claim needs at least the first two settled. **They
 are** — four microarchitectures, four system libms (§11), three of each
 first at v0.9.0 and again at v1.2.0, the fourth at v1.2.0 (§15). The compiler axis and §5 remain open;

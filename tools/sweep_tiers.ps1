@@ -116,7 +116,10 @@ $gates = @(
   # #53 guard harness: no reference file; last, since it consumes every family.
   @{ exe = "test_guards"; data = @() },
   # v1.2.1 guard for the drivers' length-1 fast path: every span function.
-  @{ exe = "test_span1"; data = @() }
+  @{ exe = "test_span1"; data = @() },
+  # v1.2.1 guard: a central band reads the same with the image's pages
+  # trimmed and mapped (Windows; passes without running elsewhere).
+  @{ exe = "test_masked_const"; data = @() }
 )
 
 $selected = if ($Tier) { $Tier } else { $caps.Keys }

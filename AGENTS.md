@@ -118,7 +118,10 @@ capping recipes, sweep scripts: `docs/ENVIRONMENT.md`.
   `CORVUS_OUTLINE` (src/ops-inl.h): `HWY_NOINLINE` under MSVC, inlined
   elsewhere, because a call per 2-lane vector cost NEON cos/sin 1.6× (#43).
   Rare-path regions behind an `AllFalse`/`AllTrue` skip stay `HWY_NOINLINE`
-  everywhere. Reassess the whole split if MSVC ever becomes properly
+  everywhere, and so do their constants: a special-value select runs only
+  behind a branch, and a dispatched `Impl` takes pointers and a length, not
+  `std::span` by value (both in docs/NUMERICAL-DOCTRINE.md, Kernel
+  construction). Reassess the whole split if MSVC ever becomes properly
   supportable under Highway (AVX-512 dispatch included) — PLAN.md.
 - A new function family goes, in dependency position, into all FOUR
   gating lists: tests/CMakeLists.txt, the three ULP-report steps in ci.yml,
