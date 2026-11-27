@@ -51,9 +51,9 @@ to `main` as `148bb64`.
 v1.2.0 closed. corvus has nothing owed for v1.2.0.
 **Next:** libstats' and libhmm's PLAN.md carry the bump note
 (Cross-machine handshakes below); each library picks up its bump in its
-own session. corvus's next work is v1.2.1 (a length-1 fast path in the
-span drivers), then milestone v1.3.0 (#110, #111, #22, #97); both under
-"Milestones re-cut 2026-11-26" below.
+own session. corvus's next work is v1.2.1 (one value through the span
+API; draft PR #117), then milestone v1.3.0 (#110, #111, #22, #97); both
+under "Milestones re-cut 2026-11-26" below.
 **Fourth machine, Ivy Bridge [DERIVED 2026-11-11]** (MacBook Pro 9,1,
 i7-3820QM, Linux Mint 22.3, glibc 2.39; #101 holds the indicative GCC
 pass, #100 the `quiet_bench.sh` Linux bugs it found):
@@ -180,39 +180,78 @@ milestone with their trigger stated on the issue.
 paths and ISA tuning", performance only: #110, #111, #22 and #97. #19
 moves to v1.4.0 ("von Mises complement"), a new export with its own
 unfreeze. The off-milestone list above is unchanged.
-- **v1.2.1 is planned [DECIDED, user, 2026-11-26]: a length-1 fast path
-  in the span drivers.** Scope: `DriveUnary`, `DriveBinary` and
-  `DriveTernary` broadcast a single value and store one lane instead of
-  running the masked tail; a test per family that a length-1 span
-  matches the same value inside a long span bit for bit; a line in
-  PERFORMANCE.md. No result moves and the API is unchanged, so it is a
-  patch (VERSIONING.md). Nothing else goes in.
-- **Why [DERIVED, Z, 2026-11-26, indicative: machine in use].** Branch
-  `exp/narrow-lane-scalar` (`23398fa`, not for merge) ran the shipped
-  `erfcinv` kernel at 1 lane, 2 lanes and full width on AVX3_ZEN4:
-  bit-identical over about 4.0 million points, and narrower lanes gain
-  little (25 against 29 ns central). The cost is the span tail: a
-  length-1 span reads 65 ns central against 29 for the value broadcast,
-  about 33 ns per call in every region, and a length-1 fast path in a
-  replica of the driver removes it (31 ns). `LoadNOr` alone and
-  `StoreN` alone cost nothing; the mechanism is not found. Figures and
-  caveats are on #110.
-- **Not measured on any other tier [OPEN].** The overhead may be
-  specific to AVX-512 masked operations. A quiet run of
-  `exp_narrow_lane_erfcinv` on K, M or I would say; elsewhere the fast
-  path is one branch.
+- **v1.2.1 is in review [DECIDED, user, 2026-11-26]: one value through
+  the span API.** Draft PR #117, branch `dev/v1.2.1`. No result moves
+  and the API is unchanged, so it is a patch (VERSIONING.md). Five
+  changes, each found by measuring through the shipped library; CI is
+  green on `653758c` (Linux, Windows, macOS):
+  1. A span of one element skips the tail (`src/driver-inl.h`).
+  2. The dispatched `Impl` functions take pointers and one length, not
+     `std::span` by value (all 27).
+  3. `ErfcinvVec`'s special-value selects sit behind a branch.
+  4. `Log1pVec`'s likewise: its band read 3.2x slower with the image's
+     pages unmapped (15.8 against 4.9 ns per value).
+  5. The tail of 2 to N-1 elements is assembled in registers, with no
+     masked load or store: a 2-element `erfinv` span cost 62 ns against
+     31 for one element, and now costs 34. corvus is a public library,
+     so a short span is an ordinary call whether or not libstats makes
+     it [user, 2026-11-26].
+- **What was wrong [DERIVED, Z, 2026-11-26, indicative: machine in
+  use].** Two loads that could not be forwarded from the stores they
+  overlap made each one-value call wait for the one before it: the
+  masked tail's load from a slot the caller had just written, and the
+  wrappers' 16-byte copy of a `std::span` (the Windows x64 convention).
+  Either alone leaves the call at the kernel's latency. Separately,
+  `erfcinv`'s unconditional selects compile to merge-masked loads of
+  their constants; with an all-false mask the load never maps its page
+  and costs about 90 ns a vector while it is unmapped, which every
+  library-only link hit. Library-only bench, `main` against the branch,
+  ns per one-value call: `erfcinv` central 131 -> 30, probit shape
+  164 -> 69, `erfinv` central 65 -> 29; `erfcinv` central batch 14.6 ->
+  3.4 per element.
+- **This replaces two earlier notes here, both wrong.** The first said
+  a length-1 fast path alone saved 33 ns: an experiment
+  (`exp/narrow-lane-scalar`) measured that in a test program with its
+  own kernel copy and raw pointers, and the library did not reproduce
+  it. Before that, a note proposed a branchy scalar path on the premise
+  that a one-value call ran every region; the driver has padded a short
+  span with its live element since #42. The rules this produced are in
+  `docs/NUMERICAL-DOCTRINE.md` (Kernel construction),
+  `docs/PERFORMANCE.md` §6 and, as a proposed fleet standard,
+  OldCrow/standards `PERFORMANCE-MEASUREMENT.md`.
+- **Validated so far.** Z, clang-cl 22.1.3: ctest 40/40 on AVX3_ZEN4; the
+  capped sweep on AVX2, SSE4, SSSE3 and SSE2. Guards:
+  `tests/test_span1.cpp` (27 span functions; every span length from 1
+  to 9, at every offset, equals the same values in a long span, bit for
+  bit; also on the AVX2 cap) and
+  `tests/test_masked_const.cpp` (Windows: a band reads the same with
+  the image's pages trimmed and mapped; 4.0x on `main`, 1.00x on the
+  branch; central and three tail bands). `tests/bench_cold.cpp` runs
+  the same method over 41 bands of every span function; it found
+  `log1p` and flags nothing on the branch.
+- **Before the tag [OPEN].**
+  - Native gates on K, M and I (accuracy claims are per tier).
+  - A quiet run of `tests/bench_span1.cpp` on Z; PERFORMANCE.md §6
+    carries indicative figures until then.
+  - Version, release notes, RELEASING.md.
+- **Not known [OPEN].** Whether Linux and macOS gain anything: the
+  System V convention passes a span in registers, and the masked-load
+  cost is shown only on Zen 4 under Windows, its mechanism inferred
+  from on/off experiments. About 1,400 loads of the same shape remain
+  in the AVX3_ZEN4 functions; `ErfcinvVec` and `Log1pVec` are changed.
+  A clean survey says only that this link exposes no such constant, so
+  a static count of these loads per kernel is still owed (v1.3.0). #97 has
+  both leads, neither tested against its evidence.
 - **libstats v3.0.0 pins v1.2.1** [DECIDED, user]: it stays on the v1.2
-  line. The patch should be tagged before libstats' correctness leg
-  that follows its pool fix, so the new pin rides along; a sweep with
-  no row moved is the per-tier proof of bit-identity. This removes most
-  of libstats' Gaussian and LogNormal scalar-quantile regression on Zen
-  4 (OldCrow/libstats#156) [estimate, not measured in libstats].
-- **#110 stays on v1.3.0** as the scalar entry points' API. With the
-  fast path they cost what a length-1 span costs, so what is left is a
-  uniform surface, not speed. An earlier note here proposed a branchy
-  scalar path; it rested on a wrong premise, since the driver has
-  padded a short span with its live element since #42 and a one-value
-  call already runs one region.
+  line. Tag before libstats' correctness leg that follows its pool fix,
+  so the new pin rides along; a sweep with no row moved is the per-tier
+  proof that no result changed. libstats' scalar Gaussian and LogNormal
+  quantiles are one `erfcinv` call each (72 -> 106 ns on Z when it
+  adopted corvus, OldCrow/libstats#156); the effect there is not yet
+  measured.
+- **#110 stays on v1.3.0** as the scalar entry points' API. After
+  v1.2.1 a length-1 span costs what a broadcast costs, so what is left
+  is a uniform surface, not speed.
 - #112 closed 2026-11-26 (`b8c401f`): the Windows runner paired MSVC
   19.52, whose standard library requires Clang 22, with a standalone
   LLVM 20.1.8. The clang-cl job now uses Visual Studio's bundled
