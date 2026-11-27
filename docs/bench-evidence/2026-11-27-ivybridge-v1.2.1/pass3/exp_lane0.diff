@@ -1,0 +1,19 @@
+diff --git a/src/driver-inl.h b/src/driver-inl.h
+index 1341289..013d245 100644
+--- a/src/driver-inl.h
++++ b/src/driver-inl.h
+@@ -107,6 +107,14 @@ HWY_INLINE op::V<D> LoadTail(D d, const double* p, size_t m) {
+ 
+ template <class D>
+ HWY_INLINE void StoreTail(op::V<D> v, D d, double* p, size_t m) {
++  // A tail of one element leaves through GetLane, as a span of one does
++  // (LoadTail has already made it a broadcast): the buffer round trip below
++  // cost erf and exp 1.5-2.3 ns a call on NEON, where every odd length ends
++  // in such a tail (docs/bench-evidence/2026-11-26-m1-v1.2.1).
++  if (m == 1) {
++    p[0] = op::GetLane(v);
++    return;
++  }
+   double buf[op::MaxLanes(d)];
+   op::Store(v, d, buf);
+   for (size_t k = 0; k < m; ++k) p[k] = buf[k];

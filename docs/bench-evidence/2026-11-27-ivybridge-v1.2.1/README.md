@@ -122,3 +122,57 @@ What it says:
   five changes produces the gain on this machine is not separated.
 
 Not run: `bench_cold` (Windows only).
+
+## The slower cells (`pass3/`, 2026-11-27)
+
+The three slower cells are the one-element tail, and M's patch removes
+the cost. On a 2-lane tier every odd length ends in a tail of one
+element, which the branch's `StoreTail` sends through a stack buffer.
+Shown by two on/off builds beside `main` and the branch, all four clang
+18.1.3 Release from their own trees:
+
+- **masked**: `653758c` with `DriveUnary`'s tail put back to `main`'s
+  `LoadNOr`/`StoreN` (K's `n7/exp_tail.diff`; `pass3/exp_masked.diff`).
+- **lane0**: `653758c` with M's saved diff, `StoreTail` with m = 1 writes
+  `GetLane(v)` (`2026-11-27-m1-v1.2.1-tail1/driver-inl.h.diff`;
+  `pass3/exp_lane0.diff`). Gated here first: 40/40 under
+  `CORVUS_EXPECT_TARGET=SSE4`, `span1` PASS on all 27, 0 warnings
+  (`pass3/ctest_lane0_SSE4.txt`).
+
+Protocol as pass 2 (pinned to CPU 2, warmed 2 s, `quiet_bench.sh -t SSE4`),
+the four trees alternating, eight fresh processes each. 31 runs gated at
+0.00/0.00% and one at 3.00/0.00%; the core read 3.67 to 3.69 GHz before
+every bench. `main`'s library is the binary of passes 1 and 2 (its
+worktree's HEAD moved to `c826564`, PLAN.md only; `pass3/head.txt` has
+the hashes). 20 `top:` entries are redacted as above.
+
+Median of eight, ns per call, `main` / branch / masked / lane0
+(`summary_pass3.txt`, from `sum4.py`, with min and max):
+
+| Band | n = 1 | n = 2 | n = 3 | n = 4 | n = 7 |
+|---|---|---|---|---|---|
+| erfinv [-0.5, 0.5] | 90.4 / 85.9 / 86.0 / 86.0 | 91.2 / 90.3 / 90.4 / 90.4 | 172.4 / 173.9 / 172.4 / **172.2** | 165.1 / 164.6 / 164.9 / 164.7 | 312.7 / 312.8 / 311.2 / **312.0** |
+| erfcinv (0, 2) (probit) | 132.6 / 122.7 / 122.9 / 122.8 | 188.9 / 184.2 / 184.2 / 184.3 | 305.3 / 302.8 / 300.4 / **301.1** | 352.8 / 347.6 / 347.6 / 347.5 | 630.7 / 621.4 / 620.0 / **621.6** |
+| erf [-3, 3] | 29.7 / 28.2 / 28.1 / 28.1 | 30.4 / 30.0 / 30.1 / 30.1 | 52.0 / 53.8 / 51.8 / **52.2** | 43.5 / 42.8 / 42.8 / 42.9 | 76.2 / 77.3 / 74.7 / **75.5** |
+| exp [-20, 20] | 26.1 / 23.8 / 23.3 / 23.6 | 27.6 / 27.8 / 26.8 / 27.0 | 50.6 / 51.7 / 50.3 / **50.0** | 42.0 / 41.6 / 41.0 / 41.2 | 76.0 / 78.2 / 74.4 / **74.9** |
+
+- **The cost is gone with M's patch.** At n = 3 and n = 7 the patched
+  tree reads at or under `main` on every band but `erf` at n = 3, which
+  is 0.2 ns over (52.2 against 52.0), and 1.6 to 3.3 ns under the branch
+  on `erfinv` n = 3, `erf` and `exp`. The branch reproduces pass 2's
+  slower cells to 0.1 ns (173.9, 53.8, 77.3).
+- **Nothing else moved.** n = 1, 2 and 4 read the same on the branch and
+  both experiment trees within 0.6 ns, bar `exp` at n = 2 (27.8 against
+  26.8 and 27.0, inside that cell's spread). The long table's three
+  columns agree across the three within 0.6 ns on every band.
+- **The masked tail is as fast here, or faster.** The masked tree reads
+  0.5 to 0.8 ns under the patched one on `erf` and `exp` at n = 7, and
+  within 0.4 ns of it at n = 3. So on SSE4 the masked one-element tail
+  is no slower than either register form; the patched form gives up at
+  most 0.8 ns to it.
+- This is the 2-lane case only. It says nothing on K's n = 7 cell, a
+  three-element tail after a full vector on four lanes.
+- Excursions as in pass 2: single processes read high on single cells in
+  every tree (the branch's first band once at 98.7 and 99.1; `main`
+  `erf` n = 7 once at 91.3; `exp` n = 7 at 86.3 and 89.0), so the
+  medians are quoted and the ranges are in `summary_pass3.txt`.
