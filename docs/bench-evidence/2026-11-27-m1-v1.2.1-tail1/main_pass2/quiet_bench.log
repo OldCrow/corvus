@@ -1,0 +1,1330 @@
+22:56:28 quiet_bench.sh  build=/Users/wolfman/Development/corvus-main/build  expect=NEON  targets=1
+22:56:28 gate          : ambient < 8% over two consecutive 10s windows
+22:56:28 machine       : Apple M1; macOS 27.2.1
+22:56:39 ambient sample : 32.66%
+22:56:39   top consumers:
+     39.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     18.2 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     14.9 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     14.1 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+     12.9 /Applications/Claude.app/Contents/MacOS/Claude
+22:56:49 ambient sample : 31.39%
+22:56:49   top consumers:
+     41.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     11.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     11.6 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     11.6 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     11.5 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+22:57:00 ambient sample : 32.78%
+22:57:00   top consumers:
+     26.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     17.1 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+     15.3 /Applications/Claude.app/Contents/MacOS/Claude
+     13.3 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     12.3 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+22:57:10 ambient sample : 31.15%
+22:57:10   top consumers:
+     28.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     23.2 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+     11.8 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     11.0 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      8.6 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+22:57:21 ambient sample : 31.81%
+22:57:21   top consumers:
+     16.7 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     13.8 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     10.7 /usr/libexec/diskimagesiod
+      7.3 /System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+      5.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+22:57:31 ambient sample : 28.81%
+22:57:31   top consumers:
+     20.7 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     18.5 /Applications/Claude.app/Contents/MacOS/Claude
+     16.2 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+     14.3 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     12.6 /Users/wolfman/Applications/Grammarly Desktop.app/Contents/MacOS/Grammarly Desktop
+22:57:42 ambient sample : 27.52%
+22:57:42   top consumers:
+     15.6 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     13.0 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+     12.7 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     12.0 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+     11.9 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:57:52 ambient sample : 26.86%
+22:57:52   top consumers:
+     25.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     17.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     16.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     14.4 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      9.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores
+22:58:02 ambient sample : 33.08%
+22:58:03   top consumers:
+     29.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     27.7 /Users/wolfman/Applications/Grammarly Desktop.app/Contents/Frameworks/ProjectLlamaContent.framework/Versions/A/Frameworks/WebUI.framework/Versions/A/Helpers/Superhuman Web UI.app/Contents/MacOS/app_inkwell
+     13.0 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     10.9 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      8.4 /Users/wolfman/Applications/Grammarly Desktop.app/Contents/MacOS/Grammarly Desktop
+22:58:13 ambient sample : 40.59%
+22:58:13   top consumers:
+     62.9 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+     52.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     36.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     35.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     19.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+22:58:23 ambient sample : 44.19%
+22:58:23   top consumers:
+     64.0 /usr/libexec/duetexpertd
+     31.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     12.9 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     10.9 /System/Library/CoreServices/Siri.app/Contents/MacOS/Siri
+     10.3 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+22:58:34 ambient sample : 30.10%
+22:58:34   top consumers:
+     38.1 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     24.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     14.9 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     11.5 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+      6.2 /System/Library/ExtensionKit/Extensions/WallpaperAerialsExtension.appex/Contents/MacOS/WallpaperAerialsExtension
+22:58:44 ambient sample : 19.05%
+22:58:44   top consumers:
+     30.7 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     26.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     11.6 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      9.3 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+      7.6 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+22:58:55 ambient sample : 20.89%
+22:58:55   top consumers:
+     30.6 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     12.9 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+     11.3 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      9.3 /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSOAgent.app/Contents/MacOS/AppSSOAgent
+      8.7 /usr/libexec/locationd
+22:59:05 ambient sample : 18.30%
+22:59:05   top consumers:
+     19.6 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     16.0 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+     13.1 /System/Library/CoreServices/NotificationCenter.app/Contents/MacOS/NotificationCenter
+     11.8 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      8.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+22:59:16 ambient sample : 24.25%
+22:59:16   top consumers:
+    113.1 /System/Library/CoreServices/TimeMachine/backupd
+     21.1 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     18.0 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+     10.9 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      7.5 /System/Library/CoreServices/Dock.app/Contents/XPCServices/DockHelper.xpc/Contents/MacOS/DockHelper
+22:59:26 ambient sample : 19.05%
+22:59:26   top consumers:
+     23.4 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     12.6 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+     10.3 /System/Library/CoreServices/TimeMachine/backupd
+      9.6 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      9.1 /System/Library/PrivateFrameworks/SoftwareUpdate.framework/Resources/SoftwareUpdateNotificationManager.app/Contents/MacOS/SoftwareUpdateNotificationManager
+22:59:36 ambient sample : 18.14%
+22:59:36   top consumers:
+     15.6 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     14.8 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+     11.6 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     11.5 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+      9.4 /System/Library/CoreServices/Dock.app/Contents/XPCServices/DockHelper.xpc/Contents/MacOS/DockHelper
+22:59:47 ambient sample : 19.38%
+22:59:47   top consumers:
+     18.7 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     16.7 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+     15.2 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     10.9 /System/Library/PrivateFrameworks/iCloudDriveCore.framework/Versions/A/Support/bird
+      8.6 /System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+22:59:57 ambient sample : 15.15%
+22:59:57   top consumers:
+     36.1 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     14.6 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     13.0 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+      6.1 /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSOAgent.app/Contents/MacOS/AppSSOAgent
+      5.4 /System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+23:00:08 ambient sample : 14.41%
+23:00:08   top consumers:
+     17.0 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     14.1 /System/Library/CoreServices/Siri.app/Contents/MacOS/Siri
+     13.3 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     13.2 /System/Library/CoreServices/NotificationCenter.app/Contents/MacOS/NotificationCenter
+     12.6 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+23:00:18 ambient sample : 13.77%
+23:00:18   top consumers:
+     19.2 /System/Library/PrivateFrameworks/SoftwareUpdate.framework/Resources/SoftwareUpdateNotificationManager.app/Contents/MacOS/SoftwareUpdateNotificationManager
+     10.9 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      9.7 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+      8.1 /usr/libexec/locationd
+      8.0 /System/Library/CoreServices/Siri.app/Contents/MacOS/Siri
+23:00:29 ambient sample : 13.28%
+23:00:29   top consumers:
+     19.6 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     13.5 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+     11.5 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      9.5 /System/Library/CoreServices/Dock.app/Contents/XPCServices/DockHelper.xpc/Contents/MacOS/DockHelper
+      6.3 /System/Library/PrivateFrameworks/SoftwareUpdate.framework/Resources/SoftwareUpdateNotificationManager.app/Contents/MacOS/SoftwareUpdateNotificationManager
+23:00:39 ambient sample : 20.29%
+23:00:39   top consumers:
+     14.7 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     10.6 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+      7.2 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+      6.8 /usr/libexec/locationd
+      6.4 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+23:00:50 ambient sample : 15.77%
+23:00:50   top consumers:
+     26.9 /System/Library/CoreServices/TimeMachine/backupd
+      5.6 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      4.4 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+      4.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      4.1 /usr/libexec/diskimagesiod
+23:01:00 ambient sample : 14.10%
+23:01:00   top consumers:
+     17.4 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     14.2 /System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+     13.0 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+     13.0 /usr/libexec/locationd
+     10.0 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+23:01:10 ambient sample : 13.66%
+23:01:10   top consumers:
+     18.1 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+     15.8 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     15.7 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+      8.7 /System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+      8.3 /usr/libexec/locationd
+23:01:21 ambient sample : 14.58%
+23:01:21   top consumers:
+     28.0 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     17.0 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+     12.5 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      8.2 /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSOAgent.app/Contents/MacOS/AppSSOAgent
+      7.6 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+23:01:31 ambient sample : 19.13%
+23:01:31   top consumers:
+     18.7 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+     15.2 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+     12.9 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     11.6 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+      8.7 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+23:01:31 ABORT: machine did not go quiet within 5 min
+23:03:32 quiet_bench.sh  build=/Users/wolfman/Development/corvus-main/build  expect=NEON  targets=1
+23:03:32 gate          : ambient < 8% over two consecutive 10s windows
+23:03:32 machine       : Apple M1; macOS 27.2.1
+23:03:42 ambient sample : 11.60%
+23:03:42   top consumers:
+     12.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      7.5 /usr/libexec/diskimagesiod
+      6.7 /usr/libexec/locationd
+      6.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      3.8 /usr/libexec/sandboxd
+23:03:53 ambient sample : 14.86%
+23:03:53   top consumers:
+     13.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     12.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     11.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     10.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      9.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores
+23:04:03 ambient sample : 12.18%
+23:04:03   top consumers:
+     11.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      7.8 /usr/libexec/diskimagesiod
+      6.0 /usr/libexec/locationd
+      4.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      2.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:04:14 ambient sample : 10.62%
+23:04:14   top consumers:
+     12.5 /usr/libexec/diskimagesiod
+     12.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      5.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      4.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      4.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:04:24 ambient sample : 15.27%
+23:04:24   top consumers:
+     13.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      8.1 /usr/libexec/diskimagesiod
+      7.3 /usr/libexec/locationd
+      4.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      4.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:04:34 ambient sample : 12.18%
+23:04:34   top consumers:
+     12.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     11.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      6.0 /usr/libexec/diskimagesiod
+      5.8 /usr/libexec/airportd
+      3.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:04:45 ambient sample : 15.30%
+23:04:45   top consumers:
+     31.8 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     10.5 /System/Library/PrivateFrameworks/SoftwareUpdate.framework/Resources/SoftwareUpdateNotificationManager.app/Contents/MacOS/SoftwareUpdateNotificationManager
+     10.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      9.6 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      8.1 /Users/wolfman/Applications/Grammarly Desktop.app/Contents/Frameworks/ProjectLlamaContent.framework/Versions/A/Frameworks/WebUI.framework/Versions/A/Helpers/Superhuman Web UI.app/Contents/MacOS/app_inkwell
+23:04:55 ambient sample : 23.39%
+23:04:55   top consumers:
+     32.1 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     17.8 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     12.1 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+     10.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      8.1 /usr/libexec/diskimagesiod
+23:05:06 ambient sample : 18.73%
+23:05:06   top consumers:
+     13.4 /usr/libexec/diskimagesiod
+     12.0 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     10.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      9.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      8.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:05:16 ambient sample : 12.01%
+23:05:16   top consumers:
+     15.6 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     12.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     12.1 /usr/libexec/diskimagesiod
+      7.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+      5.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:05:27 ambient sample : 12.54%
+23:05:27   top consumers:
+     10.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      9.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      6.9 /usr/libexec/diskimagesiod
+      6.9 /System/Library/CoreServices/Dock.app/Contents/MacOS/Dock
+      4.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+23:05:37 ambient sample : 10.47%
+23:05:37   top consumers:
+      8.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      4.5 /usr/libexec/diskimagesiod
+      3.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      3.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+      2.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:05:48 ambient sample : 12.38%
+23:05:48   top consumers:
+     22.3 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     14.8 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+     13.5 /System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+     10.0 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      7.9 /usr/libexec/diskimagesiod
+23:05:58 ambient sample : 21.62%
+23:05:58   top consumers:
+     22.9 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     14.3 /System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+     12.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     12.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     12.5 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+23:06:08 ambient sample : 15.37%
+23:06:08   top consumers:
+     15.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     15.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     13.9 /usr/libexec/diskimagesiod
+      7.9 /usr/libexec/locationd
+      6.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:06:19 ambient sample : 11.66%
+23:06:19   top consumers:
+     15.0 /usr/libexec/diskimagesiod
+     14.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     13.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      6.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      4.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:06:29 ambient sample : 13.04%
+23:06:29   top consumers:
+     23.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     12.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     12.1 /usr/libexec/diskimagesiod
+      9.3 /usr/libexec/locationd
+      8.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:06:40 ambient sample : 11.36%
+23:06:40   top consumers:
+      6.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      6.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      5.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      4.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      4.0 /usr/libexec/diskimagesiod
+23:06:50 ambient sample : 11.86%
+23:06:50   top consumers:
+     34.9 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     13.5 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     12.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     11.0 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+     10.1 /usr/libexec/diskimagesiod
+23:07:01 ambient sample : 25.49%
+23:07:01   top consumers:
+     18.6 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     15.9 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+     12.5 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+     10.8 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     10.8 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+23:07:11 ambient sample : 12.02%
+23:07:11   top consumers:
+     17.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     12.8 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     11.0 /usr/libexec/diskimagesiod
+      7.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      5.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:07:21 ambient sample : 13.12%
+23:07:21   top consumers:
+     13.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     11.0 /usr/libexec/diskimagesiod
+      8.5 /System/Library/PrivateFrameworks/ExchangeSync.framework/Versions/Current/exchangesyncd
+      6.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      6.7 /usr/libexec/locationd
+23:07:32 ambient sample : 13.49%
+23:07:32   top consumers:
+      3.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.8 /Applications/Backblaze.app/Contents/MacOS/bzserv
+      2.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      2.4 /usr/libexec/diskimagesiod
+      2.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:07:42 ambient sample : 13.02%
+23:07:42   top consumers:
+      9.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      8.8 /usr/libexec/diskimagesiod
+      6.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+      5.6 /usr/libexec/runningboardd
+      4.5 /usr/libexec/locationd
+23:07:53 ambient sample : 27.63%
+23:07:53   top consumers:
+     18.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     18.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     17.2 /System/Library/PrivateFrameworks/SoftwareUpdate.framework/Resources/SoftwareUpdateNotificationManager.app/Contents/MacOS/SoftwareUpdateNotificationManager
+     15.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     12.6 /Users/wolfman/Applications/Grammarly Desktop.app/Contents/Frameworks/ProjectLlamaContent.framework/Versions/A/Frameworks/WebUI.framework/Versions/A/Helpers/Superhuman Web UI.app/Contents/MacOS/app_inkwell
+23:08:03 ambient sample : 31.57%
+23:08:03   top consumers:
+     54.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     32.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     12.3 (mdworker_shared)
+      9.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      7.3 /usr/libexec/diskimagesiod
+23:08:14 ambient sample : 36.51%
+23:08:14   top consumers:
+     28.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     25.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     21.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     19.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     19.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:08:24 ambient sample : 19.80%
+23:08:24   top consumers:
+     16.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     16.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     15.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     15.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     11.7 /usr/libexec/locationd
+23:08:34 ambient sample : 32.48%
+23:08:34   top consumers:
+     39.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     36.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     34.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     27.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     26.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:08:34 ABORT: machine did not go quiet within 5 min
+23:10:35 quiet_bench.sh  build=/Users/wolfman/Development/corvus-main/build  expect=NEON  targets=1
+23:10:35 gate          : ambient < 8% over two consecutive 10s windows
+23:10:35 machine       : Apple M1; macOS 27.2.1
+23:10:45 ambient sample : 49.38%
+23:10:45   top consumers:
+     55.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     47.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     45.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     42.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     40.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:10:56 ambient sample : 50.56%
+23:10:56   top consumers:
+     72.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     33.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     30.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     26.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     25.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:11:06 ambient sample : 32.40%
+23:11:06   top consumers:
+     49.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     19.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     17.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     15.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     13.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:11:17 ambient sample : 43.52%
+23:11:17   top consumers:
+     25.8 (mdworker_shared)
+     24.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     21.3 (mdworker_shared)
+     19.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     19.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:11:27 ambient sample : 44.72%
+23:11:27   top consumers:
+     58.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     54.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     41.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     36.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     34.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:11:38 ambient sample : 47.60%
+23:11:38   top consumers:
+     46.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     40.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     33.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     29.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     28.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:11:48 ambient sample : 46.70%
+23:11:48   top consumers:
+     74.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     45.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     44.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     39.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     18.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:11:58 ambient sample : 26.85%
+23:11:58   top consumers:
+     60.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     42.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     32.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     29.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     28.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:12:09 ambient sample : 50.73%
+23:12:09   top consumers:
+     54.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     42.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     34.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     31.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     30.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:12:19 ambient sample : 45.80%
+23:12:19   top consumers:
+     65.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     46.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     43.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     39.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     36.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:12:30 ambient sample : 40.33%
+23:12:30   top consumers:
+     62.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     32.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     30.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     27.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     23.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:12:40 ambient sample : 34.74%
+23:12:40   top consumers:
+     36.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     34.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     34.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     27.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     27.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:12:50 ambient sample : 47.64%
+23:12:50   top consumers:
+     52.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     49.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     39.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     36.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     31.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:13:01 ambient sample : 49.53%
+23:13:01   top consumers:
+     48.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     46.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     37.0 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     35.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     34.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:13:11 ambient sample : 27.50%
+23:13:11   top consumers:
+     51.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     41.9 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+     38.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     37.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     36.8 /Library/SystemExtensions/41DA133C-F2F2-4ABF-9EFD-9B63F5A6A293/com.malwarebytes.mbam.engine.sys.ext.systemextension/Contents/MacOS/com.malwarebytes.mbam.engine.sys.ext
+23:13:22 ambient sample : 49.13%
+23:13:22   top consumers:
+     63.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     45.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     43.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     42.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     34.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:13:32 ambient sample : 49.89%
+23:13:32   top consumers:
+     59.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     55.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     49.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     40.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     39.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:13:43 ambient sample : 48.18%
+23:13:43   top consumers:
+     59.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     40.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     33.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     32.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     32.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:13:53 ambient sample : 46.43%
+23:13:53   top consumers:
+     60.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     51.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     51.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     43.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     37.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:14:03 ambient sample : 55.03%
+23:14:03   top consumers:
+     67.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     49.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     48.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     37.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     35.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:14:14 ambient sample : 52.60%
+23:14:14   top consumers:
+     44.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     25.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     22.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     19.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     17.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:14:24 ambient sample : 48.69%
+23:14:24   top consumers:
+     61.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     41.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     38.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     36.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     32.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:14:35 ambient sample : 42.74%
+23:14:35   top consumers:
+      3.9 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.5 /usr/libexec/diskimagesiod
+      2.4 /usr/libexec/locationd
+      1.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      0.9 /usr/libexec/airportd
+23:14:45 ambient sample : 30.68%
+23:14:45   top consumers:
+     98.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     31.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     31.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     29.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     27.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:14:55 ambient sample : 43.31%
+23:14:55   top consumers:
+     30.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     29.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     29.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     24.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     20.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:15:06 ambient sample : 49.40%
+23:15:06   top consumers:
+     37.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     33.5 /private/var/folders/rz/v9dfcz3x1nxd4jfdm9l204l00000gn/X/D0746795-A33E-523A-A5E8-91436F252C7F/d/Wrapper/CARROTweather.app/PlugIns/notificationService.appex/notificationService
+     26.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     22.1 /usr/libexec/syspolicyd
+     18.4 /usr/libexec/biomesyncd
+23:15:16 ambient sample : 44.29%
+23:15:16   top consumers:
+     61.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     37.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     34.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     25.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     23.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:15:27 ambient sample : 49.05%
+23:15:27   top consumers:
+     86.7 /usr/libexec/biomesyncd
+     69.4 /private/var/folders/rz/v9dfcz3x1nxd4jfdm9l204l00000gn/X/D0746795-A33E-523A-A5E8-91436F252C7F/d/Wrapper/CARROTweather.app/PlugIns/WeatherWidgetKitExtension.appex/WeatherWidgetKitExtension
+     18.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     15.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     15.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:15:37 ambient sample : 36.49%
+23:15:37   top consumers:
+     52.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     52.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     52.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     33.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     17.3 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+23:15:37 ABORT: machine did not go quiet within 5 min
+23:17:38 quiet_bench.sh  build=/Users/wolfman/Development/corvus-main/build  expect=NEON  targets=1
+23:17:38 gate          : ambient < 8% over two consecutive 10s windows
+23:17:38 machine       : Apple M1; macOS 27.2.1
+23:17:48 ambient sample : 31.73%
+23:17:48   top consumers:
+     26.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     19.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     18.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     18.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     17.7 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+23:17:59 ambient sample : 20.11%
+23:17:59   top consumers:
+     22.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     19.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     16.9 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     10.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     10.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:18:09 ambient sample : 28.46%
+23:18:09   top consumers:
+     18.4 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     15.1 /System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+      8.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+      5.0 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      4.1 /usr/libexec/diskimagesiod
+23:18:20 ambient sample : 33.86%
+23:18:20   top consumers:
+     70.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     13.2 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     12.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     11.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     10.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:18:30 ambient sample : 28.23%
+23:18:30   top consumers:
+     70.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     23.2 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     16.4 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+     11.1 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+      9.3 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+23:18:40 ambient sample : 22.70%
+23:18:40   top consumers:
+     18.2 (mdworker_shared)
+     18.0 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+     17.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     14.1 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     13.7 (mdworker_shared)
+23:18:51 ambient sample : 43.32%
+23:18:51   top consumers:
+     24.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     24.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     23.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     23.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     18.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:19:01 ambient sample : 44.87%
+23:19:01   top consumers:
+     28.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     23.8 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     23.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     20.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     19.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:19:12 ambient sample : 51.41%
+23:19:12   top consumers:
+     51.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     37.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     37.1 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     35.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     32.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:19:22 ambient sample : 54.47%
+23:19:22   top consumers:
+     47.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     38.6 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     37.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     37.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     34.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:19:33 ambient sample : 45.05%
+23:19:33   top consumers:
+     26.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     23.8 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     15.6 /System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+     11.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     10.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:19:43 ambient sample : 40.65%
+23:19:43   top consumers:
+     30.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     28.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     26.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     24.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     21.5 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+23:19:54 ambient sample : 44.72%
+23:19:54   top consumers:
+     29.7 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     20.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     20.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     20.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     18.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+23:20:04 ambient sample : 29.17%
+23:20:04   top consumers:
+     28.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     18.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     18.4 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+     17.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     15.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:20:14 ambient sample : 45.21%
+23:20:14   top consumers:
+     63.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     31.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     29.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     28.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     22.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:20:25 ambient sample : 51.52%
+23:20:25   top consumers:
+     18.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     18.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     17.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     17.5 /System/Library/PrivateFrameworks/SoftwareUpdate.framework/Resources/SoftwareUpdateNotificationManager.app/Contents/MacOS/SoftwareUpdateNotificationManager
+     16.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+23:20:35 ambient sample : 48.66%
+23:20:35   top consumers:
+     41.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     24.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     22.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     22.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     21.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:20:46 ambient sample : 44.80%
+23:20:46   top consumers:
+     57.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     23.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     23.5 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     22.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     20.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:20:56 ambient sample : 50.19%
+23:20:56   top consumers:
+     50.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     37.2 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     29.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     26.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     23.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:21:07 ambient sample : 50.53%
+23:21:07   top consumers:
+     49.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     41.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     39.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     38.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     35.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:21:17 ambient sample : 48.28%
+23:21:17   top consumers:
+     47.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     28.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     19.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     17.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     17.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:21:27 ambient sample : 33.84%
+23:21:27   top consumers:
+     37.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     18.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     17.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     16.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     15.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:21:38 ambient sample : 42.74%
+23:21:38   top consumers:
+     20.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     19.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     18.3 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+     15.7 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     11.3 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+23:21:48 ambient sample : 43.06%
+23:21:48   top consumers:
+     28.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     27.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     25.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     23.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     19.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:21:59 ambient sample : 39.33%
+23:21:59   top consumers:
+     20.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     17.5 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      9.1 /System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+      5.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      4.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:22:09 ambient sample : 37.64%
+23:22:09   top consumers:
+     41.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     40.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     40.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     23.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     21.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:22:20 ambient sample : 41.53%
+23:22:20   top consumers:
+     29.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     24.6 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     22.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     20.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     16.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:22:30 ambient sample : 38.70%
+23:22:30   top consumers:
+     24.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     24.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     23.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     21.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     15.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+23:22:40 ambient sample : 40.90%
+23:22:40   top consumers:
+     51.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     31.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     26.2 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     24.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     23.0 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+23:22:41 ABORT: machine did not go quiet within 5 min
+23:24:41 quiet_bench.sh  build=/Users/wolfman/Development/corvus-main/build  expect=NEON  targets=1
+23:24:41 gate          : ambient < 8% over two consecutive 10s windows
+23:24:41 machine       : Apple M1; macOS 27.2.1
+23:24:52 ambient sample : 4.58%
+23:25:02 ambient sample : 4.59%
+23:25:02 gate passed at: 4.58 4.59%
+23:25:12 bench_span1: noise before 3.43%  top: 9.3%locationd 3.4%airportd 2.8%iPulse 
+23:25:13 bench_span1: rc=0 1s target=NEON
+23:25:13 done fail=0. Raw per-target output: /Users/wolfman/Development/corvus-main/build/quiet_bench/quiet_bench_<target>.txt
+23:27:39 quiet_bench.sh  build=/Users/wolfman/Development/corvus-main/build  expect=NEON  targets=1
+23:27:39 gate          : ambient < 8% over two consecutive 10s windows
+23:27:39 machine       : Apple M1; macOS 27.2.1
+23:27:50 ambient sample : 3.74%
+23:28:00 ambient sample : 10.10%
+23:28:00   top consumers:
+     24.3 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     16.6 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+     10.6 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     10.6 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+      8.2 /Users/wolfman/Applications/Grammarly Desktop.app/Contents/Frameworks/ProjectLlamaContent.framework/Versions/A/Frameworks/WebUI.framework/Versions/A/Helpers/Superhuman Web UI.app/Contents/MacOS/app_inkwell
+23:28:11 ambient sample : 15.80%
+23:28:11   top consumers:
+      8.1 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      4.1 /usr/libexec/locationd
+      4.0 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+      3.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.8 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+23:28:21 ambient sample : 3.43%
+23:28:31 ambient sample : 3.59%
+23:28:31 gate passed at: 3.43 3.59%
+23:28:42 bench_span1: noise before 3.27%  top: 6.8%launchd 4.0%com.apple.DriverKit-AppleBCMWLAN 1.9%bzserv 
+23:28:42 bench_span1: rc=0 0s target=NEON
+23:28:42 done fail=0. Raw per-target output: /Users/wolfman/Development/corvus-main/build/quiet_bench/quiet_bench_<target>.txt
+23:29:02 quiet_bench.sh  build=/Users/wolfman/Development/corvus-main/build  expect=NEON  targets=1
+23:29:02 gate          : ambient < 8% over two consecutive 10s windows
+23:29:03 machine       : Apple M1; macOS 27.2.1
+23:29:13 ambient sample : 25.34%
+23:29:13   top consumers:
+      2.2 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+      1.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.5 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.331/5cdc5c10ac5c/claude.app/Contents/MacOS/claude
+      1.3 /usr/libexec/locationd
+      1.1 /usr/libexec/diskimagesiod
+23:29:23 ambient sample : 3.85%
+23:29:34 ambient sample : 3.63%
+23:29:34 gate passed at: 3.85 3.63%
+23:29:44 bench_span1: noise before 3.65%  top: 5.0%locationd 2.8%com.apple.DriverKit-AppleBCMWLAN 2.0%diskimagesiod 
+23:29:44 bench_span1: rc=0 0s target=NEON
+23:29:44 done fail=0. Raw per-target output: /Users/wolfman/Development/corvus-main/build/quiet_bench/quiet_bench_<target>.txt
+00:49:08 quiet_bench.sh  build=/Users/wolfman/Development/corvus-main/build  expect=NEON  targets=1
+00:49:08 gate          : ambient < 8% over two consecutive 10s windows
+00:49:08 machine       : Apple M1; macOS 27.2.1
+00:49:19 ambient sample : 17.60%
+00:49:19   top consumers:
+     39.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.4 /System/Library/CoreServices/TimeMachine/backupd
+     12.4 /Applications/Claude.app/Contents/Frameworks/Claude Helper.app/Contents/MacOS/Claude Helper
+      7.9 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+      4.0 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+00:49:29 ambient sample : 25.77%
+00:49:29   top consumers:
+     24.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     23.8 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     20.1 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     13.3 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+      7.9 /System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+00:49:40 ambient sample : 40.13%
+00:49:40   top consumers:
+     94.8 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+     27.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     25.3 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     18.0 /Users/wolfman/Applications/Grammarly Desktop.app/Contents/Frameworks/ProjectLlamaContent.framework/Versions/A/Frameworks/WebUI.framework/Versions/A/Helpers/Superhuman Web UI.app/Contents/MacOS/app_inkwell
+     17.1 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+00:49:50 ambient sample : 31.15%
+00:49:50   top consumers:
+     44.8 /System/Library/CoreServices/TimeMachine/backupd
+     40.4 /Users/wolfman/Applications/Grammarly Desktop.app/Contents/Frameworks/ProjectLlamaContent.framework/Versions/A/Frameworks/WebUI.framework/Versions/A/Helpers/Superhuman Web UI.app/Contents/MacOS/app_inkwell
+     38.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     19.7 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     14.5 /Users/wolfman/Applications/Grammarly Desktop.app/Contents/MacOS/Grammarly Desktop
+00:50:01 ambient sample : 34.20%
+00:50:01   top consumers:
+     45.1 /System/Library/CoreServices/TimeMachine/backupd
+     25.6 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     24.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     20.0 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     16.2 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+00:50:11 ambient sample : 29.67%
+00:50:11   top consumers:
+     41.7 /System/Library/CoreServices/TimeMachine/backupd
+     29.2 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     22.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     19.8 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     18.5 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+00:50:22 ambient sample : 26.84%
+00:50:22   top consumers:
+     26.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     16.8 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+     15.2 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+     13.0 /System/Library/CoreServices/TimeMachine/backupd
+     12.2 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+00:50:32 ambient sample : 26.14%
+00:50:32   top consumers:
+     31.9 /System/Library/CoreServices/TimeMachine/backupd
+     28.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     14.9 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     11.2 /System/Library/ExtensionKit/Extensions/WallpaperAerialsExtension.appex/Contents/MacOS/WallpaperAerialsExtension
+     10.0 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+00:50:43 ambient sample : 27.88%
+00:50:43   top consumers:
+     40.6 /System/Library/CoreServices/TimeMachine/backupd
+     35.2 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     14.4 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     12.0 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+      6.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+00:50:53 ambient sample : 18.72%
+00:50:53   top consumers:
+     33.5 /System/Library/CoreServices/TimeMachine/backupd
+     22.0 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     18.9 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+     13.5 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     10.9 /System/Library/CoreServices/NotificationCenter.app/Contents/MacOS/NotificationCenter
+00:51:03 ambient sample : 17.65%
+00:51:03   top consumers:
+     29.1 /System/Library/CoreServices/TimeMachine/backupd
+     12.7 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     11.8 /System/Library/CoreServices/Siri.app/Contents/MacOS/Siri
+     11.3 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      9.4 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+00:51:14 ambient sample : 15.80%
+00:51:14   top consumers:
+     37.5 /System/Library/CoreServices/TimeMachine/backupd
+     22.0 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     15.7 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+     13.6 /usr/libexec/sandboxd
+     12.7 /usr/libexec/locationd
+00:51:24 ambient sample : 17.80%
+00:51:24   top consumers:
+     18.1 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     13.1 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+     12.0 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+     10.7 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      9.0 /System/Library/CoreServices/Dock.app/Contents/XPCServices/DockHelper.xpc/Contents/MacOS/DockHelper
+00:51:35 ambient sample : 16.57%
+00:51:35   top consumers:
+     14.9 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     11.2 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+      7.2 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+      6.6 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+      4.3 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+00:51:45 ambient sample : 15.65%
+00:51:45   top consumers:
+      6.4 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      5.8 /usr/libexec/locationd
+      4.4 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+      3.3 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+      2.6 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+00:51:56 ambient sample : 19.24%
+00:51:56   top consumers:
+     41.5 /System/Library/CoreServices/TimeMachine/backupd
+     13.6 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      9.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      4.0 /usr/libexec/diskimagesiod
+      3.9 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+00:52:06 ambient sample : 20.71%
+00:52:06   top consumers:
+     34.4 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     13.2 /System/Library/CoreServices/TimeMachine/backupd
+     13.1 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     12.0 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+      7.3 /usr/libexec/locationd
+00:52:17 ambient sample : 19.87%
+00:52:17   top consumers:
+     34.9 /System/Library/CoreServices/TimeMachine/backupd
+     32.2 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     13.3 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     12.4 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+      8.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+00:52:27 ambient sample : 17.54%
+00:52:27   top consumers:
+     19.1 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+     15.3 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     13.4 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      5.4 /System/Library/CoreServices/TimeMachine/backupd
+      5.1 /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSOAgent.app/Contents/MacOS/AppSSOAgent
+00:52:37 ambient sample : 18.10%
+00:52:38   top consumers:
+     18.4 /System/Library/PrivateFrameworks/SoftwareUpdate.framework/Resources/SoftwareUpdateNotificationManager.app/Contents/MacOS/SoftwareUpdateNotificationManager
+     10.9 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      9.1 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+      8.6 /System/Library/CoreServices/Siri.app/Contents/MacOS/Siri
+      6.9 /System/Library/CoreServices/NotificationCenter.app/Contents/MacOS/NotificationCenter
+00:52:48 ambient sample : 19.11%
+00:52:48   top consumers:
+     41.8 /System/Library/CoreServices/TimeMachine/backupd
+     24.0 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     11.4 /usr/libexec/locationd
+     11.1 /System/Library/PrivateFrameworks/SoftwareUpdate.framework/Resources/SoftwareUpdateNotificationManager.app/Contents/MacOS/SoftwareUpdateNotificationManager
+      9.9 /Users/wolfman/Applications/Grammarly Desktop.app/Contents/Frameworks/ProjectLlamaContent.framework/Versions/A/Frameworks/WebUI.framework/Versions/A/Helpers/Superhuman Web UI.app/Contents/MacOS/app_inkwell
+00:52:58 ambient sample : 16.73%
+00:52:58   top consumers:
+     19.3 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     15.5 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+     10.0 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      8.8 /System/Library/CoreServices/Dock.app/Contents/XPCServices/DockHelper.xpc/Contents/MacOS/DockHelper
+      5.5 /Users/wolfman/Applications/Grammarly Desktop.app/Contents/Frameworks/ProjectLlamaContent.framework/Versions/A/Frameworks/WebUI.framework/Versions/A/Helpers/Superhuman Web UI.app/Contents/MacOS/app_inkwell
+00:53:09 ambient sample : 19.50%
+00:53:09   top consumers:
+     19.3 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+     14.9 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     11.8 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+      6.6 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+      4.3 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+00:53:19 ambient sample : 20.88%
+00:53:19   top consumers:
+     50.0 /System/Library/CoreServices/TimeMachine/backupd
+      7.5 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      6.1 /usr/libexec/locationd
+      5.9 /usr/libexec/diskimagesiod
+      5.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+00:53:30 ambient sample : 19.08%
+00:53:30   top consumers:
+      6.6 /System/Library/CoreServices/TimeMachine/backupd
+      4.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      3.8 /usr/libexec/diskimagesiod
+      3.3 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      1.9 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+00:53:40 ambient sample : 21.25%
+00:53:40   top consumers:
+     81.7 /System/Library/CoreServices/TimeMachine/backupd
+      7.0 /usr/libexec/locationd
+      5.3 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+      5.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      3.3 /usr/libexec/airportd
+00:53:51 ambient sample : 20.45%
+00:53:51   top consumers:
+     52.9 /System/Library/CoreServices/TimeMachine/backupd
+     17.7 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+     15.1 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     14.3 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      8.8 /System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+00:54:01 ambient sample : 17.71%
+00:54:01   top consumers:
+     32.5 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     12.0 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      9.6 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+      9.0 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+      8.5 /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSOAgent.app/Contents/MacOS/AppSSOAgent
+00:54:11 ambient sample : 22.31%
+00:54:11   top consumers:
+     26.1 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     19.3 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+     12.2 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      8.6 /System/Library/CoreServices/TimeMachine/backupd
+      8.3 /System/Library/PrivateFrameworks/AppSSO.framework/Support/AppSSOAgent.app/Contents/MacOS/AppSSOAgent
+00:54:11 ABORT: machine did not go quiet within 5 min
+00:56:12 quiet_bench.sh  build=/Users/wolfman/Development/corvus-main/build  expect=NEON  targets=1
+00:56:12 gate          : ambient < 8% over two consecutive 10s windows
+00:56:12 machine       : Apple M1; macOS 27.2.1
+00:56:23 ambient sample : 15.69%
+00:56:23   top consumers:
+     20.4 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     16.8 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+     13.1 /System/Library/CoreServices/TimeMachine/backupd
+     11.2 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      9.8 /System/Library/CoreServices/Dock.app/Contents/XPCServices/DockHelper.xpc/Contents/MacOS/DockHelper
+00:56:33 ambient sample : 15.52%
+00:56:33   top consumers:
+     22.0 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     13.5 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+     10.8 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+      9.5 /System/Library/CoreServices/TimeMachine/backupd
+      8.1 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+00:56:43 ambient sample : 29.51%
+00:56:43   top consumers:
+    219.8 /System/Library/CoreServices/TimeMachine/backupd
+     30.4 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     13.4 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     12.4 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+      9.3 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+00:56:54 ambient sample : 16.43%
+00:56:54   top consumers:
+     15.4 /System/Library/CoreServices/TimeMachine/backupd
+     13.8 /System/Library/CoreServices/Siri.app/Contents/MacOS/Siri
+     13.6 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     11.8 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     11.8 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+00:57:04 ambient sample : 15.65%
+00:57:04   top consumers:
+     14.8 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     13.6 /System/Library/CoreServices/Siri.app/Contents/MacOS/Siri
+     12.2 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     11.5 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+     11.2 /System/Library/CoreServices/NotificationCenter.app/Contents/MacOS/NotificationCenter
+00:57:15 ambient sample : 14.73%
+00:57:15   top consumers:
+     25.6 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     11.4 /System/Library/PrivateFrameworks/SoftwareUpdate.framework/Resources/SoftwareUpdateNotificationManager.app/Contents/MacOS/SoftwareUpdateNotificationManager
+     10.2 /Users/wolfman/Applications/Grammarly Desktop.app/Contents/Frameworks/ProjectLlamaContent.framework/Versions/A/Frameworks/WebUI.framework/Versions/A/Helpers/Superhuman Web UI.app/Contents/MacOS/app_inkwell
+      9.6 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      5.7 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+00:57:25 ambient sample : 13.66%
+00:57:25   top consumers:
+     53.7 /System/Library/CoreServices/TimeMachine/backupd
+     18.1 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+     16.5 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     14.7 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+     11.6 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+00:57:36 ambient sample : 18.57%
+00:57:36   top consumers:
+     14.3 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     11.4 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+      7.2 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+      6.1 /System/Library/PrivateFrameworks/ExchangeSync.framework/Versions/Current/exchangesyncd
+      5.9 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+00:57:46 ambient sample : 14.60%
+00:57:46   top consumers:
+      9.0 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      7.0 /usr/libexec/locationd
+      6.6 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+      4.7 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      4.6 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+00:57:57 ambient sample : 16.76%
+00:57:57   top consumers:
+     38.3 /System/Library/CoreServices/TimeMachine/backupd
+      4.4 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+      4.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      2.8 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      2.1 /usr/libexec/locationd
+00:58:07 ambient sample : 15.69%
+00:58:07   top consumers:
+     11.4 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      4.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      3.4 /System/Library/CoreServices/TimeMachine/backupd
+      1.1 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+      1.0 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
+00:58:17 ambient sample : 15.85%
+00:58:17   top consumers:
+     18.8 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+     15.3 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     14.4 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+      7.6 /System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+      3.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+00:58:28 ambient sample : 16.18%
+00:58:28   top consumers:
+     20.9 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     16.8 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+     13.6 /System/Library/CoreServices/NotificationCenter.app/Contents/MacOS/NotificationCenter
+     12.6 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     11.5 /usr/libexec/sandboxd
+00:58:38 ambient sample : 13.36%
+00:58:38   top consumers:
+     23.4 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     11.6 /System/Library/PrivateFrameworks/SoftwareUpdate.framework/Resources/SoftwareUpdateNotificationManager.app/Contents/MacOS/SoftwareUpdateNotificationManager
+     10.8 /Users/wolfman/Applications/Grammarly Desktop.app/Contents/Frameworks/ProjectLlamaContent.framework/Versions/A/Frameworks/WebUI.framework/Versions/A/Helpers/Superhuman Web UI.app/Contents/MacOS/app_inkwell
+      9.9 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      9.4 /System/Library/CoreServices/TimeMachine/backupd
+00:58:49 ambient sample : 13.86%
+00:58:49   top consumers:
+     18.1 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+     16.5 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     11.8 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     10.7 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+      9.4 /System/Library/CoreServices/Dock.app/Contents/XPCServices/DockHelper.xpc/Contents/MacOS/DockHelper
+00:58:59 ambient sample : 16.48%
+00:58:59   top consumers:
+     23.1 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     14.4 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+     11.0 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+      8.9 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+      6.8 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+00:59:10 ambient sample : 14.78%
+00:59:10   top consumers:
+     20.3 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+     17.8 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     10.3 /System/Library/CoreServices/TimeMachine/backupd
+      8.7 /System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+      6.9 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+00:59:20 ambient sample : 14.16%
+00:59:20   top consumers:
+     35.6 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     14.3 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     11.4 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+      9.3 /usr/libexec/sandboxd
+      7.7 /usr/libexec/locationd
+00:59:31 ambient sample : 16.72%
+00:59:31   top consumers:
+     18.4 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     14.2 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+     13.0 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     12.9 /System/Library/CoreServices/NotificationCenter.app/Contents/MacOS/NotificationCenter
+     10.4 /System/Library/CoreServices/TimeMachine/backupd
+00:59:41 ambient sample : 13.79%
+00:59:41   top consumers:
+     30.3 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     11.2 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     10.9 /System/Library/PrivateFrameworks/SoftwareUpdate.framework/Resources/SoftwareUpdateNotificationManager.app/Contents/MacOS/SoftwareUpdateNotificationManager
+      9.5 /Users/wolfman/.hermes/tools/python-3.14.9+20261021-darwin-arm64/bin/python3
+      8.0 /Users/wolfman/Applications/Grammarly Desktop.app/Contents/Frameworks/ProjectLlamaContent.framework/Versions/A/Frameworks/WebUI.framework/Versions/A/Helpers/Superhuman Web UI.app/Contents/MacOS/app_inkwell
+00:59:51 ambient sample : 14.79%
+00:59:51   top consumers:
+     18.6 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+     11.8 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     11.6 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     10.7 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+      8.9 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+01:00:02 ambient sample : 16.05%
+01:00:02   top consumers:
+     23.0 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     18.7 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+     13.9 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+     12.4 /System/Library/CoreServices/TimeMachine/backupd
+     12.1 /usr/libexec/locationd
+01:00:12 ambient sample : 16.45%
+01:00:12   top consumers:
+     14.8 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     11.3 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+      9.0 /usr/libexec/locationd
+      7.4 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+      6.5 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+01:00:23 ambient sample : 14.42%
+01:00:23   top consumers:
+     11.7 /System/Library/CoreServices/TimeMachine/backupd
+      9.1 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      7.3 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      4.5 /usr/libexec/diskimagesiod
+      3.3 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+01:00:33 ambient sample : 16.42%
+01:00:33   top consumers:
+     22.3 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     15.7 /System/Applications/Siri AI.app/Contents/MacOS/Siri AI
+     13.4 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      8.8 /System/Library/CoreServices/CoreServicesUIAgent.app/Contents/MacOS/CoreServicesUIAgent
+      7.8 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+01:00:44 ambient sample : 13.50%
+01:00:44   top consumers:
+     22.9 /System/Library/CoreServices/CoreLocationAgent.app/Contents/MacOS/CoreLocationAgent
+     17.5 /System/Library/CoreServices/AccessibilityUIServer.app/Contents/MacOS/AccessibilityUIServer
+     13.0 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+     10.1 /usr/libexec/spotlightknowledged.updater
+      8.2 /System/Library/CoreServices/NotificationCenter.app/Contents/MacOS/NotificationCenter
+01:00:54 ambient sample : 18.12%
+01:00:54   top consumers:
+     15.7 /System/Library/PrivateFrameworks/WorkflowKit.framework/XPCServices/ShortcutsViewService.xpc/Contents/MacOS/ShortcutsViewService
+     15.6 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+     11.2 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      8.7 /System/Library/CoreServices/Dock.app/Contents/XPCServices/DockHelper.xpc/Contents/MacOS/DockHelper
+      7.2 /usr/libexec/locationd
+01:01:04 ambient sample : 18.17%
+01:01:04   top consumers:
+      9.4 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      8.6 /Users/wolfman/.hermes/tools/python-3.14.9+20261021-darwin-arm64/bin/python3
+      7.5 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+      5.1 /usr/libexec/locationd
+      5.1 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+01:01:15 ambient sample : 13.77%
+01:01:15   top consumers:
+      3.1 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/AXVisualSupportAgent.app/Contents/MacOS/AXVisualSupportAgent
+      3.0 /Applications/Bartender 7.app/Contents/MacOS/Bartender 7
+      1.5 /System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent
+      1.5 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      1.5 /System/Library/PrivateFrameworks/UniversalAccess.framework/Versions/A/Resources/universalAccessAuthWarn.app/Contents/MacOS/universalAccessAuthWarn
+01:01:15 ABORT: machine did not go quiet within 5 min
+01:03:15 quiet_bench.sh  build=/Users/wolfman/Development/corvus-main/build  expect=NEON  targets=1
+01:03:15 gate          : ambient < 8% over two consecutive 10s windows
+01:03:16 machine       : Apple M1; macOS 27.2.1
+01:03:26 ambient sample : 19.31%
+01:03:26   top consumers:
+     23.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+     16.4 /usr/libexec/sandboxd
+     16.3 /usr/libexec/locationd
+     11.2 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      9.1 /usr/libexec/diskimagesiod
+01:03:36 ambient sample : 12.19%
+01:03:36   top consumers:
+     16.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+     15.8 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+     12.9 /usr/libexec/diskimagesiod
+      6.6 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+      6.4 /usr/libexec/locationd
+01:03:47 ambient sample : 6.68%
+01:03:57 ambient sample : 4.28%
+01:03:57 gate passed at: 6.68 4.28%
+01:04:08 bench_span1: noise before 6.68%  top: 5.8%com.apple.DriverKit-AppleBCMWLAN 5.4%diskimagesiod 1.4%Application 
+01:04:08 bench_span1: rc=0 0s target=NEON
+01:04:08 done fail=0. Raw per-target output: /Users/wolfman/Development/corvus-main/build/quiet_bench/quiet_bench_<target>.txt
+01:07:27 quiet_bench.sh  build=/Users/wolfman/Development/corvus-main/build  expect=NEON  targets=1
+01:07:27 gate          : ambient < 8% over two consecutive 10s windows
+01:07:27 machine       : Apple M1; macOS 27.2.1
+01:07:37 ambient sample : 16.71%
+01:07:37   top consumers:
+     15.4 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+      4.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdsync
+      4.4 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+      4.3 /usr/libexec/locationd
+      1.4 /usr/libexec/diskimagesiod
+01:07:47 ambient sample : 5.10%
+01:07:58 ambient sample : 6.80%
+01:07:58 gate passed at: 5.10 6.80%
+01:08:08 bench_span1: noise before 6.35%  top: 16.8%mds 10.9%mdsync 9.8%locationd 
+01:08:08 bench_span1: rc=0 0s target=NEON
+01:08:08 done fail=0. Raw per-target output: /Users/wolfman/Development/corvus-main/build/quiet_bench/quiet_bench_<target>.txt
