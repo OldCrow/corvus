@@ -1,0 +1,21 @@
+date: 2026-11-27T00:45:07-05:00
+main tree  : c1d66402dbb4a468e2ba5e88ab499814516d7709  M tests/CMakeLists.txt;?? tests/bench_span1.cpp;
+branch tree: 653758c1b4ee8bbdbcac66f6d037bfabf724d63b (dev/v1.2.1) 
+0e50433d494d1c76ee309794da51035385cd494e7beee6f9cedc33b5459731b8  tests/bench_span1
+-rwxrwx--- 1 wolfman wolfman 398808 Nov 26 23:31 tests/bench_span1
+-rw-rw---- 1 wolfman wolfman 8558858 Nov 26 23:30 ./libcorvus.a
+f6240715c1f5cc05a19fb8f19eab639c0b0ba5cb7f18041944ffff35b05ce7ed  ./libcorvus.a
+CMAKE_BUILD_TYPE:STRING=Release
+CMAKE_CXX_COMPILER:FILEPATH=/usr/bin/clang++-18
+CORVUS_DISABLED_TARGETS:STRING=
+d6e42db2ab28ea3ca5619219d659ab1cb0a384d73ddb9355a62f0b49190cd4af  tests/bench_span1
+-rwxrwx--- 1 wolfman wolfman 419688 Nov 26 23:13 tests/bench_span1
+-rw-rw---- 1 wolfman wolfman 8706130 Nov 26 23:13 ./libcorvus.a
+b6c67c37b85a8c4d2f05410a44b52d58e5587f3810d7d4b2189f85fd3f602642  ./libcorvus.a
+CMAKE_BUILD_TYPE:STRING=Release
+CMAKE_CXX_COMPILER:FILEPATH=/usr/bin/clang++-18
+CORVUS_DISABLED_TARGETS:STRING=
+governor: schedutil
+no_turbo: 0
+on AC   : 1
+Linux 7.0.0-44-generic x86_64

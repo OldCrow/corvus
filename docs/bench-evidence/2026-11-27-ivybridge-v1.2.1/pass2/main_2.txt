@@ -1,0 +1,16 @@
+warm: cpu2 at 3687188 kHz before exec
+corvus active SIMD target: SSE4
+ns per value                     batch     array     local
+erfinv  [-0.5, 0.5]               37.1      80.4      82.6
+erfinv  [-0.999, 0.999]           80.8     119.7     122.1
+erfcinv [0.5, 1.5]                38.6      83.7      85.8
+erfcinv (0, 2) (probit)           82.8     123.2     125.5
+erf     [-3, 3]                    7.5      22.1      28.0
+lgamma  [1, 21]                   60.5      89.8      91.9
+exp     [-20, 20]                  7.4      20.5      22.3
+
+ns per CALL, span in place         n=1       n=2       n=3       n=4       n=7
+erfinv  [-0.5, 0.5]               90.5      91.4     172.4     165.0     312.7
+erfcinv (0, 2) (probit)          134.3     190.9     305.3     354.3     632.3
+erf     [-3, 3]                   30.5      36.1      52.6      49.3      95.8
+exp     [-20, 20]                 26.3      28.0      61.8      42.3      81.4
