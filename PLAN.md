@@ -51,9 +51,9 @@ to `main` as `148bb64`.
 v1.2.0 closed. corvus has nothing owed for v1.2.0.
 **Next:** libstats' and libhmm's PLAN.md carry the bump note
 (Cross-machine handshakes below); each library picks up its bump in its
-own session. corvus's next work is v1.2.1 (a length-1 fast path in the
-span drivers), then milestone v1.3.0 (#110, #111, #22, #97); both under
-"Milestones re-cut 2026-11-26" below.
+own session. corvus's next work is v1.2.1 (one value through the span
+API; draft PR #117), then milestone v1.3.0 (#110, #111, #22, #97); both
+under "Milestones re-cut 2026-11-26" below.
 **Fourth machine, Ivy Bridge [DERIVED 2026-11-11]** (MacBook Pro 9,1,
 i7-3820QM, Linux Mint 22.3, glibc 2.39; #101 holds the indicative GCC
 pass, #100 the `quiet_bench.sh` Linux bugs it found):
@@ -94,7 +94,9 @@ pass, #100 the `quiet_bench.sh` Linux bugs it found):
 - [OPEN] The Dekker pre-split is unfiled; file it only if a consumer
   reports pre-Haswell hardware.
 - [OPEN] Housekeeping: remove the `../corvus-c1` and `../corvus-c3`
-  worktrees on Kaby Lake and the M1 (A trees of the C1/C3 A/Bs).
+  worktrees on Kaby Lake (A trees of the C1/C3 A/Bs). M1: already gone
+  (checked 2026-11-27); its `../corvus-main` v1.2.1 worktree goes once
+  the M line here is committed.
 
 **Release-note inputs for v1.2.0 [DERIVED]** (row D):
 - New exports: span `expm1` and `log1pmx`, correctly rounded (#45).
@@ -180,39 +182,276 @@ milestone with their trigger stated on the issue.
 paths and ISA tuning", performance only: #110, #111, #22 and #97. #19
 moves to v1.4.0 ("von Mises complement"), a new export with its own
 unfreeze. The off-milestone list above is unchanged.
-- **v1.2.1 is planned [DECIDED, user, 2026-11-26]: a length-1 fast path
-  in the span drivers.** Scope: `DriveUnary`, `DriveBinary` and
-  `DriveTernary` broadcast a single value and store one lane instead of
-  running the masked tail; a test per family that a length-1 span
-  matches the same value inside a long span bit for bit; a line in
-  PERFORMANCE.md. No result moves and the API is unchanged, so it is a
-  patch (VERSIONING.md). Nothing else goes in.
-- **Why [DERIVED, Z, 2026-11-26, indicative: machine in use].** Branch
-  `exp/narrow-lane-scalar` (`23398fa`, not for merge) ran the shipped
-  `erfcinv` kernel at 1 lane, 2 lanes and full width on AVX3_ZEN4:
-  bit-identical over about 4.0 million points, and narrower lanes gain
-  little (25 against 29 ns central). The cost is the span tail: a
-  length-1 span reads 65 ns central against 29 for the value broadcast,
-  about 33 ns per call in every region, and a length-1 fast path in a
-  replica of the driver removes it (31 ns). `LoadNOr` alone and
-  `StoreN` alone cost nothing; the mechanism is not found. Figures and
-  caveats are on #110.
-- **Not measured on any other tier [OPEN].** The overhead may be
-  specific to AVX-512 masked operations. A quiet run of
-  `exp_narrow_lane_erfcinv` on K, M or I would say; elsewhere the fast
-  path is one branch.
+- **v1.2.1 is in review [DECIDED, user, 2026-11-26]: one value through
+  the span API.** Draft PR #117, branch `dev/v1.2.1`. No result moves
+  and the API is unchanged, so it is a patch (VERSIONING.md). Five
+  changes, each found by measuring through the shipped library; CI is
+  green on `653758c` (Linux, Windows, macOS):
+  1. A span of one element skips the tail (`src/driver-inl.h`).
+  2. The dispatched `Impl` functions take pointers and one length, not
+     `std::span` by value (all 27).
+  3. `ErfcinvVec`'s special-value selects sit behind a branch.
+  4. `Log1pVec`'s likewise: its band read 3.2x slower with the image's
+     pages unmapped (15.8 against 4.9 ns per value).
+  5. The tail of 2 to N-1 elements is assembled in registers, with no
+     masked load or store: a 2-element `erfinv` span cost 62 ns against
+     31 for one element, and now costs 34. corvus is a public library,
+     so a short span is an ordinary call whether or not libstats makes
+     it [user, 2026-11-26].
+- **What was wrong [DERIVED, Z, 2026-11-26, indicative: machine in
+  use].** Two loads that could not be forwarded from the stores they
+  overlap made each one-value call wait for the one before it: the
+  masked tail's load from a slot the caller had just written, and the
+  wrappers' 16-byte copy of a `std::span` (the Windows x64 convention).
+  Either alone leaves the call at the kernel's latency. Separately,
+  `erfcinv`'s unconditional selects compile to merge-masked loads of
+  their constants; with an all-false mask the load never maps its page
+  and costs about 90 ns a vector while it is unmapped, which every
+  library-only link hit. Library-only bench, `main` against the branch,
+  ns per one-value call: `erfcinv` central 131 -> 30, probit shape
+  164 -> 69, `erfinv` central 65 -> 29; `erfcinv` central batch 14.6 ->
+  3.4 per element.
+- **This replaces two earlier notes here, both wrong.** The first said
+  a length-1 fast path alone saved 33 ns: an experiment
+  (`exp/narrow-lane-scalar`) measured that in a test program with its
+  own kernel copy and raw pointers, and the library did not reproduce
+  it. Before that, a note proposed a branchy scalar path on the premise
+  that a one-value call ran every region; the driver has padded a short
+  span with its live element since #42. The rules this produced are in
+  `docs/NUMERICAL-DOCTRINE.md` (Kernel construction),
+  `docs/PERFORMANCE.md` §6 and, as a proposed fleet standard,
+  OldCrow/standards `PERFORMANCE-MEASUREMENT.md`.
+- **Validated so far.** Z, clang-cl 22.1.3: ctest 40/40 on AVX3_ZEN4; the
+  capped sweep on AVX2, SSE4, SSSE3 and SSE2. Guards:
+  `tests/test_span1.cpp` (27 span functions; every span length from 1
+  to 9, at every offset, equals the same values in a long span, bit for
+  bit; also on the AVX2 cap) and
+  `tests/test_masked_const.cpp` (Windows: a band reads the same with
+  the image's pages trimmed and mapped; 4.0x on `main`, 1.00x on the
+  branch; central and three tail bands). `tests/bench_cold.cpp` runs
+  the same method over 41 bands of every span function; it found
+  `log1p` and flags nothing on the branch.
+- **Before the tag [OPEN].**
+  - The fleet legs below, on K, M and I.
+  - Z's quiet run is done [DERIVED, 2026-11-26]: `bench_span1` and
+    `bench_cold`, `main` against the branch, on PR #117 as `64629ed`
+    (`docs/bench-evidence/2026-11-26-zen4-v1.2.1/`). It confirms the
+    indicative figures within about 1 ns; PERFORMANCE.md §6 cites it.
+  - Before merging #117: the comments in `src/driver-inl.h` and
+    `src/erfinv-inl.h` marked their figures "indicative" (`log-inl.h`
+    never did). Corrected in the one-element-tail commit (M line
+    below), which is the code change they were waiting for.
+  - **Re-gate `0dfe170`** (the one-element tail; the legs validated
+    `653758c`, and the driver is compiled per tier). No re-bench
+    anywhere: the only new path is a one-element tail, measured with
+    this exact diff on both 2-lane machines, and no K or Z cell meets
+    one (n = 5 or 9 on four lanes, 9 on eight); every other path is
+    byte-identical to what they timed.
+    - **K: DONE 2026-11-27 at `6940de9`** (which contains `0dfe170`),
+      AppleClang 15.0.0, on PR #117 as `5b74282`
+      (`.../2026-11-26-kaby-v1.2.1/regate-0dfe170/`). Each build from
+      clean with `CORVUS_WERROR=ON` and no warning: 40/40 on AVX2 native
+      and on SSE4, SSSE3 and SSE2 capped, each tier-asserted; `span1`
+      PASS on all 27 functions on each. No bench, as directed.
+    - **Z: DONE 2026-11-27 at `6940de9`** (which contains `0dfe170`),
+      clang-cl 22.1.3. AVX3_ZEN4 native with `CORVUS_WERROR=ON`: a full
+      rebuild with no warning, 40/40 tier-asserted, `span1` PASS on all
+      27, `masked_const` PASS on its five bands (ratios 0.97 to 1.01).
+      `tools/sweep_tiers.ps1`: AVX2, SSE4, SSSE3 and SSE2 all pass,
+      each tier-asserted on every gate run, `span1` PASS and
+      `masked_const` at 1.00 on each. No bench, as directed.
+    - I: done (pass 3 gated the identical diff on SSE4 native; its
+      SSSE3/SSE2 caps are CI's Linux sweep). M: done (40/40 NEON).
+    - CI on the push: green at `6940de9` (Linux sweep, Windows MSVC +
+      clang-cl, macOS NEON, pre-commit), read 2026-11-27.
+    Every machine's re-gate is in. What is left before the tag is the
+    line below.
+  - Version, release notes, RELEASING.md.
+- **v1.2.1 fleet legs [OPEN; one per machine: K (AVX2, macOS), M (NEON,
+  macOS), I (SSE4, Linux)].** Session-start check first (AGENTS.md).
+  Report in the status line below; commit and push only when the user
+  asks.
+  1. **Gate, native.** `git fetch && git switch dev/v1.2.1` (head
+     `653758c` or later). Release build, then
+     `CORVUS_EXPECT_TARGET=<tier> ctest --test-dir build
+     --output-on-failure`: 40 of 40, with the tier printed. Two of the
+     40 are new: `span1` must print PASS for all 27 functions;
+     `masked_const` prints "not run: Windows only" and passes.
+  2. **Gate, capped.** The capped sweep for every tier below the native
+     one, as for v1.2.0 (docs/ENVIRONMENT.md).
+  3. **Bench, quiet, before and after.** This answers an open question:
+     whether Linux and macOS gain anything. Build `main` in a second
+     checkout (`git worktree add ../corvus-main main`), copy
+     `tests/bench_span1.cpp` into it and add
+     `add_executable(bench_span1 bench_span1.cpp)` and
+     `corvus_test_target(bench_span1)` to its `tests/CMakeLists.txt`.
+     Then on a quiet machine, alternating, three times each:
+     `tools/quiet_bench.sh -b <build> -t <tier> bench_span1`. Report
+     the `local` column and the short-span table (n = 1, 2, 3, 4, 7)
+     for both trees. Never compare by swapping files in one tree
+     (OldCrow/standards, PERFORMANCE-MEASUREMENT.md, rule 2).
+  4. **Not asked:** `bench_cold`. It runs on Windows only. Whether the
+     unmapped-page cost exists on Linux or macOS needs a method for
+     unmapping image pages there, which nobody has written.
+  - K: DONE 2026-11-26 at `653758c`, on PR #117 as `ba23fac` and
+    `02944a2` (`docs/bench-evidence/2026-11-26-kaby-v1.2.1/`). Gates:
+    40/40 on AVX2 native and on SSE4, SSSE3 and SSE2 capped, each
+    tier-asserted, `CORVUS_WERROR=ON`, 0 warnings; `span1` PASS on all
+    four. Bench, six runs gated at 2.7–4.5% with the user's background
+    processes stopped around each, median of three, `main` -> branch:
+    `local` 0.57x (`erf`) to 0.94x (`erfinv` central); short spans 0.64x
+    to 0.98x. So macOS on AVX2 gains; which change does it is not
+    separated. `main`'s runs spread up to 1.21x on short-span cells, so
+    a ratio within about 10% of 1 is not established.
+    - One cell is slower: `erfinv` central at n = 7, 111.7 -> 118.2 ns
+      per call. An on/off build shows the register-assembled tail
+      (change 5) costs it about 6.5 ns when the tail follows a full
+      vector, and `exp` 2.5 ns; the same tail gains 5 ns on `erf` and 42
+      to 47 ns on `erfcinv` there, and 7 to 36 ns on all four at n = 2
+      and 3. [DECIDED, user, 2026-11-27] Accepted as recorded; the
+      driver is unchanged for v1.2.1.
+    - [DERIVED, K, 2026-11-27; `.../2026-11-26-kaby-v1.2.1/n7/`, on PR
+      #117 as `a954181`]
+      The sign does not differ by kernel: with the layout matched the
+      register tail is 2 to 8 ns slower at n = 7 on all four kernels and
+      6 to 12 ns faster at n = 2 and 3. `bench_span1` read `erf` and
+      `erfcinv` the other way because of a CPU effect, shown by a
+      standalone program: on this Kaby Lake (microcode 0xF8) a load that
+      follows an AVX2 gather and touches page offset 0x7c0..0x7cf is
+      delayed. Where the linker puts the kernels' 8-byte literals decides
+      whether a gather kernel pays 10 to 30 ns per call; a 64-byte shift
+      turns it on or off, and the rule predicts 64 of 64 positions.
+      `main`'s bench binary had a shared literal there and the branch's
+      did not, so K's `local` ratios for the gather kernels are
+      overstated: layout-matched they are 0.84x (`erf`) to 1.01x
+      (`erfinv` central), not 0.57x to 0.94x. Still a gain.
+    - [OPEN, from the above] (1) Run `n7/gather_alias2.cpp` on Z and any
+      other AVX2 machine: is there a window, and where. (2) Which Kaby
+      Lake figures in docs/PERFORMANCE.md were taken with a literal in
+      the window. (3) A remedy is not designed: constants loaded from a
+      table whose alignment corvus controls, or #22's non-gather
+      variant. (4) `bench_span1`'s "write n values" loop compiles to a
+      `memcpy` call on AppleClang, so its short-span table does not
+      measure 8-byte stores. (5) The full-vector load still waits for the
+      caller's stores at n >= N (about 30 ns on `erfinv`); v1.2.1 fixes
+      only the tail. None of these blocks v1.2.1; all are v1.3.0
+      candidates for the user to file or drop.
+    - For the hold on M's one-element-tail diff: K's result is in. The
+      n = 7 cost is the register tail's own work (on AVX2 a blend loop
+      and a `memcpy` call) and K found no reason to change the 2-to-3
+      element tail. K did not build M's diff or measure a one-element
+      tail (n = 5 or 9 on AVX2). M's guess that the blend chain and the
+      copy loop explain the sign by kernel is not what K found: there is
+      no sign difference once the layout is matched.
+    - The plan's `git worktree add ../corvus-main main` fails where
+      `main` is already checked out; a detached worktree of
+      `origin/main` works.
+  - I: DONE 2026-11-27 at `653758c`, on PR #117 as `954f852`
+    (`docs/bench-evidence/2026-11-27-ivybridge-v1.2.1/`). Gates: 40/40
+    on SSE4 native and on SSSE3 and SSE2 capped, each tier-asserted,
+    clang 18.1.3, `CORVUS_WERROR=ON`, 0 warnings; `span1` PASS on all
+    three. Bench, two passes, every run gated at 0 to 4%; pass 2 quoted
+    (each bench pinned to one core warmed for 2 s, eight alternations),
+    median, `main` -> branch: `local` 0.89x (`erf`) to 0.98x (`erfinv`);
+    n = 1 calls 0.89x to 0.95x; n = 2 to 7 0.96x to 1.03x. So Linux on
+    SSE4 gains a little at one value and about nothing on a longer
+    span; which change does it is not separated.
+    - Three cells are slower, by 1.1 to 1.7 ns per call: `erfinv`
+      central at n = 3 (172.4 -> 173.9) and `erf` at n = 3 (52.0 ->
+      53.7) in all eight pairs, `erf` at n = 7 (76.2 -> 77.3) in six.
+      K's slower cell, `erfinv` central at n = 7, is level here (312.7
+      -> 312.8).
+    - They are the one-element tail, and M's saved diff removes the
+      cost [DERIVED, I, 2026-11-27; `pass3/`, on PR #117 as `80da7e3`].
+      Four trees, eight alternating processes each, pinned and warmed,
+      gated at 0 to 3%, `main` / branch / branch with K's masked tail /
+      branch with M's diff: `erfinv` central n = 3 172.4 / 173.9 /
+      172.4 / 172.2; `erf` n = 3 52.0 / 53.8 / 51.8 / 52.2; `erf` n = 7
+      76.2 / 77.3 / 74.7 / 75.5; `exp` n = 7 76.0 / 78.2 / 74.4 / 74.9.
+      n = 1, 2 and 4 and the long table read the same on the branch and
+      both experiment trees (within 0.6 ns). The patched tree gates
+      40/40 on SSE4, `span1` PASS. So the two 2-lane legs agree on the
+      defect and the fix. The masked one-element tail is no slower on
+      SSE4: 0.5 to 0.8 ns under M's diff on `erf` and `exp` at n = 7.
+      Nothing here bears on K's n = 7 cell. Whether M's diff goes on
+      the branch stays with the user [OPEN], as on the M line.
+    - Pass 1 (the plan's protocol, three alternations) read its first
+      band slow on both trees (batch 51 to 57 ns against 37): under
+      `schedutil` the bench starts on a core still coming up from idle.
+      Warming the core first removes it. A quiet Linux run of a bench
+      this short needs that warm-up.
+    - `erf` and `exp` short-span cells read at two levels from process
+      to process on both trees (`main` `erf` n = 7: 76.2, and 95.8 and
+      84.8 in two of eight). Cause not known; a lead for #97.
+  - M: DONE 2026-11-26/27 at `653758c` (evidence
+    `docs/bench-evidence/2026-11-26-m1-v1.2.1/` and
+    `2026-11-27-m1-v1.2.1-tail1/`, on the M1, not yet committed).
+    Gate: 40/40 NEON-asserted, `span1` PASS on all 27, `masked_const`
+    not run (Windows only); no tier below NEON to cap on arm64. Bench:
+    `bench_span1`, `main` `c1d6640` in a worktree against the branch,
+    three quiet passes each in 35 min with the user's indexing, media
+    and sync processes suspended (libstats' SIGSTOP method, approved by
+    the user; gates 3.2–3.8%). Medians of three: (a) the serialisation
+    is absent here — on `main` the `local` column is within 2–8% of
+    `array` on every band, where Zen 4 read 2x; (b) a span of one costs
+    4–10% less per call (erf/exp −1.1 ns, erfinv −1.8, probit −2.3),
+    `local` erf/exp 9.7/9.5 → 8.4/8.3, erfcinv central 30.0 → 28.1,
+    probit 59.5 → 56.0, lgamma 41.5 → 40.3; (c) erfcinv central batch
+    12.6 → 11.1 (change 3, the selects behind a branch); (d) the
+    register-built tail costs +1.5–2.3 ns per call on erf/exp at n = 3
+    and 7 (+6–9%, repeatable to 0.1 ns), noise on the inverses. On
+    NEON that tail is always ONE element (every odd length), a case
+    K's n = 2, 3 and 7 cells never meet (their tails are 2–3 elements;
+    a 1-element tail there is n = 5 or 9, unmeasured). Second sitting,
+    00:49–01:10: `StoreTail` with m = 1 writes `GetLane(v)`, so a
+    trailing single element takes the length-1 path; gate 40/40,
+    `span1` PASS; the cost is gone (erf n = 3: `main` 18.8, branch
+    20.3, patched 19.1; exp n = 7: 29.8 / 31.5 / 29.5; the inverses
+    0.4–3.9 ns under `main`), n = 1, 2, 4 and the long table unchanged
+    within noise. Eight lines in `src/driver-inl.h`, uncommitted on the
+    M1 (diff beside the evidence). It changes no cell K or Z measured
+    and does not touch the 2–3-element tail the 2026-11-27 decision
+    kept, but it IS a driver change after "the driver is unchanged for
+    v1.2.1". **[DECIDED, user, 2026-11-27] Adopted for v1.2.1.** I
+    reproduced the three slower cells as this case and measured the
+    identical diff level with `main` on SSE4 (I line above); K found no
+    sign by kernel once the layout was matched and no reason to change
+    the 2–3-element tail (K line above), so M's earlier guess that the
+    blend chain and copy loop explained K's sign is withdrawn — they
+    are the register tail's cost, the sign was layout. The commit on
+    `dev/v1.2.1` (`StoreTail` m = 1 through `GetLane`, eight lines, plus
+    the "indicative" comment corrections in `src/driver-inl.h` and
+    `src/erfinv-inl.h` quoting Z's quiet run) is `0dfe170` on PR #117;
+    gated 40/40 NEON, `span1` PASS. What it owes is the "Re-gate
+    `0dfe170`" item under "Before the tag" above (K and Z; no
+    re-bench). The 2–3-element tail after a full vector (K's
+    n = 7, 2–8 ns) is the v1.3.0 tail design, with K's items 1–5.
+    Caveat on M's short-span table (K's item 4): AppleClang compiled
+    the bench's write loop to `memcpy`, so n >= 2 cells on M and K did
+    not write separate 8-byte stores; I's pass 3 is the clean reading
+    and agrees. erfinv's two batch cells read in modes (§5); not
+    settled by three passes.
+- **Not known [OPEN].** Which change produces the gain off Windows.
+  All three Unix legs gain a little at one value (K, I, M above) and
+  none separates the five changes; on NEON the `local`/`array` ratio on
+  `main` shows the serialisation never existed there. The
+  System V convention passes a span in registers, and the masked-load
+  cost is shown only on Zen 4 under Windows, its mechanism inferred
+  from on/off experiments. About 1,400 loads of the same shape remain
+  in the AVX3_ZEN4 functions; `ErfcinvVec` and `Log1pVec` are changed.
+  A clean survey says only that this link exposes no such constant, so
+  a static count of these loads per kernel is still owed (v1.3.0). #97 has
+  both leads, neither tested against its evidence.
 - **libstats v3.0.0 pins v1.2.1** [DECIDED, user]: it stays on the v1.2
-  line. The patch should be tagged before libstats' correctness leg
-  that follows its pool fix, so the new pin rides along; a sweep with
-  no row moved is the per-tier proof of bit-identity. This removes most
-  of libstats' Gaussian and LogNormal scalar-quantile regression on Zen
-  4 (OldCrow/libstats#156) [estimate, not measured in libstats].
-- **#110 stays on v1.3.0** as the scalar entry points' API. With the
-  fast path they cost what a length-1 span costs, so what is left is a
-  uniform surface, not speed. An earlier note here proposed a branchy
-  scalar path; it rested on a wrong premise, since the driver has
-  padded a short span with its live element since #42 and a one-value
-  call already runs one region.
+  line. Tag before libstats' correctness leg that follows its pool fix,
+  so the new pin rides along; a sweep with no row moved is the per-tier
+  proof that no result changed. libstats' scalar Gaussian and LogNormal
+  quantiles are one `erfcinv` call each (72 -> 106 ns on Z when it
+  adopted corvus, OldCrow/libstats#156); the effect there is not yet
+  measured.
+- **#110 stays on v1.3.0** as the scalar entry points' API. After
+  v1.2.1 a length-1 span costs what a broadcast costs, so what is left
+  is a uniform surface, not speed.
 - #112 closed 2026-11-26 (`b8c401f`): the Windows runner paired MSVC
   19.52, whose standard library requires Clang 22, with a standalone
   LLVM 20.1.8. The clang-cl job now uses Visual Studio's bundled
@@ -357,7 +596,8 @@ REPORT.md). Rerun takes about a minute.
 - #110 scalar code paths for the span-only functions (v1.3.0; libstats
   calls twelve of them one value at a time).
 - #111 `lbeta` and `LgammaDiffDd` cost on the non-FMA tier (v1.3.0;
-  three questions, no design).- #100 `quiet_bench.sh` on Linux (ps listing, shebang, machine line);
+  three questions, no design).
+- #100 `quiet_bench.sh` on Linux (ps listing, shebang, machine line);
   `tools/` only, no release needed. [DERIVED 2026-11-11] Fixed and tested
   on the Mint machine (failing gate lists five consumers, target lines
   carry `top:`, machine line names CPU and distribution, runs as
