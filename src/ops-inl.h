@@ -82,6 +82,10 @@ namespace hn = hwy::HWY_NAMESPACE;
 
 template <typename T>
 using ScalableTag = hn::ScalableTag<T>;
+// EXPERIMENT (#110): a tag of at most N lanes within the active target, for
+// timing the kernels at fewer lanes than the target's full vector.
+template <typename T, size_t N>
+using CappedTag = hn::CappedTag<T, N>;
 template <class D>
 using SignedTag = hn::RebindToSigned<D>;
 template <class D>

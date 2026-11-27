@@ -161,6 +161,10 @@ add_test(NAME erfinv_ulp
 
 add_executable(bench_erfinv bench_erfinv.cpp)
 corvus_test_target(bench_erfinv)
+
+# EXPERIMENT (#110): the erfcinv kernel at one and two lanes. Not a gate.
+add_executable(exp_narrow_lane_erfcinv exp_narrow_lane_erfcinv.cpp)
+corvus_kernel_test_target(exp_narrow_lane_erfcinv)
 # Deliberately not registered with ctest: run manually on a quiet machine.
 
 add_executable(test_gamma test_gamma.cpp)
