@@ -182,12 +182,20 @@ moves to v1.4.0 ("von Mises complement"), a new export with its own
 unfreeze. The off-milestone list above is unchanged.
 - **v1.2.1 is in review [DECIDED, user, 2026-11-26]: one value through
   the span API.** Draft PR #117, branch `dev/v1.2.1`. No result moves
-  and the API is unchanged, so it is a patch (VERSIONING.md). Three
-  changes, each found by measuring through the shipped library:
-  1. A span of one element skips the masked tail (`src/driver-inl.h`).
+  and the API is unchanged, so it is a patch (VERSIONING.md). Five
+  changes, each found by measuring through the shipped library; CI is
+  green on `653758c` (Linux, Windows, macOS):
+  1. A span of one element skips the tail (`src/driver-inl.h`).
   2. The dispatched `Impl` functions take pointers and one length, not
      `std::span` by value (all 27).
   3. `ErfcinvVec`'s special-value selects sit behind a branch.
+  4. `Log1pVec`'s likewise: its band read 3.2x slower with the image's
+     pages unmapped (15.8 against 4.9 ns per value).
+  5. The tail of 2 to N-1 elements is assembled in registers, with no
+     masked load or store: a 2-element `erfinv` span cost 62 ns against
+     31 for one element, and now costs 34. corvus is a public library,
+     so a short span is an ordinary call whether or not libstats makes
+     it [user, 2026-11-26].
 - **What was wrong [DERIVED, Z, 2026-11-26, indicative: machine in
   use].** Two loads that could not be forwarded from the stores they
   overlap made each one-value call wait for the one before it: the
@@ -213,11 +221,14 @@ unfreeze. The off-milestone list above is unchanged.
   OldCrow/standards `PERFORMANCE-MEASUREMENT.md`.
 - **Validated so far.** Z, clang-cl 22.1.3: ctest 40/40 on AVX3_ZEN4; the
   capped sweep on AVX2, SSE4, SSSE3 and SSE2. Guards:
-  `tests/test_span1.cpp` (27 span functions, a value alone equals the
-  same value in a long span, bit for bit) and
+  `tests/test_span1.cpp` (27 span functions; every span length from 1
+  to 9, at every offset, equals the same values in a long span, bit for
+  bit; also on the AVX2 cap) and
   `tests/test_masked_const.cpp` (Windows: a band reads the same with
   the image's pages trimmed and mapped; 4.0x on `main`, 1.00x on the
-  branch; central and three tail bands).
+  branch; central and three tail bands). `tests/bench_cold.cpp` runs
+  the same method over 41 bands of every span function; it found
+  `log1p` and flags nothing on the branch.
 - **Before the tag [OPEN].**
   - Native gates on K, M and I (accuracy claims are per tier).
   - A quiet run of `tests/bench_span1.cpp` on Z; PERFORMANCE.md §6
@@ -227,7 +238,9 @@ unfreeze. The off-milestone list above is unchanged.
   System V convention passes a span in registers, and the masked-load
   cost is shown only on Zen 4 under Windows, its mechanism inferred
   from on/off experiments. About 1,400 loads of the same shape remain
-  in the AVX3_ZEN4 functions; only `ErfcinvVec` is changed. #97 has
+  in the AVX3_ZEN4 functions; `ErfcinvVec` and `Log1pVec` are changed.
+  A clean survey says only that this link exposes no such constant, so
+  a static count of these loads per kernel is still owed (v1.3.0). #97 has
   both leads, neither tested against its evidence.
 - **libstats v3.0.0 pins v1.2.1** [DECIDED, user]: it stays on the v1.2
   line. Tag before libstats' correctness leg that follows its pool fix,
