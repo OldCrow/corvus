@@ -393,12 +393,13 @@ HWY_NOINLINE op::V<D> ErfcinvVec(D d, op::V<D> z) {
   // selects, the compiler folds each constant into a merge-masked load from
   // memory (vbroadcastsd mem, zmm{k}). With an all-false mask that load reads
   // nothing, so it never maps its page; and while the page is unmapped, each
-  // execution takes a slow path: about 90 ns a vector on AVX3_ZEN4, 4x the
-  // whole central kernel, for as long as the process lives (indicative,
-  // 2026-11-26). -inf sat alone on an .rdata page nothing else read in every
-  // executable that linked only the library. So: one test skips the block
-  // when no lane can be special, and inside it each select runs only when its
-  // mask has a lane, which makes the load a real one.
+  // execution takes a slow path: about 90 ns a vector on AVX3_ZEN4, 4.0x the
+  // whole central kernel (14.7 against 3.4 ns per element), for as long as
+  // the process lives (quiet run of 2026-11-26, docs/bench-evidence/
+  // 2026-11-26-zen4-v1.2.1). -inf sat alone on an .rdata page nothing else
+  // read in every executable that linked only the library. So: one test
+  // skips the block when no lane can be special, and inside it each select
+  // runs only when its mask has a lane, which makes the load a real one.
   // `interior` is |z - 1| < 1: false for NaN and for every z outside (0, 2).
   // It is also false for tiny positive z, where z - 1 rounds to -1 (see
   // above); those lanes enter the block and no select fires. Results are

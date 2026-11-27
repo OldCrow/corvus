@@ -44,16 +44,18 @@
 //
 // SHORT SPANS (v1.2.1, #110). Two things made a call on fewer elements than
 // a vector holds wait for the call before it, so a loop of them ran at the
-// kernel's latency and not its throughput (about 60 against 29 ns for a
-// central erfinv on AVX3_ZEN4; indicative, 2026-11-26). Both are a load that
+// kernel's latency and not its throughput (64.7 against 29.3 ns for a
+// central erfinv on AVX3_ZEN4, quiet run of 2026-11-26,
+// docs/bench-evidence/2026-11-26-zen4-v1.2.1). Both are a load that
 // cannot be forwarded from the stores it overlaps, and so waits for them to
 // retire:
 //   * The tail used to be a masked LoadN/StoreN pair: a full vector's worth
 //     of masked bytes read from memory the caller had just written with
 //     8-byte stores. The tail is now assembled in registers (LoadTail and
 //     StoreTail below), and a span of ONE element skips even that: the value
-//     is broadcast, the kernel runs once, lane 0 is stored. The kernel sees
-//     the same live lanes either way and returns the same bits.
+//     is broadcast, the kernel runs once, lane 0 is stored. A tail of one
+//     element takes the same path (StoreTail). The kernel sees the same
+//     live lanes either way and returns the same bits.
 //   * The public wrappers passed std::span objects to the dispatched Impl.
 //     Under the Windows x64 convention a span travels as a pointer to a
 //     copy, and the copy was one 16-byte load of what the caller wrote as
@@ -91,7 +93,8 @@ namespace op = ops;
 // the caller has just written cannot be forwarded from those narrower
 // stores, and a masked store cannot be forwarded to the caller's reads of
 // the results; either one makes the call wait for the one before it (a
-// 2-element erfinv span cost 62 ns against 31 for one element, AVX3_ZEN4,
+// span of one or two erfinv values cost 65 ns a call on AVX3_ZEN4 before
+// v1.2.1, 30.5 and 34.2 after; quiet run of 2026-11-26,
 // tests/bench_span1.cpp). So each element is loaded by itself and blended
 // into place in registers, and the results leave through a local buffer one
 // element at a time. Lanes past the tail hold its LAST element: a live
@@ -107,6 +110,20 @@ HWY_INLINE op::V<D> LoadTail(D d, const double* p, size_t m) {
 
 template <class D>
 HWY_INLINE void StoreTail(op::V<D> v, D d, double* p, size_t m) {
+  // A tail of one element leaves through GetLane, as a span of one does
+  // (LoadTail has already made it a broadcast). The buffer round trip below
+  // cost erf and exp 1.5-2.3 ns a call on NEON and 1.1-1.7 on SSE4, where
+  // every odd length ends in such a tail; this path reads level with the
+  // v1.2.0 masked tail on both (docs/bench-evidence/2026-11-27-m1-v1.2.1-
+  // tail1 and 2026-11-27-ivybridge-v1.2.1, pass3). A 2-3 element tail that
+  // follows a full vector still pays 2-8 ns over the masked form on AVX2
+  // (2026-11-26-kaby-v1.2.1/n7): the full vector's load has already waited
+  // for the caller's stores, so the register work buys nothing there. Left
+  // for v1.3.0 with the rest of that record.
+  if (m == 1) {
+    p[0] = op::GetLane(v);
+    return;
+  }
   double buf[op::MaxLanes(d)];
   op::Store(v, d, buf);
   for (size_t k = 0; k < m; ++k) p[k] = buf[k];
