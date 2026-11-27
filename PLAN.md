@@ -231,9 +231,14 @@ unfreeze. The off-milestone list above is unchanged.
   `log1p` and flags nothing on the branch.
 - **Before the tag [OPEN].**
   - The fleet legs below, on K, M and I.
-  - A quiet run of `bench_span1` and `bench_cold` on Z, `main` against
-    the branch; started 2026-11-26, not yet read. PERFORMANCE.md §6
-    carries indicative figures until then.
+  - Z's quiet run is done [DERIVED, 2026-11-26]: `bench_span1` and
+    `bench_cold`, `main` against the branch, on PR #117 as `64629ed`
+    (`docs/bench-evidence/2026-11-26-zen4-v1.2.1/`). It confirms the
+    indicative figures within about 1 ns; PERFORMANCE.md §6 cites it.
+  - Before merging #117: the comments in `src/driver-inl.h`,
+    `src/erfinv-inl.h` and `src/log-inl.h` still mark their figures
+    "indicative". Correct them in a commit that changes code or tests
+    anyway, so a comment-only source edit does not trigger CI alone.
   - Version, release notes, RELEASING.md.
 - **v1.2.1 fleet legs [OPEN; one per machine: K (AVX2, macOS), M (NEON,
   macOS), I (SSE4, Linux)].** Session-start check first (AGENTS.md).
