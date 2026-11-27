@@ -247,8 +247,12 @@ unfreeze. The off-milestone list above is unchanged.
     this exact diff on both 2-lane machines, and no K or Z cell meets
     one (n = 5 or 9 on four lanes, 9 on eight); every other path is
     byte-identical to what they timed.
-    - **K owes:** AVX2 native and the SSE4/SSSE3/SSE2 caps, each
-      tier-asserted, `CORVUS_WERROR=ON`; `span1` PASS on all four.
+    - **K: DONE 2026-11-27 at `6940de9`** (which contains `0dfe170`),
+      AppleClang 15.0.0, on PR #117 as `5b74282`
+      (`.../2026-11-26-kaby-v1.2.1/regate-0dfe170/`). Each build from
+      clean with `CORVUS_WERROR=ON` and no warning: 40/40 on AVX2 native
+      and on SSE4, SSSE3 and SSE2 capped, each tier-asserted; `span1`
+      PASS on all 27 functions on each. No bench, as directed.
     - **Z: DONE 2026-11-27 at `6940de9`** (which contains `0dfe170`),
       clang-cl 22.1.3. AVX3_ZEN4 native with `CORVUS_WERROR=ON`: a full
       rebuild with no warning, 40/40 tier-asserted, `span1` PASS on all
@@ -260,7 +264,8 @@ unfreeze. The off-milestone list above is unchanged.
       SSSE3/SSE2 caps are CI's Linux sweep). M: done (40/40 NEON).
     - CI on the push: green at `6940de9` (Linux sweep, Windows MSVC +
       clang-cl, macOS NEON, pre-commit), read 2026-11-27.
-    Report each in the fleet-legs lines below.
+    Every machine's re-gate is in. What is left before the tag is the
+    line below.
   - Version, release notes, RELEASING.md.
 - **v1.2.1 fleet legs [OPEN; one per machine: K (AVX2, macOS), M (NEON,
   macOS), I (SSE4, Linux)].** Session-start check first (AGENTS.md).
