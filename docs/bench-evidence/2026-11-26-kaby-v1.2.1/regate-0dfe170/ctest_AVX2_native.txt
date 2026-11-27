@@ -1,0 +1,85 @@
+Test project /Users/wolfman/Development/corvus/.claude/worktrees/corvus-v1-2-1-setup-0a6c67/build
+      Start  1: claims_check
+ 1/40 Test  #1: claims_check .....................   Passed    0.18 sec
+      Start  2: toolchain_guard
+ 2/40 Test  #2: toolchain_guard ..................   Passed    0.04 sec
+      Start  3: fp_guard_override
+ 3/40 Test  #3: fp_guard_override ................   Passed    0.81 sec
+      Start  4: fp_guard_tripwire
+ 4/40 Test  #4: fp_guard_tripwire ................   Passed    0.35 sec
+      Start  5: exp_dd
+ 5/40 Test  #5: exp_dd ...........................   Passed    0.69 sec
+      Start  6: log_dd
+ 6/40 Test  #6: log_dd ...........................   Passed    0.64 sec
+      Start  7: dd_special
+ 7/40 Test  #7: dd_special .......................   Passed    0.69 sec
+      Start  8: erf
+ 8/40 Test  #8: erf ..............................   Passed    0.61 sec
+      Start  9: erf_ulp
+ 9/40 Test  #9: erf_ulp ..........................   Passed    0.65 sec
+      Start 10: erfc
+10/40 Test #10: erfc .............................   Passed    0.60 sec
+      Start 11: erfc_ulp
+11/40 Test #11: erfc_ulp .........................   Passed    0.68 sec
+      Start 12: lgamma
+12/40 Test #12: lgamma ...........................   Passed    0.64 sec
+      Start 13: lgamma_ulp
+13/40 Test #13: lgamma_ulp .......................   Passed    0.65 sec
+      Start 14: erfinv
+14/40 Test #14: erfinv ...........................   Passed    0.58 sec
+      Start 15: erfinv_ulp
+15/40 Test #15: erfinv_ulp .......................   Passed    0.67 sec
+      Start 16: gamma
+16/40 Test #16: gamma ............................   Passed    0.65 sec
+      Start 17: gamma_ulp
+17/40 Test #17: gamma_ulp ........................   Passed    0.86 sec
+      Start 18: beta
+18/40 Test #18: beta .............................   Passed    0.66 sec
+      Start 19: beta_ulp
+19/40 Test #19: beta_ulp .........................   Passed    1.35 sec
+      Start 20: digamma
+20/40 Test #20: digamma ..........................   Passed    0.64 sec
+      Start 21: digamma_ulp
+21/40 Test #21: digamma_ulp ......................   Passed    0.69 sec
+      Start 22: trigamma
+22/40 Test #22: trigamma .........................   Passed    0.61 sec
+      Start 23: trigamma_ulp
+23/40 Test #23: trigamma_ulp .....................   Passed    0.65 sec
+      Start 24: gammainv
+24/40 Test #24: gammainv .........................   Passed    0.66 sec
+      Start 25: gammainv_ulp
+25/40 Test #25: gammainv_ulp .....................   Passed    0.74 sec
+      Start 26: betainv
+26/40 Test #26: betainv ..........................   Passed    0.89 sec
+      Start 27: betainv_ulp
+27/40 Test #27: betainv_ulp ......................   Passed    1.29 sec
+      Start 28: bessel
+28/40 Test #28: bessel ...........................   Passed    0.71 sec
+      Start 29: bessel_ulp
+29/40 Test #29: bessel_ulp .......................   Passed    0.72 sec
+      Start 30: lbeta
+30/40 Test #30: lbeta ............................   Passed    0.68 sec
+      Start 31: lbeta_ulp
+31/40 Test #31: lbeta_ulp ........................   Passed    0.68 sec
+      Start 32: trig
+32/40 Test #32: trig .............................   Passed    0.58 sec
+      Start 33: trig_ulp
+33/40 Test #33: trig_ulp .........................   Passed    0.72 sec
+      Start 34: exp
+34/40 Test #34: exp ..............................   Passed    0.63 sec
+      Start 35: exp_ulp
+35/40 Test #35: exp_ulp ..........................   Passed    0.73 sec
+      Start 36: log
+36/40 Test #36: log ..............................   Passed    0.64 sec
+      Start 37: log_ulp
+37/40 Test #37: log_ulp ..........................   Passed    0.73 sec
+      Start 38: guards
+38/40 Test #38: guards ...........................   Passed    4.04 sec
+      Start 39: span1
+39/40 Test #39: span1 ............................   Passed    1.15 sec
+      Start 40: masked_const
+40/40 Test #40: masked_const .....................   Passed    0.58 sec
+
+100% tests passed out of 40
+
+Total Test time (real) =  30.84 sec
