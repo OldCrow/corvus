@@ -103,8 +103,10 @@ int main() {
   ok &= Check("erfinv  [-0.5, 0.5]", corvus::erfinv, -0.5, 0.5);
   ok &= Check("erfcinv [0.5, 1.5]", corvus::erfcinv, 0.5, 1.5);
   if (!ok) {
-    std::printf("FAIL: a band slows down when the image's pages are unmapped "
-                "(limit %.1fx)\n", kLimit);
+    std::printf(
+        "FAIL: a band slows down when the image's pages are unmapped "
+        "(limit %.1fx)\n",
+        kLimit);
     return 1;
   }
   std::printf("PASS\n");
