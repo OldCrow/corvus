@@ -414,3 +414,7 @@ corvus_test_target(bench_span1)
 add_executable(test_masked_const test_masked_const.cpp)
 corvus_test_target(test_masked_const)
 add_test(NAME masked_const COMMAND test_masked_const)
+
+# Survey of every span function, trimmed against mapped (v1.2.1). Manual.
+add_executable(bench_cold bench_cold.cpp)
+corvus_test_target(bench_cold)
