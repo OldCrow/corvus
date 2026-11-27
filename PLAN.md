@@ -237,10 +237,10 @@ unfreeze. The off-milestone list above is unchanged.
     `bench_cold`, `main` against the branch, on PR #117 as `64629ed`
     (`docs/bench-evidence/2026-11-26-zen4-v1.2.1/`). It confirms the
     indicative figures within about 1 ns; PERFORMANCE.md §6 cites it.
-  - Before merging #117: the comments in `src/driver-inl.h`,
-    `src/erfinv-inl.h` and `src/log-inl.h` still mark their figures
-    "indicative". Correct them in a commit that changes code or tests
-    anyway, so a comment-only source edit does not trigger CI alone.
+  - Before merging #117: the comments in `src/driver-inl.h` and
+    `src/erfinv-inl.h` marked their figures "indicative" (`log-inl.h`
+    never did). Corrected in the one-element-tail commit (M line
+    below), which is the code change they were waiting for.
   - Version, release notes, RELEASING.md.
 - **v1.2.1 fleet legs [OPEN; one per machine: K (AVX2, macOS), M (NEON,
   macOS), I (SSE4, Linux)].** Session-start check first (AGENTS.md).
@@ -387,21 +387,26 @@ unfreeze. The off-milestone list above is unchanged.
     M1 (diff beside the evidence). It changes no cell K or Z measured
     and does not touch the 2–3-element tail the 2026-11-27 decision
     kept, but it IS a driver change after "the driver is unchanged for
-    v1.2.1". K and I are both investigating their slower cells [user,
-    2026-11-27], so the tail code may move again: HELD, not applied to
-    the checkout, until their results are in; any tail change then
-    ships as one commit with one validation round, this case included
-    or recorded for v1.3.0 [OPEN, user]. **I's three slower cells are
-    this case** [DERIVED, M, 2026-11-27]: SSE4 is a 2-lane tier like
-    NEON, its slower cells are exactly the odd lengths (erfinv n = 3
-    +1.5 ns, erf n = 3 +1.7, erf n = 7 +1.1; M read +1.1 to +2.3 on the
-    same cells), and its even lengths and K's n = 7 cell are level. The
-    first thing for I to try is the saved diff. Input for K: a
-    1-element tail's cost is the StoreTail buffer round trip (GetLane
-    removes all of it); for 2–3 elements the blend chain and the copy
-    loop both grow with m, which may be where the sign by kernel comes
-    from. erfinv's two batch cells read in modes (§5); not settled by
-    three passes.
+    v1.2.1". **[DECIDED, user, 2026-11-27] Adopted for v1.2.1.** I
+    reproduced the three slower cells as this case and measured the
+    identical diff level with `main` on SSE4 (I line above); K found no
+    sign by kernel once the layout was matched and no reason to change
+    the 2–3-element tail (K line above), so M's earlier guess that the
+    blend chain and copy loop explained K's sign is withdrawn — they
+    are the register tail's cost, the sign was layout. The commit on
+    `dev/v1.2.1` (`StoreTail` m = 1 through `GetLane`, eight lines, plus
+    the "indicative" comment corrections in `src/driver-inl.h` and
+    `src/erfinv-inl.h` quoting Z's quiet run) is `0dfe170` on PR #117;
+    gated 40/40 NEON, `span1` PASS. Owed on it: CI (Linux AVX2 cap,
+    Windows, macOS NEON) and a K re-gate on
+    AVX2 native and capped; no re-bench, no K or Z cell has a
+    one-element tail. The 2–3-element tail after a full vector (K's
+    n = 7, 2–8 ns) is the v1.3.0 tail design, with K's items 1–5.
+    Caveat on M's short-span table (K's item 4): AppleClang compiled
+    the bench's write loop to `memcpy`, so n >= 2 cells on M and K did
+    not write separate 8-byte stores; I's pass 3 is the clean reading
+    and agrees. erfinv's two batch cells read in modes (§5); not
+    settled by three passes.
 - **Not known [OPEN].** Which change produces the gain off Windows.
   All three Unix legs gain a little at one value (K, I, M above) and
   none separates the five changes; on NEON the `local`/`array` ratio on
