@@ -107,3 +107,11 @@ read 72.5 and 95.0 in the two erfinv `local` cells and 83.5 in the wide
 Indicative rather than published: six fresh processes, three per tree, on
 one evening; the §5 mode bands above did not settle. No number here goes
 into PERFORMANCE.md's tables without the user's say.
+
+Caveat added 2026-11-27 (K's finding, `2026-11-26-kaby-v1.2.1/n7/`):
+AppleClang compiles `bench_span1`'s write-n-values loop to a `memcpy`
+call, so the short-span table for n >= 2 here, as on Kaby Lake, did not
+write the inputs as separate 8-byte stores. The n = 1 column and the long
+table are unaffected. Ivy Bridge (clang 18) is the clean reading of the
+short-span shape, and its pass 3 confirmed the one-element-tail finding
+and the fix with the same diff.
