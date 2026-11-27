@@ -1,0 +1,8 @@
+branch:   653758c dirty=0
+main:     c1d6640 (+ tests/bench_span1.cpp from the branch and its two CMake lines)
+machine:  MacBookPro14,3 Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz, macOS 13.7.8 (22H730)
+compiler: Apple clang version 15.0.0 (clang-1500.1.0.2.5)
+power:    Now drawing from 'AC Power'
+suspended during each run: mediaanalysisd corespotlightd spotlightknowledged mdworker_shared mdbulkimport storeuid CGPDFService VTEncoderXPCService VTDecoderXPCService photolibraryd photoanalysisd OneDrive contactsd AddressBookSourceSync cloudd bird suggestd ScreenSaverEngine
+libcorvus.a bytes: branch 5166472 main 5065216
+bench_span1 sha1: branch 7425c80d6ff0 main 3f3d264849cd

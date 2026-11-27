@@ -1,0 +1,16 @@
+22:43:44 quiet_bench.sh  build=build  expect=AVX2  targets=1
+22:43:44 gate          : ambient < 5% over two consecutive 10s windows
+22:43:45 machine       : Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz; macOS 13.7.8
+22:43:55 ambient sample : 9.60%
+22:43:55   top consumers:
+      0.3 /usr/libexec/wifip2pd
+      0.2 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+      0.1 /Applications/WiFi Signal.app/Contents/MacOS/WiFi Signal
+      0.1 /System/Library/CryptoTokenKit/com.apple.ifdreader.slotd/Contents/XPCServices/com.apple.ifdbundle.xpc/Contents/MacOS/com.apple.ifdbundle
+      0.1 /Applications/Claude.app/Contents/MacOS/Claude
+22:44:06 ambient sample : 2.73%
+22:44:16 ambient sample : 2.66%
+22:44:16 gate passed at: 2.73 2.66%
+22:44:27 bench_span1: noise before 2.68%  top: 4.3%sandboxd 2.7%launchd 1.5%opendirectoryd 
+22:44:27 bench_span1: rc=0 0s target=AVX2
+22:44:27 done fail=0. Raw per-target output: build/quiet_bench/quiet_bench_<target>.txt

@@ -1,0 +1,65 @@
+22:38:40 quiet_bench.sh  build=build  expect=AVX2  targets=1
+22:38:40 gate          : ambient < 5% over two consecutive 10s windows
+22:38:40 machine       : Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz; macOS 13.7.8
+22:38:51 ambient sample : 11.52%
+22:38:51   top consumers:
+     24.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+     15.4 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+     14.7 /Applications/Claude.app/Contents/MacOS/Claude
+      9.2 /usr/libexec/opendirectoryd
+      7.1 /Applications/Claude.app/Contents/Frameworks/Claude Helper.app/Contents/MacOS/Claude Helper
+22:39:02 ambient sample : 10.40%
+22:39:02   top consumers:
+      6.4 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      6.3 /System/Library/Services/AppleSpell.service/Contents/MacOS/AppleSpell
+      6.3 /usr/libexec/TouchBarServer
+      4.7 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+      4.0 /Applications/Claude.app/Contents/MacOS/Claude
+22:39:12 ambient sample : 7.27%
+22:39:12   top consumers:
+      5.7 /System/Library/Services/AppleSpell.service/Contents/MacOS/AppleSpell
+      5.2 /usr/libexec/TouchBarServer
+      2.8 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+      2.5 /Applications/Claude.app/Contents/MacOS/Claude
+      2.1 /Applications/Claude.app/Contents/Frameworks/Claude Helper.app/Contents/MacOS/Claude Helper
+22:39:23 ambient sample : 6.40%
+22:39:23   top consumers:
+      7.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      7.6 /System/Library/Services/AppleSpell.service/Contents/MacOS/AppleSpell
+      7.6 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+      5.5 /Applications/Claude.app/Contents/Frameworks/Claude Helper.app/Contents/MacOS/Claude Helper
+      4.8 /Applications/Claude.app/Contents/MacOS/Claude
+22:39:33 ambient sample : 7.11%
+22:39:33   top consumers:
+     17.5 /System/Library/Services/AppleSpell.service/Contents/MacOS/AppleSpell
+     15.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      5.1 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+      4.9 /System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter
+      4.0 /Applications/Claude.app/Contents/MacOS/Claude
+22:39:44 ambient sample : 6.31%
+22:39:44   top consumers:
+     14.0 /System/Library/Services/AppleSpell.service/Contents/MacOS/AppleSpell
+      4.4 /Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)
+      4.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+      3.1 /Applications/Claude.app/Contents/MacOS/Claude
+      2.9 /Users/wolfman/Library/Application Support/Claude/claude-code/2.1.330/e206fbf8b125/claude.app/Contents/MacOS/claude
+22:39:55 ambient sample : 14.10%
+22:39:55   top consumers:
+     12.2 /usr/libexec/TouchBarServer
+      1.2 /Library/Application Support/Malwarebytes/MBAM/Engine.bundle/Contents/PlugIns/RTProtectionDaemon.app/Contents/MacOS/RTProtectionDaemon
+      0.9 /usr/sbin/bluetoothd
+      0.8 /usr/libexec/opendirectoryd
+      0.4 /usr/libexec/sharingd
+22:40:05 ambient sample : 7.84%
+22:40:05   top consumers:
+      2.7 /System/Library/CoreServices/launchservicesd
+      2.0 /Library/PrivilegedHelperTools/de.appgineers.energiza.helper
+      0.6 tee
+      0.6 head
+      0.6 tail
+22:40:16 ambient sample : 3.20%
+22:40:26 ambient sample : 2.87%
+22:40:26 gate passed at: 3.20 2.87%
+22:40:37 bench_span1: noise before 3.13%  top: 3.0%assistantd 0.4%opendirectoryd 0.4%wifip2pd 
+22:40:38 bench_span1: rc=0 1s target=AVX2
+22:40:38 done fail=0. Raw per-target output: build/quiet_bench/quiet_bench_<target>.txt
