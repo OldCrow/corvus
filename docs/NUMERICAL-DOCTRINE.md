@@ -84,8 +84,9 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
   one-value calls ran at the kernel's latency, about twice its
   throughput. The public wrappers keep `std::span`; every `Impl` takes
   `(const double*..., double*, size_t)`. The same failure has a second
-  home in any masked load from memory the caller has just written, which
-  is why a span of one element skips the masked tail
+  home in any wide or masked load from memory the caller has just
+  written, which is why the driver assembles a short tail in registers
+  and a span of one element skips the tail altogether
   (src/driver-inl.h). `tests/test_span1.cpp` holds the results equal.
 - **A rare-path constant stays behind a branch** (v1.2.1). An
   unconditional select of a special value (`IfThenElse(mask, Set(d, c),
@@ -104,8 +105,9 @@ tier capping, and CI see `docs/ENVIRONMENT.md`.
 
 ## Numerical hazard rules
 
-- Vector and tail paths must be the same code path (masked LoadN/StoreN),
-  never a scalar libm fallback for the tail.
+- Vector and tail paths must be the same code path (the same kernel
+  invocation on a padded vector; src/driver-inl.h), never a scalar libm
+  fallback for the tail.
 - Any op whose CORRECTNESS depends on FMA fusion (exact residuals like
   fma(a,b,-fl(a*b))) must be capability-guarded in the facade — Highway
   emulates MulAdd/MulSub as mul-then-add on non-FMA targets (SSE2/SSSE3/

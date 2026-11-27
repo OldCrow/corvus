@@ -85,6 +85,38 @@ void Run(const char* label, Fn f, double lo, double hi) {
   std::printf("%-28s %9.1f %9.1f %9.1f\n", label, batch, array, local);
 }
 
+// A short span built where it is used: the caller writes n values into a
+// small array, calls, and reads the n results back. This is the shape that
+// meets the masked tail for n below the lane count.
+BENCH_NOINLINE double LocalN(Fn f, const double* src, size_t n) {
+  double a[8], r[8];
+  for (size_t k = 0; k < n; ++k) a[k] = src[k];
+  f(std::span<const double>(a, n), std::span<double>(r, n));
+  double sum = 0.0;
+  for (size_t k = 0; k < n; ++k) sum += r[k];
+  return sum;
+}
+
+void RunShort(const char* label, Fn f, double lo, double hi) {
+  constexpr size_t kN = 4096;
+  std::mt19937_64 rng(4096);
+  std::uniform_real_distribution<double> u(lo, hi);
+  std::vector<double> in(kN + 8);
+  for (auto& v : in) v = u(rng);
+  std::printf("%-28s", label);
+  for (size_t n : {size_t{1}, size_t{2}, size_t{3}, size_t{4}, size_t{7}}) {
+    const double per_value = Median(
+        [&] {
+          double acc = 0.0;
+          for (size_t i = 0; i < kN; i += 8) acc += LocalN(f, &in[i], n);
+          g_sink = acc;
+        },
+        kN / 8);
+    std::printf(" %9.1f", per_value);
+  }
+  std::printf("\n");
+}
+
 }  // namespace
 
 int main() {
@@ -97,5 +129,11 @@ int main() {
   Run("erf     [-3, 3]", corvus::erf, -3.0, 3.0);
   Run("lgamma  [1, 21]", corvus::lgamma, 1.0, 21.0);
   Run("exp     [-20, 20]", corvus::exp, -20.0, 20.0);
+  std::printf("\n%-28s %9s %9s %9s %9s %9s\n", "ns per CALL, span in place",
+              "n=1", "n=2", "n=3", "n=4", "n=7");
+  RunShort("erfinv  [-0.5, 0.5]", corvus::erfinv, -0.5, 0.5);
+  RunShort("erfcinv (0, 2) (probit)", corvus::erfcinv, 1e-300, 2.0);
+  RunShort("erf     [-3, 3]", corvus::erf, -3.0, 3.0);
+  RunShort("exp     [-20, 20]", corvus::exp, -20.0, 20.0);
   return 0;
 }

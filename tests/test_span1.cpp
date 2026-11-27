@@ -1,4 +1,5 @@
-// Guard for the length-1 fast path in the span drivers (v1.2.1, #110).
+// Guard for the span drivers' short-span paths (v1.2.1, #110): the length-1
+// fast path and the register-only tail of 2 .. N-1 elements.
 //
 // A span of one element skips the loop and the masked tail: the driver
 // broadcasts the value, runs the kernel once and stores lane 0. This test
@@ -34,6 +35,25 @@ bool SameBits(double a, double b) {
   std::memcpy(&ua, &a, 8);
   std::memcpy(&ub, &b, 8);
   return ua == ub;
+}
+
+// Short spans, 2 to 9 elements: every length below, at and just past the
+// widest lane count, at every offset. `call(start, len, out)` evaluates
+// [start, start + len) into out; the batch result is the reference.
+template <class Call>
+size_t ShortSpanMismatches(size_t n, const std::vector<double>& batch,
+                           Call call) {
+  size_t bad = 0;
+  double out[9];
+  for (size_t len = 2; len <= 9; ++len) {
+    for (size_t start = 0; start + len <= n; start += 3) {
+      call(start, len, out);
+      for (size_t k = 0; k < len; ++k) {
+        if (!SameBits(out[k], batch[start + k])) ++bad;
+      }
+    }
+  }
+  return bad;
 }
 
 void Report(const char* name, size_t n, size_t bad) {
@@ -83,6 +103,10 @@ void CheckUnary(const char* name, F fn) {
                     batch[i]);
     }
   }
+  bad += ShortSpanMismatches(in.size(), batch,
+                             [&](size_t s0, size_t len, double* out) {
+                               fn(Span(&in[s0], len), Out(out, len));
+                             });
   Report(name, in.size(), bad);
 }
 
@@ -114,6 +138,10 @@ void CheckBinary(const char* name, F fn, S scalar, const double (&xs)[NX]) {
       std::printf("  %s(%a, %a): alone %a, in span %a\n", name, a[i], x[i], one,
                   batch[i]);
   }
+  bad += ShortSpanMismatches(
+      a.size(), batch, [&](size_t s0, size_t len, double* out) {
+        fn(Span(&a[s0], len), Span(&x[s0], len), Out(out, len));
+      });
   Report(name, a.size(), bad);
 }
 
@@ -142,6 +170,11 @@ void CheckTernary(const char* name, F fn, S scalar) {
       std::printf("  %s(%a, %a, %a): alone %a, in span %a\n", name, a[i], b[i],
                   x[i], one, batch[i]);
   }
+  bad += ShortSpanMismatches(a.size(), batch,
+                             [&](size_t s0, size_t len, double* out) {
+                               fn(Span(&a[s0], len), Span(&b[s0], len),
+                                  Span(&x[s0], len), Out(out, len));
+                             });
   Report(name, a.size(), bad);
 }
 
@@ -202,7 +235,7 @@ int main() {
     return 1;
   }
   std::printf(
-      "PASS: a length-1 span matches a long span on all 27 span "
+      "PASS: spans of 1 to 9 elements match a long span on all 27 span "
       "functions\n");
   return 0;
 }
