@@ -266,7 +266,28 @@ unfreeze. The off-milestone list above is unchanged.
   4. **Not asked:** `bench_cold`. It runs on Windows only. Whether the
      unmapped-page cost exists on Linux or macOS needs a method for
      unmapping image pages there, which nobody has written.
-  - K: not started. M: not started. I: not started.
+  - K: DONE 2026-11-26 at `653758c`, on PR #117 as `ba23fac` and
+    `02944a2` (`docs/bench-evidence/2026-11-26-kaby-v1.2.1/`). Gates:
+    40/40 on AVX2 native and on SSE4, SSSE3 and SSE2 capped, each
+    tier-asserted, `CORVUS_WERROR=ON`, 0 warnings; `span1` PASS on all
+    four. Bench, six runs gated at 2.7–4.5% with the user's background
+    processes stopped around each, median of three, `main` -> branch:
+    `local` 0.57x (`erf`) to 0.94x (`erfinv` central); short spans 0.64x
+    to 0.98x. So macOS on AVX2 gains; which change does it is not
+    separated. `main`'s runs spread up to 1.21x on short-span cells, so
+    a ratio within about 10% of 1 is not established.
+    - One cell is slower: `erfinv` central at n = 7, 111.7 -> 118.2 ns
+      per call. An on/off build shows the register-assembled tail
+      (change 5) costs it about 6.5 ns when the tail follows a full
+      vector, and `exp` 2.5 ns; the same tail gains 5 ns on `erf` and 42
+      to 47 ns on `erfcinv` there, and 7 to 36 ns on all four at n = 2
+      and 3. [DECIDED, user, 2026-11-27] Accepted as recorded; the
+      driver is unchanged for v1.2.1. Why the sign differs by kernel is
+      under investigation on K.
+    - The plan's `git worktree add ../corvus-main main` fails where
+      `main` is already checked out; a detached worktree of
+      `origin/main` works.
+  - M: not started. I: not started.
 - **Not known [OPEN].** Whether Linux and macOS gain anything: the
   System V convention passes a span in registers, and the masked-load
   cost is shown only on Zen 4 under Windows, its mechanism inferred
