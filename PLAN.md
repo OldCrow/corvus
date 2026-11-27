@@ -241,6 +241,22 @@ unfreeze. The off-milestone list above is unchanged.
     `src/erfinv-inl.h` marked their figures "indicative" (`log-inl.h`
     never did). Corrected in the one-element-tail commit (M line
     below), which is the code change they were waiting for.
+  - **Re-gate `0dfe170`** (the one-element tail; the legs validated
+    `653758c`, and the driver is compiled per tier). No re-bench
+    anywhere: the only new path is a one-element tail, measured with
+    this exact diff on both 2-lane machines, and no K or Z cell meets
+    one (n = 5 or 9 on four lanes, 9 on eight); every other path is
+    byte-identical to what they timed.
+    - **K owes:** AVX2 native and the SSE4/SSSE3/SSE2 caps, each
+      tier-asserted, `CORVUS_WERROR=ON`; `span1` PASS on all four.
+    - **Z owes:** AVX3_ZEN4 native and the capped sweep
+      (`tools/sweep_tiers.ps1`), clang-cl; the only AVX-512 silicon, CI
+      caps it off everywhere, and the only machine where
+      `masked_const` runs for real.
+    - I: done (pass 3 gated the identical diff on SSE4 native; its
+      SSSE3/SSE2 caps are CI's Linux sweep). M: done (40/40 NEON).
+    - CI on the push: Linux sweep, Windows MSVC + clang-cl, macOS NEON.
+    Report each in the fleet-legs lines below.
   - Version, release notes, RELEASING.md.
 - **v1.2.1 fleet legs [OPEN; one per machine: K (AVX2, macOS), M (NEON,
   macOS), I (SSE4, Linux)].** Session-start check first (AGENTS.md).
@@ -397,10 +413,9 @@ unfreeze. The off-milestone list above is unchanged.
     `dev/v1.2.1` (`StoreTail` m = 1 through `GetLane`, eight lines, plus
     the "indicative" comment corrections in `src/driver-inl.h` and
     `src/erfinv-inl.h` quoting Z's quiet run) is `0dfe170` on PR #117;
-    gated 40/40 NEON, `span1` PASS. Owed on it: CI (Linux AVX2 cap,
-    Windows, macOS NEON) and a K re-gate on
-    AVX2 native and capped; no re-bench, no K or Z cell has a
-    one-element tail. The 2–3-element tail after a full vector (K's
+    gated 40/40 NEON, `span1` PASS. What it owes is the "Re-gate
+    `0dfe170`" item under "Before the tag" above (K and Z; no
+    re-bench). The 2–3-element tail after a full vector (K's
     n = 7, 2–8 ns) is the v1.3.0 tail design, with K's items 1–5.
     Caveat on M's short-span table (K's item 4): AppleClang compiled
     the bench's write loop to `memcpy`, so n >= 2 cells on M and K did
