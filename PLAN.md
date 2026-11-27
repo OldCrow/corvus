@@ -230,10 +230,38 @@ unfreeze. The off-milestone list above is unchanged.
   the same method over 41 bands of every span function; it found
   `log1p` and flags nothing on the branch.
 - **Before the tag [OPEN].**
-  - Native gates on K, M and I (accuracy claims are per tier).
-  - A quiet run of `tests/bench_span1.cpp` on Z; PERFORMANCE.md §6
+  - The fleet legs below, on K, M and I.
+  - A quiet run of `bench_span1` and `bench_cold` on Z, `main` against
+    the branch; started 2026-11-26, not yet read. PERFORMANCE.md §6
     carries indicative figures until then.
   - Version, release notes, RELEASING.md.
+- **v1.2.1 fleet legs [OPEN; one per machine: K (AVX2, macOS), M (NEON,
+  macOS), I (SSE4, Linux)].** Session-start check first (AGENTS.md).
+  Report in the status line below; commit and push only when the user
+  asks.
+  1. **Gate, native.** `git fetch && git switch dev/v1.2.1` (head
+     `653758c` or later). Release build, then
+     `CORVUS_EXPECT_TARGET=<tier> ctest --test-dir build
+     --output-on-failure`: 40 of 40, with the tier printed. Two of the
+     40 are new: `span1` must print PASS for all 27 functions;
+     `masked_const` prints "not run: Windows only" and passes.
+  2. **Gate, capped.** The capped sweep for every tier below the native
+     one, as for v1.2.0 (docs/ENVIRONMENT.md).
+  3. **Bench, quiet, before and after.** This answers an open question:
+     whether Linux and macOS gain anything. Build `main` in a second
+     checkout (`git worktree add ../corvus-main main`), copy
+     `tests/bench_span1.cpp` into it and add
+     `add_executable(bench_span1 bench_span1.cpp)` and
+     `corvus_test_target(bench_span1)` to its `tests/CMakeLists.txt`.
+     Then on a quiet machine, alternating, three times each:
+     `tools/quiet_bench.sh -b <build> -t <tier> bench_span1`. Report
+     the `local` column and the short-span table (n = 1, 2, 3, 4, 7)
+     for both trees. Never compare by swapping files in one tree
+     (OldCrow/standards, PERFORMANCE-MEASUREMENT.md, rule 2).
+  4. **Not asked:** `bench_cold`. It runs on Windows only. Whether the
+     unmapped-page cost exists on Linux or macOS needs a method for
+     unmapping image pages there, which nobody has written.
+  - K: not started. M: not started. I: not started.
 - **Not known [OPEN].** Whether Linux and macOS gain anything: the
   System V convention passes a span in registers, and the masked-load
   cost is shown only on Zen 4 under Windows, its mechanism inferred
