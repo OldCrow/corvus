@@ -51,8 +51,9 @@ to `main` as `148bb64`.
 v1.2.0 closed. corvus has nothing owed for v1.2.0.
 **Next:** libstats' and libhmm's PLAN.md carry the bump note
 (Cross-machine handshakes below); each library picks up its bump in its
-own session. corvus's next work is milestone v1.3.0 (#110, #111, #22,
-#97; "Milestones re-cut 2026-11-26" below).
+own session. corvus's next work is v1.2.1 (a length-1 fast path in the
+span drivers), then milestone v1.3.0 (#110, #111, #22, #97); both under
+"Milestones re-cut 2026-11-26" below.
 **Fourth machine, Ivy Bridge [DERIVED 2026-11-11]** (MacBook Pro 9,1,
 i7-3820QM, Linux Mint 22.3, glibc 2.39; #101 holds the indicative GCC
 pass, #100 the `quiet_bench.sh` Linux bugs it found):
@@ -179,17 +180,39 @@ milestone with their trigger stated on the issue.
 paths and ISA tuning", performance only: #110, #111, #22 and #97. #19
 moves to v1.4.0 ("von Mises complement"), a new export with its own
 unfreeze. The off-milestone list above is unchanged.
-- **libstats v3.0.0 stays pinned at v1.2.0** [DERIVED]; it accepted the
-  scalar-call cost (OldCrow/libstats#156) and takes v1.3.0 in its
-  v3.1.0 (OldCrow/libstats#339).
-- **One experiment could change that [OPEN]:** a branchy scalar
-  `erfcinv` that evaluates one region. A one-element span call costs
-  about one vector evaluation, so removing span construction alone
-  recovers little. If the scalar path is bit-identical to the vector
-  lanes over the oracle grid on every tier, the non-FMA one included,
-  and costs about one element, a narrow v1.3.0 (`erfinv`, `erfcinv`,
-  `lgamma`) could land before libstats re-sweeps after its pool fix
-  and move no accuracy block. Not started.
+- **v1.2.1 is planned [DECIDED, user, 2026-11-26]: a length-1 fast path
+  in the span drivers.** Scope: `DriveUnary`, `DriveBinary` and
+  `DriveTernary` broadcast a single value and store one lane instead of
+  running the masked tail; a test per family that a length-1 span
+  matches the same value inside a long span bit for bit; a line in
+  PERFORMANCE.md. No result moves and the API is unchanged, so it is a
+  patch (VERSIONING.md). Nothing else goes in.
+- **Why [DERIVED, Z, 2026-11-26, indicative: machine in use].** Branch
+  `exp/narrow-lane-scalar` (`23398fa`, not for merge) ran the shipped
+  `erfcinv` kernel at 1 lane, 2 lanes and full width on AVX3_ZEN4:
+  bit-identical over about 4.0 million points, and narrower lanes gain
+  little (25 against 29 ns central). The cost is the span tail: a
+  length-1 span reads 65 ns central against 29 for the value broadcast,
+  about 33 ns per call in every region, and a length-1 fast path in a
+  replica of the driver removes it (31 ns). `LoadNOr` alone and
+  `StoreN` alone cost nothing; the mechanism is not found. Figures and
+  caveats are on #110.
+- **Not measured on any other tier [OPEN].** The overhead may be
+  specific to AVX-512 masked operations. A quiet run of
+  `exp_narrow_lane_erfcinv` on K, M or I would say; elsewhere the fast
+  path is one branch.
+- **libstats v3.0.0 pins v1.2.1** [DECIDED, user]: it stays on the v1.2
+  line. The patch should be tagged before libstats' correctness leg
+  that follows its pool fix, so the new pin rides along; a sweep with
+  no row moved is the per-tier proof of bit-identity. This removes most
+  of libstats' Gaussian and LogNormal scalar-quantile regression on Zen
+  4 (OldCrow/libstats#156) [estimate, not measured in libstats].
+- **#110 stays on v1.3.0** as the scalar entry points' API. With the
+  fast path they cost what a length-1 span costs, so what is left is a
+  uniform surface, not speed. An earlier note here proposed a branchy
+  scalar path; it rested on a wrong premise, since the driver has
+  padded a short span with its live element since #42 and a one-value
+  call already runs one region.
 - #112 closed 2026-11-26 (`b8c401f`): the Windows runner paired MSVC
   19.52, whose standard library requires Clang 22, with a standalone
   LLVM 20.1.8. The clang-cl job now uses Visual Studio's bundled
