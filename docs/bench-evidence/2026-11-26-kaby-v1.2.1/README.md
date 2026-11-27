@@ -64,7 +64,11 @@ ns per call, span in place:
 
 What it says:
 - macOS on AVX2 gains. The `local` shape is 0.57x to 0.94x of `main`; the
-  short-span calls are 0.64x to 0.98x, with one exception.
+  short-span calls are 0.64x to 0.98x, with one exception. **These ratios
+  overstate the gain on `erf`, `exp`, `lgamma` and the inverse-erf
+  bands**: `main`'s executable had a constant where a load that follows a
+  gather is delayed on this CPU, and the branch's did not. With that
+  matched the `local` shape is 0.84x to 1.01x (`n7/README.md`).
 - The exception: `erfinv` central at n = 7 reads 118.4 on all three
   branch processes against 111.7, 111.7 and 121.1 on `main`, 6% slower at
   the median. It is real; see "The n = 7 cell" below.
@@ -112,9 +116,10 @@ with the level.
 - A tail after a full vector (n = 7) is 6.5 ns slower for `erfinv`
   central and 2.5 ns slower for `exp`, 5 ns faster for `erf`, and 42 to
   47 ns faster for `erfcinv` probit.
-- Why the sign differs by kernel is not known. No change is proposed
-  here: sending a tail that follows a full vector back to the masked form
-  would give up the `erf` and `erfcinv` gains at n = 7.
+- [Superseded 2026-11-27] The sign does not differ by kernel. `erf` and
+  `erfcinv` read faster here only because of where the two libraries'
+  constants landed; with the layout matched the register tail is 2 to 8
+  ns slower at n = 7 on all four. `n7/README.md` has the experiments.
 
 `n7/alternate.log` is an earlier two-way run on a machine in use
 (ambient 11.4% and 7.5%), indicative only; it shows the same sign in 14
