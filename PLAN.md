@@ -249,13 +249,17 @@ unfreeze. The off-milestone list above is unchanged.
     byte-identical to what they timed.
     - **K owes:** AVX2 native and the SSE4/SSSE3/SSE2 caps, each
       tier-asserted, `CORVUS_WERROR=ON`; `span1` PASS on all four.
-    - **Z owes:** AVX3_ZEN4 native and the capped sweep
-      (`tools/sweep_tiers.ps1`), clang-cl; the only AVX-512 silicon, CI
-      caps it off everywhere, and the only machine where
-      `masked_const` runs for real.
+    - **Z: DONE 2026-11-27 at `6940de9`** (which contains `0dfe170`),
+      clang-cl 22.1.3. AVX3_ZEN4 native with `CORVUS_WERROR=ON`: a full
+      rebuild with no warning, 40/40 tier-asserted, `span1` PASS on all
+      27, `masked_const` PASS on its five bands (ratios 0.97 to 1.01).
+      `tools/sweep_tiers.ps1`: AVX2, SSE4, SSSE3 and SSE2 all pass,
+      each tier-asserted on every gate run, `span1` PASS and
+      `masked_const` at 1.00 on each. No bench, as directed.
     - I: done (pass 3 gated the identical diff on SSE4 native; its
       SSSE3/SSE2 caps are CI's Linux sweep). M: done (40/40 NEON).
-    - CI on the push: Linux sweep, Windows MSVC + clang-cl, macOS NEON.
+    - CI on the push: green at `6940de9` (Linux sweep, Windows MSVC +
+      clang-cl, macOS NEON, pre-commit), read 2026-11-27.
     Report each in the fleet-legs lines below.
   - Version, release notes, RELEASING.md.
 - **v1.2.1 fleet legs [OPEN; one per machine: K (AVX2, macOS), M (NEON,
