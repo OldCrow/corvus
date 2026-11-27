@@ -50,7 +50,7 @@ namespace corvus {
 // time (a mismatch is a FATAL_ERROR).
 inline constexpr int kVersionMajor = 1;
 inline constexpr int kVersionMinor = 2;
-inline constexpr int kVersionPatch = 0;
+inline constexpr int kVersionPatch = 1;
 
 /// \brief Name of the SIMD target selected by runtime dispatch.
 /// \return A static string such as "AVX2", "SSE4", or "NEON". Note Highway
