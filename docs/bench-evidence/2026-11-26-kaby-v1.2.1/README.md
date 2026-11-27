@@ -67,10 +67,55 @@ What it says:
   short-span calls are 0.64x to 0.98x, with one exception.
 - The exception: `erfinv` central at n = 7 reads 118.4 on all three
   branch processes against 111.7, 111.7 and 121.1 on `main`, 6% slower at
-  the median. One band, one length; not investigated.
+  the median. It is real; see "The n = 7 cell" below.
 - Batch throughput is unchanged or better on every band.
 - The mechanism is not shown here. The System V convention passes a span
   in registers, so the Windows 16-byte copy does not apply; which of the
   five changes produces the gain on this machine is not separated.
 
 Not run: `bench_cold` (Windows only).
+
+## The n = 7 cell (`n7/`, 2026-11-27)
+
+`erfinv` central at n = 7 is 6% slower on the branch, about 6.5 ns per
+call, and the register-assembled tail (change 5) is what costs it. Shown
+by turning it off: a third tree, the branch at `653758c` with only
+`DriveUnary`'s tail put back to `main`'s `LoadNOr`/`StoreN`
+(`n7/exp_tail.diff`; `test_span1` passes on it).
+
+`n7/three_way.log`: `main`, branch and that tree, alternating, 12 fresh
+processes each, background processes stopped, ambient 3.30% before and
+3.62% after. Every binary reads one of two levels 5.5% apart from process
+to process (PERFORMANCE.md's speed modes; the masked-tail tree sat on the
+higher one in 7 of 12 processes), so the table gives each binary's lower
+level, and the n = 7 / n = 4 ratio inside one process, which does not move
+with the level.
+
+| ns per call | n = 2 | n = 3 | n = 4 | n = 7 | n = 7 / n = 4 |
+|---|---|---|---|---|---|
+| erfinv, `main` | 82.7 | 84.0 | 81.6 | 111.7 | 1.37 |
+| erfinv, branch | 73.1 | 75.4 | 81.6 | 118.2 | 1.45 |
+| erfinv, branch with the masked tail | 82.6 | 83.9 | 81.6 | 112.4 | 1.38 |
+| exp, `main` | 52.9 | 54.6 | 49.2 | 78.8 | 1.60 |
+| exp, branch | 43.4 | 47.7 | 49.1 | 81.3 | 1.66 |
+| exp, branch with the masked tail | 53.0 | 54.5 | 48.8 | 78.6 | 1.61 |
+| erf, `main` | 60.7 | 62.8 | 49.2 | 80.9 | 1.64 |
+| erf, branch | 40.6 | 44.2 | 49.4 | 75.7 | 1.53 |
+| erf, branch with the masked tail | 61.2 | 62.6 | 49.4 | 80.9 | 1.64 |
+| erfcinv probit, `main` | 202.6 | 231.9 | 240.7 | 421.0 | 1.75 |
+| erfcinv probit, branch | 167.8 | 194.0 | 209.4 | 373.8 | 1.79 |
+| erfcinv probit, branch with the masked tail | 201.2 | 230.4 | 239.6 | 415.7 | 1.73 |
+
+- n = 4 has no tail and reads the same in all three trees.
+- A tail by itself (n = 2, 3) is 7 to 36 ns faster assembled in
+  registers, on all four bands.
+- A tail after a full vector (n = 7) is 6.5 ns slower for `erfinv`
+  central and 2.5 ns slower for `exp`, 5 ns faster for `erf`, and 42 to
+  47 ns faster for `erfcinv` probit.
+- Why the sign differs by kernel is not known. No change is proposed
+  here: sending a tail that follows a full vector back to the masked form
+  would give up the `erf` and `erfcinv` gains at n = 7.
+
+`n7/alternate.log` is an earlier two-way run on a machine in use
+(ambient 11.4% and 7.5%), indicative only; it shows the same sign in 14
+of 15 pairs.
