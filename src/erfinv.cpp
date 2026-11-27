@@ -12,11 +12,15 @@ HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
 
-static void ErfinvImpl(std::span<const double> in, std::span<double> out) {
+static void ErfinvImpl(const double* pin, double* pout, size_t n) {
+  const std::span<const double> in(pin, n);
+  const std::span<double> out(pout, n);
   DriveUnary([](auto d, auto x) { return ErfinvVec(d, x); }, in, out);
 }
 
-static void ErfcinvImpl(std::span<const double> in, std::span<double> out) {
+static void ErfcinvImpl(const double* pin, double* pout, size_t n) {
+  const std::span<const double> in(pin, n);
+  const std::span<double> out(pout, n);
   DriveUnary([](auto d, auto x) { return ErfcinvVec(d, x); }, in, out);
 }
 
@@ -36,11 +40,13 @@ HWY_EXPORT(ErfcinvImpl);
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
 void erfinv(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(ErfinvImpl)(in, out);
+  HWY_DASSERT(in.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(ErfinvImpl)(in.data(), out.data(), out.size());
 }
 
 void erfcinv(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(ErfcinvImpl)(in, out);
+  HWY_DASSERT(in.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(ErfcinvImpl)(in.data(), out.data(), out.size());
 }
 
 }  // namespace corvus

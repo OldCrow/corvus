@@ -114,7 +114,9 @@ $gates = @(
   @{ exe = "test_log_smoke"; data = @() },
   @{ exe = "test_log_ulp"; data = "log_reference.txt", "log1p_reference.txt", "log1pmx_reference.txt" },
   # #53 guard harness: no reference file; last, since it consumes every family.
-  @{ exe = "test_guards"; data = @() }
+  @{ exe = "test_guards"; data = @() },
+  # v1.2.1 guard for the drivers' length-1 fast path: every span function.
+  @{ exe = "test_span1"; data = @() }
 )
 
 $selected = if ($Tier) { $Tier } else { $caps.Keys }

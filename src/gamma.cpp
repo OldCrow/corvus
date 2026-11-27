@@ -17,15 +17,21 @@ namespace HWY_NAMESPACE {
 // same four region cores and differ only in the router's two decisions, so
 // splitting them would instantiate every core (and the Temme table's eleven
 // Clenshaw passes) twice per target for nothing.
-static void GammaPImpl(std::span<const double> a, std::span<const double> x,
-                       std::span<double> out) {
+static void GammaPImpl(const double* pa, const double* px, double* pout,
+                       size_t n) {
+  const std::span<const double> a(pa, n);
+  const std::span<const double> x(px, n);
+  const std::span<double> out(pout, n);
   DriveBinary(
       [](auto d, auto va, auto vx) { return GammaVec<true>(d, va, vx); }, a, x,
       out);
 }
 
-static void GammaQImpl(std::span<const double> a, std::span<const double> x,
-                       std::span<double> out) {
+static void GammaQImpl(const double* pa, const double* px, double* pout,
+                       size_t n) {
+  const std::span<const double> a(pa, n);
+  const std::span<const double> x(px, n);
+  const std::span<double> out(pout, n);
   DriveBinary(
       [](auto d, auto va, auto vx) { return GammaVec<false>(d, va, vx); }, a, x,
       out);
@@ -60,12 +66,14 @@ HWY_EXPORT(GammaQImpl);
 // sweep catches it.
 void gamma_p(std::span<const double> a, std::span<const double> x,
              std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(GammaPImpl)(a, x, out);
+  HWY_DASSERT(a.size() == out.size() && x.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(GammaPImpl)(a.data(), x.data(), out.data(), out.size());
 }
 
 void gamma_q(std::span<const double> a, std::span<const double> x,
              std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(GammaQImpl)(a, x, out);
+  HWY_DASSERT(a.size() == out.size() && x.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(GammaQImpl)(a.data(), x.data(), out.data(), out.size());
 }
 
 HWY_EXPORT(GammaPScalarImpl);

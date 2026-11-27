@@ -12,11 +12,15 @@ HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
 
-static void ExpImpl(std::span<const double> in, std::span<double> out) {
+static void ExpImpl(const double* pin, double* pout, size_t n) {
+  const std::span<const double> in(pin, n);
+  const std::span<double> out(pout, n);
   DriveUnary([](auto d, auto x) { return ExpVec(d, x); }, in, out);
 }
 
-static void Expm1Impl(std::span<const double> in, std::span<double> out) {
+static void Expm1Impl(const double* pin, double* pout, size_t n) {
+  const std::span<const double> in(pin, n);
+  const std::span<double> out(pout, n);
   DriveUnary([](auto d, auto x) { return Expm1Vec(d, x); }, in, out);
 }
 
@@ -36,11 +40,13 @@ HWY_EXPORT(Expm1Impl);
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
 void exp(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(ExpImpl)(in, out);
+  HWY_DASSERT(in.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(ExpImpl)(in.data(), out.data(), out.size());
 }
 
 void expm1(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(Expm1Impl)(in, out);
+  HWY_DASSERT(in.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(Expm1Impl)(in.data(), out.data(), out.size());
 }
 
 }  // namespace corvus

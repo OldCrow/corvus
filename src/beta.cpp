@@ -20,15 +20,23 @@ namespace HWY_NAMESPACE {
 // nothing. src/beta-inl.h includes src/gamma-inl.h for the gamma-limit
 // slice's two template cores (GammaSeriesSum, GammaCfRecip); templates
 // instantiate only what is called, so none of gamma's other cores land here.
-static void BetaPImpl(std::span<const double> a, std::span<const double> b,
-                      std::span<const double> x, std::span<double> out) {
+static void BetaPImpl(const double* pa, const double* pb, const double* px,
+                      double* pout, size_t n) {
+  const std::span<const double> a(pa, n);
+  const std::span<const double> b(pb, n);
+  const std::span<const double> x(px, n);
+  const std::span<double> out(pout, n);
   DriveTernary([](auto d, auto va, auto vb,
                   auto vx) { return BetaVec<true>(d, va, vb, vx); },
                a, b, x, out);
 }
 
-static void BetaQImpl(std::span<const double> a, std::span<const double> b,
-                      std::span<const double> x, std::span<double> out) {
+static void BetaQImpl(const double* pa, const double* pb, const double* px,
+                      double* pout, size_t n) {
+  const std::span<const double> a(pa, n);
+  const std::span<const double> b(pb, n);
+  const std::span<const double> x(px, n);
+  const std::span<double> out(pout, n);
   DriveTernary([](auto d, auto va, auto vb,
                   auto vx) { return BetaVec<false>(d, va, vb, vx); },
                a, b, x, out);
@@ -38,8 +46,11 @@ static void BetaQImpl(std::span<const double> a, std::span<const double> b,
 // prefactor's own LgammaPosDd/LgammaDiffDd assembly re-handed (see
 // LbetaVec's header in beta-inl.h) -- a separate TU would re-instantiate
 // that machinery per target for nothing.
-static void LbetaImpl(std::span<const double> a, std::span<const double> b,
-                      std::span<double> out) {
+static void LbetaImpl(const double* pa, const double* pb, double* pout,
+                      size_t n) {
+  const std::span<const double> a(pa, n);
+  const std::span<const double> b(pb, n);
+  const std::span<double> out(pout, n);
   DriveBinary([](auto d, auto va, auto vb) { return LbetaVec(d, va, vb); }, a,
               b, out);
 }
@@ -79,17 +90,24 @@ HWY_EXPORT(LbetaImpl);
 // catches it.
 void beta_p(std::span<const double> a, std::span<const double> b,
             std::span<const double> x, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(BetaPImpl)(a, b, x, out);
+  HWY_DASSERT(a.size() == out.size() && b.size() == out.size() &&
+              x.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(BetaPImpl)(a.data(), b.data(), x.data(), out.data(),
+                                  out.size());
 }
 
 void beta_q(std::span<const double> a, std::span<const double> b,
             std::span<const double> x, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(BetaQImpl)(a, b, x, out);
+  HWY_DASSERT(a.size() == out.size() && b.size() == out.size() &&
+              x.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(BetaQImpl)(a.data(), b.data(), x.data(), out.data(),
+                                  out.size());
 }
 
 void lbeta(std::span<const double> a, std::span<const double> b,
            std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(LbetaImpl)(a, b, out);
+  HWY_DASSERT(a.size() == out.size() && b.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(LbetaImpl)(a.data(), b.data(), out.data(), out.size());
 }
 
 HWY_EXPORT(BetaPScalarImpl);

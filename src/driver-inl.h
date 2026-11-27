@@ -41,6 +41,25 @@
 // inlined kernel copy costs code size and MSVC build time for no
 // measured gain.
 //
+// ONE VALUE THROUGH THE SPAN API (v1.2.1, #110). Two things made a length-1
+// call wait for the call before it, so a loop of them ran at the kernel's
+// latency and not its throughput (about 60 against 29 ns for a central
+// erfinv on AVX3_ZEN4; indicative, 2026-11-26). Both are a load that cannot
+// be forwarded from the stores it overlaps, and so waits for them to retire:
+//   * The masked tail loaded a full vector's worth of masked bytes from a
+//     slot the caller had just written with one 8-byte store. A span of one
+//     element now skips the loop and the tail: the value is broadcast, the
+//     kernel runs once, lane 0 is stored. The tail built exactly that vector
+//     (LoadNOr of one element over a broadcast of the same element), so the
+//     kernel sees the same input and returns the same bits.
+//   * The public wrappers passed std::span objects to the dispatched Impl.
+//     Under the Windows x64 convention a span travels as a pointer to a
+//     copy, and the copy was one 16-byte load of what the caller wrote as
+//     two 8-byte stores. The Impls now take pointers and one length (see
+//     any src/<fn>.cpp); the wrappers keep the debug length check.
+// Either one alone leaves the call serialised. tests/test_span1.cpp guards
+// the result; tests/bench_span1.cpp measures the two caller shapes.
+//
 // DriveScalar* are the scalar entry points (#42): one point broadcast to
 // every lane, so a single call costs one vector in one region and nothing
 // more, with no loop and no masked load/store. Bit-identical to the span
@@ -73,6 +92,10 @@ static void DriveUnary(Kernel kernel, std::span<const double> in,
   const size_t n = out.size();
   const double* pi = in.data();
   double* po = out.data();
+  if (n == 1) {
+    po[0] = op::GetLane(kernel(d, op::Set(d, pi[0])));
+    return;
+  }
   size_t i = 0;
   if constexpr (op::MaxLanes(d) == 2) {
     // Two independent vectors per iteration on 2-lane targets (#43).
@@ -103,6 +126,10 @@ static void DriveBinary(Kernel kernel, std::span<const double> a,
   const double* pa = a.data();
   const double* pb = b.data();
   double* po = out.data();
+  if (n == 1) {
+    po[0] = op::GetLane(kernel(d, op::Set(d, pa[0]), op::Set(d, pb[0])));
+    return;
+  }
   size_t i = 0;
   for (; i + N <= n; i += N) {
     op::Store(kernel(d, op::Load(d, pa + i), op::Load(d, pb + i)), d, po + i);
@@ -128,6 +155,11 @@ static void DriveTernary(Kernel kernel, std::span<const double> a,
   const double* pb = b.data();
   const double* pc = c.data();
   double* po = out.data();
+  if (n == 1) {
+    po[0] = op::GetLane(
+        kernel(d, op::Set(d, pa[0]), op::Set(d, pb[0]), op::Set(d, pc[0])));
+    return;
+  }
   size_t i = 0;
   for (; i + N <= n; i += N) {
     op::Store(kernel(d, op::Load(d, pa + i), op::Load(d, pb + i),

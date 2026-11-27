@@ -12,7 +12,9 @@ HWY_BEFORE_NAMESPACE();
 namespace corvus {
 namespace HWY_NAMESPACE {
 
-static void ErfImpl(std::span<const double> in, std::span<double> out) {
+static void ErfImpl(const double* pin, double* pout, size_t n) {
+  const std::span<const double> in(pin, n);
+  const std::span<double> out(pout, n);
   DriveUnary([](auto d, auto x) { return ErfVec(d, x); }, in, out);
 }
 
@@ -31,7 +33,8 @@ HWY_EXPORT(ErfImpl);
 // that does not exist. It compiles at every other tier, so only the cap
 // sweep catches it.
 void erf(std::span<const double> in, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(ErfImpl)(in, out);
+  HWY_DASSERT(in.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(ErfImpl)(in.data(), out.data(), out.size());
 }
 
 }  // namespace corvus

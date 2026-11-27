@@ -19,15 +19,21 @@ namespace HWY_NAMESPACE {
 // would instantiate the whole pipeline -- which itself instantiates all four
 // forward region cores, erfcinv and the dd transcendentals -- twice per
 // target for nothing.
-static void GammaPInvImpl(std::span<const double> a, std::span<const double> p,
-                          std::span<double> out) {
+static void GammaPInvImpl(const double* pa, const double* pp, double* pout,
+                          size_t n) {
+  const std::span<const double> a(pa, n);
+  const std::span<const double> p(pp, n);
+  const std::span<double> out(pout, n);
   DriveBinary(
       [](auto d, auto va, auto vp) { return GammaInvVec<false>(d, va, vp); }, a,
       p, out);
 }
 
-static void GammaQInvImpl(std::span<const double> a, std::span<const double> q,
-                          std::span<double> out) {
+static void GammaQInvImpl(const double* pa, const double* pq, double* pout,
+                          size_t n) {
+  const std::span<const double> a(pa, n);
+  const std::span<const double> q(pq, n);
+  const std::span<double> out(pout, n);
   DriveBinary(
       [](auto d, auto va, auto vq) { return GammaInvVec<true>(d, va, vq); }, a,
       q, out);
@@ -63,12 +69,16 @@ HWY_EXPORT(GammaQInvImpl);
 // sweep catches it.
 void gamma_p_inv(std::span<const double> a, std::span<const double> p,
                  std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(GammaPInvImpl)(a, p, out);
+  HWY_DASSERT(a.size() == out.size() && p.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(GammaPInvImpl)(a.data(), p.data(), out.data(),
+                                      out.size());
 }
 
 void gamma_q_inv(std::span<const double> a, std::span<const double> q,
                  std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(GammaQInvImpl)(a, q, out);
+  HWY_DASSERT(a.size() == out.size() && q.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(GammaQInvImpl)(a.data(), q.data(), out.data(),
+                                      out.size());
 }
 
 HWY_EXPORT(GammaPInvScalarImpl);

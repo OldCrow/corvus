@@ -22,15 +22,23 @@ namespace HWY_NAMESPACE {
 // the dd transcendentals -- twice per target for nothing. This is the heaviest
 // TU in the library and gets /d2ReducedOptimizeHugeFunctions on real MSVC
 // (CMakeLists.txt) from day one.
-static void BetaPInvImpl(std::span<const double> a, std::span<const double> b,
-                         std::span<const double> p, std::span<double> out) {
+static void BetaPInvImpl(const double* pa, const double* pb, const double* pp,
+                         double* pout, size_t n) {
+  const std::span<const double> a(pa, n);
+  const std::span<const double> b(pb, n);
+  const std::span<const double> p(pp, n);
+  const std::span<double> out(pout, n);
   DriveTernary([](auto d, auto va, auto vb,
                   auto vp) { return BetaInvVec<false>(d, va, vb, vp); },
                a, b, p, out);
 }
 
-static void BetaQInvImpl(std::span<const double> a, std::span<const double> b,
-                         std::span<const double> q, std::span<double> out) {
+static void BetaQInvImpl(const double* pa, const double* pb, const double* pq,
+                         double* pout, size_t n) {
+  const std::span<const double> a(pa, n);
+  const std::span<const double> b(pb, n);
+  const std::span<const double> q(pq, n);
+  const std::span<double> out(pout, n);
   DriveTernary([](auto d, auto va, auto vb,
                   auto vq) { return BetaInvVec<true>(d, va, vb, vq); },
                a, b, q, out);
@@ -70,12 +78,18 @@ HWY_EXPORT(BetaQInvImpl);
 // sweep catches it.
 void beta_p_inv(std::span<const double> a, std::span<const double> b,
                 std::span<const double> p, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(BetaPInvImpl)(a, b, p, out);
+  HWY_DASSERT(a.size() == out.size() && b.size() == out.size() &&
+              p.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(BetaPInvImpl)(a.data(), b.data(), p.data(), out.data(),
+                                     out.size());
 }
 
 void beta_q_inv(std::span<const double> a, std::span<const double> b,
                 std::span<const double> q, std::span<double> out) noexcept {
-  HWY_DYNAMIC_DISPATCH(BetaQInvImpl)(a, b, q, out);
+  HWY_DASSERT(a.size() == out.size() && b.size() == out.size() &&
+              q.size() == out.size());
+  HWY_DYNAMIC_DISPATCH(BetaQInvImpl)(a.data(), b.data(), q.data(), out.data(),
+                                     out.size());
 }
 
 HWY_EXPORT(BetaPInvScalarImpl);

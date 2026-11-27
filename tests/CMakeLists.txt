@@ -397,3 +397,13 @@ corvus_test_target(bench_log)
 add_executable(test_guards test_guards.cpp)
 corvus_test_target(test_guards)
 add_test(NAME guards COMMAND test_guards)
+
+# The length-1 fast path in the span drivers (v1.2.1, #110): every public
+# span function gives the same bits for a value alone and inside a long span.
+add_executable(test_span1 test_span1.cpp)
+corvus_test_target(test_span1)
+add_test(NAME span1 COMMAND test_span1)
+
+add_executable(bench_span1 bench_span1.cpp)
+corvus_test_target(bench_span1)
+# Deliberately not registered with ctest: run manually on a quiet machine.
