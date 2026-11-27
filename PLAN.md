@@ -287,7 +287,30 @@ unfreeze. The off-milestone list above is unchanged.
     - The plan's `git worktree add ../corvus-main main` fails where
       `main` is already checked out; a detached worktree of
       `origin/main` works.
-  - M: not started. I: not started.
+  - I: DONE 2026-11-27 at `653758c`, on PR #117 as `954f852`
+    (`docs/bench-evidence/2026-11-27-ivybridge-v1.2.1/`). Gates: 40/40
+    on SSE4 native and on SSSE3 and SSE2 capped, each tier-asserted,
+    clang 18.1.3, `CORVUS_WERROR=ON`, 0 warnings; `span1` PASS on all
+    three. Bench, two passes, every run gated at 0 to 4%; pass 2 quoted
+    (each bench pinned to one core warmed for 2 s, eight alternations),
+    median, `main` -> branch: `local` 0.89x (`erf`) to 0.98x (`erfinv`);
+    n = 1 calls 0.89x to 0.95x; n = 2 to 7 0.96x to 1.03x. So Linux on
+    SSE4 gains a little at one value and about nothing on a longer
+    span; which change does it is not separated.
+    - Three cells are slower, by 1.1 to 1.7 ns per call: `erfinv`
+      central at n = 3 (172.4 -> 173.9) and `erf` at n = 3 (52.0 ->
+      53.7) in all eight pairs, `erf` at n = 7 (76.2 -> 77.3) in six.
+      K's slower cell, `erfinv` central at n = 7, is level here (312.7
+      -> 312.8). Recorded; no decision taken on them.
+    - Pass 1 (the plan's protocol, three alternations) read its first
+      band slow on both trees (batch 51 to 57 ns against 37): under
+      `schedutil` the bench starts on a core still coming up from idle.
+      Warming the core first removes it. A quiet Linux run of a bench
+      this short needs that warm-up.
+    - `erf` and `exp` short-span cells read at two levels from process
+      to process on both trees (`main` `erf` n = 7: 76.2, and 95.8 and
+      84.8 in two of eight). Cause not known; a lead for #97.
+  - M: not started.
 - **Not known [OPEN].** Whether Linux and macOS gain anything: the
   System V convention passes a span in registers, and the masked-load
   cost is shown only on Zen 4 under Windows, its mechanism inferred
