@@ -24,7 +24,7 @@ result moves and the API is unchanged, so it is a patch (VERSIONING.md).
 PR #117 merged to `main` as `77bd92b`; signed tag `v1.2.1` on that
 commit, signature verified, `check_release_version.py` OK; CI green
 there on every job (run 46049888250); GitHub release published;
-milestone v1.2.1 closed. Nothing is owed for it but the handshake below.
+milestone v1.2.1 closed. corvus has nothing owed for it.
 - Validation, at `6940de9`, the last code commit: Z (clang-cl 22.1.3)
   40/40 on AVX3_ZEN4 and the AVX2, SSE4, SSSE3, SSE2 caps,
   `masked_const` PASS; K (AppleClang 15) 40/40 on AVX2 and the SSE4,
@@ -33,8 +33,9 @@ milestone v1.2.1 closed. Nothing is owed for it but the handshake below.
   tier. The release head passes 40/40 on K from a fresh `-Werror` build;
   the docs pass's comment edits left all 19 library objects
   byte-identical.
-- **Next:** the libstats handshake (Cross-machine handshakes below),
-  then milestone v1.3.0.
+- **Next:** milestone v1.3.0. The bump notes are with libstats and
+  libhmm (Cross-machine handshakes below); each library picks up its
+  bump in its own session.
 
 **What v1.2.1 shipped [DERIVED]** (the published notes say the same)
 - What changed, all in how a call reaches a kernel (no kernel
@@ -153,7 +154,8 @@ it; row 12 mislabelled the restatement) and beta's gamma-limit slice
   7; fleet coherence rule). v1.2.1 is tagged (2026-11-27), so the pin
   can ride along with libstats' correctness leg that follows its pool
   fix; a sweep with no row moved is the per-tier proof that no result
-  changed. libstats has not been told yet [OPEN].
+  changed. Both libraries' PLAN.md carry the bump note as of 2026-11-27
+  (OldCrow/libstats#340 and OldCrow/libhmm#155, open docs PRs).
 - libstats #156 (open): its v2.5.0 throughput gate waits on v1.2.0.
   #42's NEON targets (gamma_p ≤ 40, beta_p ≤ 30 ns/el) are out of reach
   under the accuracy contract (gamma's prefactor alone is 29 ns/el on 8
