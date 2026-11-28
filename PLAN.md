@@ -18,25 +18,25 @@ here.
 GitHub release published, milestone closed. Rows A1 to D of its issue
 order are done; #22 moved to v1.3.0. Nothing is owed for it.
 
-**v1.2.1: release tail.** Draft PR #117, branch `dev/v1.2.1`, milestone
-v1.2.1. "One value through the span API": a one-value or short-span call
-no longer waits on the call before it. No result moves and the API is
-unchanged, so it is a patch (VERSIONING.md).
-- Validation is complete at `6940de9`, the last code commit: Z (clang-cl
-  22.1.3) 40/40 on AVX3_ZEN4 and the AVX2, SSE4, SSSE3, SSE2 caps,
+**v1.2.1: released 2026-11-27.** "One value through the span API": a
+one-value or short-span call no longer waits on the call before it. No
+result moves and the API is unchanged, so it is a patch (VERSIONING.md).
+PR #117 merged to `main` as `77bd92b`; signed tag `v1.2.1` on that
+commit, signature verified, `check_release_version.py` OK; CI green
+there on every job (run 46049888250); GitHub release published;
+milestone v1.2.1 closed. Nothing is owed for it but the handshake below.
+- Validation, at `6940de9`, the last code commit: Z (clang-cl 22.1.3)
+  40/40 on AVX3_ZEN4 and the AVX2, SSE4, SSSE3, SSE2 caps,
   `masked_const` PASS; K (AppleClang 15) 40/40 on AVX2 and the SSE4,
-  SSSE3, SSE2 caps; M 40/40 on NEON; I (clang 18.1.3) 40/40 on SSE4 native
-  with SSSE3 and SSE2 from CI's sweep. `span1` passes on every tier. CI
-  green at `6940de9` (Linux sweep, Windows MSVC + clang-cl, macOS NEON,
-  pre-commit).
-- Done on the branch 2026-11-27: `main` merged in (`6d4ddb6`), the docs
-  pass, this trim, and the version pair 1.2.1.
-- **Next:** CI green on the branch head; mark #117 ready and merge;
-  RELEASING.md steps 9 to 16 (version check, signed tag, CI on the tag,
-  GitHub release from the notes below, close milestone v1.2.1, the
-  libstats handshake).
+  SSSE3, SSE2 caps; M 40/40 on NEON; I (clang 18.1.3) 40/40 on SSE4
+  native with SSSE3 and SSE2 from CI's sweep. `span1` passes on every
+  tier. The release head passes 40/40 on K from a fresh `-Werror` build;
+  the docs pass's comment edits left all 19 library objects
+  byte-identical.
+- **Next:** the libstats handshake (Cross-machine handshakes below),
+  then milestone v1.3.0.
 
-**Release-note inputs for v1.2.1 [DERIVED]**
+**What v1.2.1 shipped [DERIVED]** (the published notes say the same)
 - What changed, all in how a call reaches a kernel (no kernel
   arithmetic):
   1. A span of one element skips the tail: broadcast, kernel, store one
@@ -96,7 +96,11 @@ unchanged, so it is a patch (VERSIONING.md).
 paths and ISA tuning", performance only: #110, #111, #22, #97, #120,
 #121. #110 stays as the scalar entry points' API: after v1.2.1 a
 length-1 span costs what a broadcast costs, so what is left is a uniform
-surface, not speed. v1.4.0 is "von Mises complement" (#19), a new export
+surface, not speed. The branch `exp/narrow-lane-scalar` (`23398fa`, not
+for merge) stays on origin until #110 is done [DECIDED, user,
+2026-11-27]: it holds the only copy of the harness that ran `erfcinv` at
+one and two lanes (bit-identical, and little faster; figures on #110).
+v1.4.0 is "von Mises complement" (#19), a new export
 with its own unfreeze. Gated work does not roll between versions: #18,
 #20, #21, #28, #29, #44, #95 and #96 sit off every milestone with their
 trigger on the issue.
@@ -146,9 +150,10 @@ it; row 12 mislabelled the restatement) and beta's gamma-limit slice
 
 - libstats v3.0.0 pins v1.2.1 [DECIDED, user]; libhmm adopts and spikes
   (libhmm #106) against the same release (standards workplan tasks 2 and
-  7; fleet coherence rule). Tag v1.2.1 before libstats' correctness leg
-  that follows its pool fix, so the new pin rides along; a sweep with no
-  row moved is the per-tier proof that no result changed.
+  7; fleet coherence rule). v1.2.1 is tagged (2026-11-27), so the pin
+  can ride along with libstats' correctness leg that follows its pool
+  fix; a sweep with no row moved is the per-tier proof that no result
+  changed. libstats has not been told yet [OPEN].
 - libstats #156 (open): its v2.5.0 throughput gate waits on v1.2.0.
   #42's NEON targets (gamma_p ≤ 40, beta_p ≤ 30 ns/el) are out of reach
   under the accuracy contract (gamma's prefactor alone is 29 ns/el on 8
