@@ -118,9 +118,11 @@ PERFORMANCE.md §15 and ACCURACY.md's validation-leg line are written.
   have CI's sweep print the report per tier, or save one from Kaby Lake.
 - [OPEN] The Dekker pre-split is unfiled; file it only if a consumer
   reports pre-Haswell hardware.
-- [OPEN] Housekeeping on Kaby Lake: remove the `../corvus-c1` and
-  `../corvus-c3` worktrees, and v1.2.1's `../corvus-main`,
-  `../corvus-exp` and `../corvus-plan`.
+- Housekeeping on Kaby Lake is done (2026-11-27): no scratch worktree is
+  left. What the v1.2.1 investigation's trees held that the repo does
+  not (the five-variant tail diff, raw outputs, the padding helpers) is
+  in `../corvus-scratch/v1.2.1-kaby-n7/` on that machine, for #120 and
+  #121.
 
 ## Errata by release (RELEASING.md step 14)
 
@@ -155,7 +157,7 @@ it; row 12 mislabelled the restatement) and beta's gamma-limit slice
   can ride along with libstats' correctness leg that follows its pool
   fix; a sweep with no row moved is the per-tier proof that no result
   changed. Both libraries' PLAN.md carry the bump note as of 2026-11-27
-  (OldCrow/libstats#340 and OldCrow/libhmm#155, open docs PRs).
+  (OldCrow/libstats#340 and OldCrow/libhmm#155, both merged).
 - libstats #156 (open): its v2.5.0 throughput gate waits on v1.2.0.
   #42's NEON targets (gamma_p ≤ 40, beta_p ≤ 30 ns/el) are out of reach
   under the accuracy contract (gamma's prefactor alone is 29 ns/el on 8
